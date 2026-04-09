@@ -1,7 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineComponent, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
+import { ElMessage } from 'element-plus'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createRequestError } from '@/api/request'
 import DeviceWorkbenchView from '@/views/DeviceWorkbenchView.vue'
 
 const { mockRoute, mockRouter, mockPageDevices } = vi.hoisted(() => ({
@@ -89,11 +93,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 })
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -111,6 +115,37 @@ const StandardListFilterHeaderStub = defineComponent({
   `
 })
 
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <section class="device-table-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </section>
+  `
+})
+
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'distribution', 'directItems', 'menuItems'],
+  template: `
+    <div
+      class="device-workbench-row-actions-stub"
+      :data-variant="variant"
+      :data-distribution="distribution"
+    >
+      <span
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        class="device-workbench-row-actions-stub__direct"
+      >
+        {{ item.label }}
+      </span>
+      <span class="device-workbench-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
+})
+
 const ElFormItemStub = defineComponent({
   name: 'ElFormItem',
   template: '<div class="el-form-item-stub"><slot /></div>'
@@ -118,13 +153,14 @@ const ElFormItemStub = defineComponent({
 
 const ElInputStub = defineComponent({
   name: 'ElInput',
-  props: ['modelValue', 'id'],
+  props: ['modelValue', 'id', 'placeholder'],
   emits: ['update:modelValue', 'clear'],
   template: `
     <input
       :id="id"
       class="el-input-stub"
       :value="modelValue"
+      :placeholder="placeholder"
       @input="$emit('update:modelValue', $event.target && $event.target.value)"
     />
   `
@@ -134,6 +170,80 @@ const StandardInlineStateStub = defineComponent({
   name: 'StandardInlineState',
   props: ['message', 'tone'],
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
+})
+
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  emits: ['click'],
+  template: '<button class="standard-button-stub" type="button" @click="$emit(\'click\')"><slot /></button>'
+})
+
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label'],
+  template: '<button class="standard-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
+})
+
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: {
+    eyebrow: String,
+    title: String,
+    subtitle: String,
+    tags: Array,
+    tagLayout: String,
+    hideHeader: Boolean
+  },
+  template: `
+    <section class="device-detail-drawer-stub">
+      <div v-if="!hideHeader" class="device-detail-drawer-stub__header">
+        <p v-if="eyebrow">{{ eyebrow }}</p>
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+        <div class="device-detail-drawer-stub__tags">
+          <span
+            v-for="tag in tags || []"
+            :key="tag.label"
+            class="device-detail-drawer-stub__tag"
+          >
+            {{ tag.label }}
+          </span>
+        </div>
+      </div>
+      <slot />
+      <slot name="footer" />
+    </section>
+  `
+})
+
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['eyebrow', 'title', 'subtitle'],
+  template: `
+    <section class="device-form-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+      <slot />
+      <slot name="footer" />
+    </section>
+  `
+})
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  template: '<section class="device-table-stub"><slot /></section>'
+})
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label', 'width', 'className', 'fixed', 'type', 'align', 'showOverflowTooltip'],
+  template: `
+    <section class="device-table-column-stub" :data-label="label" :data-width="width" :data-class-name="className">
+      <slot :row="{}" />
+      <slot name="default" :row="{}" />
+    </section>
+  `
 })
 
 function flushPromises() {
@@ -164,12 +274,20 @@ function mountView() {
         permission: () => undefined
       },
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
-        StandardInlineState: StandardInlineStateStub
+        StandardInlineState: StandardInlineStateStub,
+        StandardButton: StandardButtonStub,
+        StandardActionMenu: StandardActionMenuStub,
+        StandardTableToolbar: StandardTableToolbarStub,
+        StandardDetailDrawer: StandardDetailDrawerStub,
+        StandardFormDrawer: StandardFormDrawerStub,
+        ElTable: ElTableStub,
+        ElTableColumn: ElTableColumnStub
       }
     }
   })
@@ -195,6 +313,9 @@ describe('DeviceWorkbenchView', () => {
       }
     })
     installSessionStorageMock()
+    vi.mocked(ElMessage.error).mockReset()
+    vi.mocked(ElMessage.success).mockReset()
+    vi.mocked(ElMessage.warning).mockReset()
   })
 
   it('renders the quick-search workbench without missing template bindings', async () => {
@@ -222,14 +343,120 @@ describe('DeviceWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('renders the device page inside the two-level access shell without the legacy eyebrow tier', async () => {
+  it('renders the device page inside the shared governance shell without the legacy eyebrow tier', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('设备台账')
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
+
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
+    expect(detailDrawer.props('eyebrow')).toBeUndefined()
+    expect(formDrawer.props('eyebrow')).toBeUndefined()
+    expect(wrapper.text()).toContain('设备资产中心')
+    expect(wrapper.text()).not.toContain('设备台账')
     expect(wrapper.text()).not.toContain('DEVICE ASSET')
+  })
+
+  it('shows the shared system busy copy when device page loading returns 500', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockPageDevices.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', false, 500))
+
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(vi.mocked(ElMessage.error)).toHaveBeenCalledWith('系统繁忙，请稍后重试！')
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalledWith('获取设备分页失败')
+
+    errorSpy.mockRestore()
+  })
+
+  it('does not show a second toast when the device page request error is already handled', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockPageDevices.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('keeps the quick-search box as a single entry while expanding its match scope to product fields', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    const quickSearch = wrapper.get('#quick-search')
+    expect(quickSearch.attributes('placeholder')).toBe('快速搜索（设备编码、设备名称、产品 Key、产品名称）')
+    expect(wrapper.text()).not.toContain('设备编码：')
+    expect(wrapper.text()).not.toContain('产品 Key：')
+  })
+
+  it('applies the quick-search keyword when clicking query', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('#quick-search').setValue('autotest-device-001')
+    await nextTick()
+
+    const queryButton = wrapper
+      .findAll('button.standard-button-stub')
+      .find((button) => button.text() === '查询')
+
+    expect(queryButton).toBeTruthy()
+
+    await queryButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      path: '/devices',
+      query: {
+        keyword: 'autotest-device-001'
+      }
+    })
+  })
+
+  it('restores the device detail drawer title and description while keeping the simplified workbench body', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).detailData = {
+      id: 1,
+      deviceName: '北坡监测终端',
+      deviceCode: 'device-001',
+      registrationStatus: 1
+    }
+    await nextTick()
+
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    expect(detailDrawer.props('hideHeader')).toBe(false)
+    expect(String(detailDrawer.props('title'))).toBe('北坡监测终端')
+    expect(String(detailDrawer.props('subtitle'))).toBe('统一查看资产判断、部署台账、运行台账与建档补充。')
+    expect(((detailDrawer.props('tags') as Array<unknown>) || [])).toHaveLength(0)
+    expect(detailDrawer.text()).toContain('北坡监测终端')
+    expect(detailDrawer.text()).toContain('统一查看资产判断、部署台账、运行台账与建档补充。')
+    expect(detailDrawer.text()).not.toContain('已登记')
+  })
+
+  it('keeps the device toolbar focused by collapsing secondary actions into a more-actions menu', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('刷新列表')
+    expect(wrapper.text()).toContain('更多操作')
+    expect(wrapper.text()).not.toContain('批量删除')
+    expect(wrapper.text()).not.toContain('导出列设置')
+    expect(wrapper.text()).not.toContain('导出选中')
+    expect(wrapper.text()).not.toContain('导出当前结果')
+    expect(wrapper.text()).not.toContain('清空选中')
   })
 
   it('shows a compact diagnostic intake hint when opened from access-error', async () => {
@@ -257,5 +484,114 @@ describe('DeviceWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自失败归档')
     expect(wrapper.text()).toContain('demo-device-01')
+  })
+
+  it('reuses the shared workbench row-actions component for registered device cards', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1,
+        protocolCode: 'mqtt-json',
+        createTime: '2026-03-24T09:00:00',
+        lastReportTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+    const tableRowActions = rowActions.find((component) => component.props('variant') === 'table')
+
+    expect(cardRowActions?.exists()).toBe(true)
+    expect(tableRowActions?.exists()).toBe(true)
+    expect(cardRowActions?.props('gap')).toBeUndefined()
+    expect(tableRowActions?.props('gap')).toBeUndefined()
+    expect(tableRowActions?.props('distribution')).toBeUndefined()
+    expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
+        '详情',
+        '编辑'
+      ])
+    expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(3)
+
+    const actionColumn = wrapper
+      .findAllComponents(ElTableColumnStub)
+      .find((component) => component.props('label') === '操作')
+
+    expect(String(actionColumn?.props('width'))).toBe('160')
+  })
+
+  it('shows the organization ledger in both the list source and rendered device cards', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        deviceCode: 'demo-device-01',
+        deviceName: '演示设备',
+        orgId: 7101,
+        orgName: '平台运维中心',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1,
+        protocolCode: 'mqtt-json',
+        createTime: '2026-03-24T09:00:00',
+        lastReportTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    expect(wrapper.text()).toContain('所属机构')
+    expect(wrapper.text()).toContain('平台运维中心')
+
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
+    expect(source).toContain('label="所属机构"')
+    expect(source).toContain('>所属机构</span>')
+  })
+
+  it('keeps the device workbench on the shared list surface and trims toolbar density', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
+
+    expect(source).toContain('standard-list-surface')
+    expect(source).toContain('standard-mobile-record-grid')
+    expect(source).not.toContain('gap="compact"')
+    expect(source).not.toContain("gap: 'compact'")
+    expect(source).toContain('已登记 ${registeredCount} 台')
+    expect(source).not.toContain('`未登记 ${unregisteredCount} 台`')
+  })
+
+  it('delegates detail layout to the dedicated device detail workbench component', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
+
+    expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
+    expect(source).toContain('<DeviceDetailWorkbench :device="detailData" />')
+    expect(source).toContain('formatDeviceReportTime')
+    expect(source).not.toContain('tag-layout="title-inline"')
+    expect(source).not.toContain(':tags="detailTags"')
+    expect(source).not.toContain('<h3>资产概览</h3>')
+    expect(source).not.toContain('<h3>资产档案</h3>')
+    expect(source).not.toContain('<h3>拓扑关系</h3>')
+    expect(source).not.toContain('<h3>运维信息</h3>')
+    expect(source).not.toContain('<h3>认证信息</h3>')
+    expect(source).not.toContain('<h3>上报档案</h3>')
+    expect(source).not.toContain('已先展示列表摘要，正在补充完整详情。')
+    expect(source).not.toContain('已先填入当前摘要，正在补全最新设备档案。')
   })
 })

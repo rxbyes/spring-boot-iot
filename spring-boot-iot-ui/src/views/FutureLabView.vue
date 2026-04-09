@@ -1,7 +1,6 @@
 <template>
   <div class="page-stack">
     <section class="hero-panel">
-      <p class="eyebrow">Future Lab</p>
       <h1 class="headline">未来能力实验室</h1>
     </section>
 
@@ -9,7 +8,6 @@
       <PanelCard
         v-for="card in futureCards"
         :key="card.title"
-        eyebrow="Planned Capability"
         :title="card.title"
       >
         <StandardFlowRail :items="card.contracts" :show-description="false" />
@@ -18,7 +16,6 @@
 
     <section class="two-column-grid">
       <PanelCard
-        eyebrow="Integration Notes"
         title="当前页面已经预留的扩展点"
       >
         <ul class="phase-ideas">
@@ -30,7 +27,6 @@
       </PanelCard>
 
       <PanelCard
-        eyebrow="Roadmap Bridge"
         title="与项目文档的衔接"
       >
         <StandardFlowRail :items="roadmapBridgeItems" :show-description="false" />

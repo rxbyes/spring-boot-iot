@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Alarm Detail"
     :title="drawerTitle"
     :subtitle="drawerSubtitle"
     :tags="drawerTags"
@@ -16,7 +15,7 @@
       <div class="detail-section-header">
         <div>
           <h3>告警概览</h3>
-          <p>突出告警等级、当前状态、监测对象与处置进展，值班人员打开抽屉即可快速完成判断。</p>
+          <p>突出告警等级、处置态势、监测对象与处置进展，值班人员打开抽屉即可快速完成判断。</p>
         </div>
       </div>
       <div class="detail-summary-grid">
@@ -28,7 +27,7 @@
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">当前状态</span>
           <strong class="detail-summary-card__value">{{ getStatusText(detail?.status) }}</strong>
-          <p class="detail-summary-card__hint">触发时间：{{ formatDateTime(detail?.triggerTime) }}</p>
+          <p class="detail-summary-card__hint">发生时间：{{ formatDateTime(detail?.triggerTime) }}</p>
         </article>
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">监测对象</span>
@@ -108,10 +107,6 @@
           <span class="detail-field__label">触发时间</span>
           <strong class="detail-field__value">{{ formatDateTime(detail?.triggerTime) }}</strong>
         </div>
-        <div class="detail-field">
-          <span class="detail-field__label">当前状态</span>
-          <strong class="detail-field__value">{{ getStatusText(detail?.status) }}</strong>
-        </div>
       </div>
     </section>
 
@@ -184,6 +179,10 @@ import { computed } from 'vue';
 
 import type { AlarmRecord } from '@/api/alarm';
 import { formatDateTime } from '@/utils/format';
+import {
+  getAlarmLevelTagType as resolveAlarmLevelTagType,
+  getAlarmLevelText as resolveAlarmLevelText
+} from '@/utils/alarmLevel';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
 const props = defineProps<{
@@ -252,28 +251,10 @@ const drawerTags = computed(() => {
 });
 
 function getAlarmLevelText(level?: string | null) {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level || '--';
-  }
+  return resolveAlarmLevelText(level) || '--';
 }
 
-function getAlarmLevelType(level?: string | null): 'danger' | 'warning' | 'info' {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'info';
-  }
-}
+const getAlarmLevelType = (level?: string | null) => resolveAlarmLevelTagType(level)
 
 function getStatusText(status?: number | null) {
   switch (status) {

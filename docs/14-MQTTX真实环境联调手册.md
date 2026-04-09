@@ -27,13 +27,11 @@ mvn -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev
 ## 3. 准备测试数据
 先创建产品和设备，确保产品协议为 `mqtt-json`。
 
-若本轮需要查看 `/api/device/access-error/**` 失败归档，先确认历史库已执行：
-- `sql/upgrade/20260322_phase5_device_access_error_archive.sql`
-- 或 `python scripts/run-real-env-schema-sync.py`
+若本轮需要查看 `/api/device/access-error/**` 失败归档，先确认目标库已按最新 `sql/init.sql` 对齐 `iot_device_access_error_log`；无法重建时可执行 `python scripts/run-real-env-schema-sync.py`。
 
 若本轮联调的是南方测绘深部位移基准站 `SK00FB0D1310195`，还需要额外确认：
 - `application-dev.yml` 已配置 `iot.device.sub-device-mappings.SK00FB0D1310195`
-- 若共享库里还没有 8 个子设备与初始风险点，可先执行 `sql/upgrade/20260320_phase4_deep_displacement_sub_devices_bootstrap.sql`
+- 若共享库里还没有 8 个子设备与初始风险点，需按真实环境业务数据单独补齐；仓库不再保留该专项 SQL 脚本
 
 产品示例：
 

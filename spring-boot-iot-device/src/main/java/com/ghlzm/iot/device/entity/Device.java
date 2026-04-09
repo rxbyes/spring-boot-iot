@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 public class Device extends BaseEntity {
 
     private Long productId;
+    private Long orgId;
+    private String orgName;
     private Long gatewayId;
     private Long parentDeviceId;
     private String deviceName;

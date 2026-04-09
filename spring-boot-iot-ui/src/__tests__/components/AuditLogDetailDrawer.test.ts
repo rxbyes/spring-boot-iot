@@ -6,9 +6,16 @@ import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue';
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle'],
   emits: ['update:modelValue'],
-  template: '<section v-if="modelValue"><slot /></section>'
+  template: `
+    <section v-if="modelValue" class="audit-log-detail-drawer-stub">
+      <p v-if="eyebrow">{{ eyebrow }}</p>
+      <h2>{{ title }}</h2>
+      <p>{{ subtitle }}</p>
+      <slot />
+    </section>
+  `
 });
 
 const StandardButtonStub = defineComponent({
@@ -41,6 +48,10 @@ describe('AuditLogDetailDrawer', () => {
       }
     });
 
+    const drawer = wrapper.findComponent(StandardDetailDrawerStub);
+
+    expect(drawer.props('eyebrow')).toBeUndefined();
+    expect(wrapper.text()).not.toContain('Audit Log Detail');
     expect(wrapper.text()).toContain('返回链路追踪');
     expect(wrapper.text()).toContain('回看失败归档');
 
@@ -50,5 +61,30 @@ describe('AuditLogDetailDrawer', () => {
 
     expect(wrapper.emitted('jump-message-trace')).toHaveLength(1);
     expect(wrapper.emitted('jump-access-error')).toHaveLength(1);
+  });
+
+  it('avoids repeating operation timing fields across the summary and detail sections', () => {
+    const wrapper = mount(AuditLogDetailDrawer, {
+      props: {
+        modelValue: true,
+        title: '异常详情',
+        detail: {
+          operationModule: '设备接入',
+          operationType: 'system_error',
+          operationResult: 0,
+          operationTime: '2026-03-29 14:30:00',
+          userName: 'admin'
+        }
+      },
+      global: {
+        stubs: {
+          StandardDetailDrawer: StandardDetailDrawerStub,
+          StandardButton: StandardButtonStub
+        }
+      }
+    });
+
+    expect(wrapper.text().match(/操作时间/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/操作用户/g)?.length ?? 0).toBe(1);
   });
 });

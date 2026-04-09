@@ -1,45 +1,38 @@
 ﻿<template>
-  <div class="ops-workbench risk-point-view">
-    <PanelCard
-      eyebrow="Risk Point Workspace"
-      title="风险对象中心"
-      description="统一管理风险点档案、风险等级、启停状态与设备绑定，支撑后续监测、阈值和联动配置。"
-      class="ops-hero-card"
-    >
-      <template #actions>
-        <StandardButton action="add" @click="handleAdd">新增风险点</StandardButton>
-      </template>
-      <div class="ops-kpi-grid">
-        <MetricCard label="风险点总数" :value="String(pagination.total)" :badge="{ label: '配置基线', tone: 'brand' }" />
-        <MetricCard label="当前页启用" :value="String(enabledCount)" :badge="{ label: '生效中', tone: 'success' }" />
-        <MetricCard label="当前页严重" :value="String(criticalCount)" :badge="{ label: '优先排查', tone: 'danger' }" />
-        <MetricCard label="当前页停用" :value="String(disabledCount)" :badge="{ label: '待复核', tone: 'warning' }" />
-      </div>
-      <div class="ops-inline-note">
-        风险点作为风险平台的基础对象，列表、维护抽屉和绑定设备抽屉已统一为同一套工作台风格，方便值班与治理人员连续操作。
-      </div>
-    </PanelCard>
-
+  <StandardPageShell class="risk-point-view">
     <StandardWorkbenchPanel
-      title="风险点列表"
+      title="风险对象中心"
       :description="`当前 ${pagination.total} 条风险点记录，支持档案维护和设备绑定。`"
+      show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
       show-toolbar
       show-pagination
     >
+      <template #header-actions>
+        <StandardButton action="add" @click="handleAdd">新增风险点</StandardButton>
+      </template>
+
       <template #filters>
         <StandardListFilterHeader :model="filters">
           <template #primary>
             <el-form-item>
-              <el-input v-model="filters.riskPointCode" placeholder="风险点编号" clearable @keyup.enter="handleSearch" />
+              <el-input
+                v-model="filters.keyword"
+                placeholder="快速搜索（风险点名称 / 风险点编号 / 所属区域）"
+                clearable
+                @keyup.enter="handleSearch"
+              />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+              <el-select v-model="filters.riskPointLevel" placeholder="风险点等级" clearable>
+                <el-option
+                  v-for="option in riskPointLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -65,19 +58,37 @@
       </template>
 
       <template #notices>
-        <el-alert
-          :title="riskPointAdvice"
-          type="info"
-          :closable="false"
-          show-icon
-          class="view-alert"
-        />
+        <div class="risk-point-notice-stack">
+          <el-alert
+            :title="riskPointAdvice"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-if="missingBindingTotal > 0"
+            :title="`待纳入风险对象 ${missingBindingTotal} 台，已有上报设备尚未形成风险监测绑定。`"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <ul class="risk-point-governance-list">
+              <li v-for="item in missingBindingItems" :key="`${item.deviceId || item.deviceCode}`">
+                <strong>{{ item.deviceCode || '--' }}</strong>
+                <span>{{ item.deviceName || '未命名设备' }}</span>
+                <span>最近上报 {{ formatDateTime(item.lastReportTime) }}</span>
+              </li>
+            </ul>
+          </el-alert>
+        </div>
       </template>
 
       <template #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `严重 ${criticalCount} 项`]"
+          :meta-items="[`已选 ${selectedRows.length} 项`, `启用 ${enabledCount} 项`, `红色态势 ${redCount} 项`, `待纳管 ${missingBindingTotal} 台`, `停用 ${disabledCount} 项`]"
         >
           <template #right>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
@@ -86,50 +97,119 @@
         </StandardTableToolbar>
       </template>
 
-      <div v-if="loading" class="ops-state">正在加载风险点列表...</div>
-      <div v-else-if="riskPointList.length === 0" class="ops-state">暂无符合条件的风险点记录</div>
-      <template v-else>
-        <el-table
-          ref="tableRef"
-          :data="riskPointList"
-          border
-          stripe
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="48" />
-          <StandardTableTextColumn prop="riskPointCode" label="风险点编号" :width="150" />
-          <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180" />
-          <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
-          <el-table-column prop="riskLevel" label="风险等级" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="responsiblePhone" label="负责人电话" :width="140" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
-          <el-table-column label="操作" width="220" fixed="right">
-            <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
-                <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-                <StandardActionLink @click="handleBindDevice(row)">绑定设备</StandardActionLink>
-                <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-              </StandardRowActions>
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新风险点列表"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`risk-point-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`risk-point-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="riskPointList"
+            border
+            stripe
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="riskPointCode" label="风险点编号" :width="150" />
+            <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180">
+              <template #default="{ row }">
+                <StandardActionLink
+                  :data-testid="`risk-point-name-link-${row.id}`"
+                  @click="openRiskPointDetail(row)"
+                >
+                  {{ row.riskPointName }}
+                </StandardActionLink>
+              </template>
+            </StandardTableTextColumn>
+            <el-table-column prop="orgName" label="所属组织" :min-width="160">
+              <template #default="{ row }">
+                <span>{{ row.orgName || '未配置组织' }}</span>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="regionName" label="所属区域" :min-width="140">
+              <template #default="{ row }">
+                <span>{{ row.regionName || '未配置区域' }}</span>
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="riskPointLevel" label="风险点等级" :width="120">
+              <template #default="{ row }">
+                <el-tag type="info" round>{{ getRiskPointLevelText(row.riskPointLevel) }}</el-tag>
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" :width="120">
+              <template #default="{ row }">
+                <el-tag :type="getCurrentRiskLevelType(row.currentRiskLevel || row.riskLevel)" round>
+                  {{ getCurrentRiskLevelText(row.currentRiskLevel || row.riskLevel) }}
+                </el-tag>
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="responsibleUser" label="负责人" :min-width="140">
+              <template #default="{ row }">
+                <span>{{ getResponsibleUserText(row) }}</span>
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="responsiblePhone" label="负责人电话" :width="140" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
+            <el-table-column
+              label="操作"
+              :width="riskPointActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getRiskPointRowActions()"
+                  :max-direct-items="3"
+                  @command="(command) => handleRiskPointRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="add" @click="handleAdd">新增风险点</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <div class="ops-pagination">
+        <div v-if="pagination.total > 0" class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -139,7 +219,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="Risk Platform Form"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护风险点基础信息。"
       size="42rem"
@@ -148,31 +227,56 @@
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>配置提示</strong>
-          <span>风险点编号、等级和状态会直接影响监测绑定、告警展示和处置优先级，建议按现场对象口径统一命名。</span>
+          <span>{{ form.id ? '历史编号仅用于留档追踪；请同步核对组织、区域、负责人和档案等级信息。' : '保存后将自动生成系统编号；请先确认组织、区域和风险点等级，再补齐负责人信息。' }}</span>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
                 <h3>基础信息</h3>
-                <p>维护风险点主档、归属区域与风险等级，为后续监测和处置流程提供统一标识。</p>
+                <p>维护风险点主档、所属组织、所属区域与档案等级，为后续监测、处置与空间治理提供统一标识。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
-              <el-form-item label="风险点编号" prop="riskPointCode">
-                <el-input v-model="form.riskPointCode" placeholder="请输入风险点编号" />
+              <el-form-item v-if="form.id" label="风险点编号">
+                <el-input :model-value="form.riskPointCode || '--'" readonly />
               </el-form-item>
               <el-form-item label="风险点名称" prop="riskPointName">
                 <el-input v-model="form.riskPointName" placeholder="请输入风险点名称" />
               </el-form-item>
-              <el-form-item label="区域" prop="regionName">
-                <el-input v-model="form.regionName" placeholder="请输入区域名称" />
+              <el-form-item label="所属组织" prop="orgId">
+                <el-tree-select
+                  v-model="form.orgId"
+                  :data="organizationOptions"
+                  node-key="id"
+                  check-strictly
+                  clearable
+                  :props="{ label: 'orgName', children: 'children', value: 'id' }"
+                  placeholder="请选择所属组织"
+                />
               </el-form-item>
-              <el-form-item label="风险等级" prop="riskLevel">
-                <el-select v-model="form.riskLevel" placeholder="请选择风险等级">
-                  <el-option label="严重" value="critical" />
-                  <el-option label="警告" value="warning" />
-                  <el-option label="提醒" value="info" />
+              <el-form-item label="所属区域" prop="regionId">
+                <el-tree-select
+                  v-model="form.regionId"
+                  :data="regionOptions"
+                  :cache-data="regionOptionCache"
+                  lazy
+                  :load="loadRegionNode"
+                  node-key="id"
+                  check-strictly
+                  clearable
+                  :props="regionTreeProps"
+                  placeholder="请选择所属区域"
+                />
+              </el-form-item>
+              <el-form-item label="风险点等级" prop="riskPointLevel">
+                <el-select v-model="form.riskPointLevel" placeholder="请选择风险点等级">
+                  <el-option
+                    v-for="option in riskPointLevelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </el-select>
               </el-form-item>
             </div>
@@ -182,10 +286,26 @@
             <div class="ops-drawer-section__header">
               <div>
                 <h3>治理信息</h3>
-                <p>补齐责任电话、启停状态和风险说明，便于值班与治理人员快速确认风险点责任归属。</p>
+                <p>补齐负责人、责任电话、启停状态和风险说明，便于值班与治理人员快速确认风险点责任归属。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
+              <el-form-item label="负责人" prop="responsibleUser">
+                <el-select
+                  v-model="form.responsibleUser"
+                  :placeholder="responsibleUserPlaceholder"
+                  :loading="userOptionsLoading"
+                  :disabled="!form.orgId || userOptionsLoading || userOptions.length === 0"
+                  clearable
+                >
+                  <el-option
+                    v-for="user in userOptions"
+                    :key="user.id"
+                    :label="user.realName || user.username"
+                    :value="user.id"
+                  />
+                </el-select>
+              </el-form-item>
               <el-form-item label="负责人电话" prop="responsiblePhone">
                 <el-input v-model="form.responsiblePhone" placeholder="请输入负责人电话" />
               </el-form-item>
@@ -197,6 +317,12 @@
               </el-form-item>
               <el-form-item label="描述" prop="description" class="ops-drawer-grid__full">
                 <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入风险点描述、场景说明或治理备注" />
+              </el-form-item>
+              <el-form-item v-if="form.id" label="创建人编号">
+                <el-input :model-value="form.createBy || '--'" readonly />
+              </el-form-item>
+              <el-form-item v-if="form.id" label="更新人编号">
+                <el-input :model-value="form.updateBy || '--'" readonly />
               </el-form-item>
             </div>
           </section>
@@ -213,7 +339,6 @@
 
     <StandardFormDrawer
       v-model="bindDeviceVisible"
-      eyebrow="Risk Platform Form"
       title="绑定设备"
       subtitle="统一通过右侧抽屉为风险点绑定设备与测点。"
       size="42rem"
@@ -262,47 +387,271 @@
         />
       </template>
     </StandardFormDrawer>
-  </div>
+
+    <RiskPointDetailDrawer
+      v-model="riskPointDetailVisible"
+      :risk-point-id="detailRiskPoint?.id"
+      :initial-risk-point="detailRiskPoint"
+      :initial-summary="detailRiskPoint ? bindingSummaryMap[getIdKey(detailRiskPoint.id)] || null : null"
+      @close="handleRiskPointDetailClose"
+      @edit="handleEditFromDetail"
+      @maintain-binding="handleMaintainBindingFromDetail"
+      @pending-promotion="handlePendingPromotionFromDetail"
+    />
+
+    <RiskPointBindingMaintenanceDrawer
+      v-model="bindingMaintenanceVisible"
+      :risk-point-id="bindingMaintenanceRiskPoint?.id"
+      :risk-point-name="bindingMaintenanceRiskPoint?.riskPointName"
+      :risk-point-code="bindingMaintenanceRiskPoint?.riskPointCode"
+      :org-name="bindingMaintenanceRiskPoint?.orgName"
+      :pending-binding-count="bindingMaintenanceSummary?.pendingBindingCount ?? 0"
+      @close="handleBindingMaintenanceClose"
+      @updated="handleBindingMaintenanceUpdated"
+    />
+
+    <StandardFormDrawer
+      v-model="pendingPromotionVisible"
+      title="待治理转正"
+      subtitle="查看系统推荐候选并提交一个或多个测点转正式绑定。"
+      size="48rem"
+      @close="handlePendingDrawerClose"
+    >
+      <div class="ops-drawer-stack">
+        <div class="ops-drawer-note">
+          <strong>治理提示</strong>
+          <span>系统会基于产品物模型、最近上报属性和历史消息日志生成推荐候选，最终仍需人工确认后提交转正。</span>
+        </div>
+
+        <section class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>待治理记录</h3>
+              <p>按当前风险点加载待治理设备记录，选择一条后查看候选测点与历史留痕。</p>
+            </div>
+          </div>
+          <div v-if="pendingBindings.length === 0" class="standard-list-empty-state">
+            <EmptyState title="暂无待治理记录" description="当前风险点下还没有需要人工转正的设备绑定。" />
+          </div>
+          <div v-else class="risk-point-pending-list">
+            <button
+              v-for="item in pendingBindings"
+              :key="String(item.id)"
+              type="button"
+              class="risk-point-pending-list__item"
+              :class="{ 'is-active': getIdKey(item.id) === getIdKey(pendingPromotionForm.pendingId) }"
+              @click="handleSelectPendingRow(item)"
+            >
+              <strong>{{ item.deviceCode || '--' }}</strong>
+              <span>{{ item.deviceName || '未命名设备' }}</span>
+              <span>{{ item.resolutionStatus }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>推荐候选</h3>
+              <p>点击候选卡片可加入或移出本轮转正清单，支持一次提交多个测点。</p>
+            </div>
+          </div>
+          <div v-if="pendingCandidates.length === 0" class="standard-list-empty-state">
+            <EmptyState title="暂无候选测点" description="当前待治理记录还没有可用于转正式绑定的测点候选。" />
+          </div>
+          <div v-else class="risk-point-pending-candidate-list">
+            <button
+              v-for="candidate in pendingCandidates"
+              :key="candidate.metricIdentifier"
+              type="button"
+              class="risk-point-pending-candidate-list__item"
+              :class="{ 'is-selected': isPendingMetricSelected(candidate.metricIdentifier) }"
+              @click="togglePendingMetric(candidate)"
+            >
+              <div class="risk-point-pending-candidate-list__header">
+                <strong>{{ candidate.metricName || candidate.metricIdentifier }}</strong>
+                <span>{{ candidate.recommendationLevel || '--' }}</span>
+              </div>
+              <div class="risk-point-pending-candidate-list__meta">
+                <span>{{ candidate.metricIdentifier }}</span>
+                <span v-if="candidate.riskMetricId">目录指标 #{{ candidate.riskMetricId }}</span>
+                <span>{{ (candidate.evidenceSources || []).join(' / ') }}</span>
+              </div>
+              <p v-if="candidate.reasonSummary" class="risk-point-pending-candidate-list__summary">{{ candidate.reasonSummary }}</p>
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>提交设置</h3>
+              <p>可补充本轮治理说明，并选择是否在本次操作后直接收口该 pending 记录。</p>
+            </div>
+          </div>
+          <div class="ops-drawer-grid">
+            <el-form-item label="治理备注" class="ops-drawer-grid__full">
+              <el-input
+                v-model="pendingPromotionForm.promotionNote"
+                type="textarea"
+                :rows="3"
+                placeholder="请输入治理说明，可留空"
+              />
+            </el-form-item>
+            <el-form-item label="收口方式">
+              <el-radio-group v-model="pendingPromotionForm.completePending">
+                <el-radio :value="true">本次收口</el-radio>
+                <el-radio :value="false">继续保留待治理</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </div>
+        </section>
+
+        <section v-if="pendingHistory.length > 0" class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>历史留痕</h3>
+              <p>查看同一 pending 既往转正结果，辅助本轮人工判断。</p>
+            </div>
+          </div>
+          <ul class="risk-point-pending-history">
+            <li v-for="item in pendingHistory" :key="`${item.id || item.metricIdentifier}-${item.createTime || ''}`">
+              <strong>{{ item.metricName || item.metricIdentifier || '--' }}</strong>
+              <span>{{ item.promotionStatus || '--' }}</span>
+              <span>{{ item.recommendationLevel || '--' }}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <template #footer>
+        <StandardDrawerFooter
+          :confirm-loading="submitLoading || pendingLoading"
+          @cancel="pendingPromotionVisible = false"
+          @confirm="handlePendingPromotionSubmit"
+        />
+      </template>
+    </StandardFormDrawer>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardActionLink from '@/components/StandardActionLink.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
+import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointBindingMaintenanceDrawer.vue';
+import RiskPointDetailDrawer from '@/components/riskPoint/RiskPointDetailDrawer.vue';
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request';
+import { usePermissionStore } from '@/stores/permission';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
-import { listDeviceOptions, getDeviceMetricOptions } from '@/api/iot';
-import type { DeviceMetricOption, DeviceOption } from '@/types/api';
+import { listMissingBindings, type RiskGovernanceGapItem } from '@/api/riskGovernance';
+import { listOrganizationTree } from '@/api/organization';
+import type { Organization } from '@/api/organization';
+import { listRegions } from '@/api/region';
+import type { Region } from '@/api/region';
+import { getUser } from '@/api/user';
+import type { User } from '@/api/user';
+import { getDeviceMetricOptions } from '@/api/iot';
+import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api';
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
-import { pageRiskPointList, addRiskPoint, updateRiskPoint, deleteRiskPoint, bindDevice } from '../api/riskPoint';
-import type { RiskPoint } from '../api/riskPoint';
+import { getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, normalizeRiskLevel } from '@/utils/riskLevel';
+import {
+  fetchRiskPointLevelOptions,
+  getRiskPointLevelText as resolveRiskPointLevelText,
+  type RiskPointLevelOption
+} from '@/utils/riskPointLevel';
+import {
+  pageRiskPointList,
+  addRiskPoint,
+  updateRiskPoint,
+  deleteRiskPoint,
+  bindDevice,
+  listBindableDevices,
+  listBindingSummaries,
+  listPendingBindings,
+  getPendingBindingCandidates,
+  promotePendingBinding
+} from '../api/riskPoint';
+import type {
+  RiskPoint,
+  RiskPointBindingSummary,
+  RiskPointPendingBindingItem,
+  RiskPointPendingMetricCandidate,
+  RiskPointPendingPromotionHistory
+} from '../api/riskPoint';
+import { formatDateTime } from '@/utils/format';
+
+type RegionTreeOption = Partial<Region> & {
+  id: Region['id'];
+  regionName: string;
+  children?: RegionTreeOption[];
+  leaf?: boolean;
+};
+type LazyRegionTreeNode = {
+  level: number;
+  data?: RegionTreeOption;
+};
+type TreeResolveFn = (data: RegionTreeOption[]) => void;
+type RiskPointRowActionCommand = 'detail' | 'edit' | 'maintain-binding' | 'pending-promotion' | 'delete';
+
+const PROMOTABLE_PENDING_STATUSES = new Set(['PENDING_METRIC_GOVERNANCE', 'PARTIALLY_PROMOTED']);
+const permissionStore = usePermissionStore();
 
 const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
+const riskPointDetailVisible = ref(false);
+const bindingMaintenanceVisible = ref(false);
+const pendingPromotionVisible = ref(false);
 const riskPointList = ref<RiskPoint[]>([]);
+const bindingSummaryMap = ref<Record<string, RiskPointBindingSummary>>({});
+const organizationOptions = ref<Organization[]>([]);
+const regionOptions = ref<RegionTreeOption[]>([]);
+const regionOptionCache = ref<RegionTreeOption[]>([]);
+const userOptions = ref<User[]>([]);
+const userOptionsLoading = ref(false);
+const riskPointLevelOptions = ref<RiskPointLevelOption[]>([]);
 const deviceList = ref<DeviceOption[]>([]);
 const metricList = ref<DeviceMetricOption[]>([]);
+const pendingBindings = ref<RiskPointPendingBindingItem[]>([]);
+const pendingCandidates = ref<RiskPointPendingMetricCandidate[]>([]);
+const pendingHistory = ref<RiskPointPendingPromotionHistory[]>([]);
+const pendingLoading = ref(false);
+const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
+const detailRiskPoint = ref<RiskPoint | null>(null);
+const bindingMaintenanceRiskPoint = ref<RiskPoint | null>(null);
+const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'detail', label: '详情' },
+    { command: 'edit', label: '编辑' },
+    { command: 'maintain-binding', label: '维护绑定' },
+    { command: 'pending-promotion', label: '待治理转正' },
+    { command: 'delete', label: '删除' }
+  ],
+});
 
 const filters = reactive({
-  riskPointCode: '',
-  riskLevel: '',
+  keyword: '',
+  riskPointLevel: '',
   status: '' as '' | number
 });
 const appliedFilters = reactive({
-  riskPointCode: '',
-  riskLevel: '',
+  keyword: '',
+  riskPointLevel: '',
   status: '' as '' | number
 });
 
@@ -311,49 +660,437 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useS
 const formRef = ref();
 const formTitle = computed(() => (form.id ? '编辑风险点' : '新增风险点'));
 const form = reactive({
-  id: undefined as number | undefined,
+  id: undefined as IdType | undefined,
   riskPointCode: '',
   riskPointName: '',
-  regionId: 0,
+  orgId: '' as '' | IdType,
+  orgName: '',
+  regionId: '' as '' | IdType,
   regionName: '',
-  responsibleUser: 0,
+  responsibleUser: '' as '' | IdType,
   responsiblePhone: '',
-  riskLevel: 'info',
+  riskPointLevel: '',
   description: '',
-  status: 0
+  status: 0,
+  createBy: undefined as IdType | undefined,
+  updateBy: undefined as IdType | undefined
 });
 
 const rules = {
-  riskPointCode: [{ required: true, message: '请输入风险点编号', trigger: 'blur' }],
   riskPointName: [{ required: true, message: '请输入风险点名称', trigger: 'blur' }],
-  riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }]
+  orgId: [{ required: true, message: '请选择所属组织', trigger: 'change' }],
+  regionId: [{ required: true, message: '请选择所属区域', trigger: 'change' }],
+  riskPointLevel: [{ required: true, message: '请选择风险点等级', trigger: 'change' }]
 };
 
 const bindForm = reactive({
-  riskPointId: 0,
+  riskPointId: '' as '' | IdType,
   riskPointName: '',
-  deviceId: 0,
+  deviceId: '' as '' | IdType,
   deviceCode: '',
   deviceName: '',
   metricIdentifier: '',
   metricName: ''
 });
+const pendingPromotionForm = reactive({
+  riskPointId: undefined as IdType | undefined,
+  pendingId: undefined as IdType | undefined,
+  selectedMetrics: [] as Array<{ riskMetricId?: IdType | null; metricIdentifier: string; metricName: string }>,
+  completePending: true,
+  promotionNote: ''
+});
 const submitLoading = ref(false);
-const riskPointAdvice = '优先核查高风险且已启用的风险点';
+const riskPointAdvice = '优先核查一级风险点和红色态势对象';
+const missingBindingTotal = ref(0);
+const knownUsers = reactive<Record<string, User>>({});
+const regionRootsLoaded = ref(false);
+const regionRootsLoading = ref(false);
+let latestListRequestId = 0;
+
+const getIdKey = (value?: IdType | null) => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+  return String(value);
+};
+
+const isSameId = (left?: IdType | null, right?: IdType | null) => {
+  const leftKey = getIdKey(left);
+  if (!leftKey) {
+    return false;
+  }
+  return leftKey === getIdKey(right);
+};
 
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
-const criticalCount = computed(() => riskPointList.value.filter((item) => item.riskLevel === 'critical').length);
+const redCount = computed(() =>
+  riskPointList.value.filter((item) => normalizeRiskLevel(item.currentRiskLevel || item.riskLevel) === 'red').length
+);
 const disabledCount = computed(() => riskPointList.value.filter((item) => item.status === 1).length);
+const hasRecords = computed(() => riskPointList.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const bindingMaintenanceSummary = computed(() => {
+  if (!bindingMaintenanceRiskPoint.value?.id) {
+    return null;
+  }
+  return bindingSummaryMap.value[getIdKey(bindingMaintenanceRiskPoint.value.id)] || null;
+});
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的风险点' : '还没有风险对象'));
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
+    : '当前还没有风险对象记录，先新增风险点，再继续设备绑定和策略治理。'
+);
+const selectedOrganization = computed(() =>
+  form.orgId === '' ? null : findOrganizationById(organizationOptions.value, form.orgId)
+);
+const regionTreeProps = {
+  label: 'regionName',
+  children: 'children',
+  value: 'id',
+  isLeaf: 'leaf'
+};
+const responsibleUserPlaceholder = computed(() => {
+  if (!form.orgId) {
+    return '请先选择所属组织';
+  }
+  if (userOptionsLoading.value) {
+    return '正在加载机构负责人';
+  }
+  if (userOptions.value.length === 0) {
+    return '当前机构未配置管理员';
+  }
+  return '请选择负责人';
+});
 
-const loadDeviceOptions = async () => {
+const showRiskPointRequestError = (error: unknown, fallbackMessage: string) => {
+  if (isHandledRequestError(error)) {
+    return;
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage));
+};
+
+const logRiskPointRequestError = (context: string, error: unknown) => {
+  if (isHandledRequestError(error)) {
+    return;
+  }
+  console.error(context, error);
+};
+
+const loadOrganizationOptions = async () => {
   try {
-    const res = await listDeviceOptions();
+    const res = await listOrganizationTree();
+    if (res.code === 200) {
+      organizationOptions.value = (res.data || []).filter((item) => item.status === 1);
+      if (formVisible.value) {
+        upsertOrganizationOption({
+          id: form.orgId || undefined,
+          orgName: form.orgName,
+          phone: form.responsiblePhone
+        });
+      }
+    }
+  } catch (error) {
+    logRiskPointRequestError('加载组织树失败', error);
+    showRiskPointRequestError(error, '加载组织树失败');
+  }
+};
+
+const findOrganizationById = (nodes: Organization[], targetId: IdType): Organization | null => {
+  for (const node of nodes) {
+    if (isSameId(node.id, targetId)) {
+      return node;
+    }
+    const childMatch = node.children?.length ? findOrganizationById(node.children, targetId) : null;
+    if (childMatch) {
+      return childMatch;
+    }
+  }
+  return null;
+};
+
+const findRegionById = <T extends { id?: Region['id']; children?: T[] }>(nodes: T[], targetId: IdType): T | null => {
+  for (const node of nodes) {
+    if (isSameId(node.id, targetId)) {
+      return node;
+    }
+    const childMatch = node.children?.length ? findRegionById(node.children, targetId) : null;
+    if (childMatch) {
+      return childMatch;
+    }
+  }
+  return null;
+};
+
+const toRegionTreeOption = (region: Partial<Region> & { id: Region['id']; regionName: string }): RegionTreeOption => {
+  const children = Array.isArray(region.children)
+    ? region.children.map((item) => toRegionTreeOption(item as RegionTreeOption))
+    : undefined;
+  return {
+    ...region,
+    children,
+    leaf: !region.hasChildren
+  };
+};
+
+const upsertOrganizationOption = (organization?: Partial<Organization> | null) => {
+  if (!organization?.id || !organization.orgName) {
+    return;
+  }
+  if (findOrganizationById(organizationOptions.value, organization.id)) {
+    return;
+  }
+  organizationOptions.value = [
+    ...organizationOptions.value,
+    {
+      id: organization.id,
+      tenantId: organization.tenantId ?? '',
+      parentId: organization.parentId ?? '',
+      orgName: organization.orgName,
+      orgCode: organization.orgCode || '',
+      orgType: organization.orgType || 'dept',
+      leaderUserId: organization.leaderUserId,
+      leaderName: organization.leaderName || '',
+      phone: organization.phone || '',
+      email: organization.email || '',
+      status: organization.status ?? 1,
+      sortNo: organization.sortNo ?? 0,
+      remark: organization.remark || '',
+      createBy: (organization.createBy as number) ?? 0,
+      createTime: organization.createTime || '',
+      updateBy: (organization.updateBy as number) ?? 0,
+      updateTime: organization.updateTime || '',
+      deleted: organization.deleted ?? 0,
+      children: organization.children,
+      hasChildren: organization.hasChildren
+    }
+  ];
+};
+
+const upsertRegionCache = (region?: Partial<Region> | null) => {
+  if (!region?.id || !region.regionName) {
+    return;
+  }
+  const nextItem = toRegionTreeOption({
+    id: region.id,
+    regionName: region.regionName,
+    parentId: region.parentId,
+    hasChildren: region.hasChildren,
+    status: region.status
+  });
+  const existingIndex = regionOptionCache.value.findIndex((item) => isSameId(item.id, region.id));
+  if (existingIndex >= 0) {
+    regionOptionCache.value.splice(existingIndex, 1, {
+      ...regionOptionCache.value[existingIndex],
+      ...nextItem
+    });
+    return;
+  }
+  regionOptionCache.value.push(nextItem);
+};
+
+const ensureRegionRootsLoaded = async () => {
+  if (regionRootsLoaded.value || regionRootsLoading.value) {
+    return;
+  }
+  regionRootsLoading.value = true;
+  try {
+    const res = await listRegions();
+    if (res.code === 200) {
+      regionOptions.value = (res.data || [])
+        .filter((item) => item.status === 1)
+        .map((item) => toRegionTreeOption(item));
+      regionRootsLoaded.value = true;
+    }
+  } catch (error) {
+    logRiskPointRequestError('加载区域根节点失败', error);
+    showRiskPointRequestError(error, '加载区域根节点失败');
+  } finally {
+    regionRootsLoading.value = false;
+  }
+};
+
+const loadRegionNode = async (node: LazyRegionTreeNode, resolve: TreeResolveFn) => {
+  if (node.level === 0) {
+    await ensureRegionRootsLoaded();
+    resolve(regionOptions.value);
+    return;
+  }
+  const parentId = node.data?.id;
+  if (!parentId) {
+    resolve([]);
+    return;
+  }
+
+  try {
+    const res = await listRegions(parentId);
+    const children = (res.data || []).map((item) => toRegionTreeOption(item));
+    if (node.data) {
+      node.data.children = children;
+    }
+    resolve(children);
+  } catch (error) {
+    logRiskPointRequestError('加载区域子节点失败', error);
+    showRiskPointRequestError(error, '加载区域子节点失败');
+    resolve([]);
+  }
+};
+
+const upsertKnownUser = (user?: User | null) => {
+  const userKey = getIdKey(user?.id);
+  if (!userKey) {
+    return;
+  }
+  knownUsers[userKey] = user as User;
+};
+
+const setResponsibleUserOptions = (users: Array<User | null | undefined>) => {
+  const seenIds = new Set<string>();
+  userOptions.value = users.filter((user): user is User => {
+    const userKey = getIdKey(user?.id);
+    if (!userKey) {
+      return false;
+    }
+    if (seenIds.has(userKey)) {
+      return false;
+    }
+    seenIds.add(userKey);
+    upsertKnownUser(user);
+    return true;
+  });
+};
+
+const buildOrganizationLeaderFallback = (organization: Organization): User | null => {
+  if (!organization.leaderUserId) {
+    return null;
+  }
+  const fallbackUser: User = {
+    id: organization.leaderUserId,
+    username: organization.leaderName || String(organization.leaderUserId),
+    realName: organization.leaderName || String(organization.leaderUserId),
+    phone: organization.phone || '',
+    status: 1
+  };
+  upsertKnownUser(fallbackUser);
+  return fallbackUser;
+};
+
+const fetchUserById = async (userId?: IdType) => {
+  const userKey = getIdKey(userId);
+  if (!userKey) {
+    return null;
+  }
+  const cachedUser = knownUsers[userKey];
+  if (cachedUser) {
+    return cachedUser;
+  }
+  try {
+    const res = await getUser(userId);
+    if (res.code === 200 && res.data) {
+      upsertKnownUser(res.data);
+      return res.data;
+    }
+  } catch (error) {
+    logRiskPointRequestError('加载用户详情失败', error);
+  }
+  return null;
+};
+
+const buildCurrentEditableUserFallback = async () => {
+  const currentUserInfo = permissionStore.userInfo;
+  if (!currentUserInfo?.id) {
+    return null;
+  }
+  const fallbackUser: User = {
+    id: currentUserInfo.id,
+    orgId: currentUserInfo.orgId,
+    orgName: currentUserInfo.orgName,
+    username: currentUserInfo.username || currentUserInfo.displayName || String(currentUserInfo.id),
+    realName: currentUserInfo.realName || currentUserInfo.displayName || currentUserInfo.username || String(currentUserInfo.id),
+    phone: currentUserInfo.phone || '',
+    status: 1
+  };
+  upsertKnownUser(fallbackUser);
+  return fallbackUser;
+};
+
+const loadResponsibleOptionsByOrganization = async (preserveSelection = false) => {
+  const organization = selectedOrganization.value;
+  form.orgName = organization?.orgName || '';
+  if (!organization) {
+    userOptions.value = [];
+    if (!preserveSelection) {
+      form.responsibleUser = '';
+      form.responsiblePhone = '';
+    }
+    return;
+  }
+
+  userOptionsLoading.value = true;
+  try {
+    const nextUsers: User[] = [];
+    let defaultResponsibleUser = await fetchUserById(organization.leaderUserId);
+    if (!defaultResponsibleUser) {
+      defaultResponsibleUser = buildOrganizationLeaderFallback(organization);
+    }
+    if (!defaultResponsibleUser) {
+      defaultResponsibleUser = await buildCurrentEditableUserFallback();
+    }
+    if (defaultResponsibleUser) {
+      nextUsers.push(defaultResponsibleUser);
+    }
+    if (preserveSelection && form.responsibleUser) {
+      const currentUserId = form.responsibleUser;
+      if (!defaultResponsibleUser || !isSameId(defaultResponsibleUser.id, currentUserId)) {
+        const currentUser = await fetchUserById(currentUserId);
+        if (currentUser) {
+          nextUsers.push(currentUser);
+        }
+      }
+    }
+    setResponsibleUserOptions(nextUsers);
+
+    if (preserveSelection && form.responsibleUser) {
+      const selectedUserKey = getIdKey(form.responsibleUser);
+      if (userOptions.value.some((user) => getIdKey(user.id) === selectedUserKey)) {
+        return;
+      }
+    }
+
+    if (defaultResponsibleUser?.id) {
+      form.responsibleUser = defaultResponsibleUser.id;
+      form.responsiblePhone = defaultResponsibleUser.phone || organization.phone || permissionStore.userInfo?.phone || '';
+      return;
+    }
+
+    form.responsibleUser = '';
+    form.responsiblePhone = organization.phone || permissionStore.userInfo?.phone || '';
+  } finally {
+    userOptionsLoading.value = false;
+  }
+};
+
+const loadRiskPointLevelOptions = async () => {
+  try {
+    riskPointLevelOptions.value = await fetchRiskPointLevelOptions();
+    if (!form.id && !form.riskPointLevel) {
+      form.riskPointLevel = riskPointLevelOptions.value[0]?.value || '';
+    }
+  } catch (error) {
+    logRiskPointRequestError('加载风险点等级字典失败', error);
+    showRiskPointRequestError(error, '加载风险点等级字典失败');
+  }
+};
+
+const loadBindableDeviceOptions = async (riskPointId: string | number) => {
+  try {
+    const res = await listBindableDevices(riskPointId);
     if (res.code === 200) {
       deviceList.value = res.data || [];
     }
   } catch (error) {
-    console.error('加载设备选项失败', error);
-    ElMessage.error('加载设备列表失败');
+    logRiskPointRequestError('加载可绑定设备失败', error);
+    showRiskPointRequestError(error, '加载可绑定设备失败');
   }
 };
 
@@ -364,35 +1101,26 @@ const loadMetricOptions = async (deviceId: string | number) => {
       metricList.value = res.data || [];
     }
   } catch (error) {
-    console.error('加载测点选项失败', error);
-    ElMessage.error('加载测点列表失败');
+    logRiskPointRequestError('加载测点选项失败', error);
+    showRiskPointRequestError(error, '加载测点列表失败');
   }
 };
 
-const getRiskLevelType = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
+const getCurrentRiskLevelType = (level: string) => getRiskLevelTagType(level);
 
-const getRiskLevelText = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level;
+const getCurrentRiskLevelText = (level: string) => resolveRiskLevelText(level);
+
+const getRiskPointLevelText = (level?: string) => resolveRiskPointLevelText(level, riskPointLevelOptions.value);
+
+const getResponsibleUserText = (row: Partial<RiskPoint>) => {
+  if (!row.responsibleUser) {
+    return '未指定负责人';
   }
+  if (row.responsibleUserName) {
+    return row.responsibleUserName;
+  }
+  const matchedUser = knownUsers[getIdKey(row.responsibleUser)];
+  return matchedUser?.realName || matchedUser?.username || String(row.responsibleUser);
 };
 
 const getStatusType = (status: number) => {
@@ -426,34 +1154,114 @@ const {
   form: filters,
   applied: appliedFilters,
   fields: [
-    { key: 'riskPointCode', label: '风险点编号' },
-    { key: 'riskLevel', label: (value) => `风险等级：${getRiskLevelText(String(value || ''))}` },
+    { key: 'keyword', label: '快速搜索' },
+    { key: 'riskPointLevel', label: (value) => `风险点等级：${getRiskPointLevelText(String(value || ''))}` },
     { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
   ],
   defaults: {
-    riskPointCode: '',
-    riskLevel: '',
+    keyword: '',
+    riskPointLevel: '',
     status: '' as '' | number
   }
 });
 
+const loadBindingSummaries = async (rows: RiskPoint[], requestId = latestListRequestId) => {
+  const riskPointIds = Array.from(
+    new Set(
+      rows
+        .map((item) => getIdKey(item.id))
+        .filter(Boolean)
+    )
+  );
+  if (riskPointIds.length === 0) {
+    if (requestId === latestListRequestId) {
+      bindingSummaryMap.value = {};
+    }
+    return;
+  }
+
+  try {
+    const res = await listBindingSummaries(riskPointIds);
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    if (res.code !== 200) {
+      bindingSummaryMap.value = {};
+      return;
+    }
+    bindingSummaryMap.value = (res.data || []).reduce<Record<string, RiskPointBindingSummary>>((acc, item) => {
+      if (!item?.riskPointId) {
+        return acc;
+      }
+      acc[getIdKey(item.riskPointId)] = item;
+      return acc;
+    }, {});
+  } catch (error) {
+    logRiskPointRequestError('加载风险点绑定概览失败', error);
+    if (requestId === latestListRequestId) {
+      bindingSummaryMap.value = {};
+    }
+  }
+};
+
 const loadRiskPointList = async () => {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
-    const res = await pageRiskPointList({
-      riskPointCode: appliedFilters.riskPointCode || undefined,
-      riskLevel: appliedFilters.riskLevel || undefined,
-      status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
-    });
-    if (res.code === 200) {
-      riskPointList.value = applyPageResult(res.data);
+    const [listResult, backlogResult] = await Promise.allSettled([
+      pageRiskPointList({
+        keyword: appliedFilters.keyword || undefined,
+        riskPointLevel: appliedFilters.riskPointLevel || undefined,
+        status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
+        pageNum: pagination.pageNum,
+        pageSize: pagination.pageSize
+      }),
+      listMissingBindings({
+        pageNum: 1,
+        pageSize: 3
+      })
+    ]);
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+
+    if (listResult.status === 'fulfilled' && listResult.value?.code === 200) {
+      riskPointList.value = applyPageResult(listResult.value.data);
+      await loadBindingSummaries(riskPointList.value, requestId);
+      riskPointList.value.forEach((item) => {
+        if (!item.responsibleUser) {
+          return;
+        }
+        upsertKnownUser({
+          id: item.responsibleUser,
+          username: item.responsibleUserName || String(item.responsibleUser),
+          realName: item.responsibleUserName || String(item.responsibleUser),
+          phone: item.responsiblePhone || '',
+          status: 1
+        });
+      });
+    } else {
+      riskPointList.value = [];
+      bindingSummaryMap.value = {};
+    }
+
+    if (backlogResult.status === 'fulfilled' && backlogResult.value?.code === 200) {
+      missingBindingItems.value = backlogResult.value.data.records ?? [];
+      missingBindingTotal.value = backlogResult.value.data.total ?? 0;
+    } else {
+      missingBindingItems.value = [];
+      missingBindingTotal.value = 0;
     }
   } catch (error) {
-    console.error('查询风险点列表失败', error);
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    logRiskPointRequestError('查询风险点列表失败', error);
+    showRiskPointRequestError(error, '查询风险点列表失败');
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 };
 
@@ -465,8 +1273,8 @@ const handleSearch = () => {
 };
 
 const handleReset = () => {
-  filters.riskPointCode = '';
-  filters.riskLevel = '';
+  filters.keyword = '';
+  filters.riskPointLevel = '';
   filters.status = '';
   syncAppliedFilters();
   resetPage();
@@ -488,6 +1296,34 @@ const handleSelectionChange = (rows: RiskPoint[]) => {
   selectedRows.value = rows;
 };
 
+const getRiskPointRowActions = () => [
+  { command: 'detail' as const, label: '详情' },
+  { command: 'edit' as const, label: '编辑' },
+  { command: 'maintain-binding' as const, label: '维护绑定' },
+  { command: 'pending-promotion' as const, label: '待治理转正' },
+  { command: 'delete' as const, label: '删除' }
+];
+
+const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskPoint) => {
+  if (command === 'detail') {
+    openRiskPointDetail(row);
+    return;
+  }
+  if (command === 'edit') {
+    handleEdit(row);
+    return;
+  }
+  if (command === 'maintain-binding') {
+    openBindingMaintenance(row);
+    return;
+  }
+  if (command === 'pending-promotion') {
+    void handleOpenPendingPromotion(row);
+    return;
+  }
+  handleDelete(row);
+};
+
 const clearSelection = () => {
   tableRef.value?.clearSelection?.();
   selectedRows.value = [];
@@ -495,6 +1331,55 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   clearSelection();
+  void loadRiskPointList();
+};
+
+const openRiskPointDetail = (row: RiskPoint) => {
+  detailRiskPoint.value = row;
+  riskPointDetailVisible.value = true;
+};
+
+const handleRiskPointDetailClose = () => {
+  detailRiskPoint.value = null;
+};
+
+const handleEditFromDetail = async () => {
+  const row = detailRiskPoint.value;
+  riskPointDetailVisible.value = false;
+  detailRiskPoint.value = null;
+  if (row) {
+    await handleEdit(row);
+  }
+};
+
+const handleMaintainBindingFromDetail = () => {
+  const row = detailRiskPoint.value;
+  riskPointDetailVisible.value = false;
+  detailRiskPoint.value = null;
+  if (row) {
+    openBindingMaintenance(row);
+  }
+};
+
+const handlePendingPromotionFromDetail = async () => {
+  const row = detailRiskPoint.value;
+  riskPointDetailVisible.value = false;
+  detailRiskPoint.value = null;
+  if (row) {
+    await handleOpenPendingPromotion(row);
+  }
+};
+
+const openBindingMaintenance = (row: RiskPoint) => {
+  bindingMaintenanceRiskPoint.value = row;
+  bindingMaintenanceVisible.value = true;
+};
+
+const handleBindingMaintenanceClose = () => {
+  bindingMaintenanceRiskPoint.value = null;
+};
+
+const handleBindingMaintenanceUpdated = () => {
   void loadRiskPointList();
 };
 
@@ -513,19 +1398,24 @@ const resetRiskPointForm = () => {
   form.id = undefined;
   form.riskPointCode = '';
   form.riskPointName = '';
-  form.regionId = 0;
+  form.orgId = '';
+  form.orgName = '';
+  form.regionId = '';
   form.regionName = '';
-  form.responsibleUser = 0;
+  form.responsibleUser = '';
   form.responsiblePhone = '';
-  form.riskLevel = 'info';
+  form.riskPointLevel = riskPointLevelOptions.value[0]?.value || '';
   form.description = '';
   form.status = 0;
+  form.createBy = undefined;
+  form.updateBy = undefined;
+  userOptions.value = [];
 };
 
 const resetBindForm = () => {
-  bindForm.riskPointId = 0;
+  bindForm.riskPointId = '';
   bindForm.riskPointName = '';
-  bindForm.deviceId = 0;
+  bindForm.deviceId = '';
   bindForm.deviceCode = '';
   bindForm.deviceName = '';
   bindForm.metricIdentifier = '';
@@ -533,23 +1423,63 @@ const resetBindForm = () => {
   metricList.value = [];
 };
 
+const resetPendingPromotionState = () => {
+  pendingBindings.value = [];
+  pendingCandidates.value = [];
+  pendingHistory.value = [];
+  pendingLoading.value = false;
+  pendingPromotionForm.riskPointId = undefined;
+  pendingPromotionForm.pendingId = undefined;
+  pendingPromotionForm.selectedMetrics = [];
+  pendingPromotionForm.completePending = true;
+  pendingPromotionForm.promotionNote = '';
+};
+
 const handleAdd = () => {
   resetRiskPointForm();
   formVisible.value = true;
+  void ensureRegionRootsLoaded();
 };
 
-const handleEdit = (row: RiskPoint) => {
+const handleEdit = async (row: RiskPoint) => {
   form.id = row.id;
   form.riskPointCode = row.riskPointCode;
   form.riskPointName = row.riskPointName;
-  form.regionId = row.regionId;
-  form.regionName = row.regionName;
-  form.responsibleUser = row.responsibleUser;
+  form.orgId = row.orgId || '';
+  form.orgName = row.orgName || '';
+  form.regionId = row.regionId || '';
+  form.regionName = row.regionName || '';
+  form.responsibleUser = row.responsibleUser || '';
   form.responsiblePhone = row.responsiblePhone;
-  form.riskLevel = row.riskLevel;
+  form.riskPointLevel = row.riskPointLevel || '';
   form.description = row.description || '';
   form.status = row.status;
+  form.createBy = row.createBy;
+  form.updateBy = row.updateBy;
+  upsertOrganizationOption({
+    id: row.orgId,
+    orgName: row.orgName,
+    leaderUserId: row.responsibleUser,
+    leaderName: row.responsibleUserName || '',
+    phone: row.responsiblePhone
+  });
+  upsertRegionCache({
+    id: row.regionId,
+    regionName: row.regionName,
+    status: 1
+  });
+  if (row.responsibleUser) {
+    upsertKnownUser({
+      id: row.responsibleUser,
+      username: row.responsibleUserName || String(row.responsibleUser),
+      realName: row.responsibleUserName || String(row.responsibleUser),
+      phone: row.responsiblePhone || '',
+      status: 1
+    });
+  }
   formVisible.value = true;
+  void ensureRegionRootsLoaded();
+  await loadResponsibleOptionsByOrganization(true);
 };
 
 const handleDelete = async (row: RiskPoint) => {
@@ -564,7 +1494,8 @@ const handleDelete = async (row: RiskPoint) => {
     if (isConfirmCancelled(error)) {
       return;
     }
-    console.error('删除风险点失败', error);
+    logRiskPointRequestError('删除风险点失败', error);
+    showRiskPointRequestError(error, '删除风险点失败');
   }
 };
 
@@ -572,15 +1503,31 @@ const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
     await formRef.value.validate();
+  } catch {
+    return;
+  }
+  try {
     submitLoading.value = true;
-    const res = form.id ? await updateRiskPoint(form) : await addRiskPoint(form);
+    const selectedOrganization = form.orgId === '' ? null : findOrganizationById(organizationOptions.value, form.orgId);
+    const selectedRegion = form.regionId === '' ? null : findRegionById(regionOptions.value, form.regionId)
+      || (form.regionId === '' ? null : findRegionById(regionOptionCache.value, form.regionId));
+    form.orgName = selectedOrganization?.orgName || '';
+    form.regionName = selectedRegion?.regionName || form.regionName || '';
+    const payload = {
+      ...form,
+      orgId: form.orgId === '' ? undefined : form.orgId,
+      regionId: form.regionId === '' ? undefined : form.regionId,
+      responsibleUser: form.responsibleUser === '' ? undefined : form.responsibleUser
+    };
+    const res = form.id ? await updateRiskPoint(payload) : await addRiskPoint(payload);
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
       formVisible.value = false;
       void loadRiskPointList();
     }
   } catch (error) {
-    console.error('提交表单失败', error);
+    logRiskPointRequestError('提交表单失败', error);
+    showRiskPointRequestError(error, '提交风险点失败');
   } finally {
     submitLoading.value = false;
   }
@@ -588,10 +1535,128 @@ const handleSubmit = async () => {
 
 const handleBindDevice = async (row: RiskPoint) => {
   resetBindForm();
-  bindForm.riskPointId = Number(row.id);
+  bindForm.riskPointId = row.id;
   bindForm.riskPointName = row.riskPointName;
-  await loadDeviceOptions();
+  await loadBindableDeviceOptions(bindForm.riskPointId);
   bindDeviceVisible.value = true;
+};
+
+const handleOpenPendingPromotion = async (row: RiskPoint) => {
+  resetPendingPromotionState();
+  pendingPromotionForm.riskPointId = row.id;
+  pendingPromotionVisible.value = true;
+  await loadPendingBindings();
+};
+
+const loadPendingBindings = async () => {
+  if (!getIdKey(pendingPromotionForm.riskPointId)) {
+    pendingBindings.value = [];
+    pendingCandidates.value = [];
+    pendingHistory.value = [];
+    return;
+  }
+  try {
+    pendingLoading.value = true;
+    const res = await listPendingBindings({
+      riskPointId: pendingPromotionForm.riskPointId,
+      pageNum: 1,
+      pageSize: 10
+    });
+    if (res.code !== 200) {
+      pendingBindings.value = [];
+      pendingCandidates.value = [];
+      pendingHistory.value = [];
+      return;
+    }
+    pendingBindings.value = res.data.records || [];
+    const selectedPending = pendingBindings.value.find((item) =>
+      getIdKey(item.id) === getIdKey(pendingPromotionForm.pendingId) && isPromotablePending(item)
+    ) || pendingBindings.value.find((item) => isPromotablePending(item));
+    if (!selectedPending) {
+      pendingPromotionForm.pendingId = pendingBindings.value[0]?.id;
+      pendingPromotionForm.selectedMetrics = [];
+      pendingCandidates.value = [];
+      pendingHistory.value = [];
+      return;
+    }
+    await handleSelectPendingRow(selectedPending);
+  } catch (error) {
+    logRiskPointRequestError('加载待治理记录失败', error);
+    showRiskPointRequestError(error, '加载待治理记录失败');
+  } finally {
+    pendingLoading.value = false;
+  }
+};
+
+const handleSelectPendingRow = async (pending: RiskPointPendingBindingItem) => {
+  pendingPromotionForm.pendingId = pending.id;
+  pendingPromotionForm.selectedMetrics = [];
+  if (!isPromotablePending(pending)) {
+    pendingCandidates.value = [];
+    pendingHistory.value = [];
+    return;
+  }
+  try {
+    const res = await getPendingBindingCandidates(pending.id);
+    if (res.code !== 200) {
+      pendingCandidates.value = [];
+      pendingHistory.value = [];
+      return;
+    }
+    pendingCandidates.value = res.data.candidates || [];
+    pendingHistory.value = res.data.promotionHistory || res.data.history || [];
+  } catch (error) {
+    logRiskPointRequestError('加载待治理候选失败', error);
+    showRiskPointRequestError(error, '加载待治理候选失败');
+  }
+};
+
+const isPromotablePending = (pending: RiskPointPendingBindingItem | null | undefined) => {
+  const status = pending?.resolutionStatus?.trim().toUpperCase();
+  return status ? PROMOTABLE_PENDING_STATUSES.has(status) : false;
+};
+
+const isPendingMetricSelected = (metricIdentifier: string) =>
+  pendingPromotionForm.selectedMetrics.some((item) => item.metricIdentifier === metricIdentifier);
+
+const togglePendingMetric = (candidate: RiskPointPendingMetricCandidate) => {
+  const nextMetric = {
+    riskMetricId: candidate.riskMetricId,
+    metricIdentifier: candidate.metricIdentifier,
+    metricName: candidate.metricName || candidate.metricIdentifier
+  };
+  if (isPendingMetricSelected(nextMetric.metricIdentifier)) {
+    pendingPromotionForm.selectedMetrics = pendingPromotionForm.selectedMetrics.filter(
+      (item) => item.metricIdentifier !== nextMetric.metricIdentifier
+    );
+    return;
+  }
+  pendingPromotionForm.selectedMetrics = [...pendingPromotionForm.selectedMetrics, nextMetric];
+};
+
+const handlePendingPromotionSubmit = async () => {
+  if (!pendingPromotionForm.pendingId || pendingPromotionForm.selectedMetrics.length === 0) {
+    ElMessage.warning('请至少选择一个测点');
+    return;
+  }
+  try {
+    submitLoading.value = true;
+    const res = await promotePendingBinding(pendingPromotionForm.pendingId, {
+      metrics: pendingPromotionForm.selectedMetrics,
+      completePending: pendingPromotionForm.completePending,
+      promotionNote: pendingPromotionForm.promotionNote
+    });
+    if (res.code === 200) {
+      ElMessage.success('待治理转正成功');
+      await loadPendingBindings();
+      void loadRiskPointList();
+    }
+  } catch (error) {
+    logRiskPointRequestError('提交待治理转正失败', error);
+    showRiskPointRequestError(error, '提交待治理转正失败');
+  } finally {
+    submitLoading.value = false;
+  }
 };
 
 const handleBindSubmit = async () => {
@@ -612,6 +1677,7 @@ const handleBindSubmit = async () => {
       deviceId: bindForm.deviceId,
       deviceCode: selectedDevice.deviceCode,
       deviceName: selectedDevice.deviceName,
+      riskMetricId: selectedMetric.riskMetricId ?? undefined,
       metricIdentifier: selectedMetric.identifier,
       metricName: selectedMetric.name
     });
@@ -621,7 +1687,8 @@ const handleBindSubmit = async () => {
       void loadRiskPointList();
     }
   } catch (error) {
-    console.error('绑定设备失败', error);
+    logRiskPointRequestError('绑定设备失败', error);
+    showRiskPointRequestError(error, '绑定设备失败');
   } finally {
     submitLoading.value = false;
   }
@@ -636,6 +1703,37 @@ const handleBindDrawerClose = () => {
   resetBindForm();
 };
 
+const handlePendingDrawerClose = () => {
+  resetPendingPromotionState();
+};
+
+watch(
+  () => form.orgId,
+  async () => {
+    if (!formVisible.value) {
+      return;
+    }
+    await loadResponsibleOptionsByOrganization();
+  }
+);
+
+watch(
+  () => form.responsibleUser,
+  async (responsibleUser) => {
+    if (!formVisible.value || !responsibleUser) {
+      return;
+    }
+    const matchedUser = userOptions.value.find((item) => isSameId(item.id, responsibleUser))
+      || knownUsers[getIdKey(responsibleUser)]
+      || await fetchUserById(responsibleUser);
+    if (!matchedUser) {
+      return;
+    }
+    upsertKnownUser(matchedUser);
+    form.responsiblePhone = matchedUser.phone || selectedOrganization.value?.phone || '';
+  }
+);
+
 watch(
   () => bindForm.deviceId,
   async (deviceId) => {
@@ -644,7 +1742,7 @@ watch(
     bindForm.metricIdentifier = '';
     bindForm.metricName = '';
     metricList.value = [];
-    if (!deviceId) {
+    if (!getIdKey(deviceId)) {
       return;
     }
     const selectedDevice = deviceList.value.find((device) => String(device.id) === String(deviceId));
@@ -666,15 +1764,89 @@ watch(
 
 onMounted(() => {
   syncAppliedFilters();
+  void loadOrganizationOptions();
+  void loadRiskPointLevelOptions();
   void loadRiskPointList();
 });
 </script>
 
 <style scoped>
 .risk-point-view {
-  padding: 20px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 247, 253, 0.66));
-  border: 1px solid rgba(41, 60, 92, 0.1);
+  min-width: 0;
+}
+
+.risk-point-notice-stack,
+.risk-point-governance-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.risk-point-governance-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.risk-point-governance-list li {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--text-secondary);
+}
+
+.risk-point-governance-list strong {
+  color: var(--text-primary);
+}
+
+.risk-point-pending-list,
+.risk-point-pending-candidate-list,
+.risk-point-pending-history {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.risk-point-pending-list__item,
+.risk-point-pending-candidate-list__item {
+  width: 100%;
+  border: 1px solid var(--el-border-color);
+  border-radius: 1rem;
+  background: #fff;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.risk-point-pending-list__item.is-active,
+.risk-point-pending-candidate-list__item.is-selected {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 35%, white);
+}
+
+.risk-point-pending-list__item strong,
+.risk-point-pending-candidate-list__item strong {
+  color: var(--text-primary);
+}
+
+.risk-point-pending-candidate-list__header,
+.risk-point-pending-candidate-list__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.risk-point-pending-candidate-list__summary {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.risk-point-pending-history {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.risk-point-pending-history li {
+  display: grid;
+  gap: 0.2rem;
 }
 </style>

@@ -5,6 +5,8 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationRule;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
@@ -51,7 +53,7 @@ class MqttJsonProtocolAdapterTest {
                 {"header":{"appId":"62000001"},"bodies":{"body":"PTOLy04o/stDufUYFo5s3g=="}} 
                 """.getBytes(StandardCharsets.UTF_8), context));
 
-        assertEquals("检测到加密 MQTT 报文，但未配置 appId 对应的解密器: 62000001", ex.getMessage());
+        assertEquals("未找到 appId 对应的 decrypt profile: 62000001", ex.getMessage());
     }
 
     @Test
@@ -64,7 +66,7 @@ class MqttJsonProtocolAdapterTest {
                 {"header":{"appId":"62000001"},"bodies":{"body":"PTOLy04o/stDufUYFo5s3g=="}}}
                 """.getBytes(StandardCharsets.UTF_8), context));
 
-        assertEquals("检测到加密 MQTT 报文，但未配置 appId 对应的解密器: 62000001", ex.getMessage());
+        assertEquals("未找到 appId 对应的 decrypt profile: 62000001", ex.getMessage());
     }
 
     @Test
@@ -134,6 +136,62 @@ class MqttJsonProtocolAdapterTest {
         assertEquals(Boolean.FALSE, readMetadata(protocolMetadata, "getChildSplitApplied"));
         assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
         assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+    }
+
+    @Test
+    void shouldExposePayloadComparisonMetadataForEncryptedLegacyDpPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
+                properties,
+                List.of(new StubDecryptor(
+                        "62000001",
+                        buildPacket((byte) 2, """
+                                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}},"L4_NW_1":{"2026-03-14T06:00:00.000Z":36.5}}}
+                                """)
+                ))
+        );
+
+        DeviceUpMessage message = configuredAdapter.decode("""
+                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
+                """.getBytes(StandardCharsets.UTF_8), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertTrue(String.valueOf(readMetadata(protocolMetadata, "getDecryptedPayloadPreview")).contains("\"17165802\""));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> decodedPreview = (Map<String, Object>) readMetadata(protocolMetadata, "getDecodedPayloadPreview");
+        assertEquals("property", decodedPreview.get("messageType"));
+        assertEquals("17165802", decodedPreview.get("deviceCode"));
+        assertTrue(decodedPreview.containsKey("properties"));
+    }
+
+    @Test
+    void shouldExposePayloadComparisonMetadataForPlainLegacyDpPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setTopicRouteType("legacy");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = newAdapter(properties).decode("""
+                {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2,"gpsTotalX":9.9}}}}
+                """.getBytes(StandardCharsets.UTF_8), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertEquals(null, readMetadata(protocolMetadata, "getDecryptedPayloadPreview"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> decodedPreview = (Map<String, Object>) readMetadata(protocolMetadata, "getDecodedPayloadPreview");
+        assertEquals("property", decodedPreview.get("messageType"));
+        assertEquals("17165802", decodedPreview.get("deviceCode"));
+        assertTrue(decodedPreview.containsKey("properties"));
     }
 
     @Test
@@ -215,6 +273,103 @@ class MqttJsonProtocolAdapterTest {
         assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
         assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
         assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+        Object templateEvidence = readMetadata(protocolMetadata, "getTemplateEvidence");
+        assertNotNull(templateEvidence);
+        assertEquals(List.of("deep_displacement_child_template"), readMetadata(templateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) readMetadata(templateEvidence, "getExecutions");
+        assertEquals(2, executions.size());
+        assertEquals("deep_displacement_child_template", readMetadata(executions.get(0), "getTemplateCode"));
+        assertEquals("L1_SW_1", readMetadata(executions.get(0), "getLogicalChannelCode"));
+        assertEquals("84330701", readMetadata(executions.get(0), "getChildDeviceCode"));
+        assertEquals("LEGACY", readMetadata(executions.get(0), "getCanonicalizationStrategy"));
+        assertEquals(Boolean.FALSE, readMetadata(executions.get(0), "getStatusMirrorApplied"));
+        assertEquals(List.of("L1_SW_1"), readMetadata(executions.get(0), "getParentRemovalKeys"));
+    }
+
+    @Test
+    void shouldSplitConfiguredCrackChildrenToCanonicalValueAndMirrorSensorState() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        IotProperties.Device deviceConfig = new IotProperties.Device();
+        Map<String, String> baseStationMappings = new LinkedHashMap<>();
+        baseStationMappings.put("L1_LF_1", "202018143");
+        baseStationMappings.put("L1_LF_2", "202018135");
+        deviceConfig.setSubDeviceMappings(Map.of("SK00EA0D1307986", baseStationMappings));
+        properties.setDevice(deviceConfig);
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-04T22:10:35.000Z":{"ext_power_volt":12.12,"sensor_state":{"L1_LF_1":0,"L1_LF_2":0}}},"L1_LF_1":{"2026-04-04T22:10:35.000Z":10.86},"L1_LF_2":{"2026-04-04T22:10:35.000Z":6.95}}}
+                """), context);
+
+        assertEquals("SK00EA0D1307986", message.getDeviceCode());
+        assertEquals("status", message.getMessageType());
+        assertNotNull(message.getChildMessages());
+        assertEquals(2, message.getChildMessages().size());
+        assertEquals("202018143", message.getChildMessages().get(0).getDeviceCode());
+        assertEquals(10.86, message.getChildMessages().get(0).getProperties().get("value"));
+        assertEquals(0, message.getChildMessages().get(0).getProperties().get("sensor_state"));
+        assertEquals("202018135", message.getChildMessages().get(1).getDeviceCode());
+        assertEquals(6.95, message.getChildMessages().get(1).getProperties().get("value"));
+        assertEquals(0, message.getChildMessages().get(1).getProperties().get("sensor_state"));
+        assertEquals(12.12, message.getProperties().get("S1_ZT_1.ext_power_volt"));
+        assertEquals(0, message.getProperties().get("S1_ZT_1.sensor_state.L1_LF_1"));
+        assertEquals(0, message.getProperties().get("S1_ZT_1.sensor_state.L1_LF_2"));
+        assertFalse(message.getProperties().containsKey("L1_LF_1"));
+        assertFalse(message.getProperties().containsKey("L1_LF_2"));
+        Object protocolMetadata = getProtocolMetadata(message);
+        assertNotNull(protocolMetadata);
+        assertEquals(List.of("S1_ZT_1", "L1_LF_1", "L1_LF_2"), readMetadata(protocolMetadata, "getFamilyCodes"));
+        assertEquals("LEGACY_DP", readMetadata(protocolMetadata, "getNormalizationStrategy"));
+        assertEquals(Boolean.TRUE, readMetadata(protocolMetadata, "getChildSplitApplied"));
+        assertEquals("PAYLOAD_TIMESTAMP", readMetadata(protocolMetadata, "getTimestampSource"));
+        assertEquals("legacy", readMetadata(protocolMetadata, "getRouteType"));
+        Object templateEvidence = readMetadata(protocolMetadata, "getTemplateEvidence");
+        assertNotNull(templateEvidence);
+        assertEquals(List.of("crack_child_template"), readMetadata(templateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) readMetadata(templateEvidence, "getExecutions");
+        assertEquals(2, executions.size());
+        assertEquals("crack_child_template", readMetadata(executions.get(0), "getTemplateCode"));
+        assertEquals("L1_LF_1", readMetadata(executions.get(0), "getLogicalChannelCode"));
+        assertEquals("202018143", readMetadata(executions.get(0), "getChildDeviceCode"));
+        assertEquals("LF_VALUE", readMetadata(executions.get(0), "getCanonicalizationStrategy"));
+        assertEquals(Boolean.TRUE, readMetadata(executions.get(0), "getStatusMirrorApplied"));
+        assertEquals(List.of("L1_LF_1"), readMetadata(executions.get(0), "getParentRemovalKeys"));
+    }
+
+    @Test
+    void shouldPreferRelationRegistryRuleOverLegacyConfigFallbackWhenDecodingCollectorPayload() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        IotProperties.Device deviceConfig = new IotProperties.Device();
+        deviceConfig.setSubDeviceMappings(Map.of(
+                "SK00EA0D1307986",
+                Map.of("L1_LF_1", "WRONG-CONFIG-CHILD")
+        ));
+        properties.setDevice(deviceConfig);
+        LegacyDpRelationResolver relationResolver = parentDeviceCode -> List.of(
+                new LegacyDpRelationRule("L1_LF_1", "202018143", "LF_VALUE", "SENSOR_STATE")
+        );
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(properties, List.of(), relationResolver);
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-04T22:10:35.000Z":{"sensor_state":{"L1_LF_1":0}}},"L1_LF_1":{"2026-04-04T22:10:35.000Z":10.86}}}
+                """), context);
+
+        assertNotNull(message.getChildMessages());
+        assertEquals(1, message.getChildMessages().size());
+        assertEquals("202018143", message.getChildMessages().get(0).getDeviceCode());
+        assertEquals(Map.of("value", 10.86, "sensor_state", 0), message.getChildMessages().get(0).getProperties());
     }
 
     @Test
@@ -291,6 +446,33 @@ class MqttJsonProtocolAdapterTest {
         assertArrayEquals(new byte[]{0x11, 0x22, 0x33}, message.getFilePayload().getFirmwarePacket().getPacketData());
     }
 
+    @Test
+    void shouldExcludeFirmwareBase64ContentFromDecodedPayloadPreview() {
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+
+        String descriptor = """
+                {"did":"device-ota-1","ds_id":"ota-firmware","file_type":"bin","at":"2018-08-02T10:52:32.449Z","desc":"0-2-1024"}
+                """;
+        byte[] firmwarePacket = buildFirmwarePacket(1, new byte[]{0x11, 0x22, 0x33}, 2, "abcd1234");
+
+        DeviceUpMessage message = adapter.decode(buildType3Packet(descriptor, firmwarePacket), context);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> decodedPreview = (Map<String, Object>) readMetadata(getProtocolMetadata(message), "getDecodedPayloadPreview");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> events = (Map<String, Object>) decodedPreview.get("events");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fileEvent = (Map<String, Object>) events.get("file");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> firmwarePreview = (Map<String, Object>) fileEvent.get("_firmwarePacket");
+
+        assertNotNull(firmwarePreview);
+        assertEquals(1, firmwarePreview.get("packetIndex"));
+        assertEquals(2, firmwarePreview.get("totalPackets"));
+        assertFalse(firmwarePreview.containsKey("packetDataBase64"));
+    }
+
     private byte[] buildPacket(byte type, String json) {
         byte[] jsonBytes = json.trim().getBytes(StandardCharsets.UTF_8);
         int length = jsonBytes.length;
@@ -335,12 +517,30 @@ class MqttJsonProtocolAdapterTest {
     }
 
     private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties) {
-        return newAdapter(iotProperties, List.of());
+        return newAdapter(iotProperties, List.of(), parentDeviceCode -> List.of());
     }
 
     private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties, List<MqttPayloadDecryptor> decryptors) {
+        return newAdapter(iotProperties, decryptors, parentDeviceCode -> List.of());
+    }
+
+    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
+                                               List<MqttPayloadDecryptor> decryptors,
+                                               LegacyDpRelationResolver relationResolver) {
+        ProtocolDecryptProfileResolver resolver = context -> {
+            String appId = context == null ? null : context.appId();
+            for (MqttPayloadDecryptor decryptor : decryptors) {
+                if (decryptor.supports(appId)) {
+                    return legacyProfile(appId);
+                }
+            }
+            throw new BizException("未找到 appId 对应的 decrypt profile: " + safeAppId(appId));
+        };
         LegacyDpEnvelopeDecoder envelopeDecoder = new LegacyDpEnvelopeDecoder(
-                new MqttPayloadDecryptorRegistry(decryptors),
+                new MqttPayloadDecryptorRegistry(
+                        resolver,
+                        decryptors.stream().map(this::legacyExecutor).toList()
+                ),
                 new MqttPayloadFrameParser(),
                 new MqttPayloadSecurityValidator(
                         iotProperties,
@@ -351,8 +551,43 @@ class MqttJsonProtocolAdapterTest {
         );
         return new MqttJsonProtocolAdapter(
                 envelopeDecoder,
-                iotProperties
+                iotProperties,
+                relationResolver
         );
+    }
+
+    private ProtocolDecryptProfile legacyProfile(String appId) {
+        ProtocolDecryptProfile profile = new ProtocolDecryptProfile();
+        profile.setProfileCode("legacy-" + safeAppId(appId));
+        profile.setAlgorithm(legacyAlgorithm(appId));
+        profile.setMerchantSource("TEST");
+        profile.setMerchantKey(appId);
+        return profile;
+    }
+
+    private ProtocolDecryptExecutor legacyExecutor(MqttPayloadDecryptor decryptor) {
+        return new ProtocolDecryptExecutor() {
+            @Override
+            public boolean supports(String algorithm) {
+                if (algorithm == null || !algorithm.startsWith("LEGACY:")) {
+                    return false;
+                }
+                return decryptor.supports(algorithm.substring("LEGACY:".length()));
+            }
+
+            @Override
+            public byte[] decryptBytes(ProtocolDecryptProfile profile, String encryptedBody) {
+                return decryptor.decryptBytes(profile.getMerchantKey(), encryptedBody);
+            }
+        };
+    }
+
+    private String legacyAlgorithm(String appId) {
+        return "LEGACY:" + safeAppId(appId);
+    }
+
+    private String safeAppId(String appId) {
+        return appId == null ? "UNKNOWN" : appId;
     }
 
     private Object getProtocolMetadata(DeviceUpMessage message) {

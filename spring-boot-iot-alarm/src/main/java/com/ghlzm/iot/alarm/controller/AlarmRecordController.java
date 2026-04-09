@@ -43,7 +43,7 @@ public class AlarmRecordController {
      * 根据ID查询告警记录
      */
     @GetMapping("/{id}")
-    public R<AlarmRecord> getById(@PathVariable("id") Long id) {
+    public R<AlarmRecord> getById(@PathVariable Long id) {
         return R.ok(alarmRecordService.getRequiredById(id));
     }
 
@@ -51,7 +51,7 @@ public class AlarmRecordController {
      * 确认告警
      */
     @PostMapping("/{id}/confirm")
-    public R<Void> confirm(@PathVariable("id") Long id, @RequestParam("confirmUser") Long confirmUser) {
+    public R<Void> confirm(@PathVariable Long id, @RequestParam("confirmUser") Long confirmUser) {
         alarmRecordService.confirmAlarm(id, confirmUser);
         return R.ok();
     }
@@ -60,7 +60,7 @@ public class AlarmRecordController {
      * 抑制告警
      */
     @PostMapping("/{id}/suppress")
-    public R<Void> suppress(@PathVariable("id") Long id, @RequestParam("suppressUser") Long suppressUser) {
+    public R<Void> suppress(@PathVariable Long id, @RequestParam("suppressUser") Long suppressUser) {
         alarmRecordService.suppressAlarm(id, suppressUser);
         return R.ok();
     }
@@ -69,7 +69,7 @@ public class AlarmRecordController {
      * 关闭告警
      */
     @PostMapping("/{id}/close")
-    public R<Void> close(@PathVariable("id") Long id, @RequestParam("closeUser") Long closeUser) {
+    public R<Void> close(@PathVariable Long id, @RequestParam("closeUser") Long closeUser) {
         alarmRecordService.closeAlarm(id, closeUser);
         return R.ok();
     }

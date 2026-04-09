@@ -12,7 +12,7 @@
     <template #dropdown>
       <el-dropdown-menu class="standard-action-menu__dropdown">
         <el-dropdown-item
-          v-for="(item, index) in items"
+          v-for="(item, index) in resolvedItems"
           :key="item.key ?? `${item.label}-${index}`"
           :command="item.command"
           :disabled="item.disabled"
@@ -38,11 +38,12 @@ type ActionMenuItem = {
 
 const props = withDefaults(
   defineProps<{
-    items: ActionMenuItem[]
+    items?: ActionMenuItem[]
     label?: string
     disabled?: boolean
   }>(),
   {
+    items: () => [],
     label: '更多',
     disabled: false
   }
@@ -52,5 +53,6 @@ const emit = defineEmits<{
   (event: 'command', command: string | number | object): void
 }>()
 
-const resolvedDisabled = computed(() => props.disabled || props.items.length === 0)
+const resolvedItems = computed(() => props.items ?? [])
+const resolvedDisabled = computed(() => props.disabled || resolvedItems.value.length === 0)
 </script>

@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="ops-workbench event-disposal-view">
+  <StandardPageShell class="event-disposal-view">
     <StandardWorkbenchPanel
       title="事件列表"
       :description="`当前 ${pagination.total} 条事件记录，支持派发、关闭和导出复核。`"
@@ -17,9 +17,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.riskLevel" placeholder="风险等级" clearable>
-                <el-option label="严重" value="critical" />
-                <el-option label="警告" value="warning" />
-                <el-option label="提醒" value="info" />
+                <el-option
+                  v-for="option in riskLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -69,56 +72,95 @@
           ]"
         >
           <template #right>
-            <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton action="refresh" link :disabled="eventList.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="eventToolbarActions"
+              @command="handleToolbarAction"
+            />
           </template>
         </StandardTableToolbar>
       </template>
 
-      <div v-if="loading" class="ops-state">正在加载事件列表...</div>
-      <div v-else-if="eventList.length === 0" class="ops-state">暂无符合条件的事件记录</div>
-      <template v-else>
-        <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
-          <el-table-column type="selection" width="48" />
-          <StandardTableTextColumn prop="eventCode" label="事件编号" :width="180" />
-          <StandardTableTextColumn prop="eventTitle" label="事件标题" :min-width="220" />
-          <el-table-column prop="riskLevel" label="风险等级" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
-          <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
-          <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
-          <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
-          <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
-          <el-table-column label="操作" width="250" fixed="right">
-            <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide" wrap>
-                <StandardActionLink @click="handleViewDetail(row)">详情</StandardActionLink>
-                <StandardActionLink v-if="row.status === 0" @click="handleDispatch(row)">派发</StandardActionLink>
-                <StandardActionLink v-if="row.status !== 4" @click="handleClose(row)">关闭</StandardActionLink>
-              </StandardRowActions>
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新事件列表"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`event-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`event-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table ref="tableRef" :data="pagedEventList" border stripe @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="eventCode" label="事件编号" :width="180" />
+            <StandardTableTextColumn prop="eventTitle" label="事件标题" :min-width="220" />
+            <el-table-column prop="riskLevel" label="风险等级" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getRiskLevelType(row.riskLevel)" round>{{ getRiskLevelText(row.riskLevel) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
+            <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
+            <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+            <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
+            <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="triggerTime" label="触发时间" :width="180" />
+            <el-table-column
+              label="操作"
+              :width="eventActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getEventRowActions(row)"
+                  @command="(command) => handleEventRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <div class="ops-pagination">
+        <div v-if="pagination.total > 0" class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handlePageChange"
           />
@@ -135,9 +177,8 @@
 
     <StandardFormDrawer
       v-model="dispatchVisible"
-      eyebrow="Event Workflow"
       title="工单派发"
-      subtitle="统一通过右侧抽屉配置派发对象与处理时限。"
+      subtitle="配置派发对象与处理时限。"
       size="34rem"
       @close="closeDispatchDialog"
     >
@@ -170,9 +211,8 @@
 
     <StandardFormDrawer
       v-model="closeVisible"
-      eyebrow="Event Workflow"
       title="事件关闭"
-      subtitle="统一通过右侧抽屉填写关闭原因并完成事件收口。"
+      subtitle="填写关闭原因并完成事件收口。"
       size="34rem"
       @close="closeCloseDialog"
     >
@@ -201,23 +241,28 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import EventDetailDrawer from '@/components/EventDetailDrawer.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardActionMenu from '@/components/StandardActionMenu.vue';
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
+import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import { resolveWorkbenchActionColumnWidthByRows } from '@/utils/adaptiveActionColumn';
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue';
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv';
 import {
@@ -227,9 +272,12 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns';
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm';
+import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, type RiskLevelOption } from '@/utils/riskLevel';
 
 import { closeEvent, dispatchEvent, getEventDetail, getEventList } from '../api/alarm';
 import type { EventRecord } from '../api/alarm';
+
+type EventRowActionCommand = 'detail' | 'dispatch' | 'close';
 
 const loading = ref(false);
 const detailVisible = ref(false);
@@ -239,6 +287,7 @@ const dispatchVisible = ref(false);
 const closeVisible = ref(false);
 const eventList = ref<EventRecord[]>([]);
 const detail = ref<EventRecord | null>(null);
+const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const dispatchTarget = ref<EventRecord | null>(null);
 const closeTarget = ref<EventRecord | null>(null);
 const tableRef = ref();
@@ -272,6 +321,46 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 );
 const exportColumnDialogVisible = ref(false);
+let latestListRequestId = 0;
+const eventActionColumnWidth = computed(() =>
+  resolveWorkbenchActionColumnWidthByRows({
+    rows: pagedEventList.value.map((row) => ({
+      directItems: getEventRowActions(row)
+    })),
+    fallback: {
+      directItems: [
+        { command: 'detail', label: '详情' },
+        { command: 'dispatch', label: '派发' },
+        { command: 'close', label: '关闭' }
+      ]
+    }
+  })
+);
+const eventToolbarActions = computed(() => [
+  {
+    key: 'export-config',
+    command: 'export-config',
+    label: '导出列设置'
+  },
+  {
+    key: 'export-selected',
+    command: 'export-selected',
+    label: '导出选中',
+    disabled: selectedRows.value.length === 0
+  },
+  {
+    key: 'export-current',
+    command: 'export-current',
+    label: '导出当前结果',
+    disabled: eventList.value.length === 0
+  },
+  {
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  }
+]);
 
 const stats = ref({
   pendingEvents: 0,
@@ -293,6 +382,14 @@ const appliedFilters = reactive({
 
 const { pagination, applyLocalRecords, resetPage, setPageSize, setPageNum, setTotal } = useServerPagination();
 const pagedEventList = computed(() => applyLocalRecords(eventList.value));
+const hasRecords = computed(() => eventList.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的事件记录' : '当前还没有事件记录'));
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有事件记录，建议先刷新列表，或检查告警转事件和闭环处置链路是否正常。'
+);
 
 const dispatchForm = reactive({
   dispatchUserName: '系统管理员',
@@ -305,31 +402,7 @@ const closeForm = reactive({
   closeReason: ''
 });
 
-const getRiskLevelType = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    case 'info':
-      return 'info';
-    default:
-      return 'info';
-  }
-};
-
-const getRiskLevelText = (level: string) => {
-  switch (level) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level;
-  }
-};
+const getRiskLevelType = (level: string) => getRiskLevelTagType(level);
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -386,6 +459,7 @@ const {
 });
 
 const loadEventList = async () => {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
     const params: { deviceCode?: string; riskLevel?: string; status?: number } = {};
@@ -394,6 +468,9 @@ const loadEventList = async () => {
     if (appliedFilters.status) params.status = parseInt(appliedFilters.status, 10);
 
     const res = await getEventList(params);
+    if (requestId !== latestListRequestId) {
+      return;
+    }
     if (res.code === 200) {
       eventList.value = res.data || [];
       setTotal(eventList.value.length);
@@ -403,9 +480,20 @@ const loadEventList = async () => {
       stats.value.closedEvents = eventList.value.filter((e) => e.status === 4).length;
     }
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    eventList.value = [];
+    setTotal(0);
+    stats.value.pendingEvents = 0;
+    stats.value.dispatchedEvents = 0;
+    stats.value.processingEvents = 0;
+    stats.value.closedEvents = 0;
     console.error('查询事件列表失败', error);
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 };
 
@@ -433,6 +521,33 @@ const handleSelectionChange = (rows: EventRecord[]) => {
 const clearSelection = () => {
   tableRef.value?.clearSelection();
   selectedRows.value = [];
+};
+
+const getEventRowActions = (row: EventRecord) => {
+  const actions: Array<{ command: EventRowActionCommand; label: string }> = [{ command: 'detail', label: '详情' }];
+  if (row.status === 0) {
+    actions.push({ command: 'dispatch', label: '派发' });
+  }
+  if (row.status !== 4) {
+    actions.push({ command: 'close', label: '关闭' });
+  }
+  return actions;
+};
+
+const handleEventRowAction = (command: EventRowActionCommand, row: EventRecord) => {
+  switch (command) {
+    case 'detail':
+      void handleViewDetail(row);
+      break;
+    case 'dispatch':
+      void handleDispatch(row);
+      break;
+    case 'close':
+      void handleClose(row);
+      break;
+    default:
+      break;
+  }
 };
 
 const handleRefresh = () => {
@@ -468,6 +583,25 @@ const handleExportSelected = () => {
 
 const handleExportCurrent = () => {
   downloadRowsAsCsv('事件协同台-当前结果.csv', eventList.value, getResolvedExportColumns());
+};
+
+const handleToolbarAction = (command: string | number | object) => {
+  switch (command) {
+    case 'export-config':
+      openExportColumnSetting();
+      break;
+    case 'export-selected':
+      handleExportSelected();
+      break;
+    case 'export-current':
+      handleExportCurrent();
+      break;
+    case 'clear-selection':
+      clearSelection();
+      break;
+    default:
+      break;
+  }
 };
 
 const handleSizeChange = (size: number) => {
@@ -549,8 +683,18 @@ const handleCloseConfirm = async () => {
 
 onMounted(() => {
   syncAppliedFilters();
+  void loadRiskLevelOptions();
   void loadEventList();
 });
+
+async function loadRiskLevelOptions() {
+  try {
+    riskLevelOptions.value = await fetchRiskLevelOptions();
+  } catch (error) {
+    console.error('加载风险等级字典失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '加载风险等级字典失败');
+  }
+}
 
 function closeDispatchDialog() {
   dispatchVisible.value = false;
@@ -574,10 +718,7 @@ watch(detailVisible, (visible) => {
 
 <style scoped>
 .event-disposal-view {
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  min-width: 0;
 }
 
 .event-drawer-form :deep(.el-select),

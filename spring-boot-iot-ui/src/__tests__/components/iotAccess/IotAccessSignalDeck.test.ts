@@ -31,7 +31,6 @@ describe('IotAccessSignalDeck', () => {
     const wrapper = mount(IotAccessSignalDeck, {
       props: {
         lead: {
-          eyebrow: '先做什么',
           title: '优先处理产品契约阻塞',
           description: '停用库存阻塞和候选待确认都需要先收口。',
           action: {
@@ -67,6 +66,7 @@ describe('IotAccessSignalDeck', () => {
       '停用阻塞|4|compact',
       '最近活跃产品|9|compact'
     ]);
+    expect(wrapper.text()).not.toContain('先做什么');
   });
 
   it('supports lead-only rendering without metrics deck', () => {

@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -23,8 +26,10 @@ import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -36,8 +41,12 @@ import org.springframework.util.StringUtils;
 @Service
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
 
+    private static final int MAX_OBJECT_INSIGHT_CUSTOM_METRIC_COUNT = 20;
+    private static final int MAX_OBJECT_INSIGHT_TEMPLATE_LENGTH = 300;
+
     private final DeviceMapper deviceMapper;
     private final DeviceOnlineSessionService deviceOnlineSessionService;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public ProductServiceImpl(DeviceMapper deviceMapper, DeviceOnlineSessionService deviceOnlineSessionService) {
         this.deviceMapper = deviceMapper;
@@ -185,6 +194,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setDataFormat(resolveOptionalText(dto.getDataFormat(), "JSON"));
         product.setManufacturer(resolveOptionalText(dto.getManufacturer(), null));
         product.setDescription(resolveOptionalText(dto.getDescription(), null));
+        product.setMetadataJson(normalizeMetadataJson(dto.getMetadataJson()));
         product.setStatus(resolveProductStatus(dto.getStatus()));
     }
 
@@ -198,7 +208,12 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             wrapper.like(Product::getProductKey, productKey.trim());
         }
         if (StringUtils.hasText(productName)) {
-            wrapper.like(Product::getProductName, productName.trim());
+            String trimmedKeyword = productName.trim();
+            wrapper.and(query -> query.like(Product::getProductName, trimmedKeyword)
+                    .or()
+                    .like(Product::getProductKey, trimmedKeyword)
+                    .or()
+                    .like(Product::getManufacturer, trimmedKeyword));
         }
         if (StringUtils.hasText(protocolCode)) {
             wrapper.like(Product::getProtocolCode, protocolCode.trim());
@@ -323,6 +338,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         detail.setDataFormat(product.getDataFormat());
         detail.setManufacturer(product.getManufacturer());
         detail.setDescription(product.getDescription());
+        detail.setMetadataJson(product.getMetadataJson());
         detail.setStatus(product.getStatus());
         detail.setDeviceCount(resolveDeviceCount(stat));
         detail.setOnlineDeviceCount(resolveOnlineDeviceCount(stat));
@@ -381,6 +397,80 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             return defaultValue;
         }
         return value.trim();
+    }
+
+    private String normalizeMetadataJson(String metadataJson) {
+        if (!StringUtils.hasText(metadataJson)) {
+            return null;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(metadataJson.trim());
+            if (root == null || !root.isObject()) {
+                throw new BizException("产品扩展元数据必须是合法JSON对象");
+            }
+            validateObjectInsightConfig(root.path("objectInsight"));
+            return objectMapper.writeValueAsString(root);
+        } catch (BizException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BizException("产品扩展元数据必须是合法JSON对象");
+        }
+    }
+
+    private void validateObjectInsightConfig(JsonNode objectInsightNode) {
+        if (objectInsightNode == null || objectInsightNode.isMissingNode() || objectInsightNode.isNull()) {
+            return;
+        }
+        if (!objectInsightNode.isObject()) {
+            throw new BizException("对象洞察配置必须是JSON对象");
+        }
+        JsonNode customMetricsNode = objectInsightNode.path("customMetrics");
+        if (customMetricsNode.isMissingNode() || customMetricsNode.isNull()) {
+            return;
+        }
+        if (!customMetricsNode.isArray()) {
+            throw new BizException("对象洞察自定义指标必须是数组");
+        }
+        if (customMetricsNode.size() > MAX_OBJECT_INSIGHT_CUSTOM_METRIC_COUNT) {
+            throw new BizException("对象洞察自定义指标最多允许20项");
+        }
+
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (JsonNode metricNode : customMetricsNode) {
+            if (!metricNode.isObject()) {
+                throw new BizException("对象洞察自定义指标必须是JSON对象");
+            }
+            String identifier = requireMetricText(metricNode, "identifier", "对象洞察指标标识不能为空");
+            requireMetricText(metricNode, "displayName", "对象洞察指标中文名称不能为空");
+            String group = requireMetricText(metricNode, "group", "对象洞察指标分组不能为空");
+            if (!"measure".equals(group) && !"status".equals(group)) {
+                throw new BizException("对象洞察指标分组仅支持 measure 或 status");
+            }
+            if (!identifiers.add(identifier)) {
+                throw new BizException("对象洞察自定义指标标识符不能重复: " + identifier);
+            }
+            String analysisTemplate = resolveMetricText(metricNode, "analysisTemplate");
+            if (analysisTemplate != null && analysisTemplate.length() > MAX_OBJECT_INSIGHT_TEMPLATE_LENGTH) {
+                throw new BizException("对象洞察分析描述模板长度不能超过300");
+            }
+        }
+    }
+
+    private String requireMetricText(JsonNode metricNode, String fieldName, String message) {
+        String value = resolveMetricText(metricNode, fieldName);
+        if (!StringUtils.hasText(value)) {
+            throw new BizException(message);
+        }
+        return value;
+    }
+
+    private String resolveMetricText(JsonNode metricNode, String fieldName) {
+        JsonNode fieldNode = metricNode.path(fieldName);
+        if (!fieldNode.isTextual()) {
+            return null;
+        }
+        String value = fieldNode.asText();
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
 }

@@ -3,6 +3,7 @@ package com.ghlzm.iot.protocol.core.model;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 上行协议解码阶段输出的补充元数据。
@@ -17,4 +18,8 @@ public class DeviceUpProtocolMetadata {
     private String timestampSource;
     private Boolean childSplitApplied;
     private String routeType;
+    private String decryptedPayloadPreview;
+    private Map<String, Object> decodedPayloadPreview;
+    private ProtocolTemplateEvidence templateEvidence;
+    private List<ProtocolMetricEvidence> metricEvidence;
 }

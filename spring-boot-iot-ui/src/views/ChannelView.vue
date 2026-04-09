@@ -24,7 +24,7 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.channelType" placeholder="渠道类型" clearable>
-                <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
+                <el-option v-for="item in channelTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </template>
@@ -55,61 +55,101 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新通知渠道列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="channelCode" label="渠道编码" :width="150" />
-        <StandardTableTextColumn prop="channelName" label="渠道名称" :width="200" />
-        <el-table-column prop="channelType" label="渠道类型" width="120">
-          <template #default="{ row }">
-            <el-tag>{{ getChannelTypeName(row.channelType) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
-        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
-        <el-table-column label="操作" width="260" fixed="right" :show-overflow-tooltip="false">
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-              <StandardActionLink :disabled="!isTestableChannel(row.channelType)" @click="handleTest(row)">测试通知</StandardActionLink>
-              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`channel-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`channel-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="channelCode" label="渠道编码" :width="150" />
+            <StandardTableTextColumn prop="channelName" label="渠道名称" :width="200" />
+            <el-table-column prop="channelType" label="渠道类型" width="120">
+              <template #default="{ row }">
+                <el-tag>{{ getChannelTypeName(row.channelType) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+            <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
+            <el-table-column
+              label="操作"
+              :width="channelActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getChannelRowActions(row)"
+                  @command="(command) => handleChannelRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          class="pagination"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护通知编排与配置 JSON。"
+        subtitle="通过右侧抽屉维护通知编排规则与渠道配置 JSON。"
         size="44rem"
         @close="handleDialogClose"
       >
@@ -122,7 +162,7 @@
           </el-form-item>
           <el-form-item label="渠道类型" prop="channelType">
             <el-select v-model="formData.channelType" placeholder="请选择渠道类型">
-              <el-option v-for="item in CHANNEL_TYPES" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option v-for="item in channelTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="配置 JSON" prop="config">
@@ -171,6 +211,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
@@ -179,8 +220,10 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -193,12 +236,15 @@ import {
   CHANNEL_TYPES,
   addChannel,
   deleteChannel,
+  fetchChannelTypeOptions,
   getChannelByCode,
   pageChannels,
   testChannel,
   updateChannel,
   type ChannelRecord
 } from '@/api/channel'
+
+type ChannelRowActionCommand = 'edit' | 'test' | 'delete'
 
 const formRef = ref()
 const tableRef = ref()
@@ -208,7 +254,9 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增通知编排')
 const tableData = ref<ChannelRecord[]>([])
 const selectedRows = ref<ChannelRecord[]>([])
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
+const channelTypeOptions = ref(CHANNEL_TYPES.map((item) => ({ ...item })))
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
+let latestListRequestId = 0
 
 const searchForm = reactive({
   channelName: '',
@@ -302,6 +350,13 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 )
 const exportColumnDialogVisible = ref(false)
+const channelActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'test', label: '测试通知' },
+    { command: 'delete', label: '删除' }
+  ],
+})
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -321,8 +376,17 @@ const {
     channelType: undefined
   }
 })
+const hasRecords = computed(() => tableData.value.length > 0)
+const showListSkeleton = computed(() => loading.value && !hasRecords.value)
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的通知渠道' : '当前还没有通知渠道数据'))
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有可展示的通知渠道记录，建议稍后刷新，或先新增渠道。'
+)
 
 const loadChannelPage = async () => {
+  const requestId = ++latestListRequestId
   loading.value = true
   try {
     const res = await pageChannels({
@@ -332,19 +396,36 @@ const loadChannelPage = async () => {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
+    if (requestId !== latestListRequestId) {
+      return
+    }
     if (res.code === 200 && res.data) {
       tableData.value = applyPageResult(res.data)
+      return
     }
+    tableData.value = []
+    resetTotal()
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return
+    }
+    tableData.value = []
+    resetTotal()
     console.error('获取通知渠道分页失败', error)
   } finally {
-    loading.value = false
+    if (requestId === latestListRequestId) {
+      loading.value = false
+    }
   }
 }
 
-onMounted(() => {
+const loadChannelTypeOptions = async () => {
+  channelTypeOptions.value = await fetchChannelTypeOptions()
+}
+
+onMounted(async () => {
   syncAppliedFilters()
-  loadChannelPage()
+  await Promise.all([loadChannelTypeOptions(), loadChannelPage()])
 })
 
 const handleSearch = () => {
@@ -377,6 +458,29 @@ const handleClearAppliedFilters = () => {
 
 const handleSelectionChange = (rows: ChannelRecord[]) => {
   selectedRows.value = rows
+}
+
+function getChannelRowActions(row: ChannelRecord) {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'test' as const, label: '测试通知', disabled: !isTestableChannel(row.channelType) },
+    { command: 'delete' as const, label: '删除' }
+  ]
+}
+
+function handleChannelRowAction(command: ChannelRowActionCommand, row: ChannelRecord) {
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'test') {
+    if (!isTestableChannel(row.channelType)) {
+      return
+    }
+    handleTest(row)
+    return
+  }
+  handleDelete(row)
 }
 
 const clearSelection = () => {
@@ -492,8 +596,9 @@ const handleDialogClose = () => {
 }
 
 const getChannelTypeName = (type: string) => {
-  const matched = CHANNEL_TYPES.find((item) => item.value === type)
-  return matched?.label || type
+  const normalized = String(type || '').trim().toLowerCase()
+  const matched = channelTypeOptions.value.find((item) => item.value === normalized)
+  return matched?.label || normalized
 }
 
 const handleSizeChange = (size: number) => {

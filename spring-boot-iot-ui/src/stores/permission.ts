@@ -5,6 +5,7 @@ import { getCurrentUser } from '../api/auth';
 import type { RequestError } from '../api/request';
 import {
   canAccessSectionHome,
+  expandWorkspaceAllowedPaths,
   listSectionHomeConfigs,
   resolveRoleHomePath,
   resolveRoleWorkbenchProfile
@@ -109,7 +110,7 @@ export const usePermissionStore = defineStore('permission', () => {
     return authContext.value.displayName || authContext.value.realName || authContext.value.username;
   });
   const primaryRoleName = computed(() => roleNames.value[0] || '');
-  const allowedPaths = computed(() => collectMenuPaths(menus.value));
+  const allowedPaths = computed(() => expandWorkspaceAllowedPaths(collectMenuPaths(menus.value)));
   const staticFallbackPaths = computed(() => collectStaticFallbackPaths());
   const hasBoundRoles = computed(() => roleCodes.value.length > 0 || roleNames.value.length > 0);
   const roleProfile = computed(() => resolveRoleWorkbenchProfile(
@@ -135,14 +136,24 @@ export const usePermissionStore = defineStore('permission', () => {
     }
     return {
       id: authContext.value.userId,
+      tenantId: authContext.value.tenantId,
+      tenantName: authContext.value.tenantName,
+      orgId: authContext.value.orgId,
+      orgName: authContext.value.orgName,
       username: authContext.value.username,
+      nickname: authContext.value.nickname,
       realName: authContext.value.realName,
       displayName: displayName.value,
       phone: authContext.value.phone,
       email: authContext.value.email,
+      avatar: authContext.value.avatar,
       accountType: authContext.value.accountType,
       authStatus: authContext.value.authStatus,
       loginMethods: authContext.value.loginMethods || [],
+      lastLoginTime: authContext.value.lastLoginTime,
+      lastLoginIp: authContext.value.lastLoginIp,
+      dataScopeType: authContext.value.dataScopeType,
+      dataScopeSummary: authContext.value.dataScopeSummary,
       roleNames: roleNames.value,
       roleCodes: roleCodes.value
     };

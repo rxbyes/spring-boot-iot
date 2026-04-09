@@ -16,3 +16,5 @@ export {
 export * from './product';
 export * from './device';
 export * from './message';
+export * from './governanceApproval';
+export * from './governanceSecurity';

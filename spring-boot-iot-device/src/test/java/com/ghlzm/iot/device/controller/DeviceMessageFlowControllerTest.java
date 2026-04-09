@@ -2,24 +2,29 @@ package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.MessageFlowRecentQuery;
+import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowOpsOverviewVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowRecentSessionVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowSessionVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowTimelineVO;
+import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowMetricsRecorder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStatuses;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimeline;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.Authentication;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +40,10 @@ class DeviceMessageFlowControllerTest {
     private MessageFlowTimelineStore messageFlowTimelineStore;
     @Mock
     private MessageFlowMetricsRecorder messageFlowMetricsRecorder;
+    @Mock
+    private DeviceMessageService deviceMessageService;
+    @Mock
+    private Authentication authentication;
 
     private DeviceMessageFlowController controller;
 
@@ -43,7 +52,12 @@ class DeviceMessageFlowControllerTest {
         MessageFlowProperties properties = new MessageFlowProperties();
         properties.setSessionMatchWindowSeconds(120);
         properties.setRecentSessionLimit(500);
-        controller = new DeviceMessageFlowController(messageFlowTimelineStore, messageFlowMetricsRecorder, properties);
+        controller = new DeviceMessageFlowController(
+                messageFlowTimelineStore,
+                messageFlowMetricsRecorder,
+                properties,
+                deviceMessageService
+        );
     }
 
     @Test
@@ -139,5 +153,32 @@ class DeviceMessageFlowControllerTest {
         assertEquals(1, response.getData().getLookupCounts().size());
         assertEquals(1, response.getData().getStageMetrics().size());
         assertEquals("INGRESS", response.getData().getStageMetrics().get(0).getStage());
+    }
+
+    @Test
+    void getTraceDetailShouldReturnRecoveredPayloadComparisonWhenTimelineMissing() {
+        MessageTraceDetailVO detail = new MessageTraceDetailVO();
+        detail.setId(1L);
+        detail.setTraceId("trace-001");
+        detail.setDeviceCode("demo-device-01");
+        detail.setProductKey("demo-product");
+        detail.setTopic("$dp");
+        detail.setRawPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+        detail.setDecryptedPayload("{\"17165802\":{\"temperature\":26.5}}");
+        detail.setDecodedPayload(Map.of(
+                "messageType", "property",
+                "deviceCode", "17165802",
+                "properties", Map.of("temperature", 26.5)
+        ));
+        when(authentication.getPrincipal()).thenReturn(new JwtUserPrincipal(99L, "tester"));
+        when(deviceMessageService.getMessageTraceDetail(99L, 1L)).thenReturn(detail);
+        when(messageFlowTimelineStore.getTimeline("trace-001")).thenReturn(Optional.empty());
+
+        R<MessageTraceDetailVO> response = controller.getTraceDetail(1L, authentication);
+
+        assertNotNull(response.getData());
+        assertEquals("{\"17165802\":{\"temperature\":26.5}}", response.getData().getDecryptedPayload());
+        assertEquals("17165802", response.getData().getDecodedPayload().get("deviceCode"));
+        verify(deviceMessageService).getMessageTraceDetail(99L, 1L);
     }
 }

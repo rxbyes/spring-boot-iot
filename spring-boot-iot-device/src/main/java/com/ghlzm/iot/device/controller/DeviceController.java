@@ -6,6 +6,8 @@ import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchDeleteDTO;
 import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
+import com.ghlzm.iot.device.dto.DeviceSecretRotateDTO;
+import com.ghlzm.iot.device.service.DeviceSecretCustodyService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
@@ -13,13 +15,17 @@ import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
+import com.ghlzm.iot.device.vo.DeviceSecretRotateResultVO;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,35 +38,40 @@ import java.util.List;
 public class DeviceController {
 
     private final DeviceService deviceService;
+    private final DeviceSecretCustodyService deviceSecretCustodyService;
 
-    public DeviceController(DeviceService deviceService) {
+    public DeviceController(DeviceService deviceService,
+                            DeviceSecretCustodyService deviceSecretCustodyService) {
         this.deviceService = deviceService;
+        this.deviceSecretCustodyService = deviceSecretCustodyService;
     }
 
     @PostMapping("/api/device/add")
-    public R<DeviceDetailVO> add(@RequestBody @Valid DeviceAddDTO dto) {
+    public R<DeviceDetailVO> add(@RequestBody @Valid DeviceAddDTO dto, Authentication authentication) {
         // 设备创建逻辑放在服务层，控制层仅做参数接收。
-        return R.ok(deviceService.addDevice(dto));
+        return R.ok(deviceService.addDevice(requireCurrentUserId(authentication), dto));
     }
 
     @PostMapping("/api/device/batch-add")
-    public R<DeviceBatchAddResultVO> batchAdd(@RequestBody @Valid DeviceBatchAddDTO dto) {
-        return R.ok(deviceService.batchAddDevices(dto.getItems()));
+    public R<DeviceBatchAddResultVO> batchAdd(@RequestBody @Valid DeviceBatchAddDTO dto, Authentication authentication) {
+        return R.ok(deviceService.batchAddDevices(requireCurrentUserId(authentication), dto.getItems()));
     }
 
     @GetMapping("/api/device/{id}")
-    public R<DeviceDetailVO> getById(@PathVariable("id") Long id) {
-        return R.ok(deviceService.getDetailById(id));
+    public R<DeviceDetailVO> getById(@PathVariable("id") Long id, Authentication authentication) {
+        return R.ok(deviceService.getDetailById(requireCurrentUserId(authentication), id));
     }
 
     @GetMapping("/api/device/code/{deviceCode}")
-    public R<DeviceDetailVO> getByCode(@PathVariable String deviceCode) {
-        return R.ok(deviceService.getDetailByCode(deviceCode));
+    public R<DeviceDetailVO> getByCode(@PathVariable String deviceCode, Authentication authentication) {
+        return R.ok(deviceService.getDetailByCode(requireCurrentUserId(authentication), deviceCode));
     }
 
     @GetMapping("/api/device/page")
     public R<PageResult<DevicePageVO>> page(@RequestParam(required = false) Long deviceId,
+                                            @RequestParam(required = false) String keyword,
                                             @RequestParam(required = false) String productKey,
+                                            @RequestParam(required = false) String productName,
                                             @RequestParam(required = false) String deviceCode,
                                             @RequestParam(required = false) String deviceName,
                                             @RequestParam(required = false) Integer onlineStatus,
@@ -68,10 +79,14 @@ public class DeviceController {
                                             @RequestParam(required = false) Integer deviceStatus,
                                             @RequestParam(required = false) Integer registrationStatus,
                                             @RequestParam(defaultValue = "1") Long pageNum,
-                                            @RequestParam(defaultValue = "10") Long pageSize) {
+                                            @RequestParam(defaultValue = "10") Long pageSize,
+                                            Authentication authentication) {
         return R.ok(deviceService.pageDevices(
+                requireCurrentUserId(authentication),
                 deviceId,
+                keyword,
                 productKey,
+                productName,
                 deviceCode,
                 deviceName,
                 onlineStatus,
@@ -84,34 +99,57 @@ public class DeviceController {
     }
 
     @PutMapping("/api/device/{id}")
-    public R<DeviceDetailVO> update(@PathVariable("id") Long id, @RequestBody @Valid DeviceAddDTO dto) {
-        return R.ok(deviceService.updateDevice(id, dto));
+    public R<DeviceDetailVO> update(@PathVariable("id") Long id, @RequestBody @Valid DeviceAddDTO dto, Authentication authentication) {
+        return R.ok(deviceService.updateDevice(requireCurrentUserId(authentication), id, dto));
     }
 
     @PostMapping("/api/device/{id}/replace")
-    public R<DeviceReplaceResultVO> replace(@PathVariable("id") Long id, @RequestBody @Valid DeviceReplaceDTO dto) {
-        return R.ok(deviceService.replaceDevice(id, dto));
+    public R<DeviceReplaceResultVO> replace(@PathVariable("id") Long id,
+                                            @RequestBody @Valid DeviceReplaceDTO dto,
+                                            Authentication authentication) {
+        return R.ok(deviceService.replaceDevice(requireCurrentUserId(authentication), id, dto));
+    }
+
+    @PostMapping("/api/device/{id}/secret-rotate")
+    public R<DeviceSecretRotateResultVO> rotateSecret(@PathVariable("id") Long id,
+                                                      @RequestBody @Valid DeviceSecretRotateDTO dto,
+                                                      @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                      Authentication authentication) {
+        return R.ok(deviceSecretCustodyService.rotateDeviceSecret(
+                requireCurrentUserId(authentication),
+                id,
+                approverUserId,
+                dto
+        ));
     }
 
     @DeleteMapping("/api/device/{id}")
-    public R<Void> delete(@PathVariable("id") Long id) {
-        deviceService.deleteDevice(id);
+    public R<Void> delete(@PathVariable("id") Long id, Authentication authentication) {
+        deviceService.deleteDevice(requireCurrentUserId(authentication), id);
         return R.ok();
     }
 
     @PostMapping("/api/device/batch-delete")
-    public R<Void> batchDelete(@RequestBody @Valid DeviceBatchDeleteDTO dto) {
-        deviceService.batchDeleteDevices(dto.getIds());
+    public R<Void> batchDelete(@RequestBody @Valid DeviceBatchDeleteDTO dto, Authentication authentication) {
+        deviceService.batchDeleteDevices(requireCurrentUserId(authentication), dto.getIds());
         return R.ok();
     }
 
     @GetMapping("/api/device/list")
-    public R<List<DeviceOptionVO>> listDeviceOptions(@RequestParam(defaultValue = "false") boolean includeDisabled) {
-        return R.ok(deviceService.listDeviceOptions(includeDisabled));
+    public R<List<DeviceOptionVO>> listDeviceOptions(@RequestParam(defaultValue = "false") boolean includeDisabled,
+                                                     Authentication authentication) {
+        return R.ok(deviceService.listDeviceOptions(requireCurrentUserId(authentication), includeDisabled));
     }
 
     @GetMapping("/api/device/{deviceId}/metrics")
-    public R<List<DeviceMetricOptionVO>> listMetricOptions(@PathVariable Long deviceId) {
-        return R.ok(deviceService.listMetricOptions(deviceId));
+    public R<List<DeviceMetricOptionVO>> listMetricOptions(@PathVariable Long deviceId, Authentication authentication) {
+        return R.ok(deviceService.listMetricOptions(requireCurrentUserId(authentication), deviceId));
+    }
+
+    private Long requireCurrentUserId(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+            throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+        }
+        return principal.userId();
     }
 }

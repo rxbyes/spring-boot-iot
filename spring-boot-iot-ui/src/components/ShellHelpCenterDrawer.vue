@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Shell Help"
     title="帮助中心"
     subtitle="按分类、关键字和当前页面上下文统一查看权限内帮助资料。"
     size="56rem"

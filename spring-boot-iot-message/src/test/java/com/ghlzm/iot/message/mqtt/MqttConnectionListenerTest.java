@@ -6,6 +6,8 @@ import com.ghlzm.iot.device.entity.DeviceAccessErrorLog;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
+import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStages;
+import com.ghlzm.iot.message.pipeline.MessagePipelineFailureMetadata;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
@@ -69,6 +71,36 @@ class MqttConnectionListenerTest {
         assertEquals("device_validate", archiveCall.failureStage());
         assertSame(rawDeviceMessage, archiveCall.rawDeviceMessage());
         assertSame(ex, archiveCall.throwable());
+    }
+
+    @Test
+    void shouldUsePipelineFailureMetadataWhenDispatchContextIsMissing() {
+        AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
+        AtomicReference<ArchiveCall> archived = new AtomicReference<>();
+        MqttConnectionListener listener = newListener(captured, archived);
+        RuntimeException ex = new RuntimeException("Unknown column 'metadata_json' in 'field list'");
+        RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
+        rawDeviceMessage.setTraceId("trace-demo-002");
+        rawDeviceMessage.setDeviceCode("demo-device-03");
+        rawDeviceMessage.setProductKey("demo-product");
+        rawDeviceMessage.setProtocolCode("mqtt-json");
+        rawDeviceMessage.setMessageType("property");
+        rawDeviceMessage.setTopicRouteType("legacy");
+        rawDeviceMessage.setTopic("$dp");
+        MessagePipelineFailureMetadata.attach(ex, MessageFlowStages.DEVICE_CONTRACT, "trace-demo-002", rawDeviceMessage, null);
+
+        listener.onMessageDispatchFailed("$dp", "{\"temp\":26.5}".getBytes(StandardCharsets.UTF_8), null, ex);
+
+        BackendExceptionEvent event = captured.get();
+        assertNotNull(event);
+        assertEquals("device_contract", event.context().get("failureStage"));
+        assertEquals("trace-demo-002", event.context().get("traceId"));
+        assertEquals("demo-device-03", event.context().get("deviceCode"));
+
+        ArchiveCall archiveCall = archived.get();
+        assertNotNull(archiveCall);
+        assertEquals("device_contract", archiveCall.failureStage());
+        assertSame(rawDeviceMessage, archiveCall.rawDeviceMessage());
     }
 
     @Test
@@ -141,12 +173,16 @@ class MqttConnectionListenerTest {
 
             @Override
             public PageResult<DeviceAccessErrorLog> pageLogs(
-                    com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize) {
+                    Long currentUserId,
+                    com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query,
+                    Integer pageNum,
+                    Integer pageSize) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
             public com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO getStats(
+                    Long currentUserId,
                     com.ghlzm.iot.device.dto.DeviceAccessErrorQuery query) {
                 throw new UnsupportedOperationException();
             }
@@ -158,7 +194,7 @@ class MqttConnectionListenerTest {
             }
 
             @Override
-            public DeviceAccessErrorLog getById(Long id) {
+            public DeviceAccessErrorLog getById(Long currentUserId, Long id) {
                 throw new UnsupportedOperationException();
             }
         });

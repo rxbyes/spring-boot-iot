@@ -34,6 +34,20 @@ public class ProductModelCandidateVO {
 
     private String groupKey;
 
+    private String evidenceOrigin;
+
+    private String unit;
+
+    private String normativeSource;
+
+    private List<String> rawIdentifiers;
+
+    private String monitorContentCode;
+
+    private String monitorTypeCode;
+
+    private String sensorCode;
+
     private Double confidence;
 
     private Boolean needsReview;
@@ -49,4 +63,6 @@ public class ProductModelCandidateVO {
     private LocalDateTime lastReportTime;
 
     private List<String> sourceTables;
+
+    private ProductModelProtocolTemplateEvidenceVO protocolTemplateEvidence;
 }

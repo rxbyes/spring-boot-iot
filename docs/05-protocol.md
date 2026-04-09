@@ -161,12 +161,22 @@ Payload：
   - 协议层会从最外层 key 提取 `deviceCode`
   - 设备状态、GNSS、倾角仪、加速度等嵌套数据会被拍平成属性
   - 属性标识形如 `L1_QJ_1.X`、`L1_JS_1.gY`、`S1_ZT_1.ext_power_volt`
-  - 若配置了 `iot.device.sub-device-mappings.{baseStationDeviceCode}.{logicalCode}={childDeviceCode}`，协议层会把“基准站一包多测点”报文拆成多个 `childMessages`：
+  - 若父设备已在 `iot_device_relation` 中登记“逻辑通道 -> 子设备”关系，协议层会优先按关系主数据把“基准站/采集中枢一包多测点”报文拆成多个 `childMessages`；若关系主数据缺失，才回退到 `iot.device.sub-device-mappings.{baseStationDeviceCode}.{logicalCode}={childDeviceCode}` 配置兜底：
     - 父消息继续保留原始密文/明文日志与在线状态更新
     - 子消息按映射后的真实 `deviceCode` 分别进入 `device` 模块落库
-    - 当逻辑测点值为 `时间戳 -> 对象` 结构时，子消息属性会写成对象内字段，例如 `dispsX`、`dispsY`
-    - 当逻辑测点值为 `时间戳 -> 标量` 结构时，子消息属性会回落为该逻辑测点自身
-  - 对于未配置 `sub-device-mappings`、且 payload 家族只包含父级状态 `S1_ZT_1` 与单个深部位移逻辑测点 `L1_SW_*` 的场景，协议层会把父消息中的 `L1_SW_1.dispsX / L1_SW_1.dispsY` 折叠回当前设备属性 `dispsX / dispsY`，避免把单设备深部位移误写成基站子测点前缀属性
+    - `2026-04-05` 起，legacy `$dp` v2 子拆分已收口为“`Template Registry -> Template Matcher -> Template Executor -> Splitter Orchestrator`”四层结构：
+      - `Template Registry` 当前以内置代码顺序注册 `crack_child_template`、`deep_displacement_child_template`
+      - `Template Matcher` 按 `relationRule + logicalCode + logicalPayload` 判断是否命中正式模板
+      - `Template Executor` 当前稳定输出 `templateCode`、`childProperties`、`parentRemovalKeys`、`statusMirrorApplied`、`canonicalizationStrategy`
+      - `LegacyDpChildMessageSplitter` 继续只负责关系规则读取、模板调用、`childMessages` 组装、父属性清理与兼容 fallback
+    - 当逻辑测点值为 `时间戳 -> 对象` 结构，且 `logicalCode` 命中 `L1_SW_*` 时，会命中 `deep_displacement_child_template`，子消息属性保持对象内字段名，例如 `dispsX`、`dispsY`
+    - 当逻辑测点值为 `时间戳 -> 标量` 结构，且 `logicalCode` 命中 `L1_LF_*` 时，会命中 `crack_child_template`
+    - 未命中正式模板但仍存在父子映射时，协议层继续回退到兼容拆分路径，维持其他 legacy 家族的既有行为不退化
+    - 对于 `SK00EA0D1307986` 这类“采集中枢 + 裂缝子设备”场景，若映射逻辑测点为 `L1_LF_n`，子消息会把标量统一收口为 `value`，不再继续保留 `L1_LF_n` 作为子设备正式属性键
+    - 若父报文同时携带 `S1_ZT_1.sensor_state.L1_LF_n`，协议层会把对应通道状态镜像到子消息 `sensor_state`，用于子设备侧展示测点健康态
+    - 父消息在完成裂缝子设备拆分后，不再保留 `L1_LF_n` 裂缝主监测值，但仍保留 `S1_ZT_1.*` 与 `S1_ZT_1.sensor_state.L1_LF_n`
+    - 当前配置项 `iot.device.sub-device-mappings` 已降级为 legacy 兼容入口，不再作为正式主数据来源；长期关系治理以 `iot_device_relation` 为准
+  - 对于未配置设备关系主数据、且也未命中 `sub-device-mappings` 兜底，同时 payload 家族只包含父级状态 `S1_ZT_1` 与单个深部位移逻辑测点 `L1_SW_*` 的场景，协议层会把父消息中的 `L1_SW_1.dispsX / L1_SW_1.dispsY` 折叠回当前设备属性 `dispsX / dispsY`，避免把单设备深部位移误写成基站子测点前缀属性
 - 对于加密 JSON：
   - 当前已实现 `MqttPayloadDecryptor` 扩展点和 `SpringCloudAesMqttPayloadDecryptor`
   - 默认按 `header.appId` 选择 `spring.cloud.aes.merchants` 中的厂商密钥
@@ -176,6 +186,9 @@ Payload：
 - 默认兼容路径仍为 v1：继续复用 adapter 内原有 inline helper。
 - v2 路径复用 `LegacyDpFamilyResolver`、`LegacyDpPropertyNormalizer`、`LegacyDpChildMessageSplitter`。
 - 2026-03-25：`LegacyDpChildMessageSplitter` 已补齐单设备深部位移兜底逻辑。无子设备映射、且 family code 仅包含 `S1_ZT_1` 与单个 `L1_SW_*` 逻辑测点时，会把逻辑前缀属性折叠为当前设备的 `dispsX / dispsY`，继续保持基准站拆子设备场景不变；`MqttJsonProtocolAdapter` 适配器层回归也已补齐。
+- 2026-04-05：Phase 5 Wave 1 协议模板执行底座已落地到 v2 路径。当前裂缝与深部位移父子拆分不再直接硬编码在 `LegacyDpChildMessageSplitter` 内，而是以 `crack_child_template`、`deep_displacement_child_template` 两个内置模板承载；`LegacyDpChildMessageSplitter` 只保留总编排与兼容 fallback，并已补齐“可替换模板注册表/匹配器”构造入口，方便后续继续扩展配置化注册与治理面消费模板元信息。
+- 2026-04-05：`MqttJsonProtocolAdapter` 当前会把模板执行证据外提到 `DeviceUpProtocolMetadata.templateEvidence`：固定包含 `templateCodes[]`，以及按通道展开的 `executions[]`（`templateCode / logicalChannelCode / childDeviceCode / canonicalizationStrategy / statusMirrorApplied / parentRemovalKeys[]`）。该结构已同时服务 `message-flow` 时间线摘要和 `/api/device/message-flow/detail/{id}` 的过期详情恢复，不再只停留在 splitter 内部。
+- 2026-04-05：Phase 5 Wave 2 已把这份模板证据正式接入产品治理消费面。`spring-boot-iot-device` 当前会在 `/api/device/product/{productId}/model-governance/compare` 读路径内，基于近期真实 `iot_device_message_log` 轻量重解码并聚合治理侧快照，把 `templateCodes / logicalChannelCodes / childDeviceCodes / canonicalizationStrategies / statusMirrorApplied / parentRemovalKeys / templateExecutionCount / decodeFailureCount` 挂到 `runtimeCandidate.protocolTemplateEvidence`；`/api/device/product/{productId}/model-governance/apply` 会复用最近一次 compare 已生成的模板快照回传最小来源回执，不会在 apply 阶段再次重解码真实报文，这些模板元信息也仍不写入正式模型表。
 - `iot.telemetry.legacy-mapping-validate-only=true` 时会并行执行 old/new 比对并输出差异日志，但 decode 结果继续沿用 v1。
 - `iot.protocol.legacy-dp.normalizer-v2-enabled=true` 后，才会把 legacy `$dp` 的标准化与子消息拆分切换到 v2。
 - 以上切换只发生在协议层内部，不改变 `MqttMessageConsumer`、固定 Pipeline 顺序、控制器接口或外部 API 结构。
@@ -198,7 +211,7 @@ Payload：
 - `message` 模块负责固定 Pipeline 编排；`MqttMessageConsumer` 和 `DeviceHttpController` 都统一进入同一条 Pipeline。
 - `TOPIC_ROUTE` 继续由 `MqttTopicRouter` 负责；HTTP 入口在该阶段固定标记为 `SKIPPED/DIRECT_HTTP`。
 - `PROTOCOL_DECODE` 继续由 `MqttJsonProtocolAdapter` 负责，不再顺带承担“流程展示”职责；阶段摘要固定输出 `routeType`、`messageType`、`dataFormatType`、`childMessageCount`、`filePayload`。
-- 当 `iot.protocol.legacy-dp.family-observability-enabled=true` 时，legacy `$dp` 的 `PROTOCOL_DECODE` 还会输出 `appId`、`familyCodes`、`normalizationStrategy`、`timestampSource`、`childSplitApplied`。
+- 当 `iot.protocol.legacy-dp.family-observability-enabled=true` 时，legacy `$dp` 的 `PROTOCOL_DECODE` 还会输出 `appId`、`familyCodes`、`normalizationStrategy`、`timestampSource`、`childSplitApplied`，以及模板化拆分摘要 `templateCodes`、`templateExecutionCount`、`templateLogicalCodes`。
 - 当 `iot.protocol.legacy-dp.family-observability-enabled=false` 时，legacy `$dp` 仍正常解码与入库，但不再附带协议元数据。
 - `device` 模块负责 `DEVICE_CONTRACT / MESSAGE_LOG / PAYLOAD_APPLY / DEVICE_STATE / RISK_DISPATCH` 等显式 stage handler。
 - `telemetry` 模块负责 `TELEMETRY_PERSIST`，按标准化 `properties` 写 TDengine；`reply` / 文件载荷 / 空属性消息会跳过该步骤。

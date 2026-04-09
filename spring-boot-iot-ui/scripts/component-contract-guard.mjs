@@ -42,7 +42,7 @@ const governedColumnAllowlist = new Map([
   ],
   [
     path.join(viewsRoot, 'RiskPointView.vue'),
-    new Set(['风险等级', '状态', '操作'])
+    new Set(['所属组织', '风险等级', '状态', '操作'])
   ],
   [
     path.join(viewsRoot, 'RuleDefinitionView.vue'),
@@ -115,6 +115,14 @@ const governedColumnAllowlist = new Map([
     path.join(viewsRoot, 'AutomationTestCenterView.vue'),
     new Set(['断言'])
   ]
+]);
+
+const governedActionColumnClassFiles = new Set([
+  path.join(viewsRoot, 'ProductWorkbenchView.vue'),
+  path.join(viewsRoot, 'DeviceWorkbenchView.vue'),
+  path.join(viewsRoot, 'MessageTraceView.vue'),
+  path.join(viewsRoot, 'AuditLogView.vue'),
+  path.join(sourceRoot, 'components', 'AccessErrorArchivePanel.vue')
 ]);
 
 function toRelative(filePath) {
@@ -229,6 +237,23 @@ function scanGovernedRawColumns(filePath, content, errors) {
   }
 }
 
+function scanGovernedActionColumnClass(filePath, content, errors) {
+  if (!governedActionColumnClassFiles.has(filePath)) {
+    return;
+  }
+
+  const pattern = /<el-table-column\b[\s\S]*?\blabel\s*=\s*["']操作["'][\s\S]*?>/g;
+  for (const match of collectMatches(content, pattern)) {
+    if (!/\bclass-name\s*=\s*["']standard-row-actions-column["']/.test(match[0])) {
+      errors.push({
+        file: filePath,
+        line: getLineNumber(content, match.index),
+        message: '纳管页面的“操作”列必须声明 class-name="standard-row-actions-column"，避免固定列尾部再次出现裁切圆点与间距漂移。'
+      });
+    }
+  }
+}
+
 function printErrors(errors) {
   console.error('\nComponent contract guard failed:');
   for (const error of errors) {
@@ -251,6 +276,16 @@ async function main() {
     const content = await fs.readFile(filePath, 'utf8');
     scanActionDeepOverrides(filePath, content, errors);
     scanGovernedRawColumns(filePath, content, errors);
+    scanGovernedActionColumnClass(filePath, content, errors);
+  }
+
+  for (const filePath of governedActionColumnClassFiles) {
+    if (viewFiles.includes(filePath)) {
+      continue;
+    }
+
+    const content = await fs.readFile(filePath, 'utf8');
+    scanGovernedActionColumnClass(filePath, content, errors);
   }
 
   if (errors.length > 0) {

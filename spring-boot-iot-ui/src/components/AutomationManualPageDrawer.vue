@@ -1,7 +1,6 @@
 <template>
   <StandardFormDrawer
     v-model="visible"
-    eyebrow="Page Inventory"
     title="新增自定义页面"
     subtitle="统一通过右侧抽屉补充未纳入菜单树的页面盘点信息，并生成推荐测试模板。"
     size="46rem"

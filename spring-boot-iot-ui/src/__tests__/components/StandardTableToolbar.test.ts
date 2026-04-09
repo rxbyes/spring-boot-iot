@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
@@ -18,5 +20,16 @@ describe('StandardTableToolbar', () => {
     expect(wrapper.find('.table-action-bar__left').classes()).toContain('standard-table-toolbar__meta-rail')
     expect(wrapper.findAll('.table-action-bar__meta')).toHaveLength(2)
     expect(wrapper.find('.toolbar-action').exists()).toBe(true)
+  })
+
+  it('binds toolbar meta typography to the shared quiet hierarchy tokens', () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, '../../components/StandardTableToolbar.vue'),
+      'utf8'
+    )
+
+    expect(source).toContain('var(--type-toolbar-meta-size)')
+    expect(source).toContain('var(--type-label-size)')
+    expect(source).toContain('var(--font-letter-spacing-wide)')
   })
 })

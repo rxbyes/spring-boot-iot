@@ -1,17 +1,16 @@
 <template>
-  <div class="section-landing page-stack">
+  <StandardPageShell
+    class="section-landing page-stack"
+    :show-breadcrumbs="accessibleCards.length > 0"
+    :breadcrumbs="accessibleCards.length ? [{ label: config?.title || '接入智维' }] : []"
+    :show-title="false"
+  >
     <template v-if="accessibleCards.length">
-      <IotAccessPageShell
-        :breadcrumbs="[{ label: config?.title || '接入智维' }]"
-        :show-title="false"
-      />
-
       <IotAccessTabWorkspace :items="landingTabs" default-key="asset" :sync-query="false">
         <template #default="{ activeKey }">
           <StandardWorkbenchPanel
-            eyebrow="QUIET CONSOLE"
             title="页面入口"
-            description="先筛入口，再进入对应业务页。"
+            description="按职责筛选入口，再进入对应业务页。"
             show-filters
           >
             <template #filters>
@@ -53,7 +52,6 @@
 
     <PanelCard
       v-else
-      eyebrow="ACCESS STATUS"
       title="当前账号暂无可用入口"
       description="当前账号尚未配置该分组下的页面权限，请联系管理员确认菜单授权。"
     >
@@ -62,7 +60,7 @@
         description="当前账号没有该一级分组下的可用页面，暂时无法进入具体能力页。"
       />
     </PanelCard>
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -72,8 +70,8 @@ import { RouterLink, useRoute } from 'vue-router'
 import EmptyState from '@/components/EmptyState.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import {
   getSectionHomeConfigByPath,

@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Event Detail"
     :title="drawerTitle"
     :subtitle="drawerSubtitle"
     :tags="drawerTags"
@@ -16,19 +15,24 @@
       <div class="detail-section-header">
         <div>
           <h3>事件概览</h3>
-          <p>聚合风险等级、处置状态、责任人和时效要求，让事件详情更符合值班处置场景。</p>
+          <p>聚合风险等级、处置态势、执行角色和时效要求，让事件详情更符合值班处置场景。</p>
         </div>
       </div>
       <div class="detail-summary-grid">
         <article class="detail-summary-card">
-          <span class="detail-summary-card__label">风险等级</span>
-          <strong class="detail-summary-card__value">{{ getRiskLevelText(detail?.riskLevel) }}</strong>
+          <span class="detail-summary-card__label">当前风险态势</span>
+          <strong class="detail-summary-card__value">{{ getCurrentRiskLevelText(detail) }}</strong>
           <p class="detail-summary-card__hint">关联告警：{{ detail?.alarmCode || '--' }}</p>
+        </article>
+        <article class="detail-summary-card">
+          <span class="detail-summary-card__label">告警等级</span>
+          <strong class="detail-summary-card__value">{{ getAlarmLevelText(detail?.alarmLevel) }}</strong>
+          <p class="detail-summary-card__hint">处置进展：{{ getStatusText(detail?.status) }}</p>
         </article>
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">当前状态</span>
           <strong class="detail-summary-card__value">{{ getStatusText(detail?.status) }}</strong>
-          <p class="detail-summary-card__hint">触发时间：{{ formatDateTime(detail?.triggerTime) }}</p>
+          <p class="detail-summary-card__hint">发生时间：{{ formatDateTime(detail?.triggerTime) }}</p>
         </article>
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">责任人</span>
@@ -65,12 +69,12 @@
           <strong class="detail-field__value">{{ detail?.eventTitle || '--' }}</strong>
         </div>
         <div class="detail-field">
-          <span class="detail-field__label">风险等级</span>
-          <strong class="detail-field__value">{{ getRiskLevelText(detail?.riskLevel) }}</strong>
+          <span class="detail-field__label">当前风险态势</span>
+          <strong class="detail-field__value">{{ getCurrentRiskLevelText(detail) }}</strong>
         </div>
         <div class="detail-field">
-          <span class="detail-field__label">当前状态</span>
-          <strong class="detail-field__value">{{ getStatusText(detail?.status) }}</strong>
+          <span class="detail-field__label">告警等级</span>
+          <strong class="detail-field__value">{{ getAlarmLevelText(detail?.alarmLevel) }}</strong>
         </div>
         <div class="detail-field">
           <span class="detail-field__label">关联告警</span>
@@ -107,10 +111,6 @@
         <div class="detail-field">
           <span class="detail-field__label">触发时间</span>
           <strong class="detail-field__value">{{ formatDateTime(detail?.triggerTime) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">责任人</span>
-          <strong class="detail-field__value">{{ detail?.responsibleUser || '--' }}</strong>
         </div>
       </div>
     </section>
@@ -192,6 +192,8 @@ import { computed } from 'vue';
 
 import type { EventRecord } from '@/api/alarm';
 import { formatDateTime } from '@/utils/format';
+import { getAlarmLevelTagType, getAlarmLevelText } from '@/utils/alarmLevel';
+import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
 const props = defineProps<{
@@ -237,9 +239,9 @@ const eventAdvice = computed(() => {
   }
   switch (props.detail.status) {
     case 0:
-      return '事件尚未派发，建议尽快明确责任人并下发工单。';
+      return '事件尚未派发，建议尽快明确执行人并下发工单。';
     case 1:
-      return '事件已派发，建议确认责任人是否已接收并按到场时限处理。';
+      return '事件已派发，建议确认执行人是否已接收并按到场时限处理。';
     case 2:
       return '事件处理中，建议持续跟踪处理反馈并准备验收。';
     case 3:
@@ -249,7 +251,7 @@ const eventAdvice = computed(() => {
     case 5:
       return '事件已取消，建议核对取消原因并确认是否需要补充说明。';
     default:
-      return '建议结合责任人、时效要求和复核说明继续跟进处置。';
+      return '建议结合执行角色、时效要求和复核说明继续跟进处置。';
   }
 });
 const drawerTags = computed(() => {
@@ -257,34 +259,18 @@ const drawerTags = computed(() => {
     return [];
   }
   return [
-    { label: getRiskLevelText(props.detail.riskLevel), type: getRiskLevelType(props.detail.riskLevel) },
+    { label: getRiskLevelText(resolveCurrentRiskLevel(props.detail)), type: getRiskLevelType(resolveCurrentRiskLevel(props.detail)) },
+    { label: getAlarmLevelText(props.detail.alarmLevel), type: getAlarmLevelTagType(props.detail.alarmLevel) },
     { label: getStatusText(props.detail.status), type: getStatusType(props.detail.status) },
     { label: props.detail.urgencyLevel || '普通', type: 'info' as const }
   ];
 });
 
-function getRiskLevelText(level?: string | null) {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return '严重';
-    case 'warning':
-      return '警告';
-    case 'info':
-      return '提醒';
-    default:
-      return level || '--';
-  }
-}
+const getRiskLevelType = (level?: string | null) => getRiskLevelTagType(level)
+const getCurrentRiskLevelText = (detail?: EventRecord | null) => getRiskLevelText(resolveCurrentRiskLevel(detail))
 
-function getRiskLevelType(level?: string | null): 'danger' | 'warning' | 'info' {
-  switch ((level || '').toLowerCase()) {
-    case 'critical':
-      return 'danger';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'info';
-  }
+function resolveCurrentRiskLevel(detail?: EventRecord | null) {
+  return detail?.currentRiskLevel || detail?.riskLevel;
 }
 
 function getStatusText(status?: number | null) {

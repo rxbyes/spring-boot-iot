@@ -6,6 +6,10 @@ const workspaceRoot = process.cwd();
 const viewsRoot = path.join(workspaceRoot, "src", "views");
 
 const governedViews = [
+  "ProductWorkbenchView.vue",
+  "DeviceWorkbenchView.vue",
+  "AuditLogView.vue",
+  "MessageTraceView.vue",
   "AlarmCenterView.vue",
   "EventDisposalView.vue",
   "RiskPointView.vue",
@@ -21,9 +25,16 @@ const governedViews = [
   "ChannelView.vue",
   "InAppMessageView.vue",
   "HelpDocView.vue",
-  "AuditLogView.vue",
-  "MessageTraceView.vue",
 ].map((fileName) => path.join(viewsRoot, fileName));
+
+const riskOperationsViews = new Set([
+  "RealTimeMonitoringView.vue",
+  "RiskGisView.vue",
+  "AlarmCenterView.vue",
+  "EventDisposalView.vue",
+]);
+
+const riskOperationsViewPaths = [...riskOperationsViews].map((fileName) => path.join(viewsRoot, fileName));
 
 function toRelative(filePath) {
   return path.relative(workspaceRoot, filePath);
@@ -35,6 +46,17 @@ function getLineNumber(content, index) {
 
 function pushError(errors, file, line, message) {
   errors.push({ file, line, message });
+}
+
+function sanitizeAllowedWorkbenchDistribution(filePath, content) {
+  if (path.basename(filePath) !== "DeviceWorkbenchView.vue") {
+    return content;
+  }
+
+  return content.replace(
+    /<StandardWorkbenchRowActions\b[\s\S]{0,240}?\bvariant\s*=\s*["']table["'][\s\S]{0,240}?\bdistribution\s*=\s*["']between["'][\s\S]{0,240}?\/>/g,
+    (snippet) => snippet.replace(/\s+\bdistribution\s*=\s*["']between["']/, ""),
+  );
 }
 
 function scanRequiredUsage(filePath, content, errors) {
@@ -51,6 +73,18 @@ function scanRequiredUsage(filePath, content, errors) {
       pattern: /<StandardPagination\b/,
       message: "纳管页分页必须使用 StandardPagination。",
     },
+    {
+      pattern: /<StandardWorkbenchRowActions\b/,
+      message: "纳管页表格操作列必须使用 StandardWorkbenchRowActions。",
+    },
+    {
+      pattern: /class-name\s*=\s*["'][^"']*\bstandard-row-actions-column\b[^"']*["']/,
+      message: '纳管页的“操作”列必须声明 class-name="standard-row-actions-column"。',
+    },
+    {
+      pattern: /resolve(?:Workbench|Adaptive)ActionColumnWidth(?:ByRows)?\(/,
+      message: "纳管页的“操作”列必须使用共享自适应列宽解析器。",
+    },
   ];
 
   requirements.forEach(({ pattern, message }) => {
@@ -61,6 +95,7 @@ function scanRequiredUsage(filePath, content, errors) {
 }
 
 function scanForbiddenPatterns(filePath, content, errors) {
+  const sanitizedContent = sanitizeAllowedWorkbenchDistribution(filePath, content);
   const forbiddenPatterns = [
     {
       pattern: /class\s*=\s*["'][^"']*\bsearch-form\b[^"']*["']/g,
@@ -69,6 +104,39 @@ function scanForbiddenPatterns(filePath, content, errors) {
     {
       pattern: /class\s*=\s*["'][^"']*\btext-right\b[^"']*["']/g,
       message: "纳管页禁止继续使用 text-right 按钮对齐行。",
+    },
+    {
+      pattern: /<StandardRowActions\b[^>]*variant\s*=\s*["']table["']/g,
+      message: "纳管页表格操作列禁止直接写 StandardRowActions table 变体，必须走 StandardWorkbenchRowActions。",
+    },
+    {
+      pattern: /<StandardWorkbenchRowActions\b[^>]*\bdistribution\s*=/g,
+      message: '纳管页桌面表格操作列禁止显式传 distribution，必须使用共享默认分布策略。',
+    },
+    {
+      pattern: /label\s*=\s*["']操作["'][\s\S]{0,200}\swidth\s*=\s*["'][^"']+["']/g,
+      message: '纳管页“操作”列禁止写死静态 width，必须改为共享自适应列宽。',
+    },
+  ];
+
+  forbiddenPatterns.forEach(({ pattern, message }) => {
+    let match = pattern.exec(sanitizedContent);
+    while (match) {
+      pushError(errors, filePath, getLineNumber(sanitizedContent, match.index), message);
+      match = pattern.exec(sanitizedContent);
+    }
+  });
+}
+
+function scanRiskOperationsForbiddenPatterns(filePath, content, errors) {
+  const forbiddenPatterns = [
+    {
+      pattern: /<StandardWorkbenchRowActions\b[\s\S]{0,240}\bvariant\s*=\s*["']table["'][\s\S]{0,240}\bgap\s*=/g,
+      message: "纳管页的 table 操作列禁止显式传 gap，必须直接使用共享桌面间距基线。",
+    },
+    {
+      pattern: /resolveWorkbenchActionColumnWidth\(\{[\s\S]{0,240}\bgap\s*:/g,
+      message: "纳管页的操作列宽解析禁止再传 gap，必须直接使用共享桌面宽度基线。",
     },
   ];
 
@@ -95,6 +163,16 @@ async function main() {
     const content = await fs.readFile(filePath, "utf8");
     scanRequiredUsage(filePath, content, errors);
     scanForbiddenPatterns(filePath, content, errors);
+    scanRiskOperationsForbiddenPatterns(filePath, content, errors);
+  }
+
+  for (const filePath of riskOperationsViewPaths) {
+    if (governedViews.includes(filePath)) {
+      continue;
+    }
+
+    const content = await fs.readFile(filePath, "utf8");
+    scanRiskOperationsForbiddenPatterns(filePath, content, errors);
   }
 
   if (errors.length > 0) {

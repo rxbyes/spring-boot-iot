@@ -1,13 +1,20 @@
 import { request, type RequestOptions } from './request'
+import { getDictByCode, type DictItem } from './dict'
 import type { ApiEnvelope, IdType } from '@/types/api'
 import type { PageResult } from '@/types/api'
 
 export type HelpDocCategory = 'business' | 'technical' | 'faq'
 
-export const HELP_DOC_CATEGORY_OPTIONS = [
-  { value: 'business' as const, label: '业务类' },
-  { value: 'technical' as const, label: '技术类' },
-  { value: 'faq' as const, label: '常见问题' }
+export interface HelpDocCategoryOption {
+  label: string
+  value: HelpDocCategory
+  sortNo: number
+}
+
+export const HELP_DOC_CATEGORY_OPTIONS: HelpDocCategoryOption[] = [
+  { value: 'business', label: '业务类', sortNo: 1 },
+  { value: 'technical', label: '技术类', sortNo: 2 },
+  { value: 'faq', label: '常见问题', sortNo: 3 }
 ]
 
 export interface HelpDocumentRecord {
@@ -59,6 +66,10 @@ export interface HelpDocumentPageQuery {
 
 type HelpDocRequestOptions = Pick<RequestOptions, 'signal'>
 
+function cloneHelpDocCategoryOptions(): HelpDocCategoryOption[] {
+  return HELP_DOC_CATEGORY_OPTIONS.map((item) => ({ ...item }))
+}
+
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -67,6 +78,39 @@ function buildQuery(params: Record<string, unknown>) {
     }
   })
   return query.toString()
+}
+
+export function buildHelpDocCategoryOptions(items: Partial<DictItem>[] = []): HelpDocCategoryOption[] {
+  const normalized = items
+    .filter((item) => item && item.status !== 0)
+    .map((item, index) => ({
+      label: item.itemName || String(item.itemValue || ''),
+      value: String(item.itemValue || '').trim().toLowerCase() as HelpDocCategory,
+      sortNo: Number(item.sortNo ?? index)
+    }))
+    .filter((item) => Boolean(item.value))
+
+  const unique = new Map<HelpDocCategory, HelpDocCategoryOption>()
+  normalized
+    .sort((left, right) => left.sortNo - right.sortNo)
+    .forEach((item) => {
+      if (!unique.has(item.value)) {
+        unique.set(item.value, item)
+      }
+    })
+
+  return unique.size > 0 ? Array.from(unique.values()) : cloneHelpDocCategoryOptions()
+}
+
+export async function fetchHelpDocCategoryOptions(): Promise<HelpDocCategoryOption[]> {
+  try {
+    const response = await getDictByCode('help_doc_category')
+    return response.code === 200
+      ? buildHelpDocCategoryOptions(response.data?.items || [])
+      : cloneHelpDocCategoryOptions()
+  } catch {
+    return cloneHelpDocCategoryOptions()
+  }
 }
 
 export function pageHelpDocuments(params: HelpDocumentPageQuery = {}): Promise<ApiEnvelope<PageResult<HelpDocumentRecord>>> {

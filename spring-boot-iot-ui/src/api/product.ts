@@ -6,9 +6,10 @@ import type {
   PageResult,
   Product,
   ProductAddPayload,
-  ProductModelCandidateConfirmPayload,
-  ProductModelCandidateResult,
-  ProductModelCandidateSummary,
+  ProductModelGovernanceApplyPayload,
+  ProductModelGovernanceApplyResult,
+  ProductModelGovernanceComparePayload,
+  ProductModelGovernanceCompareResult,
   ProductModel,
   ProductModelUpsertPayload
 } from '../types/api';
@@ -23,6 +24,35 @@ export interface ProductPageQueryParams {
   pageSize?: number
 }
 
+export interface ProductContractReleaseBatch {
+  id?: IdType | null
+  productId?: IdType | null
+  scenarioCode?: string | null
+  releaseSource?: string | null
+  releasedFieldCount?: number | null
+  createBy?: IdType | null
+  createTime?: string | null
+  approvalOrderId?: IdType | null
+  releaseReason?: string | null
+  releaseStatus?: string | null
+}
+
+export interface ProductContractReleaseRollbackResult {
+  targetBatchId?: IdType | null
+  rolledBackBatchId?: IdType | null
+  productId?: IdType | null
+  scenarioCode?: string | null
+  releaseSource?: string | null
+  releasedFieldCount?: number | null
+  restoredFieldCount?: number | null
+  rollbackMode?: string | null
+  rollbackLimitations?: string | null
+  rollbackTime?: string | null
+  approvalOrderId?: IdType | null
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null
+  executionPending?: boolean | null
+}
+
 type ProductRequestOptions = Pick<RequestOptions, 'signal'>
 
 function buildQuery(params: Record<string, unknown>) {
@@ -33,6 +63,15 @@ function buildQuery(params: Record<string, unknown>) {
     }
   })
   return query.toString()
+}
+
+function buildGovernanceApproverHeaders(approverUserId?: IdType | null): HeadersInit | undefined {
+  if (approverUserId === undefined || approverUserId === null || approverUserId === '') {
+    return undefined
+  }
+  return {
+    'X-Governance-Approver-Id': String(approverUserId)
+  }
 }
 
 /**
@@ -104,23 +143,59 @@ export const productApi = {
   },
 
   /**
-   * 提炼指定产品的物模型候选
+   * 构建产品物模型双证据对比结果
    */
-  listProductModelCandidates(productId: IdType): Promise<ApiEnvelope<ProductModelCandidateResult>> {
-    return request<ProductModelCandidateResult>(`/api/device/product/${productId}/model-candidates`);
-  },
-
-  /**
-   * 确认候选并写入正式物模型
-   */
-  confirmProductModelCandidates(
+  compareProductModelGovernance(
     productId: IdType,
-    payload: ProductModelCandidateConfirmPayload
-  ): Promise<ApiEnvelope<ProductModelCandidateSummary>> {
-    return request<ProductModelCandidateSummary>(`/api/device/product/${productId}/model-candidates/confirm`, {
+    payload: ProductModelGovernanceComparePayload
+  ): Promise<ApiEnvelope<ProductModelGovernanceCompareResult>> {
+    return request<ProductModelGovernanceCompareResult>(`/api/device/product/${productId}/model-governance/compare`, {
       method: 'POST',
       body: payload
     });
+  },
+
+  /**
+   * 应用产品物模型双证据治理决策
+   */
+  applyProductModelGovernance(
+    productId: IdType,
+    payload: ProductModelGovernanceApplyPayload,
+    options: { approverUserId?: IdType | null } = {}
+  ): Promise<ApiEnvelope<ProductModelGovernanceApplyResult>> {
+    return request<ProductModelGovernanceApplyResult>(`/api/device/product/${productId}/model-governance/apply`, {
+      method: 'POST',
+      body: payload,
+      headers: buildGovernanceApproverHeaders(options.approverUserId)
+    });
+  },
+
+  pageProductContractReleaseBatches(
+    productId: IdType,
+    params: { pageNum?: number; pageSize?: number } = {}
+  ): Promise<ApiEnvelope<PageResult<ProductContractReleaseBatch>>> {
+    const query = buildQuery(params)
+    return request<PageResult<ProductContractReleaseBatch>>(
+      `/api/device/product/${productId}/contract-release-batches${query ? `?${query}` : ''}`,
+      { method: 'GET' }
+    )
+  },
+
+  getProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseBatch>> {
+    return request<ProductContractReleaseBatch>(`/api/device/product/contract-release-batches/${batchId}`, { method: 'GET' })
+  },
+
+  rollbackProductContractReleaseBatch(
+    batchId: IdType,
+    approverUserId?: IdType | null
+  ): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {
+    return request<ProductContractReleaseRollbackResult>(
+      `/api/device/product/contract-release-batches/${batchId}/rollback`,
+      {
+        method: 'POST',
+        headers: buildGovernanceApproverHeaders(approverUserId)
+      }
+    )
   },
 
   /**

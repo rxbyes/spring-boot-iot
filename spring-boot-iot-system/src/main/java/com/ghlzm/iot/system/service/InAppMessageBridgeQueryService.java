@@ -10,15 +10,39 @@ import java.util.List;
 
 public interface InAppMessageBridgeQueryService {
 
-    InAppMessageBridgeStatsVO getBridgeStats(Date startTime,
-                                            Date endTime,
-                                            String messageType,
-                                            String sourceType,
-                                            String priority,
-                                            String channelCode,
-                                            Integer bridgeStatus);
+    default InAppMessageBridgeStatsVO getBridgeStats(Date startTime,
+                                                     Date endTime,
+                                                     String messageType,
+                                                     String sourceType,
+                                                     String priority,
+                                                     String channelCode,
+                                                     Integer bridgeStatus) {
+        return getBridgeStats(null, startTime, endTime, messageType, sourceType, priority, channelCode, bridgeStatus);
+    }
 
-    PageResult<InAppMessageBridgeLogVO> pageBridgeLogs(Date startTime,
+    InAppMessageBridgeStatsVO getBridgeStats(Long currentUserId,
+                                             Date startTime,
+                                             Date endTime,
+                                             String messageType,
+                                             String sourceType,
+                                             String priority,
+                                             String channelCode,
+                                             Integer bridgeStatus);
+
+    default PageResult<InAppMessageBridgeLogVO> pageBridgeLogs(Date startTime,
+                                                               Date endTime,
+                                                               String messageType,
+                                                               String sourceType,
+                                                               String priority,
+                                                               String channelCode,
+                                                               Integer bridgeStatus,
+                                                               Long pageNum,
+                                                               Long pageSize) {
+        return pageBridgeLogs(null, startTime, endTime, messageType, sourceType, priority, channelCode, bridgeStatus, pageNum, pageSize);
+    }
+
+    PageResult<InAppMessageBridgeLogVO> pageBridgeLogs(Long currentUserId,
+                                                       Date startTime,
                                                        Date endTime,
                                                        String messageType,
                                                        String sourceType,
@@ -28,5 +52,9 @@ public interface InAppMessageBridgeQueryService {
                                                        Long pageNum,
                                                        Long pageSize);
 
-    List<InAppMessageBridgeAttemptVO> listBridgeAttempts(Long bridgeLogId);
+    default List<InAppMessageBridgeAttemptVO> listBridgeAttempts(Long bridgeLogId) {
+        return listBridgeAttempts(null, bridgeLogId);
+    }
+
+    List<InAppMessageBridgeAttemptVO> listBridgeAttempts(Long currentUserId, Long bridgeLogId);
 }

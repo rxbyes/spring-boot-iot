@@ -20,4 +20,17 @@ class AutoClosureSeverityTest {
         assertEquals(AutoClosureSeverity.ORANGE, AutoClosureSeverity.classify(new BigDecimal("19.999"), config));
         assertEquals(AutoClosureSeverity.RED, AutoClosureSeverity.classify(new BigDecimal("20"), config));
     }
+
+    @Test
+    void alarmAndRuntimeLevelsShouldUseFourColorCodes() {
+        assertEquals("blue", AutoClosureSeverity.BLUE.getAlarmLevel());
+        assertEquals("yellow", AutoClosureSeverity.YELLOW.getAlarmLevel());
+        assertEquals("orange", AutoClosureSeverity.ORANGE.getAlarmLevel());
+        assertEquals("red", AutoClosureSeverity.RED.getAlarmLevel());
+
+        assertEquals("blue", AutoClosureSeverity.BLUE.getRiskPointLevel());
+        assertEquals("yellow", AutoClosureSeverity.YELLOW.getRiskPointLevel());
+        assertEquals("orange", AutoClosureSeverity.ORANGE.getRiskPointLevel());
+        assertEquals("red", AutoClosureSeverity.RED.getRiskPointLevel());
+    }
 }

@@ -1,0 +1,120 @@
+<h2>第 1 节：业务验收台入口结构</h2>
+<p class="subtitle">只覆盖业务人员看到的主流程：选验收包、选环境/账号/模块范围、一键执行、先看通过结论和失败模块，再按需展开具体失败步骤。</p>
+
+<div class="section">
+  <div class="label">推荐信息架构</div>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">质量工场导航</div>
+      <div class="mockup-body">
+        <div class="mock-nav">质量工场</div>
+        <div class="placeholder">业务验收台</div>
+        <div class="placeholder">研发工场</div>
+        <div class="placeholder">执行中心</div>
+        <div class="placeholder">结果与基线中心</div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">角色分层</div>
+      <div class="mockup-body">
+        <div class="placeholder">业务验收台：验收人员 / 产品 / 项目经理</div>
+        <div class="placeholder">研发工场：研发 / 测试维护验收包</div>
+        <div class="placeholder">执行中心：保留专业配置入口</div>
+        <div class="placeholder">结果中心：全角色复盘证据</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">首页草图</div>
+  <div class="mockup">
+    <div class="mockup-header">业务验收台首页</div>
+    <div class="mockup-body">
+      <div class="mock-nav">业务验收台 | 当前环境 dev | 默认账号模板可切换</div>
+      <div class="section">
+        <strong>预置验收包</strong>
+        <div class="cards">
+          <div class="card">
+            <div class="card-body">
+              <h3>产品与设备</h3>
+              <p>产品新增、产品查询、设备新增、设备查询</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <h3>设备上报与链路</h3>
+              <p>HTTP/MQTT 上报、消息日志、在线状态、链路追踪</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <h3>风险运营闭环</h3>
+              <p>告警、事件、工单、处置闭环</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <h3>平台治理基础</h3>
+              <p>组织、用户、角色、字典、通知渠道</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <strong>运行前配置</strong>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+          <input class="mock-input" value="环境：dev" />
+          <input class="mock-input" value="账号：验收账号模板 A" />
+          <input class="mock-input" value="范围：勾选模块子项" />
+        </div>
+      </div>
+      <button class="mock-button">一键执行验收</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">结果主流程</div>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">第一屏结论</div>
+      <div class="mockup-body">
+        <div class="placeholder">本次验收：未通过</div>
+        <div class="placeholder">通过模块：2</div>
+        <div class="placeholder">未通过模块：设备上报与链路、风险运营闭环</div>
+        <div class="placeholder">执行时间：3 分 28 秒</div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">展开失败模块</div>
+      <div class="mockup-body">
+        <div class="placeholder">模块：设备上报与链路</div>
+        <div class="placeholder">失败场景：MQTT 上报后在线状态未更新</div>
+        <div class="placeholder">失败步骤：校验设备状态接口返回离线</div>
+        <div class="placeholder">关联接口：GET /api/device/code/{deviceCode}</div>
+        <div class="placeholder">关联动作：页面状态检查 / 接口断言</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>本节结论</h3>
+  <div class="options">
+    <div class="option" data-choice="section1-yes" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>这个入口结构对</h3>
+        <p>继续进入第 2 节，讨论页面字段、运行配置和结果展开层级。</p>
+      </div>
+    </div>
+    <div class="option" data-choice="section1-adjust" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>结构还要调</h3>
+        <p>保留业务验收台方向，但需要调整入口位置或首页布局。</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,15 +1,7 @@
 <template>
-  <div class="page-stack device-asset-view">
-    <IotAccessPageShell
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '设备资产中心' }
-      ]"
-      :show-title="false"
-    />
-
+  <StandardPageShell class="device-asset-view">
     <StandardWorkbenchPanel
-      title="设备台账"
+      title="设备资产中心"
       description="统一维护设备主数据、在线状态与登记信息。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
@@ -20,12 +12,12 @@
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
-            <!-- 快速搜索：支持设备编码、设备名称关键词搜索 -->
+            <!-- 快速搜索：支持设备编码、设备名称、产品 Key、产品名称关键词搜索 -->
             <el-form-item>
               <el-input
                 id="quick-search"
                 v-model="quickSearchKeyword"
-                placeholder="快速搜索（设备编码、设备名称）"
+                placeholder="快速搜索（设备编码、设备名称、产品 Key、产品名称）"
                 clearable
                 prefix-icon="Search"
                 @keyup.enter="handleQuickSearch"
@@ -82,21 +74,21 @@
 
       <template #toolbar>
         <StandardTableToolbar
+          compact
           :meta-items="[
             `已选 ${selectedRows.length} 项`,
             `已登记 ${registeredCount} 台`,
-            `未登记 ${unregisteredCount} 台`,
             `在线 ${onlineCount} 台`,
             `已激活 ${activatedCount} 台`,
             `停用 ${disabledCount} 台`
           ]"
         >
           <template #right>
-            <StandardButton v-permission="'iot:devices:delete'" action="delete" link :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</StandardButton>
-            <StandardButton v-permission="'iot:devices:export'" action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton v-permission="'iot:devices:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton v-permission="'iot:devices:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="deviceToolbarActions"
+              @command="handleToolbarAction"
+            />
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
@@ -111,7 +103,7 @@
 
       <div
         v-loading="loading && hasRecords"
-        class="device-result-panel"
+        class="device-result-panel standard-list-surface"
         element-loading-text="正在刷新设备列表"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -162,9 +154,13 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <div class="device-mobile-list">
-            <div class="device-mobile-list__grid">
-              <article v-for="row in tableData" :key="getDeviceRowKey(row)" class="device-mobile-card">
+          <div class="device-mobile-list standard-mobile-record-list">
+            <div class="device-mobile-list__grid standard-mobile-record-grid">
+              <article
+                v-for="row in tableData"
+                :key="getDeviceRowKey(row)"
+                class="device-mobile-card standard-mobile-record-card"
+              >
                 <div class="device-mobile-card__header">
                   <el-checkbox
                     :model-value="isRowSelected(row)"
@@ -179,10 +175,11 @@
                 </div>
 
                 <div class="device-mobile-card__meta">
-                  <span class="device-mobile-card__meta-item" :title="formatTextValue(row.productKey)">{{ formatTextValue(row.productKey) }}</span>
+                  <span class="device-mobile-card__meta-item standard-mobile-record-card__meta-item" :title="formatTextValue(row.productKey)">{{ formatTextValue(row.productKey) }}</span>
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
+                      'standard-mobile-record-card__meta-item',
                       isRegisteredDeviceRow(row)
                         ? 'device-mobile-card__meta-item--success'
                         : 'device-mobile-card__meta-item--warning'
@@ -190,10 +187,11 @@
                   >
                     {{ getRegistrationStatusText(row.registrationStatus) }}
                   </span>
-                  <span class="device-mobile-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
+                  <span class="device-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
+                      'standard-mobile-record-card__meta-item',
                       row.activateStatus === 1
                         ? 'device-mobile-card__meta-item--success'
                         : row.activateStatus === 0
@@ -206,6 +204,7 @@
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
+                      'standard-mobile-record-card__meta-item',
                       row.deviceStatus === 1
                         ? 'device-mobile-card__meta-item--success'
                         : row.deviceStatus === 0
@@ -219,40 +218,48 @@
 
                 <div class="device-mobile-card__info">
                   <div class="device-mobile-card__field">
-                    <span>产品名称</span>
-                    <strong>{{ formatTextValue(row.productName) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">产品名称</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.productName) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>父设备</span>
-                    <strong>{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">所属机构</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.orgName) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>网关设备</span>
-                    <strong>{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">父设备</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.parentDeviceName, row.parentDeviceCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>接入协议</span>
-                    <strong>{{ formatTextValue(row.protocolCode) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">网关设备</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>固件版本</span>
-                    <strong>{{ formatTextValue(row.firmwareVersion) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">接入协议</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.protocolCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span>最近上报</span>
-                    <strong>{{ formatDateTime(row.lastReportTime) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">固件版本</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.firmwareVersion) }}</strong>
+                  </div>
+                  <div class="device-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">最近上报</span>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ formatDeviceReportTime(row.lastReportTime, row.updateTime, row.createTime) }}
+                    </strong>
                   </div>
                   <div class="device-mobile-card__field device-mobile-card__field--full">
-                    <span>部署位置</span>
-                    <strong class="device-mobile-card__address">{{ formatTextValue(row.address) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">部署位置</span>
+                    <strong class="standard-mobile-record-card__field-value device-mobile-card__address">{{ formatTextValue(row.address) }}</strong>
                   </div>
                 </div>
 
-                <StandardRowActions variant="card" gap="comfortable" class="device-mobile-card__actions">
-                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-if="canEditDeviceRow(row)" v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionMenu :items="getDeviceRowActions(row)" @command="(command) => handleMobileRowAction(command, row)" />
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  class="device-mobile-card__actions"
+                  :direct-items="getDeviceDirectActions(row)"
+                  :menu-items="getDeviceRowActions(row)"
+                  @command="(command) => handleRowAction(command, row)"
+                />
               </article>
             </div>
           </div>
@@ -268,6 +275,7 @@
             </StandardTableTextColumn>
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
+            <StandardTableTextColumn prop="orgName" label="所属机构" :min-width="160" />
             <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">
@@ -286,19 +294,28 @@
             </el-table-column>
             <StandardTableTextColumn prop="firmwareVersion" label="固件版本" :width="130" />
             <StandardTableTextColumn prop="lastReportTime" label="最近上报" :width="180">
-              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+              <template #default="{ row }">
+                {{ formatDeviceReportTime(row.lastReportTime, row.updateTime, row.createTime) }}
+              </template>
             </StandardTableTextColumn>
             <StandardTableTextColumn prop="address" label="部署位置" :min-width="180" />
             <StandardTableTextColumn prop="createTime" label="创建时间" :width="180">
               <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
             </StandardTableTextColumn>
-            <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
+            <el-table-column
+              label="操作"
+              :width="deviceActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
               <template #default="{ row }">
-                <StandardRowActions variant="table" gap="wide">
-                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-if="canEditDeviceRow(row)" v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionMenu :items="getDeviceRowActions(row)" @command="(command) => handleMobileRowAction(command, row)" />
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getDeviceDirectActions(row)"
+                  :menu-items="getDeviceRowActions(row)"
+                  @command="(command) => handleRowAction(command, row)"
+                />
               </template>
             </el-table-column>
           </el-table>
@@ -330,246 +347,14 @@
 
     <StandardDetailDrawer
       v-model="detailVisible"
-      eyebrow="设备资产详情"
       :title="detailTitle"
       :subtitle="detailSubtitle"
-      :tags="detailTags"
       :loading="detailLoading"
       :error-message="detailErrorMessage"
       :empty="!detailData"
     >
       <div v-if="detailData" class="device-detail-stack">
-        <div
-          v-if="detailRefreshing || detailRefreshErrorMessage"
-          :class="[
-            'device-detail-inline-state',
-            { 'device-detail-inline-state--error': Boolean(detailRefreshErrorMessage) }
-          ]"
-        >
-          {{ detailRefreshErrorMessage || '已先展示列表摘要，正在补充完整详情。' }}
-        </div>
-
-        <section class="detail-panel detail-panel--hero">
-          <div class="detail-section-header">
-            <div>
-              <h3>资产概览</h3>
-              <p>{{ detailIsRegistered ? '设备台账先回答“是否已入库、当前是否在线、是否已激活、是否可继续运维”。' : '未登记设备优先确认最近一次上报发生在什么阶段失败、当前来源于哪条失败归档。' }}</p>
-            </div>
-          </div>
-          <div class="detail-summary-grid">
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '产品归属' : '登记状态' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? detailData.productName || '--' : getRegistrationStatusText(detailData.registrationStatus) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailData.productKey || '--' }}</p>
-            </div>
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '在线状态' : '最近上报' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getOnlineStatusText(detailData.onlineStatus) : formatDateTime(detailData.lastReportTime) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailIsRegistered ? formatDateTime(detailData.lastReportTime) : getSourceTypeText(detailData.assetSourceType) }}</p>
-            </div>
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '激活状态' : '失败阶段' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getActivateStatusText(detailData.activateStatus) : formatTextValue(detailData.lastFailureStage) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailIsRegistered ? '设备可用性基线' : formatTextValue(detailData.lastTraceId) }}</p>
-            </div>
-            <div class="detail-summary-card">
-              <span class="detail-summary-card__label">{{ detailIsRegistered ? '设备状态' : '失败摘要' }}</span>
-              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getDeviceStatusText(detailData.deviceStatus) : formatTextValue(detailData.lastErrorMessage) }}</strong>
-              <p class="detail-summary-card__hint">{{ detailIsRegistered ? '是否允许继续使用' : formatTextValue(detailData.lastReportTopic) }}</p>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>资产档案</h3>
-              <p>展示设备基础标识、协议、节点类型和部署位置，方便业务与现场核实库存。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">设备 ID</span>
-              <strong class="detail-field__value">{{ detailData.id }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备编码</span>
-              <strong class="detail-field__value">{{ detailData.deviceCode || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备名称</span>
-              <strong class="detail-field__value">{{ detailData.deviceName || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">节点类型</span>
-              <strong class="detail-field__value">{{ getNodeTypeText(detailData.nodeType) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">接入协议</span>
-              <strong class="detail-field__value">{{ detailData.protocolCode || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">固件版本</span>
-              <strong class="detail-field__value">{{ detailData.firmwareVersion || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">IP 地址</span>
-              <strong class="detail-field__value">{{ detailData.ipAddress || '--' }}</strong>
-            </div>
-            <div class="detail-field detail-field--full">
-              <span class="detail-field__label">部署位置</span>
-              <strong class="detail-field__value detail-field__value--plain">{{ detailData.address || '--' }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>拓扑关系</h3>
-              <p>统一展示父设备和网关归属，便于资产中心直接识别设备是否已纳入父子拓扑。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">父设备</span>
-              <strong class="detail-field__value">{{ formatDeviceRelationValue(detailData.parentDeviceName, detailData.parentDeviceCode) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">网关设备</span>
-              <strong class="detail-field__value">{{ formatDeviceRelationValue(detailData.gatewayDeviceName, detailData.gatewayDeviceCode) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">父设备主键</span>
-              <strong class="detail-field__value">{{ formatTextValue(detailData.parentDeviceId) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">网关主键</span>
-              <strong class="detail-field__value">{{ formatTextValue(detailData.gatewayId) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>运维信息</h3>
-              <p>帮助运维与实施快速判断最近在线、离线和上报情况，确认现场是否需要介入。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">最近在线时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.lastOnlineTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">最近离线时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.lastOfflineTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">最近上报时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.lastReportTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">更新时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.updateTime) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">创建时间</span>
-              <strong class="detail-field__value">{{ formatDateTime(detailData.createTime) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>认证信息</h3>
-              <p>面向接入与排障场景展示 MQTT 基础认证字段，敏感值按掩码形式展示。</p>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-field__label">Client ID</span>
-              <strong class="detail-field__value">{{ detailData.clientId || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">用户名</span>
-              <strong class="detail-field__value">{{ detailData.username || '--' }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">密码</span>
-              <strong class="detail-field__value">{{ maskSecret(detailData.password) }}</strong>
-            </div>
-            <div class="detail-field">
-              <span class="detail-field__label">设备密钥</span>
-              <strong class="detail-field__value">{{ maskSecret(detailData.deviceSecret) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detailIsRegistered" class="detail-panel">
-          <div class="detail-section-header">
-            <div>
-              <h3>扩展元数据</h3>
-              <p>用于保存库存、站点、维护责任、批次等可扩展信息，后续批量导入和设备更换也可复用该结构。</p>
-            </div>
-          </div>
-          <div class="detail-field detail-field--full">
-            <span class="detail-field__label">metadataJson</span>
-            <pre class="detail-field__value detail-field__value--pre">{{ metadataPreview }}</pre>
-          </div>
-        </section>
-
-        <template v-else>
-          <section class="detail-panel">
-            <div class="detail-section-header">
-              <div>
-                <h3>上报档案</h3>
-                <p>当前设备尚未登记，详情来自最近一次失败归档，只用于确认设备编码、产品标识、协议与 Topic。</p>
-              </div>
-            </div>
-            <div class="detail-grid">
-              <div class="detail-field">
-                <span class="detail-field__label">设备编码</span>
-                <strong class="detail-field__value">{{ detailData.deviceCode || '--' }}</strong>
-              </div>
-              <div class="detail-field">
-                <span class="detail-field__label">产品标识</span>
-                <strong class="detail-field__value">{{ detailData.productKey || '--' }}</strong>
-              </div>
-              <div class="detail-field">
-                <span class="detail-field__label">协议编码</span>
-                <strong class="detail-field__value">{{ detailData.protocolCode || '--' }}</strong>
-              </div>
-              <div class="detail-field">
-                <span class="detail-field__label">来源记录</span>
-                <strong class="detail-field__value">{{ formatTextValue(detailData.sourceRecordId) }}</strong>
-              </div>
-              <div class="detail-field detail-field--full">
-                <span class="detail-field__label">Topic</span>
-                <strong class="detail-field__value detail-field__value--plain">{{ detailData.lastReportTopic || '--' }}</strong>
-              </div>
-              <div class="detail-field detail-field--full">
-                <span class="detail-field__label">失败摘要</span>
-                <strong class="detail-field__value detail-field__value--plain">{{ detailData.lastErrorMessage || '--' }}</strong>
-              </div>
-            </div>
-          </section>
-
-          <section class="detail-panel">
-            <div class="detail-section-header">
-              <div>
-                <h3>最近载荷</h3>
-                <p>保留最近一次未登记上报的原始载荷，便于后续补建设备主档或回查协议映射。</p>
-              </div>
-            </div>
-            <div class="detail-field detail-field--full">
-              <span class="detail-field__label">payload</span>
-              <pre class="detail-field__value detail-field__value--pre">{{ prettyJson(detailData.lastPayload || '--') }}</pre>
-            </div>
-          </section>
-        </template>
+        <DeviceDetailWorkbench :device="detailData" />
       </div>
 
       <template #footer>
@@ -591,7 +376,6 @@
 
     <StandardFormDrawer
       v-model="formVisible"
-      eyebrow="设备台账表单"
       :title="formTitle"
       subtitle="统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。"
       size="44rem"
@@ -601,18 +385,6 @@
         <div class="ops-drawer-note">
           <strong>维护提示</strong>
           <span>设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。</span>
-        </div>
-        <div
-          v-if="formRefreshing || formRefreshMessage"
-          :class="[
-            'device-form-inline-state',
-            {
-              'device-form-inline-state--warning': formRefreshState === 'warning',
-              'device-form-inline-state--error': formRefreshState === 'error'
-            }
-          ]"
-        >
-          {{ formRefreshMessage || '已先填入当前摘要，正在补全最新设备档案。' }}
         </div>
 
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
@@ -811,7 +583,7 @@
       :presets="exportPresets"
       @confirm="handleExportColumnConfirm"
     />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -819,6 +591,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -828,12 +601,14 @@ import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import { accessErrorApi } from '@/api/accessError'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -883,12 +658,15 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
-import { formatDateTime, prettyJson } from '@/utils/format'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
+import { formatDateTime, formatDeviceReportTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 interface DeviceSearchForm {
   deviceId: string
+  keyword: string
   productKey: string
+  productName: string
   deviceCode: string
   deviceName: string
   onlineStatus: number | undefined
@@ -911,7 +689,20 @@ interface DeviceRowAction {
   key?: string
   command: 'replace' | 'insight' | 'delete'
   label: string
-  permission?: string
+}
+
+interface DeviceDirectAction {
+  key?: string
+  command: 'detail' | 'edit'
+  label: string
+}
+
+interface DeviceToolbarAction {
+  key?: string
+  command: 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  label: string
+  disabled?: boolean
+  divided?: boolean
 }
 
 const route = useRoute()
@@ -985,7 +776,9 @@ let suppressFormDirtyTracking = false
 
 const searchForm = reactive<DeviceSearchForm>({
   deviceId: '',
+  keyword: '',
   productKey: '',
+  productName: '',
   deviceCode: '',
   deviceName: '',
   onlineStatus: undefined,
@@ -995,7 +788,9 @@ const searchForm = reactive<DeviceSearchForm>({
 })
 const appliedFilters = reactive<DeviceSearchForm>({
   deviceId: '',
+  keyword: '',
   productKey: '',
+  productName: '',
   deviceCode: '',
   deviceName: '',
   onlineStatus: undefined,
@@ -1039,15 +834,13 @@ const detailTitle = computed(() => {
 const detailIsRegistered = computed(() => isRegisteredDeviceRow(detailData.value))
 const detailSubtitle = computed(() =>
   detailIsRegistered.value
-    ? '统一查看设备资产主档、父子拓扑、维护状态、认证字段与扩展元数据。'
-    : '当前设备尚未登记，详情来自最近一次失败归档，用于补档和排障。'
+    ? '统一查看资产判断、部署台账、运行台账与建档补充。'
+    : '当前设备仍未登记，详情按失败来源和最近载荷组织。'
 )
 const onlineCount = computed(() => tableData.value.filter((item) => item.onlineStatus === 1).length)
 const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
 const disabledCount = computed(() => tableData.value.filter((item) => item.deviceStatus === 0).length)
 const registeredCount = computed(() => tableData.value.filter((item) => item.registrationStatus !== 0).length)
-const unregisteredCount = computed(() => tableData.value.filter((item) => item.registrationStatus === 0).length)
-const metadataPreview = computed(() => prettyJson(detailData.value?.metadataJson || '{}'))
 const deviceOptionMap = computed(() => new Map(deviceOptions.value.map((option) => [normalizeIdKey(option.id), option])))
 const selectedFormProduct = computed(() => productOptions.value.find((product) => product.productKey === formData.productKey) ?? null)
 const selectedFormNodeType = computed(() => selectedFormProduct.value?.nodeType ?? null)
@@ -1092,6 +885,49 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
+  const actions: DeviceToolbarAction[] = []
+
+  if (permissionStore.hasPermission('iot:devices:delete')) {
+    actions.push({
+      key: 'batch-delete',
+      command: 'batch-delete',
+      label: '批量删除',
+      disabled: selectedRows.value.length === 0
+    })
+  }
+
+  if (permissionStore.hasPermission('iot:devices:export')) {
+    actions.push({
+      key: 'export-config',
+      command: 'export-config',
+      label: '导出列设置',
+      divided: actions.length > 0
+    })
+    actions.push({
+      key: 'export-selected',
+      command: 'export-selected',
+      label: '导出选中',
+      disabled: selectedRows.value.length === 0
+    })
+    actions.push({
+      key: 'export-current',
+      command: 'export-current',
+      label: '导出当前结果',
+      disabled: tableData.value.length === 0
+    })
+  }
+
+  actions.push({
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0,
+    divided: actions.length > 0
+  })
+
+  return actions
+})
 const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
@@ -1105,16 +941,21 @@ const activeFilterTags = computed(() => {
   if (deviceId) {
     tags.push({ key: 'deviceId', label: `设备 ID：${deviceId}` })
   }
+  const keyword = appliedFilters.keyword.trim()
   const productKey = appliedFilters.productKey.trim()
-  if (productKey) {
+  if (productKey && !keyword) {
     tags.push({ key: 'productKey', label: `产品 Key：${productKey}` })
   }
+  const productName = appliedFilters.productName.trim()
+  if (productName && !keyword) {
+    tags.push({ key: 'productName', label: `产品名称：${productName}` })
+  }
   const deviceCode = appliedFilters.deviceCode.trim()
-  if (deviceCode) {
+  if (deviceCode && !keyword) {
     tags.push({ key: 'deviceCode', label: `设备编码：${deviceCode}` })
   }
   const deviceName = appliedFilters.deviceName.trim()
-  if (deviceName) {
+  if (deviceName && !keyword) {
     tags.push({ key: 'deviceName', label: `设备名称：${deviceName}` })
   }
   if (appliedFilters.onlineStatus !== undefined) {
@@ -1131,7 +972,7 @@ const activeFilterTags = computed(() => {
   }
   return tags
 })
-const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0)
+const hasAppliedFilters = computed(() => Boolean(appliedFilters.keyword.trim()) || activeFilterTags.value.length > 0)
 const emptyStateTitle = computed(() => {
   if (hasAppliedFilters.value) {
     return '没有符合条件的设备'
@@ -1148,24 +989,6 @@ const emptyStateDescription = computed(() =>
       ? '当前还没有命中未登记上报名单，可先切回全部或已登记视图继续排查。'
       : '当前还没有设备资产，先新增设备或批量导入，再继续做台账维护和状态核查。'
 )
-
-const detailTags = computed(() => {
-  if (!detailData.value) {
-    return []
-  }
-  if (!detailIsRegistered.value) {
-    return [
-      { label: getRegistrationStatusText(detailData.value.registrationStatus), type: 'warning' as const },
-      { label: getSourceTypeText(detailData.value.assetSourceType), type: 'info' as const }
-    ]
-  }
-  return [
-    { label: getRegistrationStatusText(detailData.value.registrationStatus), type: 'success' as const },
-    { label: getOnlineStatusText(detailData.value.onlineStatus), type: detailData.value.onlineStatus === 1 ? 'success' : 'info' as const },
-    { label: getActivateStatusText(detailData.value.activateStatus), type: detailData.value.activateStatus === 1 ? 'success' : 'warning' as const },
-    { label: getDeviceStatusText(detailData.value.deviceStatus), type: detailData.value.deviceStatus === 1 ? 'success' : 'danger' as const }
-  ]
-})
 
 const formRules: FormRules<DeviceFormState> = {
   productKey: [{ required: true, message: '请选择产品', trigger: 'change' }],
@@ -1210,7 +1033,11 @@ const exportColumns: CsvColumn<Device>[] = [
   { key: 'firmwareVersion', label: '固件版本' },
   { key: 'ipAddress', label: 'IP 地址' },
   { key: 'address', label: '部署位置' },
-  { key: 'lastReportTime', label: '最近上报', formatter: (value) => formatDateTime(String(value || '')) },
+  {
+    key: 'lastReportTime',
+    label: '最近上报',
+    formatter: (_value, row) => formatDeviceReportTime(row.lastReportTime, row.updateTime, row.createTime)
+  },
   { key: 'createTime', label: '创建时间', formatter: (value) => formatDateTime(String(value || '')) }
 ]
 
@@ -1390,56 +1217,71 @@ function canJumpToInsight(row?: Device | null) {
   return Boolean(row?.deviceCode && isRegisteredDeviceRow(row))
 }
 
+function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
+  const actions: DeviceDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
+
+  if (canEditDeviceRow(row) && permissionStore.hasPermission('iot:devices:update')) {
+    actions.push({ key: 'edit', command: 'edit', label: '编辑' })
+  }
+
+  return actions
+}
+
 function getDeviceRowActions(row: Device): DeviceRowAction[] {
   const actions: DeviceRowAction[] = []
   if (canReplaceDeviceRow(row)) {
-    actions.push({ key: 'replace', command: 'replace', label: '更换', permission: 'iot:devices:replace' })
+    if (permissionStore.hasPermission('iot:devices:replace')) {
+      actions.push({ key: 'replace', command: 'replace', label: '更换' })
+    }
     actions.push({ key: 'insight', command: 'insight', label: '洞察' })
-    actions.push({ key: 'delete', command: 'delete', label: '删除', permission: 'iot:devices:delete' })
+    if (permissionStore.hasPermission('iot:devices:delete')) {
+      actions.push({ key: 'delete', command: 'delete', label: '删除' })
+    }
   }
-  return actions.filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+  return actions
 }
+
+const deviceActionColumnWidth = computed(() => {
+  const visibleRowWidths = tableData.value.map((row) =>
+    resolveWorkbenchActionColumnWidth({
+      directItems: getDeviceDirectActions(row),
+      menuItems: getDeviceRowActions(row)
+    })
+  )
+  const resolvedWidth =
+    visibleRowWidths.length > 0
+      ? Math.max(...visibleRowWidths)
+      : resolveWorkbenchActionColumnWidth({
+          directItems: [
+            { command: 'detail', label: '详情' },
+            ...(permissionStore.hasPermission('iot:devices:update') ? [{ command: 'edit', label: '编辑' }] : [])
+          ],
+          menuItems: [{ command: 'more', label: '更多' }]
+        })
+
+  return resolvedWidth
+})
 
 function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilterKey[]) {
   return keys.reduce((count, key) => count + (hasFilledFilter(filters, key) ? 1 : 0), 0)
 }
 
-function isLikelyDeviceCodeKeyword(keyword: string) {
-  return /^[A-Za-z0-9:_-]+$/.test(keyword)
-}
-
-// 快速搜索只有一个输入框，这里把关键词映射回真实的设备编码 / 设备名称筛选字段。
 function applyQuickSearchKeywordToFilters() {
   const keyword = quickSearchKeyword.value.trim()
+  searchForm.keyword = keyword
+  searchForm.productKey = ''
+  searchForm.productName = ''
+  searchForm.deviceCode = ''
+  searchForm.deviceName = ''
   if (!keyword) {
-    searchForm.deviceCode = ''
-    searchForm.deviceName = ''
     return ''
-  }
-
-  if (isLikelyDeviceCodeKeyword(keyword)) {
-    searchForm.deviceCode = keyword
-    searchForm.deviceName = ''
-  } else {
-    searchForm.deviceName = keyword
-    searchForm.deviceCode = ''
   }
 
   return keyword
 }
 
 function syncQuickSearchKeywordFromFilters() {
-  quickSearchKeyword.value = searchForm.deviceCode || searchForm.deviceName
-}
-
-function maskSecret(value?: string | null) {
-  if (!value) {
-    return '--'
-  }
-  if (value.length <= 4) {
-    return '*'.repeat(value.length)
-  }
-  return `${value.slice(0, 2)}****${value.slice(-2)}`
+  quickSearchKeyword.value = searchForm.keyword.trim()
 }
 
 function resetFormData(source?: Partial<Device>) {
@@ -1479,7 +1321,9 @@ function clearSelection() {
 function matchesCurrentFilters(device: Device) {
   return matchesDeviceFilters(device, {
     deviceId: appliedFilters.deviceId,
+    keyword: appliedFilters.keyword,
     productKey: appliedFilters.productKey,
+    productName: appliedFilters.productName,
     deviceCode: appliedFilters.deviceCode,
     deviceName: appliedFilters.deviceName,
     onlineStatus: appliedFilters.onlineStatus,
@@ -1606,9 +1450,33 @@ function handleExportCurrent() {
   downloadRowsAsCsv('设备资产中心-当前结果.csv', tableData.value, getResolvedExportColumns())
 }
 
+function handleToolbarAction(command: string | number | object) {
+  switch (command) {
+    case 'batch-delete':
+      void handleBatchDelete()
+      break
+    case 'export-config':
+      openExportColumnSetting()
+      break
+    case 'export-selected':
+      handleExportSelected()
+      break
+    case 'export-current':
+      handleExportCurrent()
+      break
+    case 'clear-selection':
+      clearSelection()
+      break
+    default:
+      break
+  }
+}
+
 function syncAppliedFilters() {
   appliedFilters.deviceId = searchForm.deviceId.trim()
+  appliedFilters.keyword = searchForm.keyword.trim()
   appliedFilters.productKey = searchForm.productKey.trim()
+  appliedFilters.productName = searchForm.productName.trim()
   appliedFilters.deviceCode = searchForm.deviceCode.trim()
   appliedFilters.deviceName = searchForm.deviceName.trim()
   appliedFilters.onlineStatus = searchForm.onlineStatus
@@ -1618,8 +1486,11 @@ function syncAppliedFilters() {
 }
 
 function clearSearchForm() {
+  quickSearchKeyword.value = ''
   searchForm.deviceId = ''
+  searchForm.keyword = ''
   searchForm.productKey = ''
+  searchForm.productName = ''
   searchForm.deviceCode = ''
   searchForm.deviceName = ''
   searchForm.onlineStatus = undefined
@@ -1666,7 +1537,9 @@ async function syncTableSelection() {
 
 function applyRouteQueryToFilters() {
   searchForm.deviceId = typeof route.query.deviceId === 'string' ? route.query.deviceId.trim() : ''
+  searchForm.keyword = typeof route.query.keyword === 'string' ? route.query.keyword.trim() : ''
   searchForm.productKey = typeof route.query.productKey === 'string' ? route.query.productKey.trim() : ''
+  searchForm.productName = typeof route.query.productName === 'string' ? route.query.productName.trim() : ''
   searchForm.deviceCode = typeof route.query.deviceCode === 'string' ? route.query.deviceCode.trim() : ''
   searchForm.deviceName = typeof route.query.deviceName === 'string' ? route.query.deviceName.trim() : ''
   syncQuickSearchKeywordFromFilters()
@@ -1706,7 +1579,19 @@ function normalizeQueryValue(value: unknown) {
 
 function assignListQueryValue(
   query: Record<string, unknown>,
-  key: 'deviceId' | 'productKey' | 'deviceCode' | 'deviceName' | 'onlineStatus' | 'activateStatus' | 'deviceStatus' | 'registrationStatus' | 'pageNum' | 'pageSize',
+  key:
+    | 'deviceId'
+    | 'keyword'
+    | 'productKey'
+    | 'productName'
+    | 'deviceCode'
+    | 'deviceName'
+    | 'onlineStatus'
+    | 'activateStatus'
+    | 'deviceStatus'
+    | 'registrationStatus'
+    | 'pageNum'
+    | 'pageSize',
   value: string | number | undefined
 ) {
   if (value === undefined || value === '') {
@@ -1719,7 +1604,9 @@ function assignListQueryValue(
 function hasSameListRouteQuery(nextQuery: Record<string, unknown>) {
   return (
     normalizeQueryValue(route.query.deviceId) === normalizeQueryValue(nextQuery.deviceId) &&
+    normalizeQueryValue(route.query.keyword) === normalizeQueryValue(nextQuery.keyword) &&
     normalizeQueryValue(route.query.productKey) === normalizeQueryValue(nextQuery.productKey) &&
+    normalizeQueryValue(route.query.productName) === normalizeQueryValue(nextQuery.productName) &&
     normalizeQueryValue(route.query.deviceCode) === normalizeQueryValue(nextQuery.deviceCode) &&
     normalizeQueryValue(route.query.deviceName) === normalizeQueryValue(nextQuery.deviceName) &&
     normalizeQueryValue(route.query.onlineStatus) === normalizeQueryValue(nextQuery.onlineStatus) &&
@@ -1734,12 +1621,16 @@ function hasSameListRouteQuery(nextQuery: Record<string, unknown>) {
 async function syncListRouteQuery(options: DevicePageLoadOptions = {}) {
   const nextQuery: Record<string, unknown> = { ...route.query }
   const trimmedDeviceId = searchForm.deviceId.trim()
+  const trimmedKeyword = searchForm.keyword.trim()
   const trimmedProductKey = searchForm.productKey.trim()
+  const trimmedProductName = searchForm.productName.trim()
   const trimmedDeviceCode = searchForm.deviceCode.trim()
   const trimmedDeviceName = searchForm.deviceName.trim()
 
   assignListQueryValue(nextQuery, 'deviceId', trimmedDeviceId || undefined)
+  assignListQueryValue(nextQuery, 'keyword', trimmedKeyword || undefined)
   assignListQueryValue(nextQuery, 'productKey', trimmedProductKey || undefined)
+  assignListQueryValue(nextQuery, 'productName', trimmedProductName || undefined)
   assignListQueryValue(nextQuery, 'deviceCode', trimmedDeviceCode || undefined)
   assignListQueryValue(nextQuery, 'deviceName', trimmedDeviceName || undefined)
   assignListQueryValue(nextQuery, 'onlineStatus', searchForm.onlineStatus)
@@ -1781,7 +1672,9 @@ async function loadProducts() {
       ElMessage.error(res.msg || '加载产品列表失败')
     } catch (error) {
       console.error('加载产品列表失败', error)
-      ElMessage.error('加载产品列表失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '加载产品列表失败'))
+      }
     } finally {
       productLoading.value = false
       productLoadPromise = null
@@ -1810,7 +1703,9 @@ async function loadDeviceOptions() {
       ElMessage.error(res.msg || '加载父设备选项失败')
     } catch (error) {
       console.error('加载父设备选项失败', error)
-      ElMessage.error('加载父设备选项失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '加载父设备选项失败'))
+      }
     } finally {
       deviceOptionsLoading.value = false
       deviceOptionLoadPromise = null
@@ -1827,7 +1722,9 @@ function clearDeviceOptionCache() {
 function buildCurrentDevicePageQuery(): DevicePageQuerySnapshot {
   return {
     deviceId: searchForm.deviceId.trim(),
+    keyword: searchForm.keyword.trim(),
     productKey: searchForm.productKey.trim(),
+    productName: searchForm.productName.trim(),
     deviceCode: searchForm.deviceCode.trim(),
     deviceName: searchForm.deviceName.trim(),
     onlineStatus: searchForm.onlineStatus,
@@ -2120,7 +2017,9 @@ async function prefetchNextDevicePage(query: DevicePageQuerySnapshot, total: num
     const res = await deviceApi.pageDevices(
       {
         deviceId: nextQuery.deviceId || undefined,
+        keyword: nextQuery.keyword || undefined,
         productKey: nextQuery.productKey || undefined,
+        productName: nextQuery.productName || undefined,
         deviceCode: nextQuery.deviceCode || undefined,
         deviceName: nextQuery.deviceName || undefined,
         onlineStatus: nextQuery.onlineStatus,
@@ -2190,7 +2089,9 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
     const res = await deviceApi.pageDevices(
       {
         deviceId: query.deviceId || undefined,
+        keyword: query.keyword || undefined,
         productKey: query.productKey || undefined,
+        productName: query.productName || undefined,
         deviceCode: query.deviceCode || undefined,
         deviceName: query.deviceName || undefined,
         onlineStatus: query.onlineStatus,
@@ -2225,7 +2126,9 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
       listRefreshMessage.value = '最新数据校验失败，当前先展示已有结果。'
     } else {
       clearListRefreshState()
-      ElMessage.error('获取设备分页失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '获取设备分页失败'))
+      }
     }
   } finally {
     if (requestId === latestListRequestId) {
@@ -2469,8 +2372,13 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
 }
 
 function handleSearch() {
+  if (quickSearchKeyword.value.trim() || searchForm.keyword.trim()) {
+    applyQuickSearchKeywordToFilters()
+  }
   searchForm.deviceId = searchForm.deviceId.trim()
+  searchForm.keyword = searchForm.keyword.trim()
   searchForm.productKey = searchForm.productKey.trim()
+  searchForm.productName = searchForm.productName.trim()
   searchForm.deviceCode = searchForm.deviceCode.trim()
   searchForm.deviceName = searchForm.deviceName.trim()
   resetPage()
@@ -2488,8 +2396,13 @@ function handleReset() {
 function removeAppliedFilter(key: DeviceFilterKey) {
   if (key === 'deviceId') {
     searchForm.deviceId = ''
+  } else if (key === 'keyword') {
+    searchForm.keyword = ''
+    quickSearchKeyword.value = ''
   } else if (key === 'productKey') {
     searchForm.productKey = ''
+  } else if (key === 'productName') {
+    searchForm.productName = ''
   } else if (key === 'deviceCode') {
     searchForm.deviceCode = ''
   } else if (key === 'deviceName') {
@@ -2521,6 +2434,9 @@ function handleQuickSearch() {
 
 function handleClearQuickSearch() {
   quickSearchKeyword.value = ''
+  searchForm.keyword = ''
+  searchForm.productKey = ''
+  searchForm.productName = ''
   searchForm.deviceCode = ''
   searchForm.deviceName = ''
   resetPage()
@@ -2666,7 +2582,9 @@ async function handleOpenReplaceLegacy(row: Device) {
     ElMessage.error(res.msg || '加载待更换设备失败')
   } catch (error) {
     console.error('加载待更换设备失败', error)
-    ElMessage.error('加载待更换设备失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '加载待更换设备失败'))
+    }
   }
 }
 
@@ -2702,7 +2620,15 @@ function handleJumpToInsight(row?: Device | null) {
   })
 }
 
-function handleMobileRowAction(command: string | number | object, row: Device) {
+function handleRowAction(command: string | number | object, row: Device) {
+  if (command === 'detail') {
+    handleOpenDetail(row)
+    return
+  }
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
   if (command === 'replace') {
     void handleOpenReplace(row)
     return
@@ -2836,7 +2762,9 @@ async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
     ElMessage.warning(`批量导入完成，成功 ${res.data.successCount} 条，失败 ${res.data.failureCount} 条`)
   } catch (error) {
     console.error('批量导入设备失败', error)
-    ElMessage.error('批量导入设备失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '批量导入设备失败'))
+    }
   } finally {
     batchImportSubmitting.value = false
   }
@@ -2893,7 +2821,9 @@ async function handleReplaceSubmit(payload: DeviceReplacePayload) {
       return
     }
     console.error('设备更换失败', error)
-    ElMessage.error('设备更换失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '设备更换失败'))
+    }
   } finally {
     replaceSubmitting.value = false
   }
@@ -2978,7 +2908,9 @@ watch(
   () =>
     [
       route.query.deviceId,
+      route.query.keyword,
       route.query.productKey,
+      route.query.productName,
       route.query.deviceCode,
       route.query.deviceName,
       route.query.onlineStatus,
@@ -3057,17 +2989,8 @@ onMounted(async () => {
 <style scoped>
 .device-asset-view {
   display: grid;
-  gap: 16px;
-}
-
-.device-result-panel {
-  position: relative;
-  isolation: isolate;
-  min-height: 0;
-}
-
-.device-result-panel :deep(.el-loading-mask) {
-  background: rgba(248, 250, 255, 0.62) !important;
+  gap: 0.72rem;
+  min-width: 0;
 }
 
 .device-result-panel :deep(.el-loading-spinner .el-loading-text) {
@@ -3251,21 +3174,6 @@ onMounted(async () => {
   display: none;
 }
 
-.device-mobile-list__grid {
-  display: grid;
-  gap: 12px;
-}
-
-.device-mobile-card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.92rem 0.96rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-inset-highlight-76);
-}
-
 .device-mobile-card__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -3302,17 +3210,8 @@ onMounted(async () => {
 }
 
 .device-mobile-card__meta-item {
-  display: inline-flex;
-  align-items: center;
   max-width: 100%;
-  min-height: 1.6rem;
-  padding: 0.2rem 0.58rem;
   overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
-  color: var(--text-caption);
-  font-size: 11.5px;
-  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3348,18 +3247,9 @@ onMounted(async () => {
   grid-column: 1 / -1;
 }
 
-.device-mobile-card__field span {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
-.device-mobile-card__field strong {
+.device-mobile-card__field .standard-mobile-record-card__field-value {
   overflow: hidden;
-  color: var(--text-heading);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.52;
+  display: block;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3382,25 +3272,6 @@ onMounted(async () => {
 .device-detail-stack {
   display: grid;
   gap: 16px;
-}
-
-.device-detail-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.device-detail-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
 }
 
 .ops-drawer-stack {
@@ -3428,31 +3299,6 @@ onMounted(async () => {
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.device-form-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.device-form-inline-state--warning {
-  border-color: var(--warning);
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 4%, white);
-}
-
-.device-form-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
 }
 
 .ops-drawer-section {
@@ -3528,10 +3374,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
-  .device-asset-view {
-    padding: 16px;
-  }
-
   .device-loading-table {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

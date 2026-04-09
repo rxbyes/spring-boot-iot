@@ -72,6 +72,7 @@ public class DeepDisplacementAutoClosureService {
     private final EmergencyPlanMapper emergencyPlanMapper;
     private final DevicePropertyMapper devicePropertyMapper;
     private final IotProperties iotProperties;
+    private final RiskPolicyResolver riskPolicyResolver;
     private final RedissonClient redissonClient;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -83,6 +84,7 @@ public class DeepDisplacementAutoClosureService {
                                               EmergencyPlanMapper emergencyPlanMapper,
                                               DevicePropertyMapper devicePropertyMapper,
                                               IotProperties iotProperties,
+                                              RiskPolicyResolver riskPolicyResolver,
                                               RedissonClient redissonClient) {
         this.alarmRecordService = alarmRecordService;
         this.eventRecordService = eventRecordService;
@@ -92,6 +94,7 @@ public class DeepDisplacementAutoClosureService {
         this.emergencyPlanMapper = emergencyPlanMapper;
         this.devicePropertyMapper = devicePropertyMapper;
         this.iotProperties = iotProperties;
+        this.riskPolicyResolver = riskPolicyResolver;
         this.redissonClient = redissonClient;
     }
 
@@ -167,35 +170,35 @@ public class DeepDisplacementAutoClosureService {
                                RiskPoint riskPoint,
                                RiskPointDevice binding,
                                BigDecimal absoluteValue) {
-        AutoClosureSeverity severity = AutoClosureSeverity.classify(absoluteValue, iotProperties.getAlarm().getAutoClosure());
-        if (!severity.shouldCreateAlarm()) {
+        RiskPolicyDecision decision = riskPolicyResolver.resolve(resolveTenantId(event.getTenantId(), riskPoint.getTenantId()), binding, absoluteValue);
+        if (!decision.shouldCreateAlarm()) {
             return;
         }
-        DuplicateLockHandle duplicateLock = tryAcquireDuplicateLock(event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel(), event.getTraceId());
+        DuplicateLockHandle duplicateLock = tryAcquireDuplicateLock(event.getDeviceCode(), binding.getMetricIdentifier(), decision.getAlarmLevel(), event.getTraceId());
         if (!duplicateLock.acquired()) {
             log.debug("深部位移自动闭环并发锁已被占用, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
-                    event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel(), event.getTraceId());
+                    event.getDeviceCode(), binding.getMetricIdentifier(), decision.getAlarmLevel(), event.getTraceId());
             return;
         }
         try {
-            if (existsDuplicateAlarm(event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel())) {
+            if (existsDuplicateAlarm(event.getDeviceCode(), binding.getMetricIdentifier(), decision.getAlarmLevel())) {
                 log.debug("深部位移自动闭环命中冷却窗口, deviceCode={}, metricIdentifier={}, level={}, traceId={}",
-                        event.getDeviceCode(), binding.getMetricIdentifier(), severity.getAlarmLevel(), event.getTraceId());
+                        event.getDeviceCode(), binding.getMetricIdentifier(), decision.getAlarmLevel(), event.getTraceId());
                 return;
             }
 
             List<Map<String, Object>> matchedLinkageRules = matchLinkageRules(event.getTenantId(), binding.getMetricIdentifier(), absoluteValue);
-            EmergencyPlan matchedPlan = matchEmergencyPlan(event.getTenantId(), event, riskPoint, binding, severity);
+            EmergencyPlan matchedPlan = matchEmergencyPlan(event.getTenantId(), event, riskPoint, binding, decision.getSeverity());
 
-            AlarmRecord alarmRecord = buildAlarmRecord(event, riskPoint, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan);
+            AlarmRecord alarmRecord = buildAlarmRecord(event, riskPoint, binding, absoluteValue, decision, matchedLinkageRules, matchedPlan);
             alarmRecordService.addAlarm(alarmRecord);
 
-            if (!severity.shouldCreateEvent()) {
+            if (!decision.shouldCreateEvent()) {
                 return;
             }
 
             Long dispatchUser = resolveDispatchUser(riskPoint);
-            EventRecord eventRecord = buildEventRecord(event, riskPoint, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan,
+            EventRecord eventRecord = buildEventRecord(event, riskPoint, binding, absoluteValue, decision, matchedLinkageRules, matchedPlan,
                     alarmRecord.getId(), alarmRecord.getAlarmCode(), dispatchUser);
             eventRecordService.addEvent(eventRecord);
             eventRecordService.dispatchEvent(eventRecord.getId(), dispatchUser, dispatchUser);
@@ -342,7 +345,7 @@ public class DeepDisplacementAutoClosureService {
         );
         Set<String> contextKeywords = buildEmergencyPlanContextKeywords(event, riskPoint, binding);
         Optional<EmergencyPlanMatch> exact = selectScopedEmergencyPlan(candidates.stream()
-                .filter(plan -> severity.getAlarmLevel().equalsIgnoreCase(normalizeLevel(plan.getRiskLevel())))
+                .filter(plan -> severity.getAlarmLevel().equalsIgnoreCase(resolveEmergencyPlanAlarmLevel(plan)))
                 .toList(), contextKeywords);
         if (exact.isPresent()) {
             logMatchedEmergencyPlan(event, riskPoint, binding, severity, exact.get());
@@ -350,7 +353,7 @@ public class DeepDisplacementAutoClosureService {
         }
         String fallbackLevel = fallbackPlanLevel(severity);
         EmergencyPlanMatch matchedPlan = selectScopedEmergencyPlan(candidates.stream()
-                .filter(plan -> fallbackLevel.equalsIgnoreCase(normalizeLevel(plan.getRiskLevel())))
+                .filter(plan -> fallbackLevel.equalsIgnoreCase(resolveEmergencyPlanAlarmLevel(plan)))
                 .toList(), contextKeywords)
                 .orElse(null);
         if (matchedPlan == null) {
@@ -365,9 +368,9 @@ public class DeepDisplacementAutoClosureService {
 
     private String fallbackPlanLevel(AutoClosureSeverity severity) {
         return switch (severity) {
-            case RED -> "critical";
-            case ORANGE, YELLOW -> "warning";
-            case BLUE -> "info";
+            case RED -> "red";
+            case ORANGE, YELLOW -> "orange";
+            case BLUE -> "blue";
         };
     }
 
@@ -484,7 +487,7 @@ public class DeepDisplacementAutoClosureService {
                 .sorted((left, right) -> Integer.compare(right.score(), left.score()))
                 .map(match -> "id=" + match.plan().getId()
                         + ",name=" + match.plan().getPlanName()
-                        + ",level=" + match.plan().getRiskLevel()
+                        + ",level=" + resolveEmergencyPlanAlarmLevel(match.plan())
                         + ",eligible=" + match.eligible()
                         + ",score=" + match.score()
                         + ",scene=" + match.sceneKeywords()
@@ -574,25 +577,26 @@ public class DeepDisplacementAutoClosureService {
                         .eq(RiskPointDevice::getRiskPointId, riskPointId)
                         .eq(RiskPointDevice::getDeleted, 0)
         );
-        AutoClosureSeverity highest = allBindings.stream()
-                .map(this::resolveLatestSeverity)
+        RiskPolicyDecision highest = allBindings.stream()
+                .map(binding -> resolveLatestDecision(binding, riskPoint.getTenantId()))
                 .filter(Objects::nonNull)
-                .max(Comparator.comparingInt(AutoClosureSeverity::getPriority))
+                .max(Comparator.comparingInt(RiskPolicyDecision::getPriority))
                 .orElse(null);
         if (highest == null) {
             return;
         }
-        if (highest.getRiskPointLevel().equalsIgnoreCase(normalizeLevel(riskPoint.getRiskLevel()))) {
+        if (highest.getRiskPointLevel().equalsIgnoreCase(resolveCurrentRiskLevel(riskPoint))) {
             return;
         }
         RiskPoint update = new RiskPoint();
         update.setId(riskPointId);
+        update.setCurrentRiskLevel(highest.getRiskPointLevel());
         update.setRiskLevel(highest.getRiskPointLevel());
         update.setUpdateTime(new java.util.Date());
         riskPointMapper.updateById(update);
     }
 
-    private AutoClosureSeverity resolveLatestSeverity(RiskPointDevice binding) {
+    private RiskPolicyDecision resolveLatestDecision(RiskPointDevice binding, Long tenantId) {
         DeviceProperty property = devicePropertyMapper.selectOne(
                 new LambdaQueryWrapper<DeviceProperty>()
                         .eq(DeviceProperty::getDeviceId, binding.getDeviceId())
@@ -607,22 +611,22 @@ public class DeepDisplacementAutoClosureService {
         if (value == null) {
             return null;
         }
-        return AutoClosureSeverity.classify(value.abs(), iotProperties.getAlarm().getAutoClosure());
+        return riskPolicyResolver.resolve(tenantId, binding, value.abs());
     }
 
     private AlarmRecord buildAlarmRecord(DeviceRiskEvaluationEvent event,
                                          RiskPoint riskPoint,
                                          RiskPointDevice binding,
                                          BigDecimal absoluteValue,
-                                         AutoClosureSeverity severity,
+                                         RiskPolicyDecision decision,
                                          List<Map<String, Object>> matchedLinkageRules,
                                          EmergencyPlan matchedPlan) {
         AlarmRecord alarmRecord = new AlarmRecord();
         alarmRecord.setTenantId(resolveTenantId(event.getTenantId(), riskPoint.getTenantId()));
         alarmRecord.setAlarmCode(generateCode("ALARM"));
-        alarmRecord.setAlarmTitle(buildAlarmTitle(riskPoint, binding, severity));
+        alarmRecord.setAlarmTitle(buildAlarmTitle(riskPoint, binding, decision.getSeverity()));
         alarmRecord.setAlarmType("threshold");
-        alarmRecord.setAlarmLevel(severity.getAlarmLevel());
+        alarmRecord.setAlarmLevel(decision.getAlarmLevel());
         alarmRecord.setRegionId(riskPoint.getRegionId());
         alarmRecord.setRegionName(riskPoint.getRegionName());
         alarmRecord.setRiskPointId(riskPoint.getId());
@@ -632,10 +636,11 @@ public class DeepDisplacementAutoClosureService {
         alarmRecord.setDeviceName(event.getDeviceName());
         alarmRecord.setMetricName(resolveMetricName(binding));
         alarmRecord.setCurrentValue(toPlainString(absoluteValue));
-        alarmRecord.setThresholdValue(buildThresholdText(severity));
+        alarmRecord.setThresholdValue(decision.getThresholdText());
         alarmRecord.setTriggerTime(formatDateTime(event.getReportedAt()));
-        alarmRecord.setRuleName(AUTO_RULE_NAME);
-        alarmRecord.setRemark(buildAlarmRemark(event, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan));
+        alarmRecord.setRuleId(decision.getRuleId());
+        alarmRecord.setRuleName(StringUtils.hasText(decision.getRuleName()) ? decision.getRuleName() : AUTO_RULE_NAME);
+        alarmRecord.setRemark(buildAlarmRemark(event, binding, absoluteValue, decision, matchedLinkageRules, matchedPlan));
         return alarmRecord;
     }
 
@@ -643,7 +648,7 @@ public class DeepDisplacementAutoClosureService {
                                          RiskPoint riskPoint,
                                          RiskPointDevice binding,
                                          BigDecimal absoluteValue,
-                                         AutoClosureSeverity severity,
+                                         RiskPolicyDecision decision,
                                          List<Map<String, Object>> matchedLinkageRules,
                                          EmergencyPlan matchedPlan,
                                          Long alarmId,
@@ -652,11 +657,11 @@ public class DeepDisplacementAutoClosureService {
         EventRecord eventRecord = new EventRecord();
         eventRecord.setTenantId(resolveTenantId(event.getTenantId(), riskPoint.getTenantId()));
         eventRecord.setEventCode(generateCode("EVENT"));
-        eventRecord.setEventTitle(buildEventTitle(riskPoint, binding, severity));
+        eventRecord.setEventTitle(buildEventTitle(riskPoint, binding, decision.getSeverity()));
         eventRecord.setAlarmId(alarmId);
         eventRecord.setAlarmCode(alarmCode);
-        eventRecord.setAlarmLevel(severity.getAlarmLevel());
-        eventRecord.setRiskLevel(severity.getAlarmLevel());
+        eventRecord.setAlarmLevel(decision.getAlarmLevel());
+        eventRecord.setRiskLevel(decision.getRiskPointLevel());
         eventRecord.setRegionId(riskPoint.getRegionId());
         eventRecord.setRegionName(riskPoint.getRegionName());
         eventRecord.setRiskPointId(riskPoint.getId());
@@ -667,9 +672,9 @@ public class DeepDisplacementAutoClosureService {
         eventRecord.setMetricName(resolveMetricName(binding));
         eventRecord.setCurrentValue(toPlainString(absoluteValue));
         eventRecord.setResponsibleUser(dispatchUser);
-        eventRecord.setUrgencyLevel(severity.getAlarmLevel());
+        eventRecord.setUrgencyLevel(decision.getAlarmLevel());
         eventRecord.setTriggerTime(formatDateTime(event.getReportedAt()));
-        eventRecord.setReviewNotes(buildEventReviewNotes(event, binding, absoluteValue, severity, matchedLinkageRules, matchedPlan));
+        eventRecord.setReviewNotes(buildEventReviewNotes(event, binding, absoluteValue, decision, matchedLinkageRules, matchedPlan));
         return eventRecord;
     }
 
@@ -685,28 +690,20 @@ public class DeepDisplacementAutoClosureService {
         return StringUtils.hasText(binding.getMetricName()) ? binding.getMetricName() : binding.getMetricIdentifier();
     }
 
-    private String buildThresholdText(AutoClosureSeverity severity) {
-        IotProperties.Alarm.AutoClosure config = iotProperties.getAlarm().getAutoClosure();
-        return switch (severity) {
-            case YELLOW -> "[" + toPlainString(config.getYellow()) + ", " + toPlainString(config.getOrange()) + ") mm";
-            case ORANGE -> "[" + toPlainString(config.getOrange()) + ", " + toPlainString(config.getRed()) + ") mm";
-            case RED -> ">= " + toPlainString(config.getRed()) + " mm";
-            case BLUE -> "< " + toPlainString(config.getYellow()) + " mm";
-        };
-    }
-
     private String buildAlarmRemark(DeviceRiskEvaluationEvent event,
                                     RiskPointDevice binding,
                                     BigDecimal absoluteValue,
-                                    AutoClosureSeverity severity,
+                                    RiskPolicyDecision decision,
                                     List<Map<String, Object>> matchedLinkageRules,
                                     EmergencyPlan matchedPlan) {
         Map<String, Object> remark = new LinkedHashMap<>();
         remark.put("source", AUTO_SOURCE);
+        remark.put("policySource", decision.getSource());
         remark.put("traceId", event.getTraceId());
         remark.put("metricIdentifier", binding.getMetricIdentifier());
-        remark.put("color", severity.getColorCode());
+        remark.put("color", decision.getColorCode());
         remark.put("absValue", toPlainString(absoluteValue));
+        remark.put("threshold", decision.getThresholdText());
         remark.put("linkageRuleIds", matchedLinkageRules.stream().map(item -> item.get("id")).toList());
         remark.put("planId", matchedPlan == null ? null : matchedPlan.getId());
         return writeJson(remark);
@@ -715,23 +712,24 @@ public class DeepDisplacementAutoClosureService {
     private String buildEventReviewNotes(DeviceRiskEvaluationEvent event,
                                          RiskPointDevice binding,
                                          BigDecimal absoluteValue,
-                                         AutoClosureSeverity severity,
+                                         RiskPolicyDecision decision,
                                          List<Map<String, Object>> matchedLinkageRules,
                                          EmergencyPlan matchedPlan) {
         Map<String, Object> notes = new LinkedHashMap<>();
         notes.put("source", AUTO_SOURCE);
+        notes.put("policySource", decision.getSource());
         notes.put("traceId", event.getTraceId());
         notes.put("metricIdentifier", binding.getMetricIdentifier());
         notes.put("metricName", resolveMetricName(binding));
-        notes.put("color", severity.getColorCode());
-        notes.put("alarmLevel", severity.getAlarmLevel());
+        notes.put("color", decision.getColorCode());
+        notes.put("alarmLevel", decision.getAlarmLevel());
         notes.put("absValue", toPlainString(absoluteValue));
-        notes.put("threshold", buildThresholdText(severity));
+        notes.put("threshold", decision.getThresholdText());
         notes.put("linkageRules", matchedLinkageRules);
         notes.put("emergencyPlan", matchedPlan == null ? null : Map.of(
                 "id", matchedPlan.getId(),
                 "name", matchedPlan.getPlanName(),
-                "riskLevel", matchedPlan.getRiskLevel()
+                "alarmLevel", resolveEmergencyPlanAlarmLevel(matchedPlan)
         ));
         return writeJson(notes);
     }
@@ -776,7 +774,36 @@ public class DeepDisplacementAutoClosureService {
     }
 
     private String normalizeLevel(String level) {
-        return level == null ? "" : level.trim();
+        if (!StringUtils.hasText(level)) {
+            return "";
+        }
+        return switch (level.trim().toLowerCase(Locale.ROOT)) {
+            case "critical" -> "red";
+            case "warning", "high" -> "orange";
+            case "medium" -> "yellow";
+            case "info" -> "blue";
+            default -> level.trim().toLowerCase(Locale.ROOT);
+        };
+    }
+
+    private String resolveEmergencyPlanAlarmLevel(EmergencyPlan plan) {
+        if (plan == null) {
+            return "";
+        }
+        if (StringUtils.hasText(plan.getAlarmLevel())) {
+            return normalizeLevel(plan.getAlarmLevel());
+        }
+        return normalizeLevel(plan.getRiskLevel());
+    }
+
+    private String resolveCurrentRiskLevel(RiskPoint riskPoint) {
+        if (riskPoint == null) {
+            return "";
+        }
+        if (StringUtils.hasText(riskPoint.getCurrentRiskLevel())) {
+            return normalizeLevel(riskPoint.getCurrentRiskLevel());
+        }
+        return normalizeLevel(riskPoint.getRiskLevel());
     }
 
     private String defaultString(String value) {

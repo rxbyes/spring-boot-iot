@@ -17,7 +17,7 @@ const DrawerStub = {
 };
 
 describe('StandardFormDrawer', () => {
-  it('renders title, subtitle and slot content', () => {
+  it('renders title, subtitle and slot content without the legacy eyebrow tier', () => {
     const wrapper = mount(StandardFormDrawer, {
       props: {
         modelValue: true,
@@ -36,9 +36,9 @@ describe('StandardFormDrawer', () => {
       }
     });
 
-    expect(wrapper.text()).toContain('System Form');
     expect(wrapper.text()).toContain('新增用户');
     expect(wrapper.text()).toContain('通过抽屉维护用户信息');
+    expect(wrapper.text()).not.toContain('System Form');
     expect(wrapper.find('.inner-form').exists()).toBe(true);
     expect(wrapper.find('.submit-btn').exists()).toBe(true);
   });

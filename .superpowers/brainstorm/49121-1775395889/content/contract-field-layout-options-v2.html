@@ -1,0 +1,79 @@
+<h2>契约字段页方案（更新版）</h2>
+<p class="subtitle">已按最新口径更新：样本类型只保留“业务数据 / 状态数据”；设备结构单独用“单台设备 / 复合设备”开关表达。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 单页纵向契约台（推荐）</div>
+        <div class="mockup-body">
+          <div class="placeholder">产品摘要：已生效 / 本次识别 / 待生效</div>
+          <div class="placeholder" style="margin-top:10px;">样本类型：业务数据 / 状态数据</div>
+          <div class="placeholder" style="margin-top:10px;">设备结构：单台设备 / 复合设备</div>
+          <div class="placeholder" style="margin-top:10px;">复合设备时展开：父设备编码 + 映射关系表</div>
+          <div class="mock-input" style="margin-top:10px;">JSON 输入区（粘贴后自动格式化）</div>
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="mock-button">格式化</button>
+            <button class="mock-button">提取契约字段</button>
+            <button class="mock-button">确认生效</button>
+          </div>
+          <div class="placeholder" style="margin-top:10px;">识别结果</div>
+          <div class="placeholder" style="margin-top:10px;">本次生效</div>
+          <div class="placeholder" style="margin-top:10px;">当前已生效字段</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>单页纵向契约台</h3>
+      <p>把原“契约字段页 + 物模型提炼抽屉”合成一页，按录入、识别、确认、已生效自然下沉。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 顶部输入 + 底部双结果区</div>
+        <div class="mockup-body">
+          <div class="placeholder">顶部：样本类型 + 设备结构 + 父设备编码 + 映射关系 + JSON</div>
+          <div class="split" style="margin-top:10px;">
+            <div class="mockup">
+              <div class="mockup-header">左</div>
+              <div class="mockup-body">
+                <div class="placeholder">识别结果</div>
+              </div>
+            </div>
+            <div class="mockup">
+              <div class="mockup-header">右</div>
+              <div class="mockup-body">
+                <div class="placeholder">当前已生效字段</div>
+              </div>
+            </div>
+          </div>
+          <div class="placeholder" style="margin-top:10px;">底部：本次生效与确认区</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>双结果并列台</h3>
+      <p>识别结果和已生效字段同时可见，适合频繁对照，但布局更重，移动端更难压缩。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 契约字段页内折叠分组</div>
+        <div class="mockup-body">
+          <div class="placeholder">分组 1：样本输入</div>
+          <div class="placeholder" style="margin-top:10px;">分组 2：映射关系（复合设备时展开）</div>
+          <div class="placeholder" style="margin-top:10px;">分组 3：识别结果</div>
+          <div class="placeholder" style="margin-top:10px;">分组 4：当前已生效字段</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>折叠分组页</h3>
+      <p>结构最规整，但容易重新长回“流程墙”感觉，不够你要的精简直接。</p>
+    </div>
+  </div>
+</div>

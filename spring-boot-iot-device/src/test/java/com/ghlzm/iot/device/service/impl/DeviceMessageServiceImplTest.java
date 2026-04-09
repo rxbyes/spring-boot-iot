@@ -1,5 +1,9 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.event.DeviceRiskEvaluationEvent;
@@ -18,6 +22,8 @@ import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceSessionService;
+import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.device.service.handler.DeviceContractStageHandler;
 import com.ghlzm.iot.device.service.handler.DeviceMessageLogStageHandler;
 import com.ghlzm.iot.device.service.handler.DevicePayloadApplyStageHandler;
@@ -25,9 +31,20 @@ import com.ghlzm.iot.device.service.handler.DeviceRiskDispatchStageHandler;
 import com.ghlzm.iot.device.service.handler.DeviceStateStageHandler;
 import com.ghlzm.iot.device.vo.DeviceMessageTraceStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
+import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
+import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.springframework.context.ApplicationEventPublisher;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,15 +56,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -58,6 +78,13 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DeviceMessageServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Device.class);
+        TableInfoHelper.initTableInfo(assistant, DeviceMessageLog.class);
+    }
 
     @Mock
     private DeviceMapper deviceMapper;
@@ -78,9 +105,19 @@ class DeviceMessageServiceImplTest {
     @Mock
     private DeviceSessionService deviceSessionService;
     @Mock
+    private ProductMetricEvidenceService productMetricEvidenceService;
+    @Mock
+    private VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private JdbcTemplate jdbcTemplate;
+    @Mock
+    private PermissionService permissionService;
+    @Mock
+    private ProtocolAdapterRegistry protocolAdapterRegistry;
+    @Mock
+    private ProtocolAdapter protocolAdapter;
 
     private DeviceMessageServiceImpl deviceMessageService;
 
@@ -103,7 +140,9 @@ class DeviceMessageServiceImplTest {
                         devicePropertyMapper,
                         devicePropertyMetadataService,
                         commandRecordService,
-                        deviceFileService
+                        deviceFileService,
+                        productMetricEvidenceService,
+                        vendorMetricMappingRuntimeService
                 );
         DeviceStateStageHandler deviceStateStageHandler =
                 new DeviceStateStageHandler(
@@ -130,8 +169,374 @@ class DeviceMessageServiceImplTest {
                 deviceMessageLogStageHandler,
                 devicePayloadApplyStageHandler,
                 deviceStateStageHandler,
-                deviceRiskDispatchStageHandler
+                deviceRiskDispatchStageHandler,
+                permissionService,
+                protocolAdapterRegistry
         );
+    }
+
+    @Test
+    void listMessageLogsShouldRejectCrossTenantDevice() {
+        Device crossTenantDevice = new Device();
+        crossTenantDevice.setId(3001L);
+        crossTenantDevice.setTenantId(9L);
+        crossTenantDevice.setDeviceCode("demo-device-tenant-9");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMapper.selectOne(any())).thenReturn(crossTenantDevice);
+
+        assertThrows(BizException.class, () -> deviceMessageService.listMessageLogs(99L, "demo-device-tenant-9"));
+        verify(deviceMessageLogMapper, never()).selectList(any());
+    }
+
+    @Test
+    void listMessageLogsShouldRejectCrossOrganizationDevice() {
+        Device crossOrgDevice = new Device();
+        crossOrgDevice.setId(3002L);
+        crossOrgDevice.setTenantId(8L);
+        crossOrgDevice.setOrgId(7102L);
+        crossOrgDevice.setDeviceCode("demo-device-org-7102");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        when(deviceMapper.selectOne(any())).thenReturn(crossOrgDevice);
+
+        assertThrows(BizException.class, () -> deviceMessageService.listMessageLogs(99L, "demo-device-org-7102"));
+        verify(deviceMessageLogMapper, never()).selectList(any());
+    }
+
+    @Test
+    void pageMessageTraceLogsShouldApplyTenantFilter() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, Page.class));
+
+        deviceMessageService.pageMessageTraceLogs(99L, new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery(), 1, 10);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<DeviceMessageLog>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceMessageLogMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("tenant_id"));
+    }
+
+    @Test
+    void pageMessageTraceLogsShouldApplyOrganizationFilter() {
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        when(deviceMessageLogMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, Page.class));
+
+        deviceMessageService.pageMessageTraceLogs(99L, new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery(), 1, 10);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<DeviceMessageLog>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceMessageLogMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("tenant_id"));
+        assertTrue(sqlSegment.contains("org_id"));
+    }
+
+    @Test
+    void pageMessageTraceLogsShouldApplyKeywordAcrossTraceDeviceAndProduct() {
+        com.ghlzm.iot.device.dto.DeviceMessageTraceQuery query = new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery();
+        query.setKeyword("demo-device-01");
+        query.setMessageType("report");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, Page.class));
+
+        deviceMessageService.pageMessageTraceLogs(99L, query, 1, 10);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<DeviceMessageLog>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(deviceMessageLogMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("trace_id"));
+        assertTrue(sqlSegment.contains("device_code"));
+        assertTrue(sqlSegment.contains("product_key"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().containsValue("demo-device-01"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().containsValue("property"));
+    }
+
+    @Test
+    void getMessageTraceDetailShouldRecoverPayloadComparisonFromStoredLog() {
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setId(1L);
+        logRecord.setTenantId(8L);
+        logRecord.setDeviceId(3001L);
+        logRecord.setProductId(1001L);
+        logRecord.setTraceId("trace-001");
+        logRecord.setDeviceCode("demo-device-01");
+        logRecord.setProductKey("demo-product");
+        logRecord.setMessageType("report");
+        logRecord.setTopic("$dp");
+        logRecord.setPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+
+        Device device = new Device();
+        device.setId(3001L);
+        device.setTenantId(8L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-01");
+        device.setProtocolCode("mqtt-json");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+        product.setProtocolCode("mqtt-json");
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setDeviceCode("17165802");
+        upMessage.setProductKey("demo-product");
+        upMessage.setMessageType("property");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setDecryptedPayloadPreview("{\"17165802\":{\"temperature\":26.5}}");
+        protocolMetadata.setDecodedPayloadPreview(Map.of(
+                "messageType", "property",
+                "deviceCode", "17165802",
+                "properties", Map.of("temperature", 26.5)
+        ));
+        Object templateEvidence = newInstance("com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence");
+        invokeSetter(templateEvidence, "setTemplateCodes", List.of("crack_child_template"));
+        Object execution = newInstance("com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence");
+        invokeSetter(execution, "setTemplateCode", "crack_child_template");
+        invokeSetter(execution, "setLogicalChannelCode", "L1_LF_1");
+        invokeSetter(execution, "setChildDeviceCode", "202018143");
+        invokeSetter(execution, "setCanonicalizationStrategy", "LF_VALUE");
+        invokeSetter(execution, "setStatusMirrorApplied", Boolean.TRUE);
+        invokeSetter(execution, "setParentRemovalKeys", List.of("L1_LF_1"));
+        invokeSetter(templateEvidence, "setExecutions", List.of(execution));
+        invokeSetter(protocolMetadata, "setTemplateEvidence", templateEvidence);
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectOne(any())).thenReturn(logRecord);
+        when(deviceMapper.selectById(3001L)).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any(ProtocolContext.class))).thenReturn(upMessage);
+
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(99L, 1L);
+
+        assertEquals("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}", detail.getRawPayload());
+        assertEquals("{\"17165802\":{\"temperature\":26.5}}", detail.getDecryptedPayload());
+        assertEquals("17165802", detail.getDecodedPayload().get("deviceCode"));
+        Object detailProtocolMetadata = invokeGetter(detail, "getProtocolMetadata");
+        Object detailTemplateEvidence = invokeGetter(detailProtocolMetadata, "getTemplateEvidence");
+        assertEquals(List.of("crack_child_template"), invokeGetter(detailTemplateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) invokeGetter(detailTemplateEvidence, "getExecutions");
+        assertEquals(1, executions.size());
+        assertEquals("202018143", invokeGetter(executions.get(0), "getChildDeviceCode"));
+        assertEquals(Boolean.TRUE, invokeGetter(executions.get(0), "getStatusMirrorApplied"));
+    }
+
+    @Test
+    void getMessageTraceDetailShouldFallbackToMqttJsonProtocolWhenProtocolMetadataMissing() {
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setId(1L);
+        logRecord.setTenantId(8L);
+        logRecord.setDeviceId(3001L);
+        logRecord.setProductId(1001L);
+        logRecord.setTraceId("trace-001");
+        logRecord.setDeviceCode("demo-device-01");
+        logRecord.setProductKey("demo-product");
+        logRecord.setMessageType("report");
+        logRecord.setTopic("$dp");
+        logRecord.setPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+
+        Device device = new Device();
+        device.setId(3001L);
+        device.setTenantId(8L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-01");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("demo-product");
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setDeviceCode("17165802");
+        upMessage.setProductKey("demo-product");
+        upMessage.setMessageType("property");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setDecryptedPayloadPreview("{\"17165802\":{\"temperature\":26.5}}");
+        protocolMetadata.setDecodedPayloadPreview(Map.of(
+                "messageType", "property",
+                "deviceCode", "17165802",
+                "properties", Map.of("temperature", 26.5)
+        ));
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectOne(any())).thenReturn(logRecord);
+        when(deviceMapper.selectById(3001L)).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any(ProtocolContext.class))).thenReturn(upMessage);
+
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(99L, 1L);
+
+        assertEquals("{\"17165802\":{\"temperature\":26.5}}", detail.getDecryptedPayload());
+        assertEquals("17165802", detail.getDecodedPayload().get("deviceCode"));
+        verify(protocolAdapterRegistry).getAdapter("mqtt-json");
+    }
+
+    @Test
+    void getMessageTraceDetailShouldFallbackToRawPayloadWhenRecoveryPreparationThrows() {
+        DeviceMessageLog logRecord = new DeviceMessageLog();
+        logRecord.setId(1L);
+        logRecord.setTenantId(8L);
+        logRecord.setDeviceId(3001L);
+        logRecord.setProductId(1001L);
+        logRecord.setTraceId("trace-001");
+        logRecord.setDeviceCode("demo-device-01");
+        logRecord.setProductKey("demo-product");
+        logRecord.setMessageType("report");
+        logRecord.setTopic("$dp");
+        logRecord.setPayload("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}");
+
+        Device device = new Device();
+        device.setId(3001L);
+        device.setTenantId(8L);
+        device.setProductId(1001L);
+        device.setDeviceCode("demo-device-01");
+        device.setProtocolCode("mqtt-json");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(deviceMessageLogMapper.selectOne(any())).thenReturn(logRecord);
+        when(deviceMapper.selectById(3001L)).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenThrow(new IllegalStateException("catalog unavailable"));
+
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(99L, 1L);
+
+        assertEquals("{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}", detail.getRawPayload());
+        assertEquals(detail.getRawPayload(), detail.getDecryptedPayload());
+        assertTrue(detail.getDecodedPayload().containsKey("header"));
+        assertTrue(detail.getDecodedPayload().containsKey("bodies"));
+    }
+
+    @Test
+    void getMessageTraceStatsShouldApplyTenantFilter() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    executedSql.add(sql);
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 11L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 5L;
+                    }
+                    if (sql.contains("message_type = ?")) {
+                        return 3L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 18L;
+                    }
+                    return 22L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        deviceMessageService.getMessageTraceStats(99L, new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery());
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
+    }
+
+    @Test
+    void getMessageTraceStatsShouldApplyOrganizationFilter() {
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, 7101L, DataScopeType.ORG, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0, String.class);
+                    executedSql.add(sql);
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    if (sql.contains("COUNT(DISTINCT trace_id)")) {
+                        return 11L;
+                    }
+                    if (sql.contains("COUNT(DISTINCT device_code)")) {
+                        return 5L;
+                    }
+                    if (sql.contains("message_type = ?")) {
+                        return 3L;
+                    }
+                    if (sql.contains("INTERVAL 1 HOUR")) {
+                        return 4L;
+                    }
+                    if (sql.contains("INTERVAL 24 HOUR")) {
+                        return 18L;
+                    }
+                    return 22L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        deviceMessageService.getMessageTraceStats(99L, new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery());
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("tenant_id")));
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("org_id")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(8L)));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains(7101L)));
+    }
+
+    @Test
+    void getMessageTraceStatsShouldApplyKeywordAndNormalizeLegacyReportMessageType() {
+        com.ghlzm.iot.device.dto.DeviceMessageTraceQuery query = new com.ghlzm.iot.device.dto.DeviceMessageTraceQuery();
+        query.setKeyword("demo-device-01");
+        query.setMessageType("report");
+        List<String> executedSql = new ArrayList<>();
+        List<Object[]> executedArgs = new ArrayList<>();
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return 1L;
+                });
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DeviceStatsBucketVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    executedSql.add(invocation.getArgument(0, String.class));
+                    executedArgs.add(Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length));
+                    return List.of();
+                });
+
+        deviceMessageService.getMessageTraceStats(99L, query);
+
+        assertTrue(executedSql.stream().allMatch(sql -> sql.contains("(trace_id = ? OR device_code = ? OR product_key = ?)")));
+        assertTrue(executedArgs.stream().allMatch(args -> Arrays.asList(args).contains("demo-device-01")));
+        assertTrue(executedArgs.stream().anyMatch(args -> Arrays.asList(args).contains("property")));
     }
 
     @Test
@@ -337,6 +742,26 @@ class DeviceMessageServiceImplTest {
                 "{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}",
                 JsonMapper.builder().findAndAddModules().build().readTree(storedPayload).toString()
         );
+    }
+
+    @Test
+    void recordDispatchFailureTraceShouldPersistWhenProductLookupFails() {
+        RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
+        rawDeviceMessage.setTraceId("trace-demo-003");
+        rawDeviceMessage.setDeviceCode("demo-device-03");
+        rawDeviceMessage.setProductKey("demo-product");
+
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(productMapper.selectOne(any())).thenThrow(new RuntimeException("Unknown column 'metadata_json' in 'field list'"));
+
+        deviceMessageService.recordDispatchFailureTrace("$dp", "{\"body\":1}".getBytes(StandardCharsets.UTF_8), rawDeviceMessage);
+
+        ArgumentCaptor<DeviceMessageLog> logCaptor = ArgumentCaptor.forClass(DeviceMessageLog.class);
+        verify(deviceMessageLogMapper).insert(logCaptor.capture());
+        assertEquals("trace-demo-003", logCaptor.getValue().getTraceId());
+        assertEquals("demo-device-03", logCaptor.getValue().getDeviceCode());
+        assertEquals("demo-product", logCaptor.getValue().getProductKey());
+        assertEquals("dispatch_failed", logCaptor.getValue().getMessageType());
     }
 
     @Test
@@ -573,5 +998,39 @@ class DeviceMessageServiceImplTest {
         properties.put("dispsX", dispsX);
         properties.put("dispsY", dispsY);
         return properties;
+    }
+
+    private Object newInstance(String className) {
+        try {
+            return Class.forName(className).getConstructor().newInstance();
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected class " + className + " with a public no-args constructor", ex);
+        }
+    }
+
+    private void invokeSetter(Object target, String methodName, Object arg) {
+        invokeMethod(target, methodName, new Class<?>[]{arg.getClass().getInterfaces().length > 0 ? arg.getClass().getInterfaces()[0] : arg.getClass()}, new Object[]{arg});
+    }
+
+    private Object invokeGetter(Object target, String methodName) {
+        return invokeMethod(target, methodName, new Class<?>[0], new Object[0]);
+    }
+
+    private Object invokeMethod(Object target, String methodName, Class<?>[] parameterTypes, Object[] args) {
+        try {
+            Method method = findCompatibleMethod(target.getClass(), methodName, args.length);
+            return method.invoke(target, args);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected method " + methodName + " on " + target.getClass().getName(), ex);
+        }
+    }
+
+    private Method findCompatibleMethod(Class<?> type, String methodName, int argCount) throws NoSuchMethodException {
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == argCount) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException(methodName);
     }
 }

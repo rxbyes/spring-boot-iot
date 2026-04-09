@@ -106,93 +106,123 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新账号列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="username" label="用户名" :width="150" />
-        <StandardTableTextColumn
-          prop="realName"
-          label="真实姓名"
-          :width="120"
-        />
-        <StandardTableTextColumn prop="phone" label="手机号" :width="150" />
-        <StandardTableTextColumn prop="email" label="邮箱" :width="200" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? "启用" : "禁用" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn
-          prop="lastLoginTime"
-          label="最后登录时间"
-          :width="180"
-        />
-        <StandardTableTextColumn
-          prop="lastLoginIp"
-          label="最后登录 IP"
-          :width="150"
-        />
-        <StandardTableTextColumn
-          prop="createTime"
-          label="创建时间"
-          :width="180"
-        />
-        <el-table-column
-          label="操作"
-          width="200"
-          fixed="right"
-          :show-overflow-tooltip="false"
-        >
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink
-                v-permission="'system:user:update'"
-                @click="handleEdit(row)"
-                >编辑</StandardActionLink
-              >
-              <StandardActionLink
-                v-permission="'system:user:reset-password'"
-                @click="handleResetPassword(row)"
-                >重置密码</StandardActionLink
-              >
-              <StandardActionLink
-                v-permission="'system:user:delete'"
-                @click="handleDelete(row)"
-                >删除</StandardActionLink
-              >
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`user-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`user-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="username" label="用户名" :width="150" />
+            <StandardTableTextColumn prop="nickname" label="昵称" :width="140" />
+            <StandardTableTextColumn
+              prop="realName"
+              label="真实姓名"
+              :width="120"
+            />
+            <StandardTableTextColumn prop="orgName" label="主机构" :width="180" />
+            <StandardTableTextColumn label="角色绑定" :min-width="180">
+              <template #default="{ row }">
+                {{ (row.roleNames || []).join(" / ") || "未绑定角色" }}
+              </template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="phone" label="手机号" :width="150" />
+            <StandardTableTextColumn prop="email" label="邮箱" :width="200" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? "启用" : "禁用" }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn
+              prop="lastLoginTime"
+              label="最后登录时间"
+              :width="180"
+            />
+            <StandardTableTextColumn
+              prop="lastLoginIp"
+              label="最后登录 IP"
+              :width="150"
+            />
+            <StandardTableTextColumn
+              prop="createTime"
+              label="创建时间"
+              :width="180"
+            />
+            <el-table-column
+              label="操作"
+              :width="userActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getUserRowActions()"
+                  @command="(command) => handleUserRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          class="pagination"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
     </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护用户基础信息。"
+      subtitle="通过右侧抽屉维护账号基础信息、联系方式与启停状态。"
       size="42rem"
       @close="handleDialogClose"
     >
@@ -205,8 +235,42 @@
         <el-form-item label="用户名" prop="username">
           <el-input v-model="formData.username" placeholder="请输入用户名" />
         </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="formData.nickname" placeholder="请输入昵称" />
+        </el-form-item>
         <el-form-item label="真实姓名" prop="realName">
           <el-input v-model="formData.realName" placeholder="请输入真实姓名" />
+        </el-form-item>
+        <el-form-item label="主机构" prop="orgId">
+          <el-select
+            v-model="formData.orgId"
+            placeholder="请选择主机构"
+            filterable
+            clearable
+          >
+            <el-option
+              v-for="item in organizationOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="角色绑定" prop="roleIds">
+          <el-select
+            v-model="formData.roleIds"
+            placeholder="请选择角色"
+            filterable
+            multiple
+            clearable
+          >
+            <el-option
+              v-for="item in roleOptions"
+              :key="item.id"
+              :label="item.roleName"
+              :value="item.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="formData.phone" placeholder="请输入手机号" />
@@ -266,10 +330,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import CsvColumnSettingDialog from "@/components/CsvColumnSettingDialog.vue";
+import EmptyState from "@/components/EmptyState.vue";
 import StandardAppliedFiltersBar from "@/components/StandardAppliedFiltersBar.vue";
 import StandardDrawerFooter from "@/components/StandardDrawerFooter.vue";
 import StandardFormDrawer from "@/components/StandardFormDrawer.vue";
@@ -278,9 +343,14 @@ import StandardPagination from "@/components/StandardPagination.vue";
 import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
 import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
 import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import StandardWorkbenchRowActions from "@/components/StandardWorkbenchRowActions.vue";
 import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
 import { useServerPagination } from "@/composables/useServerPagination";
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
+import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
+import { usePermissionStore } from "@/stores/permission";
+import { listWritableOrganizationTree, type Organization } from "@/api/organization";
+import { listRoles, type Role } from "@/api/role";
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -302,6 +372,8 @@ import {
   type User,
 } from "@/api/user";
 
+type UserRowActionCommand = "edit" | "reset-password" | "delete";
+
 const formRef = ref();
 const tableRef = ref();
 const loading = ref(false);
@@ -310,8 +382,19 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("新增用户");
 const tableData = ref<User[]>([]);
 const selectedRows = ref<User[]>([]);
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
+const permissionStore = usePermissionStore();
+const organizationOptions = ref<Array<{ label: string; value: string }>>([]);
+const roleOptions = ref<Role[]>([]);
+const userActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: "edit", label: "编辑" },
+    { command: "reset-password", label: "重置密码" },
+    { command: "delete", label: "删除" },
+  ],
+});
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } =
   useServerPagination();
+let latestListRequestId = 0;
 
 const searchForm = reactive({
   username: "",
@@ -327,16 +410,21 @@ const appliedFilters = reactive({
 const formData = ref<Partial<User>>({
   id: undefined,
   username: "",
+  nickname: "",
   realName: "",
+  orgId: undefined,
   phone: "",
   email: "",
   password: "",
   status: 1,
+  roleIds: [],
 });
 
 const formRules = {
   username: [{ required: true, message: "请输入用户名", trigger: "blur" }],
   realName: [{ required: true, message: "请输入真实姓名", trigger: "blur" }],
+  orgId: [{ required: true, message: "请选择主机构", trigger: "change" }],
+  roleIds: [{ required: true, message: "请至少绑定一个角色", trigger: "change" }],
   phone: [{ required: true, message: "请输入手机号", trigger: "blur" }],
   email: [{ required: true, message: "请输入邮箱", trigger: "blur" }],
   password: [{ required: true, message: "请输入密码", trigger: "blur" }],
@@ -399,8 +487,19 @@ const {
     email: "",
   },
 });
+const hasRecords = computed(() => tableData.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const emptyStateTitle = computed(() =>
+  hasAppliedFilters.value ? "没有符合条件的账号记录" : "当前还没有平台账号",
+);
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? "已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。"
+    : "当前还没有可展示的平台账号记录，建议稍后刷新，或先新增账号。",
+);
 
 const loadUserPage = async () => {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
     const res = await pageUsers({
@@ -410,18 +509,31 @@ const loadUserPage = async () => {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
     });
-    if (res.code === 200 && res.data) {
-      tableData.value = applyPageResult(res.data);
+    if (requestId !== latestListRequestId) {
+      return;
     }
+    if (res.code === 200 && res.data) {
+      tableData.value = decorateUsers(applyPageResult(res.data));
+      return;
+    }
+    tableData.value = [];
+    resetTotal();
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    tableData.value = [];
+    resetTotal();
     console.error("获取用户分页失败", error);
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 };
 
 onMounted(() => {
-  loadUserPage();
+  void Promise.all([loadUserPage(), loadOrganizationOptions(), loadRoleOptions()]);
 });
 
 const handleSearch = () => {
@@ -443,6 +555,32 @@ const handleReset = () => {
 
 const handleSelectionChange = (rows: User[]) => {
   selectedRows.value = rows;
+};
+
+const getUserRowActions = () => {
+  const actions: Array<{ command: UserRowActionCommand; label: string }> = [];
+  if (permissionStore.hasPermission("system:user:update")) {
+    actions.push({ command: "edit", label: "编辑" });
+  }
+  if (permissionStore.hasPermission("system:user:reset-password")) {
+    actions.push({ command: "reset-password", label: "重置密码" });
+  }
+  if (permissionStore.hasPermission("system:user:delete")) {
+    actions.push({ command: "delete", label: "删除" });
+  }
+  return actions;
+};
+
+const handleUserRowAction = (command: UserRowActionCommand, row: User) => {
+  if (command === "edit") {
+    handleEdit(row);
+    return;
+  }
+  if (command === "reset-password") {
+    handleResetPassword(row);
+    return;
+  }
+  handleDelete(row);
 };
 
 const clearSelection = () => {
@@ -494,16 +632,29 @@ const handleExportCurrent = () => {
   );
 };
 
+const normalizeOptionId = (value?: string | number | null) => {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+  return String(value);
+};
+
+const normalizeOptionIds = (values?: Array<string | number | null>) =>
+  (values || []).map((item) => normalizeOptionId(item)).filter(Boolean);
+
 const resetFormData = (parent?: Partial<User>) => {
+  const normalizedOrgId = normalizeOptionId(parent?.orgId);
   formData.value = {
     id: parent?.id,
     username: parent?.username || "",
+    nickname: parent?.nickname || "",
     realName: parent?.realName || "",
+    orgId: normalizedOrgId || undefined,
     phone: parent?.phone || "",
     email: parent?.email || "",
     password: "",
     status: parent?.status ?? 1,
-    roleIds: parent?.roleIds,
+    roleIds: normalizeOptionIds(parent?.roleIds),
   };
 };
 
@@ -590,5 +741,62 @@ const handleSizeChange = (size: number) => {
 const handlePageChange = (page: number) => {
   setPageNum(page);
   loadUserPage();
+};
+
+const decorateUsers = (rows: User[]) =>
+  rows.map((row) => ({
+    ...row,
+    orgName: row.orgName || resolveOrganizationName(row.orgId),
+  }));
+
+const resolveOrganizationName = (orgId?: string | number) => {
+  const normalizedOrgId = normalizeOptionId(orgId);
+  if (!normalizedOrgId) {
+    return "未关联机构";
+  }
+  return (
+    organizationOptions.value.find((item) => item.value === normalizedOrgId)?.label ||
+    "未关联机构"
+  );
+};
+
+const flattenOrganizations = (
+  nodes: Organization[],
+  level = 0,
+): Array<{ label: string; value: string }> => {
+  return nodes.flatMap((item) => {
+    const prefix = level > 0 ? `${"　".repeat(level)}└ ` : "";
+    const current = [{ label: `${prefix}${item.orgName}`, value: String(item.id) }];
+    const children = item.children?.length
+      ? flattenOrganizations(item.children, level + 1)
+      : [];
+    return [...current, ...children];
+  });
+};
+
+const loadOrganizationOptions = async () => {
+  try {
+    const res = await listWritableOrganizationTree();
+    if (res.code === 200) {
+      organizationOptions.value = flattenOrganizations(res.data || []);
+      tableData.value = decorateUsers(tableData.value);
+    }
+  } catch (error) {
+    console.error("获取机构树失败", error);
+  }
+};
+
+const loadRoleOptions = async () => {
+  try {
+    const res = await listRoles();
+    if (res.code === 200) {
+      roleOptions.value = (res.data || []).map((item) => ({
+        ...item,
+        id: normalizeOptionId(item.id),
+      }));
+    }
+  } catch (error) {
+    console.error("获取角色列表失败", error);
+  }
 };
 </script>

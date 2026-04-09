@@ -2,9 +2,11 @@ package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
+import org.springframework.security.core.Authentication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,8 +29,9 @@ public class AuditLogController {
        */
       @GetMapping("/list")
       public R<List<AuditLog>> listLogs(AuditLog log,
-                  @RequestParam(defaultValue = "false") Boolean excludeSystemError) {
-            List<AuditLog> logs = auditLogService.listLogs(log, excludeSystemError);
+                  @RequestParam(defaultValue = "false") Boolean excludeSystemError,
+                  Authentication authentication) {
+            List<AuditLog> logs = auditLogService.listLogs(requireCurrentUserId(authentication), log, excludeSystemError);
             return R.ok(logs);
       }
 
@@ -39,8 +42,9 @@ public class AuditLogController {
       public R<Map<String, Object>> pageLogs(AuditLog log,
                   @RequestParam(defaultValue = "false") Boolean excludeSystemError,
                   @RequestParam(defaultValue = "1") Integer pageNum,
-                  @RequestParam(defaultValue = "10") Integer pageSize) {
-            PageResult<AuditLog> page = auditLogService.pageLogs(log, excludeSystemError, pageNum, pageSize);
+                  @RequestParam(defaultValue = "10") Integer pageSize,
+                  Authentication authentication) {
+            PageResult<AuditLog> page = auditLogService.pageLogs(requireCurrentUserId(authentication), log, excludeSystemError, pageNum, pageSize);
             // 显式返回标准分页结构，避免历史序列化差异导致前端拿到数组而非对象
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("total", page.getTotal());
@@ -54,21 +58,21 @@ public class AuditLogController {
        * 查询 system_error 统计概览
        */
       @GetMapping("/system-error/stats")
-      public R<SystemErrorStatsVO> getSystemErrorStats(AuditLog log) {
-            return R.ok(auditLogService.getSystemErrorStats(log));
+      public R<SystemErrorStatsVO> getSystemErrorStats(AuditLog log, Authentication authentication) {
+            return R.ok(auditLogService.getSystemErrorStats(requireCurrentUserId(authentication), log));
       }
 
       @GetMapping("/business/stats")
-      public R<Map<String, Object>> getBusinessAuditStats(AuditLog log) {
-            return R.ok(auditLogService.getBusinessAuditStats(log));
+      public R<Map<String, Object>> getBusinessAuditStats(AuditLog log, Authentication authentication) {
+            return R.ok(auditLogService.getBusinessAuditStats(requireCurrentUserId(authentication), log));
       }
 
       /**
        * 根据ID查询审计日志
        */
       @GetMapping("/get/{id}")
-      public R<AuditLog> getById(@PathVariable Long id) {
-            AuditLog log = auditLogService.getById(id);
+      public R<AuditLog> getById(@PathVariable Long id, Authentication authentication) {
+            AuditLog log = auditLogService.getById(requireCurrentUserId(authentication), id);
             if (log == null) {
                   return R.fail(404, "审计日志不存在或已删除");
             }
@@ -88,8 +92,15 @@ public class AuditLogController {
        * 删除审计日志
        */
       @DeleteMapping("/delete/{id}")
-      public R<Void> deleteLog(@PathVariable Long id) {
-            auditLogService.deleteLog(id);
+      public R<Void> deleteLog(@PathVariable Long id, Authentication authentication) {
+            auditLogService.deleteLog(requireCurrentUserId(authentication), id);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }

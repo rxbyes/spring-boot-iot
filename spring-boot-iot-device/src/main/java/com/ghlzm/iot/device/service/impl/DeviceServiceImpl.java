@@ -13,9 +13,11 @@ import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
@@ -29,6 +31,11 @@ import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.entity.Organization;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.OrganizationService;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -64,31 +71,46 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final ProductService productService;
     private final DevicePropertyMapper devicePropertyMapper;
     private final ProductModelMapper productModelMapper;
+    private final RiskMetricCatalogReadMapper riskMetricCatalogReadMapper;
     private final UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     private final IotProperties iotProperties;
     private final DeviceInvalidReportStateService invalidReportStateService;
+    private final PermissionService permissionService;
+    private final OrganizationService organizationService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
                              DevicePropertyMapper devicePropertyMapper,
                              ProductModelMapper productModelMapper,
+                             RiskMetricCatalogReadMapper riskMetricCatalogReadMapper,
                              UnregisteredDeviceRosterService unregisteredDeviceRosterService,
                              IotProperties iotProperties,
-                             DeviceInvalidReportStateService invalidReportStateService) {
+                             DeviceInvalidReportStateService invalidReportStateService,
+                             PermissionService permissionService,
+                             OrganizationService organizationService) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
+        this.riskMetricCatalogReadMapper = riskMetricCatalogReadMapper;
         this.unregisteredDeviceRosterService = unregisteredDeviceRosterService;
         this.iotProperties = iotProperties;
         this.invalidReportStateService = invalidReportStateService;
+        this.permissionService = permissionService;
+        this.organizationService = organizationService;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DeviceDetailVO addDevice(DeviceAddDTO dto) {
-        Device device = createDeviceRecord(dto);
+        return addDevice(null, dto);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DeviceDetailVO addDevice(Long currentUserId, DeviceAddDTO dto) {
+        Device device = createDeviceRecord(currentUserId, dto);
         resolveInvalidReportState(normalizeRequiredText(dto.getProductKey()), device.getDeviceCode());
-        return getDetailById(device.getId());
+        return currentUserId == null ? getDetailById(device.getId()) : getDetailById(currentUserId, device.getId());
     }
 
     @Override
@@ -100,6 +122,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (device == null) {
             throw new BizException("设备不存在: " + id);
         }
+        return device;
+    }
+
+    @Override
+    public Device getRequiredById(Long currentUserId, Long id) {
+        Device device = getRequiredById(id);
+        ensureDeviceAccessible(currentUserId, device);
         return device;
     }
 
@@ -116,18 +145,70 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     }
 
     @Override
+    public Device getRequiredByCode(Long currentUserId, String deviceCode) {
+        Device device = getRequiredByCode(deviceCode);
+        ensureDeviceAccessible(currentUserId, device);
+        return device;
+    }
+
+    @Override
     public DeviceDetailVO getDetailById(Long id) {
-        return toDetailVO(getRequiredById(id));
+        return getDetailById(null, id);
+    }
+
+    @Override
+    public DeviceDetailVO getDetailById(Long currentUserId, Long id) {
+        Device device = getRequiredById(id);
+        ensureDeviceAccessible(currentUserId, device);
+        return toDetailVO(currentUserId, device);
     }
 
     @Override
     public DeviceDetailVO getDetailByCode(String deviceCode) {
-        return toDetailVO(getRequiredByCode(deviceCode));
+        return getDetailByCode(null, deviceCode);
+    }
+
+    @Override
+    public DeviceDetailVO getDetailByCode(Long currentUserId, String deviceCode) {
+        Device device = getRequiredByCode(deviceCode);
+        ensureDeviceAccessible(currentUserId, device);
+        return toDetailVO(currentUserId, device);
     }
 
     @Override
     public PageResult<DevicePageVO> pageDevices(Long deviceId,
+                                                String keyword,
                                                 String productKey,
+                                                String productName,
+                                                String deviceCode,
+                                                String deviceName,
+                                                Integer onlineStatus,
+                                                Integer activateStatus,
+                                                Integer deviceStatus,
+                                                Integer registrationStatus,
+                                                Long pageNum,
+                                                Long pageSize) {
+        return pageDevices(null,
+                deviceId,
+                keyword,
+                productKey,
+                productName,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus,
+                registrationStatus,
+                pageNum,
+                pageSize);
+    }
+
+    @Override
+    public PageResult<DevicePageVO> pageDevices(Long currentUserId,
+                                                Long deviceId,
+                                                String keyword,
+                                                String productKey,
+                                                String productName,
                                                 String deviceCode,
                                                 String deviceName,
                                                 Integer onlineStatus,
@@ -139,11 +220,24 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         Page<Device> page = PageQueryUtils.buildPage(pageNum, pageSize);
         long current = page.getCurrent();
         long size = page.getSize();
+        if (Integer.valueOf(UNREGISTERED_STATUS).equals(registrationStatus)) {
+            return pageUnregisteredDevices(currentUserId, deviceId, keyword, productKey, productName, deviceCode, deviceName,
+                    onlineStatus, activateStatus, deviceStatus, current, size);
+        }
+
+        boolean hasExplicitProductFilter = StringUtils.hasText(productKey) || StringUtils.hasText(productName);
+        List<Long> filteredProductIds = resolveFilteredProductIds(currentUserId, productKey, productName);
+        List<Long> keywordMatchedProductIds = resolveKeywordMatchedProductIds(currentUserId, keyword);
 
         if (Integer.valueOf(REGISTERED_STATUS).equals(registrationStatus)) {
-            List<Long> filteredProductIds = resolveFilteredProductIds(productKey);
-            return pageRegisteredDevices(deviceId,
+            if (hasExplicitProductFilter && CollectionUtils.isEmpty(filteredProductIds)) {
+                return PageResult.empty(current, size);
+            }
+            return pageRegisteredDevices(currentUserId,
+                    deviceId,
+                    keyword,
                     filteredProductIds,
+                    keywordMatchedProductIds,
                     deviceCode,
                     deviceName,
                     onlineStatus,
@@ -153,15 +247,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                     size);
         }
 
-        if (Integer.valueOf(UNREGISTERED_STATUS).equals(registrationStatus)) {
-            return pageUnregisteredDevices(deviceId, productKey, deviceCode, deviceName,
-                    onlineStatus, activateStatus, deviceStatus, current, size);
-        }
-
-        List<Long> filteredProductIds = resolveFilteredProductIds(productKey);
-        return pageCombinedDevices(deviceId,
+        return pageCombinedDevices(currentUserId,
+                deviceId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 productKey,
+                productName,
                 deviceCode,
                 deviceName,
                 onlineStatus,
@@ -174,17 +266,31 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DeviceDetailVO updateDevice(Long id, DeviceAddDTO dto) {
+        return updateDevice(null, id, dto);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DeviceDetailVO updateDevice(Long currentUserId, Long id, DeviceAddDTO dto) {
         Device device = getRequiredById(id);
-        Product product = productService.getRequiredByProductKey(normalizeRequiredText(dto.getProductKey()));
+        ensureDeviceAccessible(currentUserId, device);
+        Product product = resolveAccessibleProduct(currentUserId, normalizeRequiredText(dto.getProductKey()));
         resolveDeviceArchiveContract(product);
-        ensureDeviceCodeUnique(normalizeRequiredText(dto.getDeviceCode()), id);
-        applyEditableFields(device, dto, product, false);
+        ensureDeviceCodeUnique(resolveEffectiveTenantId(currentUserId, device.getTenantId()),
+                normalizeRequiredText(dto.getDeviceCode()),
+                id);
+        applyEditableFields(currentUserId, device, dto, product, false);
         updateById(device);
-        return getDetailById(id);
+        return currentUserId == null ? getDetailById(id) : getDetailById(currentUserId, id);
     }
 
     @Override
     public DeviceBatchAddResultVO batchAddDevices(List<DeviceAddDTO> items) {
+        return batchAddDevices(null, items);
+    }
+
+    @Override
+    public DeviceBatchAddResultVO batchAddDevices(Long currentUserId, List<DeviceAddDTO> items) {
         if (CollectionUtils.isEmpty(items)) {
             throw new BizException("请至少提供一条设备数据");
         }
@@ -197,7 +303,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
             int rowNo = index + 1;
             try {
                 validateBatchAddItem(item, rowNo);
-                Device device = createDeviceRecord(item);
+                Device device = createDeviceRecord(currentUserId, item);
                 resolveInvalidReportState(normalizeRequiredText(item.getProductKey()), device.getDeviceCode());
                 createdDeviceCodes.add(device.getDeviceCode());
             } catch (Exception ex) {
@@ -221,15 +327,22 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DeviceReplaceResultVO replaceDevice(Long id, DeviceReplaceDTO dto) {
+        return replaceDevice(null, id, dto);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DeviceReplaceResultVO replaceDevice(Long currentUserId, Long id, DeviceReplaceDTO dto) {
         Device sourceDevice = getRequiredById(id);
+        ensureDeviceAccessible(currentUserId, sourceDevice);
         if (sourceDevice.getDeviceCode().equals(normalizeRequiredText(dto.getDeviceCode()))) {
             throw new BizException("新设备编码不能与原设备编码相同");
         }
 
-        Product targetProduct = resolveReplacementProduct(sourceDevice, dto.getProductKey());
+        Product targetProduct = resolveReplacementProduct(currentUserId, sourceDevice, dto.getProductKey());
         LocalDateTime replacementTime = LocalDateTime.now();
         DeviceAddDTO replacementDto = buildReplacementCreateDTO(sourceDevice, dto, targetProduct, replacementTime);
-        Device replacementDevice = createDeviceRecord(replacementDto);
+        Device replacementDevice = createDeviceRecord(currentUserId, replacementDto);
         resolveInvalidReportState(targetProduct.getProductKey(), replacementDevice.getDeviceCode());
 
         Integer previousOnlineStatus = sourceDevice.getOnlineStatus();
@@ -255,7 +368,14 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteDevice(Long id) {
-        getRequiredById(id);
+        deleteDevice(null, id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteDevice(Long currentUserId, Long id) {
+        Device device = getRequiredById(id);
+        ensureDeviceAccessible(currentUserId, device);
         if (!removeById(id)) {
             throw new BizException("设备删除失败，请稍后重试");
         }
@@ -264,6 +384,12 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDeleteDevices(List<Long> ids) {
+        batchDeleteDevices(null, ids);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchDeleteDevices(Long currentUserId, List<Long> ids) {
         if (CollectionUtils.isEmpty(ids)) {
             throw new BizException("请选择需要删除的设备");
         }
@@ -274,6 +400,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (CollectionUtils.isEmpty(devices)) {
             throw new BizException("未找到可删除的设备");
         }
+        devices.forEach(device -> ensureDeviceAccessible(currentUserId, device));
         List<Long> existingIds = devices.stream().map(Device::getId).collect(Collectors.toList());
         if (!removeByIds(existingIds)) {
             throw new BizException("设备批量删除失败，请稍后重试");
@@ -282,24 +409,38 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     @Override
     public List<DeviceProperty> listProperties(String deviceCode) {
+        return listProperties(null, deviceCode);
+    }
+
+    @Override
+    public List<DeviceProperty> listProperties(Long currentUserId, String deviceCode) {
         Device device = getRequiredByCode(deviceCode);
-        return devicePropertyMapper.selectList(
+        ensureDeviceAccessible(currentUserId, device);
+        List<DeviceProperty> properties = devicePropertyMapper.selectList(
                 new LambdaQueryWrapper<DeviceProperty>()
                         .eq(DeviceProperty::getDeviceId, device.getId())
                         .orderByDesc(DeviceProperty::getUpdateTime)
         );
+        overlayLatestPropertyNames(device, properties);
+        return properties;
     }
 
     @Override
     public List<DeviceOptionVO> listDeviceOptions(boolean includeDisabled) {
+        return listDeviceOptions(null, includeDisabled);
+    }
+
+    @Override
+    public List<DeviceOptionVO> listDeviceOptions(Long currentUserId, boolean includeDisabled) {
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<Device>()
                 .eq(Device::getDeleted, 0)
                 .orderByDesc(Device::getCreateTime);
+        applyDeviceScope(wrapper, currentUserId);
         if (!includeDisabled) {
             wrapper.eq(Device::getDeviceStatus, DeviceStatusEnum.ENABLED.getCode());
         }
         List<Device> devices = list(wrapper);
-        Map<Long, Product> productMap = loadProductMap(devices.stream().map(Device::getProductId).toList());
+        Map<Long, Product> productMap = loadProductMap(resolveScopedTenantId(currentUserId), devices.stream().map(Device::getProductId).toList());
         return devices.stream()
                 .map(device -> toDeviceOption(device, productMap.get(device.getProductId())))
                 .toList();
@@ -307,8 +448,15 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     @Override
     public List<DeviceMetricOptionVO> listMetricOptions(Long deviceId) {
+        return listMetricOptions(null, deviceId);
+    }
+
+    @Override
+    public List<DeviceMetricOptionVO> listMetricOptions(Long currentUserId, Long deviceId) {
         Device device = getRequiredById(deviceId);
+        ensureDeviceAccessible(currentUserId, device);
         Map<String, DeviceMetricOptionVO> optionMap = new LinkedHashMap<>();
+        Map<String, Long> publishedRiskMetricIds = loadPublishedRiskMetricIds(device.getProductId());
 
         List<ProductModel> productModels = productModelMapper.selectList(
                 new LambdaQueryWrapper<ProductModel>()
@@ -325,6 +473,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                     ? productModel.getIdentifier()
                     : productModel.getModelName());
             option.setDataType(productModel.getDataType());
+            option.setRiskMetricId(publishedRiskMetricIds.get(option.getIdentifier()));
             optionMap.put(option.getIdentifier(), option);
         }
 
@@ -341,6 +490,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         ? deviceProperty.getIdentifier()
                         : deviceProperty.getPropertyName());
                 option.setDataType(deviceProperty.getValueType());
+                option.setRiskMetricId(publishedRiskMetricIds.get(deviceProperty.getIdentifier()));
                 return option;
             });
         }
@@ -348,14 +498,68 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return optionMap.values().stream().collect(Collectors.toList());
     }
 
-    private Device createDeviceRecord(DeviceAddDTO dto) {
-        Product product = productService.getRequiredByProductKey(normalizeRequiredText(dto.getProductKey()));
+    private Map<String, Long> loadPublishedRiskMetricIds(Long productId) {
+        if (productId == null) {
+            return Map.of();
+        }
+        List<RiskMetricCatalogReadModel> rows = riskMetricCatalogReadMapper.selectList(
+                new LambdaQueryWrapper<RiskMetricCatalogReadModel>()
+                        .eq(RiskMetricCatalogReadModel::getProductId, productId)
+                        .eq(RiskMetricCatalogReadModel::getEnabled, 1)
+                        .eq(RiskMetricCatalogReadModel::getDeleted, 0)
+        );
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        return rows.stream()
+                .filter(row -> StringUtils.hasText(row.getContractIdentifier()) && row.getId() != null)
+                .collect(Collectors.toMap(
+                        RiskMetricCatalogReadModel::getContractIdentifier,
+                        RiskMetricCatalogReadModel::getId,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+    }
+
+    private void overlayLatestPropertyNames(Device device, List<DeviceProperty> properties) {
+        if (device == null || device.getProductId() == null || CollectionUtils.isEmpty(properties)) {
+            return;
+        }
+        Map<String, String> latestNameMap = productModelMapper.selectList(
+                        new LambdaQueryWrapper<ProductModel>()
+                                .eq(ProductModel::getProductId, device.getProductId())
+                                .eq(ProductModel::getModelType, "property")
+                                .eq(ProductModel::getDeleted, 0)
+                ).stream()
+                .filter(model -> StringUtils.hasText(model.getIdentifier()) && StringUtils.hasText(model.getModelName()))
+                .collect(Collectors.toMap(
+                        ProductModel::getIdentifier,
+                        ProductModel::getModelName,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        if (latestNameMap.isEmpty()) {
+            return;
+        }
+        properties.forEach(property -> {
+            String latestName = latestNameMap.get(property.getIdentifier());
+            if (StringUtils.hasText(latestName)) {
+                property.setPropertyName(latestName);
+            }
+        });
+    }
+
+    private Device createDeviceRecord(Long currentUserId, DeviceAddDTO dto) {
+        Product product = resolveAccessibleProduct(currentUserId, normalizeRequiredText(dto.getProductKey()));
         resolveDeviceArchiveContract(product);
-        ensureDeviceCodeUnique(normalizeRequiredText(dto.getDeviceCode()), null);
+        ensureDeviceCodeUnique(resolveEffectiveTenantId(currentUserId, product.getTenantId()),
+                normalizeRequiredText(dto.getDeviceCode()),
+                null);
 
         Device device = new Device();
+        device.setTenantId(resolveEffectiveTenantId(currentUserId, product.getTenantId()));
         // 创建设备时统一从产品继承协议、节点类型，并落初始化状态字段。
-        applyEditableFields(device, dto, product, true);
+        applyEditableFields(currentUserId, device, dto, product, true);
         save(device);
         return device;
     }
@@ -382,10 +586,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return new DeviceArchiveContract(product.getId(), protocolCode, product.getNodeType());
     }
 
-    private void ensureDeviceCodeUnique(String deviceCode, Long excludeId) {
+    private void ensureDeviceCodeUnique(Long tenantId, String deviceCode, Long excludeId) {
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<Device>()
                 .eq(Device::getDeviceCode, deviceCode)
                 .eq(Device::getDeleted, 0);
+        if (tenantId != null) {
+            wrapper.eq(Device::getTenantId, tenantId);
+        }
         if (excludeId != null) {
             wrapper.ne(Device::getId, excludeId);
         }
@@ -413,15 +620,16 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
     }
 
-    private Product resolveReplacementProduct(Device sourceDevice, String productKey) {
+    private Product resolveReplacementProduct(Long currentUserId, Device sourceDevice, String productKey) {
         String normalizedProductKey = normalizeOptionalText(productKey);
         if (normalizedProductKey != null) {
-            return productService.getRequiredByProductKey(normalizedProductKey);
+            return resolveAccessibleProduct(currentUserId, normalizedProductKey);
         }
         Product product = productService.getById(sourceDevice.getProductId());
         if (product == null || product.getDeleted() != null && product.getDeleted() == 1) {
             throw new BizException("原设备所属产品不存在，无法执行更换");
         }
+        ensureProductAccessible(currentUserId, product);
         return product;
     }
 
@@ -525,10 +733,19 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         invalidReportStateService.markResolvedByDevice(productKey.trim(), deviceCode.trim(), LocalDateTime.now());
     }
 
-    private void applyEditableFields(Device device, DeviceAddDTO dto, Product product, boolean initializeDefaults) {
+    private void applyEditableFields(Long currentUserId, Device device, DeviceAddDTO dto, Product product, boolean initializeDefaults) {
         DeviceArchiveContract archiveContract = resolveDeviceArchiveContract(product);
-        Device parentDevice = resolveParentDevice(dto, device.getId());
+        Device parentDevice = resolveParentDevice(currentUserId, dto, device.getId());
+        DeviceOrganizationAssignment organizationAssignment = resolveWritableOrganizationAssignment(
+                currentUserId,
+                resolveEffectiveTenantId(currentUserId, product.getTenantId())
+        );
         device.setProductId(archiveContract.productId());
+        device.setTenantId(resolveEffectiveTenantId(currentUserId, product.getTenantId()));
+        if (organizationAssignment != null) {
+            device.setOrgId(organizationAssignment.orgId());
+            device.setOrgName(organizationAssignment.orgName());
+        }
         device.setGatewayId(resolveGatewayId(archiveContract.nodeType(), parentDevice));
         device.setParentDeviceId(parentDevice != null ? parentDevice.getId() : null);
         device.setDeviceName(normalizeRequiredText(dto.getDeviceName()));
@@ -572,19 +789,34 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return deviceStatus != null ? deviceStatus : DeviceStatusEnum.ENABLED.getCode();
     }
 
-    private LambdaQueryWrapper<Device> buildDeviceQueryWrapper(Long deviceId,
+    private LambdaQueryWrapper<Device> buildDeviceQueryWrapper(Long currentUserId,
+                                                               Long deviceId,
+                                                               String keyword,
                                                                List<Long> filteredProductIds,
+                                                               List<Long> keywordMatchedProductIds,
                                                                String deviceCode,
                                                                String deviceName,
                                                                Integer onlineStatus,
                                                                Integer activateStatus,
                                                                Integer deviceStatus) {
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
+        applyDeviceScope(wrapper, currentUserId);
         if (deviceId != null) {
             wrapper.eq(Device::getId, deviceId);
         }
         if (!CollectionUtils.isEmpty(filteredProductIds)) {
             wrapper.in(Device::getProductId, filteredProductIds);
+        }
+        String normalizedKeyword = normalizeOptionalText(keyword);
+        if (StringUtils.hasText(normalizedKeyword)) {
+            wrapper.and(condition -> {
+                condition.like(Device::getDeviceCode, normalizedKeyword)
+                        .or()
+                        .like(Device::getDeviceName, normalizedKeyword);
+                if (!CollectionUtils.isEmpty(keywordMatchedProductIds)) {
+                    condition.or().in(Device::getProductId, keywordMatchedProductIds);
+                }
+            });
         }
         if (StringUtils.hasText(deviceCode)) {
             wrapper.like(Device::getDeviceCode, deviceCode.trim());
@@ -605,12 +837,17 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return wrapper;
     }
 
-    private List<Long> resolveFilteredProductIds(String productKey) {
-        if (!StringUtils.hasText(productKey)) {
+    private List<Long> resolveFilteredProductIds(Long currentUserId, String productKey, String productName) {
+        String normalizedProductKey = normalizeOptionalText(productKey);
+        String normalizedProductName = normalizeOptionalText(productName);
+        if (!StringUtils.hasText(normalizedProductKey) && !StringUtils.hasText(normalizedProductName)) {
             return null;
         }
+        Long tenantId = resolveScopedTenantId(currentUserId);
         return productService.lambdaQuery()
-                .like(Product::getProductKey, productKey.trim())
+                .eq(tenantId != null, Product::getTenantId, tenantId)
+                .like(StringUtils.hasText(normalizedProductKey), Product::getProductKey, normalizedProductKey)
+                .like(StringUtils.hasText(normalizedProductName), Product::getProductName, normalizedProductName)
                 .eq(Product::getDeleted, 0)
                 .list()
                 .stream()
@@ -618,27 +855,49 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 .toList();
     }
 
-    private List<DevicePageVO> toPageVOList(List<Device> devices) {
+    private List<Long> resolveKeywordMatchedProductIds(Long currentUserId, String keyword) {
+        String normalizedKeyword = normalizeOptionalText(keyword);
+        if (!StringUtils.hasText(normalizedKeyword)) {
+            return null;
+        }
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        return productService.lambdaQuery()
+                .eq(tenantId != null, Product::getTenantId, tenantId)
+                .eq(Product::getDeleted, 0)
+                .and(wrapper -> wrapper.like(Product::getProductKey, normalizedKeyword)
+                        .or()
+                        .like(Product::getProductName, normalizedKeyword))
+                .list()
+                .stream()
+                .map(Product::getId)
+                .toList();
+    }
+
+    private List<DevicePageVO> toPageVOList(Long currentUserId, List<Device> devices) {
         if (CollectionUtils.isEmpty(devices)) {
             return List.of();
         }
-        Map<Long, Product> productMap = loadProductMap(devices.stream().map(Device::getProductId).toList());
-        Map<Long, Device> relationDeviceMap = loadRelationDeviceMap(devices);
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        Map<Long, Product> productMap = loadProductMap(tenantId, devices.stream().map(Device::getProductId).toList());
+        Map<Long, Device> relationDeviceMap = loadRelationDeviceMap(tenantId, devices);
         return devices.stream()
                 .map(device -> toPageVO(device, productMap.get(device.getProductId()), relationDeviceMap))
                 .toList();
     }
 
-    private DeviceDetailVO toDetailVO(Device device) {
-        Product product = productService.getById(device.getProductId());
-        Map<Long, Device> relationDeviceMap = loadDeviceMap(java.util.Arrays.asList(device.getGatewayId(), device.getParentDeviceId()));
+    private DeviceDetailVO toDetailVO(Long currentUserId, Device device) {
+        Long tenantId = resolveEffectiveTenantId(currentUserId, device == null ? null : device.getTenantId());
+        Product product = loadProductMap(tenantId, List.of(device.getProductId())).get(device.getProductId());
+        Map<Long, Device> relationDeviceMap = loadDeviceMap(tenantId, java.util.Arrays.asList(device.getGatewayId(), device.getParentDeviceId()));
         DeviceDetailVO detail = new DeviceDetailVO();
         detail.setId(device.getId());
         detail.setProductId(device.getProductId());
+        detail.setOrgId(device.getOrgId());
         detail.setGatewayId(device.getGatewayId());
         detail.setParentDeviceId(device.getParentDeviceId());
         detail.setProductKey(product != null ? product.getProductKey() : null);
         detail.setProductName(product != null ? product.getProductName() : null);
+        detail.setOrgName(device.getOrgName());
         detail.setDeviceName(device.getDeviceName());
         detail.setDeviceCode(device.getDeviceCode());
         detail.setDeviceSecret(device.getDeviceSecret());
@@ -669,10 +928,12 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         DevicePageVO row = new DevicePageVO();
         row.setId(device.getId());
         row.setProductId(device.getProductId());
+        row.setOrgId(device.getOrgId());
         row.setGatewayId(device.getGatewayId());
         row.setParentDeviceId(device.getParentDeviceId());
         row.setProductKey(product != null ? product.getProductKey() : null);
         row.setProductName(product != null ? product.getProductName() : null);
+        row.setOrgName(device.getOrgName());
         row.setDeviceName(device.getDeviceName());
         row.setDeviceCode(device.getDeviceCode());
         row.setProtocolCode(device.getProtocolCode());
@@ -694,8 +955,11 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return row;
     }
 
-    private PageResult<DevicePageVO> pageRegisteredDevices(Long deviceId,
+    private PageResult<DevicePageVO> pageRegisteredDevices(Long currentUserId,
+                                                           Long deviceId,
+                                                           String keyword,
                                                            List<Long> filteredProductIds,
+                                                           List<Long> keywordMatchedProductIds,
                                                            String deviceCode,
                                                            String deviceName,
                                                            Integer onlineStatus,
@@ -709,20 +973,26 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
         Page<Device> page = PageQueryUtils.buildPage(pageNum, pageSize);
         Page<Device> result = page(page, buildDeviceQueryWrapper(
+                currentUserId,
                 deviceId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 deviceCode,
                 deviceName,
                 onlineStatus,
                 activateStatus,
                 deviceStatus
         ));
-        List<DevicePageVO> records = toPageVOList(result.getRecords());
+        List<DevicePageVO> records = toPageVOList(currentUserId, result.getRecords());
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
     }
 
-    private PageResult<DevicePageVO> pageUnregisteredDevices(Long deviceId,
+    private PageResult<DevicePageVO> pageUnregisteredDevices(Long currentUserId,
+                                                             Long deviceId,
+                                                             String keyword,
                                                              String productKey,
+                                                             String productName,
                                                              String deviceCode,
                                                              String deviceName,
                                                              Integer onlineStatus,
@@ -730,17 +1000,44 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                                                              Integer deviceStatus,
                                                              long pageNum,
                                                              long pageSize) {
+        if (hasOrganizationRestrictedScope(currentUserId)) {
+            return PageResult.empty(pageNum, pageSize);
+        }
         if (!canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)) {
             return PageResult.empty(pageNum, pageSize);
         }
 
         long offset = Math.max(pageNum - 1, 0L) * pageSize;
-        long total = unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode));
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        long total = tenantId == null
+                ? unregisteredDeviceRosterService.countByFilters(
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode))
+                : unregisteredDeviceRosterService.countByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode));
         if (total <= 0L) {
             return PageResult.empty(pageNum, pageSize);
         }
-        List<DevicePageVO> records = unregisteredDeviceRosterService.listByFilters(
+        List<DevicePageVO> records = tenantId == null
+                ? unregisteredDeviceRosterService.listByFilters(
+                normalizeOptionalText(keyword),
                 normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode),
+                offset,
+                pageSize
+        )
+                : unregisteredDeviceRosterService.listByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
                 normalizeOptionalText(deviceCode),
                 offset,
                 pageSize
@@ -748,9 +1045,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return PageResult.of(total, pageNum, pageSize, records);
     }
 
-    private PageResult<DevicePageVO> pageCombinedDevices(Long deviceId,
+    private PageResult<DevicePageVO> pageCombinedDevices(Long currentUserId,
+                                                         Long deviceId,
+                                                         String keyword,
                                                          List<Long> filteredProductIds,
+                                                         List<Long> keywordMatchedProductIds,
                                                          String productKey,
+                                                         String productName,
                                                          String deviceCode,
                                                          String deviceName,
                                                          Integer onlineStatus,
@@ -758,15 +1059,31 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                                                          Integer deviceStatus,
                                                          long pageNum,
                                                          long pageSize) {
-        long registeredTotal = countRegisteredDevices(filteredProductIds,
+        long registeredTotal = countRegisteredDevices(currentUserId,
+                keyword,
+                filteredProductIds,
+                keywordMatchedProductIds,
                 deviceId,
                 deviceCode,
                 deviceName,
                 onlineStatus,
                 activateStatus,
                 deviceStatus);
-        long unregisteredTotal = canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)
-                ? unregisteredDeviceRosterService.countByFilters(normalizeOptionalText(productKey), normalizeOptionalText(deviceCode))
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        long unregisteredTotal = !hasOrganizationRestrictedScope(currentUserId)
+                && canMatchUnregisteredDevices(deviceId, deviceName, onlineStatus, activateStatus, deviceStatus)
+                ? (tenantId == null
+                ? unregisteredDeviceRosterService.countByFilters(
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode))
+                : unregisteredDeviceRosterService.countByFilters(
+                tenantId,
+                normalizeOptionalText(keyword),
+                normalizeOptionalText(productKey),
+                normalizeOptionalText(productName),
+                normalizeOptionalText(deviceCode)))
                 : 0L;
         long total = registeredTotal + unregisteredTotal;
         if (total <= 0L) {
@@ -776,8 +1093,11 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         long offset = Math.max(pageNum - 1, 0L) * pageSize;
         List<DevicePageVO> records = new ArrayList<>();
         if (offset < registeredTotal) {
-            PageResult<DevicePageVO> registeredPage = pageRegisteredDevices(deviceId,
+            PageResult<DevicePageVO> registeredPage = pageRegisteredDevices(currentUserId,
+                    deviceId,
+                    keyword,
                     filteredProductIds,
+                    keywordMatchedProductIds,
                     deviceCode,
                     deviceName,
                     onlineStatus,
@@ -791,8 +1111,20 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         long remaining = pageSize - records.size();
         if (remaining > 0L && unregisteredTotal > 0L) {
             long unregisteredOffset = Math.max(0L, offset - registeredTotal);
-            records.addAll(unregisteredDeviceRosterService.listByFilters(
+            records.addAll(tenantId == null
+                    ? unregisteredDeviceRosterService.listByFilters(
+                    normalizeOptionalText(keyword),
                     normalizeOptionalText(productKey),
+                    normalizeOptionalText(productName),
+                    normalizeOptionalText(deviceCode),
+                    unregisteredOffset,
+                    remaining
+            )
+                    : unregisteredDeviceRosterService.listByFilters(
+                    tenantId,
+                    normalizeOptionalText(keyword),
+                    normalizeOptionalText(productKey),
+                    normalizeOptionalText(productName),
                     normalizeOptionalText(deviceCode),
                     unregisteredOffset,
                     remaining
@@ -801,7 +1133,10 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return PageResult.of(total, pageNum, pageSize, records);
     }
 
-    private long countRegisteredDevices(List<Long> filteredProductIds,
+    private long countRegisteredDevices(Long currentUserId,
+                                        String keyword,
+                                        List<Long> filteredProductIds,
+                                        List<Long> keywordMatchedProductIds,
                                         Long deviceId,
                                         String deviceCode,
                                         String deviceName,
@@ -812,8 +1147,11 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
             return 0L;
         }
         return count(buildDeviceQueryWrapper(
+                currentUserId,
                 deviceId,
+                keyword,
                 filteredProductIds,
+                keywordMatchedProductIds,
                 deviceCode,
                 deviceName,
                 onlineStatus,
@@ -834,7 +1172,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 && deviceStatus == null;
     }
 
-    private Map<Long, Product> loadProductMap(List<Long> productIds) {
+    private Map<Long, Product> loadProductMap(Long tenantId, List<Long> productIds) {
         List<Long> filteredIds = productIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
@@ -842,18 +1180,34 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (CollectionUtils.isEmpty(filteredIds)) {
             return Collections.emptyMap();
         }
-        return productService.listByIds(filteredIds)
-                .stream()
+        if (tenantId == null) {
+            List<Product> products = productService.listByIds(filteredIds);
+            if (CollectionUtils.isEmpty(products)) {
+                return Collections.emptyMap();
+            }
+            return products
+                    .stream()
+                    .collect(Collectors.toMap(Product::getId, product -> product, (left, right) -> left));
+        }
+        List<Product> products = productService.lambdaQuery()
+                .in(Product::getId, filteredIds)
+                .eq(tenantId != null, Product::getTenantId, tenantId)
+                .eq(Product::getDeleted, 0)
+                .list();
+        if (CollectionUtils.isEmpty(products)) {
+            return Collections.emptyMap();
+        }
+        return products.stream()
                 .collect(Collectors.toMap(Product::getId, product -> product, (left, right) -> left));
     }
 
-    private Map<Long, Device> loadRelationDeviceMap(List<Device> devices) {
-        return loadDeviceMap(devices.stream()
+    private Map<Long, Device> loadRelationDeviceMap(Long tenantId, List<Device> devices) {
+        return loadDeviceMap(tenantId, devices.stream()
                 .flatMap(device -> java.util.stream.Stream.of(device.getGatewayId(), device.getParentDeviceId()))
                 .toList());
     }
 
-    private Map<Long, Device> loadDeviceMap(List<Long> deviceIds) {
+    private Map<Long, Device> loadDeviceMap(Long tenantId, List<Long> deviceIds) {
         List<Long> filteredIds = deviceIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
@@ -863,6 +1217,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
         return lambdaQuery()
                 .in(Device::getId, filteredIds)
+                .eq(tenantId != null, Device::getTenantId, tenantId)
                 .eq(Device::getDeleted, 0)
                 .list()
                 .stream()
@@ -894,7 +1249,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return relationDeviceMap.get(relationDeviceId);
     }
 
-    private Device resolveParentDevice(DeviceAddDTO dto, Long currentDeviceId) {
+    private Device resolveParentDevice(Long currentUserId, DeviceAddDTO dto, Long currentDeviceId) {
         String parentDeviceCode = normalizeOptionalText(dto.getParentDeviceCode());
         if (dto.getParentDeviceId() != null && parentDeviceCode != null) {
             throw new BizException("父设备主键和父设备编码不能同时填写");
@@ -904,8 +1259,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
 
         Device parentDevice = dto.getParentDeviceId() != null
-                ? getRequiredById(dto.getParentDeviceId())
-                : getRequiredByCode(parentDeviceCode);
+                ? getRequiredById(currentUserId, dto.getParentDeviceId())
+                : getRequiredByCode(currentUserId, parentDeviceCode);
 
         if (currentDeviceId != null && currentDeviceId.equals(parentDevice.getId())) {
             throw new BizException("父设备不能选择当前设备");
@@ -970,20 +1325,186 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return normalized;
     }
 
+    private DeviceOrganizationAssignment resolveWritableOrganizationAssignment(Long currentUserId, Long tenantId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null) {
+            throw new BizException("无法解析当前登录人的机构上下文");
+        }
+        Long orgId = context.orgId();
+        if (orgId == null || orgId <= 0) {
+            throw new BizException("当前账号未绑定主机构，禁止维护设备归属");
+        }
+        if (organizationService == null) {
+            throw new BizException("无法解析当前登录人的机构上下文");
+        }
+        Organization organization = organizationService.getById(orgId);
+        if (organization == null
+                || Integer.valueOf(1).equals(organization.getDeleted())
+                || !Integer.valueOf(1).equals(organization.getStatus())
+                || !StringUtils.hasText(organization.getOrgName())) {
+            throw new BizException("当前账号主机构不存在或已不可用，禁止维护设备归属");
+        }
+        if (tenantId != null && organization.getTenantId() != null && !tenantId.equals(organization.getTenantId())) {
+            throw new BizException("当前账号主机构不存在或已不可用，禁止维护设备归属");
+        }
+        return new DeviceOrganizationAssignment(organization.getId(), organization.getOrgName());
+    }
+
+    private boolean hasOrganizationRestrictedScope(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return false;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        return dataScopeType == DataScopeType.ORG || dataScopeType == DataScopeType.ORG_AND_CHILDREN;
+    }
+
+    private void applyDeviceScope(LambdaQueryWrapper<Device> wrapper, Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null) {
+            return;
+        }
+        if (!context.superAdmin() && context.tenantId() != null) {
+            wrapper.eq(Device::getTenantId, context.tenantId());
+        }
+        if (context.superAdmin()) {
+            return;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (context.orgId() == null || context.orgId() <= 0) {
+                wrapper.eq(Device::getId, -1L);
+                return;
+            }
+            wrapper.eq(Device::getOrgId, context.orgId());
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (CollectionUtils.isEmpty(accessibleOrgIds)) {
+            wrapper.eq(Device::getId, -1L);
+            return;
+        }
+        wrapper.in(Device::getOrgId, accessibleOrgIds);
+    }
+
+    private Product resolveAccessibleProduct(Long currentUserId, String productKey) {
+        String normalizedProductKey = normalizeRequiredText(productKey);
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        if (tenantId == null) {
+            return productService.getRequiredByProductKey(normalizedProductKey);
+        }
+        Product product = productService.lambdaQuery()
+                .eq(Product::getProductKey, normalizedProductKey)
+                .eq(Product::getDeleted, 0)
+                .eq(tenantId != null, Product::getTenantId, tenantId)
+                .one();
+        if (product == null) {
+            throw new BizException("产品不存在: " + normalizedProductKey);
+        }
+        ensureProductAccessible(currentUserId, product);
+        return product;
+    }
+
+    private void ensureProductAccessible(Long currentUserId, Product product) {
+        if (currentUserId == null || product == null) {
+            return;
+        }
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        if (tenantId != null && !tenantId.equals(product.getTenantId())) {
+            throw new BizException("产品不存在或无权访问");
+        }
+    }
+
+    private void ensureDeviceAccessible(Long currentUserId, Device device) {
+        if (currentUserId == null || device == null) {
+            return;
+        }
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        if (context.tenantId() != null && !context.tenantId().equals(device.getTenantId())) {
+            throw new BizException("设备不存在或无权访问");
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (!Objects.equals(context.orgId(), device.getOrgId())) {
+                throw new BizException("设备不存在或无权访问");
+            }
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (CollectionUtils.isEmpty(accessibleOrgIds) || device.getOrgId() == null || !accessibleOrgIds.contains(device.getOrgId())) {
+            throw new BizException("设备不存在或无权访问");
+        }
+    }
+
+    private Long resolveScopedTenantId(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return null;
+        }
+        return context.tenantId();
+    }
+
+    private Long resolveEffectiveTenantId(Long currentUserId, Long fallbackTenantId) {
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        return tenantId != null ? tenantId : fallbackTenantId;
+    }
+
+    private DataPermissionContext resolveDataPermissionContext(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return null;
+        }
+        return permissionService.getDataPermissionContext(currentUserId);
+    }
+
+    private DataScopeType normalizeDeviceDataScope(DataScopeType dataScopeType) {
+        if (dataScopeType == null) {
+            return DataScopeType.TENANT;
+        }
+        return dataScopeType == DataScopeType.SELF ? DataScopeType.ORG : dataScopeType;
+    }
+
+    private Set<Long> listAccessibleOrganizationIds(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return Set.of();
+        }
+        Set<Long> orgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+        if (CollectionUtils.isEmpty(orgIds)) {
+            return Set.of();
+        }
+        return orgIds;
+    }
+
     private DeviceOptionVO toDeviceOption(Device device, Product product) {
         DeviceOptionVO option = new DeviceOptionVO();
         option.setId(device.getId());
         option.setProductId(device.getProductId());
+        option.setOrgId(device.getOrgId());
         option.setGatewayId(device.getGatewayId());
         option.setParentDeviceId(device.getParentDeviceId());
         option.setProductKey(product != null ? product.getProductKey() : null);
         option.setProductName(product != null ? product.getProductName() : null);
+        option.setOrgName(device.getOrgName());
         option.setDeviceCode(device.getDeviceCode());
         option.setDeviceName(device.getDeviceName());
         option.setNodeType(device.getNodeType());
         option.setOnlineStatus(device.getOnlineStatus());
         option.setDeviceStatus(device.getDeviceStatus());
         return option;
+    }
+
+    private record DeviceOrganizationAssignment(Long orgId, String orgName) {
     }
 
     private record DeviceArchiveContract(Long productId, String protocolCode, Integer nodeType) {

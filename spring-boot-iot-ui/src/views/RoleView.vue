@@ -108,90 +108,123 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新角色列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn
-          prop="roleName"
-          label="角色名称"
-          :width="160"
-        />
-        <StandardTableTextColumn
-          prop="roleCode"
-          label="角色编码"
-          :width="170"
-        />
-        <StandardTableTextColumn
-          prop="description"
-          label="角色描述"
-          :min-width="220"
-        />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? "启用" : "禁用" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn
-          prop="createTime"
-          label="创建时间"
-          :width="180"
-        />
-        <StandardTableTextColumn
-          prop="updateTime"
-          label="更新时间"
-          :width="180"
-        />
-        <el-table-column
-          label="操作"
-          width="220"
-          fixed="right"
-          :show-overflow-tooltip="false"
-        >
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink
-                v-permission="'system:role:update'"
-                @click="handleEdit(row)"
-                >编辑/授权</StandardActionLink
-              >
-              <StandardActionLink
-                v-permission="'system:role:delete'"
-                @click="handleDelete(row)"
-                >删除</StandardActionLink
-              >
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`role-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`role-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn
+              prop="roleName"
+              label="角色名称"
+              :width="160"
+            />
+            <StandardTableTextColumn
+              prop="roleCode"
+              label="角色编码"
+              :width="170"
+            />
+            <StandardTableTextColumn
+              prop="description"
+              label="角色描述"
+              :min-width="220"
+            />
+            <StandardTableTextColumn prop="dataScopeType" label="数据范围" :width="150">
+              <template #default="{ row }">
+                {{ resolveDataScopeLabel(row.dataScopeType) }}
+              </template>
+            </StandardTableTextColumn>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? "启用" : "禁用" }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn
+              prop="createTime"
+              label="创建时间"
+              :width="180"
+            />
+            <StandardTableTextColumn
+              prop="updateTime"
+              label="更新时间"
+              :width="180"
+            />
+            <el-table-column
+              label="操作"
+              :width="roleActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getRoleRowActions()"
+                  @command="(command) => handleRoleRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-          class="pagination"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+            class="pagination"
+          />
+        </div>
       </template>
     </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护角色基础信息、菜单权限与按钮授权。"
+      subtitle="通过右侧抽屉维护角色基础信息，并同步配置菜单与按钮权限。"
       size="68rem"
       @close="handleDialogClose"
     >
@@ -222,6 +255,19 @@
               :rows="4"
               placeholder="请输入角色描述"
             />
+          </el-form-item>
+          <el-form-item label="数据范围" prop="dataScopeType">
+            <el-select
+              v-model="formData.dataScopeType"
+              placeholder="请选择数据范围"
+            >
+              <el-option
+                v-for="item in dataScopeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status">
@@ -400,6 +446,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import CsvColumnSettingDialog from "@/components/CsvColumnSettingDialog.vue";
+import EmptyState from "@/components/EmptyState.vue";
 import StandardAppliedFiltersBar from "@/components/StandardAppliedFiltersBar.vue";
 import StandardDrawerFooter from "@/components/StandardDrawerFooter.vue";
 import StandardFormDrawer from "@/components/StandardFormDrawer.vue";
@@ -408,9 +455,11 @@ import StandardPagination from "@/components/StandardPagination.vue";
 import StandardTableTextColumn from "@/components/StandardTableTextColumn.vue";
 import StandardTableToolbar from "@/components/StandardTableToolbar.vue";
 import StandardWorkbenchPanel from "@/components/StandardWorkbenchPanel.vue";
+import StandardWorkbenchRowActions from "@/components/StandardWorkbenchRowActions.vue";
 import { useListAppliedFilters } from "@/composables/useListAppliedFilters";
 import { useServerPagination } from "@/composables/useServerPagination";
 import { listMenuTree } from "@/api/menu";
+import { usePermissionStore } from "@/stores/permission";
 import {
   addRole,
   deleteRole,
@@ -432,6 +481,7 @@ import {
   resolveRoleCheckedMenuIds,
   resolveRoleMenuSummary,
 } from "@/utils/menuAuth";
+import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 
 interface SearchFormState {
   roleName: string;
@@ -444,6 +494,7 @@ interface RoleFormData {
   roleName: string;
   roleCode: string;
   description: string;
+  dataScopeType: string;
   status: number;
   menuIds: number[];
 }
@@ -453,11 +504,14 @@ interface RoleMenuTreeNode extends MenuTreeNode {
   children: RoleMenuTreeNode[];
 }
 
+type RoleRowActionCommand = "edit" | "delete";
+
 const formRef = ref();
 const tableRef = ref();
 const menuTreeRef = ref();
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } =
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } =
   useServerPagination();
+let latestListRequestId = 0;
 
 const searchForm = reactive<SearchFormState>({
   roleName: "",
@@ -482,6 +536,11 @@ const exportColumns: CsvColumn<Role>[] = [
   { key: "roleCode", label: "角色编码" },
   { key: "description", label: "角色描述" },
   {
+    key: "dataScopeType",
+    label: "数据范围",
+    formatter: (value) => resolveDataScopeLabel(String(value || "")),
+  },
+  {
     key: "status",
     label: "状态",
     formatter: (value) => (Number(value) === 1 ? "启用" : "禁用"),
@@ -496,10 +555,10 @@ const exportPresets = [
     label: "默认模板",
     keys: exportColumns.map((column) => String(column.key)),
   },
-  { label: "运维模板", keys: ["roleName", "roleCode", "status", "updateTime"] },
+  { label: "运维模板", keys: ["roleName", "roleCode", "dataScopeType", "status", "updateTime"] },
   {
     label: "管理模板",
-    keys: ["roleName", "roleCode", "description", "status", "createTime"],
+    keys: ["roleName", "roleCode", "description", "dataScopeType", "status", "createTime"],
   },
 ];
 const selectedExportColumnKeys = ref<string[]>(
@@ -509,11 +568,25 @@ const selectedExportColumnKeys = ref<string[]>(
   ),
 );
 const exportColumnDialogVisible = ref(false);
+const permissionStore = usePermissionStore();
+const roleActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: "edit", label: "编辑/授权" },
+    { command: "delete", label: "删除" },
+  ],
+});
 
 const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
 const menuTreeData = ref<RoleMenuTreeNode[]>([]);
 const menuKeyword = ref("");
+const dataScopeOptions = [
+  { label: "全局", value: "ALL" },
+  { label: "租户内全部", value: "TENANT" },
+  { label: "本机构及下级", value: "ORG_AND_CHILDREN" },
+  { label: "仅本机构", value: "ORG" },
+  { label: "仅本人", value: "SELF" },
+];
 
 const formData = ref<RoleFormData>(createEmptyRoleForm());
 const menuTreeProps = {
@@ -556,10 +629,21 @@ const {
     status: undefined,
   },
 });
+const hasRecords = computed(() => tableData.value.length > 0);
+const showListSkeleton = computed(() => loading.value && !hasRecords.value);
+const emptyStateTitle = computed(() =>
+  hasAppliedFilters.value ? "没有符合条件的角色记录" : "当前还没有角色数据",
+);
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? "已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。"
+    : "当前还没有可展示的角色记录，建议稍后刷新，或先新增角色。",
+);
 
 const formRules = {
   roleName: [{ required: true, message: "请输入角色名称", trigger: "blur" }],
   roleCode: [{ required: true, message: "请输入角色编码", trigger: "blur" }],
+  dataScopeType: [{ required: true, message: "请选择数据范围", trigger: "change" }],
 };
 
 watch(menuKeyword, (keyword) => {
@@ -572,6 +656,7 @@ function createEmptyRoleForm(): RoleFormData {
     roleName: "",
     roleCode: "",
     description: "",
+    dataScopeType: "TENANT",
     status: 1,
     menuIds: [],
   };
@@ -600,6 +685,7 @@ function buildRoleMenuTree(nodes: MenuTreeNode[]): RoleMenuTreeNode[] {
 }
 
 async function getRoles() {
+  const requestId = ++latestListRequestId;
   loading.value = true;
   try {
     const res = await pageRoles({
@@ -612,14 +698,27 @@ async function getRoles() {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
     });
+    if (requestId !== latestListRequestId) {
+      return;
+    }
     if (res.code === 200 && res.data) {
       tableData.value = applyPageResult(res.data);
+      return;
     }
+    tableData.value = [];
+    resetTotal();
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return;
+    }
+    tableData.value = [];
+    resetTotal();
     console.error("获取角色列表失败", error);
     ElMessage.error((error as Error).message || "获取角色列表失败");
   } finally {
-    loading.value = false;
+    if (requestId === latestListRequestId) {
+      loading.value = false;
+    }
   }
 }
 
@@ -697,6 +796,25 @@ function handleRefresh() {
   getRoles();
 }
 
+function getRoleRowActions() {
+  const actions: Array<{ command: RoleRowActionCommand; label: string }> = [];
+  if (permissionStore.hasPermission("system:role:update")) {
+    actions.push({ command: "edit", label: "编辑/授权" });
+  }
+  if (permissionStore.hasPermission("system:role:delete")) {
+    actions.push({ command: "delete", label: "删除" });
+  }
+  return actions;
+}
+
+function handleRoleRowAction(command: RoleRowActionCommand, row: Role) {
+  if (command === "edit") {
+    void handleEdit(row);
+    return;
+  }
+  void handleDelete(row);
+}
+
 function handleRemoveAppliedFilter(key: string) {
   removeAppliedFilter(key);
   resetPage();
@@ -752,6 +870,7 @@ async function handleEdit(row: Role) {
         roleName: res.data.roleName,
         roleCode: res.data.roleCode,
         description: res.data.description || "",
+        dataScopeType: res.data.dataScopeType || "TENANT",
         status: Number(res.data.status ?? 1),
         menuIds: Array.isArray(res.data.menuIds) ? res.data.menuIds : [],
       });
@@ -846,6 +965,13 @@ function menuTypeTagType(type?: number) {
   return "info";
 }
 
+function resolveDataScopeLabel(dataScopeType?: string) {
+  return (
+    dataScopeOptions.find((item) => item.value === dataScopeType)?.label ||
+    "租户内全部"
+  );
+}
+
 async function handleSubmit() {
   if (!formRef.value) {
     return;
@@ -861,7 +987,12 @@ async function handleSubmit() {
   submitLoading.value = true;
   try {
     const payload = {
-      ...formData.value,
+      id: formData.value.id,
+      roleName: formData.value.roleName,
+      roleCode: formData.value.roleCode,
+      description: formData.value.description,
+      dataScopeType: formData.value.dataScopeType,
+      status: formData.value.status,
       menuIds: [...formData.value.menuIds],
     };
     const res = payload.id ? await updateRole(payload) : await addRole(payload);

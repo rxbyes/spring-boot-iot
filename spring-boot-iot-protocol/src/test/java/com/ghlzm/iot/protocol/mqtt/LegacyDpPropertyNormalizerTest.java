@@ -46,6 +46,33 @@ class LegacyDpPropertyNormalizerTest {
         assertEquals(-0.0445, properties.get("L1_SW_1.dispsX"));
     }
 
+    @Test
+    void shouldEmitRawAndCanonicalEvidenceForCrackFamilies() {
+        Object familyResolver = newInstance(
+                "com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver",
+                new Class<?>[0]
+        );
+        Object normalizer = newInstance(
+                "com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpPropertyNormalizer",
+                new Class<?>[]{familyResolver.getClass()},
+                familyResolver
+        );
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("GW001", Map.of(
+                "L1_LF_1", timestampPayload(Map.of("value", 10.86)),
+                "S1_ZT_1", timestampPayload(Map.of("sensor_state", Map.of("L1_LF_1", 1)))
+        ));
+
+        Object result = invoke(normalizer, "normalize", payload, "GW001");
+        @SuppressWarnings("unchecked")
+        List<Object> evidence = (List<Object>) invoke(result, "getMetricEvidence");
+
+        assertEquals(2, evidence.size());
+        assertTrue(String.valueOf(invoke(evidence.get(0), "getRawIdentifier")).contains("L1_LF_1"));
+        assertEquals("value", invoke(evidence.get(0), "getCanonicalIdentifier"));
+    }
+
     private Map<String, Object> devicePayload() {
         Map<String, Object> devicePayload = new LinkedHashMap<>();
         devicePayload.put("S1_ZT_1", timestampPayload(Map.of("ext_power_volt", 12.3, "sensor_state", 1)));

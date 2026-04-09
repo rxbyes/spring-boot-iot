@@ -206,10 +206,97 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/help-doc')
   },
   {
+    path: '/governance-approval',
+    name: 'governance-approval',
+    component: () => import('../views/GovernanceApprovalView.vue'),
+    meta: routeMeta('/governance-approval')
+  },
+  {
+    path: '/governance-security',
+    name: 'governance-security',
+    component: () => import('../views/GovernanceSecurityView.vue'),
+    meta: routeMeta('/governance-security')
+  },
+  {
+    path: '/governance-task',
+    name: 'governance-task',
+    component: () => import('../views/GovernanceTaskView.vue'),
+    meta: routeMeta('/governance-task')
+  },
+  {
+    path: '/governance-ops',
+    name: 'governance-ops',
+    component: () => import('../views/GovernanceOpsWorkbenchView.vue'),
+    meta: routeMeta('/governance-ops')
+  },
+  {
     path: '/quality-workbench',
     name: 'quality-workbench',
-    component: () => import('../views/SectionLandingView.vue'),
+    component: () => import('../views/QualityWorkbenchLandingView.vue'),
     meta: routeMeta('/quality-workbench')
+  },
+  {
+    path: '/business-acceptance',
+    name: 'business-acceptance',
+    component: () => import('../views/BusinessAcceptanceWorkbenchView.vue'),
+    meta: routeMeta('/business-acceptance')
+  },
+  {
+    path: '/business-acceptance/results/:runId',
+    name: 'business-acceptance-results',
+    component: () => import('../views/BusinessAcceptanceResultView.vue'),
+    meta: routeMeta('/business-acceptance', {
+      title: '业务验收结果',
+      description: '查看业务验收包的模块结论与失败明细。'
+    })
+  },
+  {
+    path: '/rd-workbench',
+    name: 'rd-workbench',
+    component: () => import('../views/RdWorkbenchLandingView.vue'),
+    meta: routeMeta('/rd-workbench')
+  },
+  {
+    path: '/rd-automation-inventory',
+    name: 'rd-automation-inventory',
+    component: () => import('../views/AutomationInventoryView.vue'),
+    meta: routeMeta('/rd-automation-inventory')
+  },
+  {
+    path: '/rd-automation-templates',
+    name: 'rd-automation-templates',
+    component: () => import('../views/AutomationTemplatesView.vue'),
+    meta: routeMeta('/rd-automation-templates')
+  },
+  {
+    path: '/rd-automation-plans',
+    name: 'rd-automation-plans',
+    component: () => import('../views/AutomationPlansView.vue'),
+    meta: routeMeta('/rd-automation-plans')
+  },
+  {
+    path: '/rd-automation-handoff',
+    name: 'rd-automation-handoff',
+    component: () => import('../views/AutomationHandoffView.vue'),
+    meta: routeMeta('/rd-automation-handoff')
+  },
+  {
+    path: '/automation-assets',
+    name: 'automation-assets',
+    component: () => import('../views/AutomationAssetsView.vue'),
+    meta: routeMeta('/automation-assets')
+  },
+  {
+    path: '/automation-execution',
+    name: 'automation-execution',
+    component: () => import('../views/AutomationExecutionView.vue'),
+    meta: routeMeta('/automation-execution')
+  },
+  {
+    path: '/automation-results',
+    name: 'automation-results',
+    component: () => import('../views/AutomationResultsView.vue'),
+    meta: routeMeta('/automation-results')
   },
   {
     path: '/automation-test',

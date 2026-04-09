@@ -35,13 +35,14 @@ public class HelpDocumentController {
                                                      @RequestParam(required = false) String docCategory,
                                                      @RequestParam(required = false) Integer status,
                                                      @RequestParam(defaultValue = "1") Long pageNum,
-                                                     @RequestParam(defaultValue = "10") Long pageSize) {
-        return R.ok(helpDocumentService.pageDocuments(title, docCategory, status, pageNum, pageSize));
+                                                     @RequestParam(defaultValue = "10") Long pageSize,
+                                                     Authentication authentication) {
+        return R.ok(helpDocumentService.pageDocuments(requireCurrentUserId(authentication), title, docCategory, status, pageNum, pageSize));
     }
 
     @GetMapping("/{id:[0-9]+}")
-    public R<HelpDocument> getById(@PathVariable Long id) {
-        return R.ok(helpDocumentService.getById(id));
+    public R<HelpDocument> getById(@PathVariable Long id, Authentication authentication) {
+        return R.ok(helpDocumentService.getById(requireCurrentUserId(authentication), id));
     }
 
     @PostMapping("/add")

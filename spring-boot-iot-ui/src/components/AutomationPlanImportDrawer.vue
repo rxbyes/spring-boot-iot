@@ -1,7 +1,6 @@
 <template>
   <StandardFormDrawer
     v-model="visible"
-    eyebrow="Automation Import"
     title="导入自动化计划"
     subtitle="统一通过右侧抽屉粘贴并导入 JSON 计划，导入后会替换当前编排内容。"
     size="48rem"

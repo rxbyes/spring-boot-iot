@@ -2,82 +2,117 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 阈值规则配置Controller
+ * 阈值策略配置 Controller。
  */
 @RestController
 @RequestMapping("/api/rule-definition")
 public class RuleDefinitionController {
 
-      @Autowired
-      private RuleDefinitionService ruleDefinitionService;
+    private final RuleDefinitionService ruleDefinitionService;
+    private final GovernancePermissionGuard permissionGuard;
 
-      /**
-       * 获取规则列表
-       */
-      @GetMapping("/list")
-      public R<List<RuleDefinition>> getRuleList(
-                  @RequestParam(required = false) String metricIdentifier,
-                  @RequestParam(required = false) String alarmLevel,
-                  @RequestParam(required = false) Integer status) {
-            List<RuleDefinition> list = ruleDefinitionService.getRuleList(metricIdentifier, alarmLevel, status);
-            return R.ok(list);
-      }
+    public RuleDefinitionController(RuleDefinitionService ruleDefinitionService,
+                                    GovernancePermissionGuard permissionGuard) {
+        this.ruleDefinitionService = ruleDefinitionService;
+        this.permissionGuard = permissionGuard;
+    }
 
-      /**
-       * 分页获取规则列表
-       */
-      @GetMapping("/page")
-      public R<PageResult<RuleDefinition>> pageRuleList(
-                  @RequestParam(required = false) String metricIdentifier,
-                  @RequestParam(required = false) String alarmLevel,
-                  @RequestParam(required = false) Integer status,
-                  @RequestParam(defaultValue = "1") Long pageNum,
-                  @RequestParam(defaultValue = "10") Long pageSize) {
-            PageResult<RuleDefinition> page = ruleDefinitionService.pageRuleList(metricIdentifier, alarmLevel, status, pageNum, pageSize);
-            return R.ok(page);
-      }
+    @GetMapping("/list")
+    public R<List<RuleDefinition>> getRuleList(@RequestParam(required = false) String ruleName,
+                                               @RequestParam(required = false) String metricIdentifier,
+                                               @RequestParam(required = false) String alarmLevel,
+                                               @RequestParam(required = false) Integer status) {
+        List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status);
+        return R.ok(list);
+    }
 
-      /**
-       * 获取规则详情
-       */
-      @GetMapping("/get/{id}")
-      public R<RuleDefinition> getRuleById(@PathVariable Long id) {
-            RuleDefinition rule = ruleDefinitionService.getById(id);
-            return R.ok(rule);
-      }
+    @GetMapping("/page")
+    public R<PageResult<RuleDefinition>> pageRuleList(@RequestParam(required = false) String ruleName,
+                                                      @RequestParam(required = false) String metricIdentifier,
+                                                      @RequestParam(required = false) String alarmLevel,
+                                                      @RequestParam(required = false) Integer status,
+                                                      @RequestParam(defaultValue = "1") Long pageNum,
+                                                      @RequestParam(defaultValue = "10") Long pageSize) {
+        PageResult<RuleDefinition> page =
+                ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, pageNum, pageSize);
+        return R.ok(page);
+    }
 
-      /**
-       * 新增规则
-       */
-      @PostMapping("/add")
-      public R<RuleDefinition> addRule(@RequestBody RuleDefinition rule) {
-            ruleDefinitionService.addRule(rule);
-            return R.ok(rule);
-      }
+    @GetMapping("/get/{id}")
+    public R<RuleDefinition> getRuleById(@PathVariable Long id) {
+        return R.ok(ruleDefinitionService.getById(id));
+    }
 
-      /**
-       * 更新规则
-       */
-      @PostMapping("/update")
-      public R<RuleDefinition> updateRule(@RequestBody RuleDefinition rule) {
-            ruleDefinitionService.updateRule(rule);
-            return R.ok(rule);
-      }
+    @PostMapping("/add")
+    public R<RuleDefinition> addRule(@RequestBody RuleDefinition rule,
+                                     @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                     Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireDualControl(
+                currentUserId,
+                approverUserId,
+                "rule-definition-create",
+                GovernancePermissionCodes.RULE_DEFINITION_EDIT,
+                GovernancePermissionCodes.RULE_DEFINITION_APPROVE
+        );
+        ruleDefinitionService.addRule(rule);
+        return R.ok(rule);
+    }
 
-      /**
-       * 删除规则
-       */
-      @PostMapping("/delete/{id}")
-      public R<Void> deleteRule(@PathVariable Long id) {
-            ruleDefinitionService.deleteRule(id);
-            return R.ok();
-      }
+    @PostMapping("/update")
+    public R<RuleDefinition> updateRule(@RequestBody RuleDefinition rule,
+                                        @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                        Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireDualControl(
+                currentUserId,
+                approverUserId,
+                "rule-definition-update",
+                GovernancePermissionCodes.RULE_DEFINITION_EDIT,
+                GovernancePermissionCodes.RULE_DEFINITION_APPROVE
+        );
+        ruleDefinitionService.updateRule(rule);
+        return R.ok(rule);
+    }
+
+    @PostMapping("/delete/{id}")
+    public R<Void> deleteRule(@PathVariable Long id,
+                              @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                              Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireDualControl(
+                currentUserId,
+                approverUserId,
+                "rule-definition-delete",
+                GovernancePermissionCodes.RULE_DEFINITION_EDIT,
+                GovernancePermissionCodes.RULE_DEFINITION_APPROVE
+        );
+        ruleDefinitionService.deleteRule(id);
+        return R.ok();
+    }
+
+    private Long requireCurrentUserId(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+            throw new BizException("未登录或登录状态已失效");
+        }
+        return principal.userId();
+    }
 }

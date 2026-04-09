@@ -626,7 +626,7 @@ SQL 证据：
 【填写任务，例如“补字段 / 修初始化脚本 / 增加升级脚本 / 修正 SQL 示例 / 对齐真实环境 schema”】
 
 数据库信息：
-- 涉及文件：【填写，例如 `sql/init.sql`、`sql/init-data.sql`、`sql/upgrade/*.sql`】
+- 涉及文件：【填写，例如 `sql/init.sql`、`sql/init-data.sql`】
 - 涉及表/视图：【填写】
 - 是新库初始化还是历史库升级：【填写】
 - 是否要求幂等：【填写】
@@ -635,7 +635,7 @@ SQL 证据：
 
 实现约束：
 - 以当前 `sql/init.sql` 为主初始化事实依据
-- 历史环境差异通过 `sql/upgrade/*.sql` 处理
+- 历史环境差异通过最新 `sql/init.sql` / `sql/init-data.sql` 重建或人工比对处理
 - 不要把某个环境的绝对路径写死到脚本或说明中
 - 如涉及真实环境基线，仍以 `application-dev.yml` 为准
 - 任何表结构、初始化数据、升级脚本变化，都必须同步更新 `docs/04-数据库设计与初始化数据.md`
@@ -667,7 +667,7 @@ SQL 证据：
 - 已经有明确报错、失败日志、回归缺陷：用 `9.3`
 - 主要工作在 `spring-boot-iot-ui` 页面、交互、样式：用 `9.4`
 - 主要工作是新增 / 修改 / 修复后端接口：用 `9.5`
-- 主要工作是 `sql/init.sql`、`sql/init-data.sql`、`sql/upgrade/*.sql` 或 schema 对齐：用 `9.6`
+- 主要工作是 `sql/init.sql`、`sql/init-data.sql` 或 schema 对齐：用 `9.6`
 
 如果任务同时跨两类场景，推荐顺序是：
 1. 先贴第 `2` 节任务卡

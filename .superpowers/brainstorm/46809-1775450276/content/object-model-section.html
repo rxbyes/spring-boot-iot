@@ -1,0 +1,118 @@
+<h2>第二段：核心对象模型与职责拆分</h2>
+<p class="subtitle">目标：让“规范”“证据”“合同”“风险指标”“闭环策略”“控制面”各司其职，不再全部堆回 <code>iot_product_model</code>。</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">核心对象链</div>
+    <div class="mockup-body">
+      <p><strong>规范字段</strong> -> <strong>厂商证据/映射</strong> -> <strong>已发布合同</strong> -> <strong>风险指标目录</strong> -> <strong>风险闭环对象</strong></p>
+    </div>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-body">
+      <div class="label">对象 1</div>
+      <h3>规范字段对象</h3>
+      <p>平台的最高真相源，定义正式语义，不依赖任何厂商字段。</p>
+      <p><strong>建议职责</strong></p>
+      <p>标识符、中文名、单位、精度、监测类型、设备族、是否可进风险闭环、是否可趋势分析、建议阈值类型。</p>
+      <p><strong>来源</strong></p>
+      <p>行业/业务规范库。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="label">对象 2</div>
+      <h3>厂商证据与映射对象</h3>
+      <p>承接 `$dp`、latest、消息日志、逻辑通道、父子设备关系等运行事实。</p>
+      <p><strong>建议职责</strong></p>
+      <p>原始字段名、逻辑通道、样例值、值类型、出现频次、最后出现时间、映射到哪个规范字段、是否存在歧义/冲突。</p>
+      <p><strong>来源</strong></p>
+      <p>运行证据层，允许持续演进。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="label">对象 3</div>
+      <h3>已发布合同对象</h3>
+      <p>产品级正式合同，给运行时和业务侧稳定消费。</p>
+      <p><strong>建议职责</strong></p>
+      <p>产品下已发布的规范字段、字段配置、排序、说明、版本状态。</p>
+      <p><strong>落点</strong></p>
+      <p><code>iot_product_model</code> 继续保留，但降级为“发布结果表”。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="label">对象 4</div>
+      <h3>风险指标目录对象</h3>
+      <p>这是合同和风险闭环之间的桥，不建议省掉。</p>
+      <p><strong>建议职责</strong></p>
+      <p>某个正式字段是否可用于风险、属于哪类指标、阈值口径、方向性、是否可用于 GIS/对象洞察/运营分析。</p>
+      <p><strong>价值</strong></p>
+      <p>避免风险闭环直接绑产品合同字段的全部细节。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="label">对象 5</div>
+      <h3>风险闭环对象</h3>
+      <p>风险点、阈值策略、联动编排、应急预案、告警事件、运营看板。</p>
+      <p><strong>关键原则</strong></p>
+      <p>只绑定风险指标目录，不直接绑定厂商原始字段，不直接绑定 compare 临时结果。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="label">对象 6</div>
+      <h3>控制面对象</h3>
+      <p>服务管理者、维护人员、审批与回滚，不属于业务字段本身，但必须存在。</p>
+      <p><strong>建议职责</strong></p>
+      <p>治理任务、发布批次、审批记录、影响分析、漂移问题、回滚记录、审计。</p>
+    </div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">继续复用的现有对象</div>
+    <div class="mockup-body">
+      <p><code>iot_product_model</code>: 保留，但只做发布合同</p>
+      <p><code>iot_device_relation</code>: 继续做父子关系和逻辑通道主数据</p>
+      <p><code>risk_point / risk_point_device / rule_definition / linkage_rule / emergency_plan</code>: 继续作为风险闭环主体</p>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">建议新增或显式抽象的对象</div>
+    <div class="mockup-body">
+      <p>规范字段库</p>
+      <p>厂商字段证据与映射</p>
+      <p>风险指标目录</p>
+      <p>治理发布/漂移/审批控制面</p>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="object-model-ok" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>对象拆分合理</h3>
+      <p>继续下一段：模块边界与推荐重构路径。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="object-model-adjust" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>对象还需要调整</h3>
+      <p>我先改对象模型，再继续往下。</p>
+    </div>
+  </div>
+</div>

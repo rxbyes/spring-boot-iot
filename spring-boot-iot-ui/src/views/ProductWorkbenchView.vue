@@ -1,18 +1,11 @@
 <template>
-  <div class="page-stack product-asset-view">
-    <IotAccessPageShell
-      :breadcrumbs="[
-        { label: '接入智维', to: '/device-access' },
-        { label: '产品定义中心' }
-      ]"
-      :show-title="false"
-    />
-
+  <StandardPageShell class="product-asset-view">
     <StandardWorkbenchPanel
       title="产品定义中心"
       description="统一维护产品台账、协议绑定与接入契约。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
+      show-notices
       show-toolbar
       :show-inline-state="showListInlineState"
       show-pagination
@@ -20,12 +13,12 @@
       <template #filters>
         <StandardListFilterHeader :model="searchForm">
           <template #primary>
-            <!-- 快速搜索：支持产品名称、厂商关键词搜索 -->
+            <!-- 快速搜索：支持产品名称、产品 Key、厂商关键词搜索 -->
             <el-form-item>
               <el-input
                 id="quick-search"
                 v-model="quickSearchKeyword"
-                placeholder="快速搜索（产品名称、厂商）"
+                placeholder="快速搜索（产品名称、产品 Key、厂商）"
                 clearable
                 prefix-icon="Search"
                 @keyup.enter="handleQuickSearch"
@@ -67,6 +60,52 @@
         />
       </template>
 
+      <template #notices>
+        <div class="product-governance-notice-stack">
+          <el-alert
+            :title="governanceSummaryTitle"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-if="governanceErrorMessage"
+            :title="governanceErrorMessage"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <el-alert
+            v-else-if="governanceTaskItems.length"
+            :title="`当前聚焦产品仍有 ${governanceTaskItems.length} 项治理待办`"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <ul class="product-governance-task-list">
+              <li v-for="task in governanceTaskItems" :key="task.key">
+                <div class="product-governance-task-list__content">
+                  <strong>{{ task.title }}</strong>
+                  <span>{{ task.detail }}</span>
+                </div>
+                <StandardButton action="refresh" link @click="openGovernanceTask(task.path)">去处理</StandardButton>
+              </li>
+            </ul>
+          </el-alert>
+          <el-alert
+            v-else-if="governanceFocusProduct && !governanceLoading"
+            title="当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。"
+            type="success"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+        </div>
+      </template>
+
       <template #toolbar>
         <StandardTableToolbar
           compact
@@ -77,28 +116,6 @@
           ]"
         >
           <template #right>
-            <!-- 视图切换下拉菜单 -->
-            <el-dropdown
-              v-permission="'iot:products:view'"
-              @command="(command) => handleViewTypeChange(command)"
-            >
-              <StandardActionLink>
-                <span>{{ viewTypeName }}</span>
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </StandardActionLink>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="table">
-                    <el-icon><List /></el-icon>
-                    <span>表格视图</span>
-                  </el-dropdown-item>
-                  <el-dropdown-item command="card">
-                    <el-icon><Grid /></el-icon>
-                    <span>卡片视图</span>
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
             <!-- 批量操作下拉菜单 -->
             <el-dropdown
               v-permission="'iot:products:update'"
@@ -127,14 +144,11 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-            <StandardButton v-permission="'iot:products:export'" action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton v-permission="'iot:products:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">
-              导出选中
-            </StandardButton>
-            <StandardButton v-permission="'iot:products:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">
-              导出当前结果
-            </StandardButton>
-            <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
+            <StandardActionMenu
+              label="更多操作"
+              :items="productToolbarActions"
+              @command="handleToolbarAction"
+            />
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
         </StandardTableToolbar>
@@ -149,7 +163,7 @@
 
       <div
         v-loading="loading && hasRecords"
-        class="product-result-panel"
+        class="product-result-panel standard-list-surface"
         element-loading-text="正在刷新产品列表"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -198,10 +212,13 @@
         </div>
 
         <template v-else-if="hasRecords">
-          <!-- 卡片视图 -->
-          <div v-if="viewType === 'card'" class="product-card-view">
-            <div class="product-mobile-list__grid">
-              <article v-for="row in tableData" :key="getProductRowKey(row)" class="product-mobile-card">
+          <div class="product-mobile-list standard-mobile-record-list">
+            <div class="product-mobile-list__grid standard-mobile-record-grid">
+              <article
+                v-for="row in tableData"
+                :key="getProductRowKey(row)"
+                class="product-mobile-card standard-mobile-record-card"
+              >
                 <div class="product-mobile-card__header">
                   <el-checkbox
                     :model-value="isRowSelected(row)"
@@ -215,98 +232,89 @@
                 </div>
 
                 <div class="product-mobile-card__meta">
-                  <span class="product-mobile-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
-                  <span class="product-mobile-card__meta-item">{{ row.protocolCode || '--' }}</span>
-                  <span class="product-mobile-card__meta-item">{{ row.dataFormat || '--' }}</span>
+                  <span class="product-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
+                  <span class="product-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ row.protocolCode || '--' }}</span>
+                  <span class="product-mobile-card__meta-item standard-mobile-record-card__meta-item">{{ row.dataFormat || '--' }}</span>
                 </div>
 
                 <div class="product-mobile-card__info">
                   <div class="product-mobile-card__field">
-                    <span>厂商</span>
-                    <strong>{{ formatTextValue(row.manufacturer) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">厂商</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.manufacturer) }}</strong>
                   </div>
                   <div class="product-mobile-card__field">
-                    <span>关联设备</span>
-                    <strong>{{ formatCount(row.deviceCount) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">关联设备</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatCount(row.deviceCount) }}</strong>
                   </div>
                   <div class="product-mobile-card__field">
-                    <span>最近上报</span>
-                    <strong>{{ formatDateTime(row.lastReportTime) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">最近上报</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.lastReportTime) }}</strong>
                   </div>
                   <div class="product-mobile-card__field">
-                    <span>更新时间</span>
-                    <strong>{{ formatDateTime(row.updateTime) }}</strong>
+                    <span class="standard-mobile-record-card__field-label">更新时间</span>
+                    <strong class="standard-mobile-record-card__field-value">{{ formatDateTime(row.updateTime) }}</strong>
                   </div>
                 </div>
 
-                <StandardRowActions variant="card" gap="comfortable" class="product-mobile-card__actions">
-                  <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionLink
-                    v-permission="'iot:products:update'"
-                    data-testid="open-product-model-designer"
-                    @click="handleOpenProductModelDesigner(row)"
-                  >
-                    物模型设计器
-                  </StandardActionLink>
-                  <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
-                </StandardRowActions>
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  class="product-mobile-card__actions"
+                  :direct-items="getProductDirectActions('card')"
+                  :menu-items="productRowActions"
+                  @command="(command) => handleRowAction(command, row)"
+                />
               </article>
             </div>
           </div>
 
-          <!-- 表格视图 -->
-          <template v-if="viewType === 'table'">
-            <el-table
-              ref="tableRef"
-              class="product-desktop-table"
-              :data="tableData"
-              border
-              stripe
-              @selection-change="handleSelectionChange"
+          <el-table
+            ref="tableRef"
+            class="product-desktop-table"
+            :data="tableData"
+            border
+            stripe
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
+            <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
+            <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
+            <el-table-column prop="nodeType" label="节点类型" width="120">
+              <template #default="{ row }">
+                <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
+            <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
+            <el-table-column prop="status" label="产品状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
+            <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
+              <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
+            </StandardTableTextColumn>
+            <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
+              <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
+            </StandardTableTextColumn>
+            <el-table-column
+              label="操作"
+              :width="productActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
             >
-              <el-table-column type="selection" width="48" />
-              <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
-              <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
-              <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
-              <el-table-column prop="nodeType" label="节点类型" width="120">
-                <template #default="{ row }">
-                  <el-tag round>{{ getNodeTypeText(row.nodeType) }}</el-tag>
-                </template>
-              </el-table-column>
-              <StandardTableTextColumn prop="dataFormat" label="数据格式" :width="120" />
-              <StandardTableTextColumn prop="manufacturer" label="厂商" :min-width="150" />
-              <el-table-column prop="status" label="产品状态" width="110">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="onlineDeviceCount" label="在线设备数" width="110" align="center" />
-              <StandardTableTextColumn prop="lastReportTime" label="最近设备上报" :width="180">
-                <template #default="{ row }">{{ formatDateTime(row.lastReportTime) }}</template>
-              </StandardTableTextColumn>
-              <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
-                <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-              </StandardTableTextColumn>
-              <el-table-column label="操作" width="276" fixed="right" :show-overflow-tooltip="false">
-                <template #default="{ row }">
-                  <StandardRowActions variant="table" gap="comfortable">
-                    <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                    <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                    <StandardActionLink
-                      v-permission="'iot:products:update'"
-                      data-testid="open-product-model-designer"
-                      title="打开物模型设计器"
-                      @click="handleOpenProductModelDesigner(row)"
-                    >
-                      物模型
-                    </StandardActionLink>
-                    <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
-                  </StandardRowActions>
-                </template>
-              </el-table-column>
-            </el-table>
-          </template>
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getProductDirectActions('table')"
+                  :menu-items="productRowActions"
+                  @command="(command) => handleRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
         </template>
 
         <div v-else-if="!loading" class="product-empty-state">
@@ -333,186 +341,63 @@
       </template>
     </StandardWorkbenchPanel>
 
-    <StandardDetailDrawer
-      v-model="detailVisible"
-      class="product-detail-drawer"
-      size="42rem"
-      eyebrow="产品定义详情"
-      :title="detailTitle"
-      :subtitle="detailSubtitle"
-      :loading="detailLoading"
-      :error-message="detailErrorMessage"
-      :empty="!detailData"
+    <ProductBusinessWorkbenchDrawer
+      v-model="businessWorkbenchVisible"
+      :active-view="businessWorkbenchActiveView"
+      :product="businessWorkbenchProduct"
+      @update:activeView="handleBusinessWorkbenchViewChange"
     >
       <template #header-actions>
-        <StandardButton
-          v-permission="'iot:products:update'"
-          action="confirm"
-          size="small"
-          @click="handleEditFromDetail"
-        >
-          编辑
+        <StandardButton data-testid="open-product-workbench-edit" @click="handleBusinessWorkbenchEdit">
+          编辑档案
         </StandardButton>
       </template>
-      <div v-if="detailData" class="product-detail-layout">
-        <section :class="['product-detail-zone', 'product-detail-zone--overview', { 'product-detail-zone--danger': detailData.status === 0 }]">
-          <header class="product-detail-zone__header">
-            <span class="product-detail-zone__kicker">产品汇总</span>
-            <p class="product-detail-zone__intro">先看状态、设备规模和最近上报。</p>
-          </header>
 
-          <div class="product-detail-overview-grid">
-            <article :class="['product-detail-overview-lead', { 'product-detail-overview-lead--danger': detailData.status === 0 }]">
-              <span class="product-detail-overview-lead__eyebrow">当前判断</span>
-              <strong class="product-detail-overview-lead__title">{{ detailOperationHeadline }}</strong>
-              <p class="product-detail-overview-lead__text">{{ detailOperationSummary }}</p>
-              <div class="product-detail-overview-progress">
-                <div class="product-detail-overview-progress__track">
-                  <span class="product-detail-overview-progress__fill" :style="{ width: `${detailOnlineRatioPercent}%` }" />
-                </div>
-                <span class="product-detail-overview-progress__caption">在线设备占关联设备的比例</span>
-              </div>
-              <div class="product-detail-overview-lead__meta">
-                <span>产品状态：{{ getStatusText(detailData.status) }}</span>
-                <span>当前阶段：{{ detailLifecycleStage }}</span>
-              </div>
-            </article>
-
-            <div class="product-detail-overview-metrics">
-              <article v-for="metric in detailSummaryMetrics" :key="metric.key" class="product-detail-overview-metric">
-                <span class="product-detail-overview-metric__label">{{ metric.label }}</span>
-                <div class="product-detail-overview-metric__value-wrapper">
-                  <strong class="product-detail-overview-metric__value">{{ metric.value }}</strong>
-                  <span v-if="metric.trend" :class="['product-detail-overview-metric__trend', `product-detail-overview-metric__trend--${metric.trendType}`]">
-                    {{ metric.trend }}
-                  </span>
-                </div>
-                <p class="product-detail-overview-metric__hint">{{ metric.hint }}</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="product-detail-zone product-detail-zone--ledger">
-          <div class="product-detail-ledger-grid">
-            <article class="product-detail-ledger-card product-detail-ledger-card--contract">
-              <header class="product-detail-card-header">
-                <h3>接入契约</h3>
-                <p>核对协议、节点类型和上报格式。</p>
-              </header>
-              <div class="product-detail-contract-list">
-                <article v-for="item in detailContractCards" :key="item.key" class="product-detail-contract-item">
-                  <span class="product-detail-contract-item__label">{{ item.label }}</span>
-                  <strong class="product-detail-contract-item__value" :title="item.value">{{ item.value }}</strong>
-                </article>
-              </div>
-            </article>
-
-            <article class="product-detail-ledger-card product-detail-ledger-card--archive">
-              <header class="product-detail-card-header">
-                <h3>产品档案</h3>
-                <p>核对编号、Key、厂商和建档时间。</p>
-              </header>
-              <div class="product-detail-archive-grid">
-                <article class="product-detail-archive-item product-detail-archive-item--full">
-                  <div class="product-detail-archive-meta-row">
-                    <span class="product-detail-archive-item__label">厂商</span>
-                    <span class="product-detail-archive-meta-separator">|</span>
-                    <span class="product-detail-archive-item__label">产品编号</span>
-                  </div>
-                  <div class="product-detail-archive-meta-value">
-                    <strong class="product-detail-archive-item__value" :title="detailArchiveManufacturerText">{{ detailArchiveManufacturerText }}</strong>
-                    <span class="product-detail-archive-meta-separator">/</span>
-                    <strong class="product-detail-archive-item__value" :title="detailArchiveIdText">{{ detailArchiveIdText }}</strong>
-                  </div>
-                </article>
-                <article class="product-detail-archive-item product-detail-archive-item--full">
-                  <div class="product-detail-archive-meta-row">
-                    <span class="product-detail-archive-item__label">产品 Key</span>
-                    <span class="product-detail-archive-meta-separator">|</span>
-                    <span class="product-detail-archive-item__label">创建时间</span>
-                  </div>
-                  <div class="product-detail-archive-meta-value">
-                    <strong class="product-detail-archive-item__value" :title="detailArchiveProductKeyText">{{ detailArchiveProductKeyText }}</strong>
-                    <span class="product-detail-archive-meta-separator">/</span>
-                    <strong class="product-detail-archive-item__value">{{ detailArchiveCreateDateText }}</strong>
-                  </div>
-                </article>
-              </div>
-              <article class="product-detail-description-card">
-                <span class="product-detail-description-card__label">产品说明</span>
-                <strong class="product-detail-description-card__value">{{ detailDescriptionText }}</strong>
-              </article>
-            </article>
-          </div>
-        </section>
-
-        <!-- 活跃度统计区段 -->
-        <section class="product-detail-zone product-detail-zone--overview" v-if="hasActiveMetrics">
-          <header class="product-detail-zone__header">
-            <span class="product-detail-zone__kicker">设备活跃度</span>
-            <p class="product-detail-zone__intro">设备活跃趋势和在线时长分析。</p>
-          </header>
-          <div class="product-detail-active-grid">
-            <article v-for="metric in detailActiveMetrics" :key="metric.key" class="product-detail-active-metric">
-              <span class="product-detail-active-metric__label">{{ metric.label }}</span>
-              <strong class="product-detail-active-metric__value">{{ metric.value }}</strong>
-              <p class="product-detail-active-metric__hint">{{ metric.hint }}</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="product-detail-zone product-detail-zone--governance">
-          <header class="product-detail-zone__header">
-            <span class="product-detail-zone__kicker">维护与治理</span>
-            <p class="product-detail-zone__intro">建议、规则和变更前检查分层展示。</p>
-          </header>
-          <div class="product-detail-governance-grid">
-            <article
-              :class="[
-                'product-detail-governance-card',
-                'product-detail-governance-card--lead',
-                { 'product-detail-governance-card--danger': detailData.status === 0 }
-              ]"
-            >
-              <span class="product-detail-governance-card__label">当前建议</span>
-              <strong class="product-detail-governance-card__title">{{ detailGovernanceHeadline }}</strong>
-              <p class="product-detail-governance-card__text">{{ detailGovernanceNotice }}</p>
-            </article>
-
-            <article class="product-detail-governance-card">
-              <span class="product-detail-governance-card__label">维护规则</span>
-              <ul class="product-detail-governance-list">
-                <li v-for="item in detailMaintenanceRules" :key="item">{{ item }}</li>
-              </ul>
-            </article>
-
-            <article class="product-detail-governance-card">
-              <span class="product-detail-governance-card__label">变更前确认</span>
-              <ul class="product-detail-governance-list">
-                <li v-for="item in detailChangeChecklist" :key="item">{{ item }}</li>
-              </ul>
-            </article>
-          </div>
-        </section>
-      </div>
-
-      <template #footer>
-        <StandardDrawerFooter @cancel="detailVisible = false">
-          <StandardButton action="cancel" class="standard-drawer-footer__button standard-drawer-footer__button--ghost" @click="detailVisible = false">
-            关闭
-          </StandardButton>
-          <StandardButton
-            action="confirm"
-            class="standard-drawer-footer__button standard-drawer-footer__button--primary"
-            :disabled="!detailData?.productKey"
-            @click="detailData && handleOpenDeviceListDrawer(detailData)"
-          >
-            查看设备
-          </StandardButton>
-        </StandardDrawerFooter>
+      <template #overview>
+        <ProductDetailWorkbench
+          v-if="businessWorkbenchLoadedViews.overview && (detailData || businessWorkbenchProduct)"
+          :product="detailData || businessWorkbenchProduct"
+        />
       </template>
-    </StandardDetailDrawer>
+
+      <template #models>
+        <ProductModelDesignerWorkspace
+          v-if="businessWorkbenchLoadedViews.models && businessWorkbenchProduct"
+          :product="businessWorkbenchProduct"
+          @product-updated="handleBusinessWorkbenchProductUpdated"
+        />
+      </template>
+
+      <template #devices>
+        <ProductDeviceListWorkspace
+          v-if="businessWorkbenchLoadedViews.devices && businessWorkbenchProduct"
+          :devices="deviceListData"
+          :loading="devicesLoading && deviceListData.length === 0 && !deviceListErrorMessage"
+          :error-message="deviceListErrorMessage"
+          :empty="!devicesLoading && !deviceListErrorMessage && deviceListTotal === 0"
+          :devices-loading="devicesLoading"
+          @view-device="handleViewDevice"
+        />
+      </template>
+
+      <template #edit>
+        <ProductEditWorkspace
+          v-if="businessWorkbenchLoadedViews.edit"
+          ref="editWorkspaceRef"
+          :model="formData"
+          :object-insight-metrics="objectInsightMetricRows"
+          :available-models="editAvailableModels"
+          :rules="formRules"
+          :editing="Boolean(editingProductId)"
+          :submit-loading="submitLoading"
+          :refresh-state="formRefreshState"
+          :refresh-message="formRefreshMessage"
+          @update:object-insight-metrics="handleObjectInsightMetricsChange"
+          @cancel="handleCancelEdit"
+          @submit="handleSubmit"
+        />
+      </template>
+    </ProductBusinessWorkbenchDrawer>
 
     <StandardFormDrawer
       v-model="formVisible"
@@ -521,7 +406,7 @@
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
-        <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
+        <el-form ref="createFormRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <h3>基础档案</h3>
@@ -580,6 +465,12 @@
               </el-form-item>
             </div>
           </section>
+
+          <ProductObjectInsightConfigEditor
+            :model-value="objectInsightMetricRows"
+            :available-models="[]"
+            @update:model-value="handleObjectInsightMetricsChange"
+          />
         </el-form>
       </div>
 
@@ -617,51 +508,49 @@
       @confirm="handleExportColumnConfirm"
     />
 
-    <DeviceListDrawer
-      v-model="deviceListDrawerVisible"
-      :title="currentProduct?.productName || currentProduct?.productKey || '设备列表'"
-      :eyebrow="currentProduct?.productName ? '产品关联设备' : '设备列表'"
-      :devices="deviceListData"
-      :total-devices="deviceListTotal"
-      :online-devices="deviceListOnlineCount"
-      :offline-devices="deviceListOfflineCount"
-      :loading="devicesLoading"
-      :devices-loading="devicesLoading"
-      @view-device="handleViewDevice"
-    />
-
-    <ProductModelDesignerDrawer
-      v-model="productModelDesignerVisible"
-      :product="productModelTarget"
-    />
-  </div>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowDown, Bottom, Delete, Grid, List, Top } from '@element-plus/icons-vue'
+import { ArrowDown, Bottom, Delete, Top } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
-import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
-import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
-import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
-import { productApi } from '@/api/product'
+import ProductBusinessWorkbenchDrawer, {
+  type ProductBusinessWorkbenchView
+} from '@/components/product/ProductBusinessWorkbenchDrawer.vue'
+import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWorkspace.vue'
+import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
+import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
+import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
+import ProductObjectInsightConfigEditor from '@/components/product/ProductObjectInsightConfigEditor.vue'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
+import { productApi, type ProductContractReleaseBatch } from '@/api/product'
 import { deviceApi } from '@/api/device'
+import { getRiskGovernanceCoverageOverview, type RiskGovernanceCoverageOverview } from '@/api/riskGovernance'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
-import type { PageResult, Product, ProductAddPayload } from '@/types/api'
+import type {
+  Device,
+  PageResult,
+  Product,
+  ProductAddPayload,
+  ProductModel,
+  ProductObjectInsightCustomMetricConfig
+} from '@/types/api'
 import {
   buildProductPageCacheKey,
   cloneProductDetailCacheEntry,
@@ -696,32 +585,26 @@ import {
   toCsvColumnOptions
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
+import {
+  buildProductMetadataJson,
+  parseProductObjectInsightMetrics,
+  validateProductObjectInsightMetrics
+} from '@/utils/productObjectInsightConfig'
 
 function formatCount(value?: number | null) {
   const count = Number(value)
   return Number.isFinite(count) ? String(count) : '--'
 }
 
-function formatFullDateTime(value?: string | null) {
-  if (!value) {
+function formatPercentValue(value?: number | null, digits = 1) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) {
     return '--'
   }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).format(date)
+  return `${numeric.toFixed(digits)}%`
 }
 
 interface ProductSearchForm {
@@ -734,40 +617,74 @@ type ProductFilterKey = keyof ProductSearchForm
 
 interface ProductFormState extends ProductAddPayload {}
 
+interface ProductEditWorkspaceExposed {
+  validate: () => Promise<boolean>
+  clearValidate: () => void
+}
+
 interface ProductRowAction {
   key?: string
-  command: 'devices' | 'delete'
+  command: 'delete'
   label: string
-  permission?: string
+}
+
+interface ProductDirectAction {
+  key?: string
+  command: 'detail' | 'delete'
+  label: string
+  disabled?: boolean
+  title?: string
+  dataTestid?: string
+}
+
+interface ProductToolbarAction {
+  key?: string
+  command: 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  label: string
+  disabled?: boolean
+}
+
+interface GovernanceTaskItem {
+  key: 'pending-contract-release' | 'pending-metric-publish' | 'pending-risk-binding' | 'pending-policy'
+  title: string
+  detail: string
+  path: string
 }
 
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
 const tableRef = ref<TableInstance>()
-const formRef = ref<FormInstance>()
+const createFormRef = ref<FormInstance>()
+const editWorkspaceRef = ref<ProductEditWorkspaceExposed>()
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const formVisible = ref(false)
 const formRefreshing = ref(false)
-const detailVisible = ref(false)
 const detailLoading = ref(false)
 const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
+const businessWorkbenchVisible = ref(false)
+const businessWorkbenchActiveView = ref<ProductBusinessWorkbenchView>('overview')
+const businessWorkbenchProduct = ref<Product | null>(null)
+const businessWorkbenchLoadedViews = reactive<Record<ProductBusinessWorkbenchView, boolean>>({
+  overview: false,
+  models: false,
+  devices: false,
+  edit: false
+})
 
 // 设备列表抽屉相关状态
-import type { Device } from '@/types/api'
-const deviceListDrawerVisible = ref(false)
 const deviceListData = ref<Device[]>([])
 const deviceListTotal = ref(0)
 const deviceListOnlineCount = ref(0)
 const deviceListOfflineCount = ref(0)
 const devicesLoading = ref(false)
-const productModelDesignerVisible = ref(false)
-const productModelTarget = ref<Product | null>(null)
+const deviceListErrorMessage = ref('')
 
 // 当前选择的产品
 const currentProduct = ref<Product | null>(null)
+const editAvailableModels = ref<ProductModel[]>([])
 const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
 const listRefreshMessage = ref('')
@@ -780,6 +697,10 @@ const editingProductId = ref<string | number | null>(null)
 const tableData = ref<Product[]>([])
 const selectedRows = ref<Product[]>([])
 const detailData = ref<Product | null>(null)
+const governanceLoading = ref(false)
+const governanceErrorMessage = ref('')
+const governanceCoverageOverview = ref<RiskGovernanceCoverageOverview | null>(null)
+const latestContractReleaseBatch = ref<ProductContractReleaseBatch | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'product-definition-center'
@@ -787,6 +708,8 @@ const defaultPageSize = 10
 let latestListRequestId = 0
 let latestDetailRequestId = 0
 let latestEditRequestId = 0
+let latestEditModelRequestId = 0
+let latestGovernanceRequestId = 0
 let listAbortController: AbortController | null = null
 let listPrefetchAbortController: AbortController | null = null
 let detailAbortController: AbortController | null = null
@@ -821,19 +744,6 @@ const quickSearchKeyword = computed({
   }
 })
 
-// 视图类型：table 或 card
-const viewType = ref<'table' | 'card'>('table')
-
-const viewTypeName = computed(() => {
-  return viewType.value === 'table' ? '表格视图' : '卡片视图'
-})
-
-function handleViewTypeChange(command: string) {
-  if (command === 'table' || command === 'card') {
-    viewType.value = command
-  }
-}
-
 const createDefaultFormData = (): ProductFormState => ({
   productKey: '',
   productName: '',
@@ -842,18 +752,18 @@ const createDefaultFormData = (): ProductFormState => ({
   dataFormat: 'JSON',
   manufacturer: '',
   description: '',
+  metadataJson: '',
   status: 1
 })
 
 const formData = reactive<ProductFormState>(createDefaultFormData())
+const objectInsightMetricRows = ref<ProductObjectInsightCustomMetricConfig[]>([])
 
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTotal } = useServerPagination(defaultPageSize)
 
 const formTitle = computed(() => (editingProductId.value ? '编辑产品' : '新增产品'))
 const submitButtonText = computed(() => (editingProductId.value ? '保存' : '新增'))
 const submitPermission = computed(() => (editingProductId.value ? 'iot:products:update' : 'iot:products:add'))
-const detailTitle = computed(() => detailData.value?.productName || detailData.value?.productKey || '产品详情')
-const detailSubtitle = computed(() => '按汇总、接入方式、档案信息和维护建议四个板块查看。')
 const enabledProductCount = computed(() => tableData.value.filter((item) => item.status !== 0).length)
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)
@@ -871,17 +781,109 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
-const productRowActions = computed<ProductRowAction[]>(() =>
-  [
-    { key: 'devices', command: 'devices', label: '查看设备' },
-    { key: 'delete', command: 'delete', label: '删除', permission: 'iot:products:delete' }
-  ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
+const governanceFocusProduct = computed(() => businessWorkbenchProduct.value || currentProduct.value || tableData.value[0] || null)
+const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
+  if (!governanceFocusProduct.value || governanceLoading.value || !governanceCoverageOverview.value) {
+    return []
+  }
+
+  const tasks: GovernanceTaskItem[] = []
+  const coverage = governanceCoverageOverview.value
+  const productId = governanceFocusProduct.value.id
+  const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+
+  if (!hasReleaseBatch) {
+    tasks.push({
+      key: 'pending-contract-release',
+      title: '待发布合同',
+      detail: '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
+      path: buildGovernanceTaskPath(productId, 'PENDING_CONTRACT_RELEASE')
+    })
+  }
+
+  if (Number(coverage.contractMetricCoverageRate ?? 0) < 100) {
+    tasks.push({
+      key: 'pending-metric-publish',
+      title: '待发布风险指标目录',
+      detail: `合同字段 ${formatCount(coverage.contractPropertyCount)} 项中，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项。`,
+      path: '/products'
+    })
+  }
+
+  if (Number(coverage.bindingCoverageRate ?? 0) < 100) {
+    tasks.push({
+      key: 'pending-risk-binding',
+      title: '待绑定风险点',
+      detail: `目录指标 ${formatCount(coverage.publishedRiskMetricCount)} 项中，已绑定 ${formatCount(coverage.boundRiskMetricCount)} 项。`,
+      path: buildGovernanceTaskPath(productId, 'PENDING_RISK_BINDING')
+    })
+  }
+
+  if (Number(coverage.ruleCoverageRate ?? 0) < 100) {
+    tasks.push({
+      key: 'pending-policy',
+      title: '待补阈值策略',
+      detail: `已绑定指标 ${formatCount(coverage.boundRiskMetricCount)} 项中，策略覆盖 ${formatCount(coverage.ruleCoveredRiskMetricCount)} 项。`,
+      path: '/rule-definition'
+    })
+  }
+
+  return tasks
+})
+const governanceSummaryTitle = computed(() => {
+  const focusProduct = governanceFocusProduct.value
+  if (!focusProduct) {
+    return '请先选择产品，系统会自动展示当前聚焦产品的治理链路进度。'
+  }
+  if (governanceLoading.value) {
+    return `正在同步 ${focusProduct.productName || focusProduct.productKey || '当前产品'} 的治理进度...`
+  }
+  if (!governanceCoverageOverview.value) {
+    return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}。治理概览暂未返回，请稍后重试。`
+  }
+
+  const coverage = governanceCoverageOverview.value
+  return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项，风险点绑定 ${formatCount(coverage.boundRiskMetricCount)} 项，策略覆盖率 ${formatPercentValue(coverage.ruleCoverageRate)}。`
+})
+const productRowActions = computed<ProductRowAction[]>(() => [])
+const productActionColumnWidth = computed(() =>
+  resolveWorkbenchActionColumnWidth({
+    directItems: getProductDirectActions('table')
+  })
 )
+const productToolbarActions = computed<ProductToolbarAction[]>(() => {
+  const actions: ProductToolbarAction[] = []
+
+  if (permissionStore.hasPermission('iot:products:export')) {
+    actions.push({ key: 'export-config', command: 'export-config', label: '导出列设置' })
+    actions.push({
+      key: 'export-selected',
+      command: 'export-selected',
+      label: '导出选中',
+      disabled: selectedRows.value.length === 0
+    })
+    actions.push({
+      key: 'export-current',
+      command: 'export-current',
+      label: '导出当前结果',
+      disabled: tableData.value.length === 0
+    })
+  }
+
+  actions.push({
+    key: 'clear-selection',
+    command: 'clear-selection',
+    label: '清空选中',
+    disabled: selectedRows.value.length === 0
+  })
+
+  return actions
+})
 const activeFilterTags = computed(() => {
   const tags: Array<{ key: ProductFilterKey; label: string }> = []
   const productName = appliedFilters.productName.trim()
   if (productName) {
-    tags.push({ key: 'productName', label: `产品名称：${productName}` })
+    tags.push({ key: 'productName', label: `快速搜索：${productName}` })
   }
   if (appliedFilters.nodeType !== undefined) {
     tags.push({ key: 'nodeType', label: `节点类型：${getNodeTypeText(appliedFilters.nodeType)}` })
@@ -898,234 +900,6 @@ const emptyStateDescription = computed(() =>
     ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
     : '当前还没有产品定义，先新增产品，再继续设备接入、建档和维护。'
 )
-const detailDescriptionText = computed(
-  () =>
-    detailData.value?.description?.trim() ||
-    '当前没有补充说明，可结合接入方式、设备规模和维护建议判断是否继续使用。'
-)
-const detailAssociationHint = computed(() => {
-  const deviceCount = parseCount(detailData.value?.deviceCount)
-  const onlineCount = parseCount(detailData.value?.onlineDeviceCount)
-  if (deviceCount === null || deviceCount === 0) {
-    return '当前还没有关联设备。'
-  }
-  if (onlineCount === null) {
-    return `当前有 ${deviceCount} 台关联设备。`
-  }
-  return `当前有 ${deviceCount} 台关联设备，在线 ${onlineCount} 台。`
-})
-const detailLastReportHint = computed(() =>
-  detailData.value?.lastReportTime ? '最近一次设备上报时间。' : '当前还没有收到设备上报。'
-)
-const detailOnlineRatioText = computed(() => {
-  const deviceCount = parseCount(detailData.value?.deviceCount)
-  const onlineCount = parseCount(detailData.value?.onlineDeviceCount)
-  if (deviceCount === null || deviceCount <= 0 || onlineCount === null) {
-    return '--'
-  }
-  return `${Math.round((onlineCount / deviceCount) * 100)}%`
-})
-const detailOnlineRatioPercent = computed(() => {
-  const deviceCount = parseCount(detailData.value?.deviceCount)
-  const onlineCount = parseCount(detailData.value?.onlineDeviceCount)
-  if (deviceCount === null || deviceCount <= 0 || onlineCount === null) {
-    return 0
-  }
-  return Math.min(100, Math.max(0, Math.round((onlineCount / deviceCount) * 100)))
-})
-const detailLifecycleStage = computed(() => {
-  if (!detailData.value) {
-    return '--'
-  }
-  const deviceCount = parseCount(detailData.value.deviceCount)
-  if (detailData.value.status === 0) {
-    return '已停用'
-  }
-  if ((deviceCount ?? 0) > 0) {
-    return '稳定使用中'
-  }
-  return '接入调试中'
-})
-const detailOperationHeadline = computed(() => {
-  if (!detailData.value) {
-    return '正在加载产品信息'
-  }
-  if (detailData.value.status === 0) {
-    return '这个产品当前已停用'
-  }
-  const deviceCount = parseCount(detailData.value.deviceCount)
-  const onlineCount = parseCount(detailData.value.onlineDeviceCount)
-  if ((deviceCount ?? 0) === 0) {
-    return '这个产品还在接入准备阶段'
-  }
-  if ((onlineCount ?? 0) > 0) {
-    return '这个产品下还有设备在线'
-  }
-  return '这个产品下有设备，但当前都不在线'
-})
-const detailGovernanceNotice = computed(() => {
-  if (!detailData.value) {
-    return '当前没有维护建议。'
-  }
-  if (detailData.value.status === 0) {
-    return '当前产品已停用，新增设备、设备替换、设备上报和指令下发都会被系统拦截。'
-  }
-  const deviceCount = parseCount(detailData.value.deviceCount)
-  const onlineCount = parseCount(detailData.value.onlineDeviceCount)
-  if ((deviceCount ?? 0) > 0 || (onlineCount ?? 0) > 0) {
-    return '当前已有现场设备在使用这个产品。修改协议、节点类型或数据格式前，请先确认兼容性，避免影响现网设备。'
-  }
-  return '当前还没有设备正式使用，可以继续做接入联调；如需调整 Product Key 或协议规则，建议先确认命名和边界。'
-})
-const detailOperationSummary = computed(() => {
-  if (!detailData.value) {
-    return '正在整理当前产品的状态、接入方式和维护信息。'
-  }
-  if (detailData.value.status === 0) {
-    return '先确认是否还有设备在用，再决定要不要继续保留这条产品定义。'
-  }
-  const deviceCount = parseCount(detailData.value.deviceCount)
-  if ((deviceCount ?? 0) === 0) {
-    return '当前还没有设备使用，适合继续做接入联调和模板整理。'
-  }
-  return '当前已经有设备在用，变更前先评估对现场设备的影响。'
-})
-const detailSummaryMetrics = computed(() => {
-  const baseMetrics = [
-    {
-      key: 'deviceCount',
-      label: '关联设备数',
-      value: formatCount(detailData.value?.deviceCount),
-      hint: detailAssociationHint.value
-    },
-    {
-      key: 'onlineDeviceCount',
-      label: '在线设备数',
-      value: formatCount(detailData.value?.onlineDeviceCount),
-      hint: '当前在线的设备数量。'
-    },
-    {
-      key: 'onlineRatio',
-      label: '在线比例',
-      value: detailOnlineRatioText.value,
-      hint: parseCount(detailData.value?.deviceCount) ? '在线设备在全部关联设备中的比例' : '当前没有设备，暂不统计'
-    },
-    {
-      key: 'lastReportTime',
-      label: '最近上报',
-      value: formatDateTime(detailData.value?.lastReportTime),
-      hint: detailLastReportHint.value
-    }
-  ]
-  
-  if (detailData.value?.deviceCount != null && detailData.value.deviceCount > 0) {
-    return [
-      ...baseMetrics,
-      {
-        key: 'offlineRate',
-        label: '离线比例',
-        value: `${(1 - (parseCount(detailData.value?.onlineDeviceCount) / parseCount(detailData.value?.deviceCount)) * 100).toFixed(1)}%`,
-        hint: '离线设备在全部设备中的比例'
-      }
-    ]
-  }
-  return baseMetrics
-})
-const detailContractCards = computed(() => [
-  { key: 'protocolCode', label: '协议编码', value: formatTextValue(detailData.value?.protocolCode) },
-  { key: 'nodeType', label: '节点类型', value: getNodeTypeText(detailData.value?.nodeType) },
-  { key: 'dataFormat', label: '数据格式', value: formatTextValue(detailData.value?.dataFormat) }
-])
-const detailArchiveIdText = computed(() => formatTextValue(detailData.value?.id))
-const detailArchiveProductKeyText = computed(() => formatTextValue(detailData.value?.productKey))
-const detailArchiveManufacturerText = computed(() => formatTextValue(detailData.value?.manufacturer))
-const detailArchiveCreateDateText = computed(() => formatFullDateTime(detailData.value?.createTime))
-const detailGovernanceHeadline = computed(() => {
-  if (!detailData.value) {
-    return '正在整理维护建议'
-  }
-  if (detailData.value.status === 0) {
-    return '先核查停用对现有设备的影响'
-  }
-  const deviceCount = parseCount(detailData.value.deviceCount)
-  if ((deviceCount ?? 0) === 0) {
-    return '当前可继续作为新设备接入模板'
-  }
-  return '当前已有设备在用，变更前先做影响评估'
-})
-const detailMaintenanceRules = computed(() => [
-  '产品 Key 建立后尽量保持稳定，不建议直接改名。',
-  '协议编码、节点类型和数据格式属于接入核心规则。',
-  '调整时要兼顾历史日志、设备替换和接入检索的一致性。'
-])
-const detailChangeChecklist = computed(() => [
-  '先确认现场是否已经有设备在使用。',
-  '再确认协议或物模型变化是否需要新建产品版本。',
-  '最后确认调整后不会影响设备建档和上报链路。'
-])
-
-// 活跃度统计计算属性
-const hasActiveMetrics = computed(() => {
-  if (!detailData.value) return false
-  const hasActiveCount = detailData.value.todayActiveCount != null || detailData.value.sevenDaysActiveCount != null || detailData.value.thirtyDaysActiveCount != null
-  const hasOnlineDuration = detailData.value.avgOnlineDuration != null || detailData.value.maxOnlineDuration != null
-  return hasActiveCount || hasOnlineDuration
-})
-
-const detailActiveMetrics = computed(() => {
-  const metrics: Array<{ key: string; label: string; value: string; hint: string }> = []
-  
-  // 活跃设备数
-  if (detailData.value?.todayActiveCount != null) {
-    metrics.push({
-      key: 'todayActiveCount',
-      label: '今日活跃',
-      value: String(detailData.value.todayActiveCount),
-      hint: '今天上报过数据的设备数量'
-    })
-  }
-  
-  if (detailData.value?.sevenDaysActiveCount != null) {
-    metrics.push({
-      key: 'sevenDaysActiveCount',
-      label: '7日活跃',
-      value: String(detailData.value.sevenDaysActiveCount),
-      hint: '最近7天上报过数据的设备数量'
-    })
-  }
-  
-  if (detailData.value?.thirtyDaysActiveCount != null) {
-    metrics.push({
-      key: 'thirtyDaysActiveCount',
-      label: '30日活跃',
-      value: String(detailData.value.thirtyDaysActiveCount),
-      hint: '最近30天上报过数据的设备数量'
-    })
-  }
-  
-  // 在线时长
-  if (detailData.value?.avgOnlineDuration != null) {
-    const hours = Math.round(detailData.value.avgOnlineDuration / 60)
-    metrics.push({
-      key: 'avgOnlineDuration',
-      label: '平均在线时长',
-      value: `${hours}小时`,
-      hint: '设备平均每次在线时长'
-    })
-  }
-  
-  if (detailData.value?.maxOnlineDuration != null) {
-    const hours = Math.round(detailData.value.maxOnlineDuration / 60)
-    metrics.push({
-      key: 'maxOnlineDuration',
-      label: '最长在线时长',
-      value: `${hours}小时`,
-      hint: '设备单次最长在线时长'
-    })
-  }
-  
-  return metrics
-})
 
 const formRules: FormRules<ProductFormState> = {
   productKey: [{ required: true, message: '请输入产品 Key', trigger: 'blur' }],
@@ -1180,11 +954,6 @@ function getStatusText(value?: number | null) {
   return value === 0 ? '停用' : '启用'
 }
 
-function parseCount(value?: number | null) {
-  const count = Number(value)
-  return Number.isFinite(count) ? count : null
-}
-
 function formatTextValue(value?: string | number | null) {
   if (value === undefined || value === null || value === '') {
     return '--'
@@ -1192,21 +961,26 @@ function formatTextValue(value?: string | number | null) {
   return String(value)
 }
 
-function formatDate(value?: string | null) {
-  if (!value) {
-    return '--'
+function getProductDirectActions(variant: 'table' | 'card'): ProductDirectAction[] {
+  const actions: ProductDirectAction[] = [
+    {
+      key: 'detail',
+      command: 'detail',
+      label: '进入工作台',
+      title: '进入产品经营工作台',
+      dataTestid: 'open-product-business-workbench'
+    }
+  ]
+
+  if (permissionStore.hasPermission('iot:products:delete')) {
+    actions.push({
+      key: 'delete',
+      command: 'delete',
+      label: '删除'
+    })
   }
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date)
+  return actions
 }
 
 function getProductDetailCacheKey(row?: Partial<Product> | null) {
@@ -1263,7 +1037,8 @@ function resolveDetailSnapshot(row: Product, cachedDetail: Product | null) {
   // 使用列表返回的 row 数据作为快照，确保详情页始终有数据显示
   return {
     ...row,
-    description: cachedDetail?.description ?? row.description ?? null
+    description: cachedDetail?.description ?? row.description ?? null,
+    metadataJson: cachedDetail?.metadataJson ?? row.metadataJson ?? null
   }
 }
 
@@ -1296,8 +1071,10 @@ function resetFormData(source?: Partial<Product>) {
     dataFormat: source?.dataFormat || 'JSON',
     manufacturer: source?.manufacturer || '',
     description: source?.description || '',
+    metadataJson: source?.metadataJson || '',
     status: source?.status ?? 1
   })
+  objectInsightMetricRows.value = parseProductObjectInsightMetrics(source?.metadataJson)
 }
 
 function applyFormDataWithoutDirty(source?: Partial<Product>) {
@@ -1318,6 +1095,63 @@ function clearFormRefreshState() {
 function clearListRefreshState() {
   listRefreshMessage.value = ''
   listRefreshState.value = ''
+}
+
+function handleObjectInsightMetricsChange(value: ProductObjectInsightCustomMetricConfig[]) {
+  objectInsightMetricRows.value = value
+}
+
+function handleBusinessWorkbenchProductUpdated(product: Product) {
+  cacheProductDetail(product)
+  currentProduct.value = product
+  detailData.value = product
+  businessWorkbenchProduct.value = product
+  if (matchesCurrentFilters(product)) {
+    mergeLocalTableRow(product)
+  } else {
+    removeLocalTableRow(product)
+  }
+  rebuildVisibleProductPageCache()
+  if (editingProductId.value && String(editingProductId.value) === String(product.id) && !formDirtySinceOpen) {
+    applyFormDataWithoutDirty(product)
+  }
+}
+
+function markBusinessWorkbenchViewLoaded(view: ProductBusinessWorkbenchView) {
+  businessWorkbenchLoadedViews[view] = true
+}
+
+function resetBusinessWorkbenchLoadedViews() {
+  businessWorkbenchLoadedViews.overview = false
+  businessWorkbenchLoadedViews.models = false
+  businessWorkbenchLoadedViews.devices = false
+  businessWorkbenchLoadedViews.edit = false
+}
+
+function getBusinessWorkbenchProductKey() {
+  return businessWorkbenchProduct.value?.productKey || currentProduct.value?.productKey || ''
+}
+
+function handleBusinessWorkbenchViewChange(view: ProductBusinessWorkbenchView) {
+  businessWorkbenchActiveView.value = view
+  markBusinessWorkbenchViewLoaded(view)
+
+  if (view === 'devices') {
+    const productKey = getBusinessWorkbenchProductKey()
+    if (productKey) {
+      void loadDeviceList(productKey)
+    }
+  }
+}
+
+function handleCancelEdit() {
+  const snapshot = businessWorkbenchProduct.value || currentProduct.value
+  applyFormDataWithoutDirty(snapshot ?? undefined)
+  clearFormRefreshState()
+  editWorkspaceRef.value?.clearValidate()
+  if (businessWorkbenchVisible.value) {
+    handleBusinessWorkbenchViewChange('overview')
+  }
 }
 
 function isAbortError(error: unknown) {
@@ -1555,7 +1389,7 @@ function matchesCurrentFilters(product: Product) {
   })
 }
 
-// 快速搜索：支持产品名称、厂商关键词搜索
+// 快速搜索：支持产品名称、产品 Key、厂商关键词搜索
 function handleQuickSearch() {
   const keyword = searchForm.productName.trim()
   if (!keyword) {
@@ -1666,6 +1500,25 @@ function handleExportSelected() {
 
 function handleExportCurrent() {
   downloadRowsAsCsv('产品定义中心-当前结果.csv', tableData.value, getResolvedExportColumns())
+}
+
+function handleToolbarAction(command: string | number | object) {
+  switch (command) {
+    case 'export-config':
+      openExportColumnSetting()
+      break
+    case 'export-selected':
+      handleExportSelected()
+      break
+    case 'export-current':
+      handleExportCurrent()
+      break
+    case 'clear-selection':
+      clearSelection()
+      break
+    default:
+      break
+  }
 }
 
 function applyRouteQueryToFilters() {
@@ -1823,7 +1676,9 @@ async function loadProductPage(options: { silent?: boolean; force?: boolean; sil
       listRefreshMessage.value = '最新数据校验失败，当前先展示已有结果。'
     } else {
       clearListRefreshState()
-      ElMessage.error('获取产品分页失败')
+      if (!isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '获取产品分页失败'))
+      }
     }
   } finally {
     if (requestId === latestListRequestId) {
@@ -1841,10 +1696,13 @@ async function openDetail(row: Product) {
   const detailSnapshot = resolveDetailSnapshot(row, cachedDetail)
   abortDetailRequest()
 
-  detailVisible.value = true
+  currentProduct.value = row
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('overview')
   detailLoading.value = false
   detailErrorMessage.value = ''
   detailData.value = detailSnapshot
+  businessWorkbenchProduct.value = detailSnapshot
 
   // 如果没有缓存或者需要刷新详情，则发起后台补数请求
   if (!cachedDetail && shouldRefreshProductDetail(row, cachedDetail)) {
@@ -1861,6 +1719,7 @@ async function openDetail(row: Product) {
       }
       if (res.code === 200 && res.data) {
         detailData.value = res.data
+        businessWorkbenchProduct.value = res.data
         cacheProductDetail(res.data)
       }
     } catch (error) {
@@ -1912,7 +1771,7 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
       cacheProductDetail(res.data)
       if (!formDirtySinceOpen) {
         applyFormDataWithoutDirty(res.data)
-        formRef.value?.clearValidate()
+        editWorkspaceRef.value?.clearValidate()
         clearFormRefreshState()
       } else {
         formRefreshState.value = 'warning'
@@ -1938,6 +1797,31 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
     if (editAbortController === controller) {
       editAbortController = null
     }
+  }
+}
+
+async function refreshEditAvailableModels(productId: string | number, editSessionId: number) {
+  const requestId = ++latestEditModelRequestId
+  editAvailableModels.value = []
+  try {
+    const res = await productApi.listProductModels(productId)
+    if (
+      requestId !== latestEditModelRequestId ||
+      editSessionId !== activeEditSessionId ||
+      String(editingProductId.value) !== String(productId)
+    ) {
+      return
+    }
+    editAvailableModels.value = res.data ?? []
+  } catch {
+    if (
+      requestId !== latestEditModelRequestId ||
+      editSessionId !== activeEditSessionId ||
+      String(editingProductId.value) !== String(productId)
+    ) {
+      return
+    }
+    editAvailableModels.value = []
   }
 }
 
@@ -1984,16 +1868,18 @@ function handleRefresh() {
 function handleAdd() {
   activeEditSessionId += 1
   abortEditRequest()
+  latestEditModelRequestId += 1
   editingProductId.value = null
+  editAvailableModels.value = []
   formDirtySinceOpen = false
   clearFormRefreshState()
   applyFormDataWithoutDirty()
   formVisible.value = true
 }
 
-function handleEdit(row: Product) {
+function openEditWorkbench(row: Product, initialProduct?: Product | null) {
   const cachedDetail = getCachedProductDetail(row)
-  const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
+  const editSnapshot = resolveDetailSnapshot(initialProduct || row, cachedDetail)
 
   activeEditSessionId += 1
   const editSessionId = activeEditSessionId
@@ -2002,32 +1888,102 @@ function handleEdit(row: Product) {
   formDirtySinceOpen = false
   clearFormRefreshState()
   applyFormDataWithoutDirty(editSnapshot)
-  formVisible.value = true
-  formRef.value?.clearValidate()
+  currentProduct.value = row
+  businessWorkbenchProduct.value = editSnapshot
+  editAvailableModels.value = []
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('edit')
+  editWorkspaceRef.value?.clearValidate()
+  void refreshEditAvailableModels(row.id, editSessionId)
   void refreshEditableDetail(row, editSessionId, cachedDetail)
+}
+
+function handleEdit(row: Product) {
+  openEditWorkbench(row)
 }
 
 function handleOpenDetail(row: Product) {
   void openDetail(row)
 }
 
-function handleEditFromDetail() {
-  if (!detailData.value?.id) {
-    return
-  }
-  handleEdit(detailData.value)
-}
-
-// 打开设备列表抽屉
 function handleOpenDeviceListDrawer(row: Product) {
   currentProduct.value = row
-  deviceListDrawerVisible.value = true
-  void loadDeviceList(row.productKey)
+  businessWorkbenchProduct.value = row
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('devices')
 }
 
 function handleOpenProductModelDesigner(row: Product) {
-  productModelTarget.value = row
-  productModelDesignerVisible.value = true
+  currentProduct.value = row
+  businessWorkbenchProduct.value = row
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange('models')
+}
+
+function handleBusinessWorkbenchEdit() {
+  const sourceProduct = businessWorkbenchProduct.value || currentProduct.value
+  if (!sourceProduct) {
+    return
+  }
+  openEditWorkbench(currentProduct.value || sourceProduct, sourceProduct)
+}
+
+function openGovernanceTask(path: string) {
+  const focusProduct = governanceFocusProduct.value
+  recordActivity({
+    title: `产品治理待办跳转 · ${path}`,
+    detail: `聚焦产品 ${focusProduct?.productKey || '--'} 进入 ${path}`,
+    tag: 'product-governance-task'
+  })
+  void router.push(path)
+}
+
+function buildGovernanceTaskPath(productId: number | string | null | undefined, workItemCode: string) {
+  const query = new URLSearchParams()
+  if (productId != null && String(productId).trim()) {
+    query.set('productId', String(productId))
+  }
+  query.set('workStatus', 'OPEN')
+  query.set('workItemCode', workItemCode)
+  return `/governance-task?${query.toString()}`
+}
+
+async function loadGovernanceSnapshot(product: Product | null) {
+  const requestId = ++latestGovernanceRequestId
+  if (!product?.id) {
+    governanceCoverageOverview.value = null
+    latestContractReleaseBatch.value = null
+    governanceErrorMessage.value = ''
+    governanceLoading.value = false
+    return
+  }
+
+  governanceLoading.value = true
+  governanceErrorMessage.value = ''
+  try {
+    const [coverageRes, releaseRes] = await Promise.all([
+      getRiskGovernanceCoverageOverview(product.id),
+      productApi.pageProductContractReleaseBatches(product.id, { pageNum: 1, pageSize: 1 })
+    ])
+
+    if (requestId !== latestGovernanceRequestId) {
+      return
+    }
+
+    governanceCoverageOverview.value = coverageRes.code === 200 ? coverageRes.data || null : null
+    latestContractReleaseBatch.value = releaseRes.code === 200 ? releaseRes.data?.records?.[0] || null : null
+  } catch (error) {
+    if (requestId !== latestGovernanceRequestId) {
+      return
+    }
+    governanceCoverageOverview.value = null
+    latestContractReleaseBatch.value = null
+    governanceErrorMessage.value = resolveRequestErrorMessage(error, '治理进度加载失败，请稍后重试。')
+  } finally {
+    if (requestId === latestGovernanceRequestId) {
+      governanceLoading.value = false
+    }
+  }
 }
 
 // 查看设备
@@ -2039,6 +1995,7 @@ function handleViewDevice(device: Device) {
 // 加载设备列表
 async function loadDeviceList(productKey: string) {
   devicesLoading.value = true
+  deviceListErrorMessage.value = ''
   try {
     const res = await deviceApi.pageDevices({
       productKey,
@@ -2054,6 +2011,7 @@ async function loadDeviceList(productKey: string) {
     }
   } catch (error) {
     console.error('获取设备列表失败', error)
+    deviceListErrorMessage.value = error instanceof Error ? error.message : '获取设备列表失败'
     deviceListData.value = []
     deviceListTotal.value = 0
     deviceListOnlineCount.value = 0
@@ -2064,6 +2022,18 @@ async function loadDeviceList(productKey: string) {
 }
 
 function handleRowAction(command: string | number | object, row: Product) {
+  if (command === 'detail') {
+    handleOpenDetail(row)
+    return
+  }
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'model') {
+    handleOpenProductModelDesigner(row)
+    return
+  }
   if (command === 'devices') {
     handleOpenDeviceListDrawer(row)
     return
@@ -2098,6 +2068,7 @@ async function handleBatchCommand(command: string, rows: Product[]) {
           dataFormat: row.dataFormat ?? undefined,
           manufacturer: row.manufacturer ?? undefined,
           description: row.description ?? undefined,
+          metadataJson: row.metadataJson ?? undefined,
           status: row.status ?? 1
         }
       }
@@ -2131,6 +2102,7 @@ async function handleBatchCommand(command: string, rows: Product[]) {
           dataFormat: row.dataFormat ?? undefined,
           manufacturer: row.manufacturer ?? undefined,
           description: row.description ?? undefined,
+          metadataJson: row.metadataJson ?? undefined,
           status: row.status ?? 1
         }
       }
@@ -2232,27 +2204,46 @@ async function handleDelete(row: Product) {
 }
 
 async function handleSubmit() {
-  const valid = await formRef.value?.validate().catch(() => false)
+  const valid = editingProductId.value
+    ? await editWorkspaceRef.value?.validate()
+    : await createFormRef.value?.validate().catch(() => false)
   if (!valid) {
     return
+  }
+
+  const validationMessage = validateProductObjectInsightMetrics(objectInsightMetricRows.value)
+  if (validationMessage) {
+    ElMessage.error(validationMessage)
+    return
+  }
+
+  const payload: ProductAddPayload = {
+    ...formData,
+    metadataJson: buildProductMetadataJson(objectInsightMetricRows.value, formData.metadataJson)
   }
 
   submitLoading.value = true
   try {
     if (editingProductId.value) {
-      const res = await productApi.updateProduct(editingProductId.value, { ...formData })
+      const res = await productApi.updateProduct(editingProductId.value, payload)
       cacheProductDetail(res.data)
+      currentProduct.value = res.data
+      detailData.value = res.data
+      businessWorkbenchProduct.value = res.data
       if (matchesCurrentFilters(res.data)) {
         mergeLocalTableRow(res.data)
       } else {
         removeLocalTableRow(res.data)
       }
       rebuildVisibleProductPageCache()
+      applyFormDataWithoutDirty(res.data)
+      editWorkspaceRef.value?.clearValidate()
+      clearFormRefreshState()
+      formDirtySinceOpen = false
       ElMessage.success('更新成功')
-      formVisible.value = false
       void loadProductPage({ silent: true, force: true })
     } else {
-      const res = await productApi.addProduct({ ...formData })
+      const res = await productApi.addProduct(payload)
       cacheProductDetail(res.data)
       ElMessage.success('新增成功')
       formVisible.value = false
@@ -2283,7 +2274,9 @@ async function handleSubmit() {
 function handleFormClose() {
   activeEditSessionId += 1
   abortEditRequest()
-  formRef.value?.clearValidate()
+  latestEditModelRequestId += 1
+  editAvailableModels.value = []
+  createFormRef.value?.clearValidate?.()
   clearFormRefreshState()
   formDirtySinceOpen = false
   applyFormDataWithoutDirty()
@@ -2311,7 +2304,15 @@ watch(
   }
 )
 
-watch(detailVisible, (visible) => {
+watch(
+  () => String(governanceFocusProduct.value?.id || ''),
+  () => {
+    void loadGovernanceSnapshot(governanceFocusProduct.value)
+  },
+  { immediate: true }
+)
+
+watch(businessWorkbenchVisible, (visible) => {
   if (visible) {
     return
   }
@@ -2320,21 +2321,27 @@ watch(detailVisible, (visible) => {
   detailLoading.value = false
   detailRefreshing.value = false
   detailErrorMessage.value = ''
-  // detailRefreshErrorMessage 已移除
   detailData.value = null
-})
-
-watch(productModelDesignerVisible, (visible) => {
-  if (visible) {
-    return
+  businessWorkbenchProduct.value = null
+  deviceListErrorMessage.value = ''
+  resetBusinessWorkbenchLoadedViews()
+  if (editingProductId.value) {
+    activeEditSessionId += 1
+    abortEditRequest()
+    latestEditModelRequestId += 1
+    editAvailableModels.value = []
+    editWorkspaceRef.value?.clearValidate()
+    clearFormRefreshState()
+    formDirtySinceOpen = false
+    applyFormDataWithoutDirty()
+    editingProductId.value = null
   }
-  productModelTarget.value = null
 })
 
 watch(
   formData,
   () => {
-    if (!formVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
+    if (!businessWorkbenchVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
       return
     }
     formDirtySinceOpen = true
@@ -2360,7 +2367,8 @@ onMounted(async () => {
 <style scoped>
 .product-asset-view {
   display: grid;
-  gap: 16px;
+  gap: 0.72rem;
+  min-width: 0;
 }
 
 :deep(.product-detail-drawer .el-drawer__header) {
@@ -2388,544 +2396,6 @@ onMounted(async () => {
   color: var(--text-caption);
 }
 
-.product-detail-layout {
-  display: grid;
-  gap: 18px;
-}
-
-.product-detail-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.product-detail-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
-}
-
-.product-form-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.product-form-inline-state--warning {
-  border-color: var(--warning);
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 4%, white);
-}
-
-.product-form-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
-}
-
-.product-detail-zone {
-  position: relative;
-  overflow: hidden;
-  padding: 1.2rem 1.3rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  background: #ffffff;
-  box-shadow:
-    0 3px 10px rgba(24, 45, 77, 0.04),
-    0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.product-detail-zone::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--brand) 72%, white),
-    color-mix(in srgb, var(--accent) 52%, white),
-    color-mix(in srgb, var(--brand-bright) 54%, white)
-  );
-}
-
-.product-detail-zone--overview {
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 8%, transparent), transparent 46%),
-    linear-gradient(180deg, rgba(244, 248, 255, 0.97), rgba(255, 255, 255, 0.95));
-}
-
-.product-detail-zone--ledger {
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--brand) 6%, transparent), transparent 48%),
-    linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(246, 249, 255, 0.94));
-}
-
-.product-detail-zone--governance {
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent), transparent 45%),
-    linear-gradient(180deg, rgba(249, 252, 255, 0.97), rgba(246, 249, 255, 0.94));
-}
-
-.product-detail-zone--danger {
-  border-color: color-mix(in srgb, var(--danger) 20%, var(--panel-border));
-}
-
-.product-detail-zone__header {
-  display: grid;
-  gap: 0.18rem;
-  margin-bottom: 0.9rem;
-}
-
-.product-detail-zone__kicker {
-  color: var(--text-heading);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.product-detail-zone__intro {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.product-detail-overview-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.86fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.product-detail-overview-lead {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 1rem 1.1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: calc(var(--radius-md) + 2px);
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 12%, transparent), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 8px 20px rgba(24, 55, 92, 0.05);
-}
-
-.product-detail-overview-lead--danger {
-  border-color: color-mix(in srgb, var(--danger) 18%, transparent);
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--danger) 10%, transparent), transparent 46%),
-    linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(255, 243, 243, 0.95));
-}
-
-.product-detail-overview-lead__eyebrow {
-  color: color-mix(in srgb, var(--brand) 64%, var(--text-caption-2));
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.08em;
-}
-
-.product-detail-overview-lead__title {
-  color: var(--text-heading);
-  font-size: clamp(1.2rem, 2vw, 1.48rem);
-  font-weight: 700;
-  line-height: 1.34;
-}
-
-.product-detail-overview-lead__text {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.58;
-}
-
-.product-detail-overview-progress {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.product-detail-overview-progress__track {
-  position: relative;
-  overflow: hidden;
-  height: 0.42rem;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 12%, white);
-}
-
-.product-detail-overview-progress__fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--brand), color-mix(in srgb, var(--accent) 76%, var(--brand)));
-}
-
-.product-detail-overview-progress__caption {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
-  line-height: 1.48;
-}
-
-.product-detail-overview-lead__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.36rem 0.48rem;
-}
-
-.product-detail-overview-lead__meta span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.65rem;
-  padding: 0.24rem 0.58rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--text-caption);
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.product-detail-overview-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.product-detail-overview-metric {
-  display: grid;
-  gap: 0.26rem;
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
-  border-radius: calc(var(--radius-md) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-inset-highlight-76);
-}
-
-.product-detail-overview-metric__label {
-  color: var(--text-caption-2);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.5;
-  text-transform: uppercase;
-}
-
-.product-detail-overview-metric__value {
-  color: var(--text-heading);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.product-detail-overview-metric__hint {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.product-detail-overview-metric__value-wrapper {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-}
-
-.product-detail-overview-metric__trend {
-  font-size: 0.85em;
-  font-weight: 700;
-  line-height: 1;
-  padding: 0.1em 0.3em;
-  border-radius: calc(var(--radius-2xs) + 1px);
-}
-
-.product-detail-overview-metric__trend--up {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-}
-
-.product-detail-overview-metric__trend--down {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-}
-
-.product-detail-overview-metric__trend--same {
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 12%, transparent);
-}
-
-.product-detail-ledger-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.product-detail-ledger-card {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: #ffffff;
-  box-shadow:
-    0 2px 8px rgba(24, 45, 77, 0.04),
-    0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.product-detail-ledger-card:hover {
-  box-shadow:
-    0 4px 12px rgba(24, 45, 77, 0.08),
-    0 2px 4px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
-}
-
-.product-detail-ledger-card--contract {
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 6%, transparent), transparent 44%),
-    linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(246, 250, 255, 0.93));
-}
-
-.product-detail-card-header {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.product-detail-card-header h3 {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.product-detail-card-header p {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.product-detail-contract-list {
-  display: grid;
-  gap: 10px;
-}
-
-.product-detail-contract-item {
-  display: grid;
-  gap: 0.24rem;
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
-  box-shadow: var(--shadow-inset-highlight-74);
-}
-
-.product-detail-contract-item__label {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.product-detail-contract-item__value {
-  color: var(--text-heading);
-  font-size: 13.5px;
-  font-weight: 700;
-  line-height: 1.44;
-  letter-spacing: -0.01em;
-  word-break: break-word;
-}
-
-.product-detail-archive-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.product-detail-archive-item {
-  display: grid;
-  gap: 0.26rem;
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: var(--shadow-inset-highlight-74);
-}
-
-.product-detail-archive-item--full {
-  grid-column: 1 / -1;
-}
-
-.product-detail-archive-item__label {
-  color: var(--text-caption-2);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.product-detail-archive-item__value {
-  color: var(--text-heading);
-  font-size: 13.5px;
-  font-weight: 700;
-  line-height: 1.44;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.product-detail-archive-meta-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.36rem;
-  margin-bottom: 0.18rem;
-  font-size: 11px;
-  color: var(--text-caption-2);
-  line-height: 1.4;
-}
-
-.product-detail-archive-meta-row .product-detail-archive-item__label {
-  font-size: 11px;
-  color: var(--text-caption-2);
-  font-weight: 600;
-}
-
-.product-detail-archive-meta-separator {
-  color: var(--brand);
-  font-size: 0.9em;
-  font-weight: 600;
-}
-
-.product-detail-archive-meta-value {
-  display: flex;
-  align-items: baseline;
-  gap: 0.36rem;
-  line-height: 1.4;
-}
-
-.product-detail-archive-meta-value .product-detail-archive-item__value {
-  font-size: 13.5px;
-}
-
-.product-detail-archive-meta-value .product-detail-archive-meta-separator {
-  color: var(--brand);
-  font-size: 0.9em;
-  font-weight: 600;
-}
-
-.product-detail-description-card {
-  display: grid;
-  gap: 0.26rem;
-  margin-top: 0.3rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: var(--shadow-inset-highlight-74);
-}
-
-.product-detail-description-card__label {
-  color: var(--text-caption-2);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.product-detail-description-card__value {
-  color: var(--text-heading);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.54;
-  word-break: break-word;
-}
-
-.product-detail-governance-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-
-.product-detail-governance-card {
-  display: grid;
-  gap: 0.36rem;
-  min-width: 0;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
-  box-shadow: var(--shadow-inset-highlight-74);
-}
-
-.product-detail-governance-card--lead {
-  border-color: color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 9%, transparent), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.94));
-}
-
-.product-detail-governance-card--danger {
-  border-color: color-mix(in srgb, var(--danger) 18%, transparent);
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--danger) 10%, transparent), transparent 46%),
-    linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(255, 243, 243, 0.95));
-}
-
-.product-detail-governance-card__label {
-  color: color-mix(in srgb, var(--brand) 42%, var(--text-caption-2));
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.product-detail-governance-card__title {
-  color: var(--text-heading);
-  font-size: 1.28rem;
-  font-weight: 700;
-  line-height: 1.36;
-}
-
-.product-detail-governance-card__text {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.54;
-}
-
-.product-detail-governance-list {
-  display: grid;
-  gap: 0.36rem;
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--text-caption);
-  font-size: 12.5px;
-  line-height: 1.52;
-}
-
 /* 快速搜索标签 */
 .product-quick-search-tag {
   display: flex;
@@ -2938,347 +2408,46 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* ============================================
-   卡片视图 - 精致现代风格
-   ============================================ */
-.product-card-view {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
-
-/* 卡片网格布局 */
-.product-card-view .product-mobile-list__grid {
+.product-governance-notice-stack {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 0.6rem;
 }
 
-/* 卡片容器 - 精致卡片设计 */
-.product-card-view .product-mobile-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  border: 1px solid rgba(228, 235, 246, 0.65);
-  border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
-  box-shadow:
-    0 2px 8px rgba(24, 45, 77, 0.04),
-    0 1px 3px rgba(24, 45, 77, 0.02);
-  transition:
-    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s ease;
-  cursor: pointer;
-}
-
-.product-card-view .product-mobile-card:hover {
-  box-shadow:
-    0 8px 24px rgba(24, 45, 77, 0.08),
-    0 4px 12px rgba(24, 45, 77, 0.04);
-  transform: translateY(-2px);
-  border-color: rgba(78, 89, 105, 0.15);
-}
-
-/* 卡片选中状态 */
-.product-card-view .product-mobile-card.selected {
-  border-color: var(--brand);
-  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
-}
-
-/* ============================================
-   卡片头部 - 棋盘布局
-   ============================================ */
-.product-card-view .product-mobile-card__header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 8px 12px;
-  margin-bottom: 12px;
-}
-
-/* 卡片复选框 */
-.product-card-view .product-mobile-card__header .el-checkbox {
-  grid-row: 1 / span 2;
+.product-governance-task-list {
   margin: 0;
-}
-
-/* 卡片标题区域 */
-.product-card-view .product-mobile-card__heading {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.product-card-view .product-mobile-card__title {
-  color: #1a1d21;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
-}
-
-.product-card-view .product-mobile-card__sub {
-  overflow: hidden;
-  color: #7d8692;
-  font-size: 12px;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 卡片状态标签 */
-.product-card-view .product-mobile-card__status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ============================================
-   卡片视图 - 精致现代风格
-   ============================================ */
-.product-card-view {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
-
-/* 卡片网格布局 */
-.product-card-view .product-mobile-list__grid {
+  padding: 0;
+  list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 0.56rem;
 }
 
-/* 卡片容器 - 精致卡片设计 */
-.product-card-view .product-mobile-card {
+.product-governance-task-list li {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  border: 1px solid rgba(228, 235, 246, 0.65);
-  border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
-  box-shadow:
-    0 2px 8px rgba(24, 45, 77, 0.04),
-    0 1px 3px rgba(24, 45, 77, 0.02);
-  transition:
-    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s ease,
-    box-shadow 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.72rem;
 }
 
-/* 卡片悬停效果 */
-.product-card-view .product-mobile-card:hover {
-  box-shadow:
-    0 12px 32px rgba(24, 45, 77, 0.08),
-    0 6px 16px rgba(24, 45, 77, 0.04);
-  transform: translateY(-4px);
-  border-color: rgba(78, 89, 105, 0.15);
-}
-
-/* 卡片选中状态 */
-.product-card-view .product-mobile-card.selected {
-  border-color: var(--brand);
-  background: linear-gradient(180deg, #f8fcff 0%, #f0f8ff 100%);
-}
-
-/* 卡片选中伪元素装饰 */
-.product-card-view .product-mobile-card.selected::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--brand), var(--brand-bright));
-  -webkit-mask: 
-    linear-gradient(#fff 0 0) content-box, 
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ============================================
-   卡片头部 - 棋盘布局
-   ============================================ */
-.product-card-view .product-mobile-card__header {
+.product-governance-task-list__content {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 8px 12px;
-  margin-bottom: 12px;
+  gap: 0.2rem;
 }
 
-/* 卡片复选框 */
-.product-card-view .product-mobile-card__header .el-checkbox {
-  grid-row: 1 / span 2;
-  margin: 0;
-}
-
-/* 卡片标题区域 */
-.product-card-view .product-mobile-card__heading {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.product-card-view .product-mobile-card__title {
-  color: #1a1d21;
-  font-size: 15px;
-  font-weight: 600;
+.product-governance-task-list__content strong {
+  color: var(--text-heading);
+  font-size: 0.9rem;
   line-height: 1.4;
-  letter-spacing: -0.02em;
 }
 
-.product-card-view .product-mobile-card__sub {
-  overflow: hidden;
-  color: #7d8692;
-  font-size: 12px;
+.product-governance-task-list__content span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
   line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* 卡片状态标签 */
-.product-card-view .product-mobile-card__status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ============================================
-   卡片元数据标签组
-   ============================================ */
-.product-card-view .product-mobile-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.product-card-view .product-mobile-card__meta-item {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border: 1px solid rgba(228, 235, 246, 0.7);
-  border-radius: var(--radius-xl);
-  background: #ffffff;
-  color: #525a66;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.product-card-view .product-mobile-card__meta-item:first-child {
-  background: rgba(78, 89, 105, 0.04);
-  border-color: rgba(78, 89, 105, 0.1);
-  color: #3e4651;
-}
-
-/* ============================================
-   卡片信息网格
-   ============================================ */
-.product-card-view .product-mobile-card__info {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-  flex-grow: 1;
-}
-
-.product-card-view .product-mobile-card__field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid rgba(228, 235, 246, 0.6);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: #fcfdfd;
-}
-
-.product-card-view .product-mobile-card__field span {
-  color: #95a0ae;
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.4;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.product-card-view .product-mobile-card__field strong {
-  overflow: hidden;
-  color: #1a1d21;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ============================================
-   卡片操作区域
-   ============================================ */
-.product-card-view .product-mobile-card__actions {
-  padding-top: 12px;
-  border-top: 1px solid rgba(228, 235, 246, 0.5);
-}
-
-/* 响应式卡片视图 */
 .product-mobile-list {
   display: none;
   margin-bottom: 0.72rem;
-}
-
-/* 卡片视图响应式 - 桌面端显示 */
-@media (min-width: 721px) {
-  .product-card-view {
-    display: flex;
-  }
-  
-  .product-mobile-list {
-    display: none;
-  }
-}
-
-/* 卡片视图响应式 - 移动端显示 */
-@media (max-width: 720px) {
-  .product-card-view {
-    display: none;
-  }
-  
-  .product-mobile-list {
-    display: block;
-  }
-}
-
-/* 响应式卡片视图 */
-.product-mobile-list {
-  display: none;
-  margin-bottom: 0.72rem;
-}
-
-.product-result-panel {
-  position: relative;
-  isolation: isolate;
-  min-height: 14rem;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
-}
-
-.product-result-panel :deep(.el-loading-mask) {
-  border-radius: inherit;
-  background: rgba(248, 250, 255, 0.78) !important;
-  backdrop-filter: blur(5px);
 }
 
 .product-result-panel :deep(.el-loading-spinner .el-loading-text) {
@@ -3463,21 +2632,6 @@ onMounted(async () => {
   border-radius: 0.3rem;
 }
 
-.product-mobile-list__grid {
-  display: grid;
-  gap: 12px;
-}
-
-.product-mobile-card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.92rem 0.96rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-inset-highlight-76);
-}
-
 .product-mobile-card__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -3513,18 +2667,6 @@ onMounted(async () => {
   gap: 0.45rem;
 }
 
-.product-mobile-card__meta-item {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.6rem;
-  padding: 0.2rem 0.58rem;
-  border-radius: var(--radius-pill);
-  background: rgba(78, 89, 105, 0.08);
-  color: var(--text-caption);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
 .product-mobile-card__info {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3537,18 +2679,9 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.product-mobile-card__field span {
-  color: var(--text-caption-2);
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
-.product-mobile-card__field strong {
+.product-mobile-card__field .standard-mobile-record-card__field-value {
   overflow: hidden;
-  color: var(--text-heading);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.52;
+  display: block;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3557,38 +2690,7 @@ onMounted(async () => {
   display: block;
 }
 
-@media (max-width: 1080px) {
-  .product-detail-overview-grid,
-  .product-detail-ledger-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .product-detail-overview-metrics,
-  .product-detail-governance-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 720px) {
-  .product-detail-archive-grid,
-  .product-detail-overview-metrics,
-  .product-detail-governance-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .product-detail-zone {
-    padding: 0.82rem 0.84rem;
-  }
-
-  .product-detail-zone__kicker,
-  .product-detail-card-header h3 {
-    font-size: 1.2rem;
-  }
-
-  .product-detail-contract-item__value {
-    font-size: 1.52rem;
-  }
-
   .product-mobile-list {
     display: block;
   }
@@ -3602,12 +2704,6 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 768px) {
-  .product-detail-layout {
-    gap: 14px;
-  }
-}
-
 @keyframes product-loading-shimmer {
   0% {
     background-position: 100% 50%;
@@ -3618,51 +2714,4 @@ onMounted(async () => {
   }
 }
 
-/* ============================================
-   设备活跃度统计
-   ============================================ */
-.product-detail-active-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.product-detail-active-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
-  box-shadow: var(--shadow-inset-highlight-74);
-}
-
-.product-detail-active-metric__label {
-  color: var(--text-caption-2);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.5;
-  text-transform: uppercase;
-}
-
-.product-detail-active-metric__value {
-  color: var(--text-heading);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.product-detail-active-metric__hint {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-@media (max-width: 720px) {
-  .product-detail-active-grid {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

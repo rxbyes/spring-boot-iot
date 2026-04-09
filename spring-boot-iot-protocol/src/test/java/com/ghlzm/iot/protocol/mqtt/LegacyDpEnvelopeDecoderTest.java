@@ -19,7 +19,7 @@ class LegacyDpEnvelopeDecoderTest {
 
     @Test
     void shouldDecodePlaintextJsonPayload() {
-        Object decoder = newDecoder(List.of());
+        Object decoder = newDecoder(defaultResolver(), List.of());
 
         Object decoded = decode(decoder, """
                 {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2}}}}
@@ -35,7 +35,7 @@ class LegacyDpEnvelopeDecoderTest {
 
     @Test
     void shouldDecodePrefixedPlaintextJsonPayload() {
-        Object decoder = newDecoder(List.of());
+        Object decoder = newDecoder(defaultResolver(), List.of());
 
         byte[] payload = ("\u0010" + """
                 {"100054920":{"S1_ZT_1":{"2026-03-14T06:00:00.000Z":{"ext_power_volt":12.3}}}}
@@ -52,28 +52,48 @@ class LegacyDpEnvelopeDecoderTest {
 
     @Test
     void shouldDecodeEncryptedEnvelopePayload() {
-        Object decoder = newDecoder(List.of(new StubDecryptor(
+        DecoderHarness harness = newEncryptedDecoder(
                 "62000001",
                 buildPacket((byte) 2, """
                         {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2}}}}
                         """)
-        )));
+        );
 
         byte[] payload = """
                 {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
                 """.getBytes(StandardCharsets.UTF_8);
 
-        Object decoded = decode(decoder, payload);
+        Object decoded = decode(harness.decoder(), payload);
 
         Map<?, ?> decodedPayload = readPayload(decoded);
         assertEquals("STANDARD_TYPE_2", readDataFormatType(decoded));
         assertEquals("STANDARD_TYPE_2", decodedPayload.get("_dataFormatType"));
         assertEquals("62000001", readAppId(decoded));
+        assertNotNull(harness.registry().lastContext());
+        assertEquals("62000001", harness.registry().lastContext().appId());
+        assertEquals("mqtt-json", harness.registry().lastContext().protocolCode());
+        assertEquals(List.of(), harness.registry().lastContext().familyCodes());
         assertTrue(String.valueOf(readRawPayload(decoded)).contains("\"appId\":\"62000001\""));
         assertNotNull(decodedPayload.get("17165802"));
     }
 
-    private Object newDecoder(List<MqttPayloadDecryptor> decryptors) {
+    @Test
+    void shouldExposePlaintextPayloadForEncryptedEnvelope() {
+        DecoderHarness harness = newEncryptedDecoder(
+                "62000001",
+                buildPacket((byte) 2, """
+                        {"17165802":{"L1_GP_1":{"2026-03-14T06:00:00.000Z":{"gpsTotalZ":3.2}}}}
+                        """)
+        );
+
+        Object decoded = decode(harness.decoder(), """
+                {"header":{"appId":"62000001"},"bodies":{"body":"cipher-text"}}
+                """.getBytes(StandardCharsets.UTF_8));
+
+        assertTrue(String.valueOf(invoke(decoded, "plaintextPayload")).contains("\"17165802\""));
+    }
+
+    private Object newDecoder(ProtocolDecryptProfileResolver resolver, List<ProtocolDecryptExecutor> executors) {
         try {
             Class<?> decoderClass = Class.forName("com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder");
             Constructor<?> constructor = decoderClass.getConstructor(
@@ -84,7 +104,7 @@ class LegacyDpEnvelopeDecoderTest {
             );
             IotProperties iotProperties = new IotProperties();
             return constructor.newInstance(
-                    new MqttPayloadDecryptorRegistry(decryptors),
+                    new MqttPayloadDecryptorRegistry(resolver, executors),
                     new MqttPayloadFrameParser(),
                     new MqttPayloadSecurityValidator(
                             iotProperties,
@@ -96,6 +116,43 @@ class LegacyDpEnvelopeDecoderTest {
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError("Expected LegacyDpEnvelopeDecoder class with the planned constructor", ex);
         }
+    }
+
+    private DecoderHarness newEncryptedDecoder(String appId, byte[] decryptedPayload) {
+        ContextOnlyRegistry registry = new ContextOnlyRegistry(
+                context -> profile("aes-" + appId, "AES", "SPRING_CLOUD_AES", appId),
+                List.of(new StubExecutor("AES", decryptedPayload))
+        );
+        return new DecoderHarness(newDecoder(registry), registry);
+    }
+
+    private Object newDecoder(MqttPayloadDecryptorRegistry registry) {
+        try {
+            Class<?> decoderClass = Class.forName("com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder");
+            Constructor<?> constructor = decoderClass.getConstructor(
+                    MqttPayloadDecryptorRegistry.class,
+                    MqttPayloadFrameParser.class,
+                    MqttPayloadSecurityValidator.class,
+                    MqttFirmwarePacketParser.class
+            );
+            IotProperties iotProperties = new IotProperties();
+            return constructor.newInstance(
+                    registry,
+                    new MqttPayloadFrameParser(),
+                    new MqttPayloadSecurityValidator(
+                            iotProperties,
+                            new MqttMessageSignerRegistry(List.of()),
+                            new DefaultListableBeanFactory().getBeanProvider(org.springframework.data.redis.core.StringRedisTemplate.class)
+                    ),
+                    new MqttFirmwarePacketParser()
+            );
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Expected LegacyDpEnvelopeDecoder class with the planned constructor", ex);
+        }
+    }
+
+    private ProtocolDecryptProfileResolver defaultResolver() {
+        return new IotPropertiesProtocolDecryptProfileResolver(new IotProperties());
     }
 
     private Object decode(Object decoder, byte[] payload) {
@@ -149,24 +206,64 @@ class LegacyDpEnvelopeDecoderTest {
         return result;
     }
 
-    private static final class StubDecryptor implements MqttPayloadDecryptor {
+    private ProtocolDecryptProfile profile(String profileCode,
+                                           String algorithm,
+                                           String merchantSource,
+                                           String merchantKey) {
+        ProtocolDecryptProfile profile = new ProtocolDecryptProfile();
+        profile.setProfileCode(profileCode);
+        profile.setAlgorithm(algorithm);
+        profile.setMerchantSource(merchantSource);
+        profile.setMerchantKey(merchantKey);
+        return profile;
+    }
 
-        private final String supportedAppId;
+    private static final class StubExecutor implements ProtocolDecryptExecutor {
+
+        private final String supportedAlgorithm;
         private final byte[] decryptedPayload;
 
-        private StubDecryptor(String supportedAppId, byte[] decryptedPayload) {
-            this.supportedAppId = supportedAppId;
+        private StubExecutor(String supportedAlgorithm, byte[] decryptedPayload) {
+            this.supportedAlgorithm = supportedAlgorithm;
             this.decryptedPayload = decryptedPayload;
         }
 
         @Override
-        public boolean supports(String appId) {
-            return supportedAppId.equals(appId);
+        public boolean supports(String algorithm) {
+            return supportedAlgorithm.equalsIgnoreCase(algorithm);
         }
 
         @Override
-        public byte[] decryptBytes(String appId, String encryptedBody) {
+        public byte[] decryptBytes(ProtocolDecryptProfile profile, String encryptedBody) {
             return decryptedPayload;
+        }
+    }
+
+    private record DecoderHarness(Object decoder, ContextOnlyRegistry registry) {
+    }
+
+    private static final class ContextOnlyRegistry extends MqttPayloadDecryptorRegistry {
+
+        private ProtocolDecryptResolveContext lastContext;
+
+        private ContextOnlyRegistry(ProtocolDecryptProfileResolver resolver,
+                                    List<ProtocolDecryptExecutor> executors) {
+            super(resolver, executors);
+        }
+
+        @Override
+        public byte[] decryptBytesOrThrow(String appId, String encryptedBody) {
+            throw new AssertionError("Expected LegacyDpEnvelopeDecoder to use ProtocolDecryptResolveContext overload");
+        }
+
+        @Override
+        public byte[] decryptBytesOrThrow(ProtocolDecryptResolveContext context, String encryptedBody) {
+            this.lastContext = context;
+            return super.decryptBytesOrThrow(context, encryptedBody);
+        }
+
+        private ProtocolDecryptResolveContext lastContext() {
+            return lastContext;
         }
     }
 }

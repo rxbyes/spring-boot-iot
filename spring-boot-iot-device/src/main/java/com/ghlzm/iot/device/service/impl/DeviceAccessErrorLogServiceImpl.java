@@ -16,6 +16,9 @@ import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.observability.invalidreport.InvalidReportCounterStore;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
+import com.ghlzm.iot.system.enums.DataScopeType;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -57,9 +60,16 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     private static final int MAX_ERROR_CODE_LENGTH = 64;
     private static final int MAX_EXCEPTION_CLASS_LENGTH = 255;
     private static final List<String> FAILURE_STAGE_BUCKETS = List.of(
+            "ingress",
             "topic_route",
             "protocol_decode",
+            "device_contract",
             "device_validate",
+            "message_log",
+            "payload_apply",
+            "telemetry_persist",
+            "device_state",
+            "risk_dispatch",
             "message_dispatch"
     );
 
@@ -69,6 +79,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     private final ProductMapper productMapper;
     private final IotProperties iotProperties;
     private final InvalidReportCounterStore invalidReportCounterStore;
+    private final PermissionService permissionService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceAccessErrorLogServiceImpl(JdbcTemplate jdbcTemplate,
@@ -76,13 +87,15 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
                                            DeviceMapper deviceMapper,
                                            ProductMapper productMapper,
                                            IotProperties iotProperties,
-                                           InvalidReportCounterStore invalidReportCounterStore) {
+                                           InvalidReportCounterStore invalidReportCounterStore,
+                                           PermissionService permissionService) {
         this.jdbcTemplate = jdbcTemplate;
         this.schemaSupport = schemaSupport;
         this.deviceMapper = deviceMapper;
         this.productMapper = productMapper;
         this.iotProperties = iotProperties;
         this.invalidReportCounterStore = invalidReportCounterStore;
+        this.permissionService = permissionService;
     }
 
     @Override
@@ -134,11 +147,14 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     }
 
     @Override
-    public PageResult<DeviceAccessErrorLog> pageLogs(DeviceAccessErrorQuery query, Integer pageNum, Integer pageSize) {
+    public PageResult<DeviceAccessErrorLog> pageLogs(Long currentUserId,
+                                                     DeviceAccessErrorQuery query,
+                                                     Integer pageNum,
+                                                     Integer pageSize) {
         long safePageNum = pageNum == null || pageNum < 1 ? 1L : pageNum;
         long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize.longValue(), MAX_PAGE_SIZE);
         Set<String> columns = schemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(query, columns);
+        QuerySpec querySpec = buildQuerySpec(currentUserId, query, columns);
         if (querySpec.emptyResult()) {
             return PageResult.empty(safePageNum, safePageSize);
         }
@@ -169,10 +185,10 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     }
 
     @Override
-    public DeviceAccessErrorStatsVO getStats(DeviceAccessErrorQuery query) {
+    public DeviceAccessErrorStatsVO getStats(Long currentUserId, DeviceAccessErrorQuery query) {
         DeviceAccessErrorStatsVO stats = new DeviceAccessErrorStatsVO();
         Set<String> columns = schemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(query, columns);
+        QuerySpec querySpec = buildQuerySpec(currentUserId, query, columns);
         if (querySpec.emptyResult()) {
             return stats;
         }
@@ -182,7 +198,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             return stats;
         }
 
-        if (isUnfilteredQuery(query)) {
+        if (shouldUseGlobalFailureStageSummary(currentUserId, query)) {
             stats.setRecentHourCount(sumFailureStageCounts(Instant.now().minus(Duration.ofHours(1))));
             stats.setRecent24HourCount(sumFailureStageCounts(Instant.now().minus(Duration.ofHours(24))));
             stats.setTopFailureStages(listFailureStageBuckets(Instant.now().minus(Duration.ofHours(24))));
@@ -218,12 +234,12 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     }
 
     @Override
-    public DeviceAccessErrorLog getById(Long id) {
+    public DeviceAccessErrorLog getById(Long currentUserId, Long id) {
         if (id == null) {
             return null;
         }
         Set<String> columns = schemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(null, columns);
+        QuerySpec querySpec = buildQuerySpec(currentUserId, null, columns);
         if (querySpec.emptyResult()) {
             return null;
         }
@@ -413,7 +429,7 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         }
     }
 
-    private QuerySpec buildQuerySpec(DeviceAccessErrorQuery query, Set<String> columns) {
+    private QuerySpec buildQuerySpec(Long currentUserId, DeviceAccessErrorQuery query, Set<String> columns) {
         if (columns.isEmpty()) {
             return QuerySpec.emptySpec();
         }
@@ -422,6 +438,16 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         if (columns.contains("deleted")) {
             where.append(" AND deleted = 0");
         }
+        Long tenantId = resolveScopedTenantId(currentUserId);
+        if (tenantId != null) {
+            String tenantColumn = resolveColumn(columns, "tenant_id");
+            if (tenantColumn == null) {
+                return QuerySpec.emptySpec();
+            }
+            where.append(" AND ").append(tenantColumn).append(" = ?");
+            params.add(tenantId);
+        }
+        appendAccessibleDeviceScope(where, params, currentUserId);
         if (query == null) {
             return new QuerySpec(where.toString(), params, false);
         }
@@ -459,6 +485,94 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             return QuerySpec.emptySpec();
         }
         return new QuerySpec(where.toString(), params, false);
+    }
+
+    private boolean shouldUseGlobalFailureStageSummary(Long currentUserId, DeviceAccessErrorQuery query) {
+        return resolveScopedTenantId(currentUserId) == null
+                && !hasOrganizationRestrictedScope(currentUserId)
+                && isUnfilteredQuery(query);
+    }
+
+    private Long resolveScopedTenantId(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return null;
+        }
+        return context.tenantId();
+    }
+
+    private DataPermissionContext resolveDataPermissionContext(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return null;
+        }
+        return permissionService.getDataPermissionContext(currentUserId);
+    }
+
+    private boolean hasOrganizationRestrictedScope(Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return false;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        return dataScopeType == DataScopeType.ORG || dataScopeType == DataScopeType.ORG_AND_CHILDREN;
+    }
+
+    private void appendAccessibleDeviceScope(StringBuilder where, List<Object> params, Long currentUserId) {
+        DataPermissionContext context = resolveDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        DataScopeType dataScopeType = normalizeDeviceDataScope(context.dataScopeType());
+        if (dataScopeType == DataScopeType.ALL || dataScopeType == DataScopeType.TENANT) {
+            return;
+        }
+        where.append(" AND device_code IN (SELECT device_code FROM iot_device WHERE deleted = 0");
+        if (context.tenantId() != null) {
+            where.append(" AND tenant_id = ?");
+            params.add(context.tenantId());
+        }
+        if (dataScopeType == DataScopeType.ORG) {
+            if (context.orgId() == null || context.orgId() <= 0) {
+                where.append(" AND 1 = 0)");
+                return;
+            }
+            where.append(" AND org_id = ?)");
+            params.add(context.orgId());
+            return;
+        }
+        Set<Long> accessibleOrgIds = listAccessibleOrganizationIds(currentUserId);
+        if (accessibleOrgIds.isEmpty()) {
+            where.append(" AND 1 = 0)");
+            return;
+        }
+        where.append(" AND org_id IN (");
+        appendSqlPlaceholders(where, accessibleOrgIds.size());
+        where.append("))");
+        params.addAll(accessibleOrgIds);
+    }
+
+    private DataScopeType normalizeDeviceDataScope(DataScopeType dataScopeType) {
+        if (dataScopeType == null) {
+            return DataScopeType.TENANT;
+        }
+        return dataScopeType == DataScopeType.SELF ? DataScopeType.ORG : dataScopeType;
+    }
+
+    private Set<Long> listAccessibleOrganizationIds(Long currentUserId) {
+        if (currentUserId == null || permissionService == null) {
+            return Set.of();
+        }
+        Set<Long> accessibleOrgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+        return accessibleOrgIds == null ? Set.of() : accessibleOrgIds;
+    }
+
+    private void appendSqlPlaceholders(StringBuilder sql, int size) {
+        for (int index = 0; index < size; index++) {
+            if (index > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+        }
     }
 
     private String buildSelectClause(Set<String> columns) {
@@ -655,7 +769,9 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
         try {
             return objectMapper.writeValueAsString(resolveContractSnapshot(rawDeviceMessage));
         } catch (Exception ex) {
-            log.debug("序列化设备接入契约快照失败, error={}", ex.getMessage());
+            log.warn("构建设备接入契约快照失败，将继续归档基础失败信息, deviceCode={}, error={}",
+                    rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode(),
+                    ex.getMessage());
             return null;
         }
     }

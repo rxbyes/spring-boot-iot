@@ -46,14 +46,14 @@ class HelpDocumentControllerTest {
 
     @Test
     void shouldResolveAdminPageBeforeNumericDetailRoute() throws Exception {
-        when(helpDocumentService.pageDocuments(null, null, null, 1L, 10L))
+        when(helpDocumentService.pageDocuments(1L, null, null, null, 1L, 10L))
                 .thenReturn(PageResult.empty(1L, 10L));
 
-        mockMvc.perform(get("/api/system/help-doc/page"))
+        mockMvc.perform(get("/api/system/help-doc/page").principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(helpDocumentService).pageDocuments(null, null, null, 1L, 10L);
+        verify(helpDocumentService).pageDocuments(1L, null, null, null, 1L, 10L);
         verify(helpDocumentService, never()).getById(anyLong());
     }
 

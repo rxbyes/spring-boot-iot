@@ -13,7 +13,12 @@ com.ghlzm.iot
 第一至第三阶段主链路是长期稳定基线。第四阶段风险平台能力仍在推进中，但已经具备可用的真实环境基线。
 当前设备接入固定 Pipeline 为 `INGRESS -> TOPIC_ROUTE -> PROTOCOL_DECODE -> DEVICE_CONTRACT -> MESSAGE_LOG -> PAYLOAD_APPLY -> TELEMETRY_PERSIST -> DEVICE_STATE -> RISK_DISPATCH -> COMPLETE`。
 当前 `spring-boot-iot-telemetry` 已纳入活跃构建链路；`application-dev.yml` / `application-prod.yml` 默认 `iot.telemetry.storage-type=tdengine`、`iot.telemetry.primary-storage=tdengine-v2`、`iot.telemetry.read-routing.latest-source=v2`，`application-test.yml` 继续保留 `mysql`。
-产品物模型设计器已于 2026-03-25 完成真实环境接口、数据库与页面复验；2026-03-27 已继续在 `/products` 内升级为“候选提炼 + 正式模型”双模式工作台抽屉，但当前仍作为下一阶段设备中心增强，不并入 Phase 4 已交付范围。
+当前 `iot_agg_measure_hour` 已纳入 `sql/init-tdengine.sql` 手动初始化基线；应用运行时只会自动派生 `tb_ah_<tenantId>_<deviceId>` child table，不会自动创建该 stable。当前小时聚合仅覆盖 `MEASURE` 数值点位，且需同时开启 `iot.telemetry.aggregate.enabled=true` 与 `iot.telemetry.aggregate.hourly-enabled=true`。
+当前 `application-dev.yml` / `application-prod.yml` / `application-test.yml` 已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 `slave_1` 也补齐了独立 Hikari 基线，不再依赖默认 `10` 连接。
+质量工场当前已新增 `/business-acceptance` 业务验收台：面向验收人员、产品和项目经理只暴露 `环境 / 账号模板 / 模块范围` 三类轻配置，并在结果首屏直接回答“是否通过”“哪些模块没过”；`/automation-results` 继续作为底层结果与证据中心，并支持通过 `runId` query 直接预选同一次运行。
+产品契约字段工作台已于 2026-04-05 收口为 `/products` 内的单页工作区。当前 `契约字段` 与 `契约字段描述` 在同页完成样本输入、识别结果、本次生效和正式字段查看，不再打开二层抽屉，也不再提供 `model-candidates`、规范预设、运行期自动提炼或 `manualDraftItems` 人工补录。样本类型固定为 `业务数据 / 状态数据`，设备结构固定为 `单台设备 / 复合设备`；单次只支持 `1` 台设备样本 JSON。复合设备模式需显式提交 `父设备编码 + 逻辑通道编码/子设备编码` 映射，平台按固定 `collector_child + LF_VALUE + SENSOR_STATE` 口径把业务样本归一为子产品 `value`，把 `S1_ZT_1.sensor_state.<logicalChannelCode>` 归一为 `sensor_state`，且不会把父终端 `temp / humidity / signal_4g` 等状态字段带入子产品。compare/apply 仍直接写入 `iot_product_model`，不新增平行草稿表。`2026-04-06` 起首批 `phase1-crack + phase2-gnss` 双场景已补齐规范字段库、厂商字段证据、合同发布批次和风险指标目录：裂缝场景当前治理 `value / sensor_state`，GNSS 场景当前治理 `gpsInitial / gpsTotalX / gpsTotalY / gpsTotalZ / sensor_state`，其中仅 `value` 与 `gpsTotalX / gpsTotalY / gpsTotalZ` 允许进入风险闭环。compare 行会补充 `normativeIdentifier / normativeName / riskReady / rawIdentifiers`，apply 成功后会返回 `releaseBatchId`。`2026-04-08` 起，审批执行真正落库后的发布批次还会补齐 `approvalOrderId / releaseReason / releaseStatus`，风险指标目录也会沉淀 `releaseBatchId / normativeIdentifier / riskCategory / metricRole / lifecycleStatus` 与扩展语义能力字段，供风险对象、对象洞察和运营分析统一按目录谱系读取；桥层同时新增 first-class `iot_vendor_metric_mapping_rule` 与 `/api/device/product/{productId}/vendor-mapping-rules` 后端 CRUD，当前仅支持产品级 scope，用于维护 `rawIdentifier -> targetNormativeIdentifier` 的显式治理规则、关系条件 JSON 和归一化规则 JSON，作为后续免代码接入扩展点。该能力当前只覆盖裂缝与 GNSS 治理最小切片，不代表任意设备厂商已经实现零代码接入。
+`2026-04-09` 起，平台治理控制面前端已补齐 `/governance-task` 与 `/governance-ops`，统一消费 `/api/governance/work-items` 与 `/api/governance/ops-alerts`；`/products` 中已具备正式工作项语义的“待发布合同 / 待绑定风险点”提示，以及首页管理视角相关待办会直接深链到对应控制面工作台。当前首轮只交付查询与列表收口，不代表共享 `dev` 环境页面复验已经完成。
+`2026-04-09` 起，平台治理同时显式开放 `/governance-approval` 治理审批台与 `/governance-security` 权限与密钥治理页，并通过 `sql/init-data.sql` 默认回填管理/运维/开发角色菜单授权；后者默认展示治理权限矩阵和设备密钥轮换台账，只暴露密钥摘要与审计语义，不暴露明文。
 
 ### 当前构建模块基线
 当前父 `pom.xml` 激活 `12` 个模块：
@@ -90,6 +95,13 @@ com.ghlzm.iot
 - 如果你已经知道要做什么，但拿不准该调用哪些技能或按什么顺序协作，再查阅 `docs/10-智能助手技能与任务选型指南.md`。
 - 只有任务跨模块、跨验收、跨数据库，或短任务卡仍然装不下时，再使用 `docs/template/README.md` 索引的长模板。
 
+## Git 分支治理规则
+- `master` 是生产分支，禁止本地直接开发、直接提交、直接合并、直接推送。
+- 智能助手默认只允许在 `codex/dev` 上实施编码、验证、整理提交与交付准备。
+- 如因隔离或排障临时使用其他本地分支，产出也必须先回到 `codex/dev`；未经用户明确授权，禁止把任何本地分支直接合入或推送到 `master`。
+- 每次编码前必须先检查当前分支；若当前不在 `codex/dev`，必须先停止并报告原因，经用户确认后切回 `codex/dev` 或按其指定流程处理。
+- 如果任务涉及生产发布或 `master` 相关操作，智能助手只能提供建议流程、整理说明或等待明确授权，不得自行在本地 `master` 上开发、修复或合并代码。
+
 ## 工作区路径兼容规则
 - 共享 Windows 10 环境的工作区根目录可能是 `E:\idea\ghatg\spring-boot-iot`。
 - 其他环境可能使用不同的绝对路径。
@@ -156,7 +168,7 @@ com.ghlzm.iot
 - `spring-boot-iot-gateway`：网关与子设备拓扑
 - `spring-boot-iot-protocol`：协议适配器、协议模型、编解码
 - `spring-boot-iot-message`：接入入口与分发，仅负责入口和调度
-- `spring-boot-iot-telemetry`：TDengine 时序落库、latest 查询与历史遥测存储抽象
+- `spring-boot-iot-telemetry`：TDengine 时序落库、MEASURE 小时聚合写入、latest 查询与历史遥测存储抽象
 - `spring-boot-iot-rule`：规则引擎
 - `spring-boot-iot-alarm`：告警中心、事件、风险点、规则、预案、风险监测
 - `spring-boot-iot-report`：报表分析
@@ -174,10 +186,11 @@ com.ghlzm.iot
 - 优先提交小而聚焦的改动
 
 ## 编码前
-1. 先总结任务
-2. 列出受影响模块
-3. 说明实现计划
-4. 说明假设
+1. 先检查当前分支是否符合分支治理规则；默认必须是 `codex/dev`，若当前不是则先停止并报告。
+2. 先总结任务
+3. 列出受影响模块
+4. 说明实现计划
+5. 说明假设
 
 ## 编码后
 1. 列出变更文件

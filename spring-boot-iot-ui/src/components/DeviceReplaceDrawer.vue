@@ -1,7 +1,6 @@
 <template>
   <StandardFormDrawer
     v-model="visible"
-    eyebrow="设备替换操作"
     title="更换设备"
     subtitle="录入新设备后，旧设备会自动转为停用并写入替换关系，便于库存台账和现场维护追溯。"
     size="48rem"
@@ -11,18 +10,6 @@
       <div class="device-replace-note">
         <strong>替换说明</strong>
         <span>适用于现场换新、损坏返修和资产重编场景。提交后旧设备会自动离线并停用，新设备继承原有可复用主数据。</span>
-      </div>
-      <div
-        v-if="refreshing || refreshMessage"
-        :class="[
-          'device-replace-inline-state',
-          {
-            'device-replace-inline-state--warning': refreshState === 'warning',
-            'device-replace-inline-state--error': refreshState === 'error'
-          }
-        ]"
-      >
-        {{ refreshMessage || '已先填入当前设备摘要，正在补全最新设备档案。' }}
       </div>
 
       <section v-if="device" class="device-replace-section">
@@ -498,31 +485,6 @@ function resolveGatewayPreview() {
   color: var(--text-caption);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.device-replace-inline-state {
-  display: flex;
-  align-items: center;
-  min-height: 2.6rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 4%, white);
-  color: var(--brand);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.device-replace-inline-state--warning {
-  border-color: #d48806;
-  color: #d48806;
-  background: color-mix(in srgb, #d48806 4%, white);
-}
-
-.device-replace-inline-state--error {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 4%, white);
 }
 
 .device-replace-form {

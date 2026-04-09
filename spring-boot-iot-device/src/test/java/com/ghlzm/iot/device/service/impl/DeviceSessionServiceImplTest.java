@@ -97,6 +97,29 @@ class DeviceSessionServiceImplTest {
         assertEquals("client-1", savedRecord.getClientId());
     }
 
+    @Test
+    void refreshLastSeenShouldCreateConnectedSessionWhenMissing() throws Exception {
+        LocalDateTime reportTime = LocalDateTime.of(2026, 3, 30, 11, 39, 34);
+
+        deviceSessionService.refreshLastSeen("demo-device-01", "client-1", "$dp", reportTime);
+
+        ArgumentCaptor<String> sessionJsonCaptor = ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(
+                eq("iot:device:session:demo-device-01"),
+                sessionJsonCaptor.capture(),
+                eq(Duration.ofSeconds(14400))
+        );
+        DeviceSessionServiceImpl.DeviceSessionRecord savedRecord = objectMapper.readValue(
+                sessionJsonCaptor.getValue(),
+                DeviceSessionServiceImpl.DeviceSessionRecord.class
+        );
+        assertEquals(Boolean.TRUE, savedRecord.getConnected());
+        assertEquals(reportTime, savedRecord.getConnectTime());
+        assertEquals(reportTime, savedRecord.getLastSeenTime());
+        assertEquals("$dp", savedRecord.getTopic());
+        assertEquals("client-1", savedRecord.getClientId());
+    }
+
     private Device buildDevice() {
         Device device = new Device();
         device.setId(2001L);

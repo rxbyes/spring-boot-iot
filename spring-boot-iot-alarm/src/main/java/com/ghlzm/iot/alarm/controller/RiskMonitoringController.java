@@ -34,7 +34,7 @@ public class RiskMonitoringController {
     }
 
     @GetMapping("/realtime/{bindingId}")
-    public R<RiskMonitoringDetailVO> getRealtimeDetail(@PathVariable("bindingId") Long bindingId) {
+    public R<RiskMonitoringDetailVO> getRealtimeDetail(@PathVariable Long bindingId) {
         return R.ok(riskMonitoringService.getRealtimeDetail(bindingId));
     }
 

@@ -159,9 +159,9 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navShort: '概',
     title: '平台治理',
     description: '围绕组织、账号、角色、导航、通知、帮助和审计组织平台治理能力。',
-    intro: '建议先维护组织与账号，再做角色权限和导航编排，随后补齐通知渠道、站内消息、帮助文档和审计中心治理闭环。',
+    intro: '建议先维护组织与账号，再做角色权限和导航编排，随后补齐控制面任务、通知渠道、帮助文档和审计闭环。',
     menuTitle: '平台治理',
-    menuHint: '覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。',
+    menuHint: '覆盖组织、账号、角色、导航、控制面任务、通知、帮助与审计中心。',
     matchKeys: ['system-governance', 'system-management', 'system-core'],
     matchLabels: ['平台治理', '系统管理', '系统治理'],
     cards: [
@@ -174,27 +174,55 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
       { path: '/channel', label: '通知编排', description: '维护通知渠道配置、启停和测试。', short: '通', keywords: ['通知编排', '通知渠道', '渠道配置'] },
       { path: '/in-app-message', label: '站内消息', description: '维护通知中心消费的系统、业务和错误事件消息。', short: '信', keywords: ['站内消息', '通知中心', '消息编排'] },
       { path: '/help-doc', label: '帮助文档', description: '维护帮助中心消费的业务、技术和 FAQ 资料。', short: '帮', keywords: ['帮助文档', '帮助中心', 'FAQ'] },
+      { path: '/governance-task', label: '治理任务台', description: '统一查看待发布合同、风险绑定等控制面待办。', short: '任', keywords: ['治理任务台', '控制面任务', '待发布合同', '待绑定风险点'] },
+      { path: '/governance-ops', label: '治理运维台', description: '统一查看字段漂移、合同差异和指标缺失等控制面告警。', short: '运', keywords: ['治理运维台', '控制面告警', '字段漂移', '合同差异'] },
+      { path: '/governance-approval', label: '治理审批台', description: '统一查看审批主单、执行结果与状态流转。', short: '批', keywords: ['治理审批台', '审批主单', '双人复核'] },
+      { path: '/governance-security', label: '权限与密钥治理', description: '统一查看治理权限矩阵与设备密钥轮换台账。', short: '钥', keywords: ['权限与密钥治理', '治理权限矩阵', '密钥轮换台账', '密钥托管'] },
       { path: '/audit-log', label: '审计中心', description: '查看治理侧业务审计与关键操作记录。', short: '审', keywords: ['审计中心', '业务日志', '审计日志'] }
     ],
-    steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '随后配置通知渠道、站内消息和帮助文档。', '最后用审计中心复核治理流程。']
+    steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '随后通过治理任务台、治理运维台和治理审批台跟踪控制面执行。', '最后用审计中心复核治理流程。']
   },
   {
     key: 'quality-workbench',
     path: '/quality-workbench',
     navLabel: '工场总览',
-    navCaption: '查看质量工场能力与自动化入口',
+    navCaption: '查看质量工场能力与专项入口',
     navShort: '概',
     title: '质量工场',
-    description: '围绕自动化编排、回归计划和质量基线组织工程质量能力。',
-    intro: '建议先在自动化工场沉淀巡检模板，再导出执行计划与质量报告，形成持续回归基线。',
+    description: '围绕业务验收、研发工场、执行组织与结果基线组织工程质量能力。',
+    intro: '建议先判断当前要发起业务验收、编排研发自动化资产，还是复盘运行结果，再进入对应专项页。',
     menuTitle: '质量工场',
-    menuHint: '覆盖自动化编排、回归计划与质量巡检资产。',
+    menuHint: '覆盖业务验收、研发资产编排、执行组织与结果基线治理。',
     matchKeys: ['quality-workbench', 'quality-core'],
     matchLabels: ['质量工场', '测试工具'],
     cards: [
-      { path: '/automation-test', label: '自动化工场', description: '维护巡检模板、执行计划和导出结果。', short: '测', keywords: ['自动化工场', '自动化测试', '巡检模板'] }
+      { path: '/business-acceptance', label: '业务验收台', description: '按交付清单选择预置验收包并一键运行业务验收。', short: '验', keywords: ['业务验收台', '业务验收', '交付清单验收', '验收包'] },
+      { path: '/rd-workbench', label: '研发工场', description: '面向研发的自动化资产编排主入口。', short: '研', keywords: ['研发工场', '研发自动化', '自动化资产编排'] },
+      { path: '/automation-execution', label: '执行中心', description: '统一查看执行配置、命令预览和验收注册表依赖关系。', short: '执', keywords: ['执行中心', '执行配置', '验收注册表'] },
+      { path: '/automation-results', label: '结果与基线中心', description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。', short: '果', keywords: ['结果与基线中心', '运行结果', '视觉基线'] }
     ],
-    steps: ['先整理巡检模板与场景资产。', '再导出执行计划并组织回归。', '最后沉淀质量报告和视觉基线。']
+    steps: ['业务验收优先进入业务验收台，按交付清单选择验收包并一键执行。', '研发再进入研发工场拆分盘点、模板、计划与交付任务。', '统一通过执行中心组织回归，并在结果与基线中心沉淀证据与改进建议。']
+  },
+  {
+    key: 'rd-workbench',
+    path: '/rd-workbench',
+    navLabel: '研发总览',
+    navCaption: '查看研发自动化资产编排主链路',
+    navShort: '研',
+    title: '研发工场',
+    description: '围绕页面盘点、模板沉淀、计划编排与交付打包组织研发自动化资产能力。',
+    intro: '建议先盘点页面和模板，再进入计划编排，最后整理交付包并转到执行中心。',
+    menuTitle: '研发工场',
+    menuHint: '覆盖研发自动化资产编排与交付准备。',
+    matchKeys: ['rd-workbench', 'automation-rd'],
+    matchLabels: ['研发工场', '研发自动化'],
+    cards: [
+      { path: '/rd-automation-inventory', label: '页面盘点台', description: '维护页面清单、覆盖缺口与人工补录页面。', short: '盘', keywords: ['页面盘点台', '页面清单', '覆盖缺口'] },
+      { path: '/rd-automation-templates', label: '场景模板台', description: '沉淀页面冒烟、表单提交与列表详情模板。', short: '模', keywords: ['场景模板台', '场景模板', '模板沉淀'] },
+      { path: '/rd-automation-plans', label: '计划编排台', description: '维护场景顺序、步骤、断言、导入与导出。', short: '编', keywords: ['计划编排台', '场景顺序', '计划导入导出'] },
+      { path: '/rd-automation-handoff', label: '交付打包台', description: '整理计划摘要、执行建议、基线说明与验收备注。', short: '交', keywords: ['交付打包台', '执行建议', '验收备注'] }
+    ],
+    steps: ['先盘点页面。', '再沉淀模板。', '然后编排正式计划。', '最后整理交付包并转执行中心。']
   }
 ];
 
@@ -214,7 +242,65 @@ const specialRouteMetaPresets: Record<string, RouteMetaPreset> = {
     title: '演进蓝图',
     description: '预研能力展示与未来扩展方向说明。',
     requiresAuth: true
+  },
+  '/automation-assets': {
+    title: '自动化资产中心',
+    description: '兼容旧入口，第一轮直接落到研发工场总览。',
+    requiresAuth: true
+  },
+  '/automation-test': {
+    title: '自动化工场',
+    description: '兼容旧入口，第一轮直接落到研发工场总览。',
+    requiresAuth: true
   }
+};
+
+const workspaceCompatibilityRouteMap: Record<string, string[]> = {
+  '/automation-test': [
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff',
+    '/automation-execution',
+    '/automation-results'
+  ],
+  '/automation-assets': [
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff'
+  ],
+  '/rd-workbench': [
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff'
+  ]
+};
+
+const hiddenCompatibilityWorkspacePaths = new Set(['/automation-assets', '/automation-test']);
+
+const canonicalGroupNavOrders: Record<string, string[]> = {
+  'quality-workbench': [
+    '/quality-workbench',
+    '/business-acceptance',
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff',
+    '/automation-execution',
+    '/automation-results'
+  ],
+  'rd-workbench': [
+    '/rd-workbench',
+    '/rd-automation-inventory',
+    '/rd-automation-templates',
+    '/rd-automation-plans',
+    '/rd-automation-handoff'
+  ]
 };
 
 const guestRoleProfile: RoleWorkbenchProfile = {
@@ -251,7 +337,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['超级管理员'],
     defaultPath: '/system-management',
     preferredWorkspaceKeys: ['system-governance', 'risk-ops', 'iot-access'],
-    featuredPaths: ['/user', '/role', '/in-app-message', '/help-doc', '/audit-log'],
+    featuredPaths: ['/governance-task', '/governance-ops', '/user', '/role', '/audit-log'],
     cockpitRole: 'manager',
     focusLabel: '平台治理',
     focusDescription: '优先进入组织、权限、导航和审计治理核心能力。'
@@ -275,7 +361,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['管理'],
     defaultPath: '/risk-disposal',
     preferredWorkspaceKeys: ['risk-ops', 'risk-config', 'system-governance'],
-    featuredPaths: ['/report-analysis', '/event-disposal', '/in-app-message', '/help-doc', '/audit-log'],
+    featuredPaths: ['/governance-task', '/governance-ops', '/report-analysis', '/event-disposal', '/audit-log'],
     cockpitRole: 'manager',
     focusLabel: '经营统筹',
     focusDescription: '优先查看经营分析、闭环效率、策略覆盖和治理执行情况。'
@@ -299,7 +385,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['开发', '研发'],
     defaultPath: '/device-access',
     preferredWorkspaceKeys: ['iot-access', 'risk-config', 'quality-workbench'],
-    featuredPaths: ['/reporting', '/system-log', '/message-trace', '/automation-test'],
+    featuredPaths: ['/reporting', '/system-log', '/message-trace', '/quality-workbench'],
     cockpitRole: 'rd',
     focusLabel: '链路与质量',
     focusDescription: '优先联调接入链路、异常观测、消息追踪和自动化回归。'
@@ -313,6 +399,33 @@ function normalizeText(value?: string | null): string {
 function normalizePath(path?: string | null): string {
   const normalized = (path || '').trim().replace(/\/+$/, '');
   return normalized || '/';
+}
+
+export function expandWorkspaceAllowedPaths(paths?: string[] | null): string[] {
+  const result = new Set<string>();
+  const queue = (paths || []).map((item) => normalizePath(item));
+
+  while (queue.length > 0) {
+    const currentPath = queue.shift();
+    if (!currentPath || result.has(currentPath)) {
+      continue;
+    }
+
+    result.add(currentPath);
+    const aliasedPaths = workspaceCompatibilityRouteMap[currentPath] || [];
+    aliasedPaths.forEach((path) => {
+      const normalizedPath = normalizePath(path);
+      if (!result.has(normalizedPath)) {
+        queue.push(normalizedPath);
+      }
+    });
+  }
+
+  return Array.from(result);
+}
+
+export function isCompatibilityWorkspacePath(path?: string | null): boolean {
+  return hiddenCompatibilityWorkspacePaths.has(normalizePath(path));
 }
 
 function buildActivitySearchText(entry: Pick<ActivityEntry, 'title' | 'detail' | 'module' | 'action' | 'path'>): string {
@@ -336,12 +449,30 @@ function findSectionCardRecord(path?: string | null) {
   return null;
 }
 
+function createSectionOverviewNavItem(config: SectionHomeConfig): WorkspaceNavItem {
+  return {
+    to: config.path,
+    label: config.navLabel,
+    caption: config.navCaption,
+    short: config.navShort
+  };
+}
+
+function createSectionCardNavItem(card: SectionHomeCard): WorkspaceNavItem {
+  return {
+    to: card.path,
+    label: card.label,
+    caption: card.description,
+    short: card.short
+  };
+}
+
 function pathAllowed(path: string, allowedPaths?: string[]): boolean {
   if (!allowedPaths || allowedPaths.length === 0) {
     return true;
   }
   const normalizedPath = normalizePath(path);
-  const normalizedAllowed = new Set(allowedPaths.map((item) => normalizePath(item)));
+  const normalizedAllowed = new Set(expandWorkspaceAllowedPaths(allowedPaths).map((item) => normalizePath(item)));
   if (normalizedAllowed.has(normalizedPath)) {
     return true;
   }
@@ -395,6 +526,45 @@ export function listStaticNavigationGroups(): WorkspaceNavGroup[] {
       short: card.short
     }))
   }));
+}
+
+export function listCanonicalWorkspaceNavItems(
+  groupKey?: string | null,
+  groupLabel?: string | null,
+  allowedPaths?: string[]
+): WorkspaceNavItem[] {
+  const config = resolveSectionHomeConfig(groupKey, groupLabel);
+  if (!config) {
+    return [];
+  }
+
+  const expandedAllowedPaths = expandWorkspaceAllowedPaths(allowedPaths);
+  const entryPaths = canonicalGroupNavOrders[config.key]
+    || [config.path, ...config.cards.map((card) => card.path)];
+  const items: WorkspaceNavItem[] = [];
+  const seenPaths = new Set<string>();
+
+  entryPaths.forEach((path) => {
+    const normalizedPath = normalizePath(path);
+    if (seenPaths.has(normalizedPath) || !pathAllowed(normalizedPath, expandedAllowedPaths)) {
+      return;
+    }
+
+    if (normalizedPath === config.path) {
+      items.push(createSectionOverviewNavItem(config));
+      seenPaths.add(normalizedPath);
+      return;
+    }
+
+    const matchedCard = findSectionCardRecord(normalizedPath);
+    if (!matchedCard) {
+      return;
+    }
+    items.push(createSectionCardNavItem(matchedCard.card));
+    seenPaths.add(normalizedPath);
+  });
+
+  return items;
 }
 
 export function getRouteMetaPreset(path?: string | null): RouteMetaPreset | undefined {
@@ -478,7 +648,7 @@ export function canAccessSectionHome(path: string, allowedPaths: string[]): bool
   if (!config) {
     return false;
   }
-  const normalizedAllowed = new Set(allowedPaths.map((item) => normalizePath(item)));
+  const normalizedAllowed = new Set(expandWorkspaceAllowedPaths(allowedPaths).map((item) => normalizePath(item)));
   return config.cards.some((card) => normalizedAllowed.has(normalizePath(card.path)));
 }
 

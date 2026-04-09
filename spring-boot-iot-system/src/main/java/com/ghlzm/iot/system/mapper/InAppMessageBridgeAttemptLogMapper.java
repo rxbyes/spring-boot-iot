@@ -31,10 +31,14 @@ public interface InAppMessageBridgeAttemptLogMapper extends BaseMapper<InAppMess
                 DATE_FORMAT(attempt_time, '%Y-%m-%d %H:%i:%s') AS attemptTime
             FROM sys_in_app_message_bridge_attempt_log
             WHERE bridge_log_id = #{bridgeLogId}
+            <if test="tenantId != null">
+                AND tenant_id = #{tenantId}
+            </if>
             ORDER BY attempt_no DESC, id DESC
             </script>
             """)
-    List<InAppMessageBridgeAttemptVO> listAttemptsByBridgeLogId(@Param("bridgeLogId") Long bridgeLogId);
+    List<InAppMessageBridgeAttemptVO> listAttemptsByBridgeLogId(@Param("bridgeLogId") Long bridgeLogId,
+                                                                @Param("tenantId") Long tenantId);
 
     @Select("""
             <script>

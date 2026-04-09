@@ -139,13 +139,31 @@ async function readApiResponse(response) {
     payload = null;
   }
 
+  let requestBody = '';
+  let requestBodyReadError;
+  try {
+    requestBody = response.request().postData() || '';
+  } catch (error) {
+    requestBodyReadError = error instanceof Error ? error.message : String(error);
+  }
+
+  let requestPayload = null;
+  try {
+    requestPayload = requestBody ? JSON.parse(requestBody) : null;
+  } catch {
+    requestPayload = null;
+  }
+
   return {
     url: response.url(),
     status: response.status(),
     method: response.request().method(),
     payload,
     text,
-    bodyReadError
+    bodyReadError,
+    requestBody,
+    requestPayload,
+    requestBodyReadError
   };
 }
 
@@ -593,7 +611,8 @@ export async function runBrowserAcceptance({
         waitUntil: 'domcontentloaded'
       });
       await waitForPageReady(page, {
-        expectedPath: '/products'
+        expectedPath: '/products',
+        readySelector: '#quick-search'
       });
       const deviceMenuLink = page.locator('.side-menu__item[href="/devices"]').first();
       if ((await deviceMenuLink.count()) > 0) {
@@ -658,6 +677,16 @@ export async function runBrowserAcceptance({
       throw new AcceptanceError('Login response did not include a token.', loginResult);
     }
 
+    try {
+      await page.waitForURL((url) => !isLoginPath(url.toString()), {
+        timeout: runtimeOptions.pageReadyTimeout
+      });
+    } catch {
+      throw new AcceptanceError('Login succeeded but page did not leave /login.', {
+        currentUrl: page.url()
+      });
+    }
+
     return {
       username: loginResult.payload.data.username || runtimeOptions.login.username,
       tokenPresent: true
@@ -667,6 +696,14 @@ export async function runBrowserAcceptance({
   const ensureScenarioLogin = async (page, scenarioKey) => {
     if (!isLoginPath(page.url())) {
       return;
+    }
+    try {
+      await page.waitForURL((url) => !isLoginPath(url.toString()), {
+        timeout: Math.min(runtimeOptions.pageReadyTimeout, 3000)
+      });
+      return;
+    } catch {
+      // Ignore timeout here and fall through to an explicit re-login attempt.
     }
     await login(page);
     if (isLoginPath(page.url())) {

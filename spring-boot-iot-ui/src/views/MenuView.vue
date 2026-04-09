@@ -65,66 +65,106 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        show-overflow-tooltip
-        row-key="id"
-        :lazy="!isFilterMode"
-        :load="loadChildren"
-        :tree-props="treeProps"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新菜单列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <StandardTableTextColumn prop="menuName" label="菜单名称" :min-width="160" />
-        <StandardTableTextColumn prop="menuCode" label="菜单编码" :min-width="180" />
-        <StandardTableTextColumn prop="path" label="路由路径" :min-width="160" />
-        <StandardTableTextColumn prop="component" label="组件" :min-width="140" />
-        <el-table-column prop="type" label="类型" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.type === 2 ? 'warning' : row.type === 1 ? 'success' : 'info'">
-              {{ typeText(row.type) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn prop="sort" label="排序" :width="80" />
-        <el-table-column label="操作" width="240" fixed="right" :show-overflow-tooltip="false">
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink v-permission="'system:menu:update'" @click="openEdit(row.id)">编辑</StandardActionLink>
-              <StandardActionLink v-permission="'system:menu:add'" @click="openAddChild(row.id)">新增子级</StandardActionLink>
-              <StandardActionLink v-permission="'system:menu:delete'" @click="removeMenu(row.id)">删除</StandardActionLink>
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`menu-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`menu-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            :data="tableData"
+            border
+            stripe
+            show-overflow-tooltip
+            row-key="id"
+            :lazy="!isFilterMode"
+            :load="loadChildren"
+            :tree-props="treeProps"
+          >
+            <StandardTableTextColumn prop="menuName" label="菜单名称" :min-width="160" />
+            <StandardTableTextColumn prop="menuCode" label="菜单编码" :min-width="180" />
+            <StandardTableTextColumn prop="path" label="路由路径" :min-width="160" />
+            <StandardTableTextColumn prop="component" label="组件" :min-width="140" />
+            <el-table-column prop="type" label="类型" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.type === 2 ? 'warning' : row.type === 1 ? 'success' : 'info'">
+                  {{ typeText(row.type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? '启用' : '停用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="sort" label="排序" :width="80" />
+            <el-table-column
+              label="操作"
+              :width="menuActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getMenuRowActions()"
+                  @command="(command) => handleMenuRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          class="pagination"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
     </StandardWorkbenchPanel>
 
     <StandardFormDrawer
       v-model="dialogVisible"
-      eyebrow="System Form"
       :title="dialogTitle"
-      subtitle="统一通过右侧抽屉维护菜单树与路由元数据。"
+      subtitle="通过右侧抽屉维护菜单树结构、路由元数据与启停状态。"
       size="44rem"
       @close="handleDialogClose"
     >
@@ -200,6 +240,7 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { addMenu, deleteMenu, getMenu, listMenus, pageMenus, updateMenu, type Menu } from '@/api/menu'
+import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
@@ -208,19 +249,33 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
+import { usePermissionStore } from '@/stores/permission'
+
+type MenuRowActionCommand = 'edit' | 'add-child' | 'delete'
 
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const loading = ref(false)
 const submitLoading = ref(false)
 const tableData = ref<Menu[]>([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增菜单')
 const dialogMode = ref<'add' | 'edit'>('add')
+const menuActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'add-child', label: '新增子级' },
+    { command: 'delete', label: '删除' }
+  ],
+})
 const formRef = ref()
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
+let latestListRequestId = 0
 
 const filters = reactive({
   menuName: '',
@@ -279,6 +334,14 @@ const menuModeNotice = computed(() =>
     ? '搜索模式返回扁平分页结果，不再全量加载菜单树。'
     : '默认仅分页加载根菜单，展开行时按需加载子菜单。'
 )
+const hasRecords = computed(() => tableData.value.length > 0)
+const showListSkeleton = computed(() => loading.value && !hasRecords.value)
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的菜单记录' : '当前还没有菜单数据'))
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有可展示的菜单记录，建议稍后刷新，或先新增菜单。'
+)
 
 const treeProps = {
   children: 'children',
@@ -290,6 +353,32 @@ function typeText(type?: number) {
   if (type === 1) return '页面'
   if (type === 2) return '按钮'
   return '--'
+}
+
+function getMenuRowActions() {
+  const actions: Array<{ command: MenuRowActionCommand; label: string }> = []
+  if (permissionStore.hasPermission('system:menu:update')) {
+    actions.push({ command: 'edit', label: '编辑' })
+  }
+  if (permissionStore.hasPermission('system:menu:add')) {
+    actions.push({ command: 'add-child', label: '新增子级' })
+  }
+  if (permissionStore.hasPermission('system:menu:delete')) {
+    actions.push({ command: 'delete', label: '删除' })
+  }
+  return actions
+}
+
+function handleMenuRowAction(command: MenuRowActionCommand, row: Menu) {
+  if (command === 'edit') {
+    openEdit(row.id)
+    return
+  }
+  if (command === 'add-child') {
+    openAddChild(row.id)
+    return
+  }
+  removeMenu(row.id)
 }
 
 function resetForm(parentId = 0) {
@@ -307,6 +396,7 @@ function resetForm(parentId = 0) {
 }
 
 async function loadMenuPage() {
+  const requestId = ++latestListRequestId
   loading.value = true
   try {
     const res = await pageMenus({
@@ -316,14 +406,27 @@ async function loadMenuPage() {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
+    if (requestId !== latestListRequestId) {
+      return
+    }
     if (res.code === 200 && res.data) {
       tableData.value = applyPageResult(res.data)
+      return
     }
+    tableData.value = []
+    resetTotal()
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return
+    }
+    tableData.value = []
+    resetTotal()
     console.error('查询菜单分页失败', error)
     ElMessage.error((error as Error).message || '查询菜单失败')
   } finally {
-    loading.value = false
+    if (requestId === latestListRequestId) {
+      loading.value = false
+    }
   }
 }
 

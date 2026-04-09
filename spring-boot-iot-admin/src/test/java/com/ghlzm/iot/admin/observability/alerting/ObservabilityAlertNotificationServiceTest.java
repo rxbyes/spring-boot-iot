@@ -3,118 +3,70 @@ package com.ghlzm.iot.admin.observability.alerting;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.NotificationChannel;
 import com.ghlzm.iot.system.service.NotificationChannelDispatcher;
-import com.ghlzm.iot.system.service.NotificationChannelService;
-import com.ghlzm.iot.system.service.NotificationHttpClient;
-import com.ghlzm.iot.system.service.impl.NotificationChannelDispatcherImpl;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.lang.reflect.Proxy;
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class ObservabilityAlertNotificationServiceTest {
 
     @Test
-    void shouldRouteObservabilityAlertSceneAndBuildPayload() {
-        RecordingHttpClient httpClient = new RecordingHttpClient();
+    void dispatchAlertShouldUseOpsAlertTypeSubscriptionFilter() {
+        NotificationChannelDispatcher dispatcher = mock(NotificationChannelDispatcher.class);
         IotProperties properties = new IotProperties();
-        properties.getObservability().getAlerting().setScene("observability_alert");
-        NotificationChannelDispatcher dispatcher = new NotificationChannelDispatcherImpl(
-                notificationChannelService(List.of(
-                        webhookChannel("ops-observability", "{\"url\":\"https://notify.example.com/ops\",\"scenes\":[\"observability_alert\"]}"),
-                        webhookChannel("ops-system-error", "{\"url\":\"https://notify.example.com/system\",\"scenes\":[\"system_error\"]}")
-                )),
-                httpClient,
-                properties,
-                JsonMapper.builder().findAndAddModules().build()
-        );
         ObservabilityAlertNotificationService service =
                 new ObservabilityAlertNotificationService(dispatcher, properties);
 
+        when(dispatcher.listSceneChannels(eq("observability_alert"), eq("FIELD_DRIFT")))
+                .thenReturn(List.of(dispatchChannel("ops-field-drift"), dispatchChannel("ops-governance-all")));
+        when(dispatcher.send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new NotificationChannelDispatcher.DispatchResult(true, 200, "ok", null));
+
         ObservabilityAlertNotificationService.DispatchSummary summary = service.dispatchAlert(
                 new ObservabilityAlertTrigger(
-                        "failure-stage-spike",
-                        "protocol_decode",
-                        "failureStage=protocol_decode",
-                        "最近窗口内同一 failureStage 失败数",
-                        12,
-                        10,
-                        10,
+                        "risk-governance-field-drift-burst",
+                        "field_drift:1001",
+                        "裂缝产品",
+                        "字段漂移告警",
+                        3L,
+                        1L,
                         null,
-                        "最近 10 分钟内 failureStage=protocol_decode 失败达到 12 次，触发阈值 10 次。",
-                        Map.of("channelCode", "ops-observability")
+                        null,
+                        "字段漂移达到阈值",
+                        Map.of("productId", 1001L)
                 )
         );
 
-        assertEquals("observability_alert", summary.scene());
-        assertEquals(1, summary.channelCount());
-        assertEquals(1, summary.successCount());
-        assertEquals(List.of("ops-observability"), summary.channelCodes());
-        assertEquals(1, httpClient.requests.size());
-        assertEquals("https://notify.example.com/ops", httpClient.requests.get(0).url());
-        assertTrue(httpClient.requests.get(0).body().contains("failure-stage-spike"));
-        assertTrue(httpClient.requests.get(0).body().contains("protocol_decode"));
-        assertTrue(httpClient.requests.get(0).body().contains("observability_alert"));
+        verify(dispatcher).listSceneChannels("observability_alert", "FIELD_DRIFT");
+        assertEquals(2, summary.channelCount());
+        assertEquals(List.of("ops-field-drift", "ops-governance-all"), summary.channelCodes());
     }
 
-    private NotificationChannelService notificationChannelService(List<NotificationChannel> channels) {
-        return (NotificationChannelService) Proxy.newProxyInstance(
-                NotificationChannelService.class.getClassLoader(),
-                new Class[]{NotificationChannelService.class},
-                (proxy, method, args) -> switch (method.getName()) {
-                    case "listChannels" -> channels;
-                    case "getByCode" -> channels.stream()
-                            .filter(channel -> channel.getChannelCode().equals(args[0]))
-                            .findFirst()
-                            .orElse(null);
-                    default -> defaultValue(method.getReturnType());
-                }
-        );
-    }
-
-    private Object defaultValue(Class<?> type) {
-        if (type.equals(boolean.class)) {
-            return false;
-        }
-        if (type.equals(int.class) || type.equals(long.class) || type.equals(short.class) || type.equals(byte.class)) {
-            return 0;
-        }
-        if (type.equals(float.class) || type.equals(double.class)) {
-            return 0.0;
-        }
-        return null;
-    }
-
-    private NotificationChannel webhookChannel(String channelCode, String config) {
+    private NotificationChannelDispatcher.DispatchChannel dispatchChannel(String channelCode) {
         NotificationChannel channel = new NotificationChannel();
+        channel.setId(1L);
+        channel.setTenantId(1L);
         channel.setChannelCode(channelCode);
         channel.setChannelName(channelCode);
         channel.setChannelType("webhook");
-        channel.setConfig(config);
         channel.setStatus(1);
         channel.setDeleted(0);
-        return channel;
-    }
-
-    private static final class RecordingHttpClient implements NotificationHttpClient {
-        private final List<Request> requests = new ArrayList<>();
-
-        @Override
-        public HttpResult postJson(String url, Map<String, String> headers, String body, Duration timeout) {
-            requests.add(new Request(url, headers, body, timeout));
-            return new HttpResult(200, "{\"ok\":true}");
-        }
-
-        private record Request(String url,
-                               Map<String, String> headers,
-                               String body,
-                               Duration timeout) {
-        }
+        return new NotificationChannelDispatcher.DispatchChannel(
+                channel,
+                new NotificationChannelDispatcher.ChannelConfig(
+                        "https://example.com/" + channelCode,
+                        Map.of(),
+                        List.of("observability_alert"),
+                        List.of("FIELD_DRIFT"),
+                        3000,
+                        300
+                )
+        );
     }
 }

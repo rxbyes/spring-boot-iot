@@ -41,7 +41,8 @@ describe('sectionHomes config', () => {
       'risk-ops',
       'risk-config',
       'system-governance',
-      'quality-workbench'
+      'quality-workbench',
+      'rd-workbench'
     ]);
     expect(groups[0]?.items[0]?.label).toBe('产品定义中心');
   });
@@ -118,9 +119,93 @@ describe('sectionHomes config', () => {
       title: '风险运营',
       description: '围绕实时态势、告警协同、事件处置和运营复盘组织风险运营能力。'
     });
+    expect(getRouteMetaPreset('/governance-approval')).toMatchObject({
+      title: '治理审批台'
+    });
+    expect(getRouteMetaPreset('/governance-security')).toMatchObject({
+      title: '权限与密钥治理'
+    });
     expect(getRouteMetaPreset('/automation-test')).toMatchObject({
       title: '自动化工场',
-      description: '维护巡检模板、执行计划和导出结果。'
+      description: '兼容旧入口，第一轮直接落到研发工场总览。'
+    });
+  });
+
+  it('adds governance approval and security governance into the system-governance workspace cards', () => {
+    const config = getSectionHomeConfigByPath('/system-management');
+
+    expect(config?.cards.some((item) => item.path === '/governance-approval')).toBe(true);
+    expect(config?.cards.some((item) => item.path === '/governance-security')).toBe(true);
+  });
+
+  it('adds governance control-plane workbenches into the system-governance workspace cards', () => {
+    const config = getSectionHomeConfigByPath('/system-management');
+
+    expect(config?.cards.some((item) => item.path === '/governance-task')).toBe(true);
+    expect(config?.cards.some((item) => item.path === '/governance-ops')).toBe(true);
+    expect(getRouteMetaPreset('/governance-task')).toMatchObject({
+      title: '治理任务台'
+    });
+    expect(getRouteMetaPreset('/governance-ops')).toMatchObject({
+      title: '治理运维台'
+    });
+  });
+
+  it('maps quality workbench to business acceptance plus rd and shared centers', () => {
+    const config = getSectionHomeConfigByPath('/quality-workbench');
+
+    expect(config?.cards.map((item) => item.path)).toEqual([
+      '/business-acceptance',
+      '/rd-workbench',
+      '/automation-execution',
+      '/automation-results'
+    ]);
+    expect(getRouteMetaPreset('/business-acceptance')).toMatchObject({
+      title: '业务验收台',
+      description: '按交付清单选择预置验收包并一键运行业务验收。'
+    });
+    expect(getRouteMetaPreset('/rd-workbench')).toMatchObject({
+      title: '研发工场',
+      description: '围绕页面盘点、模板沉淀、计划编排与交付打包组织研发自动化资产能力。'
+    });
+    expect(getRouteMetaPreset('/automation-assets')).toMatchObject({
+      title: '自动化资产中心',
+      description: '兼容旧入口，第一轮直接落到研发工场总览。'
+    });
+    expect(getRouteMetaPreset('/automation-execution')).toMatchObject({
+      title: '执行中心',
+      description: '统一查看执行配置、命令预览和验收注册表依赖关系。'
+    });
+    expect(getRouteMetaPreset('/automation-results')).toMatchObject({
+      title: '结果与基线中心',
+      description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。'
+    });
+  });
+
+  it('maps rd workbench to inventory, templates, plans, and handoff pages', () => {
+    const config = getSectionHomeConfigByPath('/rd-workbench');
+
+    expect(config?.cards.map((item) => item.path)).toEqual([
+      '/rd-automation-inventory',
+      '/rd-automation-templates',
+      '/rd-automation-plans',
+      '/rd-automation-handoff'
+    ]);
+    expect(getRouteMetaPreset('/rd-automation-inventory')).toMatchObject({
+      title: '页面盘点台',
+      description: '维护页面清单、覆盖缺口与人工补录页面。'
+    });
+    expect(getRouteMetaPreset('/rd-automation-templates')).toMatchObject({
+      title: '场景模板台',
+      description: '沉淀页面冒烟、表单提交与列表详情模板。'
+    });
+    expect(getRouteMetaPreset('/rd-automation-plans')).toMatchObject({
+      title: '计划编排台',
+      description: '维护场景顺序、步骤、断言、导入与导出。'
+    });
+    expect(getRouteMetaPreset('/rd-automation-handoff')).toMatchObject({
+      title: '交付打包台',
+      description: '整理计划摘要、执行建议、基线说明与验收备注。'
     });
   });
 

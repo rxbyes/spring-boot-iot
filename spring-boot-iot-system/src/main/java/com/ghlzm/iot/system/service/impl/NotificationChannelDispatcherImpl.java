@@ -44,10 +44,16 @@ public class NotificationChannelDispatcherImpl implements NotificationChannelDis
 
     @Override
     public List<DispatchChannel> listSceneChannels(String scene) {
+        return listSceneChannels(scene, null);
+    }
+
+    @Override
+    public List<DispatchChannel> listSceneChannels(String scene, String opsAlertType) {
         if (!StringUtils.hasText(scene)) {
             return List.of();
         }
         String normalizedScene = scene.trim().toLowerCase(Locale.ROOT);
+        String normalizedOpsAlertType = normalizeOpsAlertType(opsAlertType);
         List<DispatchChannel> channels = new ArrayList<>();
         for (NotificationChannel channel : notificationChannelService.listChannels(null, null, null)) {
             if (!isEnabled(channel) || !supportsChannelType(channel)) {
@@ -57,6 +63,12 @@ public class NotificationChannelDispatcherImpl implements NotificationChannelDis
             if (config == null || !config.scenes().contains(normalizedScene)) {
                 continue;
             }
+            if (StringUtils.hasText(normalizedOpsAlertType)
+                    && config.opsAlertTypes() != null
+                    && !config.opsAlertTypes().isEmpty()
+                    && !config.opsAlertTypes().contains(normalizedOpsAlertType)) {
+                continue;
+            }
             channels.add(new DispatchChannel(channel, config));
         }
         return List.copyOf(channels);
@@ -64,7 +76,14 @@ public class NotificationChannelDispatcherImpl implements NotificationChannelDis
 
     @Override
     public DispatchChannel requireTestChannel(String channelCode) {
-        NotificationChannel channel = notificationChannelService.getByCode(channelCode);
+        return requireTestChannel(null, channelCode);
+    }
+
+    @Override
+    public DispatchChannel requireTestChannel(Long currentUserId, String channelCode) {
+        NotificationChannel channel = currentUserId == null
+                ? notificationChannelService.getByCode(channelCode)
+                : notificationChannelService.getByCode(currentUserId, channelCode);
         if (channel == null) {
             throw new BizException("通知渠道不存在: " + channelCode);
         }
@@ -144,12 +163,25 @@ public class NotificationChannelDispatcherImpl implements NotificationChannelDis
                 scenes.add(scene.trim().toLowerCase(Locale.ROOT));
             }
 
+            List<String> opsAlertTypes = new ArrayList<>();
+            JsonNode opsAlertTypesNode = root.get("opsAlertTypes");
+            if (opsAlertTypesNode != null && opsAlertTypesNode.isArray()) {
+                opsAlertTypesNode.forEach(item -> addOpsAlertType(opsAlertTypes, item == null ? null : item.asText("")));
+            }
+            JsonNode legacyAlertTypesNode = root.get("alertTypes");
+            if (legacyAlertTypesNode != null && legacyAlertTypesNode.isArray()) {
+                legacyAlertTypesNode.forEach(item -> addOpsAlertType(opsAlertTypes, item == null ? null : item.asText("")));
+            }
+            addOpsAlertType(opsAlertTypes, readText(root, "opsAlertType"));
+            addOpsAlertType(opsAlertTypes, readText(root, "alertType"));
+
             Integer timeoutMs = readInteger(root, "timeoutMs", iotProperties.getObservability().getNotificationTimeoutMs());
             Integer minIntervalSeconds = readInteger(root, "minIntervalSeconds", iotProperties.getObservability().getSystemErrorNotifyCooldownSeconds());
             return new ChannelConfig(
                     url.trim(),
                     headers,
                     List.copyOf(scenes),
+                    List.copyOf(opsAlertTypes),
                     Math.max(timeoutMs == null ? 3000 : timeoutMs, 1000),
                     Math.max(minIntervalSeconds == null ? 300 : minIntervalSeconds, 0)
             );
@@ -201,5 +233,22 @@ public class NotificationChannelDispatcherImpl implements NotificationChannelDis
         }
         String text = node.asText();
         return StringUtils.hasText(text) ? Integer.parseInt(text.trim()) : defaultValue;
+    }
+
+    private void addOpsAlertType(List<String> opsAlertTypes, String value) {
+        String normalized = normalizeOpsAlertType(value);
+        if (StringUtils.hasText(normalized) && !opsAlertTypes.contains(normalized)) {
+            opsAlertTypes.add(normalized);
+        }
+    }
+
+    private String normalizeOpsAlertType(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
     }
 }

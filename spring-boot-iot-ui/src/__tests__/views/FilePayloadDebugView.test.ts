@@ -43,11 +43,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -111,7 +111,7 @@ describe('FilePayloadDebugView', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
-          IotAccessPageShell: IotAccessPageShellStub,
+          StandardPageShell: StandardPageShellStub,
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
           StandardListFilterHeader: true,
           StandardInlineState: StandardInlineStateStub,
@@ -125,12 +125,21 @@ describe('FilePayloadDebugView', () => {
       }
     });
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    const panelCards = wrapper.findAllComponents(PanelCardStub);
+    const responsePanels = wrapper.findAllComponents(ResponsePanelStub);
+
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
+    expect(panelCards.every((item) => item.props('eyebrow') === undefined)).toBe(true);
+    expect(responsePanels.every((item) => item.props('eyebrow') === undefined)).toBe(true);
     expect(wrapper.text()).toContain('数据校验台');
     expect(wrapper.text()).toContain('文件快照校验');
     expect(wrapper.text()).toContain('固件聚合校验');
     expect(wrapper.text()).toContain('文件快照原始响应');
     expect(wrapper.text()).toContain('固件聚合原始响应');
+    expect(wrapper.text()).not.toContain('文件快照 C.3');
+    expect(wrapper.text()).not.toContain('固件聚合 C.4');
+    expect(wrapper.text()).not.toContain('文件快照响应');
+    expect(wrapper.text()).not.toContain('固件聚合响应');
     expect(wrapper.text()).not.toContain('链路追踪台');
     expect(wrapper.text()).not.toContain('VALIDATION DESK');
   });
@@ -153,7 +162,7 @@ describe('FilePayloadDebugView', () => {
     const wrapper = mount(FilePayloadDebugView, {
       global: {
         stubs: {
-          IotAccessPageShell: IotAccessPageShellStub,
+          StandardPageShell: StandardPageShellStub,
           StandardWorkbenchPanel: StandardWorkbenchPanelStub,
           StandardListFilterHeader: true,
           StandardInlineState: StandardInlineStateStub,

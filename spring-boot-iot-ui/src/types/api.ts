@@ -85,6 +85,54 @@ export interface MessageFlowTimeline {
   steps: MessageFlowStep[];
 }
 
+export interface ProtocolDecodeTimelineSummary {
+  decryptedPayloadPreview?: string | null;
+  decodedPayloadPreview?: Record<string, unknown> | null;
+}
+
+export interface ProtocolTemplateExecutionEvidence {
+  templateCode?: string | null;
+  logicalChannelCode?: string | null;
+  childDeviceCode?: string | null;
+  canonicalizationStrategy?: string | null;
+  statusMirrorApplied?: boolean | null;
+  parentRemovalKeys?: string[] | null;
+}
+
+export interface ProtocolTemplateEvidence {
+  templateCodes?: string[] | null;
+  executions?: ProtocolTemplateExecutionEvidence[] | null;
+}
+
+export interface DeviceUpProtocolMetadata {
+  appId?: string | null;
+  familyCodes?: string[] | null;
+  normalizationStrategy?: string | null;
+  timestampSource?: string | null;
+  childSplitApplied?: boolean | null;
+  routeType?: string | null;
+  decryptedPayloadPreview?: string | null;
+  decodedPayloadPreview?: Record<string, unknown> | null;
+  templateEvidence?: ProtocolTemplateEvidence | null;
+}
+
+export interface MessageTraceDetail {
+  id: IdType;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  messageType?: string | null;
+  topic?: string | null;
+  rawPayload?: string | null;
+  decryptedPayload?: string | null;
+  decodedPayload?: Record<string, unknown> | null;
+  reportTime?: string | null;
+  createTime?: string | null;
+  protocolMetadata?: DeviceUpProtocolMetadata | null;
+  timeline?: MessageFlowTimeline | null;
+  timelineLookupError?: boolean | null;
+}
+
 export interface MessageFlowSession {
   sessionId?: string | null;
   transportMode?: string | null;
@@ -174,6 +222,7 @@ export interface Product {
   dataFormat?: string | null;
   manufacturer?: string | null;
   description?: string | null;
+  metadataJson?: string | null;
   status?: number | null;
   deviceCount?: number | null;
   onlineDeviceCount?: number | null;
@@ -186,6 +235,27 @@ export interface Product {
   thirtyDaysActiveCount?: number | null; // 30日活跃设备数
   avgOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
   maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
+}
+
+export interface ProductObjectInsightCustomMetricConfig {
+  identifier: string;
+  displayName: string;
+  group: 'measure' | 'status';
+  includeInTrend?: boolean | null;
+  includeInExtension?: boolean | null;
+  analysisTitle?: string | null;
+  analysisTag?: string | null;
+  analysisTemplate?: string | null;
+  enabled?: boolean | null;
+  sortNo?: number | null;
+}
+
+export interface ProductObjectInsightConfig {
+  customMetrics?: ProductObjectInsightCustomMetricConfig[] | null;
+}
+
+export interface ProductMetadata {
+  objectInsight?: ProductObjectInsightConfig | null;
 }
 
 export type ProductModelType = 'property' | 'event' | 'service';
@@ -229,9 +299,24 @@ export interface ProductModelCandidate {
   messageEvidenceCount?: number | null;
   lastReportTime?: string | null;
   sourceTables?: string[] | null;
+  protocolTemplateEvidence?: ProductModelProtocolTemplateEvidence | null;
+}
+
+export interface ProductModelProtocolTemplateEvidence {
+  templateCodes?: string[] | null;
+  logicalChannelCodes?: string[] | null;
+  childDeviceCodes?: string[] | null;
+  canonicalizationStrategies?: string[] | null;
+  statusMirrorApplied?: boolean | null;
+  parentRemovalKeys?: string[] | null;
+  templateExecutionCount?: number | null;
+  decodeFailureCount?: number | null;
 }
 
 export interface ProductModelCandidateSummary {
+  extractionMode?: string | null;
+  sampleType?: string | null;
+  sampleDeviceCode?: string | null;
   propertyEvidenceCount?: number | null;
   propertyCandidateCount?: number | null;
   eventEvidenceCount?: number | null;
@@ -245,6 +330,7 @@ export interface ProductModelCandidateSummary {
   conflictCount?: number | null;
   eventHint?: string | null;
   serviceHint?: string | null;
+  ignoredFieldCount?: number | null;
   lastExtractedAt?: string | null;
 }
 
@@ -254,6 +340,302 @@ export interface ProductModelCandidateResult {
   propertyCandidates: ProductModelCandidate[];
   eventCandidates: ProductModelCandidate[];
   serviceCandidates: ProductModelCandidate[];
+}
+
+export type ProductModelGovernanceCompareStatus =
+  | 'double_aligned'
+  | 'manual_only'
+  | 'runtime_only'
+  | 'formal_exists'
+  | 'suspected_conflict'
+  | 'evidence_insufficient';
+
+export type ProductModelGovernanceDecision = 'create' | 'update' | 'skip';
+
+export type ProductModelGovernanceEvidenceOrigin =
+  | 'normative'
+  | 'sample_json'
+  | 'manual_draft'
+  | 'runtime'
+  | 'formal';
+
+export interface ProductModelGovernanceEvidence {
+  modelId?: IdType | null;
+  modelType: ProductModelType;
+  identifier: string;
+  modelName: string;
+  evidenceOrigin?: ProductModelGovernanceEvidenceOrigin | null;
+  dataType?: string | null;
+  specsJson?: string | null;
+  eventType?: string | null;
+  serviceInputJson?: string | null;
+  serviceOutputJson?: string | null;
+  sortNo?: number | null;
+  requiredFlag?: number | null;
+  description?: string | null;
+  groupKey?: string | null;
+  unit?: string | null;
+  normativeSource?: string | null;
+  rawIdentifiers?: string[] | null;
+  monitorContentCode?: string | null;
+  monitorTypeCode?: string | null;
+  sensorCode?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  candidateStatus?: string | null;
+  reviewReason?: string | null;
+  evidenceCount?: number | null;
+  messageEvidenceCount?: number | null;
+  lastReportTime?: string | null;
+  sourceTables?: string[] | null;
+  protocolTemplateEvidence?: ProductModelProtocolTemplateEvidence | null;
+}
+
+export interface ProductModelGovernanceCompareRow {
+  modelType: ProductModelType;
+  identifier: string;
+  normativeIdentifier?: string | null;
+  normativeName?: string | null;
+  riskReady?: boolean | null;
+  rawIdentifiers?: string[] | null;
+  manualCandidate?: ProductModelGovernanceEvidence | null;
+  runtimeCandidate?: ProductModelGovernanceEvidence | null;
+  formalModel?: ProductModelGovernanceEvidence | null;
+  compareStatus: ProductModelGovernanceCompareStatus;
+  riskFlags?: string[] | null;
+  suggestedAction?: string | null;
+  suspectedMatches?: string[] | null;
+}
+
+export interface ProductModelGovernanceSummary {
+  manualCount?: number | null;
+  runtimeCount?: number | null;
+  formalCount?: number | null;
+  propertyCount?: number | null;
+  eventCount?: number | null;
+  serviceCount?: number | null;
+  doubleAlignedCount?: number | null;
+  manualOnlyCount?: number | null;
+  runtimeOnlyCount?: number | null;
+  formalExistsCount?: number | null;
+  suspectedConflictCount?: number | null;
+  evidenceInsufficientCount?: number | null;
+  lastComparedAt?: string | null;
+}
+
+export interface ProductModelGovernanceCompareResult {
+  productId: IdType;
+  summary: ProductModelGovernanceSummary;
+  manualSummary?: ProductModelCandidateSummary | null;
+  runtimeSummary?: ProductModelCandidateSummary | null;
+  formalSummary?: ProductModelGovernanceSummary | null;
+  compareRows: ProductModelGovernanceCompareRow[];
+}
+
+export interface ProductModelGovernanceManualExtractPayload {
+  sampleType: ProductModelManualSampleType;
+  deviceStructure: ProductModelGovernanceDeviceStructure;
+  samplePayload: string;
+  parentDeviceCode?: string | null;
+  relationMappings?: ProductModelGovernanceRelationMappingPayload[] | null;
+}
+
+export type ProductModelGovernanceDeviceStructure = 'single' | 'composite';
+
+export interface ProductModelGovernanceRelationMappingPayload {
+  logicalChannelCode: string;
+  childDeviceCode: string;
+}
+
+export interface ProductModelGovernanceComparePayload {
+  manualExtract?: ProductModelGovernanceManualExtractPayload;
+}
+
+export interface ProductModelGovernanceApplyItem {
+  decision: ProductModelGovernanceDecision;
+  targetModelId?: IdType;
+  modelType: ProductModelType;
+  identifier: string;
+  modelName: string;
+  dataType?: string;
+  specsJson?: string;
+  eventType?: string;
+  serviceInputJson?: string;
+  serviceOutputJson?: string;
+  sortNo?: number;
+  requiredFlag?: number;
+  description?: string;
+  compareStatus?: ProductModelGovernanceCompareStatus;
+}
+
+export interface ProductModelGovernanceApplyPayload {
+  items: ProductModelGovernanceApplyItem[];
+}
+
+export interface ProductModelGovernanceApplyResult {
+  createdCount?: number | null;
+  updatedCount?: number | null;
+  skippedCount?: number | null;
+  conflictCount?: number | null;
+  lastAppliedAt?: string | null;
+  releaseBatchId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null;
+  executionPending?: boolean | null;
+  appliedItems?: ProductModelGovernanceAppliedItem[] | null;
+}
+
+export interface ProductModelGovernanceAppliedItem {
+  modelType?: ProductModelType | null;
+  identifier?: string | null;
+  decision?: ProductModelGovernanceDecision | null;
+  templateCodes?: string[] | null;
+  canonicalizationStrategies?: string[] | null;
+  childDeviceCodes?: string[] | null;
+}
+
+export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface GovernanceApprovalOrder {
+  id: IdType;
+  actionCode?: string | null;
+  actionName?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  status?: GovernanceApprovalStatus | null;
+  operatorUserId?: IdType | null;
+  approverUserId?: IdType | null;
+  payloadJson?: string | null;
+  approvalComment?: string | null;
+  approvedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceApprovalTransition {
+  id?: IdType | null;
+  fromStatus?: GovernanceApprovalStatus | null;
+  toStatus?: GovernanceApprovalStatus | null;
+  actorUserId?: IdType | null;
+  transitionComment?: string | null;
+  createTime?: string | null;
+}
+
+export interface GovernanceApprovalOrderDetail {
+  order?: GovernanceApprovalOrder | null;
+  transitions?: GovernanceApprovalTransition[] | null;
+}
+
+export interface GovernanceApprovalPageQuery {
+  actionCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  status?: GovernanceApprovalStatus | null;
+  operatorUserId?: IdType | null;
+  approverUserId?: IdType | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceApprovalDecisionPayload {
+  comment?: string | null;
+}
+
+export interface GovernanceApprovalResubmitPayload {
+  approverUserId: IdType;
+  comment?: string | null;
+}
+
+export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'CLOSED';
+
+export interface GovernanceWorkItem {
+  id: IdType;
+  workItemCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  workStatus?: GovernanceWorkItemStatus | null;
+  priorityLevel?: string | null;
+  assigneeUserId?: IdType | null;
+  sourceStage?: string | null;
+  blockingReason?: string | null;
+  snapshotJson?: string | null;
+  dueTime?: string | null;
+  resolvedTime?: string | null;
+  closedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceWorkItemPageQuery {
+  workItemCode?: string | null;
+  workStatus?: GovernanceWorkItemStatus | string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  assigneeUserId?: IdType | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceWorkItemTransitionPayload {
+  comment?: string | null;
+}
+
+export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'CLOSED';
+
+export interface GovernanceOpsAlert {
+  id: IdType;
+  alertType?: string | null;
+  alertCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  alertStatus?: GovernanceOpsAlertStatus | null;
+  severityLevel?: string | null;
+  affectedCount?: number | null;
+  alertTitle?: string | null;
+  alertMessage?: string | null;
+  dimensionKey?: string | null;
+  dimensionLabel?: string | null;
+  sourceStage?: string | null;
+  snapshotJson?: string | null;
+  assigneeUserId?: IdType | null;
+  firstSeenTime?: string | null;
+  lastSeenTime?: string | null;
+  resolvedTime?: string | null;
+  closedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceOpsAlertPageQuery {
+  alertType?: string | null;
+  alertStatus?: GovernanceOpsAlertStatus | string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  severityLevel?: string | null;
+  assigneeUserId?: IdType | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceOpsAlertTransitionPayload {
+  comment?: string | null;
 }
 
 export interface ProductModelCandidateConfirmItem {
@@ -274,12 +656,16 @@ export interface ProductModelCandidateConfirmPayload {
   items: ProductModelCandidateConfirmItem[];
 }
 
+export type ProductModelManualSampleType = 'business' | 'status';
+
 export interface Device {
   id?: IdType | null;
   productId?: IdType | null;
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
   sourceRecordId?: IdType | null;
+  orgId?: IdType | null;
+  orgName?: string | null;
   productKey?: string | null;
   productName?: string | null;
   gatewayDeviceCode?: string | null;
@@ -320,6 +706,8 @@ export interface DeviceOption {
   productId?: IdType | null;
   gatewayId?: IdType | null;
   parentDeviceId?: IdType | null;
+  orgId?: IdType | null;
+  orgName?: string | null;
   productKey?: string | null;
   productName?: string | null;
   deviceCode: string;
@@ -333,6 +721,7 @@ export interface DeviceMetricOption {
   identifier: string;
   name: string;
   dataType?: string | null;
+  riskMetricId?: IdType | null;
 }
 
 export interface DeviceProperty {
@@ -432,6 +821,7 @@ export interface ProductAddPayload {
   dataFormat?: string;
   manufacturer?: string;
   description?: string;
+  metadataJson?: string;
   status?: number;
 }
 
@@ -510,6 +900,33 @@ export interface DeviceReplaceResult {
   targetDeviceId: IdType;
   targetDeviceCode: string;
   targetDeviceName: string;
+}
+
+export interface DeviceRelation {
+  id?: IdType | null;
+  parentDeviceCode: string;
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  childProductId?: IdType | null;
+  childProductKey?: string | null;
+  relationType: string;
+  canonicalizationStrategy: string;
+  statusMirrorStrategy?: string | null;
+  enabled?: number | null;
+  remark?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface DeviceRelationUpsertPayload {
+  parentDeviceCode: string;
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  relationType: string;
+  canonicalizationStrategy: string;
+  statusMirrorStrategy?: string | null;
+  enabled?: number | null;
+  remark?: string | null;
 }
 
 export interface HttpReportPayload {

@@ -2,7 +2,6 @@
   <PanelCard class="iot-access-workbench-hero">
     <div class="iot-access-workbench-hero__layout">
       <div class="iot-access-workbench-hero__main">
-        <p v-if="eyebrow" class="iot-access-workbench-hero__eyebrow">{{ eyebrow }}</p>
         <h2 v-if="title" class="iot-access-workbench-hero__title">{{ title }}</h2>
         <p class="iot-access-workbench-hero__judgement">{{ judgement }}</p>
         <p v-if="description" class="iot-access-workbench-hero__description">{{ description }}</p>
@@ -60,9 +59,12 @@ interface HeroSummaryItem {
   value: string;
 }
 
+defineOptions({
+  inheritAttrs: false
+});
+
 withDefaults(
   defineProps<{
-    eyebrow?: string;
     title?: string;
     judgement: string;
     description?: string;
@@ -71,7 +73,6 @@ withDefaults(
     summaryItems?: HeroSummaryItem[];
   }>(),
   {
-    eyebrow: '',
     title: '',
     description: '',
     tags: () => [],
@@ -91,16 +92,8 @@ withDefaults(
   gap: 1rem;
 }
 
-.iot-access-workbench-hero__eyebrow {
-  margin: 0;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 0.72rem;
-}
-
 .iot-access-workbench-hero__title {
-  margin: 0.35rem 0 0;
+  margin: 0;
   font-size: 1.12rem;
   color: var(--text-heading);
 }

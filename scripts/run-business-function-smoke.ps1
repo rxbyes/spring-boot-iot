@@ -1,5 +1,7 @@
 ﻿param(
-    [string]$BaseUrl = 'http://localhost:9999'
+    [string]$BaseUrl = 'http://localhost:9999',
+    [string[]]$PointFilter = @(),
+    [string[]]$ModuleFilter = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +13,14 @@ $repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
 $outDir = Join-Path $repoRoot 'logs\acceptance'
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 $script:authHeaders = @{}
+$script:selectedPoints = @($PointFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
+$script:selectedModules = @($ModuleFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim().ToLowerInvariant() })
+$script:modulePointMap = @{
+    'env'    = @('ENV')
+    'device' = @('IOT-PRODUCT', 'IOT-DEVICE', 'INGEST-HTTP', 'MQTT-DOWN')
+    'alarm'  = @('ALARM', 'EVENT', 'RISK-POINT', 'RULE-DEFINITION', 'LINKAGE-RULE', 'EMERGENCY-PLAN', 'REPORT')
+    'system' = @('SYS-ORG', 'SYS-USER', 'SYS-ROLE', 'SYS-REGION', 'SYS-DICT', 'SYS-CHANNEL', 'SYS-AUDIT')
+}
 
 $results = New-Object System.Collections.Generic.List[object]
 
@@ -44,6 +54,31 @@ function Trim-Text {
     return $s
 }
 
+function Should-RunPoint {
+    param([string]$Point)
+
+    if ([string]::IsNullOrWhiteSpace($Point)) {
+        return $true
+    }
+
+    if ($script:selectedPoints.Count -gt 0 -and ($script:selectedPoints -notcontains $Point)) {
+        return $false
+    }
+
+    if ($script:selectedModules.Count -eq 0) {
+        return $true
+    }
+
+    foreach ($module in $script:selectedModules) {
+        $points = @($script:modulePointMap[$module])
+        if ($points -contains $Point) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 function Invoke-Step {
     param(
         [string]$Point,
@@ -51,8 +86,12 @@ function Invoke-Step {
         [string]$Method,
         [string]$Path,
         [object]$Body = $null,
-        [bool]$Critical = $true
+        [bool]$Critical = $true,
+        [int]$TimeoutSec = 30
     )
+    if (-not (Should-RunPoint -Point $Point)) {
+        return $null
+    }
     $url = "$baseUrl$Path"
     try {
         $headers = @{}
@@ -65,15 +104,15 @@ function Invoke-Step {
         if ($null -ne $Body) {
             $json = $Body | ConvertTo-Json -Depth 20
             if ($headers.Count -gt 0) {
-                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $headers -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec 30
+                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $headers -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
             } else {
-                $resp = Invoke-RestMethod -Uri $url -Method $Method -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec 30
+                $resp = Invoke-RestMethod -Uri $url -Method $Method -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
             }
         } else {
             if ($headers.Count -gt 0) {
-                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $headers -TimeoutSec 30
+                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $headers -TimeoutSec $TimeoutSec
             } else {
-                $resp = Invoke-RestMethod -Uri $url -Method $Method -TimeoutSec 30
+                $resp = Invoke-RestMethod -Uri $url -Method $Method -TimeoutSec $TimeoutSec
             }
         }
 
@@ -115,6 +154,9 @@ function Skip-Step {
         [string]$Reason,
         [bool]$Critical = $true
     )
+    if (-not (Should-RunPoint -Point $Point)) {
+        return
+    }
     Add-Result -Point $Point -Case $Case -Method $Method -Path $Path -Critical $Critical -Status 'FAIL' -Detail ("SKIP: $Reason")
 }
 
@@ -129,6 +171,67 @@ function Try-Login {
     } catch {
         return $null
     }
+}
+
+function Invoke-ApiRaw {
+    param(
+        [string]$Method,
+        [string]$Path,
+        [object]$Body = $null,
+        [int]$TimeoutSec = 30
+    )
+    $url = "$baseUrl$Path"
+    if ($null -ne $Body) {
+        $json = $Body | ConvertTo-Json -Depth 20
+        if ($script:authHeaders.Count -gt 0) {
+            return Invoke-RestMethod -Uri $url -Method $Method -Headers $script:authHeaders -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
+        }
+        return Invoke-RestMethod -Uri $url -Method $Method -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
+    }
+    if ($script:authHeaders.Count -gt 0) {
+        return Invoke-RestMethod -Uri $url -Method $Method -Headers $script:authHeaders -TimeoutSec $TimeoutSec
+    }
+    return Invoke-RestMethod -Uri $url -Method $Method -TimeoutSec $TimeoutSec
+}
+
+function Flatten-TreeNodes {
+    param([object[]]$Nodes)
+    $items = New-Object System.Collections.Generic.List[object]
+    foreach ($node in @($Nodes)) {
+        if ($null -eq $node) {
+            continue
+        }
+        $items.Add($node) | Out-Null
+        $children = @($node.children)
+        if ($children.Count -gt 0) {
+            $items.AddRange((Flatten-TreeNodes -Nodes $children))
+        }
+    }
+    return $items
+}
+
+function Get-FirstActiveOrganization {
+    try {
+        $resp = Invoke-ApiRaw -Method 'GET' -Path '/api/organization/tree' -TimeoutSec 30
+        if ($resp -and $resp.code -eq 200 -and $resp.data) {
+            return (Flatten-TreeNodes -Nodes $resp.data | Where-Object { $_.status -eq 1 } | Select-Object -First 1)
+        }
+    } catch {
+        return $null
+    }
+    return $null
+}
+
+function Get-FirstActiveRegion {
+    try {
+        $resp = Invoke-ApiRaw -Method 'GET' -Path '/api/region/list' -TimeoutSec 30
+        if ($resp -and $resp.code -eq 200 -and $resp.data) {
+            return ($resp.data | Where-Object { $_.status -eq 1 } | Select-Object -First 1)
+        }
+    } catch {
+        return $null
+    }
+    return $null
 }
 
 $loginResp = Try-Login -Path '/api/auth/login'
@@ -334,17 +437,30 @@ if ($e1Id) { Invoke-Step -Point 'EVENT' -Case 'close-event' -Method 'POST' -Path
 
 # 4) risk point + rules
 $rpCode = "AUTO-RP-$stamp"
-$rp = Invoke-Step -Point 'RISK-POINT' -Case 'add-risk-point' -Method 'POST' -Path '/api/risk-point/add' -Body @{
-    riskPointCode     = $rpCode
-    riskPointName     = 'auto-risk-point'
-    regionId          = 1
-    regionName        = 'default-region'
-    responsibleUser   = 1
-    responsiblePhone  = '13800000000'
-    riskLevel         = 'warning'
-    description       = 'auto-test'
-    status            = 0
-    tenantId          = 1
+$riskOrg = Get-FirstActiveOrganization
+$riskRegion = Get-FirstActiveRegion
+$riskResponsibleUser = $null
+$riskResponsiblePhone = if ($riskOrg -and -not [string]::IsNullOrWhiteSpace([string]$riskOrg.phone)) { [string]$riskOrg.phone } else { '' }
+
+$rp = $null
+if (-not $riskOrg) {
+    Skip-Step -Point 'RISK-POINT' -Case 'add-risk-point' -Method 'POST' -Path '/api/risk-point/add' -Reason 'active organization missing'
+} elseif (-not $riskRegion) {
+    Skip-Step -Point 'RISK-POINT' -Case 'add-risk-point' -Method 'POST' -Path '/api/risk-point/add' -Reason 'active region missing'
+} else {
+    $rp = Invoke-Step -Point 'RISK-POINT' -Case 'add-risk-point' -Method 'POST' -Path '/api/risk-point/add' -Body @{
+        riskPointName    = 'auto-risk-point'
+        orgId            = [long]$riskOrg.id
+        orgName          = [string]$riskOrg.orgName
+        regionId         = [long]$riskRegion.id
+        regionName       = [string]$riskRegion.regionName
+        responsibleUser  = $riskResponsibleUser
+        responsiblePhone = $riskResponsiblePhone
+        riskLevel        = 'orange'
+        description      = 'auto-test'
+        status           = 0
+        tenantId         = 1
+    }
 }
 $rpId = Id-Of $rp
 Invoke-Step -Point 'RISK-POINT' -Case 'list-risk-points' -Method 'GET' -Path "/api/risk-point/list?riskPointCode=$rpCode" | Out-Null
@@ -364,13 +480,14 @@ if ($rpId) {
     Invoke-Step -Point 'RISK-POINT' -Case 'unbind-device' -Method 'POST' -Path "/api/risk-point/unbind-device?riskPointId=$rpId&deviceId=$deviceId" | Out-Null
     Invoke-Step -Point 'RISK-POINT' -Case 'update-risk-point' -Method 'POST' -Path '/api/risk-point/update' -Body @{
         id               = $rpId
-        riskPointCode    = $rpCode
         riskPointName    = 'auto-risk-point-upd'
-        regionId         = 1
-        regionName       = 'default-region'
-        responsibleUser  = 1
-        responsiblePhone = '13800000000'
-        riskLevel        = 'critical'
+        orgId            = [long]$riskOrg.id
+        orgName          = [string]$riskOrg.orgName
+        regionId         = [long]$riskRegion.id
+        regionName       = [string]$riskRegion.regionName
+        responsibleUser  = $riskResponsibleUser
+        responsiblePhone = $riskResponsiblePhone
+        riskLevel        = 'red'
         description      = 'auto-update'
         status           = 0
         tenantId         = 1
@@ -582,7 +699,7 @@ $r = Invoke-Step -Point 'SYS-REGION' -Case 'add-region' -Method 'POST' -Path '/a
 }
 $regionId = Id-Of $r
 Invoke-Step -Point 'SYS-REGION' -Case 'list-region' -Method 'GET' -Path '/api/region/list' | Out-Null
-Invoke-Step -Point 'SYS-REGION' -Case 'tree-region' -Method 'GET' -Path '/api/region/tree' | Out-Null
+Invoke-Step -Point 'SYS-REGION' -Case 'tree-region' -Method 'GET' -Path '/api/region/tree' -TimeoutSec 90 | Out-Null
 if ($regionId) {
     Invoke-Step -Point 'SYS-REGION' -Case 'get-region' -Method 'GET' -Path "/api/region/$regionId" | Out-Null
     Invoke-Step -Point 'SYS-REGION' -Case 'update-region' -Method 'PUT' -Path '/api/region' -Body @{

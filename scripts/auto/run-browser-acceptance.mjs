@@ -9,12 +9,21 @@ import {
   loadAutomationPlan
 } from './browser-config-driven.mjs';
 import { appendBrowserIssues } from './browser-issue-log.mjs';
-import {
-  createExecutableScenarios,
-  plannedScenarioBacklog
-} from './browser-acceptance-scenarios.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
+
+async function loadDefaultScenarioModule() {
+  try {
+    return await import('./browser-acceptance-scenarios.mjs');
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_MODULE_NOT_FOUND') {
+      throw new Error(
+        'Default browser acceptance scenarios are unavailable. Provide --plan=... for config-driven runs or restore scripts/auto/browser-acceptance-scenarios.mjs.'
+      );
+    }
+    throw error;
+  }
+}
 
 function parseArgs(argv) {
   const args = {
@@ -100,18 +109,23 @@ export async function runCli(argv = process.argv.slice(2)) {
   const workspaceRoot = path.resolve(path.dirname(__filename), '..', '..');
   const planInfo = args.plan ? await loadAutomationPlan(workspaceRoot, args.plan) : null;
   const target = planInfo?.plan?.target || {};
+  const frontendBaseUrl = process.env.IOT_ACCEPTANCE_FRONTEND_URL?.trim() || target.frontendBaseUrl;
+  const backendBaseUrl = process.env.IOT_ACCEPTANCE_BACKEND_URL?.trim() || target.backendBaseUrl;
+  const defaultScenarioModule = planInfo ? null : await loadDefaultScenarioModule();
 
   const result = await runBrowserAcceptance({
-    createScenarios: planInfo ? createConfigDrivenScenarios(planInfo.plan) : createExecutableScenarios,
-    plannedScenarios: planInfo ? [] : plannedScenarioBacklog,
+    createScenarios: planInfo
+      ? createConfigDrivenScenarios(planInfo.plan)
+      : defaultScenarioModule.createExecutableScenarios,
+    plannedScenarios: planInfo ? [] : defaultScenarioModule.plannedScenarioBacklog,
     options: {
       dryRun: args.dryRun,
       appendIssues: !args.noAppendIssues && !args.dryRun,
       updateBaseline: args.updateBaseline,
       scenarioScopes: args.scopes || target.scenarioScopes,
       failScopes: args.failScopes || target.failScopes,
-      frontendBaseUrl: target.frontendBaseUrl,
-      backendBaseUrl: target.backendBaseUrl,
+      frontendBaseUrl,
+      backendBaseUrl,
       browserPath: target.browserPath || undefined,
       headless: target.headless,
       username: target.username,

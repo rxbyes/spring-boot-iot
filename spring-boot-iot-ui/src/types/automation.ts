@@ -164,3 +164,132 @@ export interface AutomationPageCoverageSummary {
   uncoveredPages: number;
   uncoveredRoutes: string[];
 }
+
+export type AcceptanceRegistryRunnerType =
+  | 'browserPlan'
+  | 'apiSmoke'
+  | 'messageFlow'
+  | 'riskDrill'
+  | string;
+
+export type AcceptanceRegistryBlockingLevel = 'blocker' | 'warning' | 'info' | string;
+
+export interface AcceptanceRegistryScenario {
+  id: string;
+  title: string;
+  module?: string;
+  docRef?: string;
+  runnerType: AcceptanceRegistryRunnerType;
+  scope: string;
+  blocking: AcceptanceRegistryBlockingLevel;
+  dependsOn: string[];
+  inputs?: Record<string, unknown>;
+  evidence?: string[];
+  timeouts?: Record<string, unknown>;
+  runner?: Record<string, unknown>;
+}
+
+export interface AcceptanceRegistryDocument {
+  version: string;
+  generatedAt?: string;
+  defaultTarget?: Record<string, unknown>;
+  scenarios: AcceptanceRegistryScenario[];
+}
+
+export interface AcceptanceRegistrySummary {
+  total: number;
+  blockerCount: number;
+  byRunner: Record<string, number>;
+}
+
+export interface AcceptanceRegistryRunResult {
+  scenarioId: string;
+  runnerType?: AcceptanceRegistryRunnerType;
+  status: string;
+  blocking: AcceptanceRegistryBlockingLevel;
+  summary?: string;
+  evidenceFiles?: string[];
+  details?: Record<string, unknown>;
+}
+
+export interface AcceptanceRegistryRunSummary {
+  runId?: string;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  results: AcceptanceRegistryRunResult[];
+  updatedAt?: string;
+  registryVersion?: string;
+  options?: Record<string, unknown>;
+  relatedEvidenceFiles?: string[];
+  reportPath?: string;
+  exitCode?: number;
+}
+
+export type AutomationEvidenceCategory =
+  | 'run-summary'
+  | 'json'
+  | 'markdown'
+  | 'text'
+  | 'unknown'
+  | string;
+
+export type AutomationEvidenceSource = 'report' | 'related' | 'scenario' | string;
+
+export interface AutomationResultEvidenceItem {
+  path: string;
+  fileName: string;
+  category: AutomationEvidenceCategory;
+  source: AutomationEvidenceSource;
+}
+
+export interface AutomationResultEvidenceContent {
+  path: string;
+  fileName: string;
+  category: AutomationEvidenceCategory;
+  content: string;
+  truncated: boolean;
+}
+
+export interface ParsedAcceptanceRegistryRunSummary extends AcceptanceRegistryRunSummary {
+  failedScenarioIds: string[];
+  failedResults: AcceptanceRegistryRunResult[];
+}
+
+export type AutomationResultRunStatus = 'passed' | 'failed' | string;
+
+export interface AutomationResultRunSummary {
+  runId: string;
+  updatedAt?: string;
+  reportPath?: string;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  failedScenarioIds: string[];
+  relatedEvidenceFiles: string[];
+  status: AutomationResultRunStatus;
+  runnerTypes: AcceptanceRegistryRunnerType[];
+}
+
+export type AutomationResultRecentRun = AutomationResultRunSummary;
+
+export interface AutomationResultRunPageQuery {
+  pageNum: number;
+  pageSize: number;
+  keyword?: string;
+  status?: string;
+  runnerType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface AutomationResultLedgerFilters {
+  keyword: string;
+  status: string;
+  runnerType: string;
+  dateRange: string[];
+}

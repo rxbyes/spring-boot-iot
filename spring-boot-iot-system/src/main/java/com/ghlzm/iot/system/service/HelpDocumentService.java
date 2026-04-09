@@ -11,11 +11,20 @@ public interface HelpDocumentService extends IService<HelpDocument> {
 
     HelpDocument addDocument(HelpDocument document, Long operatorId);
 
+    PageResult<HelpDocument> pageDocuments(Long currentUserId,
+                                           String title,
+                                           String docCategory,
+                                           Integer status,
+                                           Long pageNum,
+                                           Long pageSize);
+
     PageResult<HelpDocument> pageDocuments(String title,
                                            String docCategory,
                                            Integer status,
                                            Long pageNum,
                                            Long pageSize);
+
+    HelpDocument getById(Long currentUserId, Long id);
 
     void updateDocument(HelpDocument document, Long operatorId);
 

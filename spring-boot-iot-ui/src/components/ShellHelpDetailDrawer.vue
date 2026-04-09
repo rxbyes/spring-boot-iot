@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Shell Help Detail"
     :title="record?.title || '帮助详情'"
     :subtitle="record?.summary || '统一查看帮助分类、关键词与全文内容。'"
     size="52rem"

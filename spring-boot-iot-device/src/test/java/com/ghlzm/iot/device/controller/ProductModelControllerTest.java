@@ -1,21 +1,29 @@
 package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
-import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
+import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.service.ProductModelService;
-import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
-import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,11 +33,17 @@ class ProductModelControllerTest {
     @Mock
     private ProductModelService productModelService;
 
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
+
+    @Mock
+    private GovernanceApprovalService governanceApprovalService;
+
     private ProductModelController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductModelController(productModelService);
+        controller = new ProductModelController(productModelService, permissionGuard, governanceApprovalService);
     }
 
     @Test
@@ -48,12 +62,18 @@ class ProductModelControllerTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("property");
         dto.setIdentifier("temperature");
-        dto.setModelName("温度");
+        dto.setModelName("temperature");
+        Authentication authentication = authentication(1001L);
         when(productModelService.createModel(1001L, dto)).thenReturn(modelVO(2001L, "temperature", 10));
 
-        R<ProductModelVO> response = controller.add(1001L, dto);
+        R<ProductModelVO> response = controller.add(1001L, dto, authentication);
 
         assertEquals("temperature", response.getData().getIdentifier());
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约维护",
+                "iot:normative-library:write"
+        );
         verify(productModelService).createModel(1001L, dto);
     }
 
@@ -62,46 +82,104 @@ class ProductModelControllerTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("property");
         dto.setIdentifier("temperature");
-        dto.setModelName("温度");
+        dto.setModelName("temperature");
+        Authentication authentication = authentication(1001L);
         when(productModelService.updateModel(1001L, 2001L, dto)).thenReturn(modelVO(2001L, "temperature", 10));
 
-        R<ProductModelVO> response = controller.update(1001L, 2001L, dto);
+        R<ProductModelVO> response = controller.update(1001L, 2001L, dto, authentication);
 
         assertEquals(2001L, response.getData().getId());
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约维护",
+                "iot:normative-library:write"
+        );
         verify(productModelService).updateModel(1001L, 2001L, dto);
     }
 
     @Test
     void deleteShouldDelegateToService() {
-        R<Void> response = controller.delete(1001L, 2001L);
+        Authentication authentication = authentication(1001L);
+
+        R<Void> response = controller.delete(1001L, 2001L, authentication);
 
         assertNull(response.getData());
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约维护",
+                "iot:normative-library:write"
+        );
         verify(productModelService).deleteModel(1001L, 2001L);
     }
 
     @Test
-    void listCandidatesShouldDelegateToService() {
-        ProductModelCandidateResultVO result = new ProductModelCandidateResultVO();
+    void compareGovernanceShouldDelegateToService() {
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareVO result = new ProductModelGovernanceCompareVO();
         result.setProductId(1001L);
-        when(productModelService.listModelCandidates(1001L)).thenReturn(result);
+        result.setCompareRows(List.of(compareRow("value", "value", "Crack value", true)));
+        Authentication authentication = authentication(1001L);
+        when(productModelService.compareGovernance(1001L, dto)).thenReturn(result);
 
-        R<ProductModelCandidateResultVO> response = controller.listCandidates(1001L);
+        R<ProductModelGovernanceCompareVO> response = controller.compareGovernance(1001L, dto, authentication);
 
         assertEquals(1001L, response.getData().getProductId());
-        verify(productModelService).listModelCandidates(1001L);
+        assertEquals("value", response.getData().getCompareRows().get(0).getNormativeIdentifier());
+        assertEquals(true, response.getData().getCompareRows().get(0).getRiskReady());
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "产品契约治理",
+                "iot:product-contract:govern"
+        );
+        verify(productModelService).compareGovernance(1001L, dto);
     }
 
     @Test
-    void confirmCandidatesShouldDelegateToService() {
-        ProductModelCandidateConfirmDTO dto = new ProductModelCandidateConfirmDTO();
-        ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
-        summary.setCreatedCount(1);
-        when(productModelService.confirmModelCandidates(1001L, dto)).thenReturn(summary);
+    void applyGovernanceShouldSubmitPendingApproval() {
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        ProductModelGovernanceApplyDTO.ApplyItem item = new ProductModelGovernanceApplyDTO.ApplyItem();
+        item.setDecision("create");
+        item.setModelType("property");
+        item.setIdentifier("value");
+        item.setModelName("crack value");
+        dto.setItems(List.of(item));
+        Authentication authentication = authentication(1001L);
+        when(governanceApprovalService.submitAction(any())).thenReturn(88001L);
 
-        R<ProductModelCandidateSummaryVO> response = controller.confirmCandidates(1001L, dto);
+        R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, 2002L, authentication);
 
         assertEquals(1, response.getData().getCreatedCount());
-        verify(productModelService).confirmModelCandidates(1001L, dto);
+        assertEquals(0, response.getData().getUpdatedCount());
+        assertEquals(0, response.getData().getSkippedCount());
+        assertEquals(null, response.getData().getReleaseBatchId());
+        assertEquals(88001L, response.getData().getApprovalOrderId());
+        assertEquals("PENDING", response.getData().getApprovalStatus());
+        assertEquals(Boolean.TRUE, response.getData().getExecutionPending());
+        verify(permissionGuard).requireDualControl(
+                1001L,
+                2002L,
+                "产品契约发布",
+                "iot:product-contract:release",
+                "iot:product-contract:approve"
+        );
+        verify(permissionGuard).requireAnyPermission(
+                1001L,
+                "风险指标标注",
+                "risk:metric-catalog:tag"
+        );
+        verify(permissionGuard).requireAnyPermission(
+                2002L,
+                "风险指标标注复核",
+                "risk:metric-catalog:approve",
+                "iot:product-contract:approve"
+        );
+        verify(governanceApprovalService).submitAction(any());
+        verify(productModelService, never()).applyGovernance(1001L, dto, 1001L);
+    }
+
+    private Authentication authentication(Long userId) {
+        JwtUserPrincipal principal = new JwtUserPrincipal(userId, "demo");
+        return new UsernamePasswordAuthenticationToken(principal, null, List.of());
     }
 
     private ProductModelVO modelVO(Long id, String identifier, Integer sortNo) {
@@ -113,5 +191,18 @@ class ProductModelControllerTest {
         vo.setModelName(identifier);
         vo.setSortNo(sortNo);
         return vo;
+    }
+
+    private com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO compareRow(String identifier,
+                                                                                   String normativeIdentifier,
+                                                                                   String normativeName,
+                                                                                   boolean riskReady) {
+        com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO row =
+                new com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO();
+        row.setIdentifier(identifier);
+        row.setNormativeIdentifier(normativeIdentifier);
+        row.setNormativeName(normativeName);
+        row.setRiskReady(riskReady);
+        return row;
     }
 }

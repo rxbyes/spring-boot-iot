@@ -6,6 +6,7 @@ import com.ghlzm.iot.framework.observability.BackendExceptionEvent;
 import com.ghlzm.iot.framework.observability.BackendExceptionRecorder;
 import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.message.pipeline.MessagePipelineFailureMetadata;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,21 +193,23 @@ public class MqttConnectionListener {
     }
 
     public void onMessageDispatchFailed(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage, Throwable throwable) {
-        String failureStage = resolveFailureStage(rawDeviceMessage, throwable);
+        DispatchFailureContext dispatchFailureContext = resolveDispatchFailureContext(rawDeviceMessage, throwable);
+        RawDeviceMessage resolvedRawDeviceMessage = dispatchFailureContext.rawDeviceMessage();
+        String failureStage = dispatchFailureContext.failureStage();
         InvalidMqttReportDecision decision = mqttInvalidReportGovernanceService == null
                 ? InvalidMqttReportDecision.allowSample(null)
-                : mqttInvalidReportGovernanceService.handleDispatchFailure(topic, payload, rawDeviceMessage, throwable);
+                : mqttInvalidReportGovernanceService.handleDispatchFailure(topic, payload, resolvedRawDeviceMessage, throwable);
         if (decision.suppressed()) {
             runtimeState().ifPresent(state -> state.markFailure(
                     "suppressed",
-                    rawDeviceMessage == null ? null : rawDeviceMessage.getTraceId()
+                    resolvedRawDeviceMessage == null ? null : resolvedRawDeviceMessage.getTraceId()
             ));
             return;
         }
         if (!decision.sampleFailure()) {
             return;
         }
-        recordDispatchFailureSample(topic, payload, rawDeviceMessage, throwable, failureStage);
+        recordDispatchFailureSample(topic, payload, resolvedRawDeviceMessage, throwable, failureStage);
     }
 
     public void onGovernedMessageDispatchFailed(String topic,
@@ -305,6 +308,18 @@ public class MqttConnectionListener {
         }
     }
 
+    private DispatchFailureContext resolveDispatchFailureContext(RawDeviceMessage rawDeviceMessage, Throwable throwable) {
+        MessagePipelineFailureMetadata metadata = MessagePipelineFailureMetadata.find(throwable).orElse(null);
+        RawDeviceMessage resolvedRawDeviceMessage = rawDeviceMessage;
+        if (resolvedRawDeviceMessage == null && metadata != null) {
+            resolvedRawDeviceMessage = metadata.resolveRawDeviceMessage();
+        }
+        String failureStage = metadata != null && StringUtils.hasText(metadata.getFailureStage())
+                ? metadata.getFailureStage()
+                : resolveFailureStage(resolvedRawDeviceMessage, throwable);
+        return new DispatchFailureContext(failureStage, resolvedRawDeviceMessage);
+    }
+
     private void archiveFailureTrace(String topic, byte[] payload, RawDeviceMessage rawDeviceMessage) {
         if (deviceMessageServiceProvider == null) {
             return;
@@ -357,6 +372,10 @@ public class MqttConnectionListener {
 
     private String resolveFailureStage(RawDeviceMessage rawDeviceMessage, Throwable throwable) {
         // 简单按路由/解码/设备校验/后续分发四段区分失败阶段，方便测试与研发联动排障。
+        MessagePipelineFailureMetadata metadata = MessagePipelineFailureMetadata.find(throwable).orElse(null);
+        if (metadata != null && StringUtils.hasText(metadata.getFailureStage())) {
+            return metadata.getFailureStage();
+        }
         if (rawDeviceMessage == null) {
             return "topic_route";
         }
@@ -374,5 +393,8 @@ public class MqttConnectionListener {
             return "device_validate";
         }
         return "message_dispatch";
+    }
+
+    private record DispatchFailureContext(String failureStage, RawDeviceMessage rawDeviceMessage) {
     }
 }

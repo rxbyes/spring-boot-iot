@@ -77,6 +77,7 @@ withDefaults(defineProps<{
 
 <style scoped>
 .standard-workbench-panel {
+  --ops-workbench-gap: var(--ops-workbench-gap);
   min-width: 0;
 }
 
@@ -98,28 +99,29 @@ withDefaults(defineProps<{
 
 .standard-workbench-panel__eyebrow {
   margin: 0 0 0.3rem;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.1em;
+  color: var(--text-caption);
+  font-size: var(--type-overline-size);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: var(--font-letter-spacing-wide);
   text-transform: uppercase;
 }
 
 .standard-workbench-panel__title {
   margin: 0;
   color: var(--text-heading);
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  font-size: var(--type-title-2-size);
+  font-weight: 600;
+  line-height: 1.26;
+  letter-spacing: var(--font-letter-spacing-tight);
 }
 
 .standard-workbench-panel__caption {
   margin: 0.38rem 0 0;
   color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.6;
+  max-width: 44rem;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .standard-workbench-panel__header-actions {
@@ -143,7 +145,7 @@ withDefaults(defineProps<{
 .standard-workbench-panel__notices,
 .standard-workbench-panel__toolbar,
 .standard-workbench-panel__inline-state {
-  margin-bottom: 0.72rem;
+  margin-bottom: var(--ops-workbench-gap, 0.72rem);
 }
 
 .standard-workbench-panel__filters-extra {
@@ -155,7 +157,7 @@ withDefaults(defineProps<{
 }
 
 .standard-workbench-panel__pagination {
-  margin-top: 0.72rem;
+  margin-top: var(--ops-workbench-gap, 0.72rem);
 }
 
 @media (max-width: 720px) {

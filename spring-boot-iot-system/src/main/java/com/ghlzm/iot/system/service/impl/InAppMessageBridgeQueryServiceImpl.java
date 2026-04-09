@@ -6,6 +6,7 @@ import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.mapper.InAppMessageBridgeAttemptLogMapper;
 import com.ghlzm.iot.system.mapper.InAppMessageBridgeLogMapper;
 import com.ghlzm.iot.system.service.InAppMessageBridgeQueryService;
+import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.vo.InAppMessageBridgeAttemptVO;
 import com.ghlzm.iot.system.vo.InAppMessageBridgeLogVO;
 import com.ghlzm.iot.system.vo.InAppMessageBridgeStatsVO;
@@ -27,18 +28,33 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
 
     private final InAppMessageBridgeLogMapper inAppMessageBridgeLogMapper;
     private final InAppMessageBridgeAttemptLogMapper inAppMessageBridgeAttemptLogMapper;
+    private final PermissionService permissionService;
     private final SystemContentSchemaSupport systemContentSchemaSupport;
 
     public InAppMessageBridgeQueryServiceImpl(InAppMessageBridgeLogMapper inAppMessageBridgeLogMapper,
                                               InAppMessageBridgeAttemptLogMapper inAppMessageBridgeAttemptLogMapper,
+                                              PermissionService permissionService,
                                               SystemContentSchemaSupport systemContentSchemaSupport) {
         this.inAppMessageBridgeLogMapper = inAppMessageBridgeLogMapper;
         this.inAppMessageBridgeAttemptLogMapper = inAppMessageBridgeAttemptLogMapper;
+        this.permissionService = permissionService;
         this.systemContentSchemaSupport = systemContentSchemaSupport;
     }
 
     @Override
     public InAppMessageBridgeStatsVO getBridgeStats(Date startTime,
+                                                    Date endTime,
+                                                    String messageType,
+                                                    String sourceType,
+                                                    String priority,
+                                                    String channelCode,
+                                                    Integer bridgeStatus) {
+        return getBridgeStats(null, startTime, endTime, messageType, sourceType, priority, channelCode, bridgeStatus);
+    }
+
+    @Override
+    public InAppMessageBridgeStatsVO getBridgeStats(Long currentUserId,
+                                                    Date startTime,
                                                     Date endTime,
                                                     String messageType,
                                                     String sourceType,
@@ -56,7 +72,8 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
                 normalizeText(sourceType),
                 normalizeText(priority),
                 normalizeText(channelCode),
-                bridgeStatus
+                bridgeStatus,
+                resolveTenantId(currentUserId)
         );
         InAppMessageBridgeStatsVO stats = new InAppMessageBridgeStatsVO();
         stats.setStartTime(formatDateTime(normalizedRange[0]));
@@ -152,6 +169,20 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
                                                               Integer bridgeStatus,
                                                               Long pageNum,
                                                               Long pageSize) {
+        return pageBridgeLogs(null, startTime, endTime, messageType, sourceType, priority, channelCode, bridgeStatus, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<InAppMessageBridgeLogVO> pageBridgeLogs(Long currentUserId,
+                                                              Date startTime,
+                                                              Date endTime,
+                                                              String messageType,
+                                                              String sourceType,
+                                                              String priority,
+                                                              String channelCode,
+                                                              Integer bridgeStatus,
+                                                              Long pageNum,
+                                                              Long pageSize) {
         systemContentSchemaSupport.ensureInAppMessageReady();
         systemContentSchemaSupport.ensureInAppMessageBridgeLogReady();
 
@@ -165,7 +196,8 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
                 normalizeText(sourceType),
                 normalizeText(priority),
                 normalizeText(channelCode),
-                bridgeStatus
+                bridgeStatus,
+                resolveTenantId(currentUserId)
         );
         if (total == null || total <= 0L) {
             return PageResult.empty(safePageNum, safePageSize);
@@ -179,6 +211,7 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
                 normalizeText(priority),
                 normalizeText(channelCode),
                 bridgeStatus,
+                resolveTenantId(currentUserId),
                 offset,
                 safePageSize
         );
@@ -187,11 +220,19 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
 
     @Override
     public List<InAppMessageBridgeAttemptVO> listBridgeAttempts(Long bridgeLogId) {
+        return listBridgeAttempts(null, bridgeLogId);
+    }
+
+    @Override
+    public List<InAppMessageBridgeAttemptVO> listBridgeAttempts(Long currentUserId, Long bridgeLogId) {
         if (bridgeLogId == null) {
             throw new BizException("桥接记录ID不能为空");
         }
         systemContentSchemaSupport.ensureInAppMessageBridgeAttemptLogReady();
-        List<InAppMessageBridgeAttemptVO> attempts = inAppMessageBridgeAttemptLogMapper.listAttemptsByBridgeLogId(bridgeLogId);
+        List<InAppMessageBridgeAttemptVO> attempts = inAppMessageBridgeAttemptLogMapper.listAttemptsByBridgeLogId(
+                bridgeLogId,
+                resolveTenantId(currentUserId)
+        );
         return attempts == null ? List.of() : attempts;
     }
 
@@ -211,6 +252,13 @@ public class InAppMessageBridgeQueryServiceImpl implements InAppMessageBridgeQue
             return null;
         }
         return value.trim();
+    }
+
+    private Long resolveTenantId(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        return permissionService.getDataPermissionContext(currentUserId).tenantId();
     }
 
     private String formatDateTime(Date value) {

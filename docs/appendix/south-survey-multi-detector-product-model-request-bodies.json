@@ -1,0 +1,242 @@
+[
+  {
+    "modelType": "property",
+    "identifier": "L1_QJ_1.X",
+    "modelName": "倾角测点 X 轴倾角",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"QJ\",\"sensorCode\":\"L1_QJ_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":true}",
+    "sortNo": 10,
+    "requiredFlag": 1,
+    "description": "倾角测点 X 轴与水平面的夹角，建议进入 latest 和 telemetry。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_QJ_1.Y",
+    "modelName": "倾角测点 Y 轴倾角",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"QJ\",\"sensorCode\":\"L1_QJ_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":true}",
+    "sortNo": 20,
+    "requiredFlag": 1,
+    "description": "倾角测点 Y 轴与水平面的夹角，建议进入 latest 和 telemetry。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_QJ_1.Z",
+    "modelName": "倾角测点 Z 轴倾角",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"QJ\",\"sensorCode\":\"L1_QJ_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":true}",
+    "sortNo": 30,
+    "requiredFlag": 1,
+    "description": "倾角测点 Z 轴与水平面的夹角，建议进入 latest 和 telemetry。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_QJ_1.angle",
+    "modelName": "倾角测点平面夹角",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"QJ\",\"sensorCode\":\"L1_QJ_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":true}",
+    "sortNo": 40,
+    "requiredFlag": 1,
+    "description": "X/Y 轴形成平面与水平面的夹角。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_QJ_1.AZI",
+    "modelName": "倾角测点方位角",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"QJ\",\"sensorCode\":\"L1_QJ_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":false,\"valueNature\":\"azimuth\"}",
+    "sortNo": 50,
+    "requiredFlag": 1,
+    "description": "X 轴在水平面的投影与磁北夹角。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_JS_1.gX",
+    "modelName": "加速度测点 X 轴加速度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"m/s²\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"JS\",\"sensorCode\":\"L1_JS_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":false,\"valueNature\":\"cycle_representative\",\"ruleUsage\":\"conditional\"}",
+    "sortNo": 60,
+    "requiredFlag": 1,
+    "description": "一个上传周期内绝对值最大时刻的 X 轴代表值。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_JS_1.gY",
+    "modelName": "加速度测点 Y 轴加速度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"m/s²\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"JS\",\"sensorCode\":\"L1_JS_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":false,\"valueNature\":\"cycle_representative\",\"ruleUsage\":\"conditional\"}",
+    "sortNo": 70,
+    "requiredFlag": 1,
+    "description": "一个上传周期内绝对值最大时刻的 Y 轴代表值。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_JS_1.gZ",
+    "modelName": "加速度测点 Z 轴加速度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"m/s²\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"JS\",\"sensorCode\":\"L1_JS_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":false,\"valueNature\":\"cycle_representative\",\"ruleUsage\":\"conditional\"}",
+    "sortNo": 80,
+    "requiredFlag": 1,
+    "description": "一个上传周期内绝对值最大时刻的 Z 轴代表值。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "L1_LF_1.value",
+    "modelName": "裂缝测点张开度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"mm\",\"precision\":4,\"monitorContentCode\":\"L1\",\"monitorTypeCode\":\"LF\",\"sensorCode\":\"L1_LF_1\",\"latest\":true,\"telemetry\":true,\"metricCategory\":\"telemetry\",\"coreMetric\":true,\"valueNature\":\"cumulative_change\"}",
+    "sortNo": 90,
+    "requiredFlag": 1,
+    "description": "裂缝张开度，表示累计变化量。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.battery_dump_energy",
+    "modelName": "电池剩余电量",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"%\",\"precision\":0,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 110,
+    "requiredFlag": 0,
+    "description": "电池剩余电量，用于设备健康判断。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.ext_power_volt",
+    "modelName": "外部供电电压",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"V\",\"precision\":2,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 120,
+    "requiredFlag": 0,
+    "description": "外部供电电压。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.humidity",
+    "modelName": "设备湿度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"%RH\",\"precision\":1,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 130,
+    "requiredFlag": 0,
+    "description": "终端环境湿度。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.temp",
+    "modelName": "设备温度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"℃\",\"precision\":1,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 140,
+    "requiredFlag": 0,
+    "description": "终端环境温度。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.signal_4g",
+    "modelName": "4G 信号强度",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"dBm\",\"precision\":0,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 150,
+    "requiredFlag": 0,
+    "description": "4G 通信强度。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.signal_NB",
+    "modelName": "NB 信号强度",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"dBm\",\"precision\":0,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 160,
+    "requiredFlag": 0,
+    "description": "NB 通信强度。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.signal_bd",
+    "modelName": "北斗信号指标",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"-\",\"precision\":0,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 170,
+    "requiredFlag": 0,
+    "description": "北斗通信或定位相关状态指标。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.solar_volt",
+    "modelName": "太阳能电压",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"V\",\"precision\":2,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false}",
+    "sortNo": 180,
+    "requiredFlag": 0,
+    "description": "太阳能供电电压。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.sw_version",
+    "modelName": "软件版本",
+    "dataType": "string",
+    "specsJson": "{\"unit\":\"-\",\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false,\"valueNature\":\"version\"}",
+    "sortNo": 190,
+    "requiredFlag": 0,
+    "description": "固件或软件版本号。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.pa_state",
+    "modelName": "PA 状态",
+    "dataType": "bool",
+    "specsJson": "{\"unit\":\"-\",\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"coreMetric\":false,\"valueNature\":\"boolean_state\"}",
+    "sortNo": 200,
+    "requiredFlag": 0,
+    "description": "设备开关类状态。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.lat",
+    "modelName": "纬度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":6,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"location\",\"coreMetric\":false}",
+    "sortNo": 210,
+    "requiredFlag": 0,
+    "description": "设备定位纬度。样例为字符串时也建议按 double 入正式模型。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.lon",
+    "modelName": "经度",
+    "dataType": "double",
+    "specsJson": "{\"unit\":\"°\",\"precision\":6,\"sensorCode\":\"S1_ZT_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"location\",\"coreMetric\":false}",
+    "sortNo": 220,
+    "requiredFlag": 0,
+    "description": "设备定位经度。样例为字符串时也建议按 double 入正式模型。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.sensor_state.L1_QJ_1",
+    "modelName": "倾角测点传感器状态",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"状态码\",\"sensorCode\":\"S1_ZT_1\",\"relatedSensorCode\":\"L1_QJ_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"statusDomain\":\"sensor_state\",\"coreMetric\":false}",
+    "sortNo": 230,
+    "requiredFlag": 0,
+    "description": "倾角测点健康状态码。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.sensor_state.L1_JS_1",
+    "modelName": "加速度测点传感器状态",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"状态码\",\"sensorCode\":\"S1_ZT_1\",\"relatedSensorCode\":\"L1_JS_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"statusDomain\":\"sensor_state\",\"coreMetric\":false}",
+    "sortNo": 240,
+    "requiredFlag": 0,
+    "description": "加速度测点健康状态码。"
+  },
+  {
+    "modelType": "property",
+    "identifier": "S1_ZT_1.sensor_state.L1_LF_1",
+    "modelName": "裂缝测点传感器状态",
+    "dataType": "integer",
+    "specsJson": "{\"unit\":\"状态码\",\"sensorCode\":\"S1_ZT_1\",\"relatedSensorCode\":\"L1_LF_1\",\"latest\":true,\"telemetry\":false,\"metricCategory\":\"device_status\",\"statusDomain\":\"sensor_state\",\"coreMetric\":false}",
+    "sortNo": 250,
+    "requiredFlag": 0,
+    "description": "裂缝测点健康状态码。"
+  }
+]

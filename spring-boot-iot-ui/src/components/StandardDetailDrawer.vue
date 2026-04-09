@@ -4,26 +4,54 @@
     :size="size"
     direction="rtl"
     :destroy-on-close="destroyOnClose"
-    class="standard-detail-drawer"
+    :class="['standard-detail-drawer', { 'standard-detail-drawer--header-hidden': hideHeader }]"
     @close="emit('update:modelValue', false)"
   >
     <template #header>
-      <div class="detail-drawer__header">
+      <div
+        v-if="!hideHeader"
+        :class="[
+          'detail-drawer__header',
+          { 'detail-drawer__header--title-inline': tagLayout === 'title-inline' }
+        ]"
+      >
         <div class="detail-drawer__heading">
-          <p v-if="eyebrow" class="detail-drawer__eyebrow">{{ eyebrow }}</p>
-          <h2>{{ title }}</h2>
+          <div
+            :class="[
+              'detail-drawer__title-row',
+              { 'detail-drawer__title-row--inline': tagLayout === 'title-inline' }
+            ]"
+          >
+            <h2>{{ title }}</h2>
+            <div v-if="tagLayout === 'title-inline' && tags.length" class="detail-drawer__tags detail-drawer__tags--inline">
+              <el-tag
+                v-for="tag in tags"
+                :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
+                :type="tag.type || 'info'"
+                :effect="tag.effect || 'light'"
+                round
+              >
+                {{ tag.label }}
+              </el-tag>
+            </div>
+          </div>
           <p v-if="subtitle" class="detail-drawer__subtitle">{{ subtitle }}</p>
         </div>
-        <div v-if="tags.length" class="detail-drawer__tags">
-          <el-tag
-            v-for="tag in tags"
-            :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
-            :type="tag.type || 'info'"
-            :effect="tag.effect || 'light'"
-            round
-          >
-            {{ tag.label }}
-          </el-tag>
+        <div v-if="hasHeaderAside" class="detail-drawer__aside">
+          <div v-if="tagLayout !== 'title-inline' && tags.length" class="detail-drawer__tags">
+            <el-tag
+              v-for="tag in tags"
+              :key="`${tag.label}-${tag.type || 'info'}-${tag.effect || 'light'}`"
+              :type="tag.type || 'info'"
+              :effect="tag.effect || 'light'"
+              round
+            >
+              {{ tag.label }}
+            </el-tag>
+          </div>
+          <div v-if="hasHeaderActions" class="detail-drawer__actions">
+            <slot name="header-actions" />
+          </div>
         </div>
       </div>
     </template>
@@ -46,11 +74,10 @@
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     title: string;
-    eyebrow?: string;
     subtitle?: string;
     size?: string;
     destroyOnClose?: boolean;
@@ -59,14 +86,15 @@ withDefaults(
     errorMessage?: string;
     empty?: boolean;
     emptyText?: string;
+    hideHeader?: boolean;
     tags?: Array<{
       label: string;
       type?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
       effect?: 'dark' | 'light' | 'plain';
     }>;
+    tagLayout?: 'aside' | 'title-inline';
   }>(),
   {
-    eyebrow: '',
     subtitle: '',
     size: '48rem',
     destroyOnClose: true,
@@ -75,7 +103,9 @@ withDefaults(
     errorMessage: '',
     empty: false,
     emptyText: '暂无详情数据',
-    tags: () => []
+    hideHeader: false,
+    tags: () => [],
+    tagLayout: 'aside'
   }
 );
 
@@ -85,6 +115,8 @@ const emit = defineEmits<{
 
 const slots = useSlots()
 const hasFooterSlot = computed(() => Boolean(slots.footer))
+const hasHeaderActions = computed(() => Boolean(slots['header-actions']))
+const hasHeaderAside = computed(() => hasHeaderActions.value || (props.tagLayout !== 'title-inline' && props.tags.length > 0))
 </script>
 
 <style scoped>
@@ -115,6 +147,16 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   background: transparent;
 }
 
+.standard-detail-drawer--header-hidden :deep(.el-drawer__header) {
+  display: none;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.standard-detail-drawer--header-hidden :deep(.el-drawer__body) {
+  padding-top: 28px;
+}
+
 .detail-drawer__header {
   display: flex;
   justify-content: space-between;
@@ -122,22 +164,36 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   gap: 1.25rem;
 }
 
+.detail-drawer__header--title-inline {
+  display: block;
+}
+
 .detail-drawer__heading {
   min-width: 0;
 }
 
-.detail-drawer__eyebrow {
-  margin: 0;
-  color: var(--text-caption-2);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.detail-drawer__aside {
+  display: grid;
+  justify-items: end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.detail-drawer__title-row {
+  display: block;
+}
+
+.detail-drawer__title-row--inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.9rem;
+  min-width: 0;
 }
 
 .detail-drawer__heading h2 {
-  margin: 0.45rem 0 0;
+  margin: 0;
   color: var(--text-heading);
   font-size: clamp(1.65rem, 2.2vw, 2.05rem);
   line-height: 1.2;
@@ -146,7 +202,7 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
 }
 
 .detail-drawer__subtitle {
-  margin: 0.7rem 0 0;
+  margin: 0.55rem 0 0;
   max-width: 40rem;
   color: var(--text-caption);
   font-size: 14px;
@@ -158,6 +214,30 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.6rem;
+}
+
+.detail-drawer__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.detail-drawer__tags--inline {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  min-width: 0;
+  margin-left: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.14rem;
+  scrollbar-width: none;
+}
+
+.detail-drawer__tags--inline::-webkit-scrollbar {
+  display: none;
 }
 
 .detail-drawer__tags :deep(.el-tag) {
@@ -462,7 +542,21 @@ const hasFooterSlot = computed(() => Boolean(slots.footer))
     flex-direction: column;
   }
 
+  .detail-drawer__header--title-inline {
+    flex-direction: initial;
+  }
+
+  .detail-drawer__title-row--inline {
+    align-items: flex-start;
+  }
+
   .detail-drawer__tags {
+    justify-content: flex-start;
+  }
+
+  .detail-drawer__aside,
+  .detail-drawer__actions {
+    justify-items: start;
     justify-content: flex-start;
   }
 

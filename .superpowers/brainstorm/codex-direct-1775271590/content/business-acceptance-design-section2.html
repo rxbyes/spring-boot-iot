@@ -1,0 +1,141 @@
+<h2>第 2 节：运行前配置与结果展开层级</h2>
+<p class="subtitle">目标仍然是业务人员低门槛使用，所以配置项只保留“必要可选”，结果页先给结论，再允许一键展开到模块、场景、步骤、接口和页面动作。</p>
+
+<div class="section">
+  <div class="label">运行前配置原则</div>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>保留的配置</h4>
+      <ul>
+        <li>环境：dev / test / 指定验收环境</li>
+        <li>账号模板：产品视角、验收视角、项目经理视角</li>
+        <li>模块范围：验收包内勾选子模块</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>隐藏的专业配置</h4>
+      <ul>
+        <li>不展示执行器类型</li>
+        <li>不展示验收注册表和阻断规则细节</li>
+        <li>不展示命令行和计划编排结构</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">运行前配置草图</div>
+  <div class="mockup">
+    <div class="mockup-header">发起验收前</div>
+    <div class="mockup-body">
+      <div class="mock-nav">验收包：产品与设备</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+        <div class="card">
+          <div class="card-body">
+            <h3>环境</h3>
+            <p>默认 dev，可切换 test/指定环境</p>
+            <input class="mock-input" value="dev" />
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h3>账号模板</h3>
+            <p>按角色切换默认验收账号</p>
+            <input class="mock-input" value="验收账号模板 A" />
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h3>模块范围</h3>
+            <p>只勾当前要验收的模块子项</p>
+            <div class="options" data-multiselect>
+              <div class="option"><div class="letter">产</div><div class="content"><h3>产品</h3></div></div>
+              <div class="option"><div class="letter">设</div><div class="content"><h3>设备</h3></div></div>
+              <div class="option"><div class="letter">查</div><div class="content"><h3>查询</h3></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <strong>默认说明</strong>
+        <p class="subtitle">系统自动补齐默认环境参数、账号、已有测试数据和执行顺序，业务人员不再接触脚本计划。</p>
+      </div>
+      <button class="mock-button">开始一键验收</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">结果页层级</div>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">第一屏：业务结论</div>
+      <div class="mockup-body">
+        <div class="placeholder">本次验收：未通过</div>
+        <div class="placeholder">总模块：4</div>
+        <div class="placeholder">未通过模块：2</div>
+        <div class="placeholder">通过模块：产品与设备、平台治理基础</div>
+        <div class="placeholder">未通过模块：设备上报与链路、风险运营闭环</div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">第二屏：模块级展开</div>
+      <div class="mockup-body">
+        <div class="placeholder">模块：设备上报与链路</div>
+        <div class="placeholder">状态：未通过</div>
+        <div class="placeholder">失败场景：MQTT 上报后在线状态更新</div>
+        <div class="placeholder">建议处理：后端 / 接入链路</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">失败明细展开层级</div>
+  <div class="mockup">
+    <div class="mockup-header">一键展开失败明细</div>
+    <div class="mockup-body">
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">
+        <div class="placeholder">模块</div>
+        <div class="placeholder">场景</div>
+        <div class="placeholder">失败步骤</div>
+        <div class="placeholder">关联接口</div>
+        <div class="placeholder">页面动作</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:10px;">
+        <div class="placeholder">设备上报与链路</div>
+        <div class="placeholder">MQTT 上报</div>
+        <div class="placeholder">校验在线状态失败</div>
+        <div class="placeholder">GET /api/device/code/{deviceCode}</div>
+        <div class="placeholder">点击查询 / 查看状态字段</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:10px;">
+        <div class="placeholder">风险运营闭环</div>
+        <div class="placeholder">事件派单</div>
+        <div class="placeholder">工单状态未流转</div>
+        <div class="placeholder">POST /api/event/{id}/dispatch</div>
+        <div class="placeholder">点击派发 / 打开工单详情</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">本节关键决策</div>
+  <div class="options">
+    <div class="option" data-choice="section2-compact" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>保持轻配置</h3>
+        <p>只保留环境、账号模板、模块范围；结果页默认从“是否通过/哪些模块没过”开始，再展开失败明细。</p>
+      </div>
+    </div>
+    <div class="option" data-choice="section2-more-control" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>需要再多一点控制</h3>
+        <p>保留方向不变，但运行前还要增加更多可调项。</p>
+      </div>
+    </div>
+  </div>
+</div>

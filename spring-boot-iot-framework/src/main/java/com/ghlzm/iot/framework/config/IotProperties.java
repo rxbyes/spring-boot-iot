@@ -102,6 +102,8 @@ public class IotProperties {
         private Security security = new Security();
         private Crypto crypto = new Crypto();
         private LegacyDp legacyDp = new LegacyDp();
+        private Map<String, FamilyDefinition> familyDefinitions = new LinkedHashMap<>();
+        private Map<String, DecryptProfile> decryptProfiles = new LinkedHashMap<>();
 
         @Data
         public static class Security {
@@ -168,6 +170,28 @@ public class IotProperties {
             private Boolean familyObservabilityEnabled = Boolean.TRUE;
             private Boolean normalizerV2Enabled = Boolean.FALSE;
         }
+
+        @Data
+        public static class FamilyDefinition {
+            private String familyCode;
+            private String protocolCode;
+            private String displayName;
+            private String decryptProfileCode;
+            private String signAlgorithm;
+            private String normalizationStrategy;
+            private Boolean enabled = Boolean.TRUE;
+        }
+
+        @Data
+        public static class DecryptProfile {
+            private String profileCode;
+            private String algorithm;
+            private String merchantSource;
+            private String merchantKey;
+            private String transformation;
+            private String signatureSecret;
+            private Boolean enabled = Boolean.TRUE;
+        }
     }
 
     @Data
@@ -190,6 +214,7 @@ public class IotProperties {
         private Raw raw = new Raw();
         private Latest latest = new Latest();
         private Aggregate aggregate = new Aggregate();
+        private ColdArchive coldArchive = new ColdArchive();
         private LegacyMirror legacyMirror = new LegacyMirror();
         private ReadRouting readRouting = new ReadRouting();
         private TenantRouting tenantRouting = new TenantRouting();
@@ -210,6 +235,11 @@ public class IotProperties {
             private Boolean enabled = Boolean.FALSE;
             private Boolean hourlyEnabled = Boolean.FALSE;
             private Boolean dailyEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class ColdArchive {
+            private Boolean enabled = Boolean.FALSE;
         }
 
         @Data
@@ -251,7 +281,7 @@ public class IotProperties {
         private Integer offlineTimeoutLockTtlSeconds = 90;
         /**
          * 基准站设备编码 -> 逻辑子设备编码 -> 实际子设备 deviceCode。
-         * 当前用于兼容“基准站一包多测点”的历史上报场景。
+         * 当前仅作为 legacy `$dp` 关系注册缺失时的兼容兜底，不再作为正式主数据来源。
          */
         private Map<String, Map<String, String>> subDeviceMappings = new LinkedHashMap<>();
     }
@@ -362,6 +392,8 @@ public class IotProperties {
             private MqttDisconnect mqttDisconnect = new MqttDisconnect();
             private FailureStage failureStage = new FailureStage();
             private InAppBridge inAppBridge = new InAppBridge();
+            private RiskGovernanceMissingPolicy riskGovernanceMissingPolicy = new RiskGovernanceMissingPolicy();
+            private RiskGovernanceOpsAlerts riskGovernanceOpsAlerts = new RiskGovernanceOpsAlerts();
 
             @Data
             public static class SystemError {
@@ -388,6 +420,20 @@ public class IotProperties {
                 private Boolean enabled = Boolean.TRUE;
                 private Integer windowMinutes = 10;
                 private Integer threshold = 3;
+            }
+
+            @Data
+            public static class RiskGovernanceMissingPolicy {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer threshold = 3;
+            }
+
+            @Data
+            public static class RiskGovernanceOpsAlerts {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer fieldDriftThreshold = 1;
+                private Integer contractDiffThreshold = 1;
+                private Integer missingRiskMetricThreshold = 1;
             }
         }
 

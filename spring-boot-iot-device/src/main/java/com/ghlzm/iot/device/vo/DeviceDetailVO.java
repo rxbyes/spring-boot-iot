@@ -18,6 +18,9 @@ public class DeviceDetailVO {
     private Long productId;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Long orgId;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long gatewayId;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
@@ -29,6 +32,8 @@ public class DeviceDetailVO {
     private String productKey;
 
     private String productName;
+
+    private String orgName;
 
     private String gatewayDeviceCode;
 

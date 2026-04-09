@@ -95,7 +95,6 @@ const resolvedTone = computed<ButtonTone>(() => {
   }
   return actionDefaults[props.action].tone
 })
-
 const classes = computed(() => [
   `standard-button--${props.action}`,
   `standard-button--tone-${resolvedTone.value}`,

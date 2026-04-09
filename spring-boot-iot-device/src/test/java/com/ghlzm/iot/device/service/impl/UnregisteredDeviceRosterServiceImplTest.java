@@ -70,7 +70,7 @@ class UnregisteredDeviceRosterServiceImplTest {
                     return 1L;
                 });
 
-        long total = service.countByFilters("obs-product", null);
+        long total = service.countByFilters(null, "obs-product", null, null);
 
         assertEquals(2L, total);
     }
@@ -148,7 +148,7 @@ class UnregisteredDeviceRosterServiceImplTest {
                     );
                 });
 
-        List<DevicePageVO> records = service.listByFilters("obs-product", null, 0L, 10L);
+        List<DevicePageVO> records = service.listByFilters(null, "obs-product", null, null, 0L, 10L);
 
         assertEquals(List.of("shadow-dup", "dispatch-only-01"), records.stream().map(DevicePageVO::getDeviceCode).toList());
         assertEquals(List.of("access_error", "dispatch_failed"), records.stream().map(DevicePageVO::getAssetSourceType).toList());
@@ -194,7 +194,7 @@ class UnregisteredDeviceRosterServiceImplTest {
                     return List.of();
                 });
 
-        List<DevicePageVO> records = service.listByFilters("obs-product", "missing", 0L, 10L);
+        List<DevicePageVO> records = service.listByFilters(null, "obs-product", null, "missing", 0L, 10L);
 
         assertEquals(1, records.size());
         assertEquals("invalid_report_state", records.get(0).getAssetSourceType());

@@ -14,16 +14,32 @@ DROP TABLE IF EXISTS iot_alarm_record;
 DROP TABLE IF EXISTS emergency_plan;
 DROP TABLE IF EXISTS linkage_rule;
 DROP TABLE IF EXISTS rule_definition;
+DROP TABLE IF EXISTS risk_metric_catalog;
+DROP TABLE IF EXISTS risk_point_highway_detail;
+DROP TABLE IF EXISTS risk_point_device_pending_promotion;
+DROP TABLE IF EXISTS risk_point_device_pending_binding;
 DROP TABLE IF EXISTS risk_point_device;
 DROP TABLE IF EXISTS risk_point;
 
 DROP TABLE IF EXISTS iot_command_record;
+DROP TABLE IF EXISTS iot_device_metric_latest;
+DROP TABLE IF EXISTS iot_device_invalid_report_state;
+DROP TABLE IF EXISTS iot_device_access_error_log;
 DROP TABLE IF EXISTS iot_device_message_log;
 DROP TABLE IF EXISTS iot_device_property;
+DROP TABLE IF EXISTS iot_device_relation;
+DROP TABLE IF EXISTS iot_device_online_session;
 DROP TABLE IF EXISTS iot_device;
+DROP TABLE IF EXISTS iot_product_contract_release_batch;
+DROP TABLE IF EXISTS iot_vendor_metric_evidence;
+DROP TABLE IF EXISTS iot_normative_metric_definition;
 DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product;
 
+DROP TABLE IF EXISTS iot_governance_ops_alert;
+DROP TABLE IF EXISTS iot_governance_work_item;
+DROP TABLE IF EXISTS sys_governance_approval_transition;
+DROP TABLE IF EXISTS sys_governance_approval_order;
 DROP TABLE IF EXISTS sys_audit_log;
 DROP TABLE IF EXISTS sys_help_document;
 DROP TABLE IF EXISTS sys_in_app_message_bridge_attempt_log;
@@ -65,6 +81,7 @@ CREATE TABLE sys_tenant (
 CREATE TABLE sys_user (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    org_id BIGINT DEFAULT NULL COMMENT '主机构ID',
     username VARCHAR(64) NOT NULL COMMENT '用户名',
     password VARCHAR(255) NOT NULL COMMENT '密码',
     nickname VARCHAR(64) DEFAULT NULL COMMENT '昵称',
@@ -84,6 +101,7 @@ CREATE TABLE sys_user (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_username_tenant (tenant_id, username),
+    KEY idx_user_org_id (org_id),
     KEY idx_phone (phone),
     KEY idx_email (email),
     KEY idx_user_deleted_status_create_time (deleted, status, create_time, id)
@@ -95,6 +113,7 @@ CREATE TABLE sys_role (
     role_name VARCHAR(100) NOT NULL COMMENT '角色名称',
     role_code VARCHAR(100) NOT NULL COMMENT '角色编码',
     description VARCHAR(500) DEFAULT NULL COMMENT '角色描述',
+    data_scope_type VARCHAR(32) NOT NULL DEFAULT 'TENANT' COMMENT '数据范围类型',
     status TINYINT NOT NULL DEFAULT 1 COMMENT '状态',
     create_by BIGINT DEFAULT NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -426,6 +445,114 @@ CREATE TABLE sys_audit_log (
     KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志表';
 
+
+CREATE TABLE sys_governance_approval_order (
+    id BIGINT NOT NULL COMMENT 'approval order id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    action_code VARCHAR(64) NOT NULL COMMENT 'approval action code',
+    action_name VARCHAR(128) DEFAULT NULL COMMENT 'approval action name',
+    subject_type VARCHAR(64) DEFAULT NULL COMMENT 'approval subject type',
+    subject_id BIGINT DEFAULT NULL COMMENT 'approval subject id',
+    status VARCHAR(32) NOT NULL COMMENT 'approval status',
+    operator_user_id BIGINT NOT NULL COMMENT 'operator user id',
+    approver_user_id BIGINT NOT NULL COMMENT 'approver user id',
+    payload_json LONGTEXT DEFAULT NULL COMMENT 'approval payload',
+    approval_comment VARCHAR(500) DEFAULT NULL COMMENT 'approval comment',
+    approved_time DATETIME DEFAULT NULL COMMENT 'approved time',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),
+    KEY idx_governance_approval_order_status_time (status, create_time, deleted),
+    KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval order';
+
+CREATE TABLE sys_governance_approval_transition (
+    id BIGINT NOT NULL COMMENT 'approval transition id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    order_id BIGINT NOT NULL COMMENT 'approval order id',
+    from_status VARCHAR(32) DEFAULT NULL COMMENT 'from status',
+    to_status VARCHAR(32) NOT NULL COMMENT 'to status',
+    actor_user_id BIGINT NOT NULL COMMENT 'actor user id',
+    transition_comment VARCHAR(500) DEFAULT NULL COMMENT 'transition comment',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
+    KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition';
+
+CREATE TABLE iot_governance_work_item (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    work_item_code VARCHAR(64) NOT NULL COMMENT '工作项编码',
+    subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE',
+    subject_id BIGINT NOT NULL COMMENT '主题ID',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
+    release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
+    approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+    work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/ACKED/BLOCKED/RESOLVED/CLOSED/CANCELLED',
+    priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT 'P1/P2/P3',
+    assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',
+    source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',
+    blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',
+    snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',
+    due_time DATETIME DEFAULT NULL COMMENT '截止时间',
+    resolved_time DATETIME DEFAULT NULL COMMENT '解决时间',
+    closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    KEY idx_governance_work_item_subject (subject_type, subject_id, work_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理与运营工作项表';
+
+CREATE TABLE iot_governance_ops_alert (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    alert_type VARCHAR(64) NOT NULL COMMENT '告警类型',
+    alert_code VARCHAR(128) NOT NULL COMMENT '告警业务编码',
+    subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE',
+    subject_id BIGINT DEFAULT NULL COMMENT '主题ID',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
+    release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+    alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/ACKED/SUPPRESSED/RESOLVED/CLOSED',
+    severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT 'INFO/WARN/CRITICAL',
+    affected_count BIGINT NOT NULL DEFAULT 0 COMMENT '影响数量',
+    alert_title VARCHAR(255) NOT NULL COMMENT '告警标题',
+    alert_message VARCHAR(1000) DEFAULT NULL COMMENT '告警内容',
+    dimension_key VARCHAR(128) DEFAULT NULL COMMENT '维度键',
+    dimension_label VARCHAR(255) DEFAULT NULL COMMENT '维度标签',
+    source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',
+    snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',
+    assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',
+    first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次出现时间',
+    last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近出现时间',
+    resolved_time DATETIME DEFAULT NULL COMMENT '恢复时间',
+    closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_governance_ops_alert_code (tenant_id, alert_type, alert_code, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理运维告警表';
+
 -- =========================
 -- 2) IoT device domain
 -- =========================
@@ -439,6 +566,7 @@ CREATE TABLE iot_product (
     data_format VARCHAR(32) NOT NULL DEFAULT 'JSON' COMMENT '数据格式',
     manufacturer VARCHAR(128) DEFAULT NULL COMMENT '厂商',
     description VARCHAR(500) DEFAULT NULL COMMENT '描述',
+    metadata_json JSON DEFAULT NULL COMMENT '产品扩展元数据',
     status TINYINT NOT NULL DEFAULT 1 COMMENT '状态',
     remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
     create_by BIGINT DEFAULT NULL,
@@ -472,9 +600,121 @@ CREATE TABLE iot_product_model (
     UNIQUE KEY uk_product_identifier (product_id, model_type, identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产品物模型表';
 
+CREATE TABLE iot_normative_metric_definition (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
+    device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',
+    identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',
+    display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',
+    unit VARCHAR(32) DEFAULT NULL COMMENT '单位',
+    precision_digits INT DEFAULT NULL COMMENT '精度',
+    monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',
+    monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',
+    risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',
+    trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许趋势分析',
+    metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '量纲',
+    threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',
+    semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',
+    gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持GIS',
+    insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持对象洞察',
+    analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持运营分析',
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',
+    version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+    metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='规范字段定义表';
+
+CREATE TABLE iot_vendor_metric_evidence (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    parent_device_code VARCHAR(64) DEFAULT NULL COMMENT '父设备编码',
+    child_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
+    raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
+    canonical_identifier VARCHAR(64) DEFAULT NULL COMMENT '建议规范字段标识',
+    logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
+    evidence_origin VARCHAR(32) NOT NULL COMMENT '证据来源',
+    sample_value VARCHAR(255) DEFAULT NULL COMMENT '样例值',
+    value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',
+    evidence_count INT NOT NULL DEFAULT 0 COMMENT '命中次数',
+    last_seen_time DATETIME DEFAULT NULL COMMENT '最后出现时间',
+    metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_vendor_metric_evidence (product_id, raw_identifier, logical_channel_code),
+    KEY idx_vendor_metric_product_seen (product_id, last_seen_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段证据表';
+
+CREATE TABLE iot_vendor_metric_mapping_rule (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    scope_type VARCHAR(32) NOT NULL COMMENT 'PRODUCT/PROTOCOL/SCENARIO',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
+    scenario_code VARCHAR(64) DEFAULT NULL COMMENT '治理场景编码',
+    device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',
+    raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
+    logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
+    relation_condition_json JSON DEFAULT NULL COMMENT '关系条件JSON',
+    normalization_rule_json JSON DEFAULT NULL COMMENT '归一化规则JSON',
+    target_normative_identifier VARCHAR(64) NOT NULL COMMENT '目标规范字段标识',
+    status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',
+    version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+    approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段映射规则表';
+
+CREATE TABLE iot_product_contract_release_batch (
+    id BIGINT NOT NULL COMMENT 'Primary key',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    product_id BIGINT NOT NULL COMMENT 'Product ID',
+    scenario_code VARCHAR(64) NOT NULL COMMENT 'Scenario code',
+    release_source VARCHAR(64) NOT NULL COMMENT 'Release source',
+    released_field_count INT NOT NULL DEFAULT 0 COMMENT 'Released field count',
+    approval_order_id BIGINT DEFAULT NULL COMMENT 'Approval order ID',
+    release_reason VARCHAR(500) DEFAULT NULL COMMENT 'Release reason',
+    release_status VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT 'RELEASED/ROLLED_BACK',
+    create_by BIGINT DEFAULT NULL COMMENT 'Operator user ID',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rollback_by BIGINT DEFAULT NULL COMMENT 'Rollback operator user ID',
+    rollback_time DATETIME DEFAULT NULL COMMENT 'Rollback time',
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_product_contract_release_product_time (product_id, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Product contract release batch';
+
+CREATE TABLE iot_product_contract_release_snapshot (
+    id BIGINT NOT NULL COMMENT 'Primary key',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    batch_id BIGINT NOT NULL COMMENT 'Release batch ID',
+    product_id BIGINT NOT NULL COMMENT 'Product ID',
+    snapshot_stage VARCHAR(32) NOT NULL COMMENT 'Snapshot stage',
+    snapshot_json JSON NOT NULL COMMENT 'Snapshot payload JSON',
+    create_by BIGINT DEFAULT NULL COMMENT 'Operator user ID',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Product contract release snapshot';
+
+
 CREATE TABLE iot_device (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    org_id BIGINT DEFAULT NULL COMMENT '所属机构ID',
+    org_name VARCHAR(128) DEFAULT NULL COMMENT '所属机构名称',
     product_id BIGINT NOT NULL COMMENT '产品ID',
     gateway_id BIGINT DEFAULT NULL COMMENT '所属网关ID',
     parent_device_id BIGINT DEFAULT NULL COMMENT '父设备ID',
@@ -506,8 +746,35 @@ CREATE TABLE iot_device (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_device_code_tenant (tenant_id, device_code),
+    KEY idx_device_tenant_org_deleted (tenant_id, org_id, deleted, last_report_time, id),
     KEY idx_device_deleted_product_stats (deleted, product_id, last_report_time, online_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
+
+CREATE TABLE iot_device_relation (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    parent_device_id BIGINT NOT NULL COMMENT '父设备ID',
+    parent_device_code VARCHAR(64) NOT NULL COMMENT '父设备编码',
+    logical_channel_code VARCHAR(64) NOT NULL COMMENT '逻辑通道编码',
+    child_device_id BIGINT NOT NULL COMMENT '子设备ID',
+    child_device_code VARCHAR(64) NOT NULL COMMENT '子设备编码',
+    child_product_id BIGINT DEFAULT NULL COMMENT '子产品ID',
+    child_product_key VARCHAR(64) DEFAULT NULL COMMENT '子产品 productKey',
+    relation_type VARCHAR(32) NOT NULL COMMENT '关系类型 collector_child/gateway_child',
+    canonicalization_strategy VARCHAR(32) NOT NULL COMMENT '归一化策略 LEGACY/LF_VALUE',
+    status_mirror_strategy VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT '状态镜像策略 NONE/SENSOR_STATE',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_relation_parent_channel (tenant_id, parent_device_id, logical_channel_code, deleted),
+    KEY idx_relation_parent_code (tenant_id, parent_device_code, enabled, deleted),
+    KEY idx_relation_child_code (tenant_id, child_device_code, enabled, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备逻辑通道关系表';
 
 CREATE TABLE iot_device_online_session (
     id BIGINT NOT NULL COMMENT '主键',
@@ -544,6 +811,29 @@ CREATE TABLE iot_device_property (
     PRIMARY KEY (id),
     UNIQUE KEY uk_device_identifier (device_id, identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备最新属性表';
+
+CREATE TABLE iot_device_metric_latest (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    tenant_id BIGINT NOT NULL COMMENT '租户ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    metric_id VARCHAR(128) NOT NULL COMMENT '指标唯一键',
+    metric_code VARCHAR(128) NOT NULL COMMENT '指标编码',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '指标名称',
+    value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',
+    value_double DOUBLE DEFAULT NULL COMMENT '浮点值',
+    value_long BIGINT DEFAULT NULL COMMENT '整型值',
+    value_bool TINYINT(1) DEFAULT NULL COMMENT '布尔值',
+    value_text TEXT DEFAULT NULL COMMENT '文本值',
+    quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量码',
+    alarm_flag TINYINT(1) DEFAULT NULL COMMENT '告警标记',
+    reported_at DATETIME DEFAULT NULL COMMENT '实际上报时间',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT 'trace id',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),
+    KEY idx_tel_latest_device_reported (device_id, reported_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='telemetry v2 latest投影表';
 
 CREATE TABLE iot_device_message_log (
     id BIGINT NOT NULL COMMENT '主键',
@@ -782,12 +1072,20 @@ CREATE TABLE risk_point (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     risk_point_code VARCHAR(64) NOT NULL COMMENT '风险点编号',
     risk_point_name VARCHAR(128) NOT NULL COMMENT '风险点名称',
+    org_id BIGINT DEFAULT NULL COMMENT '所属组织ID',
+    org_name VARCHAR(128) DEFAULT NULL COMMENT '所属组织名称',
     region_id BIGINT DEFAULT NULL COMMENT '区域ID',
     region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',
     responsible_user BIGINT DEFAULT NULL COMMENT '负责人',
     responsible_phone VARCHAR(32) DEFAULT NULL COMMENT '负责人电话',
-    risk_level VARCHAR(20) DEFAULT NULL COMMENT '风险等级',
-    description VARCHAR(512) DEFAULT NULL COMMENT '描述',
+    risk_point_level VARCHAR(16) DEFAULT NULL COMMENT '风险点档案等级 level_1/level_2/level_3',
+    current_risk_level VARCHAR(16) DEFAULT NULL COMMENT '当前风险态势等级 red/orange/yellow/blue',
+    risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',
+    risk_type VARCHAR(32) NOT NULL DEFAULT 'GENERAL' COMMENT '风险点类型 SLOPE/BRIDGE/TUNNEL/GENERAL',
+    location_text VARCHAR(255) DEFAULT NULL COMMENT '位置描述/桩号/区间',
+    longitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点经度',
+    latitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点纬度',
+    description VARCHAR(1000) DEFAULT NULL COMMENT '描述',
     status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-启用 1-停用',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
     create_by BIGINT DEFAULT NULL,
@@ -798,8 +1096,104 @@ CREATE TABLE risk_point (
     PRIMARY KEY (id),
     UNIQUE KEY uk_risk_point_code_tenant (tenant_id, risk_point_code),
     KEY idx_region (region_id),
-    KEY idx_status (status)
+    KEY idx_status (status),
+    KEY idx_risk_type_status (risk_type, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点表';
+
+CREATE TABLE risk_point_highway_detail (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    risk_point_id BIGINT NOT NULL COMMENT '风险点ID',
+    project_name VARCHAR(255) NOT NULL COMMENT '项目名称',
+    project_type VARCHAR(32) NOT NULL COMMENT '项目类型',
+    project_summary TEXT DEFAULT NULL COMMENT '项目简介',
+    route_code VARCHAR(64) NOT NULL COMMENT '路线编号',
+    route_name VARCHAR(128) DEFAULT NULL COMMENT '路线名称',
+    road_level VARCHAR(64) DEFAULT NULL COMMENT '公路等级',
+    project_risk_level VARCHAR(32) DEFAULT NULL COMMENT '项目风险等级原始值',
+    admin_region_code VARCHAR(32) DEFAULT NULL COMMENT '行政区域末级编码',
+    admin_region_path_json VARCHAR(255) DEFAULT NULL COMMENT '行政区域路径JSON',
+    maintenance_org_name VARCHAR(128) DEFAULT NULL COMMENT '管养单位名称',
+    source_row_no INT DEFAULT NULL COMMENT 'Excel来源行号',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_point_highway (risk_point_id),
+    KEY idx_route_code (route_code),
+    KEY idx_admin_region_code (admin_region_code),
+    KEY idx_project_type (project_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='高速公路风险点扩展表';
+
+CREATE TABLE risk_metric_catalog (
+    id BIGINT NOT NULL COMMENT 'Primary key',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    product_id BIGINT NOT NULL COMMENT 'Product ID',
+    release_batch_id BIGINT DEFAULT NULL COMMENT 'Source release batch ID',
+    product_model_id BIGINT DEFAULT NULL COMMENT 'Product model ID',
+    normative_identifier VARCHAR(64) DEFAULT NULL COMMENT 'Normative identifier',
+    contract_identifier VARCHAR(64) NOT NULL COMMENT 'Contract identifier',
+    risk_metric_code VARCHAR(64) NOT NULL COMMENT 'Risk metric code',
+    risk_metric_name VARCHAR(128) NOT NULL COMMENT 'Risk metric name',
+    risk_category VARCHAR(64) DEFAULT NULL COMMENT 'Risk category',
+    metric_role VARCHAR(32) DEFAULT NULL COMMENT 'Metric role',
+    lifecycle_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/RETIRED',
+    source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT 'Source scenario code',
+    metric_unit VARCHAR(32) DEFAULT NULL COMMENT 'Metric unit',
+    metric_dimension VARCHAR(64) DEFAULT NULL COMMENT 'Metric dimension',
+    threshold_type VARCHAR(32) DEFAULT NULL COMMENT 'Threshold type',
+    semantic_direction VARCHAR(32) DEFAULT NULL COMMENT 'Semantic direction',
+    threshold_direction VARCHAR(32) DEFAULT NULL COMMENT 'Threshold direction',
+    trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'Trend enabled flag',
+    gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'GIS enabled flag',
+    insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'Insight enabled flag',
+    analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'Analytics enabled flag',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT 'Enable status',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Risk metric catalog';
+
+CREATE TABLE risk_metric_linkage_binding (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
+    linkage_rule_id BIGINT NOT NULL COMMENT '联动规则ID',
+    binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/INACTIVE',
+    binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT 'AUTO_INFERRED/MANUAL_CONFIRMED/BACKFILL',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_linkage_active (tenant_id, risk_metric_id, linkage_rule_id, deleted),
+    KEY idx_risk_metric_linkage_rule (linkage_rule_id, binding_status, deleted),
+    KEY idx_risk_metric_linkage_metric (risk_metric_id, binding_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与联动规则绑定表';
+
+CREATE TABLE risk_metric_emergency_plan_binding (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
+    emergency_plan_id BIGINT NOT NULL COMMENT '应急预案ID',
+    binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/INACTIVE',
+    binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT 'AUTO_INFERRED/MANUAL_CONFIRMED/BACKFILL',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_plan_active (tenant_id, risk_metric_id, emergency_plan_id, deleted),
+    KEY idx_risk_metric_plan_rule (emergency_plan_id, binding_status, deleted),
+    KEY idx_risk_metric_plan_metric (risk_metric_id, binding_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与应急预案绑定表';
+
 
 CREATE TABLE risk_point_device (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
@@ -807,6 +1201,7 @@ CREATE TABLE risk_point_device (
     device_id BIGINT NOT NULL COMMENT '设备ID',
     device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
     device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
     metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
     metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
     default_threshold VARCHAR(64) DEFAULT NULL COMMENT '默认阈值',
@@ -819,12 +1214,73 @@ CREATE TABLE risk_point_device (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_risk_point_metric (risk_point_id, device_id, metric_identifier),
-    KEY idx_risk_device (risk_point_id, device_id)
+    KEY idx_risk_device (risk_point_id, device_id),
+    KEY idx_risk_point_device_metric_catalog (risk_metric_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备绑定表';
+
+CREATE TABLE risk_point_device_pending_binding (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    batch_no VARCHAR(64) NOT NULL COMMENT '导入批次号',
+    source_file_name VARCHAR(255) DEFAULT NULL COMMENT '来源文件名',
+    source_row_no INT NOT NULL COMMENT '来源行号',
+    risk_point_name VARCHAR(128) NOT NULL COMMENT '来源风险点名称',
+    risk_point_id BIGINT DEFAULT NULL COMMENT '匹配到的风险点ID',
+    risk_point_code VARCHAR(64) DEFAULT NULL COMMENT '匹配到的风险点编号',
+    device_code VARCHAR(64) NOT NULL COMMENT '来源设备编码',
+    device_id BIGINT DEFAULT NULL COMMENT '匹配到的设备ID',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT '匹配到的设备名称',
+    resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE' COMMENT '治理状态',
+    resolution_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',
+    metric_identifier VARCHAR(64) DEFAULT NULL COMMENT '后续补录测点标识',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '后续补录测点名称',
+    promoted_binding_id BIGINT DEFAULT NULL COMMENT '转正后的正式绑定ID',
+    promoted_time DATETIME DEFAULT NULL COMMENT '转正时间',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no),
+    KEY idx_pending_binding_status (tenant_id, resolution_status, deleted),
+    KEY idx_pending_binding_risk_device (risk_point_id, device_id, deleted),
+    KEY idx_pending_binding_device_code (tenant_id, device_code, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备待治理导入表';
+
+CREATE TABLE risk_point_device_pending_promotion (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    pending_binding_id BIGINT NOT NULL COMMENT '来源待治理记录ID',
+    risk_point_device_id BIGINT DEFAULT NULL COMMENT '正式绑定ID',
+    risk_point_id BIGINT NOT NULL COMMENT '风险点ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',
+    metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识',
+    metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',
+    promotion_status VARCHAR(32) NOT NULL COMMENT '转正结果',
+    recommendation_level VARCHAR(16) DEFAULT NULL COMMENT '推荐等级',
+    recommendation_score INT DEFAULT NULL COMMENT '推荐评分',
+    evidence_snapshot_json JSON DEFAULT NULL COMMENT '证据快照',
+    promotion_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',
+    operator_id BIGINT DEFAULT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(128) DEFAULT NULL COMMENT '操作人姓名',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_pending_promotion_pending_id (pending_binding_id),
+    KEY idx_pending_promotion_binding_id (risk_point_device_id),
+    KEY idx_pending_promotion_status (tenant_id, promotion_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备待治理转正明细表';
 
 CREATE TABLE rule_definition (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
     metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
     metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
     expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',
@@ -840,7 +1296,8 @@ CREATE TABLE rule_definition (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    KEY idx_metric_identifier (metric_identifier)
+    KEY idx_metric_identifier (metric_identifier),
+    KEY idx_rule_definition_metric_catalog (risk_metric_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='阈值规则表';
 
 CREATE TABLE linkage_rule (
@@ -862,7 +1319,8 @@ CREATE TABLE linkage_rule (
 CREATE TABLE emergency_plan (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     plan_name VARCHAR(128) NOT NULL COMMENT '预案名称',
-    risk_level VARCHAR(20) DEFAULT NULL COMMENT '风险等级',
+    alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级 red/orange/yellow/blue',
+    risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',
     description VARCHAR(512) DEFAULT NULL COMMENT '描述',
     response_steps LONGTEXT DEFAULT NULL COMMENT '响应步骤(JSON)',
     contact_list LONGTEXT DEFAULT NULL COMMENT '联系人列表(JSON)',
@@ -877,6 +1335,32 @@ CREATE TABLE emergency_plan (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应急预案表';
 
 -- 文档统一命名兼容视图
+
+DROP TABLE IF EXISTS iot_device_secret_rotation_log;
+
+CREATE TABLE iot_device_secret_rotation_log (
+    id BIGINT NOT NULL COMMENT 'Primary key',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    device_id BIGINT NOT NULL COMMENT 'Device ID',
+    device_code VARCHAR(64) NOT NULL COMMENT 'Device code',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT 'Product key',
+    rotation_batch_id VARCHAR(64) NOT NULL COMMENT 'Rotation batch ID',
+    reason VARCHAR(500) DEFAULT NULL COMMENT 'Rotation reason',
+    previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT 'Previous secret digest',
+    current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT 'Current secret digest',
+    rotated_by BIGINT NOT NULL COMMENT 'Operator user ID',
+    approved_by BIGINT NOT NULL COMMENT 'Approver user ID',
+    rotate_time DATETIME NOT NULL COMMENT 'Rotate time',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_device_rotation_device_time (device_id, rotate_time),
+    KEY idx_device_rotation_batch (rotation_batch_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Device secret rotation log';
+
 CREATE OR REPLACE VIEW iot_message_log AS
 SELECT
     id,

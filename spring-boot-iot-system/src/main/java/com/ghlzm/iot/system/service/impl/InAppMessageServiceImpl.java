@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.common.exception.BizException;
@@ -14,6 +15,7 @@ import com.ghlzm.iot.system.mapper.InAppMessageReadMapper;
 import com.ghlzm.iot.system.service.InAppMessageService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
 import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
@@ -71,7 +73,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Transactional(rollbackFor = Exception.class)
     public InAppMessage addMessage(InAppMessage message, Long operatorId) {
         systemContentSchemaSupport.ensureInAppMessageReady();
-        normalizeAndValidateMessage(message, null);
+        normalizeAndValidateMessage(message, null, resolveTenantId(operatorId, message == null ? null : message.getTenantId()));
         if (message.getCreateBy() == null) {
             message.setCreateBy(defaultOperator(operatorId));
         }
@@ -95,10 +97,25 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                                                  Integer status,
                                                  Long pageNum,
                                                  Long pageSize) {
+        return pageMessages(null, title, messageType, priority, sourceType, targetType, status, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<InAppMessage> pageMessages(Long currentUserId,
+                                                 String title,
+                                                 String messageType,
+                                                 String priority,
+                                                 String sourceType,
+                                                 String targetType,
+                                                 Integer status,
+                                                 Long pageNum,
+                                                 Long pageSize) {
         systemContentSchemaSupport.ensureInAppMessageReady();
         Page<InAppMessage> page = PageQueryUtils.buildPage(pageNum, pageSize);
+        Long tenantId = resolveTenantId(currentUserId, null);
         LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(InAppMessage::getDeleted, 0);
+        queryWrapper.eq(InAppMessage::getDeleted, 0)
+                .eq(tenantId != null, InAppMessage::getTenantId, tenantId);
         if (StringUtils.hasText(title)) {
             queryWrapper.and(wrapper -> wrapper.like(InAppMessage::getTitle, title.trim())
                     .or()
@@ -129,8 +146,8 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Transactional(rollbackFor = Exception.class)
     public void updateMessage(InAppMessage message, Long operatorId) {
         systemContentSchemaSupport.ensureInAppMessageReady();
-        InAppMessage existing = requireMessage(message == null ? null : message.getId());
-        normalizeAndValidateMessage(message, existing);
+        InAppMessage existing = requireMessage(operatorId, message == null ? null : message.getId());
+        normalizeAndValidateMessage(message, existing, existing.getTenantId());
         ensureAutomaticMessageOnlyStatusUpdate(existing, message);
         message.setTenantId(existing.getTenantId());
         message.setUpdateBy(defaultOperator(operatorId));
@@ -141,13 +158,13 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Transactional(rollbackFor = Exception.class)
     public void deleteMessage(Long id, Long operatorId) {
         systemContentSchemaSupport.ensureInAppMessageReady();
-        InAppMessage existing = requireMessage(id);
+        InAppMessage existing = requireMessage(operatorId, id);
         if (InAppMessageSupport.isAutomaticSourceType(existing.getSourceType())) {
             throw new BizException("系统自动消息只允许查看或停用");
         }
-        existing.setDeleted(1);
-        existing.setUpdateBy(defaultOperator(operatorId));
-        inAppMessageMapper.updateById(existing);
+        if (!removeById(id)) {
+            throw new BizException("站内消息删除失败");
+        }
     }
 
     @Override
@@ -166,7 +183,11 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                     .filter(message -> normalizedType.equals(message.getMessageType()))
                     .toList();
         }
-        Map<Long, InAppMessageRead> readMap = queryReadMap(userId, accessibleMessages.stream().map(InAppMessage::getId).toList());
+        Map<Long, InAppMessageRead> readMap = queryReadMap(
+                userId,
+                resolveTenantId(userId, null),
+                accessibleMessages.stream().map(InAppMessage::getId).toList()
+        );
         if (Boolean.TRUE.equals(unreadOnly)) {
             accessibleMessages = accessibleMessages.stream()
                     .filter(message -> !readMap.containsKey(message.getId()))
@@ -190,8 +211,12 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     @Override
     public InAppMessageUnreadStatsVO getMyUnreadStats(Long userId) {
         ensureMyMessageAccessReady();
-        List<InAppMessage> accessibleMessages = listAccessibleMessages(userId);
-        Map<Long, InAppMessageRead> readMap = queryReadMap(userId, accessibleMessages.stream().map(InAppMessage::getId).toList());
+        List<InAppMessage> accessibleMessages = listAccessibleMessagesForUnreadStats(userId);
+        Map<Long, InAppMessageRead> readMap = queryReadMap(
+                userId,
+                resolveTenantId(userId, null),
+                accessibleMessages.stream().map(InAppMessage::getId).toList()
+        );
         InAppMessageUnreadStatsVO stats = new InAppMessageUnreadStatsVO();
         for (InAppMessage message : accessibleMessages) {
             if (readMap.containsKey(message.getId())) {
@@ -213,7 +238,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     public InAppMessageAccessVO getMyMessageDetail(Long userId, Long id) {
         ensureMyMessageAccessReady();
         InAppMessage message = requireVisibleMessage(userId, id);
-        InAppMessageRead readRecord = queryReadRecord(userId, message.getId());
+        InAppMessageRead readRecord = queryReadRecord(userId, message.getTenantId(), message.getId());
         return toAccessVO(message, readRecord);
     }
 
@@ -222,7 +247,7 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     public void markMessageRead(Long userId, Long id) {
         ensureMyMessageAccessReady();
         InAppMessage message = requireVisibleMessage(userId, id);
-        if (queryReadRecord(userId, message.getId()) != null) {
+        if (queryReadRecord(userId, message.getTenantId(), message.getId()) != null) {
             return;
         }
         insertReadRecord(message, userId);
@@ -236,7 +261,12 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         if (accessibleMessages.isEmpty()) {
             return;
         }
-        Map<Long, InAppMessageRead> readMap = queryReadMap(userId, accessibleMessages.stream().map(InAppMessage::getId).toList());
+        Long tenantId = resolveTenantId(userId, null);
+        Map<Long, InAppMessageRead> readMap = queryReadMap(
+                userId,
+                tenantId,
+                accessibleMessages.stream().map(InAppMessage::getId).toList()
+        );
         for (InAppMessage message : accessibleMessages) {
             if (readMap.containsKey(message.getId())) {
                 continue;
@@ -250,10 +280,20 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                                                Date endTime,
                                                String messageType,
                                                String sourceType) {
+        return getMessageStats(null, startTime, endTime, messageType, sourceType);
+    }
+
+    @Override
+    public InAppMessageStatsVO getMessageStats(Long currentUserId,
+                                               Date startTime,
+                                               Date endTime,
+                                               String messageType,
+                                               String sourceType) {
         systemContentSchemaSupport.ensureInAppMessageReady();
         ensureMyMessageAccessReady();
         Date[] normalizedRange = normalizeStatsRange(startTime, endTime);
-        List<InAppMessage> messages = listMessagesForStats(normalizedRange[0], normalizedRange[1], messageType, sourceType);
+        Long tenantId = resolveTenantId(currentUserId, null);
+        List<InAppMessage> messages = listMessagesForStats(tenantId, normalizedRange[0], normalizedRange[1], messageType, sourceType);
 
         InAppMessageStatsVO stats = new InAppMessageStatsVO();
         stats.setStartTime(normalizedRange[0] == null ? null : STATS_TIME_FORMATTER.format(normalizedRange[0]));
@@ -262,12 +302,12 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
             return stats;
         }
 
-        List<User> activeUsers = userService.listUsers(null, null, null, 1);
+        List<User> activeUsers = userService.listUsers(currentUserId, null, null, null, 1);
         Map<Long, User> activeUserMap = activeUsers.stream()
                 .filter(user -> user.getId() != null)
                 .collect(Collectors.toMap(User::getId, Function.identity(), (left, right) -> left));
         Map<Long, List<RoleSummaryVO>> userRoles = permissionService.listUserRolesByUserIds(activeUserMap.keySet());
-        Set<String> readKeys = queryReadKeysByMessageIds(messages.stream().map(InAppMessage::getId).toList());
+        Set<String> readKeys = queryReadKeysByMessageIds(tenantId, messages.stream().map(InAppMessage::getId).toList());
         Map<String, InAppMessageStatsVO.TrendBucket> trendBuckets = new LinkedHashMap<>();
         Map<String, InAppMessageStatsVO.Bucket> messageTypeBuckets = new LinkedHashMap<>();
         Map<String, InAppMessageStatsVO.Bucket> sourceTypeBuckets = new LinkedHashMap<>();
@@ -331,11 +371,19 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         return stats;
     }
 
-    private void normalizeAndValidateMessage(InAppMessage message, InAppMessage existing) {
+    @Override
+    public InAppMessage getById(Long currentUserId, Long id) {
+        systemContentSchemaSupport.ensureInAppMessageReady();
+        InAppMessage message = requireMessage(id);
+        ensureMessageAccessible(currentUserId, message, "站内消息不存在或无权访问");
+        return message;
+    }
+
+    private void normalizeAndValidateMessage(InAppMessage message, InAppMessage existing, Long tenantId) {
         if (message == null) {
             throw new BizException("站内消息不能为空");
         }
-        message.setTenantId(existing == null ? defaultTenantId(message.getTenantId()) : existing.getTenantId());
+        message.setTenantId(existing == null ? defaultTenantId(tenantId) : existing.getTenantId());
         message.setMessageType(InAppMessageSupport.normalizeEnum(
                 message.getMessageType(),
                 InAppMessageSupport.ALLOWED_MESSAGE_TYPES,
@@ -405,24 +453,60 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     }
 
     private List<InAppMessage> listAccessibleMessages(Long userId) {
+        return listAccessibleMessages(userId, false, true);
+    }
+
+    private List<InAppMessage> listAccessibleMessagesForUnreadStats(Long userId) {
+        return listAccessibleMessages(userId, true, false);
+    }
+
+    private List<InAppMessage> listAccessibleMessages(Long userId, boolean lightweightSelect, boolean ordered) {
         systemContentSchemaSupport.ensureInAppMessageReady();
         UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
         Set<String> roleCodes = SystemContentAccessSupport.toUpperCaseSet(authContext.getRoleCodes());
+        Long tenantId = resolveTenantId(userId, authContext.getTenantId());
         Date now = new Date();
+        java.util.stream.Stream<InAppMessage> accessibleStream = (lightweightSelect
+                ? inAppMessageMapper.selectList(buildAccessibleMessageSummaryQuery(tenantId, now))
+                : inAppMessageMapper.selectList(buildAccessibleMessageQuery(tenantId, now, ordered))).stream()
+                .filter(message -> matchesTarget(message, userId, roleCodes))
+                .filter(Objects::nonNull);
+        if (ordered) {
+            accessibleStream = accessibleStream.sorted(accessibleMessageComparator());
+        }
+        return accessibleStream.toList();
+    }
+
+    private LambdaQueryWrapper<InAppMessage> buildAccessibleMessageQuery(Long tenantId, Date now, boolean ordered) {
         LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(InAppMessage::getDeleted, 0)
+                .eq(tenantId != null, InAppMessage::getTenantId, tenantId)
                 .eq(InAppMessage::getStatus, 1)
                 .le(InAppMessage::getPublishTime, now)
                 .and(wrapper -> wrapper.isNull(InAppMessage::getExpireTime)
                         .or()
-                        .gt(InAppMessage::getExpireTime, now))
-                .orderByAsc(InAppMessage::getSortNo)
-                .orderByDesc(InAppMessage::getPublishTime)
-                .orderByDesc(InAppMessage::getId);
-        return inAppMessageMapper.selectList(queryWrapper).stream()
-                .filter(message -> matchesTarget(message, userId, roleCodes))
-                .sorted(accessibleMessageComparator())
-                .toList();
+                        .gt(InAppMessage::getExpireTime, now));
+        if (ordered) {
+            queryWrapper.orderByAsc(InAppMessage::getSortNo)
+                    .orderByDesc(InAppMessage::getPublishTime)
+                    .orderByDesc(InAppMessage::getId);
+        }
+        return queryWrapper;
+    }
+
+    private QueryWrapper<InAppMessage> buildAccessibleMessageSummaryQuery(Long tenantId, Date now) {
+        QueryWrapper<InAppMessage> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "message_type", "target_type", "target_role_codes", "target_user_ids");
+        // 壳层未读角标不需要正文和排序，只取最小字段集以减少后台自动刷新对主库的占用。
+        queryWrapper.lambda()
+                .eq(InAppMessage::getDeleted, 0)
+                .eq(tenantId != null, InAppMessage::getTenantId, tenantId)
+                .eq(InAppMessage::getStatus, 1)
+                .le(InAppMessage::getPublishTime, now)
+                .and(wrapper -> wrapper.isNull(InAppMessage::getExpireTime)
+                        .or()
+                        .gt(InAppMessage::getExpireTime, now));
+        return queryWrapper;
     }
 
     private boolean matchesTarget(InAppMessage message, Long userId, Set<String> roleCodes) {
@@ -461,33 +545,36 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         };
     }
 
-    private Map<Long, InAppMessageRead> queryReadMap(Long userId, Collection<Long> messageIds) {
+    private Map<Long, InAppMessageRead> queryReadMap(Long userId, Long tenantId, Collection<Long> messageIds) {
         if (messageIds == null || messageIds.isEmpty()) {
             return Map.of();
         }
         LambdaQueryWrapper<InAppMessageRead> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(InAppMessageRead::getUserId, userId)
+                .eq(tenantId != null, InAppMessageRead::getTenantId, tenantId)
                 .in(InAppMessageRead::getMessageId, messageIds);
         return inAppMessageReadMapper.selectList(queryWrapper).stream()
                 .filter(item -> item.getMessageId() != null)
                 .collect(Collectors.toMap(InAppMessageRead::getMessageId, Function.identity(), (left, right) -> left));
     }
 
-    private Set<String> queryReadKeysByMessageIds(Collection<Long> messageIds) {
+    private Set<String> queryReadKeysByMessageIds(Long tenantId, Collection<Long> messageIds) {
         if (messageIds == null || messageIds.isEmpty()) {
             return Set.of();
         }
         LambdaQueryWrapper<InAppMessageRead> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.in(InAppMessageRead::getMessageId, messageIds);
+        queryWrapper.eq(tenantId != null, InAppMessageRead::getTenantId, tenantId)
+                .in(InAppMessageRead::getMessageId, messageIds);
         return inAppMessageReadMapper.selectList(queryWrapper).stream()
                 .filter(item -> item.getMessageId() != null && item.getUserId() != null)
                 .map(item -> buildReadKey(item.getMessageId(), item.getUserId()))
                 .collect(Collectors.toSet());
     }
 
-    private InAppMessageRead queryReadRecord(Long userId, Long messageId) {
+    private InAppMessageRead queryReadRecord(Long userId, Long tenantId, Long messageId) {
         LambdaQueryWrapper<InAppMessageRead> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(InAppMessageRead::getUserId, userId)
+                .eq(tenantId != null, InAppMessageRead::getTenantId, tenantId)
                 .eq(InAppMessageRead::getMessageId, messageId)
                 .last("LIMIT 1");
         return inAppMessageReadMapper.selectOne(queryWrapper);
@@ -513,10 +600,17 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                 || (message.getExpireTime() != null && !message.getExpireTime().after(now))) {
             throw new BizException("站内消息不存在");
         }
+        ensureMessageAccessible(userId, message, "站内消息不存在");
         UserAuthContextVO authContext = permissionService.getUserAuthContext(userId);
         if (!matchesTarget(message, userId, SystemContentAccessSupport.toUpperCaseSet(authContext.getRoleCodes()))) {
             throw new BizException("站内消息不存在");
         }
+        return message;
+    }
+
+    private InAppMessage requireMessage(Long currentUserId, Long id) {
+        InAppMessage message = requireMessage(id);
+        ensureMessageAccessible(currentUserId, message, "站内消息不存在或无权访问");
         return message;
     }
 
@@ -596,8 +690,17 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                                                     Date endTime,
                                                     String messageType,
                                                     String sourceType) {
+        return listMessagesForStats(null, startTime, endTime, messageType, sourceType);
+    }
+
+    private List<InAppMessage> listMessagesForStats(Long tenantId,
+                                                    Date startTime,
+                                                    Date endTime,
+                                                    String messageType,
+                                                    String sourceType) {
         LambdaQueryWrapper<InAppMessage> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(InAppMessage::getDeleted, 0);
+        queryWrapper.eq(InAppMessage::getDeleted, 0)
+                .eq(tenantId != null, InAppMessage::getTenantId, tenantId);
         if (startTime != null) {
             queryWrapper.ge(InAppMessage::getPublishTime, startTime);
         }
@@ -688,6 +791,14 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
         return InAppMessageDeliverySupport.buildReadKey(messageId, userId);
     }
 
+    private Long resolveTenantId(Long currentUserId, Long fallbackTenantId) {
+        if (currentUserId == null) {
+            return fallbackTenantId;
+        }
+        DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+        return context == null ? fallbackTenantId : context.tenantId();
+    }
+
     private Long defaultTenantId(Long tenantId) {
         return tenantId == null ? InAppMessageSupport.DEFAULT_TENANT_ID : tenantId;
     }
@@ -699,6 +810,19 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
     private void ensureMyMessageAccessReady() {
         systemContentSchemaSupport.ensureInAppMessageReady();
         systemContentSchemaSupport.ensureInAppMessageReadReady();
+    }
+
+    private void ensureMessageAccessible(Long currentUserId, InAppMessage message, String errorMessage) {
+        if (currentUserId == null || message == null) {
+            return;
+        }
+        DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+        if (context == null || context.superAdmin()) {
+            return;
+        }
+        if (context.tenantId() != null && !context.tenantId().equals(message.getTenantId())) {
+            throw new BizException(errorMessage);
+        }
     }
 
     private record DeliverySnapshot(long deliveryCount, long readCount, long unreadCount) {

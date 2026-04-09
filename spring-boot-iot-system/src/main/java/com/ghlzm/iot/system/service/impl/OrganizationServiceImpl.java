@@ -7,8 +7,11 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.Organization;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.mapper.OrganizationMapper;
 import com.ghlzm.iot.system.service.OrganizationService;
+import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -22,6 +25,12 @@ import java.util.stream.Collectors;
 @Service
 public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Organization>
         implements OrganizationService {
+
+      private final PermissionService permissionService;
+
+      public OrganizationServiceImpl(PermissionService permissionService) {
+            this.permissionService = permissionService;
+      }
 
       @Override
       @Transactional(rollbackFor = Exception.class)
@@ -50,11 +59,17 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
 
       @Override
       public List<Organization> listOrganizations(Long parentId) {
+            return listOrganizations(null, parentId);
+      }
+
+      @Override
+      public List<Organization> listOrganizations(Long currentUserId, Long parentId) {
             LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(Organization::getDeleted, 0)
-                    .eq(Organization::getParentId, normalizeParentId(parentId))
-                    .orderByAsc(Organization::getSortNo)
+            queryWrapper.eq(Organization::getDeleted, 0);
+            applyOrganizationRootFilter(queryWrapper, currentUserId, parentId);
+            queryWrapper.orderByAsc(Organization::getSortNo)
                     .orderByAsc(Organization::getId);
+            applyOrganizationScope(queryWrapper, currentUserId, false);
             List<Organization> organizations = this.list(queryWrapper);
             fillHasChildren(organizations);
             return organizations;
@@ -62,8 +77,13 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
 
       @Override
       public PageResult<Organization> pageOrganizations(String orgName, String orgCode, Integer status, Long pageNum, Long pageSize) {
+            return pageOrganizations(null, orgName, orgCode, status, pageNum, pageSize);
+      }
+
+      @Override
+      public PageResult<Organization> pageOrganizations(Long currentUserId, String orgName, String orgCode, Integer status, Long pageNum, Long pageSize) {
             Page<Organization> page = PageQueryUtils.buildPage(pageNum, pageSize);
-            Page<Organization> result = page(page, buildPageQueryWrapper(orgName, orgCode, status));
+            Page<Organization> result = page(page, buildPageQueryWrapper(currentUserId, orgName, orgCode, status));
             List<Organization> records = result.getRecords();
             fillHasChildren(records);
             return PageQueryUtils.toPageResult(result);
@@ -71,26 +91,51 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
 
       @Override
       public List<Organization> listOrganizationTree() {
-            List<Organization> allOrganizations = this.list(new LambdaQueryWrapper<Organization>()
+            return listOrganizationTree(null);
+      }
+
+      @Override
+      public List<Organization> listOrganizationTree(Long currentUserId) {
+            LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
                     .eq(Organization::getDeleted, 0)
                     .orderByAsc(Organization::getSortNo)
-                    .orderByAsc(Organization::getId));
+                    .orderByAsc(Organization::getId);
+            applyOrganizationScope(queryWrapper, currentUserId, true);
+            return buildOrganizationTree(this.list(queryWrapper));
+      }
 
-            List<Organization> tree = new ArrayList<>();
-            for (Organization org : allOrganizations) {
-                  if (org.getParentId() == null || org.getParentId() == 0) {
-                        List<Organization> children = findChildren(org, allOrganizations);
-                        org.setChildren(children);
-                        org.setHasChildren(!children.isEmpty());
-                        tree.add(org);
-                  }
+      @Override
+      public List<Organization> listWritableOrganizationTree(Long currentUserId) {
+            if (currentUserId == null) {
+                  return listOrganizationTree();
             }
-            return tree;
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            Set<Long> writableOrgIds = permissionService.listWritableOrganizationIds(currentUserId);
+            if (CollectionUtils.isEmpty(writableOrgIds)) {
+                  return List.of();
+            }
+            LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
+                    .eq(Organization::getDeleted, 0)
+                    .eq(context.tenantId() != null, Organization::getTenantId, context.tenantId())
+                    .in(Organization::getId, writableOrgIds)
+                    .orderByAsc(Organization::getSortNo)
+                    .orderByAsc(Organization::getId);
+            return buildOrganizationTree(this.list(queryWrapper));
       }
 
       @Override
       public Organization getById(Long id) {
             return super.getById(id);
+      }
+
+      @Override
+      public Organization getById(Long currentUserId, Long id) {
+            Organization organization = super.getById(id);
+            if (organization == null || Integer.valueOf(1).equals(organization.getDeleted())) {
+                  return null;
+            }
+            ensureOrganizationAccessible(currentUserId, organization);
+            return organization;
       }
 
       @Override
@@ -121,12 +166,17 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
             this.removeById(id);
       }
 
-      private LambdaQueryWrapper<Organization> buildPageQueryWrapper(String orgName, String orgCode, Integer status) {
+      private LambdaQueryWrapper<Organization> buildPageQueryWrapper(Long currentUserId, String orgName, String orgCode, Integer status) {
             boolean filterMode = StringUtils.hasText(orgName) || StringUtils.hasText(orgCode) || status != null;
             LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Organization::getDeleted, 0);
             if (!filterMode) {
-                  queryWrapper.eq(Organization::getParentId, 0L);
+                  Long scopedRootOrgId = resolveScopedRootOrgId(currentUserId);
+                  if (scopedRootOrgId != null) {
+                        queryWrapper.eq(Organization::getId, scopedRootOrgId);
+                  } else {
+                        queryWrapper.eq(Organization::getParentId, 0L);
+                  }
             }
             if (StringUtils.hasText(orgName)) {
                   queryWrapper.like(Organization::getOrgName, orgName.trim());
@@ -137,8 +187,100 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
             if (status != null) {
                   queryWrapper.eq(Organization::getStatus, status);
             }
+            applyOrganizationScope(queryWrapper, currentUserId, false);
             queryWrapper.orderByAsc(Organization::getSortNo).orderByAsc(Organization::getId);
             return queryWrapper;
+      }
+
+      private void applyOrganizationRootFilter(LambdaQueryWrapper<Organization> queryWrapper, Long currentUserId, Long parentId) {
+            if (parentId != null && parentId > 0) {
+                  queryWrapper.eq(Organization::getParentId, parentId);
+                  return;
+            }
+            Long scopedRootOrgId = resolveScopedRootOrgId(currentUserId);
+            if (scopedRootOrgId != null) {
+                  queryWrapper.eq(Organization::getId, scopedRootOrgId);
+                  return;
+            }
+            queryWrapper.eq(Organization::getParentId, 0L);
+      }
+
+      private void applyOrganizationScope(LambdaQueryWrapper<Organization> queryWrapper, Long currentUserId, boolean treeMode) {
+            if (currentUserId == null) {
+                  return;
+            }
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            queryWrapper.eq(context.tenantId() != null, Organization::getTenantId, context.tenantId());
+            if (context.superAdmin()) {
+                  return;
+            }
+            if (context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+                  return;
+            }
+            if (context.dataScopeType() == DataScopeType.ORG || context.dataScopeType() == DataScopeType.SELF) {
+                  queryWrapper.eq(Organization::getId, context.orgId());
+                  return;
+            }
+            Set<Long> accessibleOrgIds = permissionService.listAccessibleOrganizationIds(currentUserId);
+            if (CollectionUtils.isEmpty(accessibleOrgIds)) {
+                  queryWrapper.eq(Organization::getId, -1L);
+                  return;
+            }
+            if (treeMode) {
+                  queryWrapper.in(Organization::getId, accessibleOrgIds);
+                  return;
+            }
+            queryWrapper.in(Organization::getId, accessibleOrgIds);
+      }
+
+      private List<Organization> buildOrganizationTree(List<Organization> allOrganizations) {
+            Set<Long> scopedIds = allOrganizations.stream()
+                    .map(Organization::getId)
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toSet());
+
+            List<Organization> tree = new ArrayList<>();
+            for (Organization org : allOrganizations) {
+                  if (org.getParentId() == null
+                          || org.getParentId() == 0
+                          || !scopedIds.contains(org.getParentId())) {
+                        List<Organization> children = findChildren(org, allOrganizations);
+                        org.setChildren(children);
+                        org.setHasChildren(!children.isEmpty());
+                        tree.add(org);
+                  }
+            }
+            return tree;
+      }
+
+      private Long resolveScopedRootOrgId(Long currentUserId) {
+            if (currentUserId == null) {
+                  return null;
+            }
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            if (context.superAdmin() || context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+                  return null;
+            }
+            return context.orgId();
+      }
+
+      private void ensureOrganizationAccessible(Long currentUserId, Organization organization) {
+            if (currentUserId == null || organization == null) {
+                  return;
+            }
+            DataPermissionContext context = permissionService.getDataPermissionContext(currentUserId);
+            if (context.superAdmin()) {
+                  return;
+            }
+            if (context.tenantId() != null && !context.tenantId().equals(organization.getTenantId())) {
+                  throw new BizException("组织不存在或无权访问");
+            }
+            if (context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+                  return;
+            }
+            if (!permissionService.listAccessibleOrganizationIds(currentUserId).contains(organization.getId())) {
+                  throw new BizException("组织不存在或无权访问");
+            }
       }
 
       private void fillHasChildren(List<Organization> organizations) {

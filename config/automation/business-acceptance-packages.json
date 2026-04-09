@@ -1,0 +1,189 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-04-04T00:00:00+08:00",
+  "packages": [
+    {
+      "packageCode": "product-device",
+      "packageName": "产品与设备",
+      "description": "覆盖产品新增、产品查询、设备新增与设备查询等基础交付验收。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "acceptance-default",
+      "modules": [
+        {
+          "moduleCode": "product-create",
+          "moduleName": "产品新增",
+          "scenarioRefs": ["auth.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "提交产品新增表单",
+            "apiRef": "POST /device/product/add",
+            "pageAction": "点击新增产品并提交",
+            "summary": "产品新增链路需要研发或测试复核。"
+          }
+        },
+        {
+          "moduleCode": "product-query",
+          "moduleName": "产品查询",
+          "scenarioRefs": ["auth.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开产品列表并检索产品",
+            "apiRef": "GET /device/product/{id}",
+            "pageAction": "输入产品关键字并查询",
+            "summary": "产品查询结果与页面展示需要复核。"
+          }
+        },
+        {
+          "moduleCode": "device-create",
+          "moduleName": "设备新增",
+          "scenarioRefs": ["auth.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "提交设备新增表单",
+            "apiRef": "POST /device/add",
+            "pageAction": "点击新增设备并提交",
+            "summary": "设备新增链路需要研发或测试复核。"
+          }
+        },
+        {
+          "moduleCode": "device-query",
+          "moduleName": "设备查询",
+          "scenarioRefs": ["auth.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开设备列表并检索设备",
+            "apiRef": "GET /device/{id}",
+            "pageAction": "输入设备编码并查询",
+            "summary": "设备查询结果与页面展示需要复核。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "device-report-link",
+      "packageName": "设备上报与链路",
+      "description": "覆盖 HTTP 或 MQTT 上报、消息日志、在线状态与链路回溯等验收模块。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "acceptance-default",
+      "modules": [
+        {
+          "moduleCode": "http-report",
+          "moduleName": "HTTP 上报验收",
+          "scenarioRefs": ["auth.browser-smoke", "message.expired-trace"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "提交 HTTP 模拟上报",
+            "apiRef": "POST /message/http/report",
+            "pageAction": "填写 HTTP 上报参数并发送",
+            "summary": "HTTP 上报链路需要结合日志与结果中心复核。"
+          }
+        },
+        {
+          "moduleCode": "mqtt-link",
+          "moduleName": "MQTT 链路回溯",
+          "scenarioRefs": ["message.expired-trace"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "查看 MQTT Trace 链路",
+            "apiRef": "GET /device/{deviceCode}/message-logs",
+            "pageAction": "进入链路追踪台并展开消息记录",
+            "summary": "MQTT 链路需要查看底层 Trace 结果。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "risk-ops-closure",
+      "packageName": "风险运营闭环",
+      "description": "覆盖告警、事件、工单和闭环复盘的风险运营验收。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "alarm-closure",
+          "moduleName": "告警闭环",
+          "scenarioRefs": ["risk.full-drill.red-chain"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "确认告警并推进闭环",
+            "apiRef": "GET /alarm-center",
+            "pageAction": "打开告警详情并执行确认/关闭",
+            "summary": "告警闭环步骤需要结合演练结果复核。"
+          }
+        },
+        {
+          "moduleCode": "event-disposal",
+          "moduleName": "事件处置",
+          "scenarioRefs": ["risk.full-drill.red-chain"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "派发并推进事件工单",
+            "apiRef": "GET /event-disposal",
+            "pageAction": "进入事件详情并执行派发或反馈",
+            "summary": "事件处置链路需要结合工单与告警状态复核。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "platform-governance",
+      "packageName": "平台治理基础",
+      "description": "覆盖组织、用户、角色与平台治理 API 冒烟验收。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "organization-governance",
+          "moduleName": "组织治理",
+          "scenarioRefs": ["system.api-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "校验组织管理接口返回",
+            "apiRef": "GET /system/organization/list",
+            "pageAction": "打开组织架构并检查树结构",
+            "summary": "组织治理结果需要结合接口返回复核。"
+          }
+        },
+        {
+          "moduleCode": "user-role-governance",
+          "moduleName": "账号与角色治理",
+          "scenarioRefs": ["system.api-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "校验用户与角色接口返回",
+            "apiRef": "GET /system/user/list",
+            "pageAction": "打开账号中心并检查角色分配结果",
+            "summary": "账号与角色治理结果需要结合接口返回复核。"
+          }
+        }
+      ]
+    }
+  ],
+  "accountTemplates": [
+    {
+      "templateCode": "acceptance-default",
+      "templateName": "验收账号模板",
+      "username": "biz_demo",
+      "roleHint": "业务验收",
+      "supportedEnvironments": ["dev", "test"]
+    },
+    {
+      "templateCode": "product-default",
+      "templateName": "产品账号模板",
+      "username": "biz_demo",
+      "roleHint": "产品协同",
+      "supportedEnvironments": ["dev", "test"]
+    },
+    {
+      "templateCode": "manager-default",
+      "templateName": "项目经理账号模板",
+      "username": "manager_demo",
+      "roleHint": "项目经理",
+      "supportedEnvironments": ["dev", "test"]
+    }
+  ]
+}

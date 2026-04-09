@@ -30,6 +30,7 @@ public class ProductAddDTO {
 
     private String description;
 
+    private String metadataJson;
+
     private Integer status;
 }
-

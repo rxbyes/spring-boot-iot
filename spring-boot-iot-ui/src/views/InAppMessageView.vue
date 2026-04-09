@@ -1,7 +1,6 @@
 <template>
   <div class="in-app-message-view sys-mgmt-view standard-list-view">
     <PanelCard
-      eyebrow="System Content"
       title="站内消息管理"
       description="统一治理通知中心的手工广播、系统自动消息来源与消费效果。"
       class="ops-hero-card"
@@ -225,32 +224,19 @@
           </template>
         </el-table-column>
         <StandardTableTextColumn prop="summary" label="摘要" :min-width="220" />
-        <el-table-column label="操作" width="220" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column
+          label="操作"
+          :width="messageActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide" wrap>
-              <StandardActionLink @click="handleView(row)">详情</StandardActionLink>
-              <StandardActionLink
-                v-if="canEditMessage(row)"
-                v-permission="'system:in-app-message:update'"
-                @click="handleEdit(row)"
-              >
-                编辑
-              </StandardActionLink>
-              <StandardActionLink
-                v-else-if="canDeactivateMessage(row)"
-                v-permission="'system:in-app-message:update'"
-                @click="handleDeactivate(row)"
-              >
-                停用
-              </StandardActionLink>
-              <StandardActionLink
-                v-if="canDeleteMessage(row)"
-                v-permission="'system:in-app-message:delete'"
-                @click="handleDelete(row)"
-              >
-                删除
-              </StandardActionLink>
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              :direct-items="getMessageRowActions(row)"
+              @command="(command) => handleMessageRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -516,11 +502,19 @@
             {{ formatValue(row.responseStatusCode) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right" :show-overflow-tooltip="false">
+        <el-table-column
+          label="操作"
+          :width="bridgeActionColumnWidth"
+          fixed="right"
+          class-name="standard-row-actions-column"
+          :show-overflow-tooltip="false"
+        >
           <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink @click="handleViewBridge(row)">桥接详情</StandardActionLink>
-            </StandardRowActions>
+            <StandardWorkbenchRowActions
+              variant="table"
+              :direct-items="bridgeRowActions"
+              @command="(command) => handleBridgeRowAction(command, row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -541,7 +535,6 @@
 
     <StandardDetailDrawer
       v-model="detailVisible"
-      eyebrow="System Content"
       :title="detailTitle"
       :subtitle="detailSubtitle"
       :tags="detailTags"
@@ -640,7 +633,6 @@
 
       <StandardDetailDrawer
         v-model="bridgeDetailVisible"
-        eyebrow="Bridge Insight"
         :title="bridgeDetailTitle"
         :subtitle="bridgeDetailSubtitle"
         :tags="bridgeDetailTags"
@@ -803,9 +795,8 @@
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护通知中心消费的站内消息编排。"
+        subtitle="通过右侧抽屉维护站内消息的标题、范围、来源和发布时间。"
         size="56rem"
         @close="handleDialogClose"
       >
@@ -985,7 +976,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import type { ChannelRecord } from '@/api/channel'
-import { CHANNEL_TYPES, listChannels } from '@/api/channel'
+import { CHANNEL_TYPES, fetchChannelTypeOptions, listChannels } from '@/api/channel'
 import type { User } from '@/api/user'
 import type { Role } from '@/api/role'
 import {
@@ -1028,13 +1019,16 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { isHandledRequestError } from '@/api/request'
 import type { ApiEnvelope, IdType } from '@/types/api'
+import { resolveWorkbenchActionColumnWidth, resolveWorkbenchActionColumnWidthByRows } from '@/utils/adaptiveActionColumn'
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { listWorkspaceCommandEntries } from '@/utils/sectionWorkspaces'
 import { formatDateTime, truncateText } from '@/utils/format'
+import { usePermissionStore } from '@/stores/permission'
 
 interface SearchFormState {
   title: string
@@ -1044,6 +1038,9 @@ interface SearchFormState {
   targetType: InAppMessageTargetType | undefined
   status: number | undefined
 }
+
+type InAppMessageRowActionCommand = 'view' | 'edit' | 'deactivate' | 'delete'
+type InAppMessageBridgeRowActionCommand = 'bridge-detail'
 
 interface BridgeSearchFormState {
   timeRange: string[]
@@ -1086,9 +1083,30 @@ const detailVisible = ref(false)
 const detailRecord = ref<InAppMessageRecord | null>(null)
 const tableData = ref<InAppMessageRecord[]>([])
 const selectedRows = ref<InAppMessageRecord[]>([])
+const permissionStore = usePermissionStore()
+const messageActionColumnWidth = computed(() =>
+  resolveWorkbenchActionColumnWidthByRows({
+    rows: tableData.value.map((row) => ({
+      directItems: getMessageRowActions(row)
+    })),
+    fallback: {
+      directItems: [
+        { command: 'view', label: '详情' },
+        { command: 'edit', label: '编辑' },
+        { command: 'deactivate', label: '停用' },
+        { command: 'delete', label: '删除' }
+      ]
+    }
+  })
+)
+const bridgeActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [{ command: 'bridge-detail', label: '桥接详情' }]
+})
+const bridgeRowActions = [{ command: 'bridge-detail' as const, label: '桥接详情' }]
 const roleOptions = ref<Role[]>([])
 const userOptions = ref<User[]>([])
 const channelOptions = ref<ChannelRecord[]>([])
+const channelTypeOptions = ref(CHANNEL_TYPES.map((item) => ({ ...item })))
 const statsRecord = ref<InAppMessageStatsRecord | null>(null)
 const bridgeStatsLoading = ref(false)
 const bridgeTableLoading = ref(false)
@@ -1152,7 +1170,7 @@ const userLabelMap = computed(() => new Map(
     .filter((item) => item.id !== undefined)
     .map((item) => [String(item.id), buildUserLabel(item)])
 ))
-const channelTypeLabelMap = computed(() => new Map(CHANNEL_TYPES.map((item) => [item.value, item.label])))
+const channelTypeLabelMap = computed(() => new Map(channelTypeOptions.value.map((item) => [item.value, item.label])))
 const editableSourceTypeOptions = computed(() =>
   IN_APP_MESSAGE_SOURCE_TYPE_OPTIONS.filter((item) => item.value === 'manual' || item.value === 'governance')
 )
@@ -1818,6 +1836,37 @@ function handleSelectionChange(rows: InAppMessageRecord[]) {
   selectedRows.value = rows
 }
 
+function getMessageRowActions(row: InAppMessageRecord) {
+  const actions: Array<{ command: InAppMessageRowActionCommand; label: string }> = [{ command: 'view', label: '详情' }]
+  if (permissionStore.hasPermission('system:in-app-message:update')) {
+    if (canEditMessage(row)) {
+      actions.push({ command: 'edit', label: '编辑' })
+    } else if (canDeactivateMessage(row)) {
+      actions.push({ command: 'deactivate', label: '停用' })
+    }
+  }
+  if (permissionStore.hasPermission('system:in-app-message:delete') && canDeleteMessage(row)) {
+    actions.push({ command: 'delete', label: '删除' })
+  }
+  return actions
+}
+
+function handleMessageRowAction(command: InAppMessageRowActionCommand, row: InAppMessageRecord) {
+  if (command === 'view') {
+    handleView(row)
+    return
+  }
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'deactivate') {
+    handleDeactivate(row)
+    return
+  }
+  handleDelete(row)
+}
+
 function syncAdvancedFilterState() {
   showAdvancedFilters.value = searchForm.targetType !== undefined || searchForm.status !== undefined
 }
@@ -1947,6 +1996,20 @@ function handleAdd() {
 function handleView(row: InAppMessageRecord) {
   detailRecord.value = row
   detailVisible.value = true
+}
+
+function handleBridgeRowAction(command: InAppMessageBridgeRowActionCommand, row: InAppMessageBridgeLogRecord) {
+  if (command === 'bridge-detail') {
+    void handleViewBridge(row)
+  }
+}
+
+async function loadChannelTypeOptions() {
+  try {
+    channelTypeOptions.value = await fetchChannelTypeOptions()
+  } catch (error) {
+    logPageError('加载渠道类型字典失败', error)
+  }
 }
 
 async function handleViewBridge(row: InAppMessageBridgeLogRecord) {
@@ -2081,6 +2144,7 @@ async function handleSubmit() {
 onMounted(() => {
   syncAppliedFilters()
   syncBridgeAppliedFilters()
+  loadChannelTypeOptions()
   loadMessagePage()
   loadStats()
   loadRoleOptions()

@@ -1,0 +1,166 @@
+<h2>自动化模块简化方向</h2>
+<p class="subtitle">目标用户：验收人员、产品、项目经理。第一阶段目标：按交付清单一键运行预置业务验收。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <div class="label">推荐方案 A</div>
+      <h3>新增“业务验收台”</h3>
+      <p>把业务人员入口从研发工场中独立出来，只保留“选择验收包 -> 一键执行 -> 查看结论”三步。</p>
+      <div class="mockup">
+        <div class="mockup-header">业务验收台首页</div>
+        <div class="mockup-body">
+          <div class="mock-nav">业务验收台 | 当前环境：dev | 默认账号已就绪</div>
+          <div class="section">
+            <strong>预置验收包</strong>
+            <div class="options">
+              <div class="option">
+                <div class="letter">1</div>
+                <div class="content"><h3>产品与设备</h3><p>新增产品 / 设备 / 查询</p></div>
+              </div>
+              <div class="option">
+                <div class="letter">2</div>
+                <div class="content"><h3>设备上报与链路</h3><p>HTTP/MQTT 上报与链路校验</p></div>
+              </div>
+            </div>
+          </div>
+          <button class="mock-button">一键执行验收</button>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>最符合非研发用户心智</li>
+            <li>能直接复用现有执行器和结果中心</li>
+            <li>第一阶段落地风险最低</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>需要新增一条业务入口链路</li>
+            <li>要维护“业务包”和“研发计划”的映射关系</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <div class="label">方案 B</div>
+      <h3>在现有工场里加“业务模式”</h3>
+      <p>不新增主入口，只在当前质量工场/执行中心里增加一个“简化模式”开关。</p>
+      <div class="mockup">
+        <div class="mockup-header">同页双模式</div>
+        <div class="mockup-body">
+          <div class="mock-nav">研发模式 | 业务模式</div>
+          <div style="display:flex;gap:12px;">
+            <div class="mock-sidebar">仍保留注册表、命令、范围</div>
+            <div class="mock-content">业务模式卡片入口</div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>改动面较小</li>
+            <li>不需要新增单独工作台</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>问题</h4>
+          <ul>
+            <li>研发语言和业务语言仍会混在一起</li>
+            <li>学习成本下降有限</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <div class="label">方案 C</div>
+      <h3>直接做 AI 自然语言验收</h3>
+      <p>让业务人员用自然语言输入“我要验收什么”，系统自动生成并执行计划。</p>
+      <div class="mockup">
+        <div class="mockup-header">AI 验收助理</div>
+        <div class="mockup-body">
+          <input class="mock-input" value="帮我验收设备新增、设备上报和告警闭环" />
+          <div class="placeholder">自动生成执行计划、参数和判定口径</div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>最智能，门槛最低</li>
+            <li>后续扩展潜力最大</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>问题</h4>
+          <ul>
+            <li>第一阶段范围过大</li>
+            <li>生成正确性和执行安全边界更复杂</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>推荐结构对比</h3>
+  <p class="subtitle">建议把“业务人员一键验收”与“研发资产编排”彻底分层，而不是继续堆在同一条链路里。</p>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">当前主链路</div>
+      <div class="mockup-body">
+        <div class="mock-nav">质量工场</div>
+        <div class="placeholder">研发工场</div>
+        <div class="placeholder">页面盘点台</div>
+        <div class="placeholder">模板台</div>
+        <div class="placeholder">计划编排台</div>
+        <div class="placeholder">执行中心</div>
+        <div class="placeholder">结果中心</div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">推荐第一阶段</div>
+      <div class="mockup-body">
+        <div class="mock-nav">质量工场</div>
+        <div class="placeholder">业务验收台</div>
+        <div class="placeholder">交付清单验收包</div>
+        <div class="placeholder">一键执行</div>
+        <div class="placeholder">业务结论卡</div>
+        <div class="placeholder">失败原因与建议处理人</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>建议的首批预置验收包</h3>
+  <div class="options" data-multiselect>
+    <div class="option" data-choice="product-device" onclick="toggleSelect(this)">
+      <div class="letter">P</div>
+      <div class="content"><h3>产品与设备</h3><p>产品新增、设备新增、查询、基础台账</p></div>
+    </div>
+    <div class="option" data-choice="message-flow" onclick="toggleSelect(this)">
+      <div class="letter">M</div>
+      <div class="content"><h3>设备上报与链路</h3><p>HTTP/MQTT 上报、消息日志、在线状态、链路追踪</p></div>
+    </div>
+    <div class="option" data-choice="risk-ops" onclick="toggleSelect(this)">
+      <div class="letter">R</div>
+      <div class="content"><h3>风险运营闭环</h3><p>告警、事件、工单、关闭闭环</p></div>
+    </div>
+    <div class="option" data-choice="governance" onclick="toggleSelect(this)">
+      <div class="letter">G</div>
+      <div class="content"><h3>平台治理基础</h3><p>组织、用户、角色、字典、通知渠道</p></div>
+    </div>
+  </div>
+</div>

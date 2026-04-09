@@ -11,12 +11,15 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Telemetry v2 raw 批量写入器。
@@ -28,6 +31,7 @@ public class TelemetryRawBatchWriter {
     private final TelemetryV2SchemaSupport schemaSupport;
     private final TelemetryV2TableNamingStrategy tableNamingStrategy;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final AtomicLong lastPersistedRowTimestampMillis = new AtomicLong();
 
     public TelemetryRawBatchWriter(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
                                    TelemetryV2SchemaSupport schemaSupport,
@@ -119,11 +123,13 @@ public class TelemetryRawBatchWriter {
     private List<Object[]> buildBatchArgs(List<TelemetryV2Point> points) {
         List<Object[]> args = new ArrayList<>();
         for (TelemetryV2Point point : points) {
+            LocalDateTime reportedAt = point.getReportedAt() == null ? LocalDateTime.now() : point.getReportedAt();
+            LocalDateTime ingestedAt = point.getIngestedAt() == null ? LocalDateTime.now() : point.getIngestedAt();
             args.add(new Object[]{
-                    Timestamp.valueOf(point.getReportedAt() == null ? LocalDateTime.now() : point.getReportedAt()),
+                    Timestamp.valueOf(resolveRowTimestamp(ingestedAt)),
                     truncate(point.getMetricId(), 128),
-                    Timestamp.valueOf(point.getReportedAt() == null ? LocalDateTime.now() : point.getReportedAt()),
-                    Timestamp.valueOf(point.getIngestedAt() == null ? LocalDateTime.now() : point.getIngestedAt()),
+                    Timestamp.valueOf(reportedAt),
+                    Timestamp.valueOf(ingestedAt),
                     point.getValueDouble(),
                     point.getValueLong(),
                     point.getValueBool(),
@@ -136,6 +142,17 @@ public class TelemetryRawBatchWriter {
             });
         }
         return args;
+    }
+
+    private LocalDateTime resolveRowTimestamp(LocalDateTime ingestedAt) {
+        // raw 趋势当前按入库时间序读取；同批冲突时再通过单调毫秒递增避免同 ts 覆盖。
+        long baseMillis = ingestedAt == null
+                ? System.currentTimeMillis()
+                : ingestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long uniqueMillis = lastPersistedRowTimestampMillis.updateAndGet(previousMillis -> {
+            return baseMillis > previousMillis ? baseMillis : previousMillis + 1;
+        });
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(uniqueMillis), ZoneId.systemDefault());
     }
 
     private String resolveMetricName(String metricCode, DevicePropertyMetadata metadata) {

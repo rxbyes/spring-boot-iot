@@ -7,11 +7,16 @@ import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpPropertyNormalizer;
+import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -45,6 +50,7 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             "topic", "clientId", "client_id", "timestamp", "ts", "header", "headers", "body", "bodies",
             "_dataFormatType", "_fileStreamLength", "_fileStreamBase64", "_firmwarePacket", "_binaryLength"
     );
+    private static final List<String> PREVIEW_EXCLUDED_BINARY_KEYS = List.of("_fileStreamBase64", "packetDataBase64");
 
     /**
      * 当前阶段协议层只需要最小 JSON 解析能力，直接在适配器内部维护 ObjectMapper，
@@ -57,13 +63,26 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     private final LegacyDpChildMessageSplitter legacyDpChildMessageSplitter;
     private final IotProperties iotProperties;
 
+    @Autowired
+    public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
+                                   IotProperties iotProperties,
+                                   ObjectProvider<LegacyDpRelationResolver> relationResolverProvider) {
+        this(legacyDpEnvelopeDecoder, iotProperties, relationResolverProvider.getIfAvailable(LegacyDpRelationResolver::noop));
+    }
+
     public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
                                    IotProperties iotProperties) {
+        this(legacyDpEnvelopeDecoder, iotProperties, LegacyDpRelationResolver.noop());
+    }
+
+    public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
+                                   IotProperties iotProperties,
+                                   LegacyDpRelationResolver relationResolver) {
         this.legacyDpEnvelopeDecoder = legacyDpEnvelopeDecoder;
         this.iotProperties = iotProperties;
         this.legacyDpFamilyResolver = new LegacyDpFamilyResolver();
         this.legacyDpPropertyNormalizer = new LegacyDpPropertyNormalizer(this.legacyDpFamilyResolver);
-        this.legacyDpChildMessageSplitter = new LegacyDpChildMessageSplitter(iotProperties);
+        this.legacyDpChildMessageSplitter = new LegacyDpChildMessageSplitter(iotProperties, relationResolver);
     }
 
     @Override
@@ -130,6 +149,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             }
 
             message.setRawPayload(decodedPayload.rawPayload());
+            ProtocolTemplateEvidence templateEvidence = normalizeResult == null
+                    ? null
+                    : normalizeResult.getTemplateEvidence();
             DeviceUpProtocolMetadata protocolMetadata = buildProtocolMetadata(
                     context,
                     decodedPayload.appId(),
@@ -139,8 +161,12 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                     normalizeResult == null
                             ? resolvedTimestamp.timestampSource()
                             : normalizeResult.getTimestampSource(),
-                    childSplitApplied
+                    childSplitApplied,
+                    templateEvidence,
+                    normalizeResult == null ? null : normalizeResult.getMetricEvidence()
             );
+            protocolMetadata.setDecryptedPayloadPreview(decodedPayload.plaintextPayload());
+            protocolMetadata.setDecodedPayloadPreview(buildDecodedPayloadPreview(message));
             message.setProtocolMetadata(protocolMetadata);
             propagateProtocolMetadataToChildren(message, protocolMetadata);
             return message;
@@ -253,7 +279,9 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
                                                            String appId,
                                                            List<String> familyCodes,
                                                            String timestampSource,
-                                                           boolean childSplitApplied) {
+                                                           boolean childSplitApplied,
+                                                           ProtocolTemplateEvidence templateEvidence,
+                                                           List<ProtocolMetricEvidence> metricEvidence) {
         DeviceUpProtocolMetadata metadata = new DeviceUpProtocolMetadata();
         metadata.setAppId(appId);
         metadata.setRouteType(resolveRouteType(context));
@@ -262,6 +290,8 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
             metadata.setTimestampSource(timestampSource);
             metadata.setChildSplitApplied(childSplitApplied);
             metadata.setNormalizationStrategy(isLegacyDpNormalizerV2Enabled() ? "LEGACY_DP" : "LEGACY_DP_COMPAT");
+            metadata.setTemplateEvidence(templateEvidence);
+            metadata.setMetricEvidence(metricEvidence == null ? List.of() : List.copyOf(metricEvidence));
         }
         return metadata;
     }
@@ -344,6 +374,66 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
         fileMetadata.remove("_fileStreamBase64");
         events.put("file", fileMetadata);
         return events;
+    }
+
+    private Map<String, Object> buildDecodedPayloadPreview(DeviceUpMessage message) {
+        Map<String, Object> preview = new LinkedHashMap<>();
+        preview.put("messageType", message.getMessageType());
+        preview.put("deviceCode", message.getDeviceCode());
+        preview.put("productKey", message.getProductKey());
+        preview.put("dataFormatType", message.getDataFormatType());
+        if (message.getProperties() != null && !message.getProperties().isEmpty()) {
+            preview.put("properties", new LinkedHashMap<>(message.getProperties()));
+        }
+        if (message.getEvents() != null && !message.getEvents().isEmpty()) {
+            preview.put("events", sanitizePreviewMap(message.getEvents()));
+        }
+        if (message.getFilePayload() != null) {
+            Map<String, Object> fileSummary = new LinkedHashMap<>();
+            fileSummary.put("fileType", message.getFilePayload().getFileType());
+            fileSummary.put("dataSetId", message.getFilePayload().getDataSetId());
+            fileSummary.put("binaryLength", message.getFilePayload().getBinaryLength());
+            preview.put("filePayload", fileSummary);
+        }
+        if (message.getChildMessages() != null && !message.getChildMessages().isEmpty()) {
+            preview.put("childMessageCount", message.getChildMessages().size());
+        }
+        return preview;
+    }
+
+    private Map<String, Object> sanitizePreviewMap(Map<String, Object> source) {
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            if (PREVIEW_EXCLUDED_BINARY_KEYS.contains(entry.getKey())) {
+                continue;
+            }
+            sanitized.put(entry.getKey(), sanitizePreviewValue(entry.getValue()));
+        }
+        return sanitized;
+    }
+
+    private Object sanitizePreviewValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> nested = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String key)) {
+                    continue;
+                }
+                if (PREVIEW_EXCLUDED_BINARY_KEYS.contains(key)) {
+                    continue;
+                }
+                nested.put(key, sanitizePreviewValue(entry.getValue()));
+            }
+            return nested;
+        }
+        if (value instanceof List<?> list) {
+            List<Object> sanitized = new ArrayList<>(list.size());
+            for (Object item : list) {
+                sanitized.add(sanitizePreviewValue(item));
+            }
+            return sanitized;
+        }
+        return value;
     }
 
     private String buildDecodeFailureMessage(Exception exception) {

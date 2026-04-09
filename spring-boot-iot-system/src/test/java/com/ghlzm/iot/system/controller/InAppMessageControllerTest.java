@@ -53,15 +53,16 @@ class InAppMessageControllerTest {
 
     @Test
     void shouldResolveAdminPageBeforeNumericDetailRoute() throws Exception {
-        when(inAppMessageService.pageMessages(null, null, null, null, null, null, 1L, 10L))
+        when(inAppMessageService.pageMessages(1L, null, null, null, null, null, null, 1L, 10L))
                 .thenReturn(PageResult.empty(1L, 10L));
 
-        mockMvc.perform(get("/api/system/in-app-message/page"))
+        mockMvc.perform(get("/api/system/in-app-message/page")
+                        .principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(inAppMessageService).pageMessages(null, null, null, null, null, null, 1L, 10L);
-        verify(inAppMessageService, never()).getById(anyLong());
+        verify(inAppMessageService).pageMessages(1L, null, null, null, null, null, null, 1L, 10L);
+        verify(inAppMessageService, never()).getById(anyLong(), anyLong());
     }
 
     @Test
@@ -95,39 +96,42 @@ class InAppMessageControllerTest {
 
     @Test
     void shouldResolveBridgeStatsBeforeNumericDetailRoute() throws Exception {
-        when(inAppMessageBridgeQueryService.getBridgeStats(null, null, null, null, null, null, null))
+        when(inAppMessageBridgeQueryService.getBridgeStats(1L, null, null, null, null, null, null, null))
                 .thenReturn(new InAppMessageBridgeStatsVO());
 
-        mockMvc.perform(get("/api/system/in-app-message/bridge/stats"))
+        mockMvc.perform(get("/api/system/in-app-message/bridge/stats")
+                        .principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(inAppMessageBridgeQueryService).getBridgeStats(null, null, null, null, null, null, null);
-        verify(inAppMessageService, never()).getById(anyLong());
+        verify(inAppMessageBridgeQueryService).getBridgeStats(1L, null, null, null, null, null, null, null);
+        verify(inAppMessageService, never()).getById(anyLong(), anyLong());
     }
 
     @Test
     void shouldResolveBridgePageBeforeNumericDetailRoute() throws Exception {
-        when(inAppMessageBridgeQueryService.pageBridgeLogs(null, null, null, null, null, null, null, 1L, 10L))
+        when(inAppMessageBridgeQueryService.pageBridgeLogs(1L, null, null, null, null, null, null, null, 1L, 10L))
                 .thenReturn(PageResult.empty(1L, 10L));
 
-        mockMvc.perform(get("/api/system/in-app-message/bridge/page"))
+        mockMvc.perform(get("/api/system/in-app-message/bridge/page")
+                        .principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(inAppMessageBridgeQueryService).pageBridgeLogs(null, null, null, null, null, null, null, 1L, 10L);
-        verify(inAppMessageService, never()).getById(anyLong());
+        verify(inAppMessageBridgeQueryService).pageBridgeLogs(1L, null, null, null, null, null, null, null, 1L, 10L);
+        verify(inAppMessageService, never()).getById(anyLong(), anyLong());
     }
 
     @Test
     void shouldResolveBridgeAttemptsBeforeNumericDetailRoute() throws Exception {
-        when(inAppMessageBridgeQueryService.listBridgeAttempts(1L)).thenReturn(List.of(new InAppMessageBridgeAttemptVO()));
+        when(inAppMessageBridgeQueryService.listBridgeAttempts(1L, 1L)).thenReturn(List.of(new InAppMessageBridgeAttemptVO()));
 
-        mockMvc.perform(get("/api/system/in-app-message/bridge/1/attempts"))
+        mockMvc.perform(get("/api/system/in-app-message/bridge/1/attempts")
+                        .principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(inAppMessageBridgeQueryService).listBridgeAttempts(1L);
-        verify(inAppMessageService, never()).getById(anyLong());
+        verify(inAppMessageBridgeQueryService).listBridgeAttempts(1L, 1L);
+        verify(inAppMessageService, never()).getById(anyLong(), anyLong());
     }
 }

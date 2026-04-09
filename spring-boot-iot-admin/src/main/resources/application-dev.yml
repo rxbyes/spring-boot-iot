@@ -1,3 +1,10 @@
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
 spring:
   datasource:
     dynamic:
@@ -5,15 +12,33 @@ spring:
       strict: false
       datasource:
         master:
-          url: ${IOT_MYSQL_URL:jdbc:mysql://8.130.107.120:3306/rm_iot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
+          url: ${IOT_MYSQL_URL:jdbc:mysql://8.130.107.120:3306/rm_iot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
           username: ${IOT_MYSQL_USERNAME:root}
           password: ${IOT_MYSQL_PASSWORD:mI8%pB1*gD}
           driver-class-name: com.mysql.cj.jdbc.Driver
+          hikari:
+            maximum-pool-size: ${IOT_MYSQL_HIKARI_MAX_POOL_SIZE:30}
+            minimum-idle: ${IOT_MYSQL_HIKARI_MIN_IDLE:5}
+            connection-timeout: ${IOT_MYSQL_HIKARI_CONNECTION_TIMEOUT_MS:30000}
+            validation-timeout: ${IOT_MYSQL_HIKARI_VALIDATION_TIMEOUT_MS:5000}
+            idle-timeout: ${IOT_MYSQL_HIKARI_IDLE_TIMEOUT_MS:180000}
+            max-lifetime: ${IOT_MYSQL_HIKARI_MAX_LIFETIME_MS:240000}
+            keepalive-time: ${IOT_MYSQL_HIKARI_KEEPALIVE_TIME_MS:120000}
+            leak-detection-threshold: ${IOT_MYSQL_HIKARI_LEAK_DETECTION_THRESHOLD_MS:20000}
+            connection-test-query: SELECT 1
         slave_1:
           url: ${IOT_TDENGINE_URL:jdbc:TAOS-RS://8.130.107.120:6041/iot}
           username: ${IOT_TDENGINE_USERNAME:root}
           password: ${IOT_TDENGINE_PASSWORD:Fc11QetNg4RX}
           driver-class-name: com.taosdata.jdbc.rs.RestfulDriver
+          hikari:
+            maximum-pool-size: ${IOT_TDENGINE_HIKARI_MAX_POOL_SIZE:8}
+            minimum-idle: ${IOT_TDENGINE_HIKARI_MIN_IDLE:1}
+            connection-timeout: ${IOT_TDENGINE_HIKARI_CONNECTION_TIMEOUT_MS:30000}
+            validation-timeout: ${IOT_TDENGINE_HIKARI_VALIDATION_TIMEOUT_MS:5000}
+            idle-timeout: ${IOT_TDENGINE_HIKARI_IDLE_TIMEOUT_MS:600000}
+            max-lifetime: ${IOT_TDENGINE_HIKARI_MAX_LIFETIME_MS:1800000}
+            keepalive-time: ${IOT_TDENGINE_HIKARI_KEEPALIVE_TIME_MS:300000}
 
   data:
     redis:
@@ -52,6 +77,11 @@ logging:
     mybatis.sql.com.ghlzm.iot.system.mapper.HelpDocumentMapper.selectList: OFF
     mybatis.sql.com.ghlzm.iot.system.mapper.InAppMessageReadMapper.selectList: OFF
     mybatis.sql.com.ghlzm.iot.system.mapper.DeviceMessageLogMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.system.mapper.RegionMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.device.mapper.DeviceMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.device.mapper.ProductModelMapper.selectList: OFF
+    mybatis.sql.com.ghlzm.iot.device.mapper.DevicePropertyMapper.selectList: OFF
 
 iot:
   security:
@@ -66,7 +96,7 @@ iot:
       - http://192.168.*:*
   mqtt:
     enabled: ${IOT_MQTT_ENABLED:true}
-#    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
+    #    broker-url: ${IOT_MQTT_BROKER_URL:tcp://8.130.107.120:1883}
     broker-url: ${IOT_MQTT_BROKER_URL:tcp://iot.ghatg.com:1883}
     # 默认共享 clientId 会在运行时追加主机/PID 后缀；如需固定值，请显式设置为自定义非默认值。
     client-id: ${IOT_MQTT_CLIENT_ID:spring-boot-iot-mqtt-consumer}
@@ -89,6 +119,23 @@ iot:
     legacy-dp:
       family-observability-enabled: ${IOT_PROTOCOL_LEGACY_DP_FAMILY_OBSERVABILITY_ENABLED:true}
       normalizer-v2-enabled: ${IOT_PROTOCOL_LEGACY_DP_NORMALIZER_V2_ENABLED:false}
+    # 协议族只负责绑定解密档案与标准化策略，商户密钥真相源仍来自 spring.cloud.aes / iot.protocol.crypto。
+    family-definitions:
+      legacy-dp-demo:
+        family-code: legacy-dp-demo
+        protocol-code: mqtt-json
+        display-name: legacy dp 示例协议族
+        decrypt-profile-code: aes-62000001
+        sign-algorithm: AES
+        normalization-strategy: legacy-dp-v1
+        enabled: true
+    decrypt-profiles:
+      aes-62000001:
+        profile-code: aes-62000001
+        algorithm: AES
+        merchant-source: SPRING_CLOUD_AES
+        merchant-key: 62000001
+        enabled: true
 
   telemetry:
     storage-type: tdengine
@@ -111,7 +158,7 @@ iot:
       retry-enabled: ${IOT_TELEMETRY_LEGACY_MIRROR_RETRY_ENABLED:false}
     read-routing:
       latest-source: ${IOT_TELEMETRY_READ_LATEST_SOURCE:v2}
-      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:legacy}
+      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:v2}
       aggregate-source: ${IOT_TELEMETRY_READ_AGGREGATE_SOURCE:v2-aggregate}
       legacy-read-fallback-enabled: ${IOT_TELEMETRY_LEGACY_READ_FALLBACK_ENABLED:true}
     tenant-routing:
@@ -164,9 +211,9 @@ iot:
       mybatis-sql-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SQL_ENABLED:true}
       mybatis-session-enabled: ${IOT_OBSERVABILITY_CONSOLE_MYBATIS_SESSION_ENABLED:true}
     diagnostic:
-#      用于承接慢 SQL 摘要
+      #      用于承接慢 SQL 摘要
       sql-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_SQL_FILE_ENABLED:true}
-#      用于承接慢 HTTP / 慢 MQTT 摘要
+      #      用于承接慢 HTTP / 慢 MQTT 摘要
       access-file-enabled: ${IOT_OBSERVABILITY_DIAGNOSTIC_ACCESS_FILE_ENABLED:true}
     performance:
       slow-sql-threshold-ms: ${IOT_OBSERVABILITY_PERFORMANCE_SLOW_SQL_THRESHOLD_MS:500}
@@ -197,6 +244,14 @@ iot:
         enabled: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_ENABLED:true}
         window-minutes: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_WINDOW_MINUTES:10}
         threshold: ${IOT_OBSERVABILITY_ALERTING_IN_APP_BRIDGE_THRESHOLD:3}
+      risk-governance-missing-policy:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_MISSING_POLICY_ENABLED:true}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_MISSING_POLICY_THRESHOLD:3}
+      risk-governance-ops-alerts:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_ENABLED:true}
+        field-drift-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_FIELD_DRIFT_THRESHOLD:1}
+        contract-diff-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_CONTRACT_DIFF_THRESHOLD:1}
+        missing-risk-metric-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_MISSING_RISK_METRIC_THRESHOLD:1}
 
   ota:
     enabled: false

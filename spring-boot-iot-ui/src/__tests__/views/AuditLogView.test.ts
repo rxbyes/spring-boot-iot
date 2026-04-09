@@ -1,4 +1,6 @@
-import { defineComponent, inject, nextTick, provide, ref } from 'vue';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -96,11 +98,11 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -162,9 +164,40 @@ const StandardButtonStub = defineComponent({
   `
 });
 
-const StandardRowActionsStub = defineComponent({
-  name: 'StandardRowActions',
-  template: '<div class="audit-log-row-actions-stub"><slot /></div>'
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label', 'items', 'disabled'],
+  emits: ['command'],
+  template: `
+    <div
+      class="audit-log-action-menu-stub"
+      :data-label="label"
+      :data-disabled="Boolean(disabled)"
+      :data-items="JSON.stringify(items || [])"
+    >
+      <button type="button">{{ label }}</button>
+    </div>
+  `
+});
+
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  emits: ['command'],
+  template: `
+    <div class="audit-log-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+      <button
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="audit-log-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
 });
 
 const StandardActionLinkStub = defineComponent({
@@ -191,19 +224,21 @@ const StandardPaginationStub = defineComponent({
 
 const AuditLogDetailDrawerStub = defineComponent({
   name: 'AuditLogDetailDrawer',
-  template: '<section class="audit-log-detail-stub" />'
+  props: ['title'],
+  template: '<section class="audit-log-detail-stub">{{ title }}</section>'
 });
 
 const CsvColumnSettingDialogStub = defineComponent({
   name: 'CsvColumnSettingDialog',
-  template: '<section class="audit-log-csv-dialog-stub" />'
+  props: ['title'],
+  template: '<section class="audit-log-csv-dialog-stub">{{ title }}</section>'
 });
 
 const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
   setup(props) {
-    provide('tableRows', ref(props.data ?? []));
+    provide('tableRows', computed(() => props.data ?? []));
     return {};
   },
   template: '<section class="audit-log-table-stub"><slot /></section>'
@@ -211,12 +246,13 @@ const ElTableStub = defineComponent({
 
 const ElTableColumnStub = defineComponent({
   name: 'ElTableColumn',
+  props: ['label', 'className', 'width'],
   setup() {
     const rows = inject('tableRows', ref([]));
     return { rows };
   },
   template: `
-    <div class="audit-log-column-stub">
+    <div class="audit-log-column-stub" :data-label="label" :data-class-name="className" :data-width="width">
       <div v-for="(row, index) in rows" :key="index">
         <slot :row="row" />
       </div>
@@ -260,14 +296,15 @@ function mountView() {
         loading: () => undefined
       },
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardChoiceGroup: StandardChoiceGroupStub,
         StandardButton: StandardButtonStub,
-        StandardRowActions: StandardRowActionsStub,
+        StandardActionMenu: StandardActionMenuStub,
+        StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
         StandardActionLink: StandardActionLinkStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
         StandardPagination: StandardPaginationStub,
@@ -329,16 +366,66 @@ describe('AuditLogView', () => {
     });
   });
 
-  it('renders the anomaly page list-first without the legacy eyebrow tier', async () => {
+  it('renders the anomaly page list-first without toolbar jump shortcuts or legacy eyebrow tiers', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
     expect(wrapper.text()).toContain('异常台账');
-    expect(wrapper.text()).toContain('链路追踪台');
-    expect(wrapper.text()).toContain('失败归档');
+    expect(wrapper.text()).toContain('追踪');
+    expect(wrapper.text()).not.toContain('链路追踪台');
+    expect(wrapper.text()).not.toContain('失败归档');
     expect(wrapper.text()).not.toContain('OBSERVABILITY DESK');
+  });
+
+  it('uses anomaly-oriented detail and export titles in system mode', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.findComponent(AuditLogDetailDrawerStub).props('title')).toBe('异常详情');
+    expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常台账导出列设置');
+  });
+
+  it('keeps refresh as the only direct toolbar action and moves export utilities into more actions', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const toolbarText = wrapper.find('.audit-log-toolbar-stub').text();
+
+    expect(toolbarText).toContain('刷新列表');
+    expect(toolbarText).toContain('更多操作');
+    expect(toolbarText).not.toContain('导出列设置');
+    expect(toolbarText).not.toContain('导出选中');
+    expect(toolbarText).not.toContain('导出当前结果');
+    expect(toolbarText).not.toContain('清空选中');
+
+    const actionMenu = wrapper.findComponent(StandardActionMenuStub);
+    expect(actionMenu.exists()).toBe(true);
+    expect(actionMenu.props('label')).toBe('更多操作');
+    expect(actionMenu.props('items')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ command: 'export-config', label: '导出列设置' }),
+        expect.objectContaining({ command: 'export-selected', label: '导出选中' }),
+        expect.objectContaining({ command: 'export-current', label: '导出当前结果' }),
+        expect.objectContaining({ command: 'clear-selection', label: '清空选中' })
+      ])
+    );
+  });
+
+  it('marks the system action column with the shared row-action class to prevent clipped trailing dots', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const actionColumn = wrapper
+      .findAll('.audit-log-column-stub')
+      .find((column) => column.attributes('data-label') === '操作');
+
+    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
+    expect(actionColumn?.attributes('data-width')).toBe('160');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
@@ -445,7 +532,7 @@ describe('AuditLogView', () => {
     }));
   });
 
-  it('persists system-log diagnostic context before jumping back to message trace', async () => {
+  it('persists system-log diagnostic context before jumping back to message trace from row actions', async () => {
     mockRoute.query = {
       traceId: 'trace-001',
       deviceCode: 'demo-device-01',
@@ -457,7 +544,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, '链路追踪台')!.trigger('click');
+    await findButtonByText(wrapper, '追踪')!.trigger('click');
     await flushPromises();
 
     expect(mockRouter.push).toHaveBeenCalledWith({
@@ -476,5 +563,15 @@ describe('AuditLogView', () => {
     expect(persisted.context.sourcePage).toBe('system-log');
     expect(persisted.context.topic).toBe('$dp');
     expect(persisted.context.reportStatus).toBe('failed');
+  });
+
+  it('uses shared workbench row actions and mobile list grammar in system mode', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../views/AuditLogView.vue'), 'utf8');
+
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('standard-list-surface');
+    expect(source).toContain('standard-mobile-record-grid');
+    expect(source).not.toContain('gap="compact"');
+    expect(source).not.toContain("gap: 'compact'");
   });
 });

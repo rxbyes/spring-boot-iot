@@ -11,4 +11,5 @@ public interface SystemErrorNotificationService {
     void notifySystemError(BackendExceptionEvent event, AuditLog auditLog);
 
     void sendTestNotification(String channelCode);
+    void sendTestNotification(Long currentUserId, String channelCode);
 }

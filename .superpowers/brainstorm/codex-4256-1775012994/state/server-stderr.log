@@ -1,0 +1,25 @@
+=E:\idea\ghatg\spring-boot-iot\.superpowers\brainstorm\codex-4256-1775012994 : 无法将“=E:\idea\ghatg\spring-boot-iot\.
+superpowers\brainstorm\codex-4256-1775012994”项识别为 cmdlet、函数、脚本文件或可运行程序的名称。请检查名称的拼写，如果
+包括路径，请确保路径正确，然后再试一次。
+所在位置 行:1 字符: 1
++ ='E:\idea\ghatg\spring-boot-iot\.superpowers\brainstorm\codex-4256-17 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (=E:\idea\ghatg\...4256-1775012994:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+=127.0.0.1 : 无法将“=127.0.0.1”项识别为 cmdlet、函数、脚本文件或可运行程序的名称。请检查名称的拼写，如果包括路径，请
+确保路径正确，然后再试一次。
+所在位置 行:1 字符: 81
++ ... \.superpowers\brainstorm\codex-4256-1775012994'; ='127.0.0.1'; ='loca ...
++                                                      ~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (=127.0.0.1:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+=localhost : 无法将“=localhost”项识别为 cmdlet、函数、脚本文件或可运行程序的名称。请检查名称的拼写，如果包括路径，请
+确保路径正确，然后再试一次。
+所在位置 行:1 字符: 95
++ ... brainstorm\codex-4256-1775012994'; ='127.0.0.1'; ='localhost'; node ' ...
++                                                      ~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (=localhost:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 

@@ -28,14 +28,24 @@ export interface MenuTreeNode {
 
 export interface UserAuthContext {
   userId: number;
+  tenantId?: number;
+  tenantName?: string;
+  orgId?: number;
+  orgName?: string;
   username: string;
+  nickname?: string;
   realName?: string;
   displayName?: string;
   phone?: string;
   email?: string;
+  avatar?: string;
   accountType?: string;
   authStatus?: string;
   loginMethods?: string[];
+  lastLoginTime?: string;
+  lastLoginIp?: string;
+  dataScopeType?: string;
+  dataScopeSummary?: string;
   superAdmin: boolean;
   homePath?: string;
   roleCodes: string[];

@@ -1,7 +1,6 @@
 package com.ghlzm.iot.alarm.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -34,6 +33,16 @@ public class RiskPoint implements Serializable {
       private String riskPointName;
 
       /**
+       * 所属组织ID
+       */
+      private Long orgId;
+
+      /**
+       * 所属组织名称
+       */
+      private String orgName;
+
+      /**
        * 区域ID
        */
       private Long regionId;
@@ -54,7 +63,17 @@ public class RiskPoint implements Serializable {
       private String responsiblePhone;
 
       /**
-       * 风险等级：critical-严重, warning-警告, info-提醒
+       * 风险点档案等级：level_1/level_2/level_3
+       */
+      private String riskPointLevel;
+
+      /**
+       * 当前风险态势等级：red-红色, orange-橙色, yellow-黄色, blue-蓝色
+       */
+      private String currentRiskLevel;
+
+      /**
+       * 历史风险等级兼容字段，过渡期保持与 currentRiskLevel 同步
        */
       private String riskLevel;
 
@@ -86,13 +105,11 @@ public class RiskPoint implements Serializable {
       /**
        * 创建人
        */
-      @TableField(exist = false)
       private Long createBy;
 
       /**
        * 更新人
        */
-      @TableField(exist = false)
       private Long updateBy;
 
       /**

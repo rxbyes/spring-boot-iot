@@ -58,63 +58,103 @@
         </StandardTableToolbar>
       </template>
 
-      <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
+      <div
+        v-loading="loading && hasRecords"
+        class="ops-list-result-panel standard-list-surface"
+        element-loading-text="正在刷新字典列表"
+        element-loading-background="var(--loading-mask-bg)"
       >
-        <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="dictCode" label="字典编码" :width="150" />
-        <StandardTableTextColumn prop="dictName" label="字典名称" :width="200" />
-        <el-table-column prop="dictType" label="字典类型" width="120">
-          <template #default="{ row }">
-            <el-tag :type="getDictTypeTag(row.dictType)">
-              {{ getDictTypeName(row.dictType) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
-        <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
-        <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink @click="handleEdit(row)">编辑</StandardActionLink>
-              <StandardActionLink @click="handleItems(row)">字典项</StandardActionLink>
-              <StandardActionLink @click="handleDelete(row)">删除</StandardActionLink>
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-if="showListSkeleton" class="ops-list-loading-state" aria-live="polite" aria-busy="true">
+          <div class="ops-list-loading-state__summary">
+            <span v-for="item in 3" :key="item" class="ops-list-loading-pulse ops-list-loading-pill" />
+          </div>
+          <div class="ops-list-loading-table ops-list-loading-table--header">
+            <span v-for="item in 6" :key="`dict-head-${item}`" class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--header" />
+          </div>
+          <div v-for="row in 5" :key="`dict-row-${row}`" class="ops-list-loading-table ops-list-loading-table--row">
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--wide" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--medium" />
+            <span class="ops-list-loading-pulse ops-list-loading-pill ops-list-loading-pill--status" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+            <span class="ops-list-loading-pulse ops-list-loading-line ops-list-loading-line--short" />
+          </div>
+        </div>
+
+        <template v-else-if="hasRecords">
+          <el-table
+            ref="tableRef"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="dictCode" label="字典编码" :width="150" />
+            <StandardTableTextColumn prop="dictName" label="字典名称" :width="200" />
+            <el-table-column prop="dictType" label="字典类型" width="120">
+              <template #default="{ row }">
+                <el-tag :type="getDictTypeTag(row.dictType)">
+                  {{ getDictTypeName(row.dictType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+                  {{ row.status === 1 ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
+            <StandardTableTextColumn prop="remark" label="备注" :min-width="180" />
+            <el-table-column
+              label="操作"
+              :width="dictActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getDictRowActions()"
+                  @command="(command) => handleDictRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <div v-else-if="!loading" class="standard-list-empty-state">
+          <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
+          <div class="standard-list-empty-state__actions">
+            <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
+            <StandardButton v-else action="refresh" @click="handleRefresh">刷新列表</StandardButton>
+          </div>
+        </div>
+      </div>
 
       <template #pagination>
-        <StandardPagination
-          v-model:current-page="pagination.pageNum"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          class="pagination"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
+        <div v-if="pagination.total > 0" class="ops-pagination">
+          <StandardPagination
+            v-model:current-page="pagination.pageNum"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="pagination"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </template>
 
       <StandardFormDrawer
         v-model="dialogVisible"
-        eyebrow="System Form"
         :title="dialogTitle"
-        subtitle="统一通过右侧抽屉维护字典分类主数据。"
+        subtitle="通过右侧抽屉维护字典分类主数据、状态与排序。"
         size="42rem"
         @close="handleDialogClose"
       >
@@ -157,9 +197,8 @@
 
       <StandardFormDrawer
         v-model="itemsDialogVisible"
-        eyebrow="Dictionary Items"
         :title="currentDictName ? `${currentDictName} 字典项` : '字典项管理'"
-        subtitle="统一通过右侧抽屉查看和维护字典项明细，支持新增、编辑、导出与刷新。"
+        subtitle="通过右侧抽屉查看和维护字典项明细，支持新增、编辑、导出与刷新。"
         size="58rem"
         @close="handleItemsDialogClose"
       >
@@ -198,12 +237,19 @@
             </template>
           </el-table-column>
           <StandardTableTextColumn prop="sortNo" label="排序" :width="80" />
-          <el-table-column label="操作" width="200" fixed="right" :show-overflow-tooltip="false">
+          <el-table-column
+            label="操作"
+            :width="dictItemActionColumnWidth"
+            fixed="right"
+            class-name="standard-row-actions-column"
+            :show-overflow-tooltip="false"
+          >
             <template #default="{ row }">
-              <StandardRowActions variant="table" gap="wide">
-                <StandardActionLink @click="handleEditItem(row)">编辑</StandardActionLink>
-                <StandardActionLink @click="handleDeleteItem(row)">删除</StandardActionLink>
-              </StandardRowActions>
+              <StandardWorkbenchRowActions
+                variant="table"
+                :direct-items="getDictItemRowActions()"
+                @command="(command) => handleDictItemRowAction(command, row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -218,9 +264,8 @@
 
       <StandardFormDrawer
         v-model="itemDialogVisible"
-        eyebrow="Dictionary Item"
         :title="itemDialogTitle"
-        :subtitle="currentDictName ? `所属字典：${currentDictName}` : '统一通过右侧抽屉维护字典项信息。'"
+        :subtitle="currentDictName ? `所属字典：${currentDictName}` : '通过右侧抽屉维护字典项名称、取值与状态。'"
         size="36rem"
         @close="handleItemDialogClose"
       >
@@ -265,10 +310,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardDrawerFooter from '@/components/StandardDrawerFooter.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
@@ -277,7 +323,9 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
+import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import {
   loadCsvColumnSelection,
   resolveCsvColumns,
@@ -302,6 +350,9 @@ import {
 } from '@/api/dict'
 import type { IdType } from '@/types/api'
 
+type DictRowActionCommand = 'edit' | 'items' | 'delete'
+type DictItemRowActionCommand = 'edit' | 'delete'
+
 const formRef = ref()
 const itemFormRef = ref()
 const tableRef = ref()
@@ -321,8 +372,9 @@ const itemsTableData = ref<DictItem[]>([])
 const selectedRows = ref<Dict[]>([])
 const selectedItemRows = ref<DictItem[]>([])
 const currentDictId = ref<IdType>()
-const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination()
+const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
 const currentDictName = ref('')
+let latestListRequestId = 0
 
 const searchForm = reactive({
   dictName: '',
@@ -389,6 +441,13 @@ const selectedExportColumnKeys = ref<string[]>(
   )
 )
 const exportColumnDialogVisible = ref(false)
+const dictActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'items', label: '字典项' },
+    { command: 'delete', label: '删除' }
+  ],
+})
 
 const itemExportColumns: CsvColumn<DictItem>[] = [
   { key: 'itemName', label: '项名称' },
@@ -411,6 +470,12 @@ const selectedItemExportColumnKeys = ref<string[]>(
   )
 )
 const itemExportColumnDialogVisible = ref(false)
+const dictItemActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: [
+    { command: 'edit', label: '编辑' },
+    { command: 'delete', label: '删除' }
+  ],
+})
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -430,8 +495,17 @@ const {
     dictType: undefined
   }
 })
+const hasRecords = computed(() => tableData.value.length > 0)
+const showListSkeleton = computed(() => loading.value && !hasRecords.value)
+const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的字典记录' : '当前还没有字典数据'))
+const emptyStateDescription = computed(() =>
+  hasAppliedFilters.value
+    ? '已生效筛选暂时没有匹配结果，可以调整筛选条件，或者直接清空当前筛选。'
+    : '当前还没有可展示的数据字典记录，建议稍后刷新，或先新增字典。'
+)
 
 const loadDictPage = async () => {
+  const requestId = ++latestListRequestId
   loading.value = true
   try {
     const res = await pageDicts({
@@ -441,13 +515,26 @@ const loadDictPage = async () => {
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize
     })
+    if (requestId !== latestListRequestId) {
+      return
+    }
     if (res.code === 200 && res.data) {
       tableData.value = applyPageResult(res.data)
+      return
     }
+    tableData.value = []
+    resetTotal()
   } catch (error) {
+    if (requestId !== latestListRequestId) {
+      return
+    }
+    tableData.value = []
+    resetTotal()
     console.error('获取字典分页失败', error)
   } finally {
-    loading.value = false
+    if (requestId === latestListRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -486,6 +573,26 @@ const handleClearAppliedFilters = () => {
 
 const handleSelectionChange = (rows: Dict[]) => {
   selectedRows.value = rows
+}
+
+function getDictRowActions() {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'items' as const, label: '字典项' },
+    { command: 'delete' as const, label: '删除' }
+  ]
+}
+
+function handleDictRowAction(command: DictRowActionCommand, row: Dict) {
+  if (command === 'edit') {
+    handleEdit(row)
+    return
+  }
+  if (command === 'items') {
+    handleItems(row)
+    return
+  }
+  handleDelete(row)
 }
 
 const clearSelection = () => {
@@ -627,6 +734,21 @@ const handleExportSelectedItems = () => {
 
 const handleExportCurrentItems = () => {
   downloadRowsAsCsv('字典项管理-当前结果.csv', itemsTableData.value, getResolvedItemExportColumns())
+}
+
+function getDictItemRowActions() {
+  return [
+    { command: 'edit' as const, label: '编辑' },
+    { command: 'delete' as const, label: '删除' }
+  ]
+}
+
+function handleDictItemRowAction(command: DictItemRowActionCommand, row: DictItem) {
+  if (command === 'edit') {
+    handleEditItem(row)
+    return
+  }
+  void handleDeleteItem(row)
 }
 
 const handleAddItem = () => {

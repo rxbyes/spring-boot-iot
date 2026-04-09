@@ -2,10 +2,12 @@ package com.ghlzm.iot.system.controller;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Menu;
 import com.ghlzm.iot.system.service.MenuService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.vo.MenuTreeNodeVO;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,8 +33,8 @@ public class MenuController {
       }
 
       @GetMapping("/tree")
-      public R<List<MenuTreeNodeVO>> listMenuTree() {
-            return R.ok(permissionService.listMenuTree());
+      public R<List<MenuTreeNodeVO>> listMenuTree(Authentication authentication) {
+            return R.ok(permissionService.listMenuTree(requireCurrentUserId(authentication)));
       }
 
       @GetMapping("/list")
@@ -40,11 +42,13 @@ public class MenuController {
                                      @RequestParam(required = false) String menuName,
                                      @RequestParam(required = false) String menuCode,
                                      @RequestParam(required = false) Integer type,
-                                     @RequestParam(required = false) Integer status) {
+                                     @RequestParam(required = false) Integer status,
+                                     Authentication authentication) {
+            Long currentUserId = requireCurrentUserId(authentication);
             if (parentId != null) {
-                  return R.ok(menuService.listMenusByParentId(parentId));
+                  return R.ok(menuService.listMenusByParentId(currentUserId, parentId));
             }
-            return R.ok(menuService.listMenus(menuName, menuCode, type, status));
+            return R.ok(menuService.listMenus(currentUserId, menuName, menuCode, type, status));
       }
 
       @GetMapping("/page")
@@ -53,29 +57,45 @@ public class MenuController {
                                            @RequestParam(required = false) Integer type,
                                            @RequestParam(required = false) Integer status,
                                            @RequestParam(defaultValue = "1") Long pageNum,
-                                           @RequestParam(defaultValue = "10") Long pageSize) {
-            return R.ok(menuService.pageMenus(menuName, menuCode, type, status, pageNum, pageSize));
+                                           @RequestParam(defaultValue = "10") Long pageSize,
+                                           Authentication authentication) {
+            return R.ok(menuService.pageMenus(
+                    requireCurrentUserId(authentication),
+                    menuName,
+                    menuCode,
+                    type,
+                    status,
+                    pageNum,
+                    pageSize
+            ));
       }
 
       @GetMapping("/{id}")
-      public R<Menu> getById(@PathVariable Long id) {
-            return R.ok(menuService.getMenuById(id));
+      public R<Menu> getById(@PathVariable Long id, Authentication authentication) {
+            return R.ok(menuService.getMenuById(requireCurrentUserId(authentication), id));
       }
 
       @PostMapping("/add")
-      public R<Menu> addMenu(@RequestBody Menu menu) {
-            return R.ok(menuService.addMenu(menu));
+      public R<Menu> addMenu(@RequestBody Menu menu, Authentication authentication) {
+            return R.ok(menuService.addMenu(requireCurrentUserId(authentication), menu));
       }
 
       @PutMapping("/update")
-      public R<Void> updateMenu(@RequestBody Menu menu) {
-            menuService.updateMenu(menu);
+      public R<Void> updateMenu(@RequestBody Menu menu, Authentication authentication) {
+            menuService.updateMenu(requireCurrentUserId(authentication), menu);
             return R.ok();
       }
 
       @DeleteMapping("/{id}")
-      public R<Void> deleteMenu(@PathVariable Long id) {
-            menuService.deleteMenu(id);
+      public R<Void> deleteMenu(@PathVariable Long id, Authentication authentication) {
+            menuService.deleteMenu(requireCurrentUserId(authentication), id);
             return R.ok();
+      }
+
+      private Long requireCurrentUserId(Authentication authentication) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+                  throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
+            }
+            return principal.userId();
       }
 }

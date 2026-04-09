@@ -7,14 +7,20 @@ import com.ghlzm.iot.system.dto.RoleMenuBindingDTO;
 import com.ghlzm.iot.system.dto.UserRoleBindingDTO;
 import com.ghlzm.iot.system.dto.UserRoleViewDTO;
 import com.ghlzm.iot.system.entity.Menu;
+import com.ghlzm.iot.system.entity.Organization;
 import com.ghlzm.iot.system.entity.Role;
+import com.ghlzm.iot.system.entity.Tenant;
 import com.ghlzm.iot.system.entity.User;
+import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.mapper.MenuMapper;
+import com.ghlzm.iot.system.mapper.OrganizationMapper;
 import com.ghlzm.iot.system.mapper.RoleMapper;
 import com.ghlzm.iot.system.mapper.RoleMenuMapper;
+import com.ghlzm.iot.system.mapper.TenantMapper;
 import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.mapper.UserRoleMapper;
 import com.ghlzm.iot.system.service.PermissionService;
+import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.vo.MenuMetaVO;
 import com.ghlzm.iot.system.vo.MenuTreeNodeVO;
 import com.ghlzm.iot.system.vo.RoleSummaryVO;
@@ -63,6 +69,8 @@ public class PermissionServiceImpl implements PermissionService {
     private final MenuMapper menuMapper;
     private final UserRoleMapper userRoleMapper;
     private final RoleMenuMapper roleMenuMapper;
+    private final TenantMapper tenantMapper;
+    private final OrganizationMapper organizationMapper;
     private final ObjectMapper objectMapper;
 
     public PermissionServiceImpl(UserMapper userMapper,
@@ -70,26 +78,26 @@ public class PermissionServiceImpl implements PermissionService {
                                  MenuMapper menuMapper,
                                  UserRoleMapper userRoleMapper,
                                  RoleMenuMapper roleMenuMapper,
+                                 TenantMapper tenantMapper,
+                                 OrganizationMapper organizationMapper,
                                  ObjectMapper objectMapper) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.menuMapper = menuMapper;
         this.userRoleMapper = userRoleMapper;
         this.roleMenuMapper = roleMenuMapper;
+        this.tenantMapper = tenantMapper;
+        this.organizationMapper = organizationMapper;
         this.objectMapper = objectMapper;
     }
 
     @Override
     public UserAuthContextVO getUserAuthContext(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
-            throw new BizException(401, "用户不存在或已失效");
-        }
-
-        List<Role> roles = loadActiveRolesByIds(userRoleMapper.selectRoleIdsByUserId(userId));
+        User user = requireActiveUser(userId);
+        List<Role> roles = loadUserRoles(userId);
         boolean superAdmin = roles.stream().anyMatch(role -> SUPER_ADMIN_ROLE_CODE.equalsIgnoreCase(role.getRoleCode()));
 
-        List<Menu> activeMenus = listActiveMenus();
+        List<Menu> activeMenus = listActiveMenus(user.getTenantId());
         Map<Long, Menu> menuMap = activeMenus.stream().collect(Collectors.toMap(Menu::getId, item -> item));
         Set<Long> grantedMenuIds;
         if (superAdmin) {
@@ -113,14 +121,25 @@ public class PermissionServiceImpl implements PermissionService {
 
         UserAuthContextVO context = new UserAuthContextVO();
         context.setUserId(user.getId());
+        context.setTenantId(user.getTenantId());
+        context.setTenantName(resolveTenantName(user.getTenantId()));
+        context.setOrgId(user.getOrgId());
+        context.setOrgName(resolveOrganizationName(user.getOrgId()));
         context.setUsername(user.getUsername());
+        context.setNickname(user.getNickname());
         context.setRealName(user.getRealName());
-        context.setDisplayName(StringUtils.hasText(user.getRealName()) ? user.getRealName() : user.getUsername());
+        context.setDisplayName(resolveDisplayName(user));
         context.setPhone(user.getPhone());
         context.setEmail(user.getEmail());
-        context.setAccountType(superAdmin ? "主账号" : "子账号");
-        context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息（待认证）" : "未填写实名信息");
+        context.setAvatar(user.getAvatar());
+        context.setLastLoginTime(user.getLastLoginTime());
+        context.setLastLoginIp(user.getLastLoginIp());
+        context.setAccountType((superAdmin || Integer.valueOf(1).equals(user.getIsAdmin())) ? "主账号" : "子账号");
+        context.setAuthStatus(StringUtils.hasText(user.getRealName()) ? "已填写实名信息" : "未填写实名信息");
         context.setLoginMethods(buildLoginMethods(user));
+        DataScopeType scopeType = superAdmin ? DataScopeType.ALL : resolveHighestScope(roles);
+        context.setDataScopeType(scopeType.name());
+        context.setDataScopeSummary(scopeType.getLabel());
         context.setSuperAdmin(superAdmin);
         context.setHomePath(resolveHomePath(roles, navigationMenus));
         context.setRoles(roles.stream().map(this::toRoleSummary).toList());
@@ -136,13 +155,69 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     @Override
+    public DataPermissionContext getDataPermissionContext(Long userId) {
+        User user = requireActiveUser(userId);
+        List<Role> roles = loadUserRoles(userId);
+        boolean superAdmin = roles.stream().anyMatch(role -> SUPER_ADMIN_ROLE_CODE.equalsIgnoreCase(role.getRoleCode()));
+        DataScopeType scopeType = superAdmin ? DataScopeType.ALL : resolveHighestScope(roles);
+        return new DataPermissionContext(user.getId(), user.getTenantId(), user.getOrgId(), scopeType, superAdmin);
+    }
+
+    @Override
+    public Set<Long> listAccessibleOrganizationIds(Long userId) {
+        DataPermissionContext context = getDataPermissionContext(userId);
+        if (context.superAdmin() || context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+            return listTenantOrganizationIds(context.tenantId());
+        }
+        if (context.orgId() == null || context.orgId() <= 0) {
+            return Set.of();
+        }
+        return switch (context.dataScopeType()) {
+            case ORG_AND_CHILDREN -> resolveOrganizationSubtreeIds(context.tenantId(), context.orgId());
+            case ORG, SELF -> Set.of(context.orgId());
+            case ALL, TENANT -> listTenantOrganizationIds(context.tenantId());
+        };
+    }
+
+    @Override
+    public Set<Long> listWritableOrganizationIds(Long userId) {
+        DataPermissionContext context = getDataPermissionContext(userId);
+        if (context.superAdmin() || context.dataScopeType() == DataScopeType.ALL || context.dataScopeType() == DataScopeType.TENANT) {
+            return listTenantOrganizationIds(context.tenantId());
+        }
+        if (context.orgId() == null || context.orgId() <= 0) {
+            return Set.of();
+        }
+        return switch (context.dataScopeType()) {
+            case ORG_AND_CHILDREN, ORG -> resolveOrganizationSubtreeIds(context.tenantId(), context.orgId());
+            case SELF -> Set.of(context.orgId());
+            case ALL, TENANT -> listTenantOrganizationIds(context.tenantId());
+        };
+    }
+
+    @Override
     public List<MenuTreeNodeVO> listMenuTree() {
-        return buildMenuTree(listActiveMenus());
+        return listMenuTree(null);
+    }
+
+    @Override
+    public List<MenuTreeNodeVO> listMenuTree(Long currentUserId) {
+        return buildMenuTree(listActiveMenus(resolveTenantId(currentUserId)));
     }
 
     @Override
     public List<Long> listRoleMenuIds(Long roleId) {
-        return roleMenuMapper.selectMenuIdsByRoleId(roleId);
+        Role role = roleMapper.selectById(roleId);
+        if (role == null || Integer.valueOf(1).equals(role.getDeleted())) {
+            return List.of();
+        }
+        Set<Long> activeMenuIds = listActiveMenus(role.getTenantId()).stream()
+                .map(Menu::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return roleMenuMapper.selectMenuIdsByRoleId(roleId).stream()
+                .filter(activeMenuIds::contains)
+                .toList();
     }
 
     @Override
@@ -153,7 +228,7 @@ public class PermissionServiceImpl implements PermissionService {
             throw new BizException("角色不存在");
         }
 
-        List<Menu> activeMenus = listActiveMenus();
+        List<Menu> activeMenus = listActiveMenus(role.getTenantId());
         Map<Long, Menu> menuMap = activeMenus.stream().collect(Collectors.toMap(Menu::getId, item -> item));
         if (menuIds != null && menuIds.stream().filter(Objects::nonNull).anyMatch(id -> !menuMap.containsKey(id))) {
             throw new BizException("部分菜单不存在或已禁用");
@@ -241,12 +316,32 @@ public class PermissionServiceImpl implements PermissionService {
         return roleMapper.selectList(wrapper);
     }
 
-    private List<Menu> listActiveMenus() {
+    private User requireActiveUser(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || Integer.valueOf(1).equals(user.getDeleted())) {
+            throw new BizException(401, "用户不存在或已失效");
+        }
+        return user;
+    }
+
+    private List<Role> loadUserRoles(Long userId) {
+        return loadActiveRolesByIds(userRoleMapper.selectRoleIdsByUserId(userId));
+    }
+
+    private List<Menu> listActiveMenus(Long tenantId) {
         LambdaQueryWrapper<Menu> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Menu::getStatus, 1)
+                .eq(tenantId != null, Menu::getTenantId, tenantId)
                 .orderByAsc(Menu::getSort)
                 .orderByAsc(Menu::getId);
         return menuMapper.selectList(wrapper);
+    }
+
+    private Long resolveTenantId(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        return getDataPermissionContext(currentUserId).tenantId();
     }
 
     private List<Long> extractRoleIds(List<Role> roles) {
@@ -260,6 +355,84 @@ public class PermissionServiceImpl implements PermissionService {
             methods.add("手机号登录");
         }
         return methods;
+    }
+
+    private String resolveTenantName(Long tenantId) {
+        if (tenantId == null) {
+            return null;
+        }
+        Tenant tenant = tenantMapper.selectById(tenantId);
+        return tenant == null ? null : tenant.getTenantName();
+    }
+
+    private String resolveOrganizationName(Long orgId) {
+        if (orgId == null) {
+            return null;
+        }
+        Organization organization = organizationMapper.selectById(orgId);
+        return organization == null ? null : organization.getOrgName();
+    }
+
+    private String resolveDisplayName(User user) {
+        if (StringUtils.hasText(user.getNickname())) {
+            return user.getNickname();
+        }
+        if (StringUtils.hasText(user.getRealName())) {
+            return user.getRealName();
+        }
+        return user.getUsername();
+    }
+
+    private DataScopeType resolveHighestScope(List<Role> roles) {
+        if (CollectionUtils.isEmpty(roles)) {
+            return DataScopeType.SELF;
+        }
+        DataScopeType scopeType = DataScopeType.SELF;
+        for (Role role : roles) {
+            scopeType = DataScopeType.pickHigher(scopeType, DataScopeType.fromCode(role.getDataScopeType()));
+        }
+        return scopeType;
+    }
+
+    private Set<Long> listTenantOrganizationIds(Long tenantId) {
+        return organizationMapper.selectList(new LambdaQueryWrapper<Organization>()
+                        .select(Organization::getId, Organization::getParentId)
+                        .eq(tenantId != null, Organization::getTenantId, tenantId)
+                        .eq(Organization::getDeleted, 0))
+                .stream()
+                .map(Organization::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Long> resolveOrganizationSubtreeIds(Long tenantId, Long rootOrgId) {
+        List<Organization> organizations = organizationMapper.selectList(new LambdaQueryWrapper<Organization>()
+                .select(Organization::getId, Organization::getParentId)
+                .eq(tenantId != null, Organization::getTenantId, tenantId)
+                .eq(Organization::getDeleted, 0)
+                .orderByAsc(Organization::getId));
+        if (CollectionUtils.isEmpty(organizations)) {
+            return Set.of(rootOrgId);
+        }
+        Map<Long, List<Long>> childrenMap = organizations.stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.groupingBy(
+                        item -> item.getParentId() == null ? 0L : item.getParentId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(Organization::getId, Collectors.toList())
+                ));
+        LinkedHashSet<Long> scopedIds = new LinkedHashSet<>();
+        collectOrganizationChildren(rootOrgId, childrenMap, scopedIds);
+        return scopedIds.isEmpty() ? Set.of(rootOrgId) : scopedIds;
+    }
+
+    private void collectOrganizationChildren(Long currentOrgId, Map<Long, List<Long>> childrenMap, Set<Long> scopedIds) {
+        if (currentOrgId == null || !scopedIds.add(currentOrgId)) {
+            return;
+        }
+        for (Long childId : childrenMap.getOrDefault(currentOrgId, List.of())) {
+            collectOrganizationChildren(childId, childrenMap, scopedIds);
+        }
     }
 
     private Set<Long> expandWithAncestors(Collection<Long> menuIds, Map<Long, Menu> menuMap) {

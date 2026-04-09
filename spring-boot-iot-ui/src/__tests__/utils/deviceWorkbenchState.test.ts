@@ -66,6 +66,7 @@ describe('deviceWorkbenchState', () => {
     const device = createDevice({
       id: '9001',
       productKey: 'pump-core',
+      productName: '泵站核心产品',
       deviceCode: 'pump-9001',
       deviceName: '九号泵设备',
       onlineStatus: 0,
@@ -76,7 +77,9 @@ describe('deviceWorkbenchState', () => {
     expect(
       matchesDeviceFilters(device, {
         deviceId: '9001',
+        keyword: '核心',
         productKey: 'pump',
+        productName: '泵站',
         deviceCode: '9001',
         deviceName: '九号',
         onlineStatus: 0,
@@ -88,7 +91,9 @@ describe('deviceWorkbenchState', () => {
     expect(
       matchesDeviceFilters(device, {
         deviceId: '',
+        keyword: '雷达',
         productKey: 'meter',
+        productName: '',
         deviceCode: '',
         deviceName: '',
         onlineStatus: undefined,
@@ -96,6 +101,20 @@ describe('deviceWorkbenchState', () => {
         deviceStatus: undefined
       })
     ).toBe(false)
+
+    expect(
+      matchesDeviceFilters(device, {
+        deviceId: '',
+        keyword: '泵站核心',
+        productKey: '',
+        productName: '',
+        deviceCode: '',
+        deviceName: '',
+        onlineStatus: undefined,
+        activateStatus: undefined,
+        deviceStatus: undefined
+      })
+    ).toBe(true)
   })
 
   it('builds, clones and validates device page cache entries', () => {
@@ -118,10 +137,10 @@ describe('deviceWorkbenchState', () => {
       records: [createDevice()]
     }
 
-    expect(buildDevicePageCacheKey(query)).toBe('2001|pressure-pump|device-001|一号泵站设备|1|1|1|1|1|10')
+    expect(buildDevicePageCacheKey(query)).toBe('2001||pressure-pump||device-001|一号泵站设备|1|1|1|1|1|10')
 
     const cacheEntry = createDevicePageCacheEntry(query, pageResult, 1_000)
-    expect(cacheEntry.key).toBe('2001|pressure-pump|device-001|一号泵站设备|1|1|1|1|1|10')
+    expect(cacheEntry.key).toBe('2001||pressure-pump||device-001|一号泵站设备|1|1|1|1|1|10')
     expect(cacheEntry.records[0].deviceName).toBe('一号泵站设备')
 
     const cloned = cloneDevicePageCacheEntry(cacheEntry)
@@ -306,7 +325,9 @@ describe('deviceWorkbenchState', () => {
     )
     expect(nextPage).toEqual({
       deviceId: '',
+      keyword: '',
       productKey: 'pressure-pump',
+      productName: '',
       deviceCode: 'device',
       deviceName: '',
       onlineStatus: 1,

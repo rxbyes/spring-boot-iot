@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,7 +36,72 @@ vi.mock('@/api/accessError', () => ({
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  template: '<section><slot name="filters" /><slot name="toolbar" /><slot /><slot name="pagination" /></section>'
+  props: {
+    eyebrow: String,
+    title: String,
+    description: String,
+    showNotices: Boolean,
+    showToolbar: Boolean,
+    showInlineState: Boolean
+  },
+  template: `
+    <section class="access-error-workbench-stub">
+      <p>{{ eyebrow }}</p>
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <div><slot name="filters" /></div>
+      <div><slot name="notices" /></div>
+      <div><slot name="toolbar" /></div>
+      <div><slot name="inline-state" /></div>
+      <div><slot /></div>
+      <div><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const StandardTableToolbarStub = defineComponent({
+  name: 'StandardTableToolbar',
+  template: `
+    <div class="access-error-toolbar-stub">
+      <slot />
+      <slot name="right" />
+    </div>
+  `
+});
+
+const StandardWorkbenchRowActionsStub = defineComponent({
+  name: 'StandardWorkbenchRowActions',
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  emits: ['command'],
+  template: `
+    <div class="access-error-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+      <button
+        v-for="item in directItems || []"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="access-error-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+    </div>
+  `
+});
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label', 'className', 'width'],
+  template: `
+    <div class="access-error-column-stub" :data-label="label" :data-class-name="className" :data-width="width">
+      <slot />
+    </div>
+  `
+});
+
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  template: '<section class="access-error-table-stub"><slot /></section>'
 });
 
 describe('AccessErrorArchivePanel', () => {
@@ -98,24 +165,24 @@ describe('AccessErrorArchivePanel', () => {
             StandardWorkbenchPanel: StandardWorkbenchPanelStub,
             StandardListFilterHeader: true,
             StandardAppliedFiltersBar: true,
-            StandardTableToolbar: true,
+            StandardTableToolbar: StandardTableToolbarStub,
             StandardPagination: true,
             StandardTableTextColumn: true,
-            StandardRowActions: true,
+            StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
             StandardActionLink: true,
-            StandardDetailDrawer: defineComponent({
+          StandardDetailDrawer: defineComponent({
               name: 'StandardDetailDrawer',
-              props: ['modelValue'],
-              template: '<section v-if="modelValue"><slot /></section>'
+              props: ['modelValue', 'eyebrow', 'title'],
+              template: '<section v-if="modelValue" class="access-error-detail-drawer-stub"><p v-if="eyebrow">{{ eyebrow }}</p><h2>{{ title }}</h2><slot /></section>'
             }),
             StandardChoiceGroup: true,
-            StandardButton: defineComponent({
+          StandardButton: defineComponent({
               name: 'StandardButton',
               emits: ['click'],
               template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
             }),
-            ElTable: true,
-            ElTableColumn: true,
+            ElTable: ElTableStub,
+            ElTableColumn: ElTableColumnStub,
             ElInput: true,
             ElFormItem: true,
             ElTag: true,
@@ -130,6 +197,10 @@ describe('AccessErrorArchivePanel', () => {
         deviceCode: 'demo-device-01',
         productKey: 'demo-product'
       });
+      const detailDrawer = wrapper.findComponent({ name: 'StandardDetailDrawer' });
+
+      expect(detailDrawer.props('eyebrow')).toBeUndefined();
+      expect(wrapper.text()).not.toContain('接入失败详情');
       await (wrapper.vm as any).jumpToProductGovernance();
 
       expect(mockRouter.push).toHaveBeenLastCalledWith({
@@ -143,5 +214,92 @@ describe('AccessErrorArchivePanel', () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  it('renders the archive workbench without the legacy eyebrow tier or top-right cross-page jump', () => {
+    const wrapper = mount(AccessErrorArchivePanel, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+          StandardActionLink: true,
+          StandardInlineState: true,
+          StandardDetailDrawer: true,
+          StandardChoiceGroup: true,
+          StandardButton: defineComponent({
+            name: 'StandardButton',
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+          }),
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+          ElInput: true,
+          ElFormItem: true,
+          ElTag: true,
+          ElAlert: true
+        }
+      }
+    });
+
+    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
+
+    expect(workbench.props('eyebrow')).toBeUndefined();
+    expect(workbench.props('showNotices')).toBe(false);
+    expect(workbench.props('showInlineState')).toBe(true);
+    expect(wrapper.text()).not.toContain('FAILURE ARCHIVE');
+    expect(wrapper.text()).not.toContain('跳转异常观测台');
+    expect(wrapper.text()).toContain('刷新列表');
+  });
+
+  it('marks the archive action column with the shared row-action class to keep the last action from being ellipsized', () => {
+    const wrapper = mount(AccessErrorArchivePanel, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+          StandardActionLink: true,
+          StandardInlineState: true,
+          StandardDetailDrawer: true,
+          StandardChoiceGroup: true,
+          StandardButton: defineComponent({
+            name: 'StandardButton',
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+          }),
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+          ElInput: true,
+          ElFormItem: true,
+          ElTag: true,
+          ElAlert: true
+        }
+      }
+    });
+
+    const actionColumn = wrapper
+      .findAll('.access-error-column-stub')
+      .find((column) => column.attributes('data-label') === '操作');
+
+    expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
+    expect(actionColumn?.attributes('data-width')).toBe('136');
+  });
+
+  it('collapses archive actions into direct actions plus menu and uses shared list surface', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../components/AccessErrorArchivePanel.vue'), 'utf8');
+
+    expect(source).toContain('class="access-error-table-wrap standard-list-surface"');
+    expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('standard-mobile-record-grid');
+    expect(source).toContain('menu-label="更多"');
   });
 });

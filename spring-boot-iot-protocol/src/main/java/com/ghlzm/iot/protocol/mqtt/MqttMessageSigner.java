@@ -1,6 +1,5 @@
 package com.ghlzm.iot.protocol.mqtt;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**

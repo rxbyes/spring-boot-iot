@@ -6,14 +6,19 @@ import ReportWorkbenchView from '@/views/ReportWorkbenchView.vue';
 import { getDeviceByCode, reportByHttp, reportByMqtt } from '@/api/iot';
 import { messageApi } from '@/api/message';
 
-const { mockRouter } = vi.hoisted(() => ({
+const { mockRouter, mockRoute } = vi.hoisted(() => ({
   mockRouter: {
-    push: vi.fn()
+    push: vi.fn(),
+    replace: vi.fn()
+  },
+  mockRoute: {
+    query: {}
   }
 }));
 
 vi.mock('vue-router', () => ({
-  useRouter: () => mockRouter
+  useRouter: () => mockRouter,
+  useRoute: () => mockRoute
 }));
 
 vi.mock('@/api/iot', () => ({
@@ -108,11 +113,11 @@ const PanelCardStub = defineComponent({
   `
 });
 
-const IotAccessPageShellStub = defineComponent({
-  name: 'IotAccessPageShell',
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="iot-access-page-shell-stub">
+    <section class="standard-page-shell-stub">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -149,6 +154,25 @@ const StandardInfoGridStub = defineComponent({
 const StandardActionGroupStub = defineComponent({
   name: 'StandardActionGroup',
   template: '<div class="standard-action-group-stub"><slot /></div>'
+});
+
+const StandardChoiceGroupStub = defineComponent({
+  name: 'StandardChoiceGroup',
+  props: ['options', 'modelValue'],
+  emits: ['update:modelValue', 'change'],
+  template: `
+    <div class="standard-choice-group-stub">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        type="button"
+        class="standard-choice-group-stub__item"
+        @click="$emit('update:modelValue', option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+  `
 });
 
 const StandardFlowRailStub = defineComponent({
@@ -202,12 +226,13 @@ function mountView() {
   return mount(ReportWorkbenchView, {
     global: {
       stubs: {
-        IotAccessPageShell: IotAccessPageShellStub,
+        StandardPageShell: StandardPageShellStub,
         ElButton: ElButtonStub,
         ElInput: ElInputStub,
         PanelCard: PanelCardStub,
         StandardInfoGrid: StandardInfoGridStub,
         StandardActionGroup: StandardActionGroupStub,
+        StandardChoiceGroup: StandardChoiceGroupStub,
         StandardFlowRail: StandardFlowRailStub,
         StandardInlineSectionHeader: StandardInlineSectionHeaderStub,
         StandardTraceTimeline: StandardTraceTimelineStub
@@ -243,6 +268,8 @@ describe('ReportWorkbenchView', () => {
       data: []
     });
     mockRouter.push.mockReset();
+    mockRouter.replace.mockReset();
+    mockRoute.query = {};
     installLocalStorageMock();
     window.localStorage.removeItem('reporting:lastTemplate');
   });
@@ -250,10 +277,35 @@ describe('ReportWorkbenchView', () => {
   it('renders the reporting page inside the two-level access shell', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true);
-    expect(wrapper.text()).toContain('链路验证中心');
-    expect(wrapper.text()).toContain('SIMULATION LAB');
+    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('结果复盘');
     expect(wrapper.text()).toContain('模拟上报');
+    expect(wrapper.text()).not.toContain('SIMULATION LAB');
+    expect(wrapper.text()).not.toContain('REPLAY CONSOLE');
+  });
+
+  it('keeps workspace chrome focused by removing decorative badges and reusing the shared recent filter switcher', async () => {
+    const wrapper = mountView();
+
+    expect(wrapper.text()).not.toContain('设备联调');
+    expect(wrapper.text()).not.toContain('复盘主视图');
+
+    await findButtonByText(wrapper, '最近记录')!.trigger('click');
+    await nextTick();
+
+    const choiceGroups = wrapper.findAll('.standard-choice-group-stub');
+    expect(choiceGroups).toHaveLength(3);
+    expect(choiceGroups[2]?.text()).toContain('全部');
+    expect(choiceGroups[2]?.text()).toContain('失败');
+    expect(choiceGroups[2]?.text()).toContain('等待中');
+    expect(choiceGroups[2]?.text()).toContain('成功');
+  });
+
+  it('defaults to replay tab and renders the diagnosis header', () => {
+    const wrapper = mountView();
+
+    expect(wrapper.find('[aria-current="page"]').text()).toContain('结果复盘');
+    expect(wrapper.text()).toContain('当前尚未验证');
   });
 
   it('keeps a neutral initial state and only shows validation feedback after submit', async () => {

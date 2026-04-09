@@ -70,5 +70,11 @@ const hasRight = computed(() => Boolean(slots.right))
 
 .standard-table-toolbar__meta-rail {
   align-items: center;
+  font-size: var(--type-label-size);
+}
+
+.standard-table-toolbar :deep(.table-action-bar__meta) {
+  font-size: var(--type-toolbar-meta-size);
+  letter-spacing: calc(var(--font-letter-spacing-wide) * 0.62);
 }
 </style>

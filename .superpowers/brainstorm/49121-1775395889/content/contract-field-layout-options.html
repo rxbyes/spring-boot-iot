@@ -1,0 +1,129 @@
+<h2>契约字段页收口方案</h2>
+<p class="subtitle">目标：取消二层抽屉，只保留手动样本提炼，契约字段在同一页完成输入、提炼、确认和查看正式字段。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 单页纵向工作台（推荐）</div>
+        <div class="mockup-body">
+          <div class="mock-nav">产品经营工作台 / 契约字段</div>
+          <div class="placeholder" style="margin-top:12px;">顶部：产品摘要 + 已生效 / 本次识别 / 待生效</div>
+          <div class="placeholder" style="margin-top:12px;">样本类型：业务数据 / 状态数据 / 单台设备 / 复合设备</div>
+          <div class="mock-input" style="margin-top:12px;">JSON 输入区（支持粘贴后自动格式化）</div>
+          <div style="display:flex; gap:12px; margin-top:12px;">
+            <button class="mock-button">格式化 JSON</button>
+            <button class="mock-button">提取契约字段</button>
+            <button class="mock-button">确认生效</button>
+          </div>
+          <div class="placeholder" style="margin-top:12px;">识别结果列表</div>
+          <div class="placeholder" style="margin-top:12px;">本次生效</div>
+          <div class="placeholder" style="margin-top:12px;">当前已生效字段</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>单页纵向工作台</h3>
+      <p>最接近“在契约字段同一页完成全部动作”。阅读顺序直白，删掉抽屉后最自然。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>最容易理解</li>
+            <li>移动端适配最稳</li>
+            <li>最适合彻底删除自动提炼链路</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>页面会更长</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 左输入右结果</div>
+        <div class="mockup-body">
+          <div class="mock-nav">产品经营工作台 / 契约字段</div>
+          <div class="split" style="margin-top:12px;">
+            <div class="mockup">
+              <div class="mockup-header">左侧</div>
+              <div class="mockup-body">
+                <div class="placeholder">样本类型</div>
+                <div class="mock-input" style="margin-top:12px;">JSON 输入区</div>
+                <button class="mock-button" style="margin-top:12px;">提取字段</button>
+              </div>
+            </div>
+            <div class="mockup">
+              <div class="mockup-header">右侧</div>
+              <div class="mockup-body">
+                <div class="placeholder">识别结果</div>
+                <div class="placeholder" style="margin-top:12px;">本次生效</div>
+              </div>
+            </div>
+          </div>
+          <div class="placeholder" style="margin-top:12px;">底部：当前已生效字段</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>左右并排编辑台</h3>
+      <p>桌面端效率高，输入和结果能同时看到，但移动端需要明显折叠。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>桌面端紧凑</li>
+            <li>输入与结果并读效率高</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>移动端更难收口</li>
+            <li>和当前工作台单栏语法有点偏离</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 单页步骤板</div>
+        <div class="mockup-body">
+          <div class="mock-nav">产品经营工作台 / 契约字段</div>
+          <div class="placeholder" style="margin-top:12px;">步骤 1：粘贴上报 JSON</div>
+          <div class="placeholder" style="margin-top:12px;">步骤 2：选择识别结果</div>
+          <div class="placeholder" style="margin-top:12px;">步骤 3：确认生效</div>
+          <div class="placeholder" style="margin-top:12px;">步骤 4：正式字段</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>单页步骤板</h3>
+      <p>仍然是同一页，但强调流程感。适合培训式产品，不够像你想要的“精简直接”。</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>引导最强</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>代价</h4>
+          <ul>
+            <li>仍然有流程墙感</li>
+            <li>不够利落</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

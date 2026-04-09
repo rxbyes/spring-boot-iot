@@ -5,12 +5,14 @@ import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,9 +38,12 @@ class TelemetryV2SchemaSupportTest {
     void shouldCreateMeasureStatusAndEventStables() {
         schemaSupport.ensureTables();
 
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate, times(3)).execute(sqlCaptor.capture());
         verify(jdbcTemplate).execute(contains("CREATE STABLE IF NOT EXISTS iot_raw_measure_point"));
         verify(jdbcTemplate).execute(contains("CREATE STABLE IF NOT EXISTS iot_raw_status_point"));
         verify(jdbcTemplate).execute(contains("CREATE STABLE IF NOT EXISTS iot_raw_event_point"));
+        sqlCaptor.getAllValues().forEach(sql -> assertFalse(sql.contains("COMPOSITE KEY")));
     }
 
     @Test

@@ -1,5 +1,5 @@
 <template>
-  <PanelCard :eyebrow="eyebrow" :title="title" :description="description">
+  <PanelCard :title="title" :description="description">
     <template #actions>
       <StandardButton action="refresh" text type="primary" @click="copyToClipboard">
         复制 JSON
@@ -15,9 +15,12 @@ import { computed } from 'vue';
 import { prettyJson } from '../utils/format';
 import PanelCard from './PanelCard.vue';
 
+defineOptions({
+  inheritAttrs: false
+});
+
 const props = defineProps<{
   title: string;
-  eyebrow?: string;
   description?: string;
   body: unknown;
 }>();

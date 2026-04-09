@@ -28,6 +28,8 @@ public class Role implements Serializable {
 
       private String description;
 
+      private String dataScopeType;
+
       private Integer status;
 
       private Long createBy;

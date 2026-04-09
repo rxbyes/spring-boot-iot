@@ -29,6 +29,8 @@ public class TelemetryProjectionTask {
 
     public enum ProjectionType {
         LATEST,
-        LEGACY_MIRROR
+        LEGACY_MIRROR,
+        AGGREGATE,
+        COLD_ARCHIVE
     }
 }

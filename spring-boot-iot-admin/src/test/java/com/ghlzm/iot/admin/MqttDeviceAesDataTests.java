@@ -1,5 +1,6 @@
 package com.ghlzm.iot.admin;
 
+import com.ghlzm.iot.protocol.mqtt.IotPropertiesProtocolDecryptProfileResolver;
 import com.ghlzm.iot.protocol.mqtt.Md5MqttMessageSigner;
 import com.ghlzm.iot.protocol.mqtt.MqttMessageSignerRegistry;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadDecryptorRegistry;
@@ -160,6 +161,7 @@ class MqttDeviceAesDataTests {
             Md5MqttMessageSigner.class,
             MqttMessageSignerRegistry.class,
             SpringCloudAesMqttPayloadDecryptor.class,
+            IotPropertiesProtocolDecryptProfileResolver.class,
             MqttPayloadDecryptorRegistry.class,
             MqttPayloadSecurityValidator.class
     })

@@ -22,6 +22,7 @@ vi.mock('@/api/channel', async () => {
   const actual = await vi.importActual<typeof import('@/api/channel')>('@/api/channel')
   return {
     ...actual,
+    fetchChannelTypeOptions: vi.fn(),
     listChannels: vi.fn()
   }
 })
@@ -58,6 +59,12 @@ vi.mock('@/utils/confirm', () => ({
   isConfirmCancelled: vi.fn(() => false)
 }))
 
+vi.mock('@/stores/permission', () => ({
+  usePermissionStore: () => ({
+    hasPermission: () => true
+  })
+}))
+
 vi.mock('element-plus', async (importOriginal) => {
   const actual = await importOriginal<typeof import('element-plus')>()
   return {
@@ -80,7 +87,7 @@ import {
   pageInAppMessages
 } from '@/api/inAppMessage'
 import { createRequestError } from '@/api/request'
-import { listChannels } from '@/api/channel'
+import { fetchChannelTypeOptions, listChannels } from '@/api/channel'
 import { listRoles } from '@/api/role'
 import { listUsers } from '@/api/user'
 
@@ -412,7 +419,7 @@ const StandardTableToolbarStub = defineComponent({
 
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
-  props: ['modelValue', 'title', 'subtitle', 'loading', 'errorMessage', 'empty'],
+  props: ['modelValue', 'eyebrow', 'title', 'subtitle', 'loading', 'errorMessage', 'empty'],
   emits: ['update:modelValue'],
   template: `
     <section v-if="modelValue" class="standard-detail-drawer-stub">
@@ -428,7 +435,7 @@ const StandardDetailDrawerStub = defineComponent({
 
 const StandardFormDrawerStub = defineComponent({
   name: 'StandardFormDrawer',
-  props: ['modelValue', 'title'],
+  props: ['modelValue', 'eyebrow', 'title'],
   emits: ['update:modelValue', 'close'],
   template: `
     <section v-if="modelValue" class="standard-form-drawer-stub">
@@ -602,6 +609,10 @@ function buildAttemptRecords() {
 }
 
 function seedSuccessMocks() {
+  vi.mocked(fetchChannelTypeOptions).mockResolvedValue([
+    { value: 'wechat', label: '企业微信', sortNo: 4 },
+    { value: 'webhook', label: 'Webhook', sortNo: 3 }
+  ])
   vi.mocked(pageInAppMessages).mockResolvedValue({
     code: 200,
     msg: 'success',
@@ -725,6 +736,7 @@ describe('InAppMessageView bridge operations', () => {
     vi.mocked(pageInAppMessageBridgeLogs).mockReset()
     vi.mocked(getInAppMessage).mockReset()
     vi.mocked(listInAppMessageBridgeAttempts).mockReset()
+    vi.mocked(fetchChannelTypeOptions).mockReset()
     vi.mocked(listChannels).mockReset()
     vi.mocked(listRoles).mockReset()
     vi.mocked(listUsers).mockReset()
@@ -739,6 +751,31 @@ describe('InAppMessageView bridge operations', () => {
     expect(wrapper.text()).toContain('桥接记录数')
     expect(wrapper.text()).toContain('待重试')
     expect(wrapper.text()).toContain('微信告警')
+  })
+
+  it('loads dict-backed channel type labels for bridge insights', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(vi.mocked(fetchChannelTypeOptions)).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('微信告警 · 企业微信')
+  })
+
+  it('removes the legacy English eyebrow tier from the message governance workbench and drawers', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const panelCard = wrapper.findComponent(PanelCardStub)
+    const detailDrawers = wrapper.findAllComponents(StandardDetailDrawerStub)
+    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
+
+    expect(panelCard.props('eyebrow')).toBeUndefined()
+    expect(detailDrawers.length).toBe(2)
+    expect(detailDrawers.every((item) => item.props('eyebrow') === undefined)).toBe(true)
+    expect(formDrawer.props('eyebrow')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('System Content')
+    expect(wrapper.text()).not.toContain('Bridge Insight')
+    expect(wrapper.text()).not.toContain('System Form')
   })
 
   it('refreshes bridge stats and page together after changing filters', async () => {

@@ -1,21 +1,22 @@
 <template>
-  <div class="report-analysis-view">
-    <PanelCard class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>运营分析中心</span>
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            @change="handleDateChange"
-          />
-        </div>
+  <StandardPageShell class="report-analysis-view">
+    <StandardWorkbenchPanel
+      title="运营分析中心"
+      description="按时间区间查看风险趋势、告警分布、事件闭环与设备健康，统一保持平台治理页头与卡片节奏。"
+      show-header-actions
+    >
+      <template #header-actions>
+        <el-date-picker
+          v-model="dateRange"
+          class="report-analysis-view__date-picker"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          @change="handleDateChange"
+        />
       </template>
 
-      <!-- KPI 指标卡片 -->
       <section class="quad-grid report-analysis-kpis">
         <MetricCard
           v-for="metric in overviewMetrics"
@@ -27,55 +28,71 @@
         />
       </section>
 
-      <!-- 风险趋势分析 -->
-      <div class="section-title">风险趋势分析</div>
-      <el-skeleton v-if="loading" :rows="8" />
-      <div v-else-if="riskTrendData.length > 0" class="chart-container">
-        <div ref="riskTrendChart" class="echart-container"></div>
-        <div v-if="!chartVisible.riskTrend" class="chart-lazy-placeholder" aria-live="polite">
-          <p>滚动到该区域后自动加载图表</p>
-          <button type="button" @click="loadChartNow('riskTrend')">立即加载</button>
+      <section class="report-analysis-section">
+        <div class="report-analysis-section__header">
+          <h3 class="report-analysis-section__title">风险趋势分析</h3>
+          <p class="report-analysis-section__description">按时间范围复盘告警与事件数量变化。</p>
         </div>
-      </div>
-      <el-empty v-else description="暂无风险趋势数据" />
+        <el-skeleton v-if="loading" :rows="8" />
+        <div v-else-if="riskTrendData.length > 0" class="chart-container">
+          <div ref="riskTrendChart" class="echart-container"></div>
+          <div v-if="!chartVisible.riskTrend" class="chart-lazy-placeholder" aria-live="polite">
+            <p>滚动到该区域后自动加载图表</p>
+            <button type="button" @click="loadChartNow('riskTrend')">立即加载</button>
+          </div>
+        </div>
+        <el-empty v-else description="暂无风险趋势数据" />
+      </section>
 
-      <!-- 告警等级分布 -->
-      <div class="section-title">告警等级分布</div>
-      <el-skeleton v-if="loading" :rows="8" />
-      <div v-else-if="alarmStatistics" class="chart-container">
-        <div ref="alarmLevelChart" class="echart-container"></div>
-        <div v-if="!chartVisible.alarmLevel" class="chart-lazy-placeholder" aria-live="polite">
-          <p>滚动到该区域后自动加载图表</p>
-          <button type="button" @click="loadChartNow('alarmLevel')">立即加载</button>
+      <section class="report-analysis-section">
+        <div class="report-analysis-section__header">
+          <h3 class="report-analysis-section__title">告警等级分布</h3>
+          <p class="report-analysis-section__description">查看当前时间区间内的告警等级占比。</p>
         </div>
-      </div>
-      <el-empty v-else description="暂无告警等级数据" />
+        <el-skeleton v-if="loading" :rows="8" />
+        <div v-else-if="alarmStatistics" class="chart-container">
+          <div ref="alarmLevelChart" class="echart-container"></div>
+          <div v-if="!chartVisible.alarmLevel" class="chart-lazy-placeholder" aria-live="polite">
+            <p>滚动到该区域后自动加载图表</p>
+            <button type="button" @click="loadChartNow('alarmLevel')">立即加载</button>
+          </div>
+        </div>
+        <el-empty v-else description="暂无告警等级数据" />
+      </section>
 
-      <!-- 事件闭环分析 -->
-      <div class="section-title">事件闭环分析</div>
-      <el-skeleton v-if="loading" :rows="8" />
-      <div v-else-if="eventStatistics" class="chart-container">
-        <div ref="eventClosureChart" class="echart-container"></div>
-        <div v-if="!chartVisible.eventClosure" class="chart-lazy-placeholder" aria-live="polite">
-          <p>滚动到该区域后自动加载图表</p>
-          <button type="button" @click="loadChartNow('eventClosure')">立即加载</button>
+      <section class="report-analysis-section">
+        <div class="report-analysis-section__header">
+          <h3 class="report-analysis-section__title">事件闭环分析</h3>
+          <p class="report-analysis-section__description">复盘事件关闭与积压情况，识别闭环效率变化。</p>
         </div>
-      </div>
-      <el-empty v-else description="暂无事件闭环数据" />
+        <el-skeleton v-if="loading" :rows="8" />
+        <div v-else-if="eventStatistics" class="chart-container">
+          <div ref="eventClosureChart" class="echart-container"></div>
+          <div v-if="!chartVisible.eventClosure" class="chart-lazy-placeholder" aria-live="polite">
+            <p>滚动到该区域后自动加载图表</p>
+            <button type="button" @click="loadChartNow('eventClosure')">立即加载</button>
+          </div>
+        </div>
+        <el-empty v-else description="暂无事件闭环数据" />
+      </section>
 
-      <!-- 设备健康分析 -->
-      <div class="section-title">设备健康分析</div>
-      <el-skeleton v-if="loading" :rows="8" />
-      <div v-else-if="deviceHealthStatistics" class="chart-container">
-        <div ref="deviceHealthChart" class="echart-container"></div>
-        <div v-if="!chartVisible.deviceHealth" class="chart-lazy-placeholder" aria-live="polite">
-          <p>滚动到该区域后自动加载图表</p>
-          <button type="button" @click="loadChartNow('deviceHealth')">立即加载</button>
+      <section class="report-analysis-section">
+        <div class="report-analysis-section__header">
+          <h3 class="report-analysis-section__title">设备健康分析</h3>
+          <p class="report-analysis-section__description">汇总设备健康状态与在线率，辅助运营复盘。</p>
         </div>
-      </div>
-      <el-empty v-else description="暂无设备健康数据" />
-    </PanelCard>
-  </div>
+        <el-skeleton v-if="loading" :rows="8" />
+        <div v-else-if="deviceHealthStatistics" class="chart-container">
+          <div ref="deviceHealthChart" class="echart-container"></div>
+          <div v-if="!chartVisible.deviceHealth" class="chart-lazy-placeholder" aria-live="polite">
+            <p>滚动到该区域后自动加载图表</p>
+            <button type="button" @click="loadChartNow('deviceHealth')">立即加载</button>
+          </div>
+        </div>
+        <el-empty v-else description="暂无设备健康数据" />
+      </section>
+    </StandardWorkbenchPanel>
+  </StandardPageShell>
 </template>
 
 <script setup lang="ts">
@@ -86,6 +103,7 @@ import { LineChart, BarChart, PieChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
 import { ElMessage } from 'element-plus'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import {
   getRiskTrendAnalysis,
   getAlarmStatistics,
@@ -93,7 +111,8 @@ import {
   getDeviceHealthAnalysis
 } from '@/api/report'
 import MetricCard from '@/components/MetricCard.vue'
-import PanelCard from '@/components/PanelCard.vue'
+import StandardPageShell from '@/components/StandardPageShell.vue'
+import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 
 echarts.use([
   LineChart,
@@ -201,7 +220,9 @@ const fetchData = async () => {
       deviceHealthStatistics.value = deviceRes.data || {}
     }
   } catch (error) {
-    ElMessage.error('获取数据失败')
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '获取数据失败'))
+    }
   } finally {
     loading.value = false
   }
@@ -500,82 +521,96 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .report-analysis-view {
-  padding: 20px;
+  min-width: 0;
+}
 
-  .box-card {
-    max-width: 1400px;
-    margin: 0 auto;
+.report-analysis-view__date-picker {
+  width: min(100%, 320px);
+}
 
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+.report-analysis-kpis {
+  margin-bottom: 1rem;
+}
 
-      .el-date-editor {
-        width: 300px;
-      }
-    }
-  }
+.report-analysis-kpis__card {
+  min-height: 8.5rem;
+}
 
-  .report-analysis-kpis {
-    margin-bottom: 20px;
-  }
+.report-analysis-section + .report-analysis-section {
+  margin-top: 1.15rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--line-soft);
+}
 
-  .report-analysis-kpis__card {
-    min-height: 8.5rem;
-  }
+.report-analysis-section__header {
+  display: grid;
+  gap: 0.28rem;
+  margin-bottom: 0.78rem;
+}
 
-  .section-title {
-    font-size: 16px;
-    font-weight: bold;
-    margin: 20px 0 10px;
-    color: #303133;
-  }
+.report-analysis-section__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
 
-  .chart-container {
-    position: relative;
-    height: 400px;
-    margin-bottom: 20px;
+.report-analysis-section__description {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.6;
+}
 
-    .echart-container {
-      width: 100%;
-      height: 100%;
-    }
+.chart-container {
+  position: relative;
+  height: 400px;
+}
 
-    .chart-lazy-placeholder {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      justify-content: center;
-      color: #6b7d95;
-      font-size: 14px;
-      border: 1px dashed #d8e4f5;
-      border-radius: calc(var(--radius-md) + 2px);
-      background: linear-gradient(180deg, rgba(247, 251, 255, 0.72), rgba(241, 247, 255, 0.62));
+.echart-container {
+  width: 100%;
+  height: 100%;
+}
 
-      p {
-        margin: 0;
-      }
+.chart-lazy-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  color: #6b7d95;
+  font-size: 14px;
+  border: 1px dashed #d8e4f5;
+  border-radius: calc(var(--radius-md) + 2px);
+  background: linear-gradient(180deg, rgba(247, 251, 255, 0.72), rgba(241, 247, 255, 0.62));
+}
 
-      button {
-        min-height: 32px;
-        padding: 0 14px;
-        border-radius: var(--radius-md);
-        border: 1px solid #bed1ef;
-        background: #fff;
-        color: #1668dc;
-        font-size: 13px;
-        cursor: pointer;
-      }
+.chart-lazy-placeholder p {
+  margin: 0;
+}
 
-      button:hover {
-        border-color: #9dc0ef;
-        background: #f3f8ff;
-      }
-    }
+.chart-lazy-placeholder button {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid #bed1ef;
+  background: #fff;
+  color: #1668dc;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chart-lazy-placeholder button:hover {
+  border-color: #9dc0ef;
+  background: #f3f8ff;
+}
+
+@media (max-width: 900px) {
+  .report-analysis-view__date-picker {
+    width: 100%;
   }
 }
 </style>

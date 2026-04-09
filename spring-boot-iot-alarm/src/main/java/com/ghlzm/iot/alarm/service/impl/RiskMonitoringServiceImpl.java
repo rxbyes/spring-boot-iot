@@ -1,6 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ghlzm.iot.alarm.auto.RiskRuntimeLevelResolver;
 import com.ghlzm.iot.alarm.dto.RiskMonitoringListQuery;
 import com.ghlzm.iot.alarm.entity.AlarmRecord;
 import com.ghlzm.iot.alarm.entity.EventRecord;
@@ -70,7 +71,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
             "update_by",
             "deleted");
     private static final String RISK_MONITORING_SCHEMA_HINT =
-            "风险监测依赖表 risk_point_device 缺失，请先执行 sql/upgrade/20260316_phase4_task3_risk_monitoring_schema_sync.sql";
+            "风险监测依赖表 risk_point_device 缺失，请先按最新 sql/init.sql 对齐当前初始化基线；若无法重建，可执行 python scripts/run-real-env-schema-sync.py";
 
     private final RiskPointMapper riskPointMapper;
     private final RiskPointDeviceMapper riskPointDeviceMapper;
@@ -81,6 +82,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
     private final DeviceMessageLogMapper deviceMessageLogMapper;
     private final ProductMapper productMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final RiskRuntimeLevelResolver riskRuntimeLevelResolver;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskMonitoringServiceImpl(RiskPointMapper riskPointMapper,
@@ -91,7 +93,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                                      DevicePropertyMapper devicePropertyMapper,
                                      DeviceMessageLogMapper deviceMessageLogMapper,
                                      ProductMapper productMapper,
-                                     JdbcTemplate jdbcTemplate) {
+                                     JdbcTemplate jdbcTemplate,
+                                     RiskRuntimeLevelResolver riskRuntimeLevelResolver) {
         this.riskPointMapper = riskPointMapper;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
         this.alarmRecordMapper = alarmRecordMapper;
@@ -101,6 +104,7 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         this.deviceMessageLogMapper = deviceMessageLogMapper;
         this.productMapper = productMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.riskRuntimeLevelResolver = riskRuntimeLevelResolver;
     }
 
     @Override
@@ -150,6 +154,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         detail.setRiskPointId(listItem.getRiskPointId());
         detail.setRiskPointCode(riskPoint == null ? null : riskPoint.getRiskPointCode());
         detail.setRiskPointName(listItem.getRiskPointName());
+        detail.setRiskPointLevel(listItem.getRiskPointLevel());
+        detail.setCurrentRiskLevel(listItem.getCurrentRiskLevel());
         detail.setRiskLevel(listItem.getRiskLevel());
         detail.setDeviceId(listItem.getDeviceId());
         detail.setDeviceCode(listItem.getDeviceCode());
@@ -212,6 +218,28 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                         .in(AlarmRecord::getRiskPointId, riskPointIds))
                 .stream()
                 .collect(Collectors.groupingBy(AlarmRecord::getRiskPointId, Collectors.counting()));
+        Map<Long, AlarmRecord> highestPriorityActiveAlarmByRiskPoint = alarmRecordMapper.selectList(new LambdaQueryWrapper<AlarmRecord>()
+                        .eq(AlarmRecord::getDeleted, 0)
+                        .in(AlarmRecord::getStatus, ACTIVE_ALARM_STATUSES)
+                        .in(AlarmRecord::getRiskPointId, riskPointIds))
+                .stream()
+                .filter(alarm -> alarm.getRiskPointId() != null)
+                .collect(Collectors.toMap(
+                        AlarmRecord::getRiskPointId,
+                        Function.identity(),
+                        this::pickHigherPriorityAlarm
+                ));
+        Map<Long, EventRecord> latestEventByRiskPoint = eventRecordMapper.selectList(new LambdaQueryWrapper<EventRecord>()
+                        .eq(EventRecord::getDeleted, 0)
+                        .in(EventRecord::getRiskPointId, riskPointIds)
+                        .orderByDesc(EventRecord::getCreateTime))
+                .stream()
+                .filter(event -> event.getRiskPointId() != null)
+                .collect(Collectors.toMap(
+                        EventRecord::getRiskPointId,
+                        Function.identity(),
+                        this::pickHigherPriorityEvent
+                ));
 
         List<RiskMonitoringGisPointVO> result = new ArrayList<>();
         for (RiskPoint riskPoint : riskPoints) {
@@ -222,7 +250,14 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
             point.setRiskPointId(riskPoint.getId());
             point.setRiskPointCode(riskPoint.getRiskPointCode());
             point.setRiskPointName(riskPoint.getRiskPointName());
-            point.setRiskLevel(riskPoint.getRiskLevel());
+            point.setRiskPointLevel(riskPoint.getRiskPointLevel());
+            String currentRiskLevel = riskRuntimeLevelResolver.resolve(
+                    riskPoint,
+                    highestPriorityActiveAlarmByRiskPoint.get(riskPoint.getId()),
+                    latestEventByRiskPoint.get(riskPoint.getId())
+            );
+            point.setCurrentRiskLevel(currentRiskLevel);
+            point.setRiskLevel(currentRiskLevel);
             point.setDeviceCount(riskBindings.size());
             point.setOnlineDeviceCount(onlineCounts.getOrDefault(riskPoint.getId(), 0L).intValue());
             point.setActiveAlarmCount(activeAlarmCounts.getOrDefault(riskPoint.getId(), 0L).intValue());
@@ -292,7 +327,9 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                         (left, right) -> left));
 
         Map<String, Boolean> activeAlarmFlags = listActiveAlarmFlags(deviceIds);
-        return new MonitoringContext(riskPointMap, deviceMap, productMap, propertyMap, activeAlarmFlags);
+        Map<String, AlarmRecord> latestActiveAlarmMap = listLatestActiveAlarms(deviceIds);
+        Map<String, EventRecord> latestEventMap = listLatestEvents(deviceIds);
+        return new MonitoringContext(riskPointMap, deviceMap, productMap, propertyMap, activeAlarmFlags, latestActiveAlarmMap, latestEventMap);
     }
 
     private Map<Long, Device> listDevices(Collection<Long> deviceIds) {
@@ -321,6 +358,40 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                         (left, right) -> left));
     }
 
+    private Map<String, AlarmRecord> listLatestActiveAlarms(Set<Long> deviceIds) {
+        if (deviceIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return alarmRecordMapper.selectList(new LambdaQueryWrapper<AlarmRecord>()
+                        .eq(AlarmRecord::getDeleted, 0)
+                        .in(AlarmRecord::getStatus, ACTIVE_ALARM_STATUSES)
+                        .in(AlarmRecord::getDeviceId, deviceIds))
+                .stream()
+                .filter(alarm -> alarm.getDeviceId() != null && alarm.getMetricName() != null)
+                .collect(Collectors.toMap(
+                        alarm -> alarmKey(alarm.getDeviceId(), alarm.getMetricName()),
+                        Function.identity(),
+                        this::pickHigherPriorityAlarm
+                ));
+    }
+
+    private Map<String, EventRecord> listLatestEvents(Set<Long> deviceIds) {
+        if (deviceIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return eventRecordMapper.selectList(new LambdaQueryWrapper<EventRecord>()
+                        .eq(EventRecord::getDeleted, 0)
+                        .in(EventRecord::getDeviceId, deviceIds)
+                        .orderByDesc(EventRecord::getCreateTime))
+                .stream()
+                .filter(event -> event.getDeviceId() != null && event.getMetricName() != null)
+                .collect(Collectors.toMap(
+                        event -> alarmKey(event.getDeviceId(), event.getMetricName()),
+                        Function.identity(),
+                        this::pickHigherPriorityEvent
+                ));
+    }
+
     private RiskMonitoringListItemVO buildListItem(RiskPointDevice binding, MonitoringContext context) {
         RiskPoint riskPoint = context.riskPointMap.get(binding.getRiskPointId());
         Device device = context.deviceMap.get(binding.getDeviceId());
@@ -331,6 +402,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         Product product = context.productMap.get(device.getProductId());
         DeviceProperty property = context.propertyMap.get(propertyKey(binding.getDeviceId(), binding.getMetricIdentifier()));
         boolean activeAlarm = context.activeAlarmFlags.containsKey(alarmKey(binding.getDeviceId(), binding.getMetricName()));
+        AlarmRecord latestActiveAlarm = context.latestActiveAlarmMap.get(alarmKey(binding.getDeviceId(), binding.getMetricName()));
+        EventRecord latestEvent = context.latestEventMap.get(alarmKey(binding.getDeviceId(), binding.getMetricName()));
 
         RiskMonitoringListItemVO item = new RiskMonitoringListItemVO();
         item.setBindingId(binding.getId());
@@ -338,7 +411,10 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         item.setRegionName(riskPoint.getRegionName());
         item.setRiskPointId(riskPoint.getId());
         item.setRiskPointName(riskPoint.getRiskPointName());
-        item.setRiskLevel(riskPoint.getRiskLevel());
+        item.setRiskPointLevel(riskPoint.getRiskPointLevel());
+        String currentRiskLevel = riskRuntimeLevelResolver.resolve(riskPoint, latestActiveAlarm, latestEvent);
+        item.setCurrentRiskLevel(currentRiskLevel);
+        item.setRiskLevel(currentRiskLevel);
         item.setDeviceId(device.getId());
         item.setDeviceCode(device.getDeviceCode());
         item.setDeviceName(device.getDeviceName());
@@ -361,8 +437,12 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         if (query.getRiskPointId() != null && !Objects.equals(query.getRiskPointId(), item.getRiskPointId())) {
             return false;
         }
-        if (query.getRiskLevel() != null && !query.getRiskLevel().isBlank()
-                && !query.getRiskLevel().equalsIgnoreCase(item.getRiskLevel())) {
+        String targetRiskLevel = query.getCurrentRiskLevel();
+        if ((targetRiskLevel == null || targetRiskLevel.isBlank()) && query.getRiskLevel() != null) {
+            targetRiskLevel = query.getRiskLevel();
+        }
+        if (targetRiskLevel != null && !targetRiskLevel.isBlank()
+                && !targetRiskLevel.equalsIgnoreCase(item.getCurrentRiskLevel())) {
             return false;
         }
         if (query.getOnlineStatus() != null && !Objects.equals(query.getOnlineStatus(), item.getOnlineStatus())) {
@@ -550,6 +630,48 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         return deviceId + "#" + metricName;
     }
 
+    private AlarmRecord pickHigherPriorityAlarm(AlarmRecord left, AlarmRecord right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        int leftPriority = riskRuntimeLevelResolver.priorityForAlarmLevel(left.getAlarmLevel());
+        int rightPriority = riskRuntimeLevelResolver.priorityForAlarmLevel(right.getAlarmLevel());
+        if (leftPriority != rightPriority) {
+            return leftPriority >= rightPriority ? left : right;
+        }
+        if (left.getCreateTime() == null) {
+            return right;
+        }
+        if (right.getCreateTime() == null) {
+            return left;
+        }
+        return left.getCreateTime().isAfter(right.getCreateTime()) ? left : right;
+    }
+
+    private EventRecord pickHigherPriorityEvent(EventRecord left, EventRecord right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        int leftPriority = riskRuntimeLevelResolver.priorityForRiskLevel(left.getRiskLevel());
+        int rightPriority = riskRuntimeLevelResolver.priorityForRiskLevel(right.getRiskLevel());
+        if (leftPriority != rightPriority) {
+            return leftPriority >= rightPriority ? left : right;
+        }
+        if (left.getCreateTime() == null) {
+            return right;
+        }
+        if (right.getCreateTime() == null) {
+            return left;
+        }
+        return left.getCreateTime().isAfter(right.getCreateTime()) ? left : right;
+    }
+
     private Double parseDouble(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -566,6 +688,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
             Map<Long, Device> deviceMap,
             Map<Long, Product> productMap,
             Map<String, DeviceProperty> propertyMap,
-            Map<String, Boolean> activeAlarmFlags) {
+            Map<String, Boolean> activeAlarmFlags,
+            Map<String, AlarmRecord> latestActiveAlarmMap,
+            Map<String, EventRecord> latestEventMap) {
     }
 }

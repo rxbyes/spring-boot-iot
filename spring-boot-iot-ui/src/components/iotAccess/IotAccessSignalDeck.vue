@@ -4,7 +4,6 @@
     :class="hasMetrics ? 'iot-access-signal-deck--with-metrics' : 'iot-access-signal-deck--lead-only'"
   >
     <PanelCard class="iot-access-signal-deck__lead">
-      <p v-if="lead.eyebrow" class="iot-access-signal-deck__lead-eyebrow">{{ lead.eyebrow }}</p>
       <h3 class="iot-access-signal-deck__lead-title">{{ lead.title }}</h3>
       <p v-if="lead.description" class="iot-access-signal-deck__lead-description">{{ lead.description }}</p>
       <RouterLink
@@ -34,7 +33,6 @@ import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 
 interface SignalLead {
-  eyebrow?: string;
   title: string;
   description?: string;
   action?: {
@@ -82,16 +80,8 @@ const hasMetrics = computed(() => props.metrics.length > 0);
   gap: 0.95rem;
 }
 
-.iot-access-signal-deck__lead-eyebrow {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-tertiary);
-  font-size: 0.72rem;
-}
-
 .iot-access-signal-deck__lead-title {
-  margin: 0.4rem 0 0;
+  margin: 0;
   color: var(--text-heading);
   font-size: 1.04rem;
 }

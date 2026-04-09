@@ -2,7 +2,9 @@ import type { Device, PageResult } from '@/types/api'
 
 export interface DeviceFilterSnapshot {
   deviceId: string
+  keyword?: string
   productKey: string
+  productName?: string
   deviceCode: string
   deviceName: string
   onlineStatus?: number
@@ -71,7 +73,9 @@ function normalizePositiveInt(value: number, fallback: number) {
 export function buildDevicePageCacheKey(query: DevicePageQuerySnapshot) {
   return [
     normalizeSearchText(query.deviceId),
+    normalizeSearchText(query.keyword),
     normalizeSearchText(query.productKey),
+    normalizeSearchText(query.productName),
     normalizeSearchText(query.deviceCode),
     normalizeSearchText(query.deviceName),
     query.onlineStatus ?? '',
@@ -93,7 +97,9 @@ export function createDevicePageCacheEntry(
   const normalizedQuery = {
     ...query,
     deviceId: query.deviceId.trim(),
+    keyword: (query.keyword || '').trim(),
     productKey: query.productKey.trim(),
+    productName: (query.productName || '').trim(),
     deviceCode: query.deviceCode.trim(),
     deviceName: query.deviceName.trim(),
     pageNum,
@@ -312,7 +318,9 @@ export function getNextDevicePageQuery(query: DevicePageQuerySnapshot, total: nu
   return {
     ...query,
     deviceId: query.deviceId.trim(),
+    keyword: (query.keyword || '').trim(),
     productKey: query.productKey.trim(),
+    productName: (query.productName || '').trim(),
     deviceCode: query.deviceCode.trim(),
     deviceName: query.deviceName.trim(),
     pageNum: pageNum + 1,
@@ -336,8 +344,26 @@ export function matchesDeviceFilters(device: Device, filters: DeviceFilterSnapsh
     return false
   }
 
+  const keyword = (filters.keyword || '').trim().toLowerCase()
+  if (
+    keyword &&
+    ![
+      device.deviceCode,
+      device.deviceName,
+      device.productKey,
+      device.productName
+    ].some((value) => String(value || '').toLowerCase().includes(keyword))
+  ) {
+    return false
+  }
+
   const productKey = filters.productKey.trim().toLowerCase()
   if (productKey && !String(device.productKey || '').toLowerCase().includes(productKey)) {
+    return false
+  }
+
+  const productName = (filters.productName || '').trim().toLowerCase()
+  if (productName && !String(device.productName || '').toLowerCase().includes(productName)) {
     return false
   }
 

@@ -8,8 +8,10 @@ import java.util.Map;
 public interface NotificationChannelDispatcher {
 
     List<DispatchChannel> listSceneChannels(String scene);
+    List<DispatchChannel> listSceneChannels(String scene, String opsAlertType);
 
     DispatchChannel requireTestChannel(String channelCode);
+    DispatchChannel requireTestChannel(Long currentUserId, String channelCode);
 
     DispatchResult send(DispatchChannel dispatchChannel, NotificationEnvelope envelope);
 
@@ -19,6 +21,7 @@ public interface NotificationChannelDispatcher {
     record ChannelConfig(String url,
                          Map<String, String> headers,
                          List<String> scenes,
+                         List<String> opsAlertTypes,
                          int timeoutMs,
                          int minIntervalSeconds) {
     }

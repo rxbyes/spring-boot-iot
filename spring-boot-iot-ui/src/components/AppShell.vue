@@ -57,8 +57,6 @@
           @toggle-help="toggleHelpPanel"
           @open-account-menu="closeHeaderPanels"
           @open-account-center="openAccountCenter"
-          @open-real-name-auth="openRealNameAuth"
-          @open-login-methods="openLoginMethods"
           @open-change-password="openChangePasswordDialog"
           @logout="handleLogout"
         />
@@ -180,15 +178,12 @@
 
         <ShellAccountDrawers
           v-model:show-account-dialog="showAccountDialog"
-          v-model:show-real-name-auth-dialog="showRealNameAuthDialog"
-          v-model:show-login-methods-dialog="showLoginMethodsDialog"
           v-model:show-change-password-dialog="showChangePasswordDialog"
           :summary="accountSummary"
           :password-submitting="passwordSubmitting"
-          @open-account-center="openAccountCenter"
-          @open-real-name-auth="openRealNameAuth"
-          @open-login-methods="openLoginMethods"
+          :profile-submitting="profileSubmitting"
           @open-change-password-dialog="openChangePasswordDialog"
+          @submit-profile-update="submitProfileUpdate"
           @submit-change-password="submitChangePassword"
         />
       </section>
@@ -228,16 +223,14 @@ const {
   sidebarCollapsed,
   toggleSidebar,
   showAccountDialog,
-  showRealNameAuthDialog,
-  showLoginMethodsDialog,
   showChangePasswordDialog,
   passwordSubmitting,
+  profileSubmitting,
   headerIdentity,
   accountSummary,
   openAccountCenter,
-  openRealNameAuth,
-  openLoginMethods,
   openChangePasswordDialog,
+  submitProfileUpdate,
   submitChangePassword,
   handleLogout,
   navigationGroups,

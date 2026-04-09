@@ -2,10 +2,13 @@ package com.ghlzm.iot.device.service.handler;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
+import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
@@ -18,8 +21,10 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * payload 处理 stage。
@@ -35,16 +40,22 @@ public class DevicePayloadApplyStageHandler {
     private final DevicePropertyMetadataService devicePropertyMetadataService;
     private final CommandRecordService commandRecordService;
     private final DeviceFileService deviceFileService;
+    private final ProductMetricEvidenceService productMetricEvidenceService;
+    private final VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DevicePayloadApplyStageHandler(DevicePropertyMapper devicePropertyMapper,
                                           DevicePropertyMetadataService devicePropertyMetadataService,
                                           CommandRecordService commandRecordService,
-                                          DeviceFileService deviceFileService) {
+                                          DeviceFileService deviceFileService,
+                                          ProductMetricEvidenceService productMetricEvidenceService,
+                                          VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService) {
         this.devicePropertyMapper = devicePropertyMapper;
         this.devicePropertyMetadataService = devicePropertyMetadataService;
         this.commandRecordService = commandRecordService;
         this.deviceFileService = deviceFileService;
+        this.productMetricEvidenceService = productMetricEvidenceService;
+        this.vendorMetricMappingRuntimeService = vendorMetricMappingRuntimeService;
     }
 
     public DevicePayloadApplyResult apply(DeviceProcessingTarget target) {
@@ -68,7 +79,9 @@ public class DevicePayloadApplyStageHandler {
             return result;
         }
 
+        normalizeVendorMappedPayload(target.getProduct(), upMessage);
         updateLatestProperties(target, upMessage);
+        productMetricEvidenceService.captureRuntimeEvidence(target.getProduct(), upMessage);
         result.setBranch("PROPERTY");
         result.getSummary().put("propertyCount", propertyCount(upMessage));
         result.getSummary().put("childMessageCount", childMessageCount(upMessage));
@@ -154,6 +167,86 @@ public class DevicePayloadApplyStageHandler {
                 devicePropertyMapper.updateById(property);
             }
         }
+    }
+
+    private void normalizeVendorMappedPayload(Product product, DeviceUpMessage upMessage) {
+        if (product == null || upMessage == null) {
+            return;
+        }
+        Map<String, String> runtimeMappings = collectRuntimeMappings(product, upMessage);
+        if (upMessage.getProperties() == null || upMessage.getProperties().isEmpty()) {
+            return;
+        }
+        Map<String, Object> normalizedProperties = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : upMessage.getProperties().entrySet()) {
+            String originalIdentifier = normalizeLookupKey(entry.getKey());
+            String targetIdentifier = resolveRuntimeTargetIdentifier(product, upMessage, originalIdentifier, runtimeMappings);
+            if (hasText(targetIdentifier)) {
+                Object existingValue = normalizedProperties.get(targetIdentifier);
+                if (existingValue == null || Objects.equals(existingValue, entry.getValue())) {
+                    normalizedProperties.put(targetIdentifier, entry.getValue());
+                    continue;
+                }
+            }
+            normalizedProperties.put(entry.getKey(), entry.getValue());
+        }
+        upMessage.setProperties(normalizedProperties);
+    }
+
+    private Map<String, String> collectRuntimeMappings(Product product, DeviceUpMessage upMessage) {
+        Map<String, String> mappings = new LinkedHashMap<>();
+        if (upMessage == null || upMessage.getProtocolMetadata() == null
+                || upMessage.getProtocolMetadata().getMetricEvidence() == null) {
+            return mappings;
+        }
+        for (var evidence : upMessage.getProtocolMetadata().getMetricEvidence()) {
+            if (evidence == null || !hasText(evidence.getRawIdentifier())) {
+                continue;
+            }
+            VendorMetricMappingRuntimeService.MappingResolution resolution =
+                    vendorMetricMappingRuntimeService.resolveForRuntime(
+                            product,
+                            upMessage,
+                            evidence.getRawIdentifier(),
+                            evidence.getLogicalChannelCode()
+                    );
+            if (resolution == null || !hasText(resolution.targetNormativeIdentifier())) {
+                continue;
+            }
+            String targetIdentifier = resolution.targetNormativeIdentifier();
+            mappings.put(normalizeLookupKey(evidence.getRawIdentifier()), targetIdentifier);
+            if (hasText(evidence.getCanonicalIdentifier())) {
+                mappings.putIfAbsent(normalizeLookupKey(evidence.getCanonicalIdentifier()), targetIdentifier);
+            }
+            evidence.setCanonicalIdentifier(targetIdentifier);
+        }
+        return mappings;
+    }
+
+    private String resolveRuntimeTargetIdentifier(Product product,
+                                                  DeviceUpMessage upMessage,
+                                                  String originalIdentifier,
+                                                  Map<String, String> runtimeMappings) {
+        if (!hasText(originalIdentifier)) {
+            return null;
+        }
+        if (runtimeMappings != null && runtimeMappings.containsKey(originalIdentifier)) {
+            return runtimeMappings.get(originalIdentifier);
+        }
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                vendorMetricMappingRuntimeService.resolveForRuntime(product, upMessage, originalIdentifier, null);
+        if (resolution == null || !hasText(resolution.targetNormativeIdentifier())) {
+            return null;
+        }
+        String targetIdentifier = resolution.targetNormativeIdentifier();
+        if (runtimeMappings != null) {
+            runtimeMappings.put(originalIdentifier, targetIdentifier);
+        }
+        return targetIdentifier;
+    }
+
+    private String normalizeLookupKey(String value) {
+        return hasText(value) ? value.trim().toLowerCase() : null;
     }
 
     private String resolvePropertyName(String identifier, DevicePropertyMetadata propertyMetadata) {

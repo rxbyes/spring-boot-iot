@@ -1,6 +1,8 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +12,7 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
@@ -18,9 +21,12 @@ import com.ghlzm.iot.device.vo.ProductPageVO;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -30,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -43,9 +50,17 @@ class ProductServiceImplTest {
     @Mock
     private DeviceMapper deviceMapper;
     @Mock
+    private ProductMapper productMapper;
+    @Mock
     private DeviceOnlineSessionService deviceOnlineSessionService;
 
     private ProductServiceImpl productService;
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Product.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -141,6 +156,25 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void getDetailByIdShouldExposeMetadataJsonInDetailVo() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("muddy-water-product");
+        product.setProductName("泥水位监测产品");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        product.setMetadataJson("{\"objectInsight\":{\"customMetrics\":[]}}");
+        doReturn(product).when(productService).getRequiredById(1001L);
+        when(deviceMapper.selectProductStats(any())).thenReturn(List.of());
+        when(deviceMapper.selectProductActivityStat(any(), any(), any(), any())).thenReturn(new ProductActivityStatRow());
+
+        ProductDetailVO detail = productService.getDetailById(1001L);
+
+        assertEquals(product.getMetadataJson(), detail.getMetadataJson());
+    }
+
+    @Test
     void pageProductsShouldMapAggregatedStatsIntoRows() {
         Product product = new Product();
         product.setId(1001L);
@@ -175,6 +209,37 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void pageProductsShouldApplyQuickSearchAcrossProductNameKeyAndManufacturer() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("accept-http-product-01");
+        product.setProductName("压力泵监测产品");
+        product.setManufacturer("GHLZM");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
+        Page<Product> page = new Page<>(1, 10);
+        page.setCurrent(1L);
+        page.setSize(10L);
+        page.setTotal(1L);
+        page.setRecords(List.of(product));
+        doReturn(page).when(productService).page(any(Page.class), any(LambdaQueryWrapper.class));
+        when(deviceMapper.selectProductStats(any())).thenReturn(List.of());
+
+        productService.pageProducts(null, "accept-http", null, null, null, 1L, 10L);
+
+        ArgumentCaptor<LambdaQueryWrapper<Product>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(productService).page(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+
+        assertTrue(sqlSegment.contains("product_name"));
+        assertTrue(sqlSegment.contains("product_key"));
+        assertTrue(sqlSegment.contains("manufacturer"));
+        assertTrue(sqlSegment.contains("OR"));
+    }
+
+    @Test
     void productDetailVoShouldKeepNullableOnlineDurationFieldsInJson() throws Exception {
         ProductDetailVO detail = new ProductDetailVO();
         detail.setId(1001L);
@@ -189,5 +254,189 @@ class ProductServiceImplTest {
 
         assertTrue(json.contains("\"avgOnlineDuration\":null"));
         assertTrue(json.contains("\"maxOnlineDuration\":null"));
+    }
+
+    @Test
+    void addProductShouldRejectInvalidMetadataJson() {
+        doReturn(productMapper).when(productService).getBaseMapper();
+        when(productMapper.selectOne(any())).thenReturn(null);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("{");
+
+        BizException ex = assertThrows(BizException.class, () -> productService.addProduct(dto));
+
+        assertEquals("产品扩展元数据必须是合法JSON对象", ex.getMessage());
+        verify(productService, never()).save(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectDuplicateObjectInsightIdentifiers() {
+        doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {"identifier":"S1_ZT_1.humidity","displayName":"相对湿度","group":"status"},
+                      {"identifier":"S1_ZT_1.humidity","displayName":"重复湿度","group":"status"}
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察自定义指标标识符不能重复: S1_ZT_1.humidity", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectInvalidObjectInsightGroup() {
+        doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {"identifier":"S1_ZT_1.humidity","displayName":"相对湿度","group":"env"}
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察指标分组仅支持 measure 或 status", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectTooManyObjectInsightMetrics() {
+        doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+
+        String metrics = java.util.stream.IntStream.rangeClosed(1, 21)
+                .mapToObj(index -> """
+                        {"identifier":"S1_ZT_1.metric_%d","displayName":"指标%d","group":"status"}
+                        """.formatted(index, index))
+                .collect(java.util.stream.Collectors.joining(","));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [%s]
+                  }
+                }
+                """.formatted(metrics));
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察自定义指标最多允许20项", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectOverlongAnalysisTemplate() {
+        doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+
+        String overlongTemplate = "x".repeat(301);
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier":"S1_ZT_1.humidity",
+                        "displayName":"相对湿度",
+                        "group":"status",
+                        "analysisTemplate":"%s"
+                      }
+                    ]
+                  }
+                }
+                """.formatted(overlongTemplate));
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察分析描述模板长度不能超过300", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectMissingMetricDisplayName() {
+        doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {"identifier":"S1_ZT_1.humidity","displayName":"","group":"status"}
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察指标中文名称不能为空", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldPersistValidatedObjectInsightMetadata() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "S1_ZT_1.humidity",
+                        "displayName": "相对湿度",
+                        "group": "status",
+                        "includeInTrend": true,
+                        "includeInExtension": true,
+                        "analysisTemplate": "{{label}}当前为{{value}}"
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("S1_ZT_1.humidity"));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"objectInsight\""));
+    }
+
+    private Product buildExistingProduct() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("muddy-water-product");
+        product.setProductName("泥水位监测产品");
+        product.setProtocolCode("mqtt-json");
+        product.setNodeType(1);
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+        return product;
+    }
+
+    private ProductAddDTO buildProductDto() {
+        ProductAddDTO dto = new ProductAddDTO();
+        dto.setProductKey("muddy-water-product");
+        dto.setProductName("泥水位监测产品");
+        dto.setProtocolCode("mqtt-json");
+        dto.setNodeType(1);
+        dto.setStatus(ProductStatusEnum.ENABLED.getCode());
+        return dto;
     }
 }

@@ -24,16 +24,17 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 INSERT INTO sys_role (
-    id, tenant_id, role_name, role_code, description, status, create_by, create_time, update_by, update_time, deleted
+    id, tenant_id, role_name, role_code, description, data_scope_type, status, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (92000001, 1, '业务人员', 'BUSINESS_STAFF', '负责风险监测、告警研判、事件处置与业务复盘。', 1, 1, NOW(), 1, NOW(), 0),
-    (92000002, 1, '管理人员', 'MANAGEMENT_STAFF', '负责业务统筹、规则审批、系统治理与运营管理。', 1, 1, NOW(), 1, NOW(), 0),
-    (92000003, 1, '运维人员', 'OPS_STAFF', '负责设备接入、联调排障、运行维护与问题闭环。', 1, 1, NOW(), 1, NOW(), 0),
-    (92000004, 1, '开发人员', 'DEVELOPER_STAFF', '负责协议联调、规则开发、缺陷定位与功能验证。', 1, 1, NOW(), 1, NOW(), 0),
-    (92000005, 1, '超级管理员', 'SUPER_ADMIN', '拥有全部菜单与操作权限。', 1, 1, NOW(), 1, NOW(), 0)
+    (92000001, 1, '业务人员', 'BUSINESS_STAFF', '负责风险监测、告警研判、事件处置与业务复盘。', 'SELF', 1, 1, NOW(), 1, NOW(), 0),
+    (92000002, 1, '管理人员', 'MANAGEMENT_STAFF', '负责业务统筹、规则审批、系统治理与运营管理。', 'ORG_AND_CHILDREN', 1, 1, NOW(), 1, NOW(), 0),
+    (92000003, 1, '运维人员', 'OPS_STAFF', '负责设备接入、联调排障、运行维护与问题闭环。', 'TENANT', 1, 1, NOW(), 1, NOW(), 0),
+    (92000004, 1, '开发人员', 'DEVELOPER_STAFF', '负责协议联调、规则开发、缺陷定位与功能验证。', 'TENANT', 1, 1, NOW(), 1, NOW(), 0),
+    (92000005, 1, '超级管理员', 'SUPER_ADMIN', '拥有全部菜单与操作权限。', 'ALL', 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     role_name = VALUES(role_name),
     description = VALUES(description),
+    data_scope_type = VALUES(data_scope_type),
     status = VALUES(status),
     update_by = 1,
     update_time = NOW(),
@@ -41,25 +42,26 @@ ON DUPLICATE KEY UPDATE
 
 -- 初始化演示账号默认密码：123456（BCrypt）
 INSERT INTO sys_user (
-    id, tenant_id, username, password, nickname, real_name, phone, email, status, is_admin,
+    id, tenant_id, org_id, username, password, nickname, real_name, phone, email, status, is_admin,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (1, 1, 'admin', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+    (1, 1, 7101, 'admin', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
      '平台总控官', '超级管理员', '13800000000', 'admin@ghlzm.com', 1, 1,
      '超级管理员演示账号，默认查看平台治理与全量菜单。', 1, NOW(), 1, NOW(), 0),
-    (2, 1, 'biz_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+    (2, 1, 7102, 'biz_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
      '风险运营专员', '业务演示账号', '13800000001', 'biz_demo@ghlzm.com', 1, 0,
      '业务人员演示账号，默认进入风险运营工作台。', 1, NOW(), 1, NOW(), 0),
-    (3, 1, 'manager_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+    (3, 1, 7101, 'manager_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
      '运营管理负责人', '管理演示账号', '13800000002', 'manager_demo@ghlzm.com', 1, 0,
      '管理人员演示账号，默认进入风险运营并覆盖风险策略、平台治理。', 1, NOW(), 1, NOW(), 0),
-    (4, 1, 'ops_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+    (4, 1, 7101, 'ops_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
      '接入运维工程师', '运维演示账号', '13800000003', 'ops_demo@ghlzm.com', 1, 0,
      '运维人员演示账号，默认进入接入智维工作台。', 1, NOW(), 1, NOW(), 0),
-    (5, 1, 'dev_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+    (5, 1, 7101, 'dev_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
      '平台开发工程师', '开发演示账号', '13800000004', 'dev_demo@ghlzm.com', 1, 0,
      '开发人员演示账号，默认进入接入智维并开放质量工场。', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    org_id = VALUES(org_id),
     nickname = VALUES(nickname),
     real_name = VALUES(real_name),
     phone = VALUES(phone),
@@ -125,7 +127,7 @@ INSERT INTO sys_menu (
     (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"自动化与质量基线","menuTitle":"质量工场","menuHint":"覆盖自动化编排、回归计划与质量巡检资产。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -155,9 +157,20 @@ INSERT INTO sys_menu (
     (93003006, 1, 93000003, '通知编排', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 47, 1, 1, '/channel', 'system:channel', 47, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003010, 1, 93000003, '站内消息', 'system:in-app-message', '/in-app-message', 'InAppMessageView', 'bell', '{"caption":"通知中心站内消息的分类、范围与时间窗口编排"}', 48, 1, 1, '/in-app-message', 'system:in-app-message', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003011, 1, 93000003, '帮助文档', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"帮助中心业务类、技术类和 FAQ 资料编排"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 50, 1, 1, '/audit-log', 'system:audit', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003022, 1, 93000003, '治理审批台', 'system:governance-approval', '/governance-approval', 'GovernanceApprovalView', 'finished', '{"caption":"统一查看治理审批主单、执行结果与状态流转"}', 50, 1, 1, '/governance-approval', 'system:governance-approval', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003023, 1, 93000003, '权限与密钥治理', 'system:governance-security', '/governance-security', 'GovernanceSecurityView', 'lock', '{"caption":"统一查看治理权限矩阵与设备密钥轮换台账"}', 51, 1, 1, '/governance-security', 'system:governance-security', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 52, 1, 1, '/audit-log', 'system:audit', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
 
-    (93003009, 1, 93000005, '自动化工场', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"配置驱动场景编排、执行计划与报告导出"}', 51, 1, 1, '/automation-test', 'system:automation-test', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003020, 1, 93000005, '业务验收台', 'system:business-acceptance', '/business-acceptance', 'BusinessAcceptanceWorkbenchView', 'finished', '{"caption":"按交付清单运行预置业务验收包"}', 51, 1, 1, '/business-acceptance', 'system:business-acceptance', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003015, 1, 93000005, '研发工场', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"研发自动化资产编排主入口"}', 52, 1, 1, '/rd-workbench', 'system:rd-workbench', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003016, 1, 93000005, '页面盘点台', 'system:rd-automation-inventory', '/rd-automation-inventory', 'AutomationInventoryView', 'document', '{"caption":"页面清单、覆盖缺口与人工补录"}', 53, 1, 1, '/rd-automation-inventory', 'system:rd-automation-inventory', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003017, 1, 93000005, '场景模板台', 'system:rd-automation-templates', '/rd-automation-templates', 'AutomationTemplatesView', 'files', '{"caption":"沉淀页面冒烟、表单提交与列表详情模板"}', 54, 1, 1, '/rd-automation-templates', 'system:rd-automation-templates', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003018, 1, 93000005, '计划编排台', 'system:rd-automation-plans', '/rd-automation-plans', 'AutomationPlansView', 'edit', '{"caption":"维护场景顺序、步骤、断言与导入导出"}', 55, 1, 1, '/rd-automation-plans', 'system:rd-automation-plans', 55, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003019, 1, 93000005, '交付打包台', 'system:rd-automation-handoff', '/rd-automation-handoff', 'AutomationHandoffView', 'promotion', '{"caption":"整理执行建议、基线说明与验收备注"}', 56, 1, 1, '/rd-automation-handoff', 'system:rd-automation-handoff', 56, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"目标环境、命令预览与统一验收注册表"}', 57, 1, 1, '/automation-execution', 'system:automation-execution', 57, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 58, 1, 1, '/automation-results', 'system:automation-results', 58, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003012, 1, 93000005, '自动化资产中心（兼容入口）', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 59, 1, 1, '/automation-assets', 'system:automation-assets', 59, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003009, 1, 93000005, '自动化工场（兼容入口）', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览"}', 60, 1, 1, '/automation-test', 'system:automation-test', 60, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -205,6 +218,25 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = VALUES(deleted);
 
+UPDATE sys_role_menu rm
+JOIN sys_menu m ON m.id = rm.menu_id
+SET rm.deleted = 1,
+    rm.update_by = 1,
+    rm.update_time = NOW()
+WHERE m.tenant_id = 1
+  AND m.menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
+  AND rm.deleted = 0;
+
+UPDATE sys_menu
+SET deleted = 1,
+    visible = 0,
+    status = 0,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
+  AND deleted = 0;
+
 DELETE FROM sys_role_menu
 WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
 
@@ -218,6 +250,8 @@ VALUES
     (96010006, 1, @role_business_id, 93001004, 1, NOW(), 1, NOW(), 0),
     (96010007, 1, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
     (96010008, 1, @role_business_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010013, 1, @role_business_id, 93000005, 1, NOW(), 1, NOW(), 0),
+    (96010014, 1, @role_business_id, 93003020, 1, NOW(), 1, NOW(), 0),
     (96010011, 1, @role_business_id, 93001001, 1, NOW(), 1, NOW(), 0),
     (96010009, 1, @role_business_id, 93001002, 1, NOW(), 1, NOW(), 0),
     (96010010, 1, @role_business_id, 93001104, 1, NOW(), 1, NOW(), 0),
@@ -269,6 +303,10 @@ VALUES
     (96010136, 1, @role_management_id, 93003501, 1, NOW(), 1, NOW(), 0),
     (96010137, 1, @role_management_id, 93003502, 1, NOW(), 1, NOW(), 0),
     (96010138, 1, @role_management_id, 93003503, 1, NOW(), 1, NOW(), 0),
+    (96010145, 1, @role_management_id, 93003022, 1, NOW(), 1, NOW(), 0),
+    (96010148, 1, @role_management_id, 93003023, 1, NOW(), 1, NOW(), 0),
+    (96010142, 1, @role_management_id, 93000005, 1, NOW(), 1, NOW(), 0),
+    (96010143, 1, @role_management_id, 93003020, 1, NOW(), 1, NOW(), 0),
 
     (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -295,6 +333,8 @@ VALUES
     (96010081, 1, @role_ops_id, 93001012, 1, NOW(), 1, NOW(), 0),
     (96010082, 1, @role_ops_id, 93001013, 1, NOW(), 1, NOW(), 0),
     (96010083, 1, @role_ops_id, 93001014, 1, NOW(), 1, NOW(), 0),
+    (96010146, 1, @role_ops_id, 93003022, 1, NOW(), 1, NOW(), 0),
+    (96010149, 1, @role_ops_id, 93003023, 1, NOW(), 1, NOW(), 0),
 
     (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -315,6 +355,15 @@ VALUES
     (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
     (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
     (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
+    (96010144, 1, @role_developer_id, 93003020, 1, NOW(), 1, NOW(), 0),
+    (96010136, 1, @role_developer_id, 93003015, 1, NOW(), 1, NOW(), 0),
+    (96010137, 1, @role_developer_id, 93003016, 1, NOW(), 1, NOW(), 0),
+    (96010138, 1, @role_developer_id, 93003017, 1, NOW(), 1, NOW(), 0),
+    (96010139, 1, @role_developer_id, 93003018, 1, NOW(), 1, NOW(), 0),
+    (96010140, 1, @role_developer_id, 93003019, 1, NOW(), 1, NOW(), 0),
+    (96010121, 1, @role_developer_id, 93003012, 1, NOW(), 1, NOW(), 0),
+    (96010122, 1, @role_developer_id, 93003013, 1, NOW(), 1, NOW(), 0),
+    (96010123, 1, @role_developer_id, 93003014, 1, NOW(), 1, NOW(), 0),
     (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0),
     (96010111, 1, @role_developer_id, 93001101, 1, NOW(), 1, NOW(), 0),
     (96010112, 1, @role_developer_id, 93001102, 1, NOW(), 1, NOW(), 0),
@@ -325,7 +374,9 @@ VALUES
     (96010115, 1, @role_developer_id, 93001011, 1, NOW(), 1, NOW(), 0),
     (96010116, 1, @role_developer_id, 93001012, 1, NOW(), 1, NOW(), 0),
     (96010117, 1, @role_developer_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010118, 1, @role_developer_id, 93001014, 1, NOW(), 1, NOW(), 0);
+    (96010118, 1, @role_developer_id, 93001014, 1, NOW(), 1, NOW(), 0),
+    (96010147, 1, @role_developer_id, 93003022, 1, NOW(), 1, NOW(), 0),
+    (96010150, 1, @role_developer_id, 93003023, 1, NOW(), 1, NOW(), 0);
 
 SET @role_menu_id := 96010900;
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
@@ -335,6 +386,97 @@ WHERE m.deleted = 0
   AND @role_super_admin_id IS NOT NULL
 ORDER BY m.sort, m.id;
 
+-- governance fine-grained permission seeds
+INSERT INTO sys_menu (
+    id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
+    route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (93001021, 1, 93001001, '规范库维护', 'iot:normative-library:write', '', '', '', '{"caption":"维护规范字段库与契约基础语义"}', 1121, 2, 2, '', 'iot:normative-library:write', 1121, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001022, 1, 93001001, '契约治理', 'iot:product-contract:govern', '', '', '', '{"caption":"执行 compare 与治理决策"}', 1122, 2, 2, '', 'iot:product-contract:govern', 1122, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001023, 1, 93001001, '契约发布', 'iot:product-contract:release', '', '', '', '{"caption":"发布正式契约并生成发布批次"}', 1123, 2, 2, '', 'iot:product-contract:release', 1123, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001024, 1, 93001001, '契约回滚', 'iot:product-contract:rollback', '', '', '', '{"caption":"回滚最新契约发布批次"}', 1124, 2, 2, '', 'iot:product-contract:rollback', 1124, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001025, 1, 93001001, '契约复核', 'iot:product-contract:approve', '', '', '', '{"caption":"关键发布/回滚动作双人复核"}', 1125, 2, 2, '', 'iot:product-contract:approve', 1125, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001026, 1, 93001001, '密钥托管查看', 'iot:secret-custody:view', '', '', '', '{"caption":"查看密钥托管与轮换记录"}', 1126, 2, 2, '', 'iot:secret-custody:view', 1126, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001027, 1, 93001001, '密钥轮换执行', 'iot:secret-custody:rotate', '', '', '', '{"caption":"执行设备密钥轮换"}', 1127, 2, 2, '', 'iot:secret-custody:rotate', 1127, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001028, 1, 93001001, '密钥轮换复核', 'iot:secret-custody:approve', '', '', '', '{"caption":"关键密钥轮换动作双人复核"}', 1128, 2, 2, '', 'iot:secret-custody:approve', 1128, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001029, 1, 93001001, '规范库复核', 'iot:normative-library:approve', '', '', '', '{"caption":"规范库关键写动作复核授权"}', 1129, 2, 2, '', 'iot:normative-library:approve', 1129, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002044, 1, 93002003, '风险指标标注', 'risk:metric-catalog:tag', '', '', '', '{"caption":"维护风险指标语义标签"}', 3144, 2, 2, '', 'risk:metric-catalog:tag', 3144, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002051, 1, 93002003, '风险指标复核', 'risk:metric-catalog:approve', '', '', '', '{"caption":"风险指标标注关键写动作双人复核"}', 3145, 2, 2, '', 'risk:metric-catalog:approve', 3145, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002045, 1, 93002004, '阈值策略执行', 'risk:rule-definition:edit', '', '', '', '{"caption":"新增/更新/删除阈值策略"}', 3245, 2, 2, '', 'risk:rule-definition:edit', 3245, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002046, 1, 93002004, '阈值策略复核', 'risk:rule-definition:approve', '', '', '', '{"caption":"阈值策略关键写操作双人复核"}', 3246, 2, 2, '', 'risk:rule-definition:approve', 3246, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002047, 1, 93002005, '联动编排执行', 'risk:linkage-rule:edit', '', '', '', '{"caption":"新增/更新/删除联动规则"}', 3347, 2, 2, '', 'risk:linkage-rule:edit', 3347, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002048, 1, 93002005, '联动编排复核', 'risk:linkage-rule:approve', '', '', '', '{"caption":"联动规则关键写操作双人复核"}', 3348, 2, 2, '', 'risk:linkage-rule:approve', 3348, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002049, 1, 93002006, '预案执行', 'risk:emergency-plan:edit', '', '', '', '{"caption":"新增/更新/删除应急预案"}', 3449, 2, 2, '', 'risk:emergency-plan:edit', 3449, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002050, 1, 93002006, '预案复核', 'risk:emergency-plan:approve', '', '', '', '{"caption":"预案关键写操作双人复核"}', 3450, 2, 2, '', 'risk:emergency-plan:approve', 3450, 1, 1, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    menu_name = VALUES(menu_name),
+    menu_code = VALUES(menu_code),
+    permission = VALUES(permission),
+    meta_json = VALUES(meta_json),
+    sort = VALUES(sort),
+    sort_no = VALUES(sort_no),
+    visible = VALUES(visible),
+    status = VALUES(status),
+    update_by = VALUES(update_by),
+    update_time = VALUES(update_time),
+    deleted = 0;
+
+SET @extra_role_menu_id := 96010950;
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@extra_role_menu_id := @extra_role_menu_id + 1), 1, role_scope.role_id, role_scope.menu_id, 1, NOW(), 1, NOW(), 0
+FROM (
+    SELECT @role_management_id AS role_id, 93001021 AS menu_id
+    UNION ALL SELECT @role_management_id, 93001029
+    UNION ALL SELECT @role_management_id, 93001022
+    UNION ALL SELECT @role_management_id, 93001023
+    UNION ALL SELECT @role_management_id, 93001024
+    UNION ALL SELECT @role_management_id, 93001025
+    UNION ALL SELECT @role_management_id, 93001026
+    UNION ALL SELECT @role_management_id, 93001027
+    UNION ALL SELECT @role_management_id, 93001028
+    UNION ALL SELECT @role_management_id, 93002044
+    UNION ALL SELECT @role_management_id, 93002051
+    UNION ALL SELECT @role_management_id, 93002045
+    UNION ALL SELECT @role_management_id, 93002046
+    UNION ALL SELECT @role_management_id, 93002047
+    UNION ALL SELECT @role_management_id, 93002048
+    UNION ALL SELECT @role_management_id, 93002049
+    UNION ALL SELECT @role_management_id, 93002050
+    UNION ALL SELECT @role_ops_id, 93001022
+    UNION ALL SELECT @role_ops_id, 93001023
+    UNION ALL SELECT @role_ops_id, 93001024
+    UNION ALL SELECT @role_ops_id, 93001025
+    UNION ALL SELECT @role_ops_id, 93001026
+    UNION ALL SELECT @role_ops_id, 93001027
+    UNION ALL SELECT @role_ops_id, 93001028
+    UNION ALL SELECT @role_ops_id, 93002044
+    UNION ALL SELECT @role_ops_id, 93002051
+    UNION ALL SELECT @role_ops_id, 93002045
+    UNION ALL SELECT @role_ops_id, 93002046
+    UNION ALL SELECT @role_ops_id, 93002047
+    UNION ALL SELECT @role_ops_id, 93002048
+    UNION ALL SELECT @role_ops_id, 93002049
+    UNION ALL SELECT @role_ops_id, 93002050
+    UNION ALL SELECT @role_developer_id, 93001021
+    UNION ALL SELECT @role_developer_id, 93001022
+    UNION ALL SELECT @role_developer_id, 93001023
+    UNION ALL SELECT @role_developer_id, 93001024
+    UNION ALL SELECT @role_developer_id, 93001026
+    UNION ALL SELECT @role_developer_id, 93001027
+    UNION ALL SELECT @role_developer_id, 93002044
+    UNION ALL SELECT @role_developer_id, 93002045
+    UNION ALL SELECT @role_developer_id, 93002047
+    UNION ALL SELECT @role_developer_id, 93002049
+) role_scope
+WHERE role_scope.role_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys_role_menu rm
+    WHERE rm.tenant_id = 1
+      AND rm.role_id = role_scope.role_id
+      AND rm.menu_id = role_scope.menu_id
+      AND rm.deleted = 0
+  );
 -- =========================
 -- 2) IoT 产品/设备/消息基线
 -- =========================
@@ -376,19 +518,43 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+INSERT INTO iot_normative_metric_definition (
+    id, tenant_id, scenario_code, device_family, identifier, display_name, unit,
+    precision_digits, monitor_content_code, monitor_type_code, risk_enabled, trend_enabled, metadata_json
+) VALUES
+    (920001, 1, 'phase1-crack', 'CRACK', 'value', '裂缝监测值', 'mm', 4, 'L1', 'LF', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920002, 1, 'phase1-crack', 'CRACK', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state')),
+    (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 原始观测基础数据', NULL, 0, 'L1', 'GP', 0, 0, JSON_OBJECT('usage', 'raw_observation')),
+    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 累计位移 X', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 累计位移 Y', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 累计位移 Z', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
+    (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state'))
+ON DUPLICATE KEY UPDATE
+    display_name = VALUES(display_name),
+    unit = VALUES(unit),
+    precision_digits = VALUES(precision_digits),
+    monitor_content_code = VALUES(monitor_content_code),
+    monitor_type_code = VALUES(monitor_type_code),
+    risk_enabled = VALUES(risk_enabled),
+    trend_enabled = VALUES(trend_enabled),
+    metadata_json = VALUES(metadata_json),
+    deleted = 0;
+
 INSERT INTO iot_device (
-    id, tenant_id, product_id, device_name, device_code, device_secret, client_id, username, password,
+    id, tenant_id, org_id, org_name, product_id, device_name, device_code, device_secret, client_id, username, password,
     protocol_code, node_type, online_status, activate_status, device_status, firmware_version,
     ip_address, last_online_time, last_report_time, longitude, latitude, address, metadata_json,
     remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (2001, 1, 1001, '验收设备-HTTP-01', 'accept-http-device-01', '123456', 'accept-http-device-01', 'accept-http-device-01', '123456',
+    (2001, 1, 7101, '平台运维中心', 1001, '验收设备-HTTP-01', 'accept-http-device-01', '123456', 'accept-http-device-01', 'accept-http-device-01', '123456',
      'mqtt-json', 1, 1, 1, 1, '1.0.0', '10.10.1.11', DATE_SUB(NOW(), INTERVAL 10 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE), 121.473700, 31.230400, '上海市黄浦区中山南路', JSON_OBJECT('line', 'A', 'workshop', 'W1'),
      'HTTP 链路验收设备', 1, NOW(), 1, NOW(), 0),
-    (2002, 1, 1002, '验收设备-MQTT-01', 'accept-mqtt-device-01', '123456', 'accept-mqtt-device-01', 'accept-mqtt-device-01', '123456',
+    (2002, 1, 7102, '告警处置组', 1002, '验收设备-MQTT-01', 'accept-mqtt-device-01', '123456', 'accept-mqtt-device-01', 'accept-mqtt-device-01', '123456',
      'mqtt-json', 1, 1, 1, 1, '1.2.3', '10.10.1.12', DATE_SUB(NOW(), INTERVAL 8 MINUTE), DATE_SUB(NOW(), INTERVAL 1 MINUTE), 121.478900, 31.226600, '上海市黄浦区人民路', JSON_OBJECT('line', 'B', 'workshop', 'W2'),
      'MQTT 链路验收设备', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    org_id = VALUES(org_id),
+    org_name = VALUES(org_name),
     product_id = VALUES(product_id),
     device_name = VALUES(device_name),
     protocol_code = VALUES(protocol_code),
@@ -482,6 +648,57 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+INSERT INTO sys_region (
+    id, tenant_id, region_name, region_code, parent_id, region_type, longitude, latitude,
+    status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (62, 1, '甘肃省', '62', 0, 'province', NULL, NULL, 1, 1, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6201, 1, '兰州市', '6201', 62, 'city', NULL, NULL, 1, 11, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6202, 1, '嘉峪关市', '6202', 62, 'city', NULL, NULL, 1, 12, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6205, 1, '天水市', '6205', 62, 'city', NULL, NULL, 1, 13, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6206, 1, '武威市', '6206', 62, 'city', NULL, NULL, 1, 14, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6208, 1, '平凉市', '6208', 62, 'city', NULL, NULL, 1, 15, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6210, 1, '庆阳市', '6210', 62, 'city', NULL, NULL, 1, 16, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6211, 1, '定西市', '6211', 62, 'city', NULL, NULL, 1, 17, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6212, 1, '陇南市', '6212', 62, 'city', NULL, NULL, 1, 18, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (6229, 1, '临夏回族自治州', '6229', 62, 'city', NULL, NULL, 1, 19, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620102, 1, '城关区', '620102', 6201, 'district', NULL, NULL, 1, 101, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620103, 1, '七里河区', '620103', 6201, 'district', NULL, NULL, 1, 102, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620104, 1, '西固区', '620104', 6201, 'district', NULL, NULL, 1, 103, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620111, 1, '红古区', '620111', 6201, 'district', NULL, NULL, 1, 104, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620121, 1, '永登县', '620121', 6201, 'district', NULL, NULL, 1, 105, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620122, 1, '皋兰县', '620122', 6201, 'district', NULL, NULL, 1, 106, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620123, 1, '榆中县', '620123', 6201, 'district', NULL, NULL, 1, 107, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620201101, 1, '峪泉镇', '620201101', 6202, 'street', NULL, NULL, 1, 108, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620503, 1, '麦积区', '620503', 6205, 'district', NULL, NULL, 1, 109, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620522, 1, '秦安县', '620522', 6205, 'district', NULL, NULL, 1, 110, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620602, 1, '凉州区', '620602', 6206, 'district', NULL, NULL, 1, 111, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620622, 1, '古浪县', '620622', 6206, 'district', NULL, NULL, 1, 112, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (620881, 1, '华亭市', '620881', 6208, 'district', NULL, NULL, 1, 113, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621021, 1, '庆城县', '621021', 6210, 'district', NULL, NULL, 1, 114, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621026, 1, '宁县', '621026', 6210, 'district', NULL, NULL, 1, 115, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621102, 1, '安定区', '621102', 6211, 'district', NULL, NULL, 1, 116, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621123, 1, '渭源县', '621123', 6211, 'district', NULL, NULL, 1, 117, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621202, 1, '武都区', '621202', 6212, 'district', NULL, NULL, 1, 118, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621221, 1, '成县', '621221', 6212, 'district', NULL, NULL, 1, 119, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621222, 1, '文县', '621222', 6212, 'district', NULL, NULL, 1, 120, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (621225, 1, '西和县', '621225', 6212, 'district', NULL, NULL, 1, 121, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622901, 1, '临夏市', '622901', 6229, 'district', NULL, NULL, 1, 122, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622923, 1, '永靖县', '622923', 6229, 'district', NULL, NULL, 1, 123, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0),
+    (622925, 1, '和政县', '622925', 6229, 'district', NULL, NULL, 1, 124, '高速公路风险点行政区划最小基线', 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    region_name = VALUES(region_name),
+    parent_id = VALUES(parent_id),
+    region_type = VALUES(region_type),
+    longitude = VALUES(longitude),
+    latitude = VALUES(latitude),
+    status = VALUES(status),
+    sort_no = VALUES(sort_no),
+    remark = VALUES(remark),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
 INSERT INTO sys_organization (
     id, tenant_id, parent_id, org_name, org_code, org_type, leader_user_id, leader_name,
     phone, email, status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
@@ -503,12 +720,44 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+INSERT INTO sys_organization (
+    id, tenant_id, parent_id, org_name, org_code, org_type, leader_user_id, leader_name,
+    phone, email, status, sort_no, remark, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (7111, 1, 0, '成县所', 'HW-ORG-CXS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 101, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7112, 1, 0, '成武所', 'HW-ORG-CWS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 102, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7113, 1, 0, '武都所', 'HW-ORG-WDS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 103, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7114, 1, 0, '甘肃公航旅高速公路运营管理兰州分公司', 'HW-ORG-LZFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 104, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7115, 1, 0, '甘肃公航旅高速公路运营管理临夏分公司', 'HW-ORG-LXFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 105, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7116, 1, 0, '甘肃公航旅高速公路运营管理平凉分公司', 'HW-ORG-PLFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 106, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7117, 1, 0, '甘肃公航旅高速公路运营管理武威分公司', 'HW-ORG-WWFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 107, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7118, 1, 0, '甘肃公航旅高速公路运营管理天水分公司', 'HW-ORG-TSFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 108, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7119, 1, 0, '甘肃公航旅高速公路运营管理定西分公司', 'HW-ORG-DXFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 109, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0),
+    (7120, 1, 0, '甘肃公航旅高速公路运营管理敦煌分公司', 'HW-ORG-DHFGS', 'dept', 1, '系统管理员', '13800000000', NULL, 1, 110, '高速公路风险点管养单位最小基线', 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    org_name = VALUES(org_name),
+    parent_id = VALUES(parent_id),
+    org_type = VALUES(org_type),
+    leader_user_id = VALUES(leader_user_id),
+    leader_name = VALUES(leader_name),
+    phone = VALUES(phone),
+    email = VALUES(email),
+    status = VALUES(status),
+    sort_no = VALUES(sort_no),
+    remark = VALUES(remark),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
 INSERT INTO sys_dict (
     id, tenant_id, dict_name, dict_code, dict_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7201, 1, '风险等级', 'risk_level', 'text', 1, 1, '风险等级字典', 1, NOW(), 1, NOW(), 0),
-    (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级字典', 1, NOW(), 1, NOW(), 0)
+    (7201, 1, '风险点等级', 'risk_point_level', 'text', 1, 1, '风险点档案等级字典', 1, NOW(), 1, NOW(), 0),
+    (7202, 1, '告警等级', 'alarm_level', 'text', 1, 2, '告警等级四色字典', 1, NOW(), 1, NOW(), 0),
+    (7203, 1, '风险态势等级', 'risk_level', 'text', 1, 3, '运行态风险颜色字典', 1, NOW(), 1, NOW(), 0),
+    (7204, 1, '帮助文档分类', 'help_doc_category', 'text', 1, 4, '帮助中心分类字典', 1, NOW(), 1, NOW(), 0),
+    (7205, 1, '通知渠道类型', 'notification_channel_type', 'text', 1, 5, '通知渠道类型字典', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     dict_name = VALUES(dict_name),
     dict_type = VALUES(dict_type),
@@ -519,18 +768,43 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+UPDATE sys_dict
+SET status = 0,
+    deleted = 1,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND dict_code IN ('risk_point_level', 'alarm_level', 'risk_level', 'help_doc_category', 'notification_channel_type')
+  AND id NOT IN (7201, 7202, 7203, 7204, 7205);
+
 INSERT INTO sys_dict_item (
     id, tenant_id, dict_id, item_name, item_value, item_type, status, sort_no, remark,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (7301, 1, 7201, '严重', 'critical', 'string', 1, 1, '风险等级-严重', 1, NOW(), 1, NOW(), 0),
-    (7302, 1, 7201, '警告', 'warning', 'string', 1, 2, '风险等级-警告', 1, NOW(), 1, NOW(), 0),
-    (7303, 1, 7201, '提醒', 'info', 'string', 1, 3, '风险等级-提醒', 1, NOW(), 1, NOW(), 0),
-    (7304, 1, 7202, '严重', 'critical', 'string', 1, 1, '告警等级-严重', 1, NOW(), 1, NOW(), 0),
-    (7305, 1, 7202, '警告', 'warning', 'string', 1, 2, '告警等级-警告', 1, NOW(), 1, NOW(), 0),
-    (7306, 1, 7202, '提醒', 'info', 'string', 1, 3, '告警等级-提醒', 1, NOW(), 1, NOW(), 0)
+    (7301, 1, 7201, '一级风险点', 'level_1', 'string', 1, 1, '风险点等级-一级风险点', 1, NOW(), 1, NOW(), 0),
+    (7302, 1, 7201, '二级风险点', 'level_2', 'string', 1, 2, '风险点等级-二级风险点', 1, NOW(), 1, NOW(), 0),
+    (7303, 1, 7201, '三级风险点', 'level_3', 'string', 1, 3, '风险点等级-三级风险点', 1, NOW(), 1, NOW(), 0),
+    (7304, 1, 7202, '红色', 'red', 'string', 1, 1, '告警等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7305, 1, 7202, '橙色', 'orange', 'string', 1, 2, '告警等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7306, 1, 7202, '黄色', 'yellow', 'string', 1, 3, '告警等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7307, 1, 7202, '蓝色', 'blue', 'string', 1, 4, '告警等级-蓝色', 1, NOW(), 1, NOW(), 0),
+    (7308, 1, 7203, '红色', 'red', 'string', 1, 1, '风险态势等级-红色', 1, NOW(), 1, NOW(), 0),
+    (7309, 1, 7203, '橙色', 'orange', 'string', 1, 2, '风险态势等级-橙色', 1, NOW(), 1, NOW(), 0),
+    (7310, 1, 7203, '黄色', 'yellow', 'string', 1, 3, '风险态势等级-黄色', 1, NOW(), 1, NOW(), 0),
+    (7311, 1, 7203, '蓝色', 'blue', 'string', 1, 4, '风险态势等级-蓝色', 1, NOW(), 1, NOW(), 0),
+    (7312, 1, 7204, '业务类', 'business', 'string', 1, 1, '帮助文档分类-业务类', 1, NOW(), 1, NOW(), 0),
+    (7313, 1, 7204, '技术类', 'technical', 'string', 1, 2, '帮助文档分类-技术类', 1, NOW(), 1, NOW(), 0),
+    (7314, 1, 7204, '常见问题', 'faq', 'string', 1, 3, '帮助文档分类-常见问题', 1, NOW(), 1, NOW(), 0),
+    (7315, 1, 7205, '邮件', 'email', 'string', 1, 1, '通知渠道类型-邮件', 1, NOW(), 1, NOW(), 0),
+    (7316, 1, 7205, '短信', 'sms', 'string', 1, 2, '通知渠道类型-短信', 1, NOW(), 1, NOW(), 0),
+    (7317, 1, 7205, 'Webhook', 'webhook', 'string', 1, 3, '通知渠道类型-Webhook', 1, NOW(), 1, NOW(), 0),
+    (7318, 1, 7205, '微信', 'wechat', 'string', 1, 4, '通知渠道类型-微信', 1, NOW(), 1, NOW(), 0),
+    (7319, 1, 7205, '飞书', 'feishu', 'string', 1, 5, '通知渠道类型-飞书', 1, NOW(), 1, NOW(), 0),
+    (7320, 1, 7205, '钉钉', 'dingtalk', 'string', 1, 6, '通知渠道类型-钉钉', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    dict_id = VALUES(dict_id),
     item_name = VALUES(item_name),
+    item_value = VALUES(item_value),
     item_type = VALUES(item_type),
     status = VALUES(status),
     sort_no = VALUES(sort_no),
@@ -538,6 +812,20 @@ ON DUPLICATE KEY UPDATE
     update_by = 1,
     update_time = NOW(),
     deleted = 0;
+
+UPDATE sys_dict_item
+SET status = 0,
+    deleted = 1,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND (
+      (dict_id = 7201 AND item_value NOT IN ('level_1', 'level_2', 'level_3'))
+      OR (dict_id = 7202 AND item_value NOT IN ('red', 'orange', 'yellow', 'blue'))
+      OR (dict_id = 7203 AND item_value NOT IN ('red', 'orange', 'yellow', 'blue'))
+      OR (dict_id = 7204 AND item_value NOT IN ('business', 'technical', 'faq'))
+      OR (dict_id = 7205 AND item_value NOT IN ('email', 'sms', 'webhook', 'wechat', 'feishu', 'dingtalk'))
+  );
 
 INSERT INTO sys_notification_channel (
     id, tenant_id, channel_name, channel_code, channel_type, config, status, sort_no, remark,
@@ -672,20 +960,199 @@ ON DUPLICATE KEY UPDATE
 -- 4) 风险平台（告警/事件/风险点）
 -- =========================
 INSERT INTO risk_point (
-    id, risk_point_code, risk_point_name, region_id, region_name, responsible_user, responsible_phone,
-    risk_level, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
+    id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
+    risk_level, risk_type, location_text, longitude, latitude, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8001, 'RP-HP-001', '锅炉温压监测点', 7002, '黄浦厂区', 1, '13800000000', 'critical', '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8002, 'RP-HP-002', '振动监测点', 7002, '黄浦厂区', 1, '13800000000', 'warning', '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8001, 'RP-HP-001', '锅炉温压监测点', 7101, '平台运维中心', 7002, '黄浦厂区', 1, '13800000000', 'red', 'GENERAL', NULL, NULL, NULL, '锅炉区高温高压风险监测', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8002, 'RP-HP-002', '振动监测点', 7102, '告警处置组', 7002, '黄浦厂区', 1, '13800000000', 'orange', 'GENERAL', NULL, NULL, NULL, '关键设备振动风险监测', 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     risk_point_name = VALUES(risk_point_name),
+    org_id = VALUES(org_id),
+    org_name = VALUES(org_name),
     region_id = VALUES(region_id),
     region_name = VALUES(region_name),
     responsible_user = VALUES(responsible_user),
     responsible_phone = VALUES(responsible_phone),
     risk_level = VALUES(risk_level),
+    risk_type = VALUES(risk_type),
+    location_text = VALUES(location_text),
+    longitude = VALUES(longitude),
+    latitude = VALUES(latitude),
     description = VALUES(description),
     status = VALUES(status),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
+INSERT INTO risk_point (
+    id, risk_point_code, risk_point_name, org_id, org_name, region_id, region_name, responsible_user, responsible_phone,
+    risk_level, risk_type, location_text, longitude, latitude, description, status, tenant_id, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (8501, 'RP-HW-SLOPE-001', 'G7011十天高速K595', 7111, '成县所', 621221, '成县', 1, '13800000000', 'blue', 'SLOPE', 'SXK595+818-SX595+960', 105.65682, 33.698381, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8502, 'RP-HW-SLOPE-002', 'G22青兰高速平定段K1458+75', 7116, '甘肃公航旅高速公路运营管理平凉分公司', 621026, '宁县', 1, '13800000000', 'blue', 'SLOPE', 'G22', 107.75108, 35.33165, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8503, 'RP-HW-SLOPE-003', 'G2012定武高速XK450+182', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620622, '古浪县', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8504, 'RP-HW-TUNNEL-001', 'G8513平绵高速成武段SK384+870-SK384+920', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.09881, 33.469798, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8505, 'RP-HW-SLOPE-004', 'S38王夏高速K14+650', 7115, '甘肃公航旅高速公路运营管理临夏分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'S38', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8506, 'RP-HW-SLOPE-005', 'S32临大高速K10+176-K10+560', 7115, '甘肃公航旅高速公路运营管理临夏分公司', 622901, '临夏市', 1, '13800000000', 'blue', 'SLOPE', 'S32', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8507, 'RP-HW-SLOPE-006', 'G30连霍高速树徐段K1740+300', 7114, '甘肃公航旅高速公路运营管理兰州分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8508, 'RP-HW-SLOPE-007', 'G30连霍高速柳忠段K1689+900-K1690+300', 7114, '甘肃公航旅高速公路运营管理兰州分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8509, 'RP-HW-SLOPE-008', 'G6京藏高速刘白段K1414+770-K1415+550', 7114, '甘肃公航旅高速公路运营管理兰州分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8510, 'RP-HW-SLOPE-009', 'G75兰海高速兰临段K14+325', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620103, '七里河区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8511, 'RP-HW-SLOPE-010', 'G75兰海高速兰临段K11+325', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620103, '七里河区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8512, 'RP-HW-SLOPE-011', 'G75兰海高速兰临段K14+149.5', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620103, '七里河区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8513, 'RP-HW-BRIDGE-001', 'G6 京藏高速兰海段K1661+350', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620111, '红古区', 1, '13800000000', 'blue', 'BRIDGE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8514, 'RP-HW-SLOPE-012', 'G6京藏高速白兰段K1548+810', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620122, '皋兰县', 1, '13800000000', 'blue', 'SLOPE', 'G6', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8515, 'RP-HW-SLOPE-013', 'G2201南绕城高速K39+800', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620104, '西固区', 1, '13800000000', 'blue', 'SLOPE', 'G2201', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8516, 'RP-HW-SLOPE-014', 'G30连霍高速柳忠段K1695+500～K1699+800', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620102, '城关区', 1, '13800000000', 'blue', 'SLOPE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8517, 'RP-HW-BRIDGE-002', 'G568兰永一级K75+253', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 622923, '永靖县', 1, '13800000000', 'blue', 'BRIDGE', 'G568', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8518, 'RP-HW-BRIDGE-003', 'G3011柳格高速K74+830', 7120, '甘肃公航旅高速公路运营管理敦煌分公司', 620201101, '峪泉镇', 1, '13800000000', 'blue', 'BRIDGE', 'G3011', 95.896419, 40.517818, 'G3011柳格高速K74+830', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8519, 'RP-HW-SLOPE-015', 'G2012定武高速SK394+700～SK394+900', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8520, 'RP-HW-SLOPE-016', 'G2012定武高速K393+170', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8521, 'RP-HW-SLOPE-017', 'G2012定武高速K413+446', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8522, 'RP-HW-SLOPE-018', 'G2012定武高速K400+315', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8523, 'RP-HW-SLOPE-019', 'G2012定武高速K392+410', 7117, '甘肃公航旅高速公路运营管理武威分公司', 620602, '凉州区', 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8524, 'RP-HW-SLOPE-020', 'G2012定武高速K392+790', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8525, 'RP-HW-SLOPE-021', 'G2012定武高速K479+665', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8526, 'RP-HW-SLOPE-022', 'G2012定武高速K465+175', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8527, 'RP-HW-SLOPE-023', 'G2012定武高速K462+995', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8528, 'RP-HW-SLOPE-024', 'G2012定武高速K420+891', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8529, 'RP-HW-SLOPE-025', 'G2012定武高速K437+982', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8530, 'RP-HW-SLOPE-026', 'G2012定武高速SK450+182', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G2012', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8531, 'RP-HW-SLOPE-027', 'G3017金武高速K67+050-K67+700', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G3017', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8532, 'RP-HW-SLOPE-028', 'G3017金武高速K68+860-K69+100', 7117, '甘肃公航旅高速公路运营管理武威分公司', NULL, NULL, 1, '13800000000', 'blue', 'SLOPE', 'G3017', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8533, 'RP-HW-BRIDGE-004', 'G22青兰高速巉柳段SK1856+400-500桥梁', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'BRIDGE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8534, 'RP-HW-TUNNEL-002', 'G22青兰高速巉柳段SK1839+928隧道', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'TUNNEL', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8535, 'RP-HW-SLOPE-029', 'G22青兰高速巉柳段K1858+250沉陷', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'SLOPE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8536, 'RP-HW-SLOPE-030', 'G22青兰高速巉柳段K1855+575沉陷', 7119, '甘肃公航旅高速公路运营管理定西分公司', 620123, '榆中县', 1, '13800000000', 'blue', 'SLOPE', 'G22', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8537, 'RP-HW-TUNNEL-003', 'G22青兰高速雷西段K1374+670-K1374+780', 7116, '甘肃公航旅高速公路运营管理平凉分公司', 621021, '庆城县', 1, '13800000000', 'blue', 'TUNNEL', 'G22', 107.70219, 35.904263, '棚洞设计标准受控于庆城隧道设计。隧道设计车速80km/h，按分离式设计，上、下行间距为36m 左右，每幅为单向双车道，棚洞采用变截面拱门式侧墙，侧墙内轮廓半径 5.43m，侧墙距电缆槽顶面高度 3.1m，采用钢筋混凝土扩大基础，横向设 C25 钢筋混凝土支撑梁，4m 间距设一道，横向支撑梁与侧墙混凝土一体浇筑完成。棚洞拱顶采用 I18 钢拱架为骨架，纵向间距为 3.0m，钢拱 架上沿纵向铺设[10 槽钢，槽钢与钢拱架焊接，顶部铺设蓝色遮光板，采用螺栓与槽钢连接。棚洞高填方路基下设钢波纹管涵，将沟内汇水排至下游沟谷。          经调查，上下行线棚洞病害情况相近，主要病害为棚洞拱墙开裂、局部混凝土剥落，裂缝最大 宽度达 2.2cm，个别部位拱圈整体剥落，拱墙大面积渗水、泛碱严重，涂装剥蚀泛碱严重。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8538, 'RP-HW-SLOPE-031', 'G8513平绵高速平天段YK54+925', 7116, '甘肃公航旅高速公路运营管理平凉分公司', 620881, '华亭市', 1, '13800000000', 'blue', 'SLOPE', 'G8513', 106.58477, 35.17848, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8539, 'RP-HW-BRIDGE-005', 'G8513平绵高速平天段K176+953', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620522, '秦安县', 1, '13800000000', 'blue', 'BRIDGE', 'G8513', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8540, 'RP-HW-SLOPE-032', 'G30连霍高速宝天段K1329+165', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.13355, 34.35039, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8541, 'RP-HW-BRIDGE-006', 'G30连霍高速宝天段K1306+742', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8542, 'RP-HW-BRIDGE-007', 'G30连霍高速宝天段K1310+835', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.31153, 34.318538, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8543, 'RP-HW-BRIDGE-008', 'G30连霍高速宝天段K1324+528', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.16548, 34.336527, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8544, 'RP-HW-BRIDGE-009', 'G30连霍高速宝天段K1289+900', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 106.51702, 34.336102, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8545, 'RP-HW-TUNNEL-004', 'G8513平绵高速成武段XK368+300-XK368+350', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.27762, 33.43379, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8546, 'RP-HW-TUNNEL-005', 'G8513平绵高速成武段XK385+260-XK385+360', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'TUNNEL', 'G8513', 105.10659, 33.467689, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8547, 'RP-HW-BRIDGE-010', 'G8513平绵高速成武段K396+935', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'BRIDGE', 'G8513', 105.01642, 33.488265, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8548, 'RP-HW-SLOPE-033', 'G75兰海高速兰临段K22+200-K22+400滑坡', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620102, '城关区', 1, '13800000000', 'blue', 'SLOPE', 'G75', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8549, 'RP-HW-SLOPE-034', 'G8513平绵高速成武段K374+960水毁', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'SLOPE', 'G8513', 105.21959, 33.436574, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8550, 'RP-HW-SLOPE-035', 'G7011十天高速K653+900', 7111, '成县所', 621225, '西和县', 1, '13800000000', 'blue', 'SLOPE', 'G7011', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8551, 'RP-HW-SLOPE-036', 'G568兰永一级K78+965-K79+140', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620102, '城关区', 1, '13800000000', 'blue', 'SLOPE', 'G568', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8552, 'RP-HW-SLOPE-037', 'G7011十天高速K646+945', 7111, '成县所', 621225, '西和县', 1, '13800000000', 'blue', 'SLOPE', 'G7011', NULL, NULL, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8553, 'RP-HW-SLOPE-038', 'G7011十天高速K583+445滑坡', 7111, '成县所', 621221, '成县', 1, '13800000000', 'blue', 'SLOPE', 'G7011', 105.77499, 33.741783, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8554, 'RP-HW-BRIDGE-011', 'G75 兰海高速武罐段K522+510水毁', 7113, '武都所', 621222, '文县', 1, '13800000000', 'blue', 'BRIDGE', 'G75', 105.41266, 32.762192, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8555, 'RP-HW-SLOPE-039', 'G6京藏高速兰海段K1652+225崩塌', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620104, '西固区', 1, '13800000000', 'blue', 'SLOPE', 'G6', 103.20301, 36.17702, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8556, 'RP-HW-SLOPE-040', 'G1816 乌玛高速康临段K745+950-K745+990隧道', 7115, '甘肃公航旅高速公路运营管理临夏分公司', 622925, '和政县', 1, '13800000000', 'blue', 'SLOPE', 'G1816', 103.32034, 35.452103, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8557, 'RP-HW-SLOPE-041', 'G1816乌玛高速康临段K753+240水毁', 7115, '甘肃公航旅高速公路运营管理临夏分公司', 622925, '和政县', 1, '13800000000', 'blue', 'SLOPE', 'G1816', 103.248, 35.481186, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8558, 'RP-HW-SLOPE-042', 'G22青兰高速平定段K1652+855水毁', 7119, '甘肃公航旅高速公路运营管理定西分公司', 621102, '安定区', 1, '13800000000', 'blue', 'SLOPE', 'G22', 105.78201, 35.546959, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8559, 'RP-HW-SLOPE-043', 'G8513平绵高速成武段K333+520', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'SLOPE', 'G8513', 105.46746, 33.639921, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8560, 'RP-HW-BRIDGE-012', 'G8513平绵高速成武段K401+694', 7112, '成武所', 621202, '武都区', 1, '13800000000', 'blue', 'BRIDGE', 'G8513', 104.95312, 33.462721, NULL, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8561, 'RP-HW-SLOPE-044', 'G30连霍高速宝天段K1323+880泥石流', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.16524, 34.336093, 'G30 连霍高速宝鸡至天水段下行线 K1323+880 处，位于甘肃省天水市麦积区党川镇。下行线左侧与泥石流沟口基本呈正交关系，采用 2×2m 涵洞导排泥石流。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8562, 'RP-HW-SLOPE-045', 'G6京藏高速K1623+400滑坡', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620111, '红古区', 1, '13800000000', 'blue', 'SLOPE', 'G6', 103.8313, 36.066116, 'G6 京藏高速公路兰海段 K1623+300～K1623+400 段右侧边坡滑塌，位于甘肃省兰州市西固区河口乡。项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，山高坡陡，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8563, 'RP-HW-BRIDGE-013', 'G30连霍高速 K1731+077', 7114, '甘肃公航旅高速公路运营管理兰州分公司', 620121, '永登县', 1, '13800000000', 'blue', 'BRIDGE', 'G30', 103.59, 36.4, 'G30连霍高速K1731+077 匝道桥，位于甘肃省兰州市永登县树屏镇。 项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地形破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8564, 'RP-HW-SLOPE-046', 'G30连霍高速K1328+500', 7118, '甘肃公航旅高速公路运营管理天水分公司', 620503, '麦积区', 1, '13800000000', 'blue', 'SLOPE', 'G30', 106.13379, 34.344941, 'G30 连霍高速公路宝天段 SK1328+800~SK1328+950 段右侧临河路堤水毁,位于甘肃省天水市麦积区党川乡。 路段位于两中山间的永宁河(党川河)河谷区，河床较开阔，为山区常年性河流，区内地形起伏不大，地面标高介于 1488.40~1595.10m，党川河两岸山体基岩露头较多， 山体坡度约 48°微地貌单元为山间河谷冲洪积及山间洪坡积裙地貌。', 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8565, 'RP-HW-SLOPE-047', 'G75 兰海高速K134+738边坡', 7119, '甘肃公航旅高速公路运营管理定西分公司', 621123, '渭源县', 1, '13800000000', 'blue', 'SLOPE', 'G75', 103.79258, 36.087916, 'G75 兰海高速K134+738 滑坡，位于甘肃省定西市渭源县清源镇，东北侧果园村申家山。 山脊走向近东西向，地貌属于低山丘陵地貌，斜坡高程在 2180~2330 之间，坡体下部平均坡度约 30°，中部平均坡度约 8°。', 0, 1, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    risk_point_name = VALUES(risk_point_name),
+    org_id = VALUES(org_id),
+    org_name = VALUES(org_name),
+    region_id = VALUES(region_id),
+    region_name = VALUES(region_name),
+    responsible_user = VALUES(responsible_user),
+    responsible_phone = VALUES(responsible_phone),
+    risk_level = VALUES(risk_level),
+    risk_type = VALUES(risk_type),
+    location_text = VALUES(location_text),
+    longitude = VALUES(longitude),
+    latitude = VALUES(latitude),
+    description = VALUES(description),
+    status = VALUES(status),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
+
+INSERT INTO risk_point_highway_detail (
+    id, risk_point_id, project_name, project_type, project_summary, route_code, route_name, road_level, project_risk_level,
+    admin_region_code, admin_region_path_json, maintenance_org_name, source_row_no, tenant_id, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (9501, 8501, 'G7011十天高速K595', '边坡', NULL, 'SXK595+818-SX595+960', '十天', '高速公路', NULL, '621221', '["62","6212","621221"]', '成县所', 2, 1, 1, NOW(), 1, NOW(), 0),
+    (9502, 8502, 'G22青兰高速平定段K1458+75', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '621026', '["62","6210","621026"]', '甘肃公航旅高速公路运营管理平凉分公司', 3, 1, 1, NOW(), 1, NOW(), 0),
+    (9503, 8503, 'G2012定武高速XK450+182', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620622', '["62","6206","620622"]', '甘肃公航旅高速公路运营管理武威分公司', 4, 1, 1, NOW(), 1, NOW(), 0),
+    (9504, 8504, 'G8513平绵高速成武段SK384+870-SK384+920', '隧道', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 5, 1, 1, NOW(), 1, NOW(), 0),
+    (9505, 8505, 'S38王夏高速K14+650', '边坡', NULL, 'S38', '王夏高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理临夏分公司', 6, 1, 1, NOW(), 1, NOW(), 0),
+    (9506, 8506, 'S32临大高速K10+176-K10+560', '边坡', NULL, 'S32', '临大高速', '高速公路', NULL, '622901', '["62","6229","622901"]', '甘肃公航旅高速公路运营管理临夏分公司', 7, 1, 1, NOW(), 1, NOW(), 0),
+    (9507, 8507, 'G30连霍高速树徐段K1740+300', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理兰州分公司', 8, 1, 1, NOW(), 1, NOW(), 0),
+    (9508, 8508, 'G30连霍高速柳忠段K1689+900-K1690+300', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理兰州分公司', 9, 1, 1, NOW(), 1, NOW(), 0),
+    (9509, 8509, 'G6京藏高速刘白段K1414+770-K1415+550', '边坡', NULL, 'G6', '京藏高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理兰州分公司', 10, 1, 1, NOW(), 1, NOW(), 0),
+    (9510, 8510, 'G75兰海高速兰临段K14+325', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620103', '["62","6201","620103"]', '甘肃公航旅高速公路运营管理兰州分公司', 11, 1, 1, NOW(), 1, NOW(), 0),
+    (9511, 8511, 'G75兰海高速兰临段K11+325', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620103', '["62","6201","620103"]', '甘肃公航旅高速公路运营管理兰州分公司', 12, 1, 1, NOW(), 1, NOW(), 0),
+    (9512, 8512, 'G75兰海高速兰临段K14+149.5', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620103', '["62","6201","620103"]', '甘肃公航旅高速公路运营管理兰州分公司', 13, 1, 1, NOW(), 1, NOW(), 0),
+    (9513, 8513, 'G6 京藏高速兰海段K1661+350', '桥梁', NULL, 'G6', '京藏高速', '高速公路', NULL, '620111', '["62","6201","620111"]', '甘肃公航旅高速公路运营管理兰州分公司', 14, 1, 1, NOW(), 1, NOW(), 0),
+    (9514, 8514, 'G6京藏高速白兰段K1548+810', '边坡', NULL, 'G6', '京藏高速', '高速公路', NULL, '620122', '["62","6201","620122"]', '甘肃公航旅高速公路运营管理兰州分公司', 15, 1, 1, NOW(), 1, NOW(), 0),
+    (9515, 8515, 'G2201南绕城高速K39+800', '边坡', NULL, 'G2201', '南绕城高速', '高速公路', NULL, '620104', '["62","6201","620104"]', '甘肃公航旅高速公路运营管理兰州分公司', 16, 1, 1, NOW(), 1, NOW(), 0),
+    (9516, 8516, 'G30连霍高速柳忠段K1695+500～K1699+800', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, '620102', '["62","6201","620102"]', '甘肃公航旅高速公路运营管理兰州分公司', 17, 1, 1, NOW(), 1, NOW(), 0),
+    (9517, 8517, 'G568兰永一级K75+253', '桥梁', NULL, 'G568', '兰永一级', '一级公路', NULL, '622923', '["62","6229","622923"]', '甘肃公航旅高速公路运营管理兰州分公司', 18, 1, 1, NOW(), 1, NOW(), 0),
+    (9518, 8518, 'G3011柳格高速K74+830', '桥梁', 'G3011柳格高速K74+830', 'G3011', '柳格高速', '高速公路', NULL, '620201101', '["62","6202","620201101"]', '甘肃公航旅高速公路运营管理敦煌分公司', 19, 1, 1, NOW(), 1, NOW(), 0),
+    (9519, 8519, 'G2012定武高速SK394+700～SK394+900', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 20, 1, 1, NOW(), 1, NOW(), 0),
+    (9520, 8520, 'G2012定武高速K393+170', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 21, 1, 1, NOW(), 1, NOW(), 0),
+    (9521, 8521, 'G2012定武高速K413+446', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 22, 1, 1, NOW(), 1, NOW(), 0),
+    (9522, 8522, 'G2012定武高速K400+315', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 23, 1, 1, NOW(), 1, NOW(), 0),
+    (9523, 8523, 'G2012定武高速K392+410', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, '620602', '["62","6206","620602"]', '甘肃公航旅高速公路运营管理武威分公司', 24, 1, 1, NOW(), 1, NOW(), 0),
+    (9524, 8524, 'G2012定武高速K392+790', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 25, 1, 1, NOW(), 1, NOW(), 0),
+    (9525, 8525, 'G2012定武高速K479+665', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 26, 1, 1, NOW(), 1, NOW(), 0),
+    (9526, 8526, 'G2012定武高速K465+175', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 27, 1, 1, NOW(), 1, NOW(), 0),
+    (9527, 8527, 'G2012定武高速K462+995', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 28, 1, 1, NOW(), 1, NOW(), 0),
+    (9528, 8528, 'G2012定武高速K420+891', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 29, 1, 1, NOW(), 1, NOW(), 0),
+    (9529, 8529, 'G2012定武高速K437+982', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 30, 1, 1, NOW(), 1, NOW(), 0),
+    (9530, 8530, 'G2012定武高速SK450+182', '边坡', NULL, 'G2012', '定武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 31, 1, 1, NOW(), 1, NOW(), 0),
+    (9531, 8531, 'G3017金武高速K67+050-K67+700', '边坡', NULL, 'G3017', '金武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 32, 1, 1, NOW(), 1, NOW(), 0),
+    (9532, 8532, 'G3017金武高速K68+860-K69+100', '边坡', NULL, 'G3017', '金武高速', '高速公路', NULL, NULL, NULL, '甘肃公航旅高速公路运营管理武威分公司', 33, 1, 1, NOW(), 1, NOW(), 0),
+    (9533, 8533, 'G22青兰高速巉柳段SK1856+400-500桥梁', '桥梁', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 34, 1, 1, NOW(), 1, NOW(), 0),
+    (9534, 8534, 'G22青兰高速巉柳段SK1839+928隧道', '隧道', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 35, 1, 1, NOW(), 1, NOW(), 0),
+    (9535, 8535, 'G22青兰高速巉柳段K1858+250沉陷', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 36, 1, 1, NOW(), 1, NOW(), 0),
+    (9536, 8536, 'G22青兰高速巉柳段K1855+575沉陷', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '620123', '["62","6201","620123"]', '甘肃公航旅高速公路运营管理定西分公司', 37, 1, 1, NOW(), 1, NOW(), 0),
+    (9537, 8537, 'G22青兰高速雷西段K1374+670-K1374+780', '隧道', '棚洞设计标准受控于庆城隧道设计。隧道设计车速80km/h，按分离式设计，上、下行间距为36m 左右，每幅为单向双车道，棚洞采用变截面拱门式侧墙，侧墙内轮廓半径 5.43m，侧墙距电缆槽顶面高度 3.1m，采用钢筋混凝土扩大基础，横向设 C25 钢筋混凝土支撑梁，4m 间距设一道，横向支撑梁与侧墙混凝土一体浇筑完成。棚洞拱顶采用 I18 钢拱架为骨架，纵向间距为 3.0m，钢拱 架上沿纵向铺设[10 槽钢，槽钢与钢拱架焊接，顶部铺设蓝色遮光板，采用螺栓与槽钢连接。棚洞高填方路基下设钢波纹管涵，将沟内汇水排至下游沟谷。          经调查，上下行线棚洞病害情况相近，主要病害为棚洞拱墙开裂、局部混凝土剥落，裂缝最大 宽度达 2.2cm，个别部位拱圈整体剥落，拱墙大面积渗水、泛碱严重，涂装剥蚀泛碱严重。', 'G22', '青兰高速', '高速公路', NULL, '621021', '["62","6210","621021"]', '甘肃公航旅高速公路运营管理平凉分公司', 38, 1, 1, NOW(), 1, NOW(), 0),
+    (9538, 8538, 'G8513平绵高速平天段YK54+925', '边坡', NULL, 'G8513', '平绵高速', '高速公路', NULL, '620881', '["62","6208","620881"]', '甘肃公航旅高速公路运营管理平凉分公司', 39, 1, 1, NOW(), 1, NOW(), 0),
+    (9539, 8539, 'G8513平绵高速平天段K176+953', '桥梁', NULL, 'G8513', '平绵高速', '高速公路', NULL, '620522', '["62","6205","620522"]', '甘肃公航旅高速公路运营管理天水分公司', 40, 1, 1, NOW(), 1, NOW(), 0),
+    (9540, 8540, 'G30连霍高速宝天段K1329+165', '边坡', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 41, 1, 1, NOW(), 1, NOW(), 0),
+    (9541, 8541, 'G30连霍高速宝天段K1306+742', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 42, 1, 1, NOW(), 1, NOW(), 0),
+    (9542, 8542, 'G30连霍高速宝天段K1310+835', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 43, 1, 1, NOW(), 1, NOW(), 0),
+    (9543, 8543, 'G30连霍高速宝天段K1324+528', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 44, 1, 1, NOW(), 1, NOW(), 0),
+    (9544, 8544, 'G30连霍高速宝天段K1289+900', '桥梁', NULL, 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 45, 1, 1, NOW(), 1, NOW(), 0),
+    (9545, 8545, 'G8513平绵高速成武段XK368+300-XK368+350', '隧道', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 46, 1, 1, NOW(), 1, NOW(), 0),
+    (9546, 8546, 'G8513平绵高速成武段XK385+260-XK385+360', '隧道', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 47, 1, 1, NOW(), 1, NOW(), 0),
+    (9547, 8547, 'G8513平绵高速成武段K396+935', '桥梁', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 48, 1, 1, NOW(), 1, NOW(), 0),
+    (9548, 8548, 'G75兰海高速兰临段K22+200-K22+400滑坡', '边坡', NULL, 'G75', '兰海高速', '高速公路', NULL, '620102', '["62","6201","620102"]', '甘肃公航旅高速公路运营管理兰州分公司', 49, 1, 1, NOW(), 1, NOW(), 0),
+    (9549, 8549, 'G8513平绵高速成武段K374+960水毁', '边坡', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 50, 1, 1, NOW(), 1, NOW(), 0),
+    (9550, 8550, 'G7011十天高速K653+900', '边坡', NULL, 'G7011', '十天高速', '高速公路', NULL, '621225', '["62","6212","621225"]', '成县所', 51, 1, 1, NOW(), 1, NOW(), 0),
+    (9551, 8551, 'G568兰永一级K78+965-K79+140', '边坡', NULL, 'G568', '兰永一级', '一级公路', NULL, '620102', '["62","6201","620102"]', '甘肃公航旅高速公路运营管理兰州分公司', 52, 1, 1, NOW(), 1, NOW(), 0),
+    (9552, 8552, 'G7011十天高速K646+945', '边坡', NULL, 'G7011', '十天高速', '高速公路', NULL, '621225', '["62","6212","621225"]', '成县所', 53, 1, 1, NOW(), 1, NOW(), 0),
+    (9553, 8553, 'G7011十天高速K583+445滑坡', '边坡', NULL, 'G7011', '十天高速', '高速公路', NULL, '621221', '["62","6212","621221"]', '成县所', 54, 1, 1, NOW(), 1, NOW(), 0),
+    (9554, 8554, 'G75 兰海高速武罐段K522+510水毁', '桥梁', NULL, 'G75', '兰海高速', '高速公路', NULL, '621222', '["62","6212","621222"]', '武都所', 55, 1, 1, NOW(), 1, NOW(), 0),
+    (9555, 8555, 'G6京藏高速兰海段K1652+225崩塌', '边坡', NULL, 'G6', '京藏高速', '一级公路', NULL, '620104', '["62","6201","620104"]', '甘肃公航旅高速公路运营管理兰州分公司', 56, 1, 1, NOW(), 1, NOW(), 0),
+    (9556, 8556, 'G1816 乌玛高速康临段K745+950-K745+990隧道', '边坡', NULL, 'G1816', '乌玛高速', '高速公路', NULL, '622925', '["62","6229","622925"]', '甘肃公航旅高速公路运营管理临夏分公司', 57, 1, 1, NOW(), 1, NOW(), 0),
+    (9557, 8557, 'G1816乌玛高速康临段K753+240水毁', '边坡', NULL, 'G1816', '乌玛高速', '高速公路', NULL, '622925', '["62","6229","622925"]', '甘肃公航旅高速公路运营管理临夏分公司', 58, 1, 1, NOW(), 1, NOW(), 0),
+    (9558, 8558, 'G22青兰高速平定段K1652+855水毁', '边坡', NULL, 'G22', '青兰高速', '高速公路', NULL, '621102', '["62","6211","621102"]', '甘肃公航旅高速公路运营管理定西分公司', 59, 1, 1, NOW(), 1, NOW(), 0),
+    (9559, 8559, 'G8513平绵高速成武段K333+520', '边坡', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 60, 1, 1, NOW(), 1, NOW(), 0),
+    (9560, 8560, 'G8513平绵高速成武段K401+694', '桥梁', NULL, 'G8513', '平绵高速', '高速公路', NULL, '621202', '["62","6212","621202"]', '成武所', 61, 1, 1, NOW(), 1, NOW(), 0),
+    (9561, 8561, 'G30连霍高速宝天段K1323+880泥石流', '边坡', 'G30 连霍高速宝鸡至天水段下行线 K1323+880 处，位于甘肃省天水市麦积区党川镇。下行线左侧与泥石流沟口基本呈正交关系，采用 2×2m 涵洞导排泥石流。', 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 62, 1, 1, NOW(), 1, NOW(), 0),
+    (9562, 8562, 'G6京藏高速K1623+400滑坡', '边坡', 'G6 京藏高速公路兰海段 K1623+300～K1623+400 段右侧边坡滑塌，位于甘肃省兰州市西固区河口乡。项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，山高坡陡，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 'G6', '京藏高速', '高速公路', NULL, '620111', '["62","6201","620111"]', '甘肃公航旅高速公路运营管理兰州分公司', 63, 1, 1, NOW(), 1, NOW(), 0),
+    (9563, 8563, 'G30连霍高速 K1731+077', '桥梁', 'G30连霍高速K1731+077 匝道桥，位于甘肃省兰州市永登县树屏镇。 项目区地处陇西黄土高原向青藏高原过度带，为黄土峁梁沟壑相间地貌，沟壑纵横，呈沟谷地形，沟谷深且多呈“V”字“W”字型断面，总体地形破碎。坡体植被极为稀少，山顶多为黄土覆盖，下部多红泥岩出露。', 'G30', '连霍高速', '高速公路', NULL, '620121', '["62","6201","620121"]', '甘肃公航旅高速公路运营管理兰州分公司', 64, 1, 1, NOW(), 1, NOW(), 0),
+    (9564, 8564, 'G30连霍高速K1328+500', '边坡', 'G30 连霍高速公路宝天段 SK1328+800~SK1328+950 段右侧临河路堤水毁,位于甘肃省天水市麦积区党川乡。 路段位于两中山间的永宁河(党川河)河谷区，河床较开阔，为山区常年性河流，区内地形起伏不大，地面标高介于 1488.40~1595.10m，党川河两岸山体基岩露头较多， 山体坡度约 48°微地貌单元为山间河谷冲洪积及山间洪坡积裙地貌。', 'G30', '连霍高速', '高速公路', NULL, '620503', '["62","6205","620503"]', '甘肃公航旅高速公路运营管理天水分公司', 65, 1, 1, NOW(), 1, NOW(), 0),
+    (9565, 8565, 'G75 兰海高速K134+738边坡', '边坡', 'G75 兰海高速K134+738 滑坡，位于甘肃省定西市渭源县清源镇，东北侧果园村申家山。 山脊走向近东西向，地貌属于低山丘陵地貌，斜坡高程在 2180~2330 之间，坡体下部平均坡度约 30°，中部平均坡度约 8°。', 'G75', '兰海高速', '高速公路', NULL, '621123', '["62","6211","621123"]', '甘肃公航旅高速公路运营管理定西分公司', 66, 1, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    project_name = VALUES(project_name),
+    project_type = VALUES(project_type),
+    project_summary = VALUES(project_summary),
+    route_code = VALUES(route_code),
+    route_name = VALUES(route_name),
+    road_level = VALUES(road_level),
+    project_risk_level = VALUES(project_risk_level),
+    admin_region_code = VALUES(admin_region_code),
+    admin_region_path_json = VALUES(admin_region_path_json),
+    maintenance_org_name = VALUES(maintenance_org_name),
+    source_row_no = VALUES(source_row_no),
     update_by = 1,
     update_time = NOW(),
     deleted = 0;
@@ -712,8 +1179,8 @@ INSERT INTO rule_definition (
     id, rule_name, metric_identifier, metric_name, expression, duration, alarm_level,
     notification_methods, convert_to_event, status, tenant_id, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8201, '锅炉温度超限', 'temperature', '温度', 'value > 80', 60, 'critical', 'email,webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (8202, '设备振动超限', 'vibration', '振动', 'value > 10', 120, 'warning', 'webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0)
+    (8201, '锅炉温度超限', 'temperature', '温度', 'value > 80', 60, 'red', 'email,webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (8202, '设备振动超限', 'vibration', '振动', 'value > 10', 120, 'orange', 'webhook', 1, 0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     rule_name = VALUES(rule_name),
     metric_name = VALUES(metric_name),
@@ -746,15 +1213,16 @@ ON DUPLICATE KEY UPDATE
     deleted = 0;
 
 INSERT INTO emergency_plan (
-    id, plan_name, risk_level, description, response_steps, contact_list, status, tenant_id,
+    id, plan_name, alarm_level, risk_level, description, response_steps, contact_list, status, tenant_id,
     create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8401, '锅炉超温应急预案', 'critical', '锅炉区域出现超温告警时执行',
+    (8401, '锅炉超温应急预案', 'red', 'red', '锅炉区域出现超温告警时执行',
      JSON_ARRAY('确认现场状态', '远程降载', '派发现场工单', '复盘关闭事件'),
      JSON_ARRAY(JSON_OBJECT('name', '值班长', 'phone', '13800000000'), JSON_OBJECT('name', '安全员', 'phone', '13800000001')),
      0, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     plan_name = VALUES(plan_name),
+    alarm_level = VALUES(alarm_level),
     risk_level = VALUES(risk_level),
     description = VALUES(description),
     response_steps = VALUES(response_steps),
@@ -771,12 +1239,12 @@ INSERT INTO iot_alarm_record (
     status, trigger_time, confirm_time, confirm_user, suppress_time, suppress_user, close_time, close_user,
     rule_id, rule_name, tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8501, 'ALARM-20260317001', '锅炉温度超限', 'threshold', 'critical',
+    (8501, 'ALARM-20260317001', '锅炉温度超限', 'threshold', 'red',
      7002, '黄浦厂区', 8001, '锅炉温压监测点',
      2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4', '80',
      0, DATE_SUB(NOW(), INTERVAL 30 MINUTE), NULL, NULL, NULL, NULL, NULL, NULL,
      8201, '锅炉温度超限', 1, '待确认告警', 1, NOW(), 1, NOW(), 0),
-    (8502, 'ALARM-20260317002', '设备振动异常', 'threshold', 'warning',
+    (8502, 'ALARM-20260317002', '设备振动异常', 'threshold', 'orange',
      7002, '黄浦厂区', 8002, '振动监测点',
      2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1', '10',
      3, DATE_SUB(NOW(), INTERVAL 50 MINUTE), DATE_SUB(NOW(), INTERVAL 45 MINUTE), 1, NULL, NULL, DATE_SUB(NOW(), INTERVAL 20 MINUTE), 1,
@@ -818,13 +1286,13 @@ INSERT INTO iot_event_record (
     trigger_time, dispatch_time, dispatch_user, start_time, complete_time, close_time, close_user, close_reason, review_notes,
     tenant_id, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
-    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'critical', 'critical',
+    (8601, 'EVENT-20260317001', '锅炉超温处置事件', 8501, 'ALARM-20260317001', 'red', 'red',
      7002, '黄浦厂区', 8001, '锅炉温压监测点',
      2001, 'accept-http-device-01', '验收设备-HTTP-01', 'temperature', '92.4',
      2, 1, 'high', 15, 120,
      DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), 1, DATE_SUB(NOW(), INTERVAL 20 MINUTE), NULL, NULL, NULL, NULL, '处理中',
      1, '进行中事件', 1, NOW(), 1, NOW(), 0),
-    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'warning', 'warning',
+    (8602, 'EVENT-20260317002', '振动异常复盘事件', 8502, 'ALARM-20260317002', 'orange', 'orange',
      7002, '黄浦厂区', 8002, '振动监测点',
      2002, 'accept-mqtt-device-01', '验收设备-MQTT-01', 'vibration', '12.1',
      4, 1, 'medium', 30, 240,
@@ -891,6 +1359,39 @@ ON DUPLICATE KEY UPDATE
     update_by = 1,
     update_time = NOW(),
     deleted = 0;
+
+
+INSERT INTO `iot_product` (
+    `id`,
+    `tenant_id`,
+    `product_key`,
+    `product_name`,
+    `protocol_code`,
+    `node_type`,
+    `data_format`,
+    `manufacturer`,
+    `description`,
+    `status`,
+    `remark`,
+    `create_by`,
+    `update_by`,
+    `deleted`
+) VALUES
+      (202603192100560271, 1, 'zhd-warning-sound-light-alarm-v1', '中海达 预警型 声光报警器', 'mqtt-json', 1, 'JSON', '中海达', '预警型声光报警设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_sound_light_alarm', NULL, NULL, 0),
+      (202603192100560270, 1, 'zjhy-warning-sound-light-alarm-v1', '浙江华源 预警型 声光报警器', 'mqtt-json', 1, 'JSON', '浙江华源', '预警型声光报警设备，协议 mqtt-json，直连接入', 1, '原始 productKey: zjhy_sound_light_alarm', NULL, NULL, 0),
+      (202603192100560259, 1, 'nf-collect-rtu-v1', '南方测绘 采集型 遥测终端', 'mqtt-json', 1, 'JSON', '南方测绘', '采集型遥测终端设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_rtu', NULL, NULL, 0),
+      (202603192100560258, 1, 'nf-monitor-laser-rangefinder-v1', '南方测绘 监测型 激光测距仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型激光测距设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_laser_rangefinder', NULL, NULL, 0),
+      (202603192100560257, 1, 'zhd-monitor-tiltmeter-v1', '中海达 监测型 倾角仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型倾角设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_tiltmeter', NULL, NULL, 0),
+      (202603192100560255, 1, 'nf-monitor-crack-meter-v1', '南方测绘 监测型 裂缝计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型裂缝监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_crack_meter', NULL, NULL, 0),
+      (202603192100560254, 1, 'nf-monitor-mud-level-meter-v1', '南方测绘 监测型 泥位计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型泥位监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_mud_level_meter', NULL, NULL, 0),
+      (202603192100560253, 1, 'nf-monitor-tipping-bucket-rain-gauge-v1', '南方测绘 监测型 翻斗式雨量计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型翻斗式雨量监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_rain_gauge', NULL, NULL, 0),
+      (202603192100560252, 1, 'zhd-monitor-multi-displacement-v1', '中海达 监测型 多维位移监测仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型多维位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_multi_displacement', NULL, NULL, 0),
+      (202603192100560251, 1, 'nf-monitor-multi-displacement-v1', '南方测绘 监测型 多维位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型多维位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_multi_displacement', NULL, NULL, 0),
+      (202603192100560250, 1, 'nf-monitor-deep-displacement-v1', '南方测绘 监测型 深部位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型深部位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_deep_displacement', NULL, NULL, 0),
+      (202603192100560249, 1, 'zhd-monitor-gnss-base-station-v1', '中海达 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_base_station', NULL, NULL, 0),
+      (202603192100560248, 1, 'nf-monitor-gnss-base-station-v1', '南方测绘 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_base_station', NULL, NULL, 0),
+      (202603192100560247, 1, 'zhd-monitor-gnss-monitor-v1', '中海达 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_monitor', NULL, NULL, 0),
+      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '南方测绘 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_monitor', NULL, NULL, 0);
 
 -- 数据就绪说明
 -- 1. IoT 主链路：产品/设备/物模型/属性/消息日志

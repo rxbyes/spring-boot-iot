@@ -28,6 +28,8 @@ public class ProductDetailVO {
 
     private String description;
 
+    private String metadataJson;
+
     private Integer status;
 
     private Long deviceCount;

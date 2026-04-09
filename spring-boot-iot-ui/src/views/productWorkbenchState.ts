@@ -313,7 +313,12 @@ export function getProductRowKey(row?: Partial<Product> | null) {
 
 export function matchesProductFilters(product: Product, filters: ProductFilterSnapshot) {
   const keyword = filters.productName.trim().toLowerCase()
-  if (keyword && !String(product.productName || '').toLowerCase().includes(keyword)) {
+  if (
+    keyword &&
+    ![product.productName, product.productKey, product.manufacturer]
+      .map((value) => String(value || '').toLowerCase())
+      .some((value) => value.includes(keyword))
+  ) {
     return false
   }
   if (filters.nodeType !== undefined && product.nodeType !== filters.nodeType) {

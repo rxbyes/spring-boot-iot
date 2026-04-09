@@ -7,8 +7,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
-import javax.sql.DataSource;
-
 @Configuration
 public class MasterDataSourceConfig {
 
@@ -21,7 +19,8 @@ public class MasterDataSourceConfig {
 
     @Bean
     @Primary
-    public DataSource masterDataSource(DataSourceProperties masterDataSourceProperties) {
+    @ConfigurationProperties(prefix = "spring.datasource.dynamic.datasource.master.hikari")
+    public HikariDataSource masterDataSource(DataSourceProperties masterDataSourceProperties) {
         return masterDataSourceProperties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();

@@ -1,7 +1,6 @@
 <template>
   <StandardDetailDrawer
     :model-value="modelValue"
-    eyebrow="Risk Monitoring Detail"
     :title="detail?.riskPointName || detail?.deviceName || '监测详情'"
     :subtitle="detail?.deviceCode ? `设备编码：${detail.deviceCode}` : '查看风险监测对象当前态势'"
     :tags="drawerTags"
@@ -23,7 +22,7 @@
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">监测状态</span>
           <strong class="detail-summary-card__value">{{ monitorStatusText(detail?.monitorStatus) }}</strong>
-          <p class="detail-summary-card__hint">风险等级：{{ riskLevelText(detail?.riskLevel) }}</p>
+          <p class="detail-summary-card__hint">风险点等级：{{ riskPointLevelText(detail?.riskPointLevel) }}</p>
         </article>
         <article class="detail-summary-card">
           <span class="detail-summary-card__label">在线状态</span>
@@ -63,6 +62,8 @@
         <div class="detail-field"><span class="detail-field__label">区域</span><strong class="detail-field__value">{{ detail?.regionName || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">风险点</span><strong class="detail-field__value">{{ detail?.riskPointName || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">风险点编码</span><strong class="detail-field__value">{{ detail?.riskPointCode || '--' }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">风险点等级</span><strong class="detail-field__value">{{ riskPointLevelText(detail?.riskPointLevel) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">当前风险态势</span><strong class="detail-field__value">{{ currentRiskLevelText(detail) }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">测点</span><strong class="detail-field__value">{{ detail?.metricName || detail?.metricIdentifier || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">值类型</span><strong class="detail-field__value">{{ detail?.valueType || '--' }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">经纬度</span><strong class="detail-field__value">{{ formatCoordinate(detail?.longitude, detail?.latitude) }}</strong></div>
@@ -82,6 +83,7 @@
         <div class="detail-field"><span class="detail-field__label">最新上报</span><strong class="detail-field__value">{{ formatDateTime(detail?.latestReportTime) }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">监测状态</span><strong class="detail-field__value">{{ monitorStatusText(detail?.monitorStatus) }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">在线状态</span><strong class="detail-field__value">{{ onlineStatusText(detail?.onlineStatus) }}</strong></div>
+        <div class="detail-field"><span class="detail-field__label">当前风险态势</span><strong class="detail-field__value">{{ currentRiskLevelText(detail) }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">活跃告警</span><strong class="detail-field__value">{{ detail?.activeAlarmCount ?? 0 }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">近期事件</span><strong class="detail-field__value">{{ detail?.recentEventCount ?? 0 }}</strong></div>
         <div class="detail-field"><span class="detail-field__label">趋势点数</span><strong class="detail-field__value">{{ detail?.trendPoints?.length ?? 0 }}</strong></div>
@@ -103,9 +105,10 @@
         <article v-for="alarm in recentAlarms" :key="alarm.id" class="detail-card">
           <div class="detail-card__header">
             <strong>{{ alarm.alarmTitle || alarm.alarmCode || `告警 ${alarm.id}` }}</strong>
-            <el-tag :type="riskLevelTagType(alarm.alarmLevel)" round>{{ riskLevelText(alarm.alarmLevel) }}</el-tag>
+            <el-tag :type="alarmLevelTagType(alarm.alarmLevel)" round>{{ alarmLevelText(alarm.alarmLevel) }}</el-tag>
           </div>
           <div class="detail-card__meta">
+            <span>告警等级 {{ alarmLevelText(alarm.alarmLevel) }}</span>
             <span>当前值 {{ alarm.currentValue || '--' }}</span>
             <span>阈值 {{ alarm.thresholdValue || '--' }}</span>
             <span>{{ formatDateTime(alarm.triggerTime) }}</span>
@@ -126,11 +129,14 @@
         <article v-for="event in recentEvents" :key="event.id" class="detail-card">
           <div class="detail-card__header">
             <strong>{{ event.eventTitle || event.eventCode || `事件 ${event.id}` }}</strong>
-            <el-tag :type="riskLevelTagType(event.riskLevel)" round>{{ riskLevelText(event.riskLevel) }}</el-tag>
+            <el-tag :type="riskLevelTagType(event.currentRiskLevel || event.riskLevel)" round>
+              {{ currentRiskLevelText(event) }}
+            </el-tag>
           </div>
           <div class="detail-card__meta">
             <span>当前值 {{ event.currentValue || '--' }}</span>
             <span>状态 {{ eventStatusText(event.status) }}</span>
+            <span>当前风险态势 {{ currentRiskLevelText(event) }}</span>
             <span>{{ formatDateTime(event.triggerTime) }}</span>
           </div>
         </article>
@@ -143,6 +149,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
+import { getAlarmLevelTagType, getAlarmLevelText } from '@/utils/alarmLevel';
+import { getRiskPointLevelText } from '@/utils/riskPointLevel';
+import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel';
 
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 import {
@@ -188,11 +197,18 @@ const drawerTags = computed(() => {
     return [];
   }
   return [
-    { label: riskLevelText(detail.value.riskLevel), type: riskLevelTagType(detail.value.riskLevel) },
+    { label: riskPointLevelText(detail.value.riskPointLevel), type: 'info' as const },
+    { label: currentRiskLevelText(detail.value), type: riskLevelTagType(detail.value.currentRiskLevel || detail.value.riskLevel) },
     { label: monitorStatusText(detail.value.monitorStatus), type: monitorStatusTagType(detail.value.monitorStatus) },
     { label: onlineStatusText(detail.value.onlineStatus), type: detail.value.onlineStatus === 1 ? 'success' : 'info' as const }
   ];
 });
+const currentRiskLevelText = (value?: { currentRiskLevel?: string | null; riskLevel?: string | null } | null) =>
+  getRiskLevelText(value?.currentRiskLevel || value?.riskLevel);
+const riskLevelTagType = getRiskLevelTagType;
+const riskPointLevelText = getRiskPointLevelText;
+const alarmLevelText = getAlarmLevelText;
+const alarmLevelTagType = getAlarmLevelTagType;
 
 watch(
   () => [props.modelValue, props.bindingId] as const,
@@ -215,36 +231,6 @@ async function loadDetail(bindingId: number) {
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
-  }
-}
-
-function riskLevelText(value?: string | null) {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return '严重';
-    case 'WARNING':
-    case 'MEDIUM':
-      return '警告';
-    case 'INFO':
-    case 'LOW':
-      return '提醒';
-    default:
-      return value || '未标注';
-  }
-}
-
-function riskLevelTagType(value?: string | null): 'danger' | 'warning' | 'success' | 'info' {
-  switch ((value || '').toUpperCase()) {
-    case 'CRITICAL':
-      return 'danger';
-    case 'WARNING':
-    case 'MEDIUM':
-      return 'warning';
-    case 'INFO':
-    case 'LOW':
-      return 'success';
-    default:
-      return 'info';
   }
 }
 

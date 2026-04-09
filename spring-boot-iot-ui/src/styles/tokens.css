@@ -1,10 +1,23 @@
 :root {
   color-scheme: light;
 
-  /* 字体 - 阿里云控制台式浅色产品风格 */
-  --font-display: "Alibaba PuHuiTi 3.0", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
-  --font-body: "Alibaba PuHuiTi 3.0", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
+  /* 字体 - 全局宋感中文基线 */
+  --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-body: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
+  --font-letter-spacing-tight: -0.016em;
+  --font-letter-spacing-base: 0;
+  --font-letter-spacing-wide: 0.08em;
+  --type-title-1-size: clamp(1.46rem, 1.12rem + 0.82vw, 1.92rem);
+  --type-title-2-size: clamp(1.18rem, 1.02rem + 0.34vw, 1.36rem);
+  --type-title-3-size: 1.02rem;
+  --type-overline-size: 0.7rem;
+  --type-body-size: 0.92rem;
+  --type-body-line-height: 1.72;
+  --type-caption-size: 0.8rem;
+  --type-caption-line-height: 1.64;
+  --type-label-size: 0.74rem;
+  --type-toolbar-meta-size: 0.72rem;
 
   /* 主视觉色 - 阿里云控制台橙 */
   --primary: #ff6a00;
@@ -113,6 +126,18 @@
   --shadow-side-panel: 12px 0 28px rgba(31, 50, 81, 0.14);
   --overlay-mask: rgba(16, 23, 38, 0.45);
   --loading-mask-bg: color-mix(in srgb, var(--surface-soft) 78%, transparent);
+  --ops-workbench-gap: 0.72rem;
+  --ops-filter-grid-gap: 8px;
+  --ops-filter-actions-gap: 14px;
+  --ops-list-surface-radius: calc(var(--radius-lg) + 2px);
+  --ops-list-surface-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
+  --ops-list-surface-bg-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+  --ops-list-surface-mask: rgba(248, 250, 255, 0.78);
+  --ops-mobile-card-padding: 0.92rem 0.96rem;
+  --ops-mobile-card-gap: 0.8rem;
+  --ops-meta-chip-font-size: 11.5px;
+  --ops-field-label-font-size: 11.5px;
+  --ops-field-value-font-size: 13px;
 
   /* 间距 */
   --spacing-xs: 4px;
@@ -141,14 +166,6 @@
   --button-primary-text: #ffffff;
   --button-primary-hover-text: #ffffff;
   --button-primary-disabled-text: rgba(255, 255, 255, 0.88);
-  --button-query-bg: linear-gradient(135deg, var(--brand) 0%, var(--brand-bright) 100%);
-  --button-query-hover-bg: linear-gradient(135deg, var(--brand-bright) 0%, var(--brand) 100%);
-  --button-query-active-bg: var(--button-primary-active-bg);
-  --button-query-disabled-bg: var(--button-primary-disabled-bg);
-  --button-query-text: #ffffff;
-  --button-query-hover-text: #ffffff;
-  --button-query-disabled-text: rgba(255, 255, 255, 0.88);
-  --button-query-shadow: var(--shadow-brand);
   --button-action-text: var(--brand);
   --button-action-hover-text: var(--brand-deep);
   --button-action-hover-bg: color-mix(in srgb, var(--brand) 10%, white);

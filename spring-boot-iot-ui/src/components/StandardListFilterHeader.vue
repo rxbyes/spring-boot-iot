@@ -143,7 +143,7 @@ onUpdated(() => {
 .standard-list-filter-header__row {
   display: grid;
   grid-template-columns: var(--slfh-primary-columns);
-  gap: 8px;
+  gap: var(--ops-filter-grid-gap, 8px);
   align-items: end;
 }
 
@@ -165,7 +165,7 @@ onUpdated(() => {
 .standard-list-filter-header__advanced-grid {
   display: grid;
   grid-template-columns: var(--slfh-advanced-columns);
-  gap: 8px;
+  gap: var(--ops-filter-grid-gap, 8px);
 }
 
 .standard-list-filter-header__advanced-grid :deep(.el-form-item) {
@@ -183,7 +183,7 @@ onUpdated(() => {
 
 .standard-list-filter-header__actions-row--minimal {
   margin-top: 12px;
-  gap: 8px 14px;
+  gap: 8px var(--ops-filter-actions-gap, 14px);
 }
 
 .standard-list-filter-header__actions {
@@ -195,12 +195,14 @@ onUpdated(() => {
 .standard-list-filter-header__toggle {
   padding-inline: 0.08rem;
   font-weight: 600;
+  font-size: var(--type-label-size);
+  letter-spacing: calc(var(--font-letter-spacing-wide) * 0.55);
 }
 
 .standard-list-filter-header__hint {
   color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 @media (max-width: 1240px) {

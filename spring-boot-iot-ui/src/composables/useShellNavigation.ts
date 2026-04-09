@@ -7,6 +7,8 @@ import type { MenuTreeNode } from '../types/auth';
 import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
 import {
   createSectionHomeNavItem,
+  isCompatibilityWorkspacePath,
+  listCanonicalWorkspaceNavItems,
   listStaticNavigationGroups,
   type WorkspaceNavGroup,
   type WorkspaceNavItem
@@ -66,7 +68,45 @@ function appendNavItem(items: WorkspaceNavItem[], node: MenuTreeNode, pathSet: S
   (node.children || []).forEach((child) => appendNavItem(items, child, pathSet));
 }
 
-function buildDynamicGroups(menus: MenuTreeNode[]): WorkspaceNavGroup[] {
+function mergeDynamicGroupItems(
+  groupKey: string,
+  groupLabel: string,
+  items: WorkspaceNavItem[],
+  allowedPaths: string[],
+  hasRoutePermission: (path: string) => boolean
+): WorkspaceNavItem[] {
+  const canonicalItems = listCanonicalWorkspaceNavItems(groupKey, groupLabel, allowedPaths);
+  const mergedItems: WorkspaceNavItem[] = [];
+  const seenPaths = new Set<string>();
+
+  const appendItem = (item: WorkspaceNavItem) => {
+    const normalizedPath = normalizeRoutePath(item.to);
+    if (seenPaths.has(normalizedPath) || !hasRoutePermission(normalizedPath)) {
+      return;
+    }
+    seenPaths.add(normalizedPath);
+    mergedItems.push({
+      ...item,
+      to: normalizedPath
+    });
+  };
+
+  canonicalItems.forEach(appendItem);
+  prependSectionHomeItem(groupKey, groupLabel, items).forEach((item) => {
+    if (canonicalItems.length > 0 && isCompatibilityWorkspacePath(item.to)) {
+      return;
+    }
+    appendItem(item);
+  });
+
+  return mergedItems;
+}
+
+function buildDynamicGroups(
+  menus: MenuTreeNode[],
+  allowedPaths: string[],
+  hasRoutePermission: (path: string) => boolean
+): WorkspaceNavGroup[] {
   return menus
     .filter((root) => root.type !== 2)
     .map((root) => {
@@ -79,7 +119,13 @@ function buildDynamicGroups(menus: MenuTreeNode[]): WorkspaceNavGroup[] {
         description: root.meta?.description || '权限分组',
         menuTitle: root.meta?.menuTitle || root.menuName || '菜单分组',
         menuHint: root.meta?.menuHint || root.meta?.description || '由后端菜单权限动态驱动。',
-        items: prependSectionHomeItem(root.menuCode || `menu-${root.id}`, root.menuName || '', items)
+        items: mergeDynamicGroupItems(
+          root.menuCode || `menu-${root.id}`,
+          root.menuName || '',
+          items,
+          allowedPaths,
+          hasRoutePermission
+        )
       } as WorkspaceNavGroup;
     })
     .filter((group) => group.items.length > 0);
@@ -103,7 +149,11 @@ export function useShellNavigation(): ShellNavigationState {
     if (!permissionStore.isLoggedIn) {
       return [guestGroup];
     }
-    const dynamicGroups = buildDynamicGroups(permissionStore.menus || []);
+    const dynamicGroups = buildDynamicGroups(
+      permissionStore.menus || [],
+      permissionStore.allowedPaths || [],
+      (path) => permissionStore.hasRoutePermission(path)
+    );
     if (dynamicGroups.length > 0) {
       return dynamicGroups;
     }

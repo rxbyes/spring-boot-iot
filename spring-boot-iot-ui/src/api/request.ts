@@ -23,7 +23,7 @@ export interface RequestError extends Error {
   rawMessage?: string;
 }
 
-const SYSTEM_BUSY_MESSAGE = '系统繁忙，请稍后重试！';
+export const SYSTEM_BUSY_MESSAGE = '系统繁忙，请稍后重试！';
 
 const UNSAFE_ID_JSON_FIELD_PATTERN =
   /(^|[{\[,])(\s*)"([A-Za-z_][A-Za-z0-9_]*(?:Id|ID|_id)|id)"\s*:\s*(-?\d{16,})(?=\s*[,}\]])/gm;
@@ -40,6 +40,20 @@ export function createRequestError(message: string, handled = false, status?: nu
 
 export function isHandledRequestError(error: unknown): error is RequestError {
   return Boolean(error && typeof error === 'object' && (error as RequestError).handled);
+}
+
+export function resolveRequestErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (error instanceof Error) {
+    const requestError = error as RequestError;
+    if (requestError.status === 500) {
+      return SYSTEM_BUSY_MESSAGE;
+    }
+    const message = error.message?.trim();
+    if (message) {
+      return message;
+    }
+  }
+  return fallbackMessage;
 }
 
 export function normalizeUnsafeIdJson(bodyText: string): string {

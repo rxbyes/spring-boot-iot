@@ -11,6 +11,7 @@ public class RiskMonitoringListQuery {
     private Long regionId;
     private Long riskPointId;
     private String deviceCode;
+    private String currentRiskLevel;
     private String riskLevel;
     private Integer onlineStatus;
     private Long pageNum = 1L;

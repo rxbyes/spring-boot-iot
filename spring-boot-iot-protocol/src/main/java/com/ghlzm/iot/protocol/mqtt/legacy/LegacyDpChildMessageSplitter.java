@@ -2,15 +2,25 @@ package com.ghlzm.iot.protocol.mqtt.legacy;
 
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateEvidence;
+import com.ghlzm.iot.protocol.core.model.ProtocolTemplateExecutionEvidence;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateContext;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateExecutionResult;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateExecutor;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateMatcher;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateRegistry;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -19,14 +29,52 @@ import java.util.regex.Pattern;
 public class LegacyDpChildMessageSplitter {
 
     private static final String DEEP_DISPLACEMENT_PARENT_STATUS_FAMILY = "S1_ZT_1";
+    private static final String PARENT_SENSOR_STATE_PROPERTY_PREFIX = "S1_ZT_1.sensor_state.";
+    private static final String CHILD_SENSOR_STATE_PROPERTY = "sensor_state";
+    private static final String CHILD_CRACK_VALUE_PROPERTY = "value";
+    private static final String CANONICALIZATION_STRATEGY_LEGACY = "LEGACY";
+    private static final String CANONICALIZATION_STRATEGY_LF_VALUE = "LF_VALUE";
+    private static final String STATUS_MIRROR_STRATEGY_NONE = "NONE";
+    private static final String STATUS_MIRROR_STRATEGY_SENSOR_STATE = "SENSOR_STATE";
     private static final Pattern DEEP_DISPLACEMENT_LOGICAL_CODE_PATTERN = Pattern.compile("^L1_SW_\\d+$");
+    private static final Pattern CRACK_LOGICAL_CODE_PATTERN = Pattern.compile("^L1_LF_\\d+$");
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final LegacyDpFamilyResolver familyResolver = new LegacyDpFamilyResolver();
     private final IotProperties iotProperties;
+    private final LegacyDpRelationResolver relationResolver;
+    private final LegacyDpChildTemplateMatcher templateMatcher;
+    private final LegacyDpChildTemplateExecutor templateExecutor;
 
     public LegacyDpChildMessageSplitter(IotProperties iotProperties) {
+        this(iotProperties, LegacyDpRelationResolver.noop());
+    }
+
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties, LegacyDpRelationResolver relationResolver) {
+        this(iotProperties, relationResolver, new LegacyDpChildTemplateRegistry());
+    }
+
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties,
+                                        LegacyDpRelationResolver relationResolver,
+                                        LegacyDpChildTemplateRegistry templateRegistry) {
+        this(
+                iotProperties,
+                relationResolver,
+                new LegacyDpChildTemplateMatcher(templateRegistry == null
+                        ? new LegacyDpChildTemplateRegistry()
+                        : templateRegistry),
+                new LegacyDpChildTemplateExecutor()
+        );
+    }
+
+    public LegacyDpChildMessageSplitter(IotProperties iotProperties,
+                                        LegacyDpRelationResolver relationResolver,
+                                        LegacyDpChildTemplateMatcher templateMatcher,
+                                        LegacyDpChildTemplateExecutor templateExecutor) {
         this.iotProperties = iotProperties;
+        this.relationResolver = relationResolver == null ? LegacyDpRelationResolver.noop() : relationResolver;
+        this.templateMatcher = Objects.requireNonNull(templateMatcher, "templateMatcher");
+        this.templateExecutor = Objects.requireNonNull(templateExecutor, "templateExecutor");
     }
 
     public LegacyDpNormalizeResult split(Map<String, Object> payload,
@@ -36,14 +84,16 @@ public class LegacyDpChildMessageSplitter {
         if (parentMessage == null) {
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
+            result.setTemplateEvidence(null);
             return result;
         }
 
-        Map<String, String> subDeviceMappings = resolveSubDeviceMappings(parentMessage.getDeviceCode());
-        if (subDeviceMappings.isEmpty()) {
+        List<LegacyDpRelationRule> relationRules = resolveRelationRules(parentMessage.getDeviceCode());
+        if (relationRules.isEmpty()) {
             result.setProperties(collapseStandaloneDeepDisplacementProperties(parentMessage, result));
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
+            result.setTemplateEvidence(null);
             return result;
         }
 
@@ -51,58 +101,197 @@ public class LegacyDpChildMessageSplitter {
         if (!(basePayload instanceof Map<?, ?> basePayloadMap)) {
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
+            result.setTemplateEvidence(null);
             return result;
         }
 
         List<DeviceUpMessage> childMessages = new ArrayList<>();
-        List<String> logicalCodes = new ArrayList<>();
-        List<Map.Entry<String, String>> mappingEntries = new ArrayList<>(subDeviceMappings.entrySet());
-        mappingEntries.sort(Map.Entry.comparingByKey());
-        for (Map.Entry<String, String> entry : mappingEntries) {
-            String logicalCode = entry.getKey();
-            String childDeviceCode = entry.getValue();
+        List<String> parentRemovalKeys = new ArrayList<>();
+        List<ProtocolTemplateExecutionEvidence> templateExecutions = new ArrayList<>();
+        List<ProtocolMetricEvidence> metricEvidence = new ArrayList<>(
+                result.getMetricEvidence() == null ? List.of() : result.getMetricEvidence()
+        );
+        for (LegacyDpRelationRule rule : relationRules) {
+            String logicalCode = rule.logicalChannelCode();
+            String childDeviceCode = rule.childDeviceCode();
             if (logicalCode == null || logicalCode.isBlank() || childDeviceCode == null || childDeviceCode.isBlank()) {
                 continue;
             }
 
-            LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(logicalCode, basePayloadMap.get(logicalCode));
-            if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
-                continue;
-            }
+            LegacyDpChildTemplateContext templateContext = new LegacyDpChildTemplateContext(
+                    rule,
+                    logicalCode,
+                    basePayloadMap.get(logicalCode),
+                    result.getProperties()
+            );
+            LegacyDpChildTemplateExecutionResult templateExecution = templateMatcher.match(templateContext)
+                    .map(template -> templateExecutor.execute(template, templateContext))
+                    .orElse(null);
 
+            Map<String, Object> childProperties;
+            LocalDateTime childTimestamp;
+            String childRawPayload;
+            if (templateExecution != null && templateExecution.childProperties() != null
+                    && !templateExecution.childProperties().isEmpty()) {
+                childProperties = templateExecution.childProperties();
+                childTimestamp = templateExecution.childTimestamp();
+                childRawPayload = templateExecution.rawPayload();
+                parentRemovalKeys.addAll(templateExecution.parentRemovalKeys());
+                templateExecutions.add(buildTemplateExecutionEvidence(logicalCode, childDeviceCode, templateExecution));
+                metricEvidence.addAll(adoptMetricEvidence(
+                        parentMessage.getDeviceCode(),
+                        childDeviceCode,
+                        templateExecution.metricEvidence()
+                ));
+            } else {
+                LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(rule, basePayloadMap.get(logicalCode));
+                if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
+                    continue;
+                }
+                childProperties = mergeDerivedChildProperties(
+                        rule,
+                        latestLogicalPayload.properties(),
+                        result.getProperties()
+                );
+                childTimestamp = latestLogicalPayload.timestamp();
+                childRawPayload = latestLogicalPayload.rawPayload();
+                parentRemovalKeys.add(logicalCode);
+            }
             DeviceUpMessage childMessage = new DeviceUpMessage();
             childMessage.setTenantId(parentMessage.getTenantId());
             childMessage.setProductKey(parentMessage.getProductKey());
             childMessage.setDeviceCode(childDeviceCode);
             childMessage.setMessageType(parentMessage.getMessageType());
             childMessage.setTopic(parentMessage.getTopic());
-            childMessage.setTimestamp(latestLogicalPayload.timestamp() == null
+            childMessage.setTimestamp(childTimestamp == null
                     ? parentMessage.getTimestamp()
-                    : latestLogicalPayload.timestamp());
-            childMessage.setProperties(latestLogicalPayload.properties());
-            childMessage.setRawPayload(latestLogicalPayload.rawPayload());
+                    : childTimestamp);
+            childMessage.setProperties(childProperties);
+            childMessage.setRawPayload(childRawPayload);
             childMessages.add(childMessage);
-            logicalCodes.add(logicalCode);
         }
 
         result.setChildMessages(childMessages);
+        result.setTemplateEvidence(buildTemplateEvidence(templateExecutions));
+        result.setMetricEvidence(metricEvidence.isEmpty() ? List.of() : List.copyOf(metricEvidence));
         if (childMessages.isEmpty()) {
             result.setChildSplitApplied(Boolean.FALSE);
             return result;
         }
 
         result.setChildSplitApplied(Boolean.TRUE);
-        result.setProperties(removeChildLogicalProperties(result.getProperties(), logicalCodes));
+        result.setProperties(removeChildLogicalProperties(result.getProperties(), parentRemovalKeys));
         return result;
     }
 
-    private Map<String, String> resolveSubDeviceMappings(String baseDeviceCode) {
+    private List<ProtocolMetricEvidence> adoptMetricEvidence(String parentDeviceCode,
+                                                             String childDeviceCode,
+                                                             List<ProtocolMetricEvidence> templateEvidence) {
+        if (templateEvidence == null || templateEvidence.isEmpty()) {
+            return List.of();
+        }
+        List<ProtocolMetricEvidence> rows = new ArrayList<>();
+        for (ProtocolMetricEvidence item : templateEvidence) {
+            if (item == null) {
+                continue;
+            }
+            ProtocolMetricEvidence copied = new ProtocolMetricEvidence();
+            copied.setRawIdentifier(item.getRawIdentifier());
+            copied.setCanonicalIdentifier(item.getCanonicalIdentifier());
+            copied.setLogicalChannelCode(item.getLogicalChannelCode());
+            copied.setParentDeviceCode(item.getParentDeviceCode() == null ? parentDeviceCode : item.getParentDeviceCode());
+            copied.setChildDeviceCode(item.getChildDeviceCode() == null ? childDeviceCode : item.getChildDeviceCode());
+            copied.setSampleValue(item.getSampleValue());
+            copied.setValueType(item.getValueType());
+            copied.setEvidenceOrigin(item.getEvidenceOrigin());
+            rows.add(copied);
+        }
+        return rows;
+    }
+
+    private ProtocolTemplateExecutionEvidence buildTemplateExecutionEvidence(String logicalCode,
+                                                                            String childDeviceCode,
+                                                                            LegacyDpChildTemplateExecutionResult executionResult) {
+        ProtocolTemplateExecutionEvidence evidence = new ProtocolTemplateExecutionEvidence();
+        evidence.setTemplateCode(executionResult.templateCode());
+        evidence.setLogicalChannelCode(logicalCode);
+        evidence.setChildDeviceCode(childDeviceCode);
+        evidence.setCanonicalizationStrategy(executionResult.canonicalizationStrategy());
+        evidence.setStatusMirrorApplied(executionResult.statusMirrorApplied());
+        evidence.setParentRemovalKeys(executionResult.parentRemovalKeys());
+        return evidence;
+    }
+
+    private ProtocolTemplateEvidence buildTemplateEvidence(List<ProtocolTemplateExecutionEvidence> executions) {
+        if (executions == null || executions.isEmpty()) {
+            return null;
+        }
+        ProtocolTemplateEvidence evidence = new ProtocolTemplateEvidence();
+        evidence.setExecutions(List.copyOf(executions));
+        LinkedHashSet<String> templateCodes = new LinkedHashSet<>();
+        for (ProtocolTemplateExecutionEvidence execution : executions) {
+            if (execution != null && execution.getTemplateCode() != null && !execution.getTemplateCode().isBlank()) {
+                templateCodes.add(execution.getTemplateCode());
+            }
+        }
+        evidence.setTemplateCodes(List.copyOf(templateCodes));
+        return evidence;
+    }
+
+    private List<LegacyDpRelationRule> resolveRelationRules(String baseDeviceCode) {
+        if (baseDeviceCode == null || baseDeviceCode.isBlank()) {
+            return List.of();
+        }
+        List<LegacyDpRelationRule> registryRules = sanitizeRelationRules(relationResolver.listRulesByParentDeviceCode(baseDeviceCode));
+        if (!registryRules.isEmpty()) {
+            return registryRules;
+        }
+        Map<String, String> configuredMappings = resolveLegacySubDeviceMappings(baseDeviceCode);
+        if (configuredMappings.isEmpty()) {
+            return List.of();
+        }
+        return configuredMappings.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank()
+                        && entry.getValue() != null && !entry.getValue().isBlank())
+                .map(entry -> new LegacyDpRelationRule(
+                        entry.getKey(),
+                        entry.getValue(),
+                        resolveLegacyCanonicalizationStrategy(entry.getKey()),
+                        resolveLegacyStatusMirrorStrategy(entry.getKey())
+                ))
+                .sorted(Comparator.comparing(LegacyDpRelationRule::logicalChannelCode, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private Map<String, String> resolveLegacySubDeviceMappings(String baseDeviceCode) {
         if (baseDeviceCode == null || baseDeviceCode.isBlank() || iotProperties.getDevice() == null
                 || iotProperties.getDevice().getSubDeviceMappings() == null) {
             return Map.of();
         }
         Map<String, String> configuredMappings = iotProperties.getDevice().getSubDeviceMappings().get(baseDeviceCode);
         return configuredMappings == null || configuredMappings.isEmpty() ? Map.of() : configuredMappings;
+    }
+
+    private List<LegacyDpRelationRule> sanitizeRelationRules(List<LegacyDpRelationRule> rules) {
+        if (rules == null || rules.isEmpty()) {
+            return List.of();
+        }
+        return rules.stream()
+                .filter(rule -> rule != null
+                        && rule.logicalChannelCode() != null
+                        && !rule.logicalChannelCode().isBlank()
+                        && rule.childDeviceCode() != null
+                        && !rule.childDeviceCode().isBlank())
+                .sorted(Comparator.comparing(LegacyDpRelationRule::logicalChannelCode, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private String resolveLegacyCanonicalizationStrategy(String logicalCode) {
+        return isCrackLogicalCode(logicalCode) ? CANONICALIZATION_STRATEGY_LF_VALUE : CANONICALIZATION_STRATEGY_LEGACY;
+    }
+
+    private String resolveLegacyStatusMirrorStrategy(String logicalCode) {
+        return isCrackLogicalCode(logicalCode) ? STATUS_MIRROR_STRATEGY_SENSOR_STATE : STATUS_MIRROR_STRATEGY_NONE;
     }
 
     private Map<String, Object> collapseStandaloneDeepDisplacementProperties(DeviceUpMessage parentMessage,
@@ -146,6 +335,10 @@ public class LegacyDpChildMessageSplitter {
 
     private boolean isDeepDisplacementLogicalCode(String familyCode) {
         return familyCode != null && DEEP_DISPLACEMENT_LOGICAL_CODE_PATTERN.matcher(familyCode).matches();
+    }
+
+    private boolean isCrackLogicalCode(String logicalCode) {
+        return logicalCode != null && CRACK_LOGICAL_CODE_PATTERN.matcher(logicalCode).matches();
     }
 
     private boolean containsOnlyStandaloneDeepDisplacementFamilies(List<String> familyCodes, String logicalCode) {
@@ -193,7 +386,8 @@ public class LegacyDpChildMessageSplitter {
         return isDeepDisplacementLogicalCode(propertyKey.substring(0, separatorIndex));
     }
 
-    private LatestLogicalPayload extractLatestLogicalPayload(String logicalCode, Object logicalPayload) {
+    private LatestLogicalPayload extractLatestLogicalPayload(LegacyDpRelationRule rule, Object logicalPayload) {
+        String logicalCode = rule == null ? null : rule.logicalChannelCode();
         if (logicalPayload == null) {
             return null;
         }
@@ -213,7 +407,7 @@ public class LegacyDpChildMessageSplitter {
             rawPayload = writeLogicalRawPayload(logicalCode, latestPayload);
         }
 
-        Map<String, Object> properties = toLogicalProperties(logicalCode, latestValue);
+        Map<String, Object> properties = toLogicalProperties(rule, latestValue);
         return properties.isEmpty() ? null : new LatestLogicalPayload(logicalTimestamp, properties, rawPayload);
     }
 
@@ -247,16 +441,56 @@ public class LegacyDpChildMessageSplitter {
         return timestampedValues.get(timestampedValues.size() - 1);
     }
 
-    private Map<String, Object> toLogicalProperties(String logicalCode, Object value) {
+    private Map<String, Object> toLogicalProperties(LegacyDpRelationRule rule, Object value) {
         Map<String, Object> properties = new LinkedHashMap<>();
         if (value instanceof Map<?, ?> mapValue) {
             flattenChildProperties("", mapValue, properties);
             return properties;
         }
         if (value != null) {
-            properties.put(logicalCode, value);
+            String propertyKey = resolveChildScalarPropertyKey(rule);
+            if (propertyKey != null && !propertyKey.isBlank()) {
+                properties.put(propertyKey, value);
+            }
         }
         return properties;
+    }
+
+    private String resolveChildScalarPropertyKey(LegacyDpRelationRule rule) {
+        if (rule == null || rule.logicalChannelCode() == null || rule.logicalChannelCode().isBlank()) {
+            return null;
+        }
+        return CANONICALIZATION_STRATEGY_LF_VALUE.equalsIgnoreCase(normalizeStrategy(rule.canonicalizationStrategy()))
+                ? CHILD_CRACK_VALUE_PROPERTY
+                : rule.logicalChannelCode();
+    }
+
+    private Map<String, Object> mergeDerivedChildProperties(LegacyDpRelationRule rule,
+                                                            Map<String, Object> logicalProperties,
+                                                            Map<String, Object> parentProperties) {
+        Map<String, Object> mergedProperties = new LinkedHashMap<>();
+        if (logicalProperties != null && !logicalProperties.isEmpty()) {
+            mergedProperties.putAll(logicalProperties);
+        }
+        Object sensorState = resolveDerivedChildSensorState(rule, parentProperties);
+        if (sensorState != null) {
+            mergedProperties.put(CHILD_SENSOR_STATE_PROPERTY, sensorState);
+        }
+        return mergedProperties;
+    }
+
+    private Object resolveDerivedChildSensorState(LegacyDpRelationRule rule, Map<String, Object> parentProperties) {
+        if (rule == null
+                || !STATUS_MIRROR_STRATEGY_SENSOR_STATE.equalsIgnoreCase(normalizeStrategy(rule.statusMirrorStrategy()))
+                || parentProperties == null
+                || parentProperties.isEmpty()) {
+            return null;
+        }
+        return parentProperties.get(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode());
+    }
+
+    private String normalizeStrategy(String strategy) {
+        return strategy == null ? null : strategy.trim().toUpperCase();
     }
 
     private void flattenChildProperties(String prefix, Map<?, ?> source, Map<String, Object> target) {

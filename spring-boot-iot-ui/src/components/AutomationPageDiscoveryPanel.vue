@@ -1,6 +1,5 @@
 <template>
   <PanelCard
-    eyebrow="Page Discovery"
     title="页面盘点与脚手架生成"
     description="优先读取当前授权菜单盘点页面，可一键补齐未覆盖页面的自动化脚手架，也支持手工登记外部系统页面。"
   >
@@ -79,13 +78,20 @@
           <span>{{ row.matcher || '—' }}</span>
         </template>
       </StandardTableTextColumn>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column
+        label="操作"
+        :width="discoveryActionColumnWidth"
+        fixed="right"
+        class-name="standard-row-actions-column"
+        :show-overflow-tooltip="false"
+      >
         <template #default="{ row }">
-          <StandardRowActions v-if="row.source === 'manual'" variant="table" gap="wide">
-            <StandardActionLink @click="$emit('remove-manual-page', row.id)">
-              删除
-            </StandardActionLink>
-          </StandardRowActions>
+          <StandardWorkbenchRowActions
+            v-if="row.source === 'manual'"
+            variant="table"
+            :direct-items="manualPageRowActions"
+            @command="() => $emit('remove-manual-page', row.id)"
+          />
           <span v-else>—</span>
         </template>
       </el-table-column>
@@ -100,7 +106,9 @@ import PanelCard from './PanelCard.vue';
 import StandardActionGroup from './StandardActionGroup.vue';
 import StandardTableTextColumn from './StandardTableTextColumn.vue';
 import StandardTableToolbar from './StandardTableToolbar.vue';
+import StandardWorkbenchRowActions from './StandardWorkbenchRowActions.vue';
 import type { AutomationPageInventoryItem, AutomationScenarioTemplateType } from '../types/automation';
+import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
 
 type DiscoveryMetric = {
   label: string;
@@ -136,6 +144,10 @@ defineEmits<{
 }>();
 
 const tableRef = ref<InventoryTableElement | null>(null);
+const manualPageRowActions = [{ command: 'delete' as const, label: '删除' }];
+const discoveryActionColumnWidth = resolveWorkbenchActionColumnWidth({
+  directItems: manualPageRowActions
+});
 
 function clearSelection() {
   tableRef.value?.clearSelection?.();

@@ -1,7 +1,9 @@
 package com.ghlzm.iot.device.controller;
 
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.MessageFlowRecentQuery;
+import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowCorrelationCountVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowLookupCountVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowOpsOverviewVO;
@@ -10,6 +12,7 @@ import com.ghlzm.iot.device.vo.messageflow.MessageFlowSessionVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowSessionCountVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowStageMetricVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowStepVO;
+import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
 import com.ghlzm.iot.device.vo.messageflow.MessageFlowTimelineVO;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowMetricsRecorder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowProperties;
@@ -17,6 +20,8 @@ import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSession;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStep;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimeline;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,13 +41,16 @@ public class DeviceMessageFlowController {
     private final MessageFlowTimelineStore messageFlowTimelineStore;
     private final MessageFlowMetricsRecorder messageFlowMetricsRecorder;
     private final MessageFlowProperties messageFlowProperties;
+    private final DeviceMessageService deviceMessageService;
 
     public DeviceMessageFlowController(MessageFlowTimelineStore messageFlowTimelineStore,
                                        MessageFlowMetricsRecorder messageFlowMetricsRecorder,
-                                       MessageFlowProperties messageFlowProperties) {
+                                       MessageFlowProperties messageFlowProperties,
+                                       DeviceMessageService deviceMessageService) {
         this.messageFlowTimelineStore = messageFlowTimelineStore;
         this.messageFlowMetricsRecorder = messageFlowMetricsRecorder;
         this.messageFlowProperties = messageFlowProperties;
+        this.deviceMessageService = deviceMessageService;
     }
 
     @GetMapping("/api/device/message-flow/session/{sessionId}")
@@ -96,6 +104,32 @@ public class DeviceMessageFlowController {
             );
             throw ex;
         }
+    }
+
+    @GetMapping("/api/device/message-flow/detail/{id}")
+    public R<MessageTraceDetailVO> getTraceDetail(@PathVariable Long id, Authentication authentication) {
+        MessageTraceDetailVO detail = deviceMessageService.getMessageTraceDetail(requireCurrentUserId(authentication), id);
+        if (detail != null && hasText(detail.getTraceId())) {
+            try {
+                Optional<MessageFlowTimeline> timeline = messageFlowTimelineStore.getTimeline(detail.getTraceId());
+                messageFlowMetricsRecorder.recordLookup(
+                        MessageFlowMetricsRecorder.LOOKUP_TARGET_TRACE,
+                        timeline.isPresent()
+                                ? MessageFlowMetricsRecorder.LOOKUP_RESULT_HIT
+                                : MessageFlowMetricsRecorder.LOOKUP_RESULT_MISS
+                );
+                detail.setTimeline(timeline.map(this::toTimelineVO).orElse(null));
+                detail.setTimelineLookupError(Boolean.FALSE);
+            } catch (RuntimeException ex) {
+                messageFlowMetricsRecorder.recordLookup(
+                        MessageFlowMetricsRecorder.LOOKUP_TARGET_TRACE,
+                        MessageFlowMetricsRecorder.LOOKUP_RESULT_ERROR
+                );
+                detail.setTimeline(null);
+                detail.setTimelineLookupError(Boolean.TRUE);
+            }
+        }
+        return R.ok(detail);
     }
 
     @GetMapping("/api/device/message-flow/ops/overview")
@@ -286,5 +320,12 @@ public class DeviceMessageFlowController {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private Long requireCurrentUserId(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+            throw new BizException(401, "未认证，请先登录");
+        }
+        return principal.userId();
     }
 }

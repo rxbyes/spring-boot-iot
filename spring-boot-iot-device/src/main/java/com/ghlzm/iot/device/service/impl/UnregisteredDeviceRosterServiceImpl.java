@@ -26,6 +26,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
     private static final String ACCESS_ERROR_TABLE = "iot_device_access_error_log";
     private static final String MESSAGE_LOG_TABLE = "iot_device_message_log";
     private static final String DEVICE_TABLE = "iot_device";
+    private static final String PRODUCT_TABLE = "iot_product";
     private static final Set<String> REQUIRED_INVALID_REPORT_STATE_COLUMNS = Set.of(
             "id",
             "device_code",
@@ -77,26 +78,36 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
     }
 
     @Override
-    public long countByFilters(String productKey, String deviceCode) {
+    public long countByFilters(String keyword, String productKey, String productName, String deviceCode) {
+        return countByFilters(null, keyword, productKey, productName, deviceCode);
+    }
+
+    @Override
+    public long countByFilters(Long tenantId, String keyword, String productKey, String productName, String deviceCode) {
         if (supportsInvalidReportStateSource()) {
             try {
-                return countFromInvalidStateMergedSources(productKey, deviceCode);
+                return countFromInvalidStateMergedSources(tenantId, keyword, productKey, productName, deviceCode);
             } catch (Exception ex) {
                 log.warn("统计未登记设备最新态失败，回退失败样本来源, error={}", ex.getMessage());
             }
         }
         if (supportsAccessErrorSource()) {
             try {
-                return countFromMergedSources(productKey, deviceCode);
+                return countFromMergedSources(tenantId, keyword, productKey, productName, deviceCode);
             } catch (Exception ex) {
                 log.warn("统计未登记设备失败，回退失败轨迹来源, error={}", ex.getMessage());
             }
         }
-        return countFromDispatchFailure(productKey, deviceCode);
+        return countFromDispatchFailure(tenantId, keyword, productKey, productName, deviceCode);
     }
 
     @Override
-    public List<DevicePageVO> listByFilters(String productKey, String deviceCode, long offset, long limit) {
+    public List<DevicePageVO> listByFilters(String keyword, String productKey, String productName, String deviceCode, long offset, long limit) {
+        return listByFilters(null, keyword, productKey, productName, deviceCode, offset, limit);
+    }
+
+    @Override
+    public List<DevicePageVO> listByFilters(Long tenantId, String keyword, String productKey, String productName, String deviceCode, long offset, long limit) {
         long safeOffset = Math.max(offset, 0L);
         long safeLimit = Math.max(limit, 0L);
         if (safeLimit == 0L) {
@@ -105,19 +116,19 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
         if (supportsInvalidReportStateSource()) {
             try {
-                return listFromInvalidStateMergedSources(productKey, deviceCode, safeOffset, safeLimit);
+                return listFromInvalidStateMergedSources(tenantId, keyword, productKey, productName, deviceCode, safeOffset, safeLimit);
             } catch (Exception ex) {
                 log.warn("查询未登记设备最新态失败，回退失败样本来源, error={}", ex.getMessage());
             }
         }
         if (supportsAccessErrorSource()) {
             try {
-                return listFromMergedSources(productKey, deviceCode, safeOffset, safeLimit);
+                return listFromMergedSources(tenantId, keyword, productKey, productName, deviceCode, safeOffset, safeLimit);
             } catch (Exception ex) {
                 log.warn("查询未登记设备失败，回退失败轨迹来源, error={}", ex.getMessage());
             }
         }
-        return listFromDispatchFailure(productKey, deviceCode, safeOffset, safeLimit);
+        return listFromDispatchFailure(tenantId, keyword, productKey, productName, deviceCode, safeOffset, safeLimit);
     }
 
     private boolean supportsAccessErrorSource() {
@@ -128,17 +139,17 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return invalidReportStateSchemaSupport.getColumns().containsAll(REQUIRED_INVALID_REPORT_STATE_COLUMNS);
     }
 
-    private long countFromInvalidStateMergedSources(String productKey, String deviceCode) {
+    private long countFromInvalidStateMergedSources(Long tenantId, String keyword, String productKey, String productName, String deviceCode) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT COUNT(1)
                 FROM (
                 """);
-        appendInvalidStateSelection(sql, params, productKey, deviceCode);
+        appendInvalidStateSelection(sql, params, tenantId, keyword, productKey, productName, deviceCode);
         sql.append("""
                     UNION ALL
                 """);
-        appendDispatchFailureLatestSelectionExcludingInvalidState(sql, params, productKey, deviceCode);
+        appendDispatchFailureLatestSelectionExcludingInvalidState(sql, params, tenantId, keyword, productKey, productName, deviceCode);
         sql.append("""
                 ) merged_devices
                 """);
@@ -146,7 +157,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return result == null ? 0L : result;
     }
 
-    private long countFromAccessError(String productKey, String deviceCode) {
+    private long countFromAccessError(Long tenantId, String keyword, String productKey, String productName, String deviceCode) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT COUNT(1)
@@ -161,8 +172,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       AND TRIM(e.device_code) <> ''
                       AND d.id IS NULL
                 """);
+        appendTenantEquals(sql, params, "e.tenant_id", tenantId);
         appendTextLike(sql, params, "e.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "e.product_key", productName);
         appendTextLike(sql, params, "e.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "e.product_key", "e.device_code", keyword);
         sql.append("""
                     GROUP BY e.device_code
                 ) latest_devices
@@ -171,7 +185,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return result == null ? 0L : result;
     }
 
-    private List<DevicePageVO> listFromInvalidStateMergedSources(String productKey, String deviceCode, long offset, long limit) {
+    private List<DevicePageVO> listFromInvalidStateMergedSources(Long tenantId, String keyword, String productKey, String productName, String deviceCode, long offset, long limit) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT
@@ -188,11 +202,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   merged.report_time
                 FROM (
                 """);
-        appendInvalidStateSelection(sql, params, productKey, deviceCode);
+        appendInvalidStateSelection(sql, params, tenantId, keyword, productKey, productName, deviceCode);
         sql.append("""
                     UNION ALL
                 """);
-        appendDispatchFailureLatestSelectionExcludingInvalidState(sql, params, productKey, deviceCode);
+        appendDispatchFailureLatestSelectionExcludingInvalidState(sql, params, tenantId, keyword, productKey, productName, deviceCode);
         sql.append("""
                 ) merged
                 ORDER BY merged.report_time DESC, merged.source_record_id DESC
@@ -203,17 +217,17 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
     }
 
-    private long countFromMergedSources(String productKey, String deviceCode) {
+    private long countFromMergedSources(Long tenantId, String keyword, String productKey, String productName, String deviceCode) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT COUNT(1)
                 FROM (
                 """);
-        appendAccessErrorLatestSelection(sql, params, productKey, deviceCode);
+        appendAccessErrorLatestSelection(sql, params, tenantId, keyword, productKey, productName, deviceCode);
         sql.append("""
                     UNION ALL
                 """);
-        appendDispatchFailureLatestSelection(sql, params, productKey, deviceCode, true);
+        appendDispatchFailureLatestSelection(sql, params, tenantId, keyword, productKey, productName, deviceCode, true);
         sql.append("""
                 ) merged_devices
                 """);
@@ -221,7 +235,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return result == null ? 0L : result;
     }
 
-    private List<DevicePageVO> listFromAccessError(String productKey, String deviceCode, long offset, long limit) {
+    private List<DevicePageVO> listFromAccessError(Long tenantId, String keyword, String productKey, String productName, String deviceCode, long offset, long limit) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT
@@ -247,8 +261,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       AND TRIM(e2.device_code) <> ''
                       AND d2.id IS NULL
                 """);
+        appendTenantEquals(sql, params, "e2.tenant_id", tenantId);
         appendTextLike(sql, params, "e2.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "e2.product_key", productName);
         appendTextLike(sql, params, "e2.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "e2.product_key", "e2.device_code", keyword);
         sql.append("""
                     GROUP BY e2.device_code
                 ) latest ON latest.latest_id = e.id
@@ -260,7 +277,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapAccessErrorRow(rs), params.toArray());
     }
 
-    private List<DevicePageVO> listFromMergedSources(String productKey, String deviceCode, long offset, long limit) {
+    private List<DevicePageVO> listFromMergedSources(Long tenantId, String keyword, String productKey, String productName, String deviceCode, long offset, long limit) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT
@@ -277,11 +294,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   merged.report_time
                 FROM (
                 """);
-        appendAccessErrorLatestSelection(sql, params, productKey, deviceCode);
+        appendAccessErrorLatestSelection(sql, params, tenantId, keyword, productKey, productName, deviceCode);
         sql.append("""
                     UNION ALL
                 """);
-        appendDispatchFailureLatestSelection(sql, params, productKey, deviceCode, true);
+        appendDispatchFailureLatestSelection(sql, params, tenantId, keyword, productKey, productName, deviceCode, true);
         sql.append("""
                 ) merged
                 ORDER BY merged.report_time DESC, merged.source_record_id DESC
@@ -292,7 +309,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
     }
 
-    private long countFromDispatchFailure(String productKey, String deviceCode) {
+    private long countFromDispatchFailure(Long tenantId, String keyword, String productKey, String productName, String deviceCode) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT COUNT(1)
@@ -310,8 +327,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 """);
         params.add(UNKNOWN_DEVICE_ID);
         params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        appendTenantEquals(sql, params, "m.tenant_id", tenantId);
         appendTextLike(sql, params, "m.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "m.product_key", productName);
         appendTextLike(sql, params, "m.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "m.product_key", "m.device_code", keyword);
         sql.append("""
                     GROUP BY m.device_code
                 ) latest_devices
@@ -322,7 +342,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
     private void appendAccessErrorLatestSelection(StringBuilder sql,
                                                   List<Object> params,
+                                                  Long tenantId,
+                                                  String keyword,
                                                   String productKey,
+                                                  String productName,
                                                   String deviceCode) {
         sql.append("""
                 SELECT
@@ -349,8 +372,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       AND TRIM(e2.device_code) <> ''
                       AND d2.id IS NULL
                 """);
+        appendTenantEquals(sql, params, "e2.tenant_id", tenantId);
         appendTextLike(sql, params, "e2.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "e2.product_key", productName);
         appendTextLike(sql, params, "e2.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "e2.product_key", "e2.device_code", keyword);
         sql.append("""
                     GROUP BY e2.device_code
                 ) latest ON latest.latest_id = e.id
@@ -359,7 +385,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
     private void appendInvalidStateSelection(StringBuilder sql,
                                              List<Object> params,
+                                             Long tenantId,
+                                             String keyword,
                                              String productKey,
+                                             String productName,
                                              String deviceCode) {
         sql.append("""
                 SELECT
@@ -385,11 +414,14 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   AND TRIM(s.device_code) <> ''
                   AND d.id IS NULL
                 """);
+        appendTenantEquals(sql, params, "s.tenant_id", tenantId);
         appendTextLike(sql, params, "s.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "s.product_key", productName);
         appendTextLike(sql, params, "s.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "s.product_key", "s.device_code", keyword);
     }
 
-    private List<DevicePageVO> listFromDispatchFailure(String productKey, String deviceCode, long offset, long limit) {
+    private List<DevicePageVO> listFromDispatchFailure(Long tenantId, String keyword, String productKey, String productName, String deviceCode, long offset, long limit) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT
@@ -415,8 +447,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 """);
         params.add(UNKNOWN_DEVICE_ID);
         params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        appendTenantEquals(sql, params, "m2.tenant_id", tenantId);
         appendTextLike(sql, params, "m2.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "m2.product_key", productName);
         appendTextLike(sql, params, "m2.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "m2.product_key", "m2.device_code", keyword);
         sql.append("""
                     GROUP BY m2.device_code
                 ) latest ON latest.latest_id = m.id
@@ -430,7 +465,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
     private void appendDispatchFailureLatestSelection(StringBuilder sql,
                                                       List<Object> params,
+                                                      Long tenantId,
+                                                      String keyword,
                                                       String productKey,
+                                                      String productName,
                                                       String deviceCode,
                                                       boolean excludeAccessErrorDevices) {
         sql.append("""
@@ -461,8 +499,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 """);
         params.add(UNKNOWN_DEVICE_ID);
         params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        appendTenantEquals(sql, params, "m2.tenant_id", tenantId);
         appendTextLike(sql, params, "m2.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "m2.product_key", productName);
         appendTextLike(sql, params, "m2.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "m2.product_key", "m2.device_code", keyword);
         sql.append("""
                     GROUP BY m2.device_code
                 ) latest ON latest.latest_id = m.id
@@ -483,8 +524,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       AND d3.id IS NULL
                       AND e3.device_code = m.device_code
                 """);
+        appendTenantEquals(sql, params, "e3.tenant_id", tenantId);
         appendTextLike(sql, params, "e3.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "e3.product_key", productName);
         appendTextLike(sql, params, "e3.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "e3.product_key", "e3.device_code", keyword);
         sql.append("""
                 )
                 """);
@@ -492,7 +536,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
     private void appendDispatchFailureLatestSelectionExcludingInvalidState(StringBuilder sql,
                                                                            List<Object> params,
+                                                                           Long tenantId,
+                                                                           String keyword,
                                                                            String productKey,
+                                                                           String productName,
                                                                            String deviceCode) {
         sql.append("""
                 SELECT
@@ -522,8 +569,11 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 """);
         params.add(UNKNOWN_DEVICE_ID);
         params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        appendTenantEquals(sql, params, "m2.tenant_id", tenantId);
         appendTextLike(sql, params, "m2.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "m2.product_key", productName);
         appendTextLike(sql, params, "m2.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "m2.product_key", "m2.device_code", keyword);
         sql.append("""
                     GROUP BY m2.device_code
                 ) latest ON latest.latest_id = m.id
@@ -541,11 +591,22 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       AND d3.id IS NULL
                       AND s2.device_code = m.device_code
                 """);
+        appendTenantEquals(sql, params, "s2.tenant_id", tenantId);
         appendTextLike(sql, params, "s2.product_key", productKey);
+        appendProductNameLike(sql, params, tenantId, "s2.product_key", productName);
         appendTextLike(sql, params, "s2.device_code", deviceCode);
+        appendKeywordLike(sql, params, tenantId, "s2.product_key", "s2.device_code", keyword);
         sql.append("""
                 )
                 """);
+    }
+
+    private void appendTenantEquals(StringBuilder sql, List<Object> params, String column, Long tenantId) {
+        if (tenantId == null) {
+            return;
+        }
+        sql.append(" AND ").append(column).append(" = ?");
+        params.add(tenantId);
     }
 
     private void appendTextLike(StringBuilder sql, List<Object> params, String column, String value) {
@@ -554,6 +615,33 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         }
         sql.append(" AND ").append(column).append(" LIKE ?");
         params.add("%" + value.trim() + "%");
+    }
+
+    private void appendProductNameLike(StringBuilder sql, List<Object> params, Long tenantId, String productKeyColumn, String productName) {
+        if (!StringUtils.hasText(productName)) {
+            return;
+        }
+        sql.append(" AND EXISTS (SELECT 1 FROM ").append(PRODUCT_TABLE).append(" p WHERE p.deleted = 0");
+        appendTenantEquals(sql, params, "p.tenant_id", tenantId);
+        sql.append(" AND p.product_key = ").append(productKeyColumn);
+        sql.append(" AND p.product_name LIKE ?)");
+        params.add("%" + productName.trim() + "%");
+    }
+
+    private void appendKeywordLike(StringBuilder sql, List<Object> params, Long tenantId, String productKeyColumn, String deviceCodeColumn, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return;
+        }
+        sql.append(" AND (")
+                .append(deviceCodeColumn).append(" LIKE ?")
+                .append(" OR ").append(productKeyColumn).append(" LIKE ?")
+                .append(" OR EXISTS (SELECT 1 FROM ").append(PRODUCT_TABLE).append(" p WHERE p.deleted = 0");
+        appendTenantEquals(sql, params, "p.tenant_id", tenantId);
+        sql.append(" AND p.product_key = ").append(productKeyColumn);
+        sql.append(" AND p.product_name LIKE ?))");
+        params.add("%" + keyword.trim() + "%");
+        params.add("%" + keyword.trim() + "%");
+        params.add("%" + keyword.trim() + "%");
     }
 
     private DevicePageVO mapAccessErrorRow(ResultSet rs) throws SQLException {

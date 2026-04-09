@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 public class DeviceMessageTraceQuery {
 
+    private String keyword;
     private String deviceCode;
     private String productKey;
     private String traceId;

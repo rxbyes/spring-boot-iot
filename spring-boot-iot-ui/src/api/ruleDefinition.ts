@@ -9,6 +9,7 @@ import type { ApiEnvelope, IdType } from '../types/api';
 // 阈值规则接口定义
 export interface RuleDefinition {
       id: IdType;
+      riskMetricId?: IdType | null;
       ruleName: string;
       metricIdentifier: string;
       metricName: string;
@@ -36,6 +37,7 @@ export interface RuleDefinitionPageResult {
 
 // 获取规则列表
 export const getRuleList = (params?: {
+      riskMetricId?: IdType;
       ruleName?: string;
       metricIdentifier?: string;
       alarmLevel?: string;
@@ -48,6 +50,7 @@ export const getRuleList = (params?: {
 
 // 分页获取规则列表
 export const pageRuleList = (params?: {
+      riskMetricId?: IdType;
       ruleName?: string;
       metricIdentifier?: string;
       alarmLevel?: string;

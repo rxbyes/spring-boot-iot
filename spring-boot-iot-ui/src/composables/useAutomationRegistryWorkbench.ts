@@ -1,0 +1,354 @@
+import { computed, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import {
+  getAutomationResultDetail,
+  getAutomationResultEvidenceContent,
+  listAutomationResultEvidence,
+  pageAutomationResults
+} from '@/api/automationResults';
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request';
+import { useServerPagination } from '@/composables/useServerPagination';
+import { ElMessage } from '@/utils/message';
+import type {
+  AutomationResultEvidenceContent,
+  AutomationResultEvidenceItem,
+  AutomationResultLedgerFilters,
+  AutomationResultRunSummary,
+  ParsedAcceptanceRegistryRunSummary
+} from '../types/automation';
+import {
+  buildRegistrySummary,
+  loadAcceptanceRegistryDocument,
+  parseRegistryRunSummary,
+  parseRegistryRunSummaryText
+} from '../utils/automationRegistry';
+
+type RegistryRunDisplaySource = 'backend' | 'imported';
+
+function formatLedgerReloadedAt() {
+  return new Date().toLocaleString('zh-CN', { hour12: false });
+}
+
+function normalizeFilterValue(value?: string | null) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const normalized = String(value).trim();
+  return normalized || undefined;
+}
+
+function createLedgerFilters(): AutomationResultLedgerFilters {
+  return {
+    keyword: '',
+    status: '',
+    runnerType: '',
+    dateRange: []
+  };
+}
+
+export function useAutomationRegistryWorkbench() {
+  const route = useRoute();
+  const registryDocument = loadAcceptanceRegistryDocument();
+  const importedRun = ref<ParsedAcceptanceRegistryRunSummary | null>(null);
+  const displaySource = ref<RegistryRunDisplaySource>('backend');
+
+  const ledgerFilters = reactive(createLedgerFilters());
+  const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, resetTotal } =
+    useServerPagination();
+  const ledgerRuns = ref<AutomationResultRunSummary[]>([]);
+  const ledgerLoading = ref(false);
+  const ledgerErrorMessage = ref('');
+  const lastLedgerReloadedAt = ref('');
+
+  const selectedLedgerRunId = ref('');
+  const selectedLedgerRunDetail = ref<ParsedAcceptanceRegistryRunSummary | null>(null);
+  const selectedLedgerRunErrorMessage = ref('');
+
+  const evidenceItems = ref<AutomationResultEvidenceItem[]>([]);
+  const evidenceLoading = ref(false);
+  const evidenceErrorMessage = ref('');
+  const selectedEvidencePath = ref('');
+  const evidencePreview = ref<AutomationResultEvidenceContent | null>(null);
+  const evidencePreviewLoading = ref(false);
+  const evidencePreviewErrorMessage = ref('');
+
+  const registryScenarios = computed(() => registryDocument.scenarios);
+  const registrySummary = computed(() => buildRegistrySummary(registryScenarios.value));
+  const currentRun = computed(() =>
+    displaySource.value === 'imported' && importedRun.value ? importedRun.value : selectedLedgerRunDetail.value
+  );
+  const currentRunErrorMessage = computed(() =>
+    displaySource.value === 'backend' ? selectedLedgerRunErrorMessage.value : ''
+  );
+  const activeEvidenceRunId = computed(() =>
+    displaySource.value === 'backend' ? selectedLedgerRunId.value : ''
+  );
+  const visibleEvidenceItems = computed(() =>
+    activeEvidenceRunId.value ? evidenceItems.value : []
+  );
+  const visibleSelectedEvidencePath = computed(() =>
+    activeEvidenceRunId.value ? selectedEvidencePath.value : ''
+  );
+  const visibleEvidencePreview = computed(() =>
+    activeEvidenceRunId.value ? evidencePreview.value : null
+  );
+  const visibleEvidenceLoading = computed(() =>
+    activeEvidenceRunId.value ? evidenceLoading.value : false
+  );
+  const visibleEvidenceErrorMessage = computed(() =>
+    activeEvidenceRunId.value ? evidenceErrorMessage.value : ''
+  );
+  const visibleEvidencePreviewLoading = computed(() =>
+    activeEvidenceRunId.value ? evidencePreviewLoading.value : false
+  );
+  const visibleEvidencePreviewErrorMessage = computed(() =>
+    activeEvidenceRunId.value ? evidencePreviewErrorMessage.value : ''
+  );
+
+  function resetLedgerFilters() {
+    ledgerFilters.keyword = '';
+    ledgerFilters.status = '';
+    ledgerFilters.runnerType = '';
+    ledgerFilters.dateRange = [];
+  }
+
+  function clearEvidencePreview() {
+    selectedEvidencePath.value = '';
+    evidencePreview.value = null;
+    evidencePreviewLoading.value = false;
+    evidencePreviewErrorMessage.value = '';
+  }
+
+  function clearEvidenceState() {
+    evidenceItems.value = [];
+    evidenceLoading.value = false;
+    evidenceErrorMessage.value = '';
+    clearEvidencePreview();
+  }
+
+  function clearBackendSelection() {
+    selectedLedgerRunId.value = '';
+    selectedLedgerRunDetail.value = null;
+    selectedLedgerRunErrorMessage.value = '';
+    clearEvidenceState();
+  }
+
+  function switchToBackendDisplay() {
+    displaySource.value = 'backend';
+  }
+
+  function buildLedgerQuery() {
+    const [dateFrom, dateTo] = Array.isArray(ledgerFilters.dateRange) ? ledgerFilters.dateRange : [];
+
+    return {
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      keyword: normalizeFilterValue(ledgerFilters.keyword),
+      status: normalizeFilterValue(ledgerFilters.status),
+      runnerType: normalizeFilterValue(ledgerFilters.runnerType),
+      dateFrom: normalizeFilterValue(dateFrom),
+      dateTo: normalizeFilterValue(dateTo)
+    };
+  }
+
+  async function selectEvidence(runId: string, path: string) {
+    if (!runId || !path) {
+      clearEvidencePreview();
+      return;
+    }
+
+    selectedEvidencePath.value = path;
+    evidencePreviewLoading.value = true;
+    evidencePreviewErrorMessage.value = '';
+    try {
+      const response = await getAutomationResultEvidenceContent(runId, path);
+      evidencePreview.value = response.data || null;
+    } catch {
+      evidencePreview.value = null;
+      evidencePreviewErrorMessage.value = '证据原文加载失败，请检查日志目录中的原始文件。';
+    } finally {
+      evidencePreviewLoading.value = false;
+    }
+  }
+
+  async function fetchEvidenceItems(runId: string, defaultPath = '') {
+    evidenceLoading.value = true;
+    evidenceErrorMessage.value = '';
+    try {
+      const response = await listAutomationResultEvidence(runId);
+      evidenceItems.value = Array.isArray(response.data) ? response.data : [];
+
+      const autoSelectPath =
+        (defaultPath && evidenceItems.value.find((item) => item.path === defaultPath)?.path) ||
+        evidenceItems.value[0]?.path ||
+        '';
+
+      if (autoSelectPath) {
+        await selectEvidence(runId, autoSelectPath);
+      } else {
+        clearEvidencePreview();
+      }
+    } catch {
+      evidenceItems.value = [];
+      clearEvidencePreview();
+      evidenceErrorMessage.value = '证据清单加载失败，请检查后台结果接口或日志目录。';
+    } finally {
+      evidenceLoading.value = false;
+    }
+  }
+
+  async function selectLedgerRun(runId: string, options: { silent?: boolean } = {}) {
+    if (!runId) {
+      clearBackendSelection();
+      return;
+    }
+
+    switchToBackendDisplay();
+    selectedLedgerRunId.value = runId;
+    selectedLedgerRunErrorMessage.value = '';
+
+    try {
+      const response = await getAutomationResultDetail(runId);
+      selectedLedgerRunDetail.value = parseRegistryRunSummary(response.data);
+      await fetchEvidenceItems(runId, response.data?.reportPath || '');
+      if (!options.silent) {
+        ElMessage.success('已载入历史运行结果');
+      }
+    } catch (error) {
+      selectedLedgerRunDetail.value = null;
+      clearEvidenceState();
+      selectedLedgerRunErrorMessage.value = '历史运行详情加载失败，请检查后台结果接口或日志目录。';
+      if (!options.silent && !isHandledRequestError(error)) {
+        ElMessage.error(resolveRequestErrorMessage(error, '载入历史运行结果失败'));
+      }
+    }
+  }
+
+  async function syncSelectedLedgerRun(records: Array<{ runId: string }>) {
+    if (!records.length) {
+      clearBackendSelection();
+      return;
+    }
+
+    const hasSelectedRun =
+      !!selectedLedgerRunId.value && records.some((item) => item.runId === selectedLedgerRunId.value);
+
+    if (hasSelectedRun) {
+      await selectLedgerRun(selectedLedgerRunId.value, { silent: true });
+      return;
+    }
+
+    await selectLedgerRun(records[0].runId, { silent: true });
+  }
+
+  async function fetchRunLedger() {
+    ledgerLoading.value = true;
+    ledgerErrorMessage.value = '';
+    try {
+      const response = await pageAutomationResults(buildLedgerQuery());
+      const pageResult = response.data || undefined;
+      ledgerRuns.value = applyPageResult(pageResult);
+      lastLedgerReloadedAt.value = formatLedgerReloadedAt();
+      await syncSelectedLedgerRun(ledgerRuns.value);
+    } catch {
+      ledgerRuns.value = [];
+      resetTotal();
+      ledgerErrorMessage.value = '历史运行台账加载失败，请检查后台结果接口或日志目录。';
+    } finally {
+      ledgerLoading.value = false;
+    }
+  }
+
+  async function applyLedgerFilters() {
+    resetPage();
+    await fetchRunLedger();
+  }
+
+  async function resetLedgerAndReload() {
+    resetLedgerFilters();
+    resetPage();
+    await fetchRunLedger();
+  }
+
+  async function handleLedgerPageChange(page: number) {
+    setPageNum(page);
+    await fetchRunLedger();
+  }
+
+  async function handleLedgerPageSizeChange(size: number) {
+    setPageSize(size);
+    await fetchRunLedger();
+  }
+
+  function importRegistryRunSummary(rawText: string) {
+    try {
+      importedRun.value = parseRegistryRunSummaryText(rawText);
+      displaySource.value = 'imported';
+      ElMessage.success('统一运行汇总已导入');
+    } catch {
+      ElMessage.error('导入失败，请检查统一运行汇总 JSON');
+    }
+  }
+
+  function clearImportedRun() {
+    importedRun.value = null;
+    displaySource.value = 'backend';
+    ElMessage.success('已清空导入结果');
+  }
+
+  watch(
+    () => route.query.runId,
+    (runId) => {
+      const normalizedRunId = typeof runId === 'string' ? runId.trim() : '';
+      if (!normalizedRunId || normalizedRunId === selectedLedgerRunId.value) {
+        return;
+      }
+      void selectLedgerRun(normalizedRunId, { silent: true });
+    },
+    { immediate: true }
+  );
+
+  return {
+    registryDocument,
+    registryScenarios,
+    registrySummary,
+    pagination,
+    ledgerFilters,
+    ledgerRuns,
+    ledgerLoading,
+    ledgerErrorMessage,
+    lastLedgerReloadedAt,
+    selectedLedgerRunId,
+    selectedLedgerRunDetail,
+    selectedLedgerRunErrorMessage,
+    importedRun,
+    displaySource,
+    currentRun,
+    currentRunErrorMessage,
+    evidenceItems,
+    evidenceLoading,
+    evidenceErrorMessage,
+    selectedEvidencePath,
+    evidencePreview,
+    evidencePreviewLoading,
+    evidencePreviewErrorMessage,
+    activeEvidenceRunId,
+    visibleEvidenceItems,
+    visibleSelectedEvidencePath,
+    visibleEvidencePreview,
+    visibleEvidenceLoading,
+    visibleEvidenceErrorMessage,
+    visibleEvidencePreviewLoading,
+    visibleEvidencePreviewErrorMessage,
+    fetchRunLedger,
+    applyLedgerFilters,
+    resetLedgerAndReload,
+    handleLedgerPageChange,
+    handleLedgerPageSizeChange,
+    fetchEvidenceItems,
+    selectLedgerRun,
+    selectEvidence,
+    importRegistryRunSummary,
+    clearImportedRun
+  };
+}
