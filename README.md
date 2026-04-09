@@ -142,6 +142,9 @@ node scripts/run-quality-gates.mjs
 powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1
 ```
 
+  - 若本机 `9999` 端口被占用，可直接改用 `powershell -ExecutionPolicy Bypass -File scripts/start-backend-acceptance.ps1 -Port 10099`，或先设置 `IOT_BACKEND_ACCEPTANCE_PORT=10099` 再继续沿用原命令。
+  - 脚本当前会在构建成功后把产物复制到 `logs/backend-runtime/` 下的运行副本再启动，避免上一轮验收进程锁住 `target/*.jar` 影响下一轮 `clean package`。
+
 - message-flow 真实环境验收脚本：
 
 ```bash
