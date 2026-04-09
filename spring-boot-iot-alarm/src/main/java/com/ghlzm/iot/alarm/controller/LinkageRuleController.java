@@ -66,7 +66,7 @@ public class LinkageRuleController {
                 GovernancePermissionCodes.LINKAGE_RULE_EDIT,
                 GovernancePermissionCodes.LINKAGE_RULE_APPROVE
         );
-        linkageRuleService.addRule(rule);
+        linkageRuleService.addRule(rule, currentUserId);
         return R.ok(rule);
     }
 
@@ -82,7 +82,7 @@ public class LinkageRuleController {
                 GovernancePermissionCodes.LINKAGE_RULE_EDIT,
                 GovernancePermissionCodes.LINKAGE_RULE_APPROVE
         );
-        linkageRuleService.updateRule(rule);
+        linkageRuleService.updateRule(rule, currentUserId);
         return R.ok(rule);
     }
 
@@ -98,7 +98,7 @@ public class LinkageRuleController {
                 GovernancePermissionCodes.LINKAGE_RULE_EDIT,
                 GovernancePermissionCodes.LINKAGE_RULE_APPROVE
         );
-        linkageRuleService.deleteRule(id);
+        linkageRuleService.deleteRule(id, currentUserId);
         return R.ok();
     }
 

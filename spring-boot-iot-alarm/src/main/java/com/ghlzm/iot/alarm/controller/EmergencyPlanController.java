@@ -73,7 +73,7 @@ public class EmergencyPlanController {
                 GovernancePermissionCodes.EMERGENCY_PLAN_EDIT,
                 GovernancePermissionCodes.EMERGENCY_PLAN_APPROVE
         );
-        emergencyPlanService.addPlan(plan);
+        emergencyPlanService.addPlan(plan, currentUserId);
         return R.ok(plan);
     }
 
@@ -89,7 +89,7 @@ public class EmergencyPlanController {
                 GovernancePermissionCodes.EMERGENCY_PLAN_EDIT,
                 GovernancePermissionCodes.EMERGENCY_PLAN_APPROVE
         );
-        emergencyPlanService.updatePlan(plan);
+        emergencyPlanService.updatePlan(plan, currentUserId);
         return R.ok(plan);
     }
 
@@ -105,7 +105,7 @@ public class EmergencyPlanController {
                 GovernancePermissionCodes.EMERGENCY_PLAN_EDIT,
                 GovernancePermissionCodes.EMERGENCY_PLAN_APPROVE
         );
-        emergencyPlanService.deletePlan(id);
+        emergencyPlanService.deletePlan(id, currentUserId);
         return R.ok();
     }
 

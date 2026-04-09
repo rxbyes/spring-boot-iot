@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.service.LinkageRuleService;
+import com.ghlzm.iot.alarm.service.RiskMetricActionBindingSyncService;
 import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -16,6 +18,12 @@ import java.util.List;
  */
 @Service
 public class LinkageRuleServiceImpl extends ServiceImpl<LinkageRuleMapper, LinkageRule> implements LinkageRuleService {
+
+      private final RiskMetricActionBindingSyncService bindingSyncService;
+
+      public LinkageRuleServiceImpl(RiskMetricActionBindingSyncService bindingSyncService) {
+            this.bindingSyncService = bindingSyncService;
+      }
 
       @Override
       public PageResult<LinkageRule> pageRuleList(String ruleName, Integer status, Long pageNum, Long pageSize) {
@@ -30,19 +38,28 @@ public class LinkageRuleServiceImpl extends ServiceImpl<LinkageRuleMapper, Linka
       }
 
       @Override
-      public void addRule(LinkageRule rule) {
+      @Transactional(rollbackFor = Exception.class)
+      public void addRule(LinkageRule rule, Long operatorId) {
             rule.setDeleted(0);
+            rule.setCreateBy(operatorId);
+            rule.setUpdateBy(operatorId);
             save(rule);
+            bindingSyncService.rebuildLinkageBindingsForRule(rule, operatorId, "AUTO_INFERRED");
       }
 
       @Override
-      public void updateRule(LinkageRule rule) {
+      @Transactional(rollbackFor = Exception.class)
+      public void updateRule(LinkageRule rule, Long operatorId) {
+            rule.setUpdateBy(operatorId);
             updateById(rule);
+            bindingSyncService.rebuildLinkageBindingsForRule(rule, operatorId, "AUTO_INFERRED");
       }
 
       @Override
-      public void deleteRule(Long id) {
+      @Transactional(rollbackFor = Exception.class)
+      public void deleteRule(Long id, Long operatorId) {
             removeById(id);
+            bindingSyncService.deactivateLinkageBindings(id, operatorId);
       }
 
       private LambdaQueryWrapper<LinkageRule> buildWrapper(String ruleName, Integer status) {

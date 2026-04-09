@@ -46,7 +46,7 @@ class EmergencyPlanControllerTest {
                 "risk:emergency-plan:edit",
                 "risk:emergency-plan:approve"
         );
-        verify(emergencyPlanService).addPlan(plan);
+        verify(emergencyPlanService).addPlan(plan, 1001L);
     }
 
     @Test
@@ -62,7 +62,7 @@ class EmergencyPlanControllerTest {
                 "risk:emergency-plan:edit",
                 "risk:emergency-plan:approve"
         );
-        verify(emergencyPlanService).updatePlan(plan);
+        verify(emergencyPlanService).updatePlan(plan, 1001L);
     }
 
     @Test
@@ -77,7 +77,7 @@ class EmergencyPlanControllerTest {
                 "risk:emergency-plan:edit",
                 "risk:emergency-plan:approve"
         );
-        verify(emergencyPlanService).deletePlan(3001L);
+        verify(emergencyPlanService).deletePlan(3001L, 1001L);
     }
 
     private Authentication authentication(Long userId) {

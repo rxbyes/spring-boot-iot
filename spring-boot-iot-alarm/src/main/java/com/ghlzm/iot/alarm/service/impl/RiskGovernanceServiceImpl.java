@@ -3,19 +3,22 @@ package com.ghlzm.iot.alarm.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ghlzm.iot.alarm.entity.EmergencyPlan;
-import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
+import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
+import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
 import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
+import com.ghlzm.iot.alarm.mapper.RiskMetricEmergencyPlanBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
+import com.ghlzm.iot.alarm.mapper.RiskMetricLinkageBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
@@ -34,8 +37,6 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -57,8 +58,6 @@ import java.util.stream.Collectors;
 @Service
 public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
-    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
-
     private final DeviceMapper deviceMapper;
     private final RiskPointMapper riskPointMapper;
     private final RiskPointDeviceMapper riskPointDeviceMapper;
@@ -69,6 +68,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
     private final LinkageRuleMapper linkageRuleMapper;
     private final EmergencyPlanMapper emergencyPlanMapper;
+    private final RiskMetricLinkageBindingMapper linkageBindingMapper;
+    private final RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
+    private final RiskMetricActionBindingBackfillService backfillService;
 
     public RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                                      RiskPointMapper riskPointMapper,
@@ -79,7 +81,10 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                                      ProductMapper productMapper,
                                      ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
                                      LinkageRuleMapper linkageRuleMapper,
-                                     EmergencyPlanMapper emergencyPlanMapper) {
+                                     EmergencyPlanMapper emergencyPlanMapper,
+                                     RiskMetricLinkageBindingMapper linkageBindingMapper,
+                                     RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper,
+                                     RiskMetricActionBindingBackfillService backfillService) {
         this.deviceMapper = deviceMapper;
         this.riskPointMapper = riskPointMapper;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
@@ -90,6 +95,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.productContractReleaseBatchMapper = productContractReleaseBatchMapper;
         this.linkageRuleMapper = linkageRuleMapper;
         this.emergencyPlanMapper = emergencyPlanMapper;
+        this.linkageBindingMapper = linkageBindingMapper;
+        this.emergencyPlanBindingMapper = emergencyPlanBindingMapper;
+        this.backfillService = backfillService;
     }
 
     @Override
@@ -193,6 +201,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
     @Override
     public RiskGovernanceCoverageOverviewVO getCoverageOverview(Long productId) {
+        backfillService.ensureBindingsReadyForRead();
         List<ProductModel> propertyModels = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
                 .eq(ProductModel::getDeleted, 0)
                 .eq(ProductModel::getProductId, productId)
@@ -222,13 +231,16 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        Set<String> boundMetricKeys = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
-                        .eq(RiskPointDevice::getDeleted, 0)
-                        .in(!deviceIds.isEmpty(), RiskPointDevice::getDeviceId, deviceIds))
-                .stream()
+        List<RiskPointDevice> boundBindings = deviceIds.isEmpty()
+                ? List.of()
+                : riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                .eq(RiskPointDevice::getDeleted, 0)
+                .in(RiskPointDevice::getDeviceId, deviceIds));
+        Set<String> boundMetricKeys = boundBindings.stream()
                 .map(this::toBindingMetricKey)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MetricBindingDimension> boundMetricDimensions = buildBoundMetricDimensions(boundBindings, catalogIds, catalogIdentifiers);
 
         Set<String> ruleMetricKeys = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
                         .eq(RuleDefinition::getDeleted, 0)
@@ -237,15 +249,21 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .map(this::toRuleMetricKey)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<RiskMetricLinkageBinding> linkageBindings = selectActiveLinkageBindings();
+        List<RiskMetricEmergencyPlanBinding> emergencyPlanBindings = selectActiveEmergencyPlanBindings();
 
         long contractPropertyCount = contractIdentifiers.size();
         long publishedRiskMetricCount = catalogIds.size();
         long boundRiskMetricCount = boundMetricKeys.stream()
                 .filter(key -> matchesCatalogKey(key, catalogIds, catalogIdentifiers))
                 .count();
+        long boundMetricDimensionCount = boundMetricDimensions.size();
         long ruleCoveredRiskMetricCount = ruleMetricKeys.stream()
                 .filter(boundMetricKeys::contains)
                 .count();
+        long linkageCoveredRiskMetricCount = countCoveredDimensionsFromLinkageBindings(boundMetricDimensions, linkageBindings);
+        long emergencyPlanCoveredRiskMetricCount = countCoveredDimensionsFromPlanBindings(boundMetricDimensions, emergencyPlanBindings);
+        long linkagePlanCoveredRiskMetricCount = countCoveredDimensionsWithBoth(linkageBindings, emergencyPlanBindings, boundMetricDimensions);
 
         RiskGovernanceCoverageOverviewVO overview = new RiskGovernanceCoverageOverviewVO();
         overview.setProductId(productId);
@@ -253,14 +271,21 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         overview.setPublishedRiskMetricCount(publishedRiskMetricCount);
         overview.setBoundRiskMetricCount(boundRiskMetricCount);
         overview.setRuleCoveredRiskMetricCount(ruleCoveredRiskMetricCount);
+        overview.setLinkageCoveredRiskMetricCount(linkageCoveredRiskMetricCount);
+        overview.setEmergencyPlanCoveredRiskMetricCount(emergencyPlanCoveredRiskMetricCount);
+        overview.setLinkagePlanCoveredRiskMetricCount(linkagePlanCoveredRiskMetricCount);
         overview.setContractMetricCoverageRate(calculateRate(publishedRiskMetricCount, contractPropertyCount));
         overview.setBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
         overview.setRuleCoverageRate(calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount));
+        overview.setLinkageCoverageRate(calculateRate(linkageCoveredRiskMetricCount, boundMetricDimensionCount));
+        overview.setEmergencyPlanCoverageRate(calculateRate(emergencyPlanCoveredRiskMetricCount, boundMetricDimensionCount));
+        overview.setLinkagePlanCoverageRate(calculateRate(linkagePlanCoveredRiskMetricCount, boundMetricDimensionCount));
         return overview;
     }
 
     @Override
     public RiskGovernanceDashboardOverviewVO getDashboardOverview() {
+        backfillService.ensureBindingsReadyForRead();
         List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
                         .eq(Product::getDeleted, 0));
         Set<Long> productIds = products.stream()
@@ -328,6 +353,8 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .map(this::toRuleMetricKey)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<RiskMetricLinkageBinding> linkageBindings = selectActiveLinkageBindings();
+        List<RiskMetricEmergencyPlanBinding> emergencyPlanBindings = selectActiveEmergencyPlanBindings();
 
         long publishedRiskMetricCount = catalogIds.size();
         long boundRiskMetricCount = boundMetricKeys.size();
@@ -335,18 +362,8 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         long ruleCoveredRiskMetricCount = ruleMetricKeys.stream()
                 .filter(boundMetricKeys::contains)
                 .count();
-        long linkageCoveredMetricCount = countLinkageCoveredMetrics(
-                boundMetricDimensions,
-                linkageRuleMapper.selectList(new LambdaQueryWrapper<LinkageRule>()
-                        .eq(LinkageRule::getDeleted, 0)
-                        .eq(LinkageRule::getStatus, 0))
-        );
-        long emergencyPlanCoveredMetricCount = countEmergencyPlanCoveredMetrics(
-                boundMetricDimensions,
-                emergencyPlanMapper.selectList(new LambdaQueryWrapper<EmergencyPlan>()
-                        .eq(EmergencyPlan::getDeleted, 0)
-                        .eq(EmergencyPlan::getStatus, 0))
-        );
+        long linkageCoveredMetricCount = countCoveredDimensionsFromLinkageBindings(boundMetricDimensions, linkageBindings);
+        long emergencyPlanCoveredMetricCount = countCoveredDimensionsFromPlanBindings(boundMetricDimensions, emergencyPlanBindings);
 
         long releasedProductCount = releasedProductIds.size();
         long governedProductCount = governedProductIds.size();
@@ -588,112 +605,76 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return new MetricBindingDimension(dimensionKey, metricIdentifier, metricName);
     }
 
-    private long countLinkageCoveredMetrics(List<MetricBindingDimension> dimensions, List<LinkageRule> linkageRules) {
-        if (dimensions == null || dimensions.isEmpty() || linkageRules == null || linkageRules.isEmpty()) {
+    private List<RiskMetricLinkageBinding> selectActiveLinkageBindings() {
+        return linkageBindingMapper.selectList(new LambdaQueryWrapper<RiskMetricLinkageBinding>()
+                .eq(RiskMetricLinkageBinding::getDeleted, 0)
+                .eq(RiskMetricLinkageBinding::getBindingStatus, "ACTIVE"));
+    }
+
+    private List<RiskMetricEmergencyPlanBinding> selectActiveEmergencyPlanBindings() {
+        return emergencyPlanBindingMapper.selectList(new LambdaQueryWrapper<RiskMetricEmergencyPlanBinding>()
+                .eq(RiskMetricEmergencyPlanBinding::getDeleted, 0)
+                .eq(RiskMetricEmergencyPlanBinding::getBindingStatus, "ACTIVE"));
+    }
+
+    private long countCoveredDimensionsFromLinkageBindings(List<MetricBindingDimension> dimensions,
+                                                           List<RiskMetricLinkageBinding> linkageBindings) {
+        return countCoveredDimensions(dimensions, toLinkageDimensionKeys(linkageBindings));
+    }
+
+    private long countCoveredDimensionsFromPlanBindings(List<MetricBindingDimension> dimensions,
+                                                        List<RiskMetricEmergencyPlanBinding> emergencyPlanBindings) {
+        return countCoveredDimensions(dimensions, toEmergencyPlanDimensionKeys(emergencyPlanBindings));
+    }
+
+    private long countCoveredDimensionsWithBoth(List<RiskMetricLinkageBinding> linkageBindings,
+                                                List<RiskMetricEmergencyPlanBinding> emergencyPlanBindings,
+                                                List<MetricBindingDimension> dimensions) {
+        Set<String> linkageKeys = toLinkageDimensionKeys(linkageBindings);
+        if (linkageKeys.isEmpty()) {
             return 0L;
         }
-        Set<String> coveredDimensionKeys = new LinkedHashSet<>();
-        for (LinkageRule linkageRule : linkageRules) {
-            if (linkageRule == null || !StringUtils.hasText(linkageRule.getTriggerCondition())) {
-                continue;
-            }
-            String triggerConditionText = normalizeLower(linkageRule.getTriggerCondition());
-            Set<String> metricIdentifiersInTrigger = extractMetricIdentifiersFromTriggerCondition(linkageRule.getTriggerCondition());
-            for (MetricBindingDimension dimension : dimensions) {
-                if (coveredDimensionKeys.contains(dimension.dimensionKey())) {
-                    continue;
-                }
-                if (StringUtils.hasText(dimension.metricIdentifier())
-                        && (metricIdentifiersInTrigger.contains(dimension.metricIdentifier())
-                        || triggerConditionText.contains(dimension.metricIdentifier()))) {
-                    coveredDimensionKeys.add(dimension.dimensionKey());
-                    continue;
-                }
-                if (StringUtils.hasText(dimension.metricName()) && triggerConditionText.contains(dimension.metricName())) {
-                    coveredDimensionKeys.add(dimension.dimensionKey());
-                }
-            }
-        }
-        return coveredDimensionKeys.size();
-    }
-
-    private long countEmergencyPlanCoveredMetrics(List<MetricBindingDimension> dimensions, List<EmergencyPlan> emergencyPlans) {
-        if (dimensions == null || dimensions.isEmpty() || emergencyPlans == null || emergencyPlans.isEmpty()) {
+        Set<String> planKeys = toEmergencyPlanDimensionKeys(emergencyPlanBindings);
+        if (planKeys.isEmpty()) {
             return 0L;
         }
-        Set<String> coveredDimensionKeys = new LinkedHashSet<>();
-        for (EmergencyPlan emergencyPlan : emergencyPlans) {
-            String searchableText = buildEmergencyPlanSearchText(emergencyPlan);
-            if (!StringUtils.hasText(searchableText)) {
-                continue;
-            }
-            for (MetricBindingDimension dimension : dimensions) {
-                if (coveredDimensionKeys.contains(dimension.dimensionKey())) {
-                    continue;
-                }
-                if (StringUtils.hasText(dimension.metricIdentifier()) && searchableText.contains(dimension.metricIdentifier())) {
-                    coveredDimensionKeys.add(dimension.dimensionKey());
-                    continue;
-                }
-                if (StringUtils.hasText(dimension.metricName()) && searchableText.contains(dimension.metricName())) {
-                    coveredDimensionKeys.add(dimension.dimensionKey());
-                }
-            }
-        }
-        return coveredDimensionKeys.size();
+        return dimensions.stream()
+                .map(MetricBindingDimension::dimensionKey)
+                .filter(linkageKeys::contains)
+                .filter(planKeys::contains)
+                .count();
     }
 
-    private Set<String> extractMetricIdentifiersFromTriggerCondition(String triggerCondition) {
-        if (!StringUtils.hasText(triggerCondition)) {
+    private long countCoveredDimensions(List<MetricBindingDimension> dimensions, Set<String> coveredDimensionKeys) {
+        if (dimensions == null || dimensions.isEmpty() || coveredDimensionKeys == null || coveredDimensionKeys.isEmpty()) {
+            return 0L;
+        }
+        return dimensions.stream()
+                .map(MetricBindingDimension::dimensionKey)
+                .filter(coveredDimensionKeys::contains)
+                .count();
+    }
+
+    private Set<String> toLinkageDimensionKeys(List<RiskMetricLinkageBinding> linkageBindings) {
+        if (linkageBindings == null || linkageBindings.isEmpty()) {
             return Set.of();
         }
-        try {
-            Object parsed = OBJECT_MAPPER.readValue(triggerCondition, Object.class);
-            Set<String> metricIdentifiers = new LinkedHashSet<>();
-            collectMetricIdentifiers(parsed, metricIdentifiers);
-            return metricIdentifiers;
-        } catch (Exception ignored) {
+        return linkageBindings.stream()
+                .map(RiskMetricLinkageBinding::getRiskMetricId)
+                .filter(Objects::nonNull)
+                .map(riskMetricId -> "ID:" + riskMetricId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<String> toEmergencyPlanDimensionKeys(List<RiskMetricEmergencyPlanBinding> emergencyPlanBindings) {
+        if (emergencyPlanBindings == null || emergencyPlanBindings.isEmpty()) {
             return Set.of();
         }
-    }
-
-    private void collectMetricIdentifiers(Object value, Set<String> collector) {
-        if (value instanceof List<?> list) {
-            for (Object item : list) {
-                collectMetricIdentifiers(item, collector);
-            }
-            return;
-        }
-        if (!(value instanceof Map<?, ?> rawMap)) {
-            return;
-        }
-        Object metricIdentifier = rawMap.get("metricIdentifier");
-        Object metric = rawMap.get("metric");
-        Object identifier = rawMap.get("identifier");
-        if (metricIdentifier instanceof String text && StringUtils.hasText(text)) {
-            collector.add(normalizeLower(text));
-        }
-        if (metric instanceof String text && StringUtils.hasText(text)) {
-            collector.add(normalizeLower(text));
-        }
-        if (identifier instanceof String text && StringUtils.hasText(text)) {
-            collector.add(normalizeLower(text));
-        }
-        for (Object nested : rawMap.values()) {
-            collectMetricIdentifiers(nested, collector);
-        }
-    }
-
-    private String buildEmergencyPlanSearchText(EmergencyPlan emergencyPlan) {
-        if (emergencyPlan == null) {
-            return "";
-        }
-        return normalizeLower(String.join(" ",
-                defaultString(emergencyPlan.getPlanName()),
-                defaultString(emergencyPlan.getDescription()),
-                defaultString(emergencyPlan.getResponseSteps()),
-                defaultString(emergencyPlan.getContactList())
-        ));
+        return emergencyPlanBindings.stream()
+                .map(RiskMetricEmergencyPlanBinding::getRiskMetricId)
+                .filter(Objects::nonNull)
+                .map(riskMetricId -> "ID:" + riskMetricId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private double calculateAverageOnboardingDurationHours(Map<Long, Product> productMap,
@@ -728,10 +709,6 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             return "";
         }
         return value.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private String defaultString(String value) {
-        return value == null ? "" : value;
     }
 
     private List<RiskPointDevice> listMissingPolicyBindings(RiskGovernanceGapQuery query) {

@@ -23,15 +23,15 @@ public interface LinkageRuleService extends IService<LinkageRule> {
       /**
        * 新增规则
        */
-      void addRule(LinkageRule rule);
+      void addRule(LinkageRule rule, Long operatorId);
 
       /**
        * 更新规则
        */
-      void updateRule(LinkageRule rule);
+      void updateRule(LinkageRule rule, Long operatorId);
 
       /**
        * 删除规则
        */
-      void deleteRule(Long id);
+      void deleteRule(Long id, Long operatorId);
 }
