@@ -546,7 +546,7 @@ export interface GovernanceApprovalResubmitPayload {
   comment?: string | null;
 }
 
-export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'CLOSED';
+export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'RESOLVED' | 'CLOSED';
 
 export interface GovernanceWorkItem {
   id: IdType;
@@ -589,7 +589,7 @@ export interface GovernanceWorkItemTransitionPayload {
   comment?: string | null;
 }
 
-export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'CLOSED';
+export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'RESOLVED' | 'CLOSED';
 
 export interface GovernanceOpsAlert {
   id: IdType;

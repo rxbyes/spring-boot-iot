@@ -46,8 +46,8 @@
           >
             <header class="governance-task-card__header">
               <div class="governance-task-card__heading">
-                <strong>{{ workItemCodeLabel(item.workItemCode) }}</strong>
-                <span>{{ item.productKey || item.deviceCode || item.traceId || '--' }}</span>
+                <strong>{{ workItemCodeLabel(item.workItemCode, item.snapshotJson) }}</strong>
+                <span>{{ workItemAnchor(item) }}</span>
               </div>
               <span class="governance-task-card__status">{{ workStatusLabel(item.workStatus) }}</span>
             </header>
@@ -55,21 +55,26 @@
             <dl class="governance-task-card__meta">
               <div>
                 <dt>主题</dt>
-                <dd>{{ item.subjectType || '--' }} / {{ item.subjectId ?? '--' }}</dd>
+                <dd>{{ item.subjectType || snapshotValue(item.snapshotJson, 'coverageType') || '--' }} / {{ item.subjectId ?? snapshotValue(item.snapshotJson, 'dimensionKey') ?? '--' }}</dd>
               </div>
               <div>
                 <dt>产品</dt>
-                <dd>{{ item.productId ?? '--' }}</dd>
+                <dd>{{ item.productId ?? snapshotValue(item.snapshotJson, 'productId') ?? '--' }}</dd>
               </div>
               <div>
                 <dt>风险指标</dt>
-                <dd>{{ item.riskMetricId ?? '--' }}</dd>
+                <dd>{{ item.riskMetricId ?? snapshotValue(item.snapshotJson, 'riskMetricId') ?? snapshotValue(item.snapshotJson, 'metricIdentifier') ?? '--' }}</dd>
               </div>
               <div>
                 <dt>更新时间</dt>
                 <dd>{{ item.updateTime || item.createTime || '--' }}</dd>
               </div>
             </dl>
+            <div v-if="canOperateWorkItem(item)" class="governance-task-card__actions">
+              <StandardButton @click="handleWorkItemAction('ack', item)">确认</StandardButton>
+              <StandardButton @click="handleWorkItemAction('block', item)">阻塞</StandardButton>
+              <StandardButton @click="handleWorkItemAction('close', item)">关闭</StandardButton>
+            </div>
           </article>
         </div>
         <div v-else class="governance-task-empty">
@@ -96,8 +101,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElMessage } from '@/utils/message'
 
-import { pageGovernanceWorkItems } from '@/api/governanceWorkItem'
+import { resolveRequestErrorMessage } from '@/api/request'
+import { ackGovernanceWorkItem, blockGovernanceWorkItem, closeGovernanceWorkItem, pageGovernanceWorkItems } from '@/api/governanceWorkItem'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue'
@@ -105,6 +112,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import type { GovernanceWorkItem, GovernanceWorkItemPageQuery } from '@/types/api'
 
 const route = useRoute()
@@ -157,8 +165,12 @@ function buildQueryFromRoute(): GovernanceWorkItemPageQuery {
 }
 
 async function loadWorkItems() {
-  const response = await pageGovernanceWorkItems(queryState.value)
-  taskList.value = applyPageResult(response.data)
+  try {
+    const response = await pageGovernanceWorkItems(queryState.value)
+    taskList.value = applyPageResult(response.data)
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '治理任务加载失败'))
+  }
 }
 
 function handleRefresh() {
@@ -175,12 +187,21 @@ function handleSizeChange(size: number) {
   void loadWorkItems()
 }
 
-function workItemCodeLabel(code?: string | null) {
+function workItemCodeLabel(code?: string | null, snapshotJson?: string | null) {
+  const coverageType = snapshotValue(snapshotJson, 'coverageType')
   switch (code) {
+    case 'PENDING_PRODUCT_GOVERNANCE':
+      return '待治理产品'
     case 'PENDING_CONTRACT_RELEASE':
       return '待发布合同'
     case 'PENDING_RISK_BINDING':
       return '待绑定风险点'
+    case 'PENDING_THRESHOLD_POLICY':
+      return '待补阈值'
+    case 'PENDING_LINKAGE_PLAN':
+      return coverageType === 'LINKAGE' ? '待补联动规则' : '待补联动预案'
+    case 'PENDING_REPLAY':
+      return '待运营复盘'
     default:
       return code || '--'
   }
@@ -192,12 +213,98 @@ function workStatusLabel(status?: string | null) {
       return '已确认'
     case 'BLOCKED':
       return '已阻塞'
+    case 'RESOLVED':
+      return '已解决'
     case 'CLOSED':
       return '已关闭'
     case 'OPEN':
       return '待处理'
     default:
       return status || '--'
+  }
+}
+
+function workItemAnchor(item: GovernanceWorkItem) {
+  return item.productKey
+    || item.deviceCode
+    || item.traceId
+    || snapshotValue(item.snapshotJson, 'productKey')
+    || snapshotValue(item.snapshotJson, 'deviceCode')
+    || snapshotValue(item.snapshotJson, 'dimensionLabel')
+    || snapshotValue(item.snapshotJson, 'metricIdentifier')
+    || '--'
+}
+
+function snapshotValue(snapshotJson: string | null | undefined, key: string) {
+  const snapshot = parseSnapshot(snapshotJson)
+  const value = snapshot?.[key]
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined
+}
+
+function parseSnapshot(snapshotJson: string | null | undefined) {
+  if (!snapshotJson) {
+    return undefined
+  }
+  try {
+    const parsed = JSON.parse(snapshotJson) as Record<string, unknown>
+    return typeof parsed === 'object' && parsed != null ? parsed : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function canOperateWorkItem(item: GovernanceWorkItem) {
+  return item.id != null && item.workStatus !== 'CLOSED' && item.workStatus !== 'RESOLVED'
+}
+
+async function handleWorkItemAction(action: 'ack' | 'block' | 'close', item: GovernanceWorkItem) {
+  if (item.id == null) {
+    return
+  }
+  const actionMap = {
+    ack: {
+      title: '确认治理任务',
+      message: '确认将该治理任务标记为已确认并进入跟进状态吗？',
+      confirmButtonText: '确认',
+      comment: '治理任务已确认，进入跟进状态。',
+      successMessage: '治理任务已确认',
+      execute: ackGovernanceWorkItem
+    },
+    block: {
+      title: '阻塞治理任务',
+      message: '确认将该治理任务标记为阻塞并保留在工作台吗？',
+      confirmButtonText: '确认阻塞',
+      comment: '治理任务存在阻塞，待补外部条件。',
+      successMessage: '治理任务已标记阻塞',
+      execute: blockGovernanceWorkItem
+    },
+    close: {
+      title: '关闭治理任务',
+      message: '确认关闭该治理任务吗？关闭后仅在历史状态中保留。',
+      confirmButtonText: '确认关闭',
+      comment: '治理任务已人工关闭。',
+      successMessage: '治理任务已关闭',
+      execute: closeGovernanceWorkItem
+    }
+  } as const
+  const config = actionMap[action]
+  try {
+    await confirmAction({
+      title: config.title,
+      message: config.message,
+      confirmButtonText: config.confirmButtonText,
+      type: action === 'close' ? 'warning' : 'primary'
+    })
+    await config.execute(item.id, {
+      comment: config.comment
+    })
+    ElMessage.success(config.successMessage)
+    await loadWorkItems()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    ElMessage.error(resolveRequestErrorMessage(error, `${config.title}失败`))
   }
 }
 
@@ -275,6 +382,12 @@ function parseNumberQuery(value: unknown) {
 .governance-task-card {
   display: grid;
   gap: 0.8rem;
+}
+
+.governance-task-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .governance-task-card__header {

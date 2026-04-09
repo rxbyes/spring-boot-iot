@@ -157,9 +157,11 @@ INSERT INTO sys_menu (
     (93003006, 1, 93000003, '通知编排', 'system:channel', '/channel', 'ChannelView', 'chat-dot-round', '{"caption":"通知渠道配置、启停与测试"}', 47, 1, 1, '/channel', 'system:channel', 47, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003010, 1, 93000003, '站内消息', 'system:in-app-message', '/in-app-message', 'InAppMessageView', 'bell', '{"caption":"通知中心站内消息的分类、范围与时间窗口编排"}', 48, 1, 1, '/in-app-message', 'system:in-app-message', 48, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003011, 1, 93000003, '帮助文档', 'system:help-doc', '/help-doc', 'HelpDocView', 'document-copy', '{"caption":"帮助中心业务类、技术类和 FAQ 资料编排"}', 49, 1, 1, '/help-doc', 'system:help-doc', 49, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003022, 1, 93000003, '治理审批台', 'system:governance-approval', '/governance-approval', 'GovernanceApprovalView', 'finished', '{"caption":"统一查看治理审批主单、执行结果与状态流转"}', 50, 1, 1, '/governance-approval', 'system:governance-approval', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003023, 1, 93000003, '权限与密钥治理', 'system:governance-security', '/governance-security', 'GovernanceSecurityView', 'lock', '{"caption":"统一查看治理权限矩阵与设备密钥轮换台账"}', 51, 1, 1, '/governance-security', 'system:governance-security', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 52, 1, 1, '/audit-log', 'system:audit', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003024, 1, 93000003, '治理任务台', 'system:governance-task', '/governance-task', 'GovernanceTaskView', 'tickets', '{"caption":"统一查看治理待办、人工处理状态与上下文快照"}', 50, 1, 1, '/governance-task', 'system:governance-task', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003025, 1, 93000003, '治理运维台', 'system:governance-ops', '/governance-ops', 'GovernanceOpsWorkbenchView', 'warning', '{"caption":"统一查看字段漂移、合同差异与风险指标缺失告警"}', 51, 1, 1, '/governance-ops', 'system:governance-ops', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003022, 1, 93000003, '治理审批台', 'system:governance-approval', '/governance-approval', 'GovernanceApprovalView', 'finished', '{"caption":"统一查看治理审批主单、执行结果与状态流转"}', 52, 1, 1, '/governance-approval', 'system:governance-approval', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003023, 1, 93000003, '权限与密钥治理', 'system:governance-security', '/governance-security', 'GovernanceSecurityView', 'lock', '{"caption":"统一查看治理权限矩阵与设备密钥轮换台账"}', 53, 1, 1, '/governance-security', 'system:governance-security', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003007, 1, 93000003, '审计中心', 'system:audit', '/audit-log', 'AuditLogView', 'document-checked', '{"caption":"客户与治理侧业务操作审计"}', 54, 1, 1, '/audit-log', 'system:audit', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93003020, 1, 93000005, '业务验收台', 'system:business-acceptance', '/business-acceptance', 'BusinessAcceptanceWorkbenchView', 'finished', '{"caption":"按交付清单运行预置业务验收包"}', 51, 1, 1, '/business-acceptance', 'system:business-acceptance', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003015, 1, 93000005, '研发工场', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"研发自动化资产编排主入口"}', 52, 1, 1, '/rd-workbench', 'system:rd-workbench', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -305,6 +307,8 @@ VALUES
     (96010138, 1, @role_management_id, 93003503, 1, NOW(), 1, NOW(), 0),
     (96010145, 1, @role_management_id, 93003022, 1, NOW(), 1, NOW(), 0),
     (96010148, 1, @role_management_id, 93003023, 1, NOW(), 1, NOW(), 0),
+    (96010151, 1, @role_management_id, 93003024, 1, NOW(), 1, NOW(), 0),
+    (96010152, 1, @role_management_id, 93003025, 1, NOW(), 1, NOW(), 0),
     (96010142, 1, @role_management_id, 93000005, 1, NOW(), 1, NOW(), 0),
     (96010143, 1, @role_management_id, 93003020, 1, NOW(), 1, NOW(), 0),
 
@@ -335,6 +339,8 @@ VALUES
     (96010083, 1, @role_ops_id, 93001014, 1, NOW(), 1, NOW(), 0),
     (96010146, 1, @role_ops_id, 93003022, 1, NOW(), 1, NOW(), 0),
     (96010149, 1, @role_ops_id, 93003023, 1, NOW(), 1, NOW(), 0),
+    (96010153, 1, @role_ops_id, 93003024, 1, NOW(), 1, NOW(), 0),
+    (96010154, 1, @role_ops_id, 93003025, 1, NOW(), 1, NOW(), 0),
 
     (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
     (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
@@ -376,7 +382,9 @@ VALUES
     (96010117, 1, @role_developer_id, 93001013, 1, NOW(), 1, NOW(), 0),
     (96010118, 1, @role_developer_id, 93001014, 1, NOW(), 1, NOW(), 0),
     (96010147, 1, @role_developer_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010150, 1, @role_developer_id, 93003023, 1, NOW(), 1, NOW(), 0);
+    (96010150, 1, @role_developer_id, 93003023, 1, NOW(), 1, NOW(), 0),
+    (96010155, 1, @role_developer_id, 93003024, 1, NOW(), 1, NOW(), 0),
+    (96010156, 1, @role_developer_id, 93003025, 1, NOW(), 1, NOW(), 0);
 
 SET @role_menu_id := 96010900;
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)

@@ -47,7 +47,7 @@
             <header class="governance-ops-card__header">
               <div class="governance-ops-card__heading">
                 <strong>{{ alertTypeLabel(item.alertType) }}</strong>
-                <span>{{ item.alertTitle || item.alertCode || '--' }}</span>
+                <span>{{ item.alertTitle || item.alertCode || item.dimensionLabel || item.traceId || '--' }}</span>
               </div>
               <span class="governance-ops-card__status">{{ alertStatusLabel(item.alertStatus) }}</span>
             </header>
@@ -70,6 +70,11 @@
                 <dd>{{ item.lastSeenTime || item.createTime || '--' }}</dd>
               </div>
             </dl>
+            <div v-if="canOperateAlert(item)" class="governance-ops-card__actions">
+              <StandardButton @click="handleAlertAction('ack', item)">确认</StandardButton>
+              <StandardButton @click="handleAlertAction('suppress', item)">抑制</StandardButton>
+              <StandardButton @click="handleAlertAction('close', item)">关闭</StandardButton>
+            </div>
           </article>
         </div>
         <div v-else class="governance-ops-empty">
@@ -96,8 +101,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElMessage } from '@/utils/message'
 
-import { pageGovernanceOpsAlerts } from '@/api/governanceOpsAlert'
+import { resolveRequestErrorMessage } from '@/api/request'
+import { ackGovernanceOpsAlert, closeGovernanceOpsAlert, pageGovernanceOpsAlerts, suppressGovernanceOpsAlert } from '@/api/governanceOpsAlert'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue'
@@ -105,6 +112,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import type { GovernanceOpsAlert, GovernanceOpsAlertPageQuery } from '@/types/api'
 
 const route = useRoute()
@@ -158,8 +166,12 @@ function buildQueryFromRoute(): GovernanceOpsAlertPageQuery {
 }
 
 async function loadAlerts() {
-  const response = await pageGovernanceOpsAlerts(queryState.value)
-  alertList.value = applyPageResult(response.data)
+  try {
+    const response = await pageGovernanceOpsAlerts(queryState.value)
+    alertList.value = applyPageResult(response.data)
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '治理运维告警加载失败'))
+  }
 }
 
 function handleRefresh() {
@@ -195,12 +207,69 @@ function alertStatusLabel(status?: string | null) {
       return '已确认'
     case 'SUPPRESSED':
       return '已抑制'
+    case 'RESOLVED':
+      return '已恢复'
     case 'CLOSED':
       return '已关闭'
     case 'OPEN':
       return '待处理'
     default:
       return status || '--'
+  }
+}
+
+function canOperateAlert(item: GovernanceOpsAlert) {
+  return item.id != null && item.alertStatus !== 'CLOSED' && item.alertStatus !== 'RESOLVED'
+}
+
+async function handleAlertAction(action: 'ack' | 'suppress' | 'close', item: GovernanceOpsAlert) {
+  if (item.id == null) {
+    return
+  }
+  const actionMap = {
+    ack: {
+      title: '确认治理告警',
+      message: '确认将该治理运维告警标记为已确认吗？',
+      confirmButtonText: '确认',
+      comment: '治理告警已确认，进入持续跟进。',
+      successMessage: '治理告警已确认',
+      execute: ackGovernanceOpsAlert
+    },
+    suppress: {
+      title: '抑制治理告警',
+      message: '确认暂时抑制该治理运维告警吗？',
+      confirmButtonText: '确认抑制',
+      comment: '治理告警暂时抑制，等待下一轮检测。',
+      successMessage: '治理告警已抑制',
+      execute: suppressGovernanceOpsAlert
+    },
+    close: {
+      title: '关闭治理告警',
+      message: '确认关闭该治理运维告警吗？',
+      confirmButtonText: '确认关闭',
+      comment: '治理告警已人工关闭。',
+      successMessage: '治理告警已关闭',
+      execute: closeGovernanceOpsAlert
+    }
+  } as const
+  const config = actionMap[action]
+  try {
+    await confirmAction({
+      title: config.title,
+      message: config.message,
+      confirmButtonText: config.confirmButtonText,
+      type: action === 'close' ? 'warning' : 'primary'
+    })
+    await config.execute(item.id, {
+      comment: config.comment
+    })
+    ElMessage.success(config.successMessage)
+    await loadAlerts()
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    ElMessage.error(resolveRequestErrorMessage(error, `${config.title}失败`))
   }
 }
 
@@ -278,6 +347,12 @@ function parseNumberQuery(value: unknown) {
 .governance-ops-card {
   display: grid;
   gap: 0.8rem;
+}
+
+.governance-ops-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .governance-ops-card__header {
