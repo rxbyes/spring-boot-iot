@@ -206,15 +206,6 @@ const ElInputStub = defineComponent({
   `
 })
 
-const ElFormItemStub = defineComponent({
-  name: 'ElFormItem',
-  template: `
-    <div class="el-form-item-stub">
-      <slot />
-    </div>
-  `
-})
-
 const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
@@ -270,7 +261,7 @@ function mountView() {
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub,
         ElInput: ElInputStub,
-        ElFormItem: ElFormItemStub,
+        ElFormItem: true,
         ElTag: true,
         ElSelect: true,
         ElOption: true
@@ -427,10 +418,9 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('原单重提'))?.trigger('click')
     await flushPromises()
 
-    const actionDrawer = wrapper.find('.governance-approval-form-drawer-stub')
-    const approverInput = actionDrawer.find('input.el-input-stub')
-    await approverInput.setValue('3003')
-    const commentInput = actionDrawer.find('textarea.el-input-stub')
+    const inputs = wrapper.findAll('input.el-input-stub')
+    await inputs[0]?.setValue('3003')
+    const commentInput = wrapper.find('textarea.el-input-stub')
     await commentInput.setValue('重新指定复核人后提交')
     await wrapper.findAll('button').find((button) => button.text().includes('确认重提'))?.trigger('click')
     await flushPromises()

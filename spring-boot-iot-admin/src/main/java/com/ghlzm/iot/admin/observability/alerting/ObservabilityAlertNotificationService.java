@@ -40,8 +40,9 @@ public class ObservabilityAlertNotificationService {
 
     public DispatchSummary dispatchAlert(ObservabilityAlertTrigger trigger) {
         String scene = resolveScene();
+        String opsAlertType = resolveOpsAlertType(trigger.ruleType());
         List<NotificationChannelDispatcher.DispatchChannel> channels =
-                notificationChannelDispatcher.listSceneChannels(scene);
+                notificationChannelDispatcher.listSceneChannels(scene, opsAlertType);
         if (channels.isEmpty()) {
             return new DispatchSummary(scene, 0, 0, 0, List.of());
         }
@@ -89,6 +90,7 @@ public class ObservabilityAlertNotificationService {
         genericPayload.put("eventType", scene);
         genericPayload.put("title", DEFAULT_TITLE);
         genericPayload.put("ruleType", trigger.ruleType());
+        genericPayload.put("opsAlertType", resolveOpsAlertType(trigger.ruleType()));
         genericPayload.put("dimensionKey", trigger.dimensionKey());
         genericPayload.put("dimensionLabel", trigger.dimensionLabel());
         genericPayload.put("metricLabel", trigger.metricLabel());
@@ -181,7 +183,22 @@ public class ObservabilityAlertNotificationService {
             case "mqtt-disconnect-timeout" -> "MQTT 断连超时";
             case "failure-stage-spike" -> "接入失败阶段突增";
             case "in-app-bridge-failure-burst" -> "站内信桥接失败突增";
+            case "risk-governance-field-drift-burst" -> "治理字段漂移";
+            case "risk-governance-contract-diff-burst" -> "治理合同差异";
+            case "risk-governance-missing-risk-metric-burst" -> "治理风险指标缺失";
             default -> ruleType;
+        };
+    }
+
+    private String resolveOpsAlertType(String ruleType) {
+        if (!StringUtils.hasText(ruleType)) {
+            return null;
+        }
+        return switch (ruleType.trim()) {
+            case "risk-governance-field-drift-burst" -> "FIELD_DRIFT";
+            case "risk-governance-contract-diff-burst" -> "CONTRACT_DIFF";
+            case "risk-governance-missing-risk-metric-burst" -> "MISSING_RISK_METRIC";
+            default -> null;
         };
     }
 

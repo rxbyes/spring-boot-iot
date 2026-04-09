@@ -220,6 +220,16 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
+const StandardListFilterHeaderStub = defineComponent({
+  name: 'StandardListFilterHeader',
+  template: `
+    <section class="standard-list-filter-header-stub">
+      <div class="standard-list-filter-header-stub__primary"><slot name="primary" /></div>
+      <div class="standard-list-filter-header-stub__actions"><slot name="actions" /></div>
+    </section>
+  `
+});
+
 const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['title', 'showTitle'],
@@ -243,6 +253,17 @@ const PanelCardStub = defineComponent({
   `
 });
 
+const MetricCardStub = defineComponent({
+  name: 'MetricCard',
+  props: ['label', 'value'],
+  template: `
+    <article class="metric-card-stub">
+      <span>{{ label }}</span>
+      <strong>{{ value }}</strong>
+    </article>
+  `
+});
+
 const TrendPanelStub = defineComponent({
   name: 'TrendPanelStub',
   props: ['groups', 'rangeCode'],
@@ -250,8 +271,39 @@ const TrendPanelStub = defineComponent({
     <section class="trend-panel-stub">
       <div>属性趋势预览</div>
       <div>{{ rangeCode }}</div>
-      <div v-for="group in groups" :key="group.title">{{ group.title }}</div>
+      <div v-for="group in groups" :key="group.title">
+        <div>{{ group.title }}</div>
+        <div v-for="series in group.series" :key="series.identifier">{{ series.displayName }}</div>
+      </div>
     </section>
+  `
+});
+
+const ElSegmentedStub = defineComponent({
+  name: 'ElSegmented',
+  props: {
+    modelValue: {
+      type: String,
+      default: ''
+    },
+    options: {
+      type: Array,
+      default: () => []
+    }
+  },
+  emits: ['update:modelValue', 'change'],
+  template: `
+    <div class="el-segmented-stub">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        :data-testid="'insight-range-' + option.value"
+        type="button"
+        @click="$emit('update:modelValue', option.value); $emit('change', option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
   `
 });
 
@@ -266,17 +318,17 @@ function mountView() {
       stubs: {
         StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
-        StandardListFilterHeader: true,
+        StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardInlineState: true,
         StandardButton: true,
-        MetricCard: true,
+        MetricCard: MetricCardStub,
         PanelCard: PanelCardStub,
         RiskInsightTrendPanel: TrendPanelStub,
         StandardTableTextColumn: true,
         'el-form-item': true,
         'el-input': true,
         'el-tag': true,
-        'el-segmented': true,
+        'el-segmented': ElSegmentedStub,
         'el-descriptions': true,
         'el-descriptions-item': true,
         'el-empty': true,
@@ -328,12 +380,13 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('基础档案信息');
     expect(wrapper.text()).toContain('设备基础档案');
     expect(wrapper.text()).toContain('风险上下文档案');
-    expect(wrapper.text()).toContain('核心指标');
+    expect(wrapper.text()).not.toContain('核心指标');
     expect(wrapper.text()).toContain('泥水位高程');
     expect(wrapper.text()).toContain('传感器在线状态');
     expect(wrapper.text()).toContain('剩余电量');
     expect(wrapper.text()).toContain('属性趋势预览');
     expect(wrapper.text()).not.toContain('L4_NW_1');
+    expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
 
   it('derives dynamic metrics for collect devices and includes runtime status extensions in trend query', async () => {
@@ -508,8 +561,8 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('采集通道在线状态');
     expect(wrapper.text()).toContain('4G 信号强度');
     expect(wrapper.text()).toContain('相对湿度');
-    expect(wrapper.text()).toContain('相对湿度当前为75，可辅助判断现场环境湿润程度。');
-    expect(wrapper.text()).toContain('4G 信号强度当前为-82，可辅助判断设备回传链路稳定性。');
+    expect(wrapper.text()).not.toContain('系统自定义参数');
+    expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
 
   it('loads product-level insight config by productId when device metadata is absent', async () => {
@@ -673,6 +726,180 @@ describe('DeviceInsightView', () => {
       identifiers: expect.arrayContaining(['S1_ZT_1.signal_4g'])
     }));
     expect(wrapper.text()).toContain('传输信号');
-    expect(wrapper.text()).toContain('传输信号当前为-80，用于判断设备回传链路稳定性。');
+    expect(wrapper.text()).not.toContain('系统自定义参数');
+  });
+
+  it('uses snapshot-first metrics and removes secondary metric panels for multidimensional devices', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: '1983438980179222530',
+        productId: '202603192100560252',
+        deviceCode: 'CXH15522832',
+        deviceName: '多维检测仪',
+        productName: '中海达 监测型 多维位移监测仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-09 10:48:03',
+        lastReportTime: '2026-04-09 10:48:03',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_LF_1.value',
+          propertyName: 'value',
+          propertyValue: '1224.37',
+          valueType: 'double',
+          updateTime: '2026-04-09 10:48:28'
+        },
+        {
+          id: 2,
+          identifier: 'L1_QJ_1.angle',
+          propertyName: '1号倾角测点angle',
+          propertyValue: '-6.03',
+          valueType: 'double',
+          updateTime: '2026-04-09 10:46:34'
+        },
+        {
+          id: 3,
+          identifier: 'L1_JS_1.gX',
+          propertyName: '1号加速度测点gX',
+          propertyValue: '0.48',
+          valueType: 'double',
+          updateTime: '2026-04-09 10:46:32'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 3,
+        pageNum: 1,
+        pageSize: 50,
+        records: [
+          {
+            bindingId: 71,
+            deviceCode: 'CXH15522832',
+            deviceName: '多维检测仪',
+            riskPointName: 'G6京藏高速K1623+400滑坡',
+            riskLevel: 'blue',
+            metricIdentifier: 'gX',
+            metricName: 'X向加速度',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-09 10:48:03'
+          }
+        ]
+      }
+    });
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 71,
+        riskPointId: 71,
+        riskPointCode: 'RP-HW-SLOPE-045',
+        riskPointName: 'G6京藏高速K1623+400滑坡',
+        riskLevel: 'blue',
+        deviceId: '1983438980179222530',
+        deviceCode: 'CXH15522832',
+        deviceName: '多维检测仪',
+        productName: '中海达 监测型 多维位移监测仪',
+        metricIdentifier: 'gX',
+        metricName: 'X向加速度',
+        currentValue: '0.48',
+        monitorStatus: 'NO_DATA',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-09 10:48:03'
+      }
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '1983438980179222530',
+        rangeCode: '7d',
+        bucket: 'day',
+        points: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 1224.37, filled: false }]
+          },
+          {
+            identifier: 'L1_QJ_1.angle',
+            displayName: '水平面夹角',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-09 00:00:00', value: -6.03, filled: false }]
+          },
+          {
+            identifier: 'L1_JS_1.gX',
+            displayName: 'X向加速度',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 0.48, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'CXH15522832'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: '1983438980179222530',
+      identifiers: ['L1_LF_1.value', 'L1_QJ_1.angle', 'L1_JS_1.gX']
+    }));
+    expect(wrapper.text()).toContain('裂缝量');
+    expect(wrapper.text()).toContain('水平面夹角');
+    expect(wrapper.text()).toContain('X向加速度');
+    expect(wrapper.text()).not.toContain('核心指标');
+    expect(wrapper.text()).not.toContain('仅使用中文业务名称展示当前最关心的监测值、状态值和关键状态项。');
+    expect(wrapper.text()).not.toContain('为后续湿度、4G 信号等扩展项预留统一展示位。');
+    expect(wrapper.text()).not.toContain('当前设备暂无已接入的系统自定义参数。');
+    expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
+  });
+
+  it('renders day week month year filters and requeries telemetry when range changes', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('近一天');
+    expect(wrapper.text()).toContain('近一周');
+    expect(wrapper.text()).toContain('近一月');
+    expect(wrapper.text()).toContain('近一年');
+
+    await wrapper.get('[data-testid="insight-range-365d"]').trigger('click');
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).toHaveBeenLastCalledWith(expect.objectContaining({
+      deviceId: 2001,
+      rangeCode: '365d',
+      fillPolicy: 'ZERO'
+    }));
+    expect(mockRouter.replace).toHaveBeenLastCalledWith(expect.objectContaining({
+      query: expect.objectContaining({
+        deviceCode: 'SK00EB0D1308313',
+        rangeCode: '365d'
+      })
+    }));
   });
 });

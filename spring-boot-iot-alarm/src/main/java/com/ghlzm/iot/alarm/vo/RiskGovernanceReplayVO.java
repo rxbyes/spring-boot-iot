@@ -35,4 +35,8 @@ public class RiskGovernanceReplayVO {
     private MessageTraceDetailVO latestMessageDetail;
 
     private RiskGovernanceReplayGapSummaryVO gapSummary;
+
+    private RiskGovernanceReplayBatchReconciliationVO batchReconciliation;
+
+    private List<RiskGovernanceReplayChainStepVO> replayChainSteps = new ArrayList<>();
 }

@@ -10,6 +10,7 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
@@ -221,6 +222,31 @@ class DeviceServiceImplTest {
         deviceService.deleteDevice(2001L);
 
         verify(deviceService).removeById(2001L);
+    }
+
+    @Test
+    void listPropertiesShouldPreferLatestProductModelNameOverStaleSnapshotName() {
+        Device device = new Device();
+        device.setId(2001L);
+        device.setProductId(1001L);
+        device.setDeviceCode("CXH15522832");
+        doReturn(device).when(deviceService).getRequiredByCode("CXH15522832");
+
+        DeviceProperty property = new DeviceProperty();
+        property.setIdentifier("L1_QJ_1.angle");
+        property.setPropertyName("angle");
+        property.setPropertyValue("-6.03");
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(property));
+
+        ProductModel model = new ProductModel();
+        model.setIdentifier("L1_QJ_1.angle");
+        model.setModelName("水平面夹角");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(model));
+
+        List<DeviceProperty> result = deviceService.listProperties("CXH15522832");
+
+        assertEquals(1, result.size());
+        assertEquals("水平面夹角", result.get(0).getPropertyName());
     }
 
     @Test

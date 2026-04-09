@@ -2,6 +2,7 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
@@ -18,6 +19,7 @@ import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductModelGovernanceReceiptStore;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.ProductModelService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
 import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
@@ -38,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -168,19 +171,25 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ProductModelPropertyCandidateFilter propertyCandidateFilter = new ProductModelPropertyCandidateFilter();
     private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
     private final ProductModelGovernanceReceiptStore governanceReceiptStore;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
                                    NormativeMetricDefinitionService normativeMetricDefinitionService,
                                    ProductMetricEvidenceService productMetricEvidenceService,
                                    ProductContractReleaseService productContractReleaseService,
-                                   ProductModelGovernanceReceiptStore governanceReceiptStore) {
+                                   ProductModelGovernanceReceiptStore governanceReceiptStore,
+                                   ApplicationEventPublisher applicationEventPublisher,
+                                   VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.productMetricEvidenceService = productMetricEvidenceService;
         this.productContractReleaseService = productContractReleaseService;
         this.governanceReceiptStore = governanceReceiptStore;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.vendorMetricMappingRuntimeService = vendorMetricMappingRuntimeService;
     }
 
     @Override
@@ -214,7 +223,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
         Product product = getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
-        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(productId, existingModels.size(), dto);
+        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(product, existingModels.size(), dto);
         ProductModelCandidateResultVO runtimeResult = emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
         ProductModelGovernanceCompareVO compareResult =
                 governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
@@ -243,7 +252,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         int createdCount = 0;
         int updatedCount = 0;
         int skippedCount = 0;
-        for (ProductModelGovernanceApplyDTO.ApplyItem item : safeApplyItems(dto)) {
+        List<ProductModelGovernanceApplyDTO.ApplyItem> normalizedItems = normalizeApplyItems(product, safeApplyItems(dto));
+        for (ProductModelGovernanceApplyDTO.ApplyItem item : normalizedItems) {
             String decision = normalizeRequired(item.getDecision(), "治理决策").toLowerCase(Locale.ROOT);
             switch (decision) {
                 case "create" -> {
@@ -273,7 +283,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 beforeSnapshot,
                 afterSnapshot
         ));
-        result.setAppliedItems(buildGovernanceAppliedItems(productId, safeApplyItems(dto)));
+        result.setAppliedItems(buildGovernanceAppliedItems(productId, normalizedItems));
         return result;
     }
 
@@ -366,13 +376,13 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return result;
     }
 
-    private ProductModelCandidateResultVO buildManualGovernanceCandidates(Long productId,
+    private ProductModelCandidateResultVO buildManualGovernanceCandidates(Product product,
                                                                           int existingModelCount,
                                                                           ProductModelGovernanceCompareDTO dto) {
         if (dto == null || dto.getManualExtract() == null) {
             throw new BizException("请先提供上报样本");
         }
-        ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(productId, existingModelCount, dto.getManualExtract());
+        ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(product, existingModelCount, dto.getManualExtract());
         refreshCandidateSummary(result, existingModelCount);
         return result;
     }
@@ -498,7 +508,33 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 serializeReleaseSnapshot(afterSnapshot),
                 operatorId
         );
+        publishContractReleasedEvent(product, batchId, scenarioCode, afterSnapshot, operatorId, approvalOrderId);
         return batchId;
+    }
+
+    private void publishContractReleasedEvent(Product product,
+                                              Long batchId,
+                                              String scenarioCode,
+                                              List<ReleaseModelSnapshotItem> afterSnapshot,
+                                              Long operatorId,
+                                              Long approvalOrderId) {
+        if (applicationEventPublisher == null || product == null || batchId == null) {
+            return;
+        }
+        List<String> releasedIdentifiers = (afterSnapshot == null ? List.<ReleaseModelSnapshotItem>of() : afterSnapshot).stream()
+                .map(ReleaseModelSnapshotItem::identifier)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+        applicationEventPublisher.publishEvent(new ProductContractReleasedEvent(
+                defaultTenantId(product.getTenantId()),
+                product.getId(),
+                batchId,
+                scenarioCode,
+                releasedIdentifiers,
+                operatorId,
+                approvalOrderId
+        ));
     }
 
     private List<ReleaseModelSnapshotItem> captureReleaseSnapshot(Long productId) {
@@ -556,11 +592,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return appliedItem;
     }
 
-    private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Long productId,
+    private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Product product,
                                                                             int existingModelCount,
                                                                             ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract) {
-        ManualSampleSnapshot snapshot = parseManualSample(productId, manualExtract);
-        PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(snapshot, Set.of());
+        ManualSampleSnapshot snapshot = parseManualSample(product == null ? null : product.getId(), manualExtract);
+        PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(product, snapshot, Set.of());
         EventEvidenceBundle eventBundle = new EventEvidenceBundle(
                 List.of(),
                 0,
@@ -572,7 +608,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 "手动提炼当前仅生成属性候选，服务请在正式模型中人工补充。"
         );
         return buildCandidateResult(
-                productId,
+                product == null ? null : product.getId(),
                 existingModelCount,
                 propertyBundle,
                 eventBundle,
@@ -645,6 +681,48 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return dto == null || dto.getItems() == null ? List.of() : dto.getItems();
     }
 
+    private List<ProductModelGovernanceApplyDTO.ApplyItem> normalizeApplyItems(Product product,
+                                                                               List<ProductModelGovernanceApplyDTO.ApplyItem> items) {
+        return (items == null ? List.<ProductModelGovernanceApplyDTO.ApplyItem>of() : items)
+                .stream()
+                .map(item -> normalizeApplyItem(product, item))
+                .toList();
+    }
+
+    private ProductModelGovernanceApplyDTO.ApplyItem normalizeApplyItem(Product product,
+                                                                        ProductModelGovernanceApplyDTO.ApplyItem item) {
+        ProductModelGovernanceApplyDTO.ApplyItem normalizedItem = copyApplyItem(item);
+        if (normalizedItem == null || !MODEL_TYPE_PROPERTY.equals(normalizeOptional(normalizedItem.getModelType()))) {
+            return normalizedItem;
+        }
+        String normalizedIdentifier =
+                vendorMetricMappingRuntimeService.normalizeApplyIdentifier(product, normalizedItem.getIdentifier());
+        normalizedItem.setIdentifier(firstNonNull(normalizedIdentifier, normalizedItem.getIdentifier()));
+        return normalizedItem;
+    }
+
+    private ProductModelGovernanceApplyDTO.ApplyItem copyApplyItem(ProductModelGovernanceApplyDTO.ApplyItem item) {
+        if (item == null) {
+            return null;
+        }
+        ProductModelGovernanceApplyDTO.ApplyItem copy = new ProductModelGovernanceApplyDTO.ApplyItem();
+        copy.setDecision(item.getDecision());
+        copy.setTargetModelId(item.getTargetModelId());
+        copy.setModelType(item.getModelType());
+        copy.setIdentifier(item.getIdentifier());
+        copy.setModelName(item.getModelName());
+        copy.setDataType(item.getDataType());
+        copy.setSpecsJson(item.getSpecsJson());
+        copy.setEventType(item.getEventType());
+        copy.setServiceInputJson(item.getServiceInputJson());
+        copy.setServiceOutputJson(item.getServiceOutputJson());
+        copy.setSortNo(item.getSortNo());
+        copy.setRequiredFlag(item.getRequiredFlag());
+        copy.setDescription(item.getDescription());
+        copy.setCompareStatus(item.getCompareStatus());
+        return copy;
+    }
+
     private void createFromGovernanceItem(Long productId, ProductModelGovernanceApplyDTO.ApplyItem item) {
         createModel(productId, toUpsertDTO(item));
     }
@@ -672,21 +750,23 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return dto;
     }
 
-    private PropertyEvidenceBundle collectManualPropertyCandidates(ManualSampleSnapshot snapshot, Set<String> existingIdentifiers) {
+    private PropertyEvidenceBundle collectManualPropertyCandidates(Product product,
+                                                                   ManualSampleSnapshot snapshot,
+                                                                   Set<String> existingIdentifiers) {
         Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
         int evidenceCount = 0;
         for (ManualLeafEvidence evidence : snapshot.leaves()) {
             evidenceCount++;
             ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
                     propertyCandidateFilter.normalizeIdentifier(normalizeOptional(evidence.identifier()));
-            String identifier = normalizeOptional(normalizedIdentifier.identifier());
-            if (identifier == null || existingIdentifiers.contains(identifier)) {
-                continue;
-            }
             List<String> observedRawIdentifiers = mergeRawIdentifiers(
                     evidence.rawIdentifiers(),
                     normalizedIdentifier.rawIdentifiers()
             );
+            String identifier = resolveGovernanceCandidateIdentifier(product, normalizedIdentifier.identifier(), observedRawIdentifiers);
+            if (identifier == null || existingIdentifiers.contains(identifier)) {
+                continue;
+            }
             accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
                     .acceptManualSample(snapshot.sampleType(), LocalDateTime.now(), evidence, observedRawIdentifiers);
         }
@@ -699,6 +779,25 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                         .thenComparing(ProductModelCandidateVO::getIdentifier))
                 .toList();
         return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
+    }
+
+    private String resolveGovernanceCandidateIdentifier(Product product,
+                                                        String defaultIdentifier,
+                                                        List<String> observedRawIdentifiers) {
+        List<String> safeRawIdentifiers = observedRawIdentifiers == null ? List.of() : observedRawIdentifiers;
+        String logicalChannelCode = resolveLogicalChannelCode(safeRawIdentifiers);
+        for (String rawIdentifier : safeRawIdentifiers) {
+            String normalizedRawIdentifier = normalizeOptional(rawIdentifier);
+            if (normalizedRawIdentifier == null) {
+                continue;
+            }
+            VendorMetricMappingRuntimeService.MappingResolution resolution =
+                    vendorMetricMappingRuntimeService.resolveForGovernance(product, normalizedRawIdentifier, logicalChannelCode);
+            if (resolution != null && StringUtils.hasText(resolution.targetNormativeIdentifier())) {
+                return resolution.targetNormativeIdentifier();
+            }
+        }
+        return normalizeOptional(defaultIdentifier);
     }
 
     private ManualSampleSnapshot parseManualSample(Long productId,
@@ -1366,6 +1465,19 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return null;
     }
 
+    private String resolveLogicalChannelCode(List<String> rawIdentifiers) {
+        if (rawIdentifiers == null || rawIdentifiers.isEmpty()) {
+            return null;
+        }
+        for (String rawIdentifier : rawIdentifiers) {
+            String logicalChannelCode = resolveLogicalChannelCode(rawIdentifier);
+            if (logicalChannelCode != null) {
+                return logicalChannelCode;
+            }
+        }
+        return null;
+    }
+
     private String buildManualEvidenceMetadata(String scenarioCode, ProductModelCandidateResultVO manualResult) {
         String sampleType = manualResult == null || manualResult.getSummary() == null
                 ? null
@@ -1407,6 +1519,10 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return fallback;
         }
         return value;
+    }
+
+    private Long defaultTenantId(Long tenantId) {
+        return tenantId == null || tenantId <= 0 ? 1L : tenantId;
     }
 
     private record ManualLeafEvidence(String identifier,

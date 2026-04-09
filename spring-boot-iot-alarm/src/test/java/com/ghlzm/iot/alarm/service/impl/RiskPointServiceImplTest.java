@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
@@ -717,6 +719,57 @@ class RiskPointServiceImplTest {
                         && binding.getCreateTime() != null
                         && binding.getUpdateTime() != null
         ));
+    }
+
+    @Test
+    void bindDeviceAndReturnShouldRejectMismatchedCatalogIdentifier() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                riskMetricCatalogService
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setRiskMetricId(9101L);
+        request.setMetricIdentifier("temperature");
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+        device.setProductId(3001L);
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(3001L);
+        catalog.setContractIdentifier("value");
+        catalog.setRiskMetricName("crack-value");
+
+        doReturn(riskPoint).when(service).getById(12L);
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        doReturn(null).when(deviceMapper).selectOne(any());
+        doReturn(List.of()).when(deviceMapper).selectList(any());
+        when(deviceService.getRequiredById(1001L, 2001L)).thenReturn(device);
+        when(riskMetricCatalogService.getById(9101L)).thenReturn(catalog);
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDeviceAndReturn(request, 1001L));
+
+        assertEquals("目录指标与测点标识符不一致", error.getMessage());
+        verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
     }
 
     @Test

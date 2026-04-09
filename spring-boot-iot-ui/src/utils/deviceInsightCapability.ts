@@ -1,6 +1,11 @@
 import type { InsightRangeCode, TelemetryHistoryBatchRequest } from '@/api/telemetry';
 import type { DeviceProperty } from '@/types/api';
 import { resolveInsightObjectType, type InsightObjectType } from '@/utils/deviceInsight';
+import {
+  getInsightMetricPriorityBoost,
+  hasPrioritizedSnapshotMetrics,
+  resolveInsightMetricDisplayName
+} from '@/utils/deviceInsightNaming';
 
 export interface InsightMetricDefinition {
   identifier: string;
@@ -46,7 +51,6 @@ export const INSIGHT_RANGE_OPTIONS = [
   { label: '近一天', value: '1d' },
   { label: '近一周', value: '7d' },
   { label: '近一月', value: '30d' },
-  { label: '近一季度', value: '90d' },
   { label: '近一年', value: '365d' }
 ] as const;
 
@@ -200,7 +204,7 @@ export function buildInsightHistoryRequest(
   rangeCode: InsightRangeCode = DEFAULT_INSIGHT_RANGE
 ): TelemetryHistoryBatchRequest {
   return {
-    deviceId: Number(deviceId),
+    deviceId,
     identifiers: profile.historyIdentifiers,
     rangeCode,
     fillPolicy: 'ZERO'
@@ -236,7 +240,10 @@ function buildRuntimeProfile(source: InsightCapabilitySource): InsightCapability
   const primaryMeasure = measureCandidates[0];
   const primaryStatus = statusCandidates[0];
   const secondaryStatus = statusCandidates.find((item) => item.identifier !== primaryStatus?.identifier);
-  const heroMetrics = [primaryMeasure, primaryStatus, secondaryStatus]
+  const heroSourceCandidates = hasPrioritizedSnapshotMetrics(source.properties ?? [])
+    ? measureCandidates.slice(0, Math.min(3, measureCandidates.length))
+    : [primaryMeasure, primaryStatus, secondaryStatus];
+  const heroMetrics = heroSourceCandidates
     .filter((item): item is RuntimeMetricCandidate => Boolean(item))
     .map((item) => ({
       identifier: item.identifier,
@@ -497,16 +504,12 @@ function isNumericProperty(property: DeviceProperty) {
 }
 
 function resolveDisplayName(property: DeviceProperty) {
-  const propertyName = property.propertyName?.trim();
-  if (propertyName) {
-    return propertyName;
+  const resolvedName = resolveInsightMetricDisplayName(property.identifier, property.propertyName);
+  if (resolvedName !== property.identifier) {
+    return resolvedName;
   }
-  const text = property.identifier;
-  const matched = DISPLAY_NAME_LABELS.find((item) => item.pattern.test(text));
-  if (matched) {
-    return matched.label;
-  }
-  return property.identifier;
+  const matched = DISPLAY_NAME_LABELS.find((item) => item.pattern.test(property.identifier));
+  return matched?.label || property.identifier;
 }
 
 function isStatusMetric(candidate: RuntimeMetricCandidate) {
@@ -528,12 +531,13 @@ function sortCandidates(candidates: RuntimeMetricCandidate[], priorityKeywords: 
 }
 
 function scoreCandidate(candidate: RuntimeMetricCandidate, priorityKeywords: string[]) {
-  return priorityKeywords.reduce((score, keyword, index) => {
+  const keywordScore = priorityKeywords.reduce((score, keyword, index) => {
     if (candidate.text.includes(keyword.toLowerCase())) {
       return score + (priorityKeywords.length - index) * 10;
     }
     return score;
   }, 0);
+  return keywordScore + getInsightMetricPriorityBoost(candidate.identifier);
 }
 
 function uniqueIdentifiers(values: string[]) {

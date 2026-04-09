@@ -5,18 +5,21 @@ import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.spi.RiskMetricScenarioResolver;
+import com.ghlzm.iot.common.event.governance.RiskMetricCatalogPublishedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.core.type.TypeReference;
@@ -33,16 +36,19 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
     private final ProductMapper productMapper;
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
     private final List<RiskMetricScenarioResolver> scenarioResolvers;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper,
                                         ProductMapper productMapper,
                                         NormativeMetricDefinitionService normativeMetricDefinitionService,
-                                        List<RiskMetricScenarioResolver> scenarioResolvers) {
+                                        List<RiskMetricScenarioResolver> scenarioResolvers,
+                                        ApplicationEventPublisher applicationEventPublisher) {
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
         this.productMapper = productMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.scenarioResolvers = scenarioResolvers == null ? List.of() : List.copyOf(scenarioResolvers);
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -63,6 +69,8 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         Map<String, MetricSemanticProfile> semanticByIdentifier =
                 resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers);
         Set<String> publishedIdentifiers = new LinkedHashSet<>();
+        List<Long> publishedRiskMetricIds = new ArrayList<>();
+        List<Long> retiredRiskMetricIds = new ArrayList<>();
         for (ProductModel contract : releasedContracts) {
             String identifier = normalize(contract == null ? null : contract.getIdentifier());
             if (!StringUtils.hasText(identifier) || !enabledIdentifiers.contains(identifier)) {
@@ -84,6 +92,9 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 riskMetricCatalogMapper.updateById(row);
             }
             publishedIdentifiers.add(identifier);
+            if (row.getId() != null) {
+                publishedRiskMetricIds.add(row.getId());
+            }
         }
 
         for (RiskMetricCatalog stale : existingByIdentifier.values()) {
@@ -96,7 +107,11 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
             stale.setEnabled(0);
             stale.setLifecycleStatus("RETIRED");
             riskMetricCatalogMapper.updateById(stale);
+            if (stale.getId() != null) {
+                retiredRiskMetricIds.add(stale.getId());
+            }
         }
+        publishCatalogEvent(productId, releaseBatchId, publishedRiskMetricIds, retiredRiskMetricIds);
     }
 
     @Override
@@ -326,6 +341,24 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         row.setAnalyticsEnabled(profile.analyticsEnabled());
     }
 
+    private void publishCatalogEvent(Long productId,
+                                     Long releaseBatchId,
+                                     List<Long> publishedRiskMetricIds,
+                                     List<Long> retiredRiskMetricIds) {
+        if (applicationEventPublisher == null || productId == null || releaseBatchId == null) {
+            return;
+        }
+        Product product = productMapper.selectById(productId);
+        applicationEventPublisher.publishEvent(new RiskMetricCatalogPublishedEvent(
+                defaultTenantId(product == null ? null : product.getTenantId()),
+                productId,
+                releaseBatchId,
+                publishedRiskMetricIds == null ? List.of() : List.copyOf(publishedRiskMetricIds),
+                retiredRiskMetricIds == null ? List.of() : List.copyOf(retiredRiskMetricIds),
+                null
+        ));
+    }
+
     private String resolveScenarioCode(Product product) {
         if (product == null || scenarioResolvers == null || scenarioResolvers.isEmpty()) {
             return null;
@@ -513,6 +546,10 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private Long defaultTenantId(Long tenantId) {
+        return tenantId == null || tenantId <= 0 ? 1L : tenantId;
     }
 
     record MetricSemanticProfile(

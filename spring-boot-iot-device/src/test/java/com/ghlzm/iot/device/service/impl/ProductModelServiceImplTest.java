@@ -1,16 +1,19 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
@@ -31,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -50,6 +55,10 @@ class ProductModelServiceImplTest {
     private ProductMetricEvidenceService productMetricEvidenceService;
     @Mock
     private ProductContractReleaseService productContractReleaseService;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+    @Mock
+    private VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
 
     private InMemoryProductModelGovernanceReceiptStore governanceReceiptStore;
     private ProductModelServiceImpl productModelService;
@@ -63,7 +72,9 @@ class ProductModelServiceImplTest {
                 normativeMetricDefinitionService,
                 productMetricEvidenceService,
                 productContractReleaseService,
-                governanceReceiptStore
+                governanceReceiptStore,
+                applicationEventPublisher,
+                vendorMetricMappingRuntimeService
         );
     }
 
@@ -399,6 +410,39 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldNormalizeRawFieldByVendorMappingRule() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "crack-monitor"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+                normativeDefinition("phase1-crack", "value", "crack-value", 1)
+        ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("disp"), eq(null)))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(8801L, "value", "disp", null));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-001":{"disp":{"2026-04-05T20:14:06.000Z":26.5}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+
+        ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
+        assertEquals("value", row.getIdentifier());
+        assertEquals("value", row.getNormativeIdentifier());
+        assertEquals(List.of("disp"), row.getRawIdentifiers());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<VendorMetricEvidence>> evidenceCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(1001L), eq("phase1-crack"), evidenceCaptor.capture());
+        assertEquals("value", evidenceCaptor.getValue().get(0).getCanonicalIdentifier());
+        assertEquals("disp", evidenceCaptor.getValue().get(0).getRawIdentifier());
+    }
+
+    @Test
     void applyGovernanceShouldCreateUpdateAndSkipExplicitDecisions() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
         when(productModelMapper.selectById(2001L)).thenReturn(existingEventModel(2001L, "alarmRaised", 10, "info"));
@@ -417,6 +461,24 @@ class ProductModelServiceImplTest {
         assertEquals(1, result.getCreatedCount());
         assertEquals(1, result.getUpdatedCount());
         assertEquals(1, result.getSkippedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldNormalizeRawIdentifierByVendorMappingRuleBeforePersisting() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "crack-monitor"));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("disp")))
+                .thenReturn("value");
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "disp", "monitor-value")));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto, 10001L);
+
+        ArgumentCaptor<ProductModel> captor = ArgumentCaptor.forClass(ProductModel.class);
+        verify(productModelMapper).insert(captor.capture());
+        assertEquals("value", captor.getValue().getIdentifier());
+        assertEquals("value", result.getAppliedItems().get(0).getIdentifier());
     }
 
     @Test
@@ -441,6 +503,45 @@ class ProductModelServiceImplTest {
 
         assertNotNull(result.getReleaseBatchId());
         assertEquals(1, result.getCreatedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldPublishContractReleasedEventAfterReleaseBatchCreated() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "crack-monitor"));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        ProductModel releasedValue = new ProductModel();
+        releasedValue.setId(3101L);
+        releasedValue.setProductId(1001L);
+        releasedValue.setModelType("property");
+        releasedValue.setIdentifier("value");
+        releasedValue.setModelName("crack-value");
+        releasedValue.setDataType("integer");
+        releasedValue.setDeleted(0);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(), List.of(releasedValue));
+        when(productContractReleaseService.createBatch(
+                eq(1001L),
+                eq("phase1-crack"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L),
+                eq(99001L),
+                eq("manual_compare_apply")
+        )).thenReturn(12345L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "value", "crack-value")));
+
+        productModelService.applyGovernance(1001L, dto, 10001L, 99001L);
+
+        verify(applicationEventPublisher).publishEvent(argThat((ProductContractReleasedEvent event) ->
+                Long.valueOf(1L).equals(event.tenantId())
+                        && Long.valueOf(1001L).equals(event.productId())
+                        && Long.valueOf(12345L).equals(event.releaseBatchId())
+                        && "phase1-crack".equals(event.scenarioCode())
+                        && List.of("value").equals(event.releasedIdentifiers())
+                        && Long.valueOf(10001L).equals(event.operatorUserId())
+                        && Long.valueOf(99001L).equals(event.approvalOrderId())
+        ));
     }
 
     @Test
@@ -486,6 +587,7 @@ class ProductModelServiceImplTest {
     private Product product(Long id, String productKey, String productName) {
         Product product = new Product();
         product.setId(id);
+        product.setTenantId(1L);
         product.setProductKey(productKey);
         product.setProductName(productName);
         product.setProtocolCode("mqtt-json");

@@ -99,9 +99,6 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
 
     @Override
     public TelemetryHistoryBatchResponse getHistoryBatch(TelemetryHistoryBatchRequest request) {
-        if (!storageModeResolver.isTdengineEnabled()) {
-            throw new BizException("当前环境未启用 TDengine 历史查询");
-        }
         if (request == null || request.getDeviceId() == null) {
             throw new BizException("deviceId 不能为空");
         }
@@ -113,6 +110,10 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         if (!FILL_POLICY_ZERO.equals(fillPolicy)) {
             throw new BizException("当前仅支持 ZERO 补零策略");
         }
+        RangeDefinition rangeDefinition = resolveRangeDefinition(request.getRangeCode());
+        if (!storageModeResolver.isTdengineEnabled()) {
+            throw new BizException("当前环境未启用 TDengine 历史查询");
+        }
         Device device = requireDevice(request.getDeviceId());
         Product product = device.getProductId() == null ? null : productMapper.selectById(device.getProductId());
         Map<String, DevicePropertyMetadata> metadataMap = device.getProductId() == null
@@ -121,7 +122,6 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         Map<String, TelemetryMetricMapping> mappingMap = device.getProductId() == null
                 ? Map.of()
                 : deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
-        RangeDefinition rangeDefinition = resolveRangeDefinition(request.getRangeCode());
         List<BucketSlot> slots = buildBucketSlots(rangeDefinition, LocalDateTime.now());
         List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap, identifiers);
         return buildHistoryBatchResponse(device.getId(), identifiers, request.getRangeCode(), rangeDefinition, slots, historyPoints, metadataMap);
@@ -449,7 +449,6 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             case "1d" -> new RangeDefinition("1d", "hour", ChronoUnit.HOURS, 24);
             case "7d" -> new RangeDefinition("7d", "day", ChronoUnit.DAYS, 7);
             case "30d" -> new RangeDefinition("30d", "day", ChronoUnit.DAYS, 30);
-            case "90d" -> new RangeDefinition("90d", "week", ChronoUnit.WEEKS, 13);
             case "365d" -> new RangeDefinition("365d", "month", ChronoUnit.MONTHS, 12);
             default -> throw new BizException("不支持的时间范围: " + rangeCode);
         };

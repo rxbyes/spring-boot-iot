@@ -6,8 +6,11 @@ import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.service.RiskGovernanceOpsService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayBatchReconciliationVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayChainStepVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayGapSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayVO;
+import com.ghlzm.iot.common.event.governance.GovernanceOpsAlertRaisedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
@@ -15,22 +18,30 @@ import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductContractReleaseSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.device.service.DeviceMessageService;
 import com.ghlzm.iot.device.vo.messageflow.MessageTraceDetailVO;
+import com.ghlzm.iot.system.service.NotificationChannelDispatcher;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -45,32 +56,53 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     private static final String ALERT_TYPE_FIELD_DRIFT = "FIELD_DRIFT";
     private static final String ALERT_TYPE_CONTRACT_DIFF = "CONTRACT_DIFF";
     private static final String ALERT_TYPE_MISSING_RISK_METRIC = "MISSING_RISK_METRIC";
+    private static final String ALERT_SUBJECT_TYPE_PRODUCT = "PRODUCT";
+    private static final String ALERT_SEVERITY_WARN = "WARN";
+    private static final String ALERT_SOURCE_STAGE = "RISK_GOVERNANCE_OPS";
+    private static final Long SYSTEM_OPERATOR_ID = 1L;
+    private static final String ALERT_SCENE = "observability_alert";
+    private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
+    private static final String SNAPSHOT_STAGE_AFTER_APPLY = "AFTER_APPLY";
+    private static final String CHAIN_STATUS_READY = "READY";
+    private static final String CHAIN_STATUS_ACTION_REQUIRED = "ACTION_REQUIRED";
+    private static final String CHAIN_STATUS_MISSING = "MISSING";
+    private static final String CHAIN_STATUS_SKIPPED = "SKIPPED";
 
     private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final ProductModelMapper productModelMapper;
     private final RiskMetricCatalogMapper riskMetricCatalogMapper;
     private final ProductMapper productMapper;
     private final ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
+    private final ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
     private final DeviceMessageService deviceMessageService;
     private final DeviceAccessErrorLogService deviceAccessErrorLogService;
     private final RiskGovernanceService riskGovernanceService;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final NotificationChannelDispatcher notificationChannelDispatcher;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskGovernanceOpsServiceImpl(VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                         ProductModelMapper productModelMapper,
                                         RiskMetricCatalogMapper riskMetricCatalogMapper,
                                         ProductMapper productMapper,
                                         ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
+                                        ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper,
                                         DeviceMessageService deviceMessageService,
                                         DeviceAccessErrorLogService deviceAccessErrorLogService,
-                                        RiskGovernanceService riskGovernanceService) {
+                                        RiskGovernanceService riskGovernanceService,
+                                        ApplicationEventPublisher applicationEventPublisher,
+                                        NotificationChannelDispatcher notificationChannelDispatcher) {
         this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
         this.productModelMapper = productModelMapper;
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
         this.productMapper = productMapper;
         this.productContractReleaseBatchMapper = productContractReleaseBatchMapper;
+        this.productContractReleaseSnapshotMapper = productContractReleaseSnapshotMapper;
         this.deviceMessageService = deviceMessageService;
         this.deviceAccessErrorLogService = deviceAccessErrorLogService;
         this.riskGovernanceService = riskGovernanceService;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.notificationChannelDispatcher = notificationChannelDispatcher;
     }
 
     @Override
@@ -104,12 +136,14 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
                 riskMetricIdentifiersByProduct,
                 evidences
         );
+        publishRaisedAlertEvents(alerts);
         String normalizedAlertType = normalize(alertType);
         if (StringUtils.hasText(normalizedAlertType)) {
             alerts = alerts.stream()
                     .filter(item -> normalizedAlertType.equalsIgnoreCase(item.getAlertType()))
                     .toList();
         }
+        attachSubscriptionSummary(alerts);
         alerts = alerts.stream()
                 .sorted((left, right) -> {
                     long leftCount = left.getAffectedCount() == null ? 0L : left.getAffectedCount();
@@ -184,6 +218,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         gapSummary.setMissingBindingCount(queryMissingBindingCount(resolvedDeviceCode));
         gapSummary.setMissingPolicyCount(queryMissingPolicyCount(resolvedDeviceCode));
         gapSummary.setMissingRiskMetricCount(resolveMissingRiskMetricCount(resolvedProductId));
+        RiskGovernanceReplayBatchReconciliationVO batchReconciliation = buildBatchReconciliation(replayContext);
 
         RiskGovernanceReplayVO replay = new RiskGovernanceReplayVO();
         replay.setTraceId(resolvedTraceId);
@@ -197,13 +232,15 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         replay.setRecentAccessErrors(new ArrayList<>(errors));
         replay.setLatestMessageDetail(latestDetail);
         replay.setGapSummary(gapSummary);
+        replay.setBatchReconciliation(batchReconciliation);
+        replay.setReplayChainSteps(buildReplayChainSteps(replay, batchReconciliation));
         return replay;
     }
 
     private ReplayContext resolveReplayContext(Long releaseBatchId, String productKey) {
         String normalizedProductKey = normalize(productKey);
         if (releaseBatchId == null) {
-            return new ReplayContext(null, null, null, normalizedProductKey);
+            return new ReplayContext(null, null, null, normalizedProductKey, null);
         }
         ProductContractReleaseBatch batch = productContractReleaseBatchMapper.selectById(releaseBatchId);
         if (batch == null) {
@@ -229,8 +266,157 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
                 releaseBatchId,
                 normalize(batch.getScenarioCode()),
                 batchProductId,
-                batchProductKey
+                batchProductKey,
+                batch
         );
+    }
+
+    private void attachSubscriptionSummary(List<RiskGovernanceOpsAlertItemVO> alerts) {
+        if (alerts == null || alerts.isEmpty()) {
+            return;
+        }
+        Map<String, List<NotificationChannelDispatcher.DispatchChannel>> cache = new LinkedHashMap<>();
+        for (RiskGovernanceOpsAlertItemVO alert : alerts) {
+            if (alert == null || !StringUtils.hasText(alert.getAlertType())) {
+                continue;
+            }
+            String normalizedAlertType = normalizeOpsAlertType(alert.getAlertType());
+            List<NotificationChannelDispatcher.DispatchChannel> channels = cache.computeIfAbsent(
+                    normalizedAlertType,
+                    key -> notificationChannelDispatcher.listSceneChannels(ALERT_SCENE, key)
+            );
+            alert.setSubscriptionScene(ALERT_SCENE);
+            alert.setSubscriptionChannelCount((long) channels.size());
+            alert.setSubscriptionChannelCodes(channels.stream()
+                    .map(item -> item.channel() == null ? null : normalize(item.channel().getChannelCode()))
+                    .filter(StringUtils::hasText)
+                    .toList());
+        }
+    }
+
+    private RiskGovernanceReplayBatchReconciliationVO buildBatchReconciliation(ReplayContext replayContext) {
+        if (replayContext == null || replayContext.releaseBatchId() == null || replayContext.batch() == null) {
+            return null;
+        }
+        Map<String, ProductContractReleaseSnapshot> snapshots = loadSnapshots(replayContext.releaseBatchId());
+        ProductContractReleaseSnapshot beforeSnapshot = snapshots.get(SNAPSHOT_STAGE_BEFORE_APPLY);
+        ProductContractReleaseSnapshot afterSnapshot = snapshots.get(SNAPSHOT_STAGE_AFTER_APPLY);
+        Set<String> beforeIdentifiers = parsePropertyIdentifiers(beforeSnapshot == null ? null : beforeSnapshot.getSnapshotJson());
+        Set<String> afterIdentifiers = parsePropertyIdentifiers(afterSnapshot == null ? null : afterSnapshot.getSnapshotJson());
+        Set<String> currentIdentifiers = loadCurrentContractPropertyIdentifiers(replayContext.productId());
+        Set<String> batchCatalogIdentifiers = loadBatchCatalogIdentifiers(replayContext.releaseBatchId());
+
+        Set<String> missingCurrent = new LinkedHashSet<>(afterIdentifiers);
+        missingCurrent.removeAll(currentIdentifiers);
+        Set<String> extraCurrent = new LinkedHashSet<>(currentIdentifiers);
+        extraCurrent.removeAll(afterIdentifiers);
+
+        RiskGovernanceReplayBatchReconciliationVO result = new RiskGovernanceReplayBatchReconciliationVO();
+        result.setReleaseBatchId(replayContext.releaseBatchId());
+        result.setApprovalOrderId(replayContext.batch().getApprovalOrderId());
+        result.setReleaseStatus(normalize(replayContext.batch().getReleaseStatus()));
+        result.setReleaseReason(normalize(replayContext.batch().getReleaseReason()));
+        result.setRollbackTime(replayContext.batch().getRollbackTime() == null ? null : replayContext.batch().getRollbackTime().toString());
+        result.setSnapshotAvailable(beforeSnapshot != null || afterSnapshot != null);
+        result.setConsistent(missingCurrent.isEmpty() && extraCurrent.isEmpty());
+        result.setBeforeApplyFieldCount((long) beforeIdentifiers.size());
+        result.setAfterApplyFieldCount((long) afterIdentifiers.size());
+        result.setCurrentFormalFieldCount((long) currentIdentifiers.size());
+        result.setBatchCatalogMetricCount((long) batchCatalogIdentifiers.size());
+        result.setMissingCurrentFieldCount((long) missingCurrent.size());
+        result.setExtraCurrentFieldCount((long) extraCurrent.size());
+        result.setSampleMissingCurrentIdentifier(missingCurrent.stream().findFirst().orElse(null));
+        result.setSampleExtraCurrentIdentifier(extraCurrent.stream().findFirst().orElse(null));
+        return result;
+    }
+
+    private List<RiskGovernanceReplayChainStepVO> buildReplayChainSteps(RiskGovernanceReplayVO replay,
+                                                                        RiskGovernanceReplayBatchReconciliationVO batchReconciliation) {
+        List<RiskGovernanceReplayChainStepVO> steps = new ArrayList<>();
+        steps.add(buildStep(
+                "RELEASE_CONTEXT",
+                "发布上下文",
+                replay.getReleaseBatchId() != null || StringUtils.hasText(replay.getProductKey()) ? CHAIN_STATUS_READY : CHAIN_STATUS_MISSING,
+                replay.getReleaseBatchId() != null
+                        ? "已锁定发布批次 " + replay.getReleaseBatchId() + "，产品 " + safeText(replay.getProductKey(), "-")
+                        : "当前仅按 trace/device/product 维度复盘，未锁定发布批次",
+                replay.getReleaseBatchId() != null ? "继续核对批次快照与目录状态" : "若要对账正式发布，请补充 releaseBatchId"
+        ));
+        if (batchReconciliation == null) {
+            steps.add(buildStep(
+                    "BATCH_RECONCILIATION",
+                    "批次快照对账",
+                    CHAIN_STATUS_SKIPPED,
+                    "未提供 releaseBatchId，跳过批次快照对账",
+                    "补充 releaseBatchId 后重新回放"
+            ));
+        } else {
+            boolean consistent = Boolean.TRUE.equals(batchReconciliation.getConsistent());
+            steps.add(buildStep(
+                    "BATCH_RECONCILIATION",
+                    "批次快照对账",
+                    consistent ? CHAIN_STATUS_READY : CHAIN_STATUS_ACTION_REQUIRED,
+                    consistent
+                            ? "发布批次快照与当前正式合同一致"
+                            : "检测到正式合同与批次快照不一致，缺失 "
+                                    + safeLong(batchReconciliation.getMissingCurrentFieldCount())
+                                    + " 项、额外 "
+                                    + safeLong(batchReconciliation.getExtraCurrentFieldCount())
+                                    + " 项",
+                    consistent ? "继续检查链路证据与治理缺口" : "优先核对合同字段变更、回滚与目录同步状态"
+            ));
+        }
+        steps.add(buildStep(
+                "MESSAGE_TRACE",
+                "消息链路证据",
+                replay.getMatchedMessageCount() != null && replay.getMatchedMessageCount() > 0 ? CHAIN_STATUS_READY : CHAIN_STATUS_MISSING,
+                replay.getMatchedMessageCount() != null && replay.getMatchedMessageCount() > 0
+                        ? "已命中 " + replay.getMatchedMessageCount() + " 条消息追踪记录"
+                        : "未命中消息追踪记录",
+                replay.getMatchedMessageCount() != null && replay.getMatchedMessageCount() > 0
+                        ? "继续查看 access-error 与治理缺口"
+                        : "确认 traceId/deviceCode/productKey 是否准确"
+        ));
+        steps.add(buildStep(
+                "ACCESS_ERROR_ARCHIVE",
+                "失败归档证据",
+                replay.getMatchedAccessErrorCount() != null && replay.getMatchedAccessErrorCount() > 0 ? CHAIN_STATUS_ACTION_REQUIRED : CHAIN_STATUS_READY,
+                replay.getMatchedAccessErrorCount() != null && replay.getMatchedAccessErrorCount() > 0
+                        ? "命中 " + replay.getMatchedAccessErrorCount() + " 条失败归档，需要继续排障"
+                        : "当前未命中失败归档",
+                replay.getMatchedAccessErrorCount() != null && replay.getMatchedAccessErrorCount() > 0
+                        ? "检查失败阶段、合同快照与最近异常记录"
+                        : "继续检查治理缺口与目录状态"
+        ));
+        long totalGapCount = safeLong(replay.getGapSummary() == null ? null : replay.getGapSummary().getMissingBindingCount())
+                + safeLong(replay.getGapSummary() == null ? null : replay.getGapSummary().getMissingPolicyCount())
+                + safeLong(replay.getGapSummary() == null ? null : replay.getGapSummary().getMissingRiskMetricCount());
+        steps.add(buildStep(
+                "GOVERNANCE_GAPS",
+                "治理缺口复核",
+                totalGapCount > 0 ? CHAIN_STATUS_ACTION_REQUIRED : CHAIN_STATUS_READY,
+                totalGapCount > 0
+                        ? "仍有 " + totalGapCount + " 项治理缺口待处理"
+                        : "当前未发现待治理缺口",
+                totalGapCount > 0
+                        ? "按缺绑定、缺策略、缺风险指标顺序继续收口"
+                        : "复盘链路已闭环，可回到工作台确认结果"
+        ));
+        return steps;
+    }
+
+    private RiskGovernanceReplayChainStepVO buildStep(String stepCode,
+                                                      String stepLabel,
+                                                      String status,
+                                                      String summary,
+                                                      String nextAction) {
+        RiskGovernanceReplayChainStepVO step = new RiskGovernanceReplayChainStepVO();
+        step.setStepCode(stepCode);
+        step.setStepLabel(stepLabel);
+        step.setStatus(status);
+        step.setSummary(summary);
+        step.setNextAction(nextAction);
+        return step;
     }
 
     private Map<Long, Set<String>> buildContractIdentifierMap(Set<Long> productIds) {
@@ -275,6 +461,92 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
             map.computeIfAbsent(catalog.getProductId(), key -> new LinkedHashSet<>()).add(identifier);
         }
         return map;
+    }
+
+    private Set<String> loadCurrentContractPropertyIdentifiers(Long productId) {
+        if (productId == null) {
+            return Set.of();
+        }
+        List<ProductModel> models = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
+                .eq(ProductModel::getDeleted, 0)
+                .eq(ProductModel::getModelType, "property")
+                .eq(ProductModel::getProductId, productId));
+        Set<String> identifiers = new LinkedHashSet<>();
+        if (models == null || models.isEmpty()) {
+            return identifiers;
+        }
+        for (ProductModel model : models) {
+            String identifier = normalize(model == null ? null : model.getIdentifier());
+            if (StringUtils.hasText(identifier)) {
+                identifiers.add(identifier);
+            }
+        }
+        return identifiers;
+    }
+
+    private Set<String> loadBatchCatalogIdentifiers(Long releaseBatchId) {
+        if (releaseBatchId == null) {
+            return Set.of();
+        }
+        List<RiskMetricCatalog> catalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
+                .eq(RiskMetricCatalog::getDeleted, 0)
+                .eq(RiskMetricCatalog::getEnabled, 1)
+                .eq(RiskMetricCatalog::getReleaseBatchId, releaseBatchId));
+        Set<String> identifiers = new LinkedHashSet<>();
+        if (catalogs == null || catalogs.isEmpty()) {
+            return identifiers;
+        }
+        for (RiskMetricCatalog catalog : catalogs) {
+            String identifier = normalize(catalog == null ? null : catalog.getContractIdentifier());
+            if (StringUtils.hasText(identifier)) {
+                identifiers.add(identifier);
+            }
+        }
+        return identifiers;
+    }
+
+    private Map<String, ProductContractReleaseSnapshot> loadSnapshots(Long releaseBatchId) {
+        if (releaseBatchId == null) {
+            return Map.of();
+        }
+        List<ProductContractReleaseSnapshot> snapshots = productContractReleaseSnapshotMapper.selectList(
+                new LambdaQueryWrapper<ProductContractReleaseSnapshot>()
+                        .eq(ProductContractReleaseSnapshot::getDeleted, 0)
+                        .eq(ProductContractReleaseSnapshot::getBatchId, releaseBatchId)
+        );
+        if (snapshots == null || snapshots.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, ProductContractReleaseSnapshot> result = new LinkedHashMap<>();
+        for (ProductContractReleaseSnapshot snapshot : snapshots) {
+            String stage = normalize(snapshot == null ? null : snapshot.getSnapshotStage());
+            if (StringUtils.hasText(stage) && !result.containsKey(stage)) {
+                result.put(stage, snapshot);
+            }
+        }
+        return result;
+    }
+
+    private Set<String> parsePropertyIdentifiers(String snapshotJson) {
+        if (!StringUtils.hasText(snapshotJson)) {
+            return Set.of();
+        }
+        try {
+            List<SnapshotModelItem> items = objectMapper.readValue(snapshotJson, new TypeReference<List<SnapshotModelItem>>() {
+            });
+            if (items == null || items.isEmpty()) {
+                return Set.of();
+            }
+            return items.stream()
+                    .filter(Objects::nonNull)
+                    .filter(item -> "property".equalsIgnoreCase(normalize(item.modelType())))
+                    .map(item -> normalize(item.identifier()))
+                    .filter(StringUtils::hasText)
+                    .sorted(Comparator.naturalOrder())
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        } catch (Exception ex) {
+            return Set.of();
+        }
     }
 
     private List<RiskGovernanceOpsAlertItemVO> collectOpsAlerts(Map<Long, Product> productMap,
@@ -356,6 +628,101 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         accumulator.setSample(sampleIdentifier, sampleDetail);
         accumulator.add(1L);
         return accumulator;
+    }
+
+    private void publishRaisedAlertEvents(List<RiskGovernanceOpsAlertItemVO> alerts) {
+        if (applicationEventPublisher == null || alerts == null || alerts.isEmpty()) {
+            return;
+        }
+        for (RiskGovernanceOpsAlertItemVO alert : alerts) {
+            String alertCode = buildAlertCode(alert);
+            if (!StringUtils.hasText(alertCode) || alert.getProductId() == null) {
+                continue;
+            }
+            applicationEventPublisher.publishEvent(new GovernanceOpsAlertRaisedEvent(
+                    SYSTEM_OPERATOR_ID,
+                    alert.getAlertType(),
+                    alertCode,
+                    ALERT_SUBJECT_TYPE_PRODUCT,
+                    alert.getProductId(),
+                    alert.getProductId(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    alert.getProductKey(),
+                    ALERT_SEVERITY_WARN,
+                    safeLong(alert.getAffectedCount()),
+                    firstNonBlank(alert.getAlertLabel(), alert.getAlertType()),
+                    buildAlertMessage(alert),
+                    buildDimensionKey(alert),
+                    buildDimensionLabel(alert),
+                    ALERT_SOURCE_STAGE,
+                    buildAlertSnapshotJson(alert),
+                    SYSTEM_OPERATOR_ID
+            ));
+        }
+    }
+
+    private String buildAlertCode(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null || alert.getProductId() == null || !StringUtils.hasText(alert.getAlertType())) {
+            return null;
+        }
+        return "product:" + alert.getProductId() + ":" + alert.getAlertType().toLowerCase(Locale.ROOT);
+    }
+
+    private String buildAlertMessage(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null) {
+            return null;
+        }
+        String identifier = normalize(alert.getSampleIdentifier());
+        String detail = normalize(alert.getSampleDetail());
+        if (StringUtils.hasText(identifier) && StringUtils.hasText(detail)) {
+            return identifier + " | " + detail;
+        }
+        return firstNonBlank(detail, identifier, alert.getAlertLabel());
+    }
+
+    private String buildDimensionKey(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null || alert.getProductId() == null) {
+            return null;
+        }
+        String sampleIdentifier = normalize(alert.getSampleIdentifier());
+        if (StringUtils.hasText(sampleIdentifier)) {
+            return "product:" + alert.getProductId() + ":" + sampleIdentifier;
+        }
+        return "product:" + alert.getProductId();
+    }
+
+    private String buildDimensionLabel(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null || alert.getProductId() == null) {
+            return null;
+        }
+        String sampleIdentifier = normalize(alert.getSampleIdentifier());
+        String productName = firstNonBlank(alert.getProductName(), alert.getProductKey(), "product-" + alert.getProductId());
+        return StringUtils.hasText(sampleIdentifier) ? productName + "/" + sampleIdentifier : productName;
+    }
+
+    private String buildAlertSnapshotJson(RiskGovernanceOpsAlertItemVO alert) {
+        if (alert == null) {
+            return null;
+        }
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("affectedCount", safeLong(alert.getAffectedCount()));
+        if (StringUtils.hasText(alert.getSampleIdentifier())) {
+            snapshot.put("sampleIdentifier", alert.getSampleIdentifier());
+        }
+        if (StringUtils.hasText(alert.getSampleDetail())) {
+            snapshot.put("sampleDetail", alert.getSampleDetail());
+        }
+        if (StringUtils.hasText(alert.getProductKey())) {
+            snapshot.put("productKey", alert.getProductKey());
+        }
+        try {
+            return objectMapper.writeValueAsString(snapshot);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private Long resolveMissingRiskMetricCount(Long productId) {
@@ -447,6 +814,20 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    private String normalizeOpsAlertType(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase();
+    }
+
+    private String safeText(String primary, String fallback) {
+        return StringUtils.hasText(primary) ? primary : fallback;
+    }
+
     private static final class OpsAlertAccumulator {
         private final String alertType;
         private final String alertLabel;
@@ -493,6 +874,20 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     private record ReplayContext(Long releaseBatchId,
                                  String releaseScenarioCode,
                                  Long productId,
-                                 String productKey) {
+                                 String productKey,
+                                 ProductContractReleaseBatch batch) {
+    }
+
+    private record SnapshotModelItem(String modelType,
+                                     String identifier,
+                                     String modelName,
+                                     String dataType,
+                                     String specsJson,
+                                     String eventType,
+                                     String serviceInputJson,
+                                     String serviceOutputJson,
+                                     Integer sortNo,
+                                     Integer requiredFlag,
+                                     String description) {
     }
 }

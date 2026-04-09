@@ -39,6 +39,34 @@ const PanelCardStub = defineComponent({
   `
 });
 
+const ElSegmentedStub = defineComponent({
+  name: 'ElSegmented',
+  props: {
+    modelValue: {
+      type: String,
+      default: ''
+    },
+    options: {
+      type: Array,
+      default: () => []
+    }
+  },
+  emits: ['update:modelValue', 'change'],
+  template: `
+    <div class="el-segmented-stub">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        :data-testid="'trend-range-' + option.value"
+        type="button"
+        @click="$emit('update:modelValue', option.value); $emit('change', option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+  `
+});
+
 function mountTrend(groups: Array<Record<string, unknown>> = [], summary: Array<Record<string, unknown>> = []) {
   return mount(RiskInsightTrendPanel, {
     props: {
@@ -49,7 +77,8 @@ function mountTrend(groups: Array<Record<string, unknown>> = [], summary: Array<
     },
     global: {
       stubs: {
-        PanelCard: PanelCardStub
+        PanelCard: PanelCardStub,
+        'el-segmented': ElSegmentedStub
       }
     }
   });
@@ -97,5 +126,54 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.text()).toContain('传感器在线状态');
     expect(wrapper.text()).not.toContain('S1_ZT_1.sensor_state.L4_NW_1');
     expect(wrapper.findAll('.trend-group__chart').length).toBe(2);
+  });
+
+  it('hides trend summary cards and chart footer notes in the simplified insight layout', () => {
+    const wrapper = mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        description: '展示设备本体的监测值折线变化。',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 1224.37, filled: false }]
+          }
+        ]
+      }
+    ], [
+      { label: '默认范围', value: '近一周', hint: '最近 7 天' }
+    ]);
+
+    expect(wrapper.text()).not.toContain('默认范围');
+    expect(wrapper.text()).not.toContain('最近桶值');
+    expect(wrapper.findAll('.trend-group__note')).toHaveLength(0);
+    expect(wrapper.findAll('.trend-summary__item')).toHaveLength(0);
+  });
+
+  it('shows day week month year selectors inside the trend card and emits range changes', async () => {
+    const wrapper = mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 1224.37, filled: false }]
+          }
+        ]
+      }
+    ]);
+
+    expect(wrapper.text()).toContain('近一天');
+    expect(wrapper.text()).toContain('近一周');
+    expect(wrapper.text()).toContain('近一月');
+    expect(wrapper.text()).toContain('近一年');
+
+    await wrapper.get('[data-testid="trend-range-365d"]').trigger('click');
+
+    expect(wrapper.emitted('change-range')).toEqual([['365d']]);
   });
 });

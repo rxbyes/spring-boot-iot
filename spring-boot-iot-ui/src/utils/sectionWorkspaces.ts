@@ -159,9 +159,9 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navShort: '概',
     title: '平台治理',
     description: '围绕组织、账号、角色、导航、通知、帮助和审计组织平台治理能力。',
-    intro: '建议先维护组织与账号，再做角色权限和导航编排，随后补齐通知渠道、站内消息、帮助文档和审计中心治理闭环。',
+    intro: '建议先维护组织与账号，再做角色权限和导航编排，随后补齐控制面任务、通知渠道、帮助文档和审计闭环。',
     menuTitle: '平台治理',
-    menuHint: '覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。',
+    menuHint: '覆盖组织、账号、角色、导航、控制面任务、通知、帮助与审计中心。',
     matchKeys: ['system-governance', 'system-management', 'system-core'],
     matchLabels: ['平台治理', '系统管理', '系统治理'],
     cards: [
@@ -174,11 +174,13 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
       { path: '/channel', label: '通知编排', description: '维护通知渠道配置、启停和测试。', short: '通', keywords: ['通知编排', '通知渠道', '渠道配置'] },
       { path: '/in-app-message', label: '站内消息', description: '维护通知中心消费的系统、业务和错误事件消息。', short: '信', keywords: ['站内消息', '通知中心', '消息编排'] },
       { path: '/help-doc', label: '帮助文档', description: '维护帮助中心消费的业务、技术和 FAQ 资料。', short: '帮', keywords: ['帮助文档', '帮助中心', 'FAQ'] },
+      { path: '/governance-task', label: '治理任务台', description: '统一查看待发布合同、风险绑定等控制面待办。', short: '任', keywords: ['治理任务台', '控制面任务', '待发布合同', '待绑定风险点'] },
+      { path: '/governance-ops', label: '治理运维台', description: '统一查看字段漂移、合同差异和指标缺失等控制面告警。', short: '运', keywords: ['治理运维台', '控制面告警', '字段漂移', '合同差异'] },
       { path: '/governance-approval', label: '治理审批台', description: '统一查看审批主单、执行结果与状态流转。', short: '批', keywords: ['治理审批台', '审批主单', '双人复核'] },
       { path: '/governance-security', label: '权限与密钥治理', description: '统一查看治理权限矩阵与设备密钥轮换台账。', short: '钥', keywords: ['权限与密钥治理', '治理权限矩阵', '密钥轮换台账', '密钥托管'] },
       { path: '/audit-log', label: '审计中心', description: '查看治理侧业务审计与关键操作记录。', short: '审', keywords: ['审计中心', '业务日志', '审计日志'] }
     ],
-    steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '随后配置通知渠道、站内消息和帮助文档。', '最后用审计中心复核治理流程。']
+    steps: ['先维护组织、区域和账号主数据。', '再通过角色权限与导航编排收口权限。', '随后通过治理任务台、治理运维台和治理审批台跟踪控制面执行。', '最后用审计中心复核治理流程。']
   },
   {
     key: 'quality-workbench',
@@ -335,7 +337,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['超级管理员'],
     defaultPath: '/system-management',
     preferredWorkspaceKeys: ['system-governance', 'risk-ops', 'iot-access'],
-    featuredPaths: ['/user', '/role', '/in-app-message', '/help-doc', '/audit-log'],
+    featuredPaths: ['/governance-task', '/governance-ops', '/user', '/role', '/audit-log'],
     cockpitRole: 'manager',
     focusLabel: '平台治理',
     focusDescription: '优先进入组织、权限、导航和审计治理核心能力。'
@@ -359,7 +361,7 @@ const roleProfiles: RoleWorkbenchProfile[] = [
     roleNameKeywords: ['管理'],
     defaultPath: '/risk-disposal',
     preferredWorkspaceKeys: ['risk-ops', 'risk-config', 'system-governance'],
-    featuredPaths: ['/report-analysis', '/event-disposal', '/in-app-message', '/help-doc', '/audit-log'],
+    featuredPaths: ['/governance-task', '/governance-ops', '/report-analysis', '/event-disposal', '/audit-log'],
     cockpitRole: 'manager',
     focusLabel: '经营统筹',
     focusDescription: '优先查看经营分析、闭环效率、策略覆盖和治理执行情况。'

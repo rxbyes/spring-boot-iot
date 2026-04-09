@@ -500,6 +500,56 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('待补阈值策略')
   })
 
+  it('routes supported governance todo items from /products into the governance task workbench', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'demo-product',
+            productName: '演示产品',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 1,
+        records: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect((wrapper.vm as any).governanceTaskItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'pending-contract-release',
+          path: '/governance-task?productId=1001&workStatus=OPEN&workItemCode=PENDING_CONTRACT_RELEASE'
+        }),
+        expect.objectContaining({
+          key: 'pending-risk-binding',
+          path: '/governance-task?productId=1001&workStatus=OPEN&workItemCode=PENDING_RISK_BINDING'
+        })
+      ])
+    )
+  })
+
   it('keeps the product toolbar focused by collapsing low-frequency actions into a more-actions menu', async () => {
     const wrapper = mountView()
     await flushPromises()

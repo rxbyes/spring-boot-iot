@@ -182,6 +182,7 @@ class InAppMessageUnreadBridgeServiceImplTest {
                         "https://notify.example.com/hook",
                         Map.of(),
                         List.of(InAppMessageUnreadBridgeServiceImpl.BRIDGE_SCENE),
+                        List.of(),
                         3000,
                         minIntervalSeconds
                 )

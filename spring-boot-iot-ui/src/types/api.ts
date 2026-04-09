@@ -546,6 +546,98 @@ export interface GovernanceApprovalResubmitPayload {
   comment?: string | null;
 }
 
+export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'CLOSED';
+
+export interface GovernanceWorkItem {
+  id: IdType;
+  workItemCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  workStatus?: GovernanceWorkItemStatus | null;
+  priorityLevel?: string | null;
+  assigneeUserId?: IdType | null;
+  sourceStage?: string | null;
+  blockingReason?: string | null;
+  snapshotJson?: string | null;
+  dueTime?: string | null;
+  resolvedTime?: string | null;
+  closedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceWorkItemPageQuery {
+  workItemCode?: string | null;
+  workStatus?: GovernanceWorkItemStatus | string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  assigneeUserId?: IdType | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceWorkItemTransitionPayload {
+  comment?: string | null;
+}
+
+export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'CLOSED';
+
+export interface GovernanceOpsAlert {
+  id: IdType;
+  alertType?: string | null;
+  alertCode?: string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  alertStatus?: GovernanceOpsAlertStatus | null;
+  severityLevel?: string | null;
+  affectedCount?: number | null;
+  alertTitle?: string | null;
+  alertMessage?: string | null;
+  dimensionKey?: string | null;
+  dimensionLabel?: string | null;
+  sourceStage?: string | null;
+  snapshotJson?: string | null;
+  assigneeUserId?: IdType | null;
+  firstSeenTime?: string | null;
+  lastSeenTime?: string | null;
+  resolvedTime?: string | null;
+  closedTime?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
+export interface GovernanceOpsAlertPageQuery {
+  alertType?: string | null;
+  alertStatus?: GovernanceOpsAlertStatus | string | null;
+  subjectType?: string | null;
+  subjectId?: IdType | null;
+  productId?: IdType | null;
+  riskMetricId?: IdType | null;
+  severityLevel?: string | null;
+  assigneeUserId?: IdType | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface GovernanceOpsAlertTransitionPayload {
+  comment?: string | null;
+}
+
 export interface ProductModelCandidateConfirmItem {
   modelType: ProductModelType;
   identifier: string;

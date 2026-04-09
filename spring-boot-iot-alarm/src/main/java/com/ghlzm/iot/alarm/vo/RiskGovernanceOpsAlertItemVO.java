@@ -23,4 +23,10 @@ public class RiskGovernanceOpsAlertItemVO {
     private String sampleIdentifier;
 
     private String sampleDetail;
+
+    private String subscriptionScene;
+
+    private Long subscriptionChannelCount;
+
+    private java.util.List<String> subscriptionChannelCodes;
 }
