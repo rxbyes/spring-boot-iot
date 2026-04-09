@@ -9,6 +9,7 @@ import com.ghlzm.iot.protocol.mqtt.MqttFirmwarePacketParser;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadDecryptorRegistry;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadFrameParser;
 import com.ghlzm.iot.protocol.mqtt.MqttPayloadSecurityValidator;
+import com.ghlzm.iot.protocol.mqtt.ProtocolDecryptResolveContext;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -20,6 +21,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -56,7 +58,10 @@ public class LegacyDpEnvelopeDecoder {
             mqttPayloadSecurityValidator.validateEnvelope(appId, payloadMap, encryptedBody);
             MqttPayloadFrameParser.ParsedFrame decryptedFrame = mqttPayloadFrameParser.parse(
                     "mqtt-json-decrypted",
-                    mqttPayloadDecryptorRegistry.decryptBytesOrThrow(appId, encryptedBody)
+                    mqttPayloadDecryptorRegistry.decryptBytesOrThrow(
+                            new ProtocolDecryptResolveContext(appId, "mqtt-json", List.of()),
+                            encryptedBody
+                    )
             );
             String plaintext = sanitizePayload(decryptedFrame.jsonMessage());
             Map<String, Object> decryptedMap = objectMapper.readValue(plaintext, new TypeReference<>() {

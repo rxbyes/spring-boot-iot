@@ -53,7 +53,7 @@ class MqttJsonProtocolAdapterTest {
                 {"header":{"appId":"62000001"},"bodies":{"body":"PTOLy04o/stDufUYFo5s3g=="}} 
                 """.getBytes(StandardCharsets.UTF_8), context));
 
-        assertEquals("检测到加密 MQTT 报文，但未配置 appId 对应的解密器: 62000001", ex.getMessage());
+        assertEquals("未找到 appId 对应的 decrypt profile: 62000001", ex.getMessage());
     }
 
     @Test
@@ -66,7 +66,7 @@ class MqttJsonProtocolAdapterTest {
                 {"header":{"appId":"62000001"},"bodies":{"body":"PTOLy04o/stDufUYFo5s3g=="}}}
                 """.getBytes(StandardCharsets.UTF_8), context));
 
-        assertEquals("检测到加密 MQTT 报文，但未配置 appId 对应的解密器: 62000001", ex.getMessage());
+        assertEquals("未找到 appId 对应的 decrypt profile: 62000001", ex.getMessage());
     }
 
     @Test
@@ -527,8 +527,20 @@ class MqttJsonProtocolAdapterTest {
     private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
                                                List<MqttPayloadDecryptor> decryptors,
                                                LegacyDpRelationResolver relationResolver) {
+        ProtocolDecryptProfileResolver resolver = context -> {
+            String appId = context == null ? null : context.appId();
+            for (MqttPayloadDecryptor decryptor : decryptors) {
+                if (decryptor.supports(appId)) {
+                    return legacyProfile(appId);
+                }
+            }
+            throw new BizException("未找到 appId 对应的 decrypt profile: " + safeAppId(appId));
+        };
         LegacyDpEnvelopeDecoder envelopeDecoder = new LegacyDpEnvelopeDecoder(
-                new MqttPayloadDecryptorRegistry(decryptors),
+                new MqttPayloadDecryptorRegistry(
+                        resolver,
+                        decryptors.stream().map(this::legacyExecutor).toList()
+                ),
                 new MqttPayloadFrameParser(),
                 new MqttPayloadSecurityValidator(
                         iotProperties,
@@ -542,6 +554,40 @@ class MqttJsonProtocolAdapterTest {
                 iotProperties,
                 relationResolver
         );
+    }
+
+    private ProtocolDecryptProfile legacyProfile(String appId) {
+        ProtocolDecryptProfile profile = new ProtocolDecryptProfile();
+        profile.setProfileCode("legacy-" + safeAppId(appId));
+        profile.setAlgorithm(legacyAlgorithm(appId));
+        profile.setMerchantSource("TEST");
+        profile.setMerchantKey(appId);
+        return profile;
+    }
+
+    private ProtocolDecryptExecutor legacyExecutor(MqttPayloadDecryptor decryptor) {
+        return new ProtocolDecryptExecutor() {
+            @Override
+            public boolean supports(String algorithm) {
+                if (algorithm == null || !algorithm.startsWith("LEGACY:")) {
+                    return false;
+                }
+                return decryptor.supports(algorithm.substring("LEGACY:".length()));
+            }
+
+            @Override
+            public byte[] decryptBytes(ProtocolDecryptProfile profile, String encryptedBody) {
+                return decryptor.decryptBytes(profile.getMerchantKey(), encryptedBody);
+            }
+        };
+    }
+
+    private String legacyAlgorithm(String appId) {
+        return "LEGACY:" + safeAppId(appId);
+    }
+
+    private String safeAppId(String appId) {
+        return appId == null ? "UNKNOWN" : appId;
     }
 
     private Object getProtocolMetadata(DeviceUpMessage message) {
