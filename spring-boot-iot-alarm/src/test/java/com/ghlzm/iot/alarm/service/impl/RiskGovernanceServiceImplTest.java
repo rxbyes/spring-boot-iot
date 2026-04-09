@@ -1,17 +1,20 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ghlzm.iot.alarm.entity.EmergencyPlan;
-import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
+import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
+import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
 import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
+import com.ghlzm.iot.alarm.mapper.RiskMetricEmergencyPlanBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
+import com.ghlzm.iot.alarm.mapper.RiskMetricLinkageBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
@@ -75,6 +78,15 @@ class RiskGovernanceServiceImplTest {
     @Mock
     private EmergencyPlanMapper emergencyPlanMapper;
 
+    @Mock
+    private RiskMetricLinkageBindingMapper linkageBindingMapper;
+
+    @Mock
+    private RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
+
+    @Mock
+    private RiskMetricActionBindingBackfillService backfillService;
+
     @Test
     void pageMetricCatalogsShouldReturnProductScopedRows() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
@@ -87,7 +99,10 @@ class RiskGovernanceServiceImplTest {
                 productMapper,
                 productContractReleaseBatchMapper,
                 linkageRuleMapper,
-                emergencyPlanMapper
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
         );
         RiskMetricCatalog catalog = new RiskMetricCatalog();
         catalog.setId(9101L);
@@ -123,7 +138,10 @@ class RiskGovernanceServiceImplTest {
                 productMapper,
                 productContractReleaseBatchMapper,
                 linkageRuleMapper,
-                emergencyPlanMapper
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
         );
 
         ProductModel value = new ProductModel();
@@ -167,6 +185,8 @@ class RiskGovernanceServiceImplTest {
         rule.setMetricIdentifier("value");
         rule.setStatus(0);
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
 
         RiskGovernanceCoverageOverviewVO overview = service.getCoverageOverview(1001L);
 
@@ -190,14 +210,18 @@ class RiskGovernanceServiceImplTest {
                 productMapper,
                 productContractReleaseBatchMapper,
                 linkageRuleMapper,
-                emergencyPlanMapper
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
         );
 
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of());
         when(deviceMapper.selectList(any())).thenReturn(List.of());
-        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
 
         service.getCoverageOverview(1001L);
 
@@ -225,7 +249,10 @@ class RiskGovernanceServiceImplTest {
                 productMapper,
                 productContractReleaseBatchMapper,
                 linkageRuleMapper,
-                emergencyPlanMapper
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
         );
 
         RiskPointDevice coveredA = binding(8001L, 5001L, 9101L, "value", "裂缝监测值");
@@ -273,7 +300,10 @@ class RiskGovernanceServiceImplTest {
                 productMapper,
                 productContractReleaseBatchMapper,
                 linkageRuleMapper,
-                emergencyPlanMapper
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
         );
 
         Product productA = new Product();
@@ -306,12 +336,12 @@ class RiskGovernanceServiceImplTest {
         binding.setDeviceId(8001L);
         binding.setRiskMetricId(9101L);
         binding.setMetricIdentifier("value");
-        binding.setMetricName("裂缝监测值");
+        binding.setMetricName("?????");
         RiskPointDevice missingPolicyBinding = new RiskPointDevice();
         missingPolicyBinding.setDeviceId(8001L);
         missingPolicyBinding.setRiskMetricId(9102L);
         missingPolicyBinding.setMetricIdentifier("gpsTotalX");
-        missingPolicyBinding.setMetricName("X 向累计位移");
+        missingPolicyBinding.setMetricName("X ?????");
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding, missingPolicyBinding));
 
         RuleDefinition rule = new RuleDefinition();
@@ -320,29 +350,22 @@ class RiskGovernanceServiceImplTest {
         rule.setMetricIdentifier("value");
         rule.setStatus(0);
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
-
-        LinkageRule linkageRule = new LinkageRule();
-        linkageRule.setId(7001L);
-        linkageRule.setStatus(0);
-        linkageRule.setTriggerCondition("[{\"metricIdentifier\":\"value\",\"operator\":\">\",\"value\":0.5}]");
-        when(linkageRuleMapper.selectList(any())).thenReturn(List.of(linkageRule));
-
-        EmergencyPlan emergencyPlan = new EmergencyPlan();
-        emergencyPlan.setId(7101L);
-        emergencyPlan.setStatus(0);
-        emergencyPlan.setPlanName("gpsTotalX 指标预案");
-        emergencyPlan.setDescription("针对 gpsTotalX 超阈值场景");
-        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of(emergencyPlan));
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of(
+                linkageBinding(9901L, 1L, 9101L, 7001L, "AUTO_INFERRED", "ACTIVE", 0)
+        ));
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of(
+                planBinding(9951L, 1L, 9102L, 7101L, "BACKFILL", "ACTIVE", 0)
+        ));
 
         Device reportedAndBound = new Device();
         reportedAndBound.setId(8001L);
         reportedAndBound.setDeviceCode("dev-1");
-        reportedAndBound.setDeviceName("设备1");
+        reportedAndBound.setDeviceName("??1");
         reportedAndBound.setLastReportTime(LocalDateTime.of(2026, 4, 6, 10, 0));
         Device reportedButUnbound = new Device();
         reportedButUnbound.setId(8002L);
         reportedButUnbound.setDeviceCode("dev-2");
-        reportedButUnbound.setDeviceName("设备2");
+        reportedButUnbound.setDeviceName("??2");
         reportedButUnbound.setLastReportTime(LocalDateTime.of(2026, 4, 6, 11, 0));
         when(deviceMapper.selectList(any())).thenReturn(List.of(reportedAndBound, reportedButUnbound));
 
@@ -389,7 +412,10 @@ class RiskGovernanceServiceImplTest {
                 productMapper,
                 productContractReleaseBatchMapper,
                 linkageRuleMapper,
-                emergencyPlanMapper
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
         );
 
         Product product = new Product();
@@ -400,8 +426,8 @@ class RiskGovernanceServiceImplTest {
         when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of());
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
-        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
-        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
         when(deviceMapper.selectList(any())).thenReturn(List.of());
 
         service.getDashboardOverview();
@@ -419,6 +445,124 @@ class RiskGovernanceServiceImplTest {
         assertFalse(sqlSelect.contains("release_batch_id"));
     }
 
+    @Test
+    void getCoverageOverviewShouldUseExplicitBindingsInsteadOfTextGuessing() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        ProductModel value = new ProductModel();
+        value.setId(3001L);
+        value.setProductId(1001L);
+        value.setModelType("property");
+        value.setIdentifier("value");
+        ProductModel totalX = new ProductModel();
+        totalX.setId(3002L);
+        totalX.setProductId(1001L);
+        totalX.setModelType("property");
+        totalX.setIdentifier("gpsTotalX");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(value, totalX));
+
+        RiskMetricCatalog metricValue = new RiskMetricCatalog();
+        metricValue.setId(9101L);
+        metricValue.setProductId(1001L);
+        metricValue.setContractIdentifier("value");
+        metricValue.setEnabled(1);
+        RiskMetricCatalog metricX = new RiskMetricCatalog();
+        metricX.setId(9102L);
+        metricX.setProductId(1001L);
+        metricX.setContractIdentifier("gpsTotalX");
+        metricX.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(metricValue, metricX));
+
+        Device device = new Device();
+        device.setId(8001L);
+        device.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device));
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
+                binding(8001L, 5001L, 9101L, "value", "裂缝监测值"),
+                binding(8001L, 5001L, 9102L, "gpsTotalX", "X向累计位移")
+        ));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule(6001L, 9101L, "value")));
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of(
+                linkageBinding(9901L, 1L, 9101L, 7001L, "AUTO_INFERRED", "ACTIVE", 0)
+        ));
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of(
+                planBinding(9951L, 1L, 9102L, 7101L, "BACKFILL", "ACTIVE", 0)
+        ));
+
+        RiskGovernanceCoverageOverviewVO overview = service.getCoverageOverview(1001L);
+
+        assertEquals(1L, overview.getLinkageCoveredRiskMetricCount());
+        assertEquals(1L, overview.getEmergencyPlanCoveredRiskMetricCount());
+        assertEquals(0L, overview.getLinkagePlanCoveredRiskMetricCount());
+        assertEquals(50.0, overview.getLinkageCoverageRate());
+        assertEquals(50.0, overview.getEmergencyPlanCoverageRate());
+        assertEquals(0.0, overview.getLinkagePlanCoverageRate());
+    }
+
+    @Test
+    void getDashboardOverviewShouldTriggerOneShotBackfillBeforeCountingBindings() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        Product product = new Product();
+        product.setId(1001L);
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        ProductContractReleaseBatch releaseBatch = new ProductContractReleaseBatch();
+        releaseBatch.setId(5001L);
+        releaseBatch.setProductId(1001L);
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(releaseBatch));
+
+        RiskMetricCatalog metric = new RiskMetricCatalog();
+        metric.setId(9101L);
+        metric.setProductId(1001L);
+        metric.setContractIdentifier("value");
+        metric.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(metric));
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
+                binding(8001L, 5001L, 9101L, "value", "裂缝监测值")
+        ));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule(6001L, 9101L, "value")));
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of(
+                linkageBinding(9901L, 1L, 9101L, 7001L, "BACKFILL", "ACTIVE", 0)
+        ));
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        service.getDashboardOverview();
+
+        verify(backfillService).ensureBindingsReadyForRead();
+    }
+
     private RiskPointDevice binding(Long deviceId,
                                     Long riskPointId,
                                     Long riskMetricId,
@@ -430,6 +574,51 @@ class RiskGovernanceServiceImplTest {
         value.setRiskMetricId(riskMetricId);
         value.setMetricIdentifier(metricIdentifier);
         value.setMetricName(metricName);
+        return value;
+    }
+
+    private RuleDefinition rule(Long id, Long riskMetricId, String metricIdentifier) {
+        RuleDefinition value = new RuleDefinition();
+        value.setId(id);
+        value.setRiskMetricId(riskMetricId);
+        value.setMetricIdentifier(metricIdentifier);
+        value.setStatus(0);
+        return value;
+    }
+
+    private RiskMetricLinkageBinding linkageBinding(Long id,
+                                                    Long tenantId,
+                                                    Long riskMetricId,
+                                                    Long linkageRuleId,
+                                                    String bindingOrigin,
+                                                    String bindingStatus,
+                                                    Integer deleted) {
+        RiskMetricLinkageBinding value = new RiskMetricLinkageBinding();
+        value.setId(id);
+        value.setTenantId(tenantId);
+        value.setRiskMetricId(riskMetricId);
+        value.setLinkageRuleId(linkageRuleId);
+        value.setBindingOrigin(bindingOrigin);
+        value.setBindingStatus(bindingStatus);
+        value.setDeleted(deleted);
+        return value;
+    }
+
+    private RiskMetricEmergencyPlanBinding planBinding(Long id,
+                                                       Long tenantId,
+                                                       Long riskMetricId,
+                                                       Long emergencyPlanId,
+                                                       String bindingOrigin,
+                                                       String bindingStatus,
+                                                       Integer deleted) {
+        RiskMetricEmergencyPlanBinding value = new RiskMetricEmergencyPlanBinding();
+        value.setId(id);
+        value.setTenantId(tenantId);
+        value.setRiskMetricId(riskMetricId);
+        value.setEmergencyPlanId(emergencyPlanId);
+        value.setBindingOrigin(bindingOrigin);
+        value.setBindingStatus(bindingStatus);
+        value.setDeleted(deleted);
         return value;
     }
 }

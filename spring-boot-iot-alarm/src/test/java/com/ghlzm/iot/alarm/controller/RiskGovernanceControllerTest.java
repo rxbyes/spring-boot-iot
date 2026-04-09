@@ -109,12 +109,18 @@ class RiskGovernanceControllerTest {
         overview.setProductId(1001L);
         overview.setContractPropertyCount(4L);
         overview.setPublishedRiskMetricCount(2L);
+        overview.setLinkageCoveredRiskMetricCount(3L);
+        overview.setEmergencyPlanCoveredRiskMetricCount(2L);
+        overview.setLinkagePlanCoveredRiskMetricCount(1L);
         when(service.getCoverageOverview(1001L)).thenReturn(overview);
 
         R<RiskGovernanceCoverageOverviewVO> response = controller.getCoverageOverview(1001L);
 
         assertEquals(1001L, response.getData().getProductId());
         assertEquals(2L, response.getData().getPublishedRiskMetricCount());
+        assertEquals(3L, response.getData().getLinkageCoveredRiskMetricCount());
+        assertEquals(2L, response.getData().getEmergencyPlanCoveredRiskMetricCount());
+        assertEquals(1L, response.getData().getLinkagePlanCoveredRiskMetricCount());
     }
 
     @Test

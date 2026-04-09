@@ -57,9 +57,15 @@ export interface RiskGovernanceCoverageOverview {
   publishedRiskMetricCount?: number | null;
   boundRiskMetricCount?: number | null;
   ruleCoveredRiskMetricCount?: number | null;
+  linkageCoveredRiskMetricCount?: number | null;
+  emergencyPlanCoveredRiskMetricCount?: number | null;
+  linkagePlanCoveredRiskMetricCount?: number | null;
   contractMetricCoverageRate?: number | null;
   bindingCoverageRate?: number | null;
   ruleCoverageRate?: number | null;
+  linkageCoverageRate?: number | null;
+  emergencyPlanCoverageRate?: number | null;
+  linkagePlanCoverageRate?: number | null;
 }
 
 export interface RiskGovernanceDashboardOverview {

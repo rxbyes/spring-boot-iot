@@ -46,7 +46,7 @@ class LinkageRuleControllerTest {
                 "risk:linkage-rule:edit",
                 "risk:linkage-rule:approve"
         );
-        verify(linkageRuleService).addRule(rule);
+        verify(linkageRuleService).addRule(rule, 1001L);
     }
 
     @Test
@@ -62,7 +62,7 @@ class LinkageRuleControllerTest {
                 "risk:linkage-rule:edit",
                 "risk:linkage-rule:approve"
         );
-        verify(linkageRuleService).updateRule(rule);
+        verify(linkageRuleService).updateRule(rule, 1001L);
     }
 
     @Test
@@ -77,7 +77,7 @@ class LinkageRuleControllerTest {
                 "risk:linkage-rule:edit",
                 "risk:linkage-rule:approve"
         );
-        verify(linkageRuleService).deleteRule(3001L);
+        verify(linkageRuleService).deleteRule(3001L, 1001L);
     }
 
     private Authentication authentication(Long userId) {

@@ -18,9 +18,21 @@ public class RiskGovernanceCoverageOverviewVO {
 
     private Long ruleCoveredRiskMetricCount;
 
+    private Long linkageCoveredRiskMetricCount;
+
+    private Long emergencyPlanCoveredRiskMetricCount;
+
+    private Long linkagePlanCoveredRiskMetricCount;
+
     private Double contractMetricCoverageRate;
 
     private Double bindingCoverageRate;
 
     private Double ruleCoverageRate;
+
+    private Double linkageCoverageRate;
+
+    private Double emergencyPlanCoverageRate;
+
+    private Double linkagePlanCoverageRate;
 }

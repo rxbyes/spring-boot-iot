@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ghlzm.iot.alarm.entity.EmergencyPlan;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
 import com.ghlzm.iot.alarm.service.EmergencyPlanService;
+import com.ghlzm.iot.alarm.service.RiskMetricActionBindingSyncService;
 import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -19,6 +21,12 @@ import java.util.Locale;
 @Service
 public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, EmergencyPlan>
             implements EmergencyPlanService {
+
+      private final RiskMetricActionBindingSyncService bindingSyncService;
+
+      public EmergencyPlanServiceImpl(RiskMetricActionBindingSyncService bindingSyncService) {
+            this.bindingSyncService = bindingSyncService;
+      }
 
       @Override
       public PageResult<EmergencyPlan> pagePlanList(String planName, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
@@ -33,25 +41,34 @@ public class EmergencyPlanServiceImpl extends ServiceImpl<EmergencyPlanMapper, E
       }
 
       @Override
-      public void addPlan(EmergencyPlan plan) {
+      @Transactional(rollbackFor = Exception.class)
+      public void addPlan(EmergencyPlan plan, Long operatorId) {
             String normalizedAlarmLevel = resolveAlarmLevel(plan);
             plan.setAlarmLevel(normalizedAlarmLevel);
             plan.setRiskLevel(normalizedAlarmLevel);
             plan.setDeleted(0);
+            plan.setCreateBy(operatorId);
+            plan.setUpdateBy(operatorId);
             save(plan);
+            bindingSyncService.rebuildEmergencyPlanBindingsForPlan(plan, operatorId, "AUTO_INFERRED");
       }
 
       @Override
-      public void updatePlan(EmergencyPlan plan) {
+      @Transactional(rollbackFor = Exception.class)
+      public void updatePlan(EmergencyPlan plan, Long operatorId) {
             String normalizedAlarmLevel = resolveAlarmLevel(plan);
             plan.setAlarmLevel(normalizedAlarmLevel);
             plan.setRiskLevel(normalizedAlarmLevel);
+            plan.setUpdateBy(operatorId);
             updateById(plan);
+            bindingSyncService.rebuildEmergencyPlanBindingsForPlan(plan, operatorId, "AUTO_INFERRED");
       }
 
       @Override
-      public void deletePlan(Long id) {
+      @Transactional(rollbackFor = Exception.class)
+      public void deletePlan(Long id, Long operatorId) {
             removeById(id);
+            bindingSyncService.deactivateEmergencyPlanBindings(id, operatorId);
       }
 
       private LambdaQueryWrapper<EmergencyPlan> buildWrapper(String planName, String alarmLevel, Integer status) {

@@ -23,15 +23,15 @@ public interface EmergencyPlanService extends IService<EmergencyPlan> {
       /**
        * 新增预案
        */
-      void addPlan(EmergencyPlan plan);
+      void addPlan(EmergencyPlan plan, Long operatorId);
 
       /**
        * 更新预案
        */
-      void updatePlan(EmergencyPlan plan);
+      void updatePlan(EmergencyPlan plan, Long operatorId);
 
       /**
        * 删除预案
        */
-      void deletePlan(Long id);
+      void deletePlan(Long id, Long operatorId);
 }
