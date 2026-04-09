@@ -87,7 +87,7 @@ describe('deviceInsightCapability', () => {
     expect(profile.heroMetrics.map((item) => item.displayName)).toEqual([
       '裂缝量',
       '水平面夹角',
-      'X向加速度'
+      'X轴加速度'
     ]);
     expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([]);
   });

@@ -54,7 +54,7 @@ class RiskPointControllerTest {
         metric.setBindingId(88L);
         metric.setRiskMetricId(6101L);
         metric.setMetricIdentifier("dispsX");
-        metric.setMetricName("X向位移");
+        metric.setMetricName("X轴位移");
         metric.setBindingSource("PENDING_PROMOTION");
         metric.setCreateTime(new Date(1000L));
         RiskPointBindingDeviceGroupVO group = new RiskPointBindingDeviceGroupVO();

@@ -1171,7 +1171,7 @@ describe('RiskPointView', () => {
         candidates: [
           {
             metricIdentifier: 'dispsX',
-            metricName: 'X向位移',
+            metricName: 'X轴位移',
             recommendationLevel: 'HIGH',
             evidenceSources: ['PRODUCT_MODEL', 'LATEST_PROPERTY', 'MESSAGE_LOG']
           }
@@ -1187,7 +1187,7 @@ describe('RiskPointView', () => {
 
     expect(mockListPendingBindings).toHaveBeenCalledWith({ riskPointId: 1, pageNum: 1, pageSize: 10 })
     expect(wrapper.text()).toContain('待治理转正')
-    expect(wrapper.text()).toContain('X向位移')
+    expect(wrapper.text()).toContain('X轴位移')
     expect(wrapper.text()).toContain('PRODUCT_MODEL')
   })
 
@@ -1424,7 +1424,7 @@ describe('RiskPointView', () => {
           candidates: [
             {
               metricIdentifier: 'dispsY',
-              metricName: 'Y向位移',
+              metricName: 'Y轴位移',
               recommendationLevel: 'HIGH',
               evidenceSources: ['LATEST_PROPERTY']
             }
@@ -1442,7 +1442,7 @@ describe('RiskPointView', () => {
     expect(mockGetPendingCandidates).toHaveBeenCalledTimes(1)
     expect(mockGetPendingCandidates).toHaveBeenCalledWith(78)
     expect(wrapper.text()).toContain('DEVICE-PENDING')
-    expect(wrapper.text()).toContain('Y向位移')
+    expect(wrapper.text()).toContain('Y轴位移')
   })
 
   it('opens the binding maintenance drawer when the row action emits maintain-binding', async () => {
@@ -1578,7 +1578,7 @@ describe('RiskPointView', () => {
     ;(wrapper.vm as any).togglePendingMetric({
       riskMetricId: 6102,
       metricIdentifier: 'dispsX',
-      metricName: 'X向位移',
+      metricName: 'X轴位移',
       evidenceSources: []
     })
     ;(wrapper.vm as any).pendingPromotionForm.completePending = true
@@ -1586,7 +1586,7 @@ describe('RiskPointView', () => {
     await (wrapper.vm as any).handlePendingPromotionSubmit()
 
     expect(mockPromotePendingBinding).toHaveBeenCalledWith(77, {
-      metrics: [{ riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X向位移' }],
+      metrics: [{ riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X轴位移' }],
       completePending: true,
       promotionNote: ''
     })

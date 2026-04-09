@@ -128,7 +128,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
         );
         when(riskPointService.getById(11L, 1001L)).thenReturn(new RiskPoint());
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
-                binding(701L, 11L, 9301L, "DEV-MANUAL", "人工绑定设备", "dispsX", "X向位移", new Date(1000L))
+                binding(701L, 11L, 9301L, "DEV-MANUAL", "人工绑定设备", "dispsX", "X轴位移", new Date(1000L))
         ));
         when(pendingPromotionMapper.selectList(any())).thenReturn(List.of(
                 pendingPromotion(701L, "DUPLICATE_SKIPPED")

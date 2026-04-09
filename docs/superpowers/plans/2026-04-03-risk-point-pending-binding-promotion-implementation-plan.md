@@ -350,12 +350,12 @@ void getCandidatesShouldMergeModelLatestPropertyAndMessageLogEvidence() {
 
     ProductModel modelMetric = new ProductModel();
     modelMetric.setIdentifier("dispsX");
-    modelMetric.setModelName("X向位移");
+    modelMetric.setModelName("X轴位移");
     modelMetric.setDataType("double");
 
     DeviceProperty latestMetric = new DeviceProperty();
     latestMetric.setIdentifier("dispsX");
-    latestMetric.setPropertyName("X向位移");
+    latestMetric.setPropertyName("X轴位移");
     latestMetric.setValueType("double");
 
     DeviceMessageLog messageLog = new DeviceMessageLog();
@@ -759,7 +759,7 @@ void promoteShouldCreateMultipleFormalBindingsAndWritePromotionHistory() {
     RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
     RiskPointPendingMetricCandidateVO dispsX = new RiskPointPendingMetricCandidateVO();
     dispsX.setMetricIdentifier("dispsX");
-    dispsX.setMetricName("X向位移");
+    dispsX.setMetricName("X轴位移");
     dispsX.setRecommendationLevel("HIGH");
     dispsX.setRecommendationScore(100);
     RiskPointPendingMetricCandidateVO batteryVoltage = new RiskPointPendingMetricCandidateVO();
@@ -783,7 +783,7 @@ void promoteShouldCreateMultipleFormalBindingsAndWritePromotionHistory() {
     request.setCompletePending(true);
     RiskPointPendingPromotionMetricDTO firstMetric = new RiskPointPendingPromotionMetricDTO();
     firstMetric.setMetricIdentifier("dispsX");
-    firstMetric.setMetricName("X向位移");
+    firstMetric.setMetricName("X轴位移");
     RiskPointPendingPromotionMetricDTO secondMetric = new RiskPointPendingPromotionMetricDTO();
     secondMetric.setMetricIdentifier("batteryVoltage");
     secondMetric.setMetricName("电池电压");
@@ -824,7 +824,7 @@ void promoteShouldMarkDuplicateSkippedAndReuseExistingFormalBindingId() {
 
     RiskPointPendingMetricCandidateVO candidate = new RiskPointPendingMetricCandidateVO();
     candidate.setMetricIdentifier("dispsX");
-    candidate.setMetricName("X向位移");
+    candidate.setMetricName("X轴位移");
     candidate.setRecommendationLevel("HIGH");
     candidate.setRecommendationScore(100);
     RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
@@ -838,7 +838,7 @@ void promoteShouldMarkDuplicateSkippedAndReuseExistingFormalBindingId() {
     RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
     RiskPointPendingPromotionMetricDTO metric = new RiskPointPendingPromotionMetricDTO();
     metric.setMetricIdentifier("dispsX");
-    metric.setMetricName("X向位移");
+    metric.setMetricName("X轴位移");
     request.setMetrics(List.of(metric));
 
     RiskPointPendingPromotionResultVO result = service.promote(77L, request, 1001L);
@@ -1131,7 +1131,7 @@ it('loads pending bindings for the selected risk point and renders candidate evi
     data: {
       pending: { id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' },
       candidates: [
-        { metricIdentifier: 'dispsX', metricName: 'X向位移', recommendationLevel: 'HIGH', evidenceSources: ['MODEL', 'LATEST_PROPERTY', 'MESSAGE_LOG'] }
+        { metricIdentifier: 'dispsX', metricName: 'X轴位移', recommendationLevel: 'HIGH', evidenceSources: ['MODEL', 'LATEST_PROPERTY', 'MESSAGE_LOG'] }
       ],
       history: []
     }
@@ -1144,7 +1144,7 @@ it('loads pending bindings for the selected risk point and renders candidate evi
 
   expect(mockListPendingBindings).toHaveBeenCalledWith({ riskPointId: 1, pageNum: 1, pageSize: 10 })
   expect(wrapper.text()).toContain('待治理转正')
-  expect(wrapper.text()).toContain('X向位移')
+  expect(wrapper.text()).toContain('X轴位移')
   expect(wrapper.text()).toContain('MODEL')
 })
 ```
@@ -1163,13 +1163,13 @@ it('submits the selected pending metrics through the promote API', async () => {
 
   const wrapper = mountView()
   ;(wrapper.vm as any).pendingPromotionForm.pendingId = 77
-  ;(wrapper.vm as any).pendingPromotionForm.selectedMetrics = [{ metricIdentifier: 'dispsX', metricName: 'X向位移' }]
+  ;(wrapper.vm as any).pendingPromotionForm.selectedMetrics = [{ metricIdentifier: 'dispsX', metricName: 'X轴位移' }]
   ;(wrapper.vm as any).pendingPromotionForm.completePending = true
 
   await (wrapper.vm as any).handlePendingPromotionSubmit()
 
   expect(mockPromotePendingBinding).toHaveBeenCalledWith(77, {
-    metrics: [{ metricIdentifier: 'dispsX', metricName: 'X向位移' }],
+    metrics: [{ metricIdentifier: 'dispsX', metricName: 'X轴位移' }],
     completePending: true,
     promotionNote: ''
   })
@@ -1352,7 +1352,7 @@ Then do a real-environment smoke check with `application-dev.yml`:
 curl -H "Authorization: Bearer <token>" "http://localhost:8080/api/risk-point/pending-bindings?riskPointId=<riskPointId>&pageNum=1&pageSize=10"
 curl -H "Authorization: Bearer <token>" "http://localhost:8080/api/risk-point/pending-bindings/<pendingId>/candidates"
 curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -d '{"metrics":[{"metricIdentifier":"dispsX","metricName":"X向位移"}],"completePending":true,"promotionNote":"shared-dev smoke"}' \
+  -d '{"metrics":[{"metricIdentifier":"dispsX","metricName":"X轴位移"}],"completePending":true,"promotionNote":"shared-dev smoke"}' \
   "http://localhost:8080/api/risk-point/pending-bindings/<pendingId>/promote"
 ```
 

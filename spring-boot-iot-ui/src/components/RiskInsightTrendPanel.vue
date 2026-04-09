@@ -225,23 +225,29 @@ function renderGroupChart(group: TrendGroup, colorOffset: number) {
       }
     },
     yAxis: yAxisConfig,
-    series: group.series.map((series) => ({
-      name: series.displayName,
-      type: 'line',
-      smooth: false,
-      showSymbol: props.rangeCode === '1d',
-      symbolSize: props.rangeCode === '1d' ? 7 : 5,
-      lineStyle: {
-        width: 3
-      },
-      data: axisLabels.map((time) => {
-        const bucket = series.buckets.find((item) => item.time === time);
-        return {
-          value: bucket?.value ?? 0,
-          filled: bucket?.filled ?? true
-        };
-      })
-    }))
+    series: group.series.map((series) => {
+      const useStepLine = shouldUseStepLine(series, group);
+      return {
+        name: series.displayName,
+        type: 'line',
+        smooth: false,
+        step: useStepLine ? 'middle' : false,
+        showSymbol: useStepLine ? false : props.rangeCode === '1d',
+        symbolSize: props.rangeCode === '1d' ? 7 : 5,
+        lineStyle: {
+          width: 3
+        },
+        data: axisLabels.map((time) => {
+          const bucket = series.buckets.find((item) => item.time === time);
+          const rawValue = bucket?.value ?? 0;
+          return {
+            value: rawValue,
+            filled: bucket?.filled ?? true,
+            statusText: useStepLine ? resolveBinaryStatusText(series, rawValue) : undefined
+          };
+        })
+      };
+    })
   }, {
     notMerge: true
   });
@@ -288,10 +294,11 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
   const lines = params.map((item) => {
     const marker = String(item.marker ?? '');
     const seriesName = String(item.seriesName ?? '');
-    const data = item.data as { value?: number; filled?: boolean } | undefined;
+    const data = item.data as { value?: number; filled?: boolean; statusText?: string } | undefined;
     const value = data?.value ?? 0;
+    const labelValue = data?.statusText || resolveBinaryStatusTextFromSemanticSource(seriesName, Number(value)) || value;
     const suffix = data?.filled ? '（补零补齐）' : '';
-    return `${marker}${seriesName}：${value}${suffix}`;
+    return `${marker}${seriesName}：${labelValue}${suffix}`;
   });
   return [axisValue, ...lines].join('<br/>');
 }
@@ -302,6 +309,54 @@ function resolveTrendSeriesColor(index: number) {
   }
   const hue = (index * 47) % 360;
   return `hsl(${hue}, 68%, 48%)`;
+}
+
+function shouldUseStepLine(series: TrendSeries, group: TrendGroup) {
+  const isStatusSeries = series.seriesType === 'status' || group.key === 'status';
+  if (!isStatusSeries) {
+    return false;
+  }
+
+  const actualValues = series.buckets
+    .filter((bucket) => bucket.filled === false)
+    .map((bucket) => Number(bucket.value))
+    .filter((value) => Number.isFinite(value));
+
+  if (!actualValues.length) {
+    return false;
+  }
+
+  return actualValues.every((value) => value === 0 || value === 1);
+}
+
+function resolveBinaryStatusText(series: TrendSeries, value: number) {
+  const numericValue = Number(value);
+  if (numericValue !== 0 && numericValue !== 1) {
+    return String(value);
+  }
+
+  return resolveBinaryStatusTextFromSemanticSource(
+    `${series.identifier ?? ''} ${series.displayName}`,
+    numericValue
+  );
+}
+
+function resolveBinaryStatusTextFromSemanticSource(semanticSource: string, numericValue: number) {
+  if (numericValue !== 0 && numericValue !== 1) {
+    return '';
+  }
+
+  const normalizedSource = semanticSource.toLowerCase();
+  if (/(sensor_state|online|在线)/.test(normalizedSource)) {
+    return numericValue === 1 ? '在线' : '离线';
+  }
+  if (/(alarm|warn|告警|预警|报警)/.test(normalizedSource)) {
+    return numericValue === 1 ? '告警' : '正常';
+  }
+  if (/(switch|enable|open|close|relay|valve|pump|door|light|horn|开关|启停|开启|关闭|阀|泵|门|声光)/.test(normalizedSource)) {
+    return numericValue === 1 ? '开启' : '关闭';
+  }
+  return numericValue === 1 ? '是' : '否';
 }
 
 function buildYAxisConfig(group: TrendGroup) {

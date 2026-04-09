@@ -569,6 +569,171 @@ describe('DeviceInsightView', () => {
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
 
+  it('splits configured status trends into status events and runtime parameters', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3301,
+        productId: 701,
+        deviceCode: 'CXH15522832',
+        deviceName: '多维检测仪',
+        productName: '多维检测仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-08 13:00:00',
+        lastReportTime: '2026-04-08 13:05:00',
+        firmwareVersion: '1.0.2',
+        address: '边坡点位 A',
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'L1_LF_1.value',
+                displayName: '裂缝量',
+                group: 'measure'
+              },
+              {
+                identifier: 'S1_ZT_1.sensor_state',
+                displayName: '设备状态',
+                group: 'status'
+              },
+              {
+                identifier: 'S1_ZT_1.battery_dump_energy',
+                displayName: '剩余电量',
+                group: 'status'
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_LF_1.value',
+          propertyName: 'value',
+          propertyValue: '12.4',
+          valueType: 'double',
+          updateTime: '2026-04-08 13:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.sensor_state',
+          propertyName: 'sensor_state',
+          propertyValue: '0',
+          valueType: 'int',
+          updateTime: '2026-04-08 13:05:00'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.battery_dump_energy',
+          propertyName: 'battery_dump_energy',
+          propertyValue: '86',
+          valueType: 'int',
+          updateTime: '2026-04-08 13:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            bindingId: 51,
+            deviceCode: 'CXH15522832',
+            deviceName: '多维检测仪',
+            riskPointName: '边坡监测点',
+            riskLevel: 'WARNING',
+            metricIdentifier: 'L1_LF_1.value',
+            metricName: '裂缝量',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-08 13:05:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 51,
+        riskPointId: 29,
+        riskPointCode: 'RP-051',
+        riskPointName: '边坡监测点',
+        riskLevel: 'WARNING',
+        deviceId: 3301,
+        deviceCode: 'CXH15522832',
+        deviceName: '多维检测仪',
+        productName: '多维检测仪',
+        metricIdentifier: 'L1_LF_1.value',
+        metricName: '裂缝量',
+        currentValue: '12.4',
+        monitorStatus: 'NORMAL',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-08 13:05:00'
+      }
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 3301,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-08 12:00:00', value: 12.4, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '设备状态',
+            seriesType: 'status',
+            buckets: [
+              { time: '2026-04-08 12:00:00', value: 0, filled: false },
+              { time: '2026-04-08 13:00:00', value: -1, filled: false }
+            ]
+          },
+          {
+            identifier: 'S1_ZT_1.battery_dump_energy',
+            displayName: '剩余电量',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-08 12:00:00', value: 86, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'CXH15522832',
+      rangeCode: '1d'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 3301,
+      identifiers: expect.arrayContaining(['L1_LF_1.value', 'S1_ZT_1.sensor_state', 'S1_ZT_1.battery_dump_energy']),
+      rangeCode: '1d'
+    }));
+    expect(wrapper.text()).toContain('监测数据');
+    expect(wrapper.text()).toContain('状态事件');
+    expect(wrapper.text()).toContain('运行参数');
+    expect(wrapper.text()).not.toContain('状态数据');
+  });
+
   it('keeps trend preview empty when no manual trend metric is configured', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,
@@ -899,7 +1064,7 @@ describe('DeviceInsightView', () => {
             riskPointName: 'G6京藏高速K1623+400滑坡',
             riskLevel: 'blue',
             metricIdentifier: 'gX',
-            metricName: 'X向加速度',
+            metricName: 'X轴加速度',
             onlineStatus: 1,
             latestReportTime: '2026-04-09 10:48:03'
           }
@@ -920,7 +1085,7 @@ describe('DeviceInsightView', () => {
         deviceName: '多维检测仪',
         productName: '中海达 监测型 多维位移监测仪',
         metricIdentifier: 'gX',
-        metricName: 'X向加速度',
+        metricName: 'X轴加速度',
         currentValue: '0.48',
         monitorStatus: 'NO_DATA',
         onlineStatus: 1,
@@ -949,7 +1114,7 @@ describe('DeviceInsightView', () => {
           },
           {
             identifier: 'L1_JS_1.gX',
-            displayName: 'X向加速度',
+            displayName: 'X轴加速度',
             seriesType: 'measure',
             buckets: [{ time: '2026-04-09 00:00:00', value: 0.48, filled: false }]
           }
@@ -968,7 +1133,7 @@ describe('DeviceInsightView', () => {
     expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('裂缝量');
     expect(wrapper.text()).toContain('水平面夹角');
-    expect(wrapper.text()).toContain('X向加速度');
+    expect(wrapper.text()).toContain('X轴加速度');
     expect(wrapper.text()).not.toContain('核心指标');
     expect(wrapper.text()).not.toContain('仅使用中文业务名称展示当前最关心的监测值、状态值和关键状态项。');
     expect(wrapper.text()).not.toContain('为后续湿度、4G 信号等扩展项预留统一展示位。');

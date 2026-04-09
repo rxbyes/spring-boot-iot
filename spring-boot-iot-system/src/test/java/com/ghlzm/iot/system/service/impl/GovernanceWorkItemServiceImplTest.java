@@ -2,15 +2,20 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
+import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
+import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,10 +25,13 @@ class GovernanceWorkItemServiceImplTest {
     @Mock
     private GovernanceWorkItemMapper workItemMapper;
 
+    @Mock
+    private GovernanceWorkItemContributor contributor;
+
     @Test
     void openOrRefreshShouldCreateOpenItemForSubject() {
         when(workItemMapper.selectOne(any())).thenReturn(null);
-        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper);
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
 
         service.openOrRefresh(new GovernanceWorkItemCommand(
                 "PENDING_CONTRACT_RELEASE",
@@ -48,6 +56,104 @@ class GovernanceWorkItemServiceImplTest {
                         && "OPEN".equals(item.getWorkStatus())
                         && "P1".equals(item.getPriorityLevel())
                         && Long.valueOf(10001L).equals(item.getCreateBy())
+        ));
+    }
+
+    @Test
+    void openOrRefreshShouldPreserveAckedStatusAndCommentOnSyncRefresh() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9001L);
+        existing.setWorkStatus("ACKED");
+        existing.setAssigneeUserId(20001L);
+        existing.setBlockingReason("已人工确认");
+        when(workItemMapper.selectOne(any())).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.openOrRefresh(new GovernanceWorkItemCommand(
+                "PENDING_THRESHOLD_POLICY",
+                "RISK_POINT_DEVICE",
+                5101L,
+                1001L,
+                9102L,
+                7001L,
+                null,
+                null,
+                "RULE_DEFINITION",
+                "待补阈值策略",
+                "{\"riskPointDeviceId\":5101}",
+                "P1",
+                10001L
+        ));
+
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9001L).equals(item.getId())
+                        && "ACKED".equals(item.getWorkStatus())
+                        && Long.valueOf(20001L).equals(item.getAssigneeUserId())
+                        && "已人工确认".equals(item.getBlockingReason())
+                        && Long.valueOf(9102L).equals(item.getRiskMetricId())
+        ));
+    }
+
+    @Test
+    void pageWorkItemsShouldSyncContributorCommandsAndResolveStaleRows() {
+        GovernanceWorkItem stale = new GovernanceWorkItem();
+        stale.setId(9101L);
+        stale.setWorkItemCode("PENDING_PRODUCT_GOVERNANCE");
+        stale.setSubjectType("PRODUCT");
+        stale.setSubjectId(1002L);
+        stale.setWorkStatus("OPEN");
+        when(contributor.collectWorkItems()).thenReturn(List.of(
+                new GovernanceWorkItemCommand(
+                        "PENDING_PRODUCT_GOVERNANCE",
+                        "PRODUCT",
+                        1001L,
+                        1001L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "MODEL_GOVERNANCE",
+                        "待治理产品",
+                        "{\"productId\":1001}",
+                        "P2",
+                        1L
+                )
+        ));
+        when(workItemMapper.selectOne(any())).thenReturn(null);
+        when(workItemMapper.selectList(any())).thenReturn(List.of(stale));
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of(contributor));
+
+        service.pageWorkItems(new GovernanceWorkItemPageQuery(), 10001L);
+
+        verify(contributor).collectWorkItems();
+        verify(workItemMapper).insert(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                "PENDING_PRODUCT_GOVERNANCE".equals(item.getWorkItemCode())
+                        && Long.valueOf(1001L).equals(item.getSubjectId())
+        ));
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9101L).equals(item.getId())
+                        && "RESOLVED".equals(item.getWorkStatus())
+        ));
+    }
+
+    @Test
+    void ackShouldKeepGeneratedReasonWhenCommentMissing() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9201L);
+        existing.setBlockingReason("待补联动预案");
+        when(workItemMapper.selectById(9201L)).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.ack(9201L, 10001L, null);
+
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9201L).equals(item.getId())
+                        && "ACKED".equals(item.getWorkStatus())
+                        && "待补联动预案".equals(item.getBlockingReason())
+                        && Long.valueOf(10001L).equals(item.getAssigneeUserId())
         ));
     }
 }

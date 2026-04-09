@@ -7,9 +7,9 @@ const FIXED_DISPLAY_NAME_RULES: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /^L\d+_QJ_\d+\.X$/i, label: 'X轴倾角' },
   { pattern: /^L\d+_QJ_\d+\.Y$/i, label: 'Y轴倾角' },
   { pattern: /^L\d+_QJ_\d+\.Z$/i, label: 'Z轴倾角' },
-  { pattern: /^L\d+_JS_\d+\.gX$/i, label: 'X向加速度' },
-  { pattern: /^L\d+_JS_\d+\.gY$/i, label: 'Y向加速度' },
-  { pattern: /^L\d+_JS_\d+\.gZ$/i, label: 'Z向加速度' }
+  { pattern: /^L\d+_JS_\d+\.gX$/i, label: 'X轴加速度' },
+  { pattern: /^L\d+_JS_\d+\.gY$/i, label: 'Y轴加速度' },
+  { pattern: /^L\d+_JS_\d+\.gZ$/i, label: 'Z轴加速度' }
 ];
 
 const PRIORITY_BOOST_RULES: Array<{ pattern: RegExp; priority: number }> = [

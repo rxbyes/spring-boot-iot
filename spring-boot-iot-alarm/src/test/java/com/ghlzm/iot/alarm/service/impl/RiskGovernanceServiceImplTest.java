@@ -257,10 +257,10 @@ class RiskGovernanceServiceImplTest {
 
         RiskPointDevice coveredA = binding(8001L, 5001L, 9101L, "value", "裂缝监测值");
         RiskPointDevice coveredB = binding(8002L, 5002L, 9101L, "value", "裂缝监测值");
-        RiskPointDevice missingByIdA = binding(8101L, 5101L, 9201L, "gpsTotalZ", "Z向累计位移");
-        RiskPointDevice missingByIdB = binding(8102L, 5102L, 9201L, "gpsTotalZ", "Z向累计位移");
-        RiskPointDevice missingByIdentifierA = binding(8201L, 5201L, null, "gpsTotalX", "X向累计位移");
-        RiskPointDevice missingByIdentifierB = binding(8202L, 5202L, null, "gpsTotalX", "X向累计位移");
+        RiskPointDevice missingByIdA = binding(8101L, 5101L, 9201L, "gpsTotalZ", "Z轴累计位移");
+        RiskPointDevice missingByIdB = binding(8102L, 5102L, 9201L, "gpsTotalZ", "Z轴累计位移");
+        RiskPointDevice missingByIdentifierA = binding(8201L, 5201L, null, "gpsTotalX", "X轴累计位移");
+        RiskPointDevice missingByIdentifierB = binding(8202L, 5202L, null, "gpsTotalX", "X轴累计位移");
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
                 coveredA,
                 coveredB,
@@ -494,7 +494,7 @@ class RiskGovernanceServiceImplTest {
 
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
                 binding(8001L, 5001L, 9101L, "value", "裂缝监测值"),
-                binding(8001L, 5001L, 9102L, "gpsTotalX", "X向累计位移")
+                binding(8001L, 5001L, 9102L, "gpsTotalX", "X轴累计位移")
         ));
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule(6001L, 9101L, "value")));
         when(linkageBindingMapper.selectList(any())).thenReturn(List.of(

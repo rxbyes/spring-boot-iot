@@ -39,8 +39,8 @@ class RiskPointPendingRecommendationServiceImplTest {
     void getCandidatesShouldFlattenNestedPropertyLogsAndIgnoreNonPropertyMetadata() {
         Fixture fixture = new Fixture();
 
-        ProductModel acceleration = fixture.productModel("gX", "X向加速度", "double", 1);
-        DeviceProperty accelerationProperty = fixture.deviceProperty("gX", "X向加速度", "1.25", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        ProductModel acceleration = fixture.productModel("gX", "X轴加速度", "double", 1);
+        DeviceProperty accelerationProperty = fixture.deviceProperty("gX", "X轴加速度", "1.25", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
 
         DeviceMessageLog propertyLog = fixture.messageLog(
                 "property",
@@ -261,10 +261,10 @@ class RiskPointPendingRecommendationServiceImplTest {
         fixture.pending.setRiskPointName("K79+620 GNSS监测点");
 
         ProductModel gpsInitial = fixture.productModel("gpsInitial", "初始位移", "double", 1);
-        ProductModel gpsTotalX = fixture.productModel("gpsTotalX", "X向累计位移", "double", 2);
-        ProductModel gpsTotalY = fixture.productModel("gpsTotalY", "Y向累计位移", "double", 3);
-        ProductModel gpsTotalZ = fixture.productModel("gpsTotalZ", "Z向累计位移", "double", 4);
-        DeviceProperty latestGpsTotalX = fixture.deviceProperty("gpsTotalX", "X向累计位移", "10.86", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        ProductModel gpsTotalX = fixture.productModel("gpsTotalX", "X轴累计位移", "double", 2);
+        ProductModel gpsTotalY = fixture.productModel("gpsTotalY", "Y轴累计位移", "double", 3);
+        ProductModel gpsTotalZ = fixture.productModel("gpsTotalZ", "Z轴累计位移", "double", 4);
+        DeviceProperty latestGpsTotalX = fixture.deviceProperty("gpsTotalX", "X轴累计位移", "10.86", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
 
         when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(gpsInitial, gpsTotalX, gpsTotalY, gpsTotalZ));
         when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(latestGpsTotalX));

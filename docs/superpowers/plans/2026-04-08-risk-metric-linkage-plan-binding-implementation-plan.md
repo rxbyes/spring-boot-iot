@@ -669,7 +669,7 @@ void getCoverageOverviewShouldUseExplicitBindingsInsteadOfTextGuessing() {
     ));
     when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
             binding(8001L, 5001L, 9101L, "value", "裂缝监测值"),
-            binding(8001L, 5001L, 9102L, "gpsTotalX", "X向累计位移")
+            binding(8001L, 5001L, 9102L, "gpsTotalX", "X轴累计位移")
     ));
     when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule(6001L, 9101L, "value")));
     when(linkageBindingMapper.selectList(any())).thenReturn(List.of(linkageBinding(9901L, 1L, 9101L, 7001L, "ACTIVE", "AUTO_INFERRED", 0)));

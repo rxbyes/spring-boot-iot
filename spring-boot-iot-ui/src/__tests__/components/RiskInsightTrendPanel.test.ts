@@ -163,6 +163,81 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.findAll('.trend-group__chart').length).toBe(2);
   });
 
+  it('renders status event codes as customer-readable step lines and keeps runtime parameters separate', async () => {
+    mountTrend([
+      {
+        key: 'status-event',
+        title: '状态事件',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '设备状态',
+            seriesType: 'event',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: false },
+              { time: '2026-04-09 01:00:00', value: -1, filled: false },
+              { time: '2026-04-09 02:00:00', value: -2, filled: false },
+              { time: '2026-04-09 03:00:00', value: -3, filled: false }
+            ]
+          }
+        ]
+      },
+      {
+        key: 'status-runtime',
+        title: '运行参数',
+        series: [
+          {
+            identifier: 'S1_ZT_1.battery_dump_energy',
+            displayName: '剩余电量',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 86, filled: false }]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const eventOption = mockChartSetOption.mock.calls.at(-2)?.[0] as {
+      tooltip?: { formatter?: (params: Array<Record<string, unknown>>) => string };
+      yAxis?: { axisLabel?: { formatter?: (value: number) => string } };
+      series?: Array<{
+        step?: string | false;
+        showSymbol?: boolean;
+        data?: Array<{ statusText?: string }>;
+      }>;
+    } | undefined;
+
+    expect(eventOption?.series?.[0]?.step).toBe('middle');
+    expect(eventOption?.series?.[0]?.showSymbol).toBe(false);
+    expect(eventOption?.series?.[0]?.data?.map((item) => item.statusText)).toEqual([
+      '正常',
+      '供电异常',
+      '传感器数据异常',
+      '采样间隔内未采集到数据'
+    ]);
+    expect(eventOption?.yAxis?.axisLabel?.formatter?.(0)).toBe('正常');
+    expect(eventOption?.yAxis?.axisLabel?.formatter?.(-1)).toBe('供电异常');
+    expect(eventOption?.yAxis?.axisLabel?.formatter?.(-2)).toBe('传感器数据异常');
+    expect(eventOption?.yAxis?.axisLabel?.formatter?.(-3)).toBe('采样间隔内未采集到数据');
+
+    const tooltipText = eventOption?.tooltip?.formatter?.([
+      {
+        axisValue: '2026-04-09 02:00:00',
+        marker: '',
+        seriesName: '设备状态',
+        data: {
+          value: -2,
+          filled: false,
+          statusText: '传感器数据异常'
+        }
+      }
+    ]);
+
+    expect(tooltipText).toContain('传感器数据异常');
+    expect(tooltipText).not.toContain('-2');
+  });
+
   it('hides trend summary cards and chart footer notes in the simplified insight layout', () => {
     const wrapper = mountTrend([
       {
@@ -318,5 +393,64 @@ describe('RiskInsightTrendPanel', () => {
     expect(latestOption?.yAxis?.min).toBeLessThan(1224.37);
     expect(latestOption?.yAxis?.max).toBeGreaterThan(1225.11);
     expect((latestOption?.yAxis?.max ?? 0) - (latestOption?.yAxis?.min ?? 0)).toBeGreaterThan(0.74);
+  });
+
+  it('renders binary status metrics as step lines while keeping continuous status metrics as normal lines', async () => {
+    mountTrend([
+      {
+        key: 'status',
+        title: '状态数据',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '在线状态',
+            seriesType: 'status',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: false },
+              { time: '2026-04-09 01:00:00', value: 1, filled: false },
+              { time: '2026-04-09 02:00:00', value: 1, filled: false }
+            ]
+          },
+          {
+            identifier: 'S1_ZT_1.battery_dump_energy',
+            displayName: '剩余电量',
+            seriesType: 'status',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 84, filled: false },
+              { time: '2026-04-09 01:00:00', value: 82, filled: false },
+              { time: '2026-04-09 02:00:00', value: 81, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      series?: Array<{ name?: string; step?: string | boolean; smooth?: boolean; showSymbol?: boolean }>;
+      tooltip?: { formatter?: (params: Array<Record<string, unknown>>) => string };
+    } | undefined;
+
+    const onlineSeries = latestOption?.series?.find((item) => item.name === '在线状态');
+    const batterySeries = latestOption?.series?.find((item) => item.name === '剩余电量');
+    const tooltipText = latestOption?.tooltip?.formatter?.([
+      {
+        axisValue: '2026-04-09 01:00:00',
+        marker: '●',
+        seriesName: '在线状态',
+        data: {
+          value: 1,
+          filled: false
+        }
+      }
+    ]);
+
+    expect(onlineSeries?.step).toBe('middle');
+    expect(onlineSeries?.smooth).toBe(false);
+    expect(onlineSeries?.showSymbol).toBe(false);
+    expect(batterySeries?.step).toBe(false);
+    expect(tooltipText).toContain('在线状态：在线');
+    expect(tooltipText).not.toContain('在线状态：1');
   });
 });

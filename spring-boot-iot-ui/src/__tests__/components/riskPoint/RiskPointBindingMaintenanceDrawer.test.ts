@@ -201,7 +201,7 @@ function createBindingGroups() {
           bindingId: 9001,
           riskMetricId: 6101,
           metricIdentifier: 'tiltX',
-          metricName: 'X向倾角',
+          metricName: 'X轴倾角',
           bindingSource: 'MANUAL',
           createTime: '2026-04-04 09:00:00'
         },
@@ -241,9 +241,9 @@ function createBindableDevices() {
 
 function createMetricOptions() {
   return [
-    { identifier: 'tiltX', name: 'X向倾角', type: 'property', riskMetricId: 6101 },
-    { identifier: 'tiltY', name: 'Y向倾角', type: 'property', riskMetricId: 6103 },
-    { identifier: 'tiltZ', name: 'Z向倾角', type: 'property', riskMetricId: 6104 }
+    { identifier: 'tiltX', name: 'X轴倾角', type: 'property', riskMetricId: 6101 },
+    { identifier: 'tiltY', name: 'Y轴倾角', type: 'property', riskMetricId: 6103 },
+    { identifier: 'tiltZ', name: 'Z轴倾角', type: 'property', riskMetricId: 6104 }
   ]
 }
 
@@ -319,7 +319,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.text()).toContain('北坡风险点')
     expect(wrapper.text()).toContain('RP-NORTH-001')
     expect(wrapper.text()).toContain('北坡一体机')
-    expect(wrapper.text()).toContain('X向倾角')
+    expect(wrapper.text()).toContain('X轴倾角')
     expect(wrapper.text()).toContain('裂缝宽度')
     expect(wrapper.text()).toContain('人工维护')
     expect(wrapper.text()).toContain('待治理转正')
@@ -343,7 +343,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       deviceId: 2002,
       riskMetricId: 6103,
       metricIdentifier: 'tiltY',
-      metricName: 'Y向倾角'
+      metricName: 'Y轴倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
@@ -374,7 +374,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       data: [
         {
           identifier: 'tiltY',
-          name: 'Y向倾角',
+          name: 'Y轴倾角',
           type: 'property',
           riskMetricId: '2041364367361843204'
         }
@@ -398,7 +398,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       deviceId: '2041364367361843202',
       riskMetricId: '2041364367361843204',
       metricIdentifier: 'tiltY',
-      metricName: 'Y向倾角'
+      metricName: 'Y轴倾角'
     })
   })
 
@@ -407,8 +407,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       code: 200,
       msg: 'success',
       data: [
-        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
+        { identifier: 'tiltX', name: 'X轴倾角', type: 'property' },
+        { identifier: 'tiltY', name: 'Y轴倾角', type: 'property' },
         { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
       ]
     })
@@ -424,8 +424,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .findAll('option')
       .map((node) => node.text())
 
-    expect(optionTexts).toContain('Y向倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).toContain('Y轴倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
     expect(optionTexts).not.toContain('裂缝宽度')
   })
 
@@ -467,7 +467,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(mockReplaceBinding).toHaveBeenCalledWith(9001, {
       riskMetricId: 6104,
       metricIdentifier: 'tiltZ',
-      metricName: 'Z向倾角'
+      metricName: 'Z轴倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
@@ -477,8 +477,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       code: 200,
       msg: 'success',
       data: [
-        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
+        { identifier: 'tiltX', name: 'X轴倾角', type: 'property' },
+        { identifier: 'tiltY', name: 'Y轴倾角', type: 'property' },
         { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
       ]
     })
@@ -494,8 +494,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .findAll('option')
       .map((node) => node.text())
 
-    expect(optionTexts).toContain('Y向倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).toContain('Y轴倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
     expect(optionTexts).not.toContain('裂缝宽度')
   })
 
@@ -601,7 +601,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .map((node) => node.text())
 
     expect(optionTexts).toContain('南坡倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
 
     firstMetricRequest.resolve({
       code: 200,
@@ -616,7 +616,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .map((node) => node.text())
 
     expect(optionTexts).toContain('南坡倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
   })
 
   it('re-filters add-metric options after binding groups finish loading late', async () => {
@@ -635,8 +635,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       code: 200,
       msg: 'success',
       data: [
-        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
+        { identifier: 'tiltX', name: 'X轴倾角', type: 'property' },
+        { identifier: 'tiltY', name: 'Y轴倾角', type: 'property' },
         { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
       ]
     })
@@ -659,8 +659,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .findAll('option')
       .map((node) => node.text())
 
-    expect(optionTexts).toContain('Y向倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).toContain('Y轴倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
     expect(optionTexts).not.toContain('裂缝宽度')
   })
 
