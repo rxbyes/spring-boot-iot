@@ -289,8 +289,8 @@ const rolePresets: RolePreset[] = [
     ],
     todos: [
       { id: 'mg-1', priority: 'P1', window: '今日例会前', title: '处理待治理产品', detail: '优先补齐治理积压产品的契约发布与目录发布。', actionLabel: '进入产品定义中心', tone: 'warning', path: '/products' },
-      { id: 'mg-2', priority: 'P1', window: '今日例会前', title: '推进待发布合同', detail: '优先让已完成样本治理的产品进入正式发布批次。', actionLabel: '进入产品定义中心', tone: 'warning', path: '/products' },
-      { id: 'mg-3', priority: 'P1', window: '今日', title: '收口风险绑定缺口', detail: '推进已上报设备完成风险点绑定，进入正式纳管。', actionLabel: '进入风险对象中心', tone: 'danger', path: '/risk-point' },
+      { id: 'mg-2', priority: 'P1', window: '今日例会前', title: '推进待发布合同', detail: '优先让已完成样本治理的产品进入正式发布批次。', actionLabel: '进入治理任务台', tone: 'warning', path: '/governance-task?workStatus=OPEN&workItemCode=PENDING_CONTRACT_RELEASE' },
+      { id: 'mg-3', priority: 'P1', window: '今日', title: '收口风险绑定缺口', detail: '推进已上报设备完成风险点绑定，进入正式纳管。', actionLabel: '进入治理任务台', tone: 'danger', path: '/governance-task?workStatus=OPEN&workItemCode=PENDING_RISK_BINDING' },
       { id: 'mg-4', priority: 'P2', window: '今日', title: '补齐阈值策略', detail: '优先处理已绑定风险点但尚未配置阈值策略的指标。', actionLabel: '进入阈值策略', tone: 'brand', path: '/rule-definition' },
       { id: 'mg-5', priority: 'P2', window: '本周', title: '补齐联动与预案', detail: '联动规则和应急预案都需覆盖到已纳管指标。', actionLabel: '进入联动编排', tone: 'brand', path: '/linkage-rule' },
       { id: 'mg-6', priority: 'P2', window: '本周', title: '完成运营复盘', detail: '按 releaseBatch/trace 维度复盘缺策略事项并闭环。', actionLabel: '进入应急预案库', tone: 'warning', path: '/emergency-plan' }
@@ -329,6 +329,8 @@ const rolePresets: RolePreset[] = [
 const workbenchCatalog = [
   { title: '告警运营台', description: '告警确认、抑制与关闭处理。', caption: '风险运营', path: '/alarm-center' },
   { title: '事件协同台', description: '工单派发、接收、闭环与反馈。', caption: '事件闭环', path: '/event-disposal' },
+  { title: '治理任务台', description: '统一查看待发布合同、风险绑定等控制面待办。', caption: '控制面', path: '/governance-task' },
+  { title: '治理运维台', description: '统一查看字段漂移、合同差异和指标缺失告警。', caption: '控制面', path: '/governance-ops' },
   { title: '风险对象中心', description: '风险点台账、设备绑定与等级维护。', caption: '风险策略', path: '/risk-point' },
   { title: '运营分析中心', description: '风险趋势、告警统计和设备健康分析。', caption: '经营分析', path: '/report-analysis' },
   { title: '设备资产中心', description: '设备建档、在线态与基础运维。', caption: '实施支撑', path: '/devices' },

@@ -134,6 +134,19 @@ describe('sectionHomes config', () => {
     expect(config?.cards.some((item) => item.path === '/governance-approval')).toBe(true);
   });
 
+  it('adds governance control-plane workbenches into the system-governance workspace cards', () => {
+    const config = getSectionHomeConfigByPath('/system-management');
+
+    expect(config?.cards.some((item) => item.path === '/governance-task')).toBe(true);
+    expect(config?.cards.some((item) => item.path === '/governance-ops')).toBe(true);
+    expect(getRouteMetaPreset('/governance-task')).toMatchObject({
+      title: '治理任务台'
+    });
+    expect(getRouteMetaPreset('/governance-ops')).toMatchObject({
+      title: '治理运维台'
+    });
+  });
+
   it('maps quality workbench to business acceptance plus rd and shared centers', () => {
     const config = getSectionHomeConfigByPath('/quality-workbench');
 

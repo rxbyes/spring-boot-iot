@@ -783,6 +783,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
 
   const tasks: GovernanceTaskItem[] = []
   const coverage = governanceCoverageOverview.value
+  const productId = governanceFocusProduct.value.id
   const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
 
   if (!hasReleaseBatch) {
@@ -790,7 +791,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
       key: 'pending-contract-release',
       title: '待发布合同',
       detail: '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
-      path: '/products'
+      path: buildGovernanceTaskPath(productId, 'PENDING_CONTRACT_RELEASE')
     })
   }
 
@@ -808,7 +809,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
       key: 'pending-risk-binding',
       title: '待绑定风险点',
       detail: `目录指标 ${formatCount(coverage.publishedRiskMetricCount)} 项中，已绑定 ${formatCount(coverage.boundRiskMetricCount)} 项。`,
-      path: '/risk-point'
+      path: buildGovernanceTaskPath(productId, 'PENDING_RISK_BINDING')
     })
   }
 
@@ -1884,6 +1885,16 @@ function openGovernanceTask(path: string) {
     tag: 'product-governance-task'
   })
   void router.push(path)
+}
+
+function buildGovernanceTaskPath(productId: number | string | null | undefined, workItemCode: string) {
+  const query = new URLSearchParams()
+  if (productId != null && String(productId).trim()) {
+    query.set('productId', String(productId))
+  }
+  query.set('workStatus', 'OPEN')
+  query.set('workItemCode', workItemCode)
+  return `/governance-task?${query.toString()}`
 }
 
 async function loadGovernanceSnapshot(product: Product | null) {
