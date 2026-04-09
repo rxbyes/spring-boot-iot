@@ -237,21 +237,15 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             RiskPoint riskPoint = hasDataPermissionSupport() && currentUserId != null
                     ? getById(riskPointDevice.getRiskPointId(), currentUserId)
                     : getById(riskPointDevice.getRiskPointId());
+            if (StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  assertNoDuplicateMetricBinding(riskPointDevice);
+            }
             Device device = resolveRequiredDevice(currentUserId, riskPointDevice.getDeviceId());
             applyRiskMetricCatalog(riskPointDevice, device);
             if (!StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
                   throw new BizException("请选择测点");
             }
-
-            LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointDevice.getRiskPointId());
-            queryWrapper.eq(RiskPointDevice::getDeviceId, riskPointDevice.getDeviceId());
-            queryWrapper.eq(RiskPointDevice::getMetricIdentifier, riskPointDevice.getMetricIdentifier());
-            queryWrapper.eq(RiskPointDevice::getDeleted, 0);
-            RiskPointDevice existing = riskPointDeviceMapper.selectOne(queryWrapper);
-            if (existing != null) {
-                  throw new BizException("设备已绑定到该风险点");
-            }
+            assertNoDuplicateMetricBinding(riskPointDevice);
 
             validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId());
             riskPointDevice.setDeviceCode(device.getDeviceCode());
@@ -386,6 +380,21 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             return currentUserId == null
                     ? deviceService.getRequiredById(deviceId)
                     : deviceService.getRequiredById(currentUserId, deviceId);
+      }
+
+      private void assertNoDuplicateMetricBinding(RiskPointDevice riskPointDevice) {
+            if (riskPointDevice == null || !StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  return;
+            }
+            LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointDevice.getRiskPointId());
+            queryWrapper.eq(RiskPointDevice::getDeviceId, riskPointDevice.getDeviceId());
+            queryWrapper.eq(RiskPointDevice::getMetricIdentifier, riskPointDevice.getMetricIdentifier());
+            queryWrapper.eq(RiskPointDevice::getDeleted, 0);
+            RiskPointDevice existing = riskPointDeviceMapper.selectOne(queryWrapper);
+            if (existing != null) {
+                  throw new BizException("设备已绑定到该风险点");
+            }
       }
 
       private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
