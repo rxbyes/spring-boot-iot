@@ -462,16 +462,35 @@ function approvalStatusTagType(status: GovernanceApprovalStatus | null | undefin
 }
 
 function buildQuery(): GovernanceApprovalPageQuery {
-  return {
-    actionCode: normalizeText(appliedFilters.actionCode),
-    subjectType: normalizeText(appliedFilters.subjectType),
-    subjectId: normalizeId(appliedFilters.subjectId),
-    status: normalizeStatus(appliedFilters.status),
-    operatorUserId: normalizeId(appliedFilters.operatorUserId),
-    approverUserId: normalizeId(appliedFilters.approverUserId),
+  const query: GovernanceApprovalPageQuery = {
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
+  const actionCode = normalizeText(appliedFilters.actionCode)
+  const subjectType = normalizeText(appliedFilters.subjectType)
+  const subjectId = normalizeId(appliedFilters.subjectId)
+  const status = normalizeStatus(appliedFilters.status)
+  const operatorUserId = normalizeId(appliedFilters.operatorUserId)
+  const approverUserId = normalizeId(appliedFilters.approverUserId)
+  if (actionCode != null) {
+    query.actionCode = actionCode
+  }
+  if (subjectType != null) {
+    query.subjectType = subjectType
+  }
+  if (subjectId != null) {
+    query.subjectId = subjectId
+  }
+  if (status != null) {
+    query.status = status
+  }
+  if (operatorUserId != null) {
+    query.operatorUserId = operatorUserId
+  }
+  if (approverUserId != null) {
+    query.approverUserId = approverUserId
+  }
+  return query
 }
 
 async function loadOrders() {
@@ -506,17 +525,21 @@ async function loadOrderDetail(orderId: IdType, silent = false) {
 }
 
 function buildRowActions(row: GovernanceApprovalOrder) {
+  const currentUser = currentUserId.value
+  const canApprove = row.status === 'PENDING' && (currentUser == null || sameId(row.approverUserId, currentUser))
+  const canCancel = row.status === 'PENDING' && (currentUser == null || sameId(row.operatorUserId, currentUser))
+  const canResubmit = row.status === 'REJECTED' && (currentUser == null || sameId(row.operatorUserId, currentUser))
   const items: Array<{ command: string; label: string; disabled?: boolean }> = [
     { command: 'detail', label: '详情' }
   ]
-  if (row.status === 'PENDING' && sameId(row.approverUserId, currentUserId.value)) {
+  if (canApprove) {
     items.push({ command: 'approve', label: '通过' })
     items.push({ command: 'reject', label: '驳回' })
   }
-  if (row.status === 'PENDING' && sameId(row.operatorUserId, currentUserId.value)) {
+  if (canCancel) {
     items.push({ command: 'cancel', label: '撤销' })
   }
-  if (row.status === 'REJECTED' && sameId(row.operatorUserId, currentUserId.value)) {
+  if (canResubmit) {
     items.push({ command: 'resubmit', label: '原单重提' })
   }
   return items

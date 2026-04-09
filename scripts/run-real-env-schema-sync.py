@@ -17,6 +17,7 @@ import pymysql
 CreateSqlMap = Dict[str, str]
 ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
 IndexSpecMap = Dict[str, List[Tuple[str, str]]]
+IndexShapeMap = Dict[Tuple[str, str], Tuple[bool, Tuple[str, ...]]]
 
 
 CREATE_TABLE_SQL: CreateSqlMap = {
@@ -742,6 +743,33 @@ UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
     ),
 }
 
+EXPECTED_INDEX_SHAPES: IndexShapeMap = {
+    ("risk_metric_linkage_binding", "uk_risk_metric_linkage_active"): (
+        True,
+        ("tenant_id", "risk_metric_id", "linkage_rule_id", "deleted"),
+    ),
+    ("risk_metric_linkage_binding", "idx_risk_metric_linkage_rule"): (
+        False,
+        ("linkage_rule_id", "binding_status", "deleted"),
+    ),
+    ("risk_metric_linkage_binding", "idx_risk_metric_linkage_metric"): (
+        False,
+        ("risk_metric_id", "binding_status", "deleted"),
+    ),
+    ("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active"): (
+        True,
+        ("tenant_id", "risk_metric_id", "emergency_plan_id", "deleted"),
+    ),
+    ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_rule"): (
+        False,
+        ("emergency_plan_id", "binding_status", "deleted"),
+    ),
+    ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric"): (
+        False,
+        ("risk_metric_id", "binding_status", "deleted"),
+    ),
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run rm_iot schema sync for real environment.")
@@ -790,6 +818,44 @@ def index_exists(cur: pymysql.cursors.Cursor, db: str, table: str, index: str) -
         (db, table, index),
     )
     return cur.fetchone() is not None
+
+
+def load_index_shape(
+    cur: pymysql.cursors.Cursor, db: str, table: str, index: str
+) -> Tuple[bool, Tuple[str, ...]] | None:
+    cur.execute(
+        """
+        SELECT NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME=%s
+        ORDER BY SEQ_IN_INDEX
+        """,
+        (db, table, index),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return None
+    is_unique = int(rows[0][0]) == 0
+    columns = tuple(row[1] for row in rows)
+    return is_unique, columns
+
+
+def ensure_existing_index_shape(cur: pymysql.cursors.Cursor, db: str, table: str, index: str) -> None:
+    expected = EXPECTED_INDEX_SHAPES.get((table, index))
+    if expected is None:
+        return
+    actual = load_index_shape(cur, db, table, index)
+    if actual is None:
+        return
+    if actual != expected:
+        expected_unique, expected_columns = expected
+        actual_unique, actual_columns = actual
+        expected_kind = "UNIQUE" if expected_unique else "INDEX"
+        actual_kind = "UNIQUE" if actual_unique else "INDEX"
+        raise RuntimeError(
+            f"Existing index {table}.{index} drifts from expected shape: "
+            f"expected {expected_kind} {expected_columns}, got {actual_kind} {actual_columns}."
+        )
 
 
 def ensure_dict_defaults(cur: pymysql.cursors.Cursor) -> None:
@@ -1478,6 +1544,7 @@ def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
             continue
         for index_name, ddl in specs:
             if index_exists(cur, db, table, index_name):
+                ensure_existing_index_shape(cur, db, table, index_name)
                 continue
             unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index_name))
             if unique_columns and has_duplicate_unique_key_rows(cur, table, unique_columns):
