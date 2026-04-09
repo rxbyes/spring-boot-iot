@@ -98,4 +98,28 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.text()).not.toContain('S1_ZT_1.sensor_state.L4_NW_1');
     expect(wrapper.findAll('.trend-group__chart').length).toBe(2);
   });
+
+  it('hides trend summary cards and chart footer notes in the simplified insight layout', () => {
+    const wrapper = mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        description: '展示设备本体的监测值折线变化。',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 1224.37, filled: false }]
+          }
+        ]
+      }
+    ], [
+      { label: '默认范围', value: '近一周', hint: '最近 7 天' }
+    ]);
+
+    expect(wrapper.text()).not.toContain('默认范围');
+    expect(wrapper.text()).not.toContain('最近桶值');
+    expect(wrapper.findAll('.trend-group__note')).toHaveLength(0);
+    expect(wrapper.findAll('.trend-summary__item')).toHaveLength(0);
+  });
 });

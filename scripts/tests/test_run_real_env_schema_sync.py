@@ -114,6 +114,30 @@ class SchemaSyncCoverageTest(unittest.TestCase):
             "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
         )
 
+    def test_create_table_sql_covers_governance_control_plane_tables(self):
+        work_item_sql = schema_sync.CREATE_TABLE_SQL.get("iot_governance_work_item")
+        ops_alert_sql = schema_sync.CREATE_TABLE_SQL.get("iot_governance_ops_alert")
+        self.assertIsNotNone(work_item_sql)
+        self.assertIsNotNone(ops_alert_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_work_item", work_item_sql)
+        self.assertIn("work_status", work_item_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_ops_alert", ops_alert_sql)
+        self.assertIn("alert_status", ops_alert_sql)
+
+    def test_indexes_to_add_covers_governance_control_plane_tables(self):
+        self.assertIn("iot_governance_work_item", schema_sync.INDEXES_TO_ADD)
+        self.assertIn("iot_governance_ops_alert", schema_sync.INDEXES_TO_ADD)
+        work_item_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_governance_work_item"])
+        ops_alert_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_governance_ops_alert"])
+        self.assertEqual(
+            work_item_index_sql["idx_governance_work_item_subject"],
+            "ALTER TABLE `iot_governance_work_item` ADD INDEX `idx_governance_work_item_subject` (`subject_type`, `subject_id`, `work_status`, `deleted`)",
+        )
+        self.assertEqual(
+            ops_alert_index_sql["uk_governance_ops_alert_code"],
+            "ALTER TABLE `iot_governance_ops_alert` ADD UNIQUE INDEX `uk_governance_ops_alert_code` (`tenant_id`, `alert_type`, `alert_code`, `deleted`)",
+        )
+
 
 class FakeCursor:
     def __init__(self):

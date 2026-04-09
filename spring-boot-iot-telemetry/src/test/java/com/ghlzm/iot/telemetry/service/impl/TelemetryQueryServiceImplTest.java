@@ -134,6 +134,19 @@ class TelemetryQueryServiceImplTest {
     }
 
     @Test
+    void getHistoryBatchShouldRejectQuarterRangeAfterRangeConsolidation() {
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("90d");
+        request.setFillPolicy("ZERO");
+
+        BizException error = assertThrows(BizException.class, () -> telemetryQueryService.getHistoryBatch(request));
+
+        assertEquals("不支持的时间范围: 90d", error.getMessage());
+    }
+
+    @Test
     void getHistoryBatchShouldFallbackToRawV2HistoryWhenLegacyAndNormalizedHistoryAreMissing() {
         Device device = buildDevice();
         Product product = buildProduct();

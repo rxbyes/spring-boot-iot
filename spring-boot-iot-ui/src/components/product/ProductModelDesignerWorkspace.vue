@@ -451,8 +451,38 @@
         <div v-if="activeModels.length" class="product-model-designer__formal-list">
           <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__formal-card">
             <div class="product-model-designer__formal-card-head">
-              <strong>{{ model.modelName }}</strong>
-              <span>{{ model.identifier }}</span>
+              <div v-if="isRenamingModel(model)" class="product-model-designer__formal-rename">
+                <ElInput
+                  :model-value="renamingModelName"
+                  :data-testid="`formal-model-name-input-${model.id}`"
+                  placeholder="请输入正式中文名称"
+                  @update:model-value="(value) => renamingModelName = typeof value === 'string' ? value : ''"
+                />
+                <div class="product-model-designer__formal-rename-actions">
+                  <StandardButton
+                    :data-testid="`formal-model-name-save-${model.id}`"
+                    action="confirm"
+                    :loading="renameSubmitting"
+                    @click="handleRenameModel(model)"
+                  >
+                    保存
+                  </StandardButton>
+                  <StandardButton action="cancel" @click="cancelRenameModel">取消</StandardButton>
+                </div>
+              </div>
+              <div v-else class="product-model-designer__formal-title">
+                <strong>{{ model.modelName }}</strong>
+                <span>{{ model.identifier }}</span>
+              </div>
+              <StandardButton
+                v-if="model.id !== undefined && model.id !== null && !isRenamingModel(model)"
+                :data-testid="`formal-model-rename-${model.id}`"
+                action="query"
+                link
+                @click="startRenameModel(model)"
+              >
+                改名
+              </StandardButton>
             </div>
             <div class="product-model-designer__formal-card-meta">
               <span>{{ model.modelType }}</span>
@@ -569,6 +599,9 @@ const applyApprovalLoading = ref(false)
 const rollbackApprovalLoading = ref(false)
 const applyResubmitLoading = ref(false)
 const rollbackResubmitLoading = ref(false)
+const renamingModelId = ref<IdType | null>(null)
+const renamingModelName = ref('')
+const renameSubmitting = ref(false)
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
@@ -748,6 +781,10 @@ function formatServiceSummary(model: ProductModel) {
   return ''
 }
 
+function isRenamingModel(model: ProductModel) {
+  return model.id !== undefined && model.id !== null && String(renamingModelId.value) === String(model.id)
+}
+
 async function loadModels(productId: string | number) {
   loading.value = true
   loadErrorMessage.value = ''
@@ -798,6 +835,62 @@ async function refreshApplyApprovalDetail() {
 
 async function refreshRollbackApprovalDetail() {
   await loadApprovalOrderDetail(rollbackApprovalOrderId.value, 'rollback')
+}
+
+function startRenameModel(model: ProductModel) {
+  renamingModelId.value = model.id ?? null
+  renamingModelName.value = model.modelName?.trim() || model.identifier
+}
+
+function cancelRenameModel() {
+  renamingModelId.value = null
+  renamingModelName.value = ''
+}
+
+async function handleRenameModel(model: ProductModel) {
+  const productId = props.product?.id
+  if (productId === undefined || productId === null || model.id === undefined || model.id === null) {
+    return
+  }
+  const nextModelName = renamingModelName.value.trim()
+  if (!nextModelName) {
+    ElMessage.warning('正式字段名称不能为空')
+    return
+  }
+  renameSubmitting.value = true
+  try {
+    const response = await productApi.updateProductModel(productId, model.id, {
+      modelType: model.modelType,
+      identifier: model.identifier,
+      modelName: nextModelName,
+      dataType: model.dataType || undefined,
+      specsJson: model.specsJson || undefined,
+      eventType: model.eventType || undefined,
+      serviceInputJson: model.serviceInputJson || undefined,
+      serviceOutputJson: model.serviceOutputJson || undefined,
+      sortNo: model.sortNo ?? undefined,
+      requiredFlag: model.requiredFlag ?? undefined,
+      description: model.description || undefined
+    })
+    const updatedModel = response.data ?? {
+      ...model,
+      modelName: nextModelName
+    }
+    models.value = models.value.map((item) =>
+      String(item.id) === String(model.id)
+        ? {
+            ...item,
+            ...updatedModel
+          }
+        : item
+    )
+    ElMessage.success('正式字段名称已更新')
+    cancelRenameModel()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '更新正式字段名称失败')
+  } finally {
+    renameSubmitting.value = false
+  }
 }
 
 async function handleResubmitApplyApproval() {
@@ -1217,6 +1310,7 @@ function resetSession() {
   parentDeviceCode.value = ''
   relationMappings.value = [createRelationRow()]
   samplePayloadError.value = ''
+  cancelRenameModel()
 }
 </script>
 
@@ -1472,6 +1566,22 @@ function resetSession() {
   justify-content: space-between;
   gap: 1rem;
   align-items: start;
+}
+
+.product-model-designer__formal-title,
+.product-model-designer__formal-rename {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.product-model-designer__formal-rename {
+  flex: 1;
+}
+
+.product-model-designer__formal-rename-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.56rem;
 }
 
 .product-model-designer__apply-card-meta,

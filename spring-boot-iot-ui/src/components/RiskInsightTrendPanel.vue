@@ -3,21 +3,10 @@
     title="属性趋势预览"
     :description="panelDescription"
   >
-    <div v-if="summaryCards.length" class="trend-summary">
-      <article v-for="item in summaryCards" :key="item.label" class="trend-summary__item">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <small>{{ item.hint }}</small>
-      </article>
-    </div>
-
     <div v-if="activeGroups.length" class="trend-groups">
       <section v-for="group in activeGroups" :key="group.key" class="trend-group">
         <header class="trend-group__header">
-          <div>
-            <strong>{{ group.title }}</strong>
-            <p>{{ group.description || getGroupDescription(group.key) }}</p>
-          </div>
+          <strong>{{ group.title }}</strong>
         </header>
 
         <div class="trend-group__legend">
@@ -27,13 +16,6 @@
         </div>
 
         <div :ref="(element) => registerChartRef(group.key, element)" class="trend-group__chart" />
-
-        <div class="trend-group__notes">
-          <article v-for="series in group.series" :key="`${group.key}-${series.displayName}`" class="trend-group__note">
-            <strong>{{ series.displayName }}</strong>
-            <span>{{ buildSeriesLatestText(series) }}</span>
-          </article>
-        </div>
       </section>
     </div>
     <div v-else class="empty-state">{{ emptyMessage }}</div>
@@ -51,12 +33,6 @@ import type { InsightRangeCode } from '@/api/telemetry';
 import PanelCard from './PanelCard.vue';
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
-
-interface TrendSummaryCard {
-  label: string;
-  value: string;
-  hint: string;
-}
 
 interface TrendBucketPoint {
   time: string;
@@ -81,12 +57,10 @@ interface TrendGroup {
 const props = withDefaults(defineProps<{
   rangeCode?: InsightRangeCode;
   groups?: TrendGroup[];
-  summary?: TrendSummaryCard[];
   emptyMessage?: string;
 }>(), {
   rangeCode: '7d',
   groups: () => [],
-  summary: () => [],
   emptyMessage: '暂无趋势数据'
 });
 
@@ -98,9 +72,7 @@ const activeGroups = computed(() =>
   (props.groups ?? []).filter((group) => Array.isArray(group.series) && group.series.length > 0)
 );
 
-const summaryCards = computed(() => props.summary ?? []);
-
-const panelDescription = computed(() => `按${getRangeLabel(props.rangeCode)}展示设备监测数据与状态数据折线趋势，缺失桶已按 0 补齐。`);
+const panelDescription = computed(() => `支持按${getRangeLabel(props.rangeCode)}查看设备监测数据趋势。`);
 
 watch(activeGroups, async () => {
   await nextTick();
@@ -270,30 +242,12 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
   return [axisValue, ...lines].join('<br/>');
 }
 
-function buildSeriesLatestText(series: TrendSeries) {
-  const latestBucket = [...series.buckets].reverse().find((bucket) => bucket && bucket.time);
-  if (!latestBucket) {
-    return '当前范围暂无有效数据';
-  }
-  return latestBucket.filled
-    ? `最近桶值 ${latestBucket.value}（补零补齐）`
-    : `最近桶值 ${latestBucket.value}`;
-}
-
-function getGroupDescription(groupKey: string) {
-  return groupKey === 'measure'
-    ? '展示设备本体的监测值折线变化。'
-    : '展示设备在线状态、电量等状态值折线变化。';
-}
-
 function getRangeLabel(rangeCode?: InsightRangeCode) {
   switch (rangeCode) {
     case '1d':
       return '近一天';
     case '30d':
       return '近一月';
-    case '90d':
-      return '近一季度';
     case '365d':
       return '近一年';
     case '7d':
@@ -304,16 +258,7 @@ function getRangeLabel(rangeCode?: InsightRangeCode) {
 </script>
 
 <style scoped>
-.trend-summary {
-  display: grid;
-  gap: 0.9rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 1rem;
-}
-
-.trend-summary__item,
-.trend-group,
-.trend-group__note {
+.trend-group {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
@@ -321,34 +266,18 @@ function getRangeLabel(rangeCode?: InsightRangeCode) {
   box-shadow: var(--shadow-sm);
 }
 
-.trend-summary__item {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.trend-summary__item span,
-.trend-summary__item small,
-.trend-group__header p,
-.trend-group__legend-item,
-.trend-group__note span {
+.trend-group__legend-item {
   color: var(--text-tertiary);
 }
 
-.trend-summary__item strong,
-.trend-group__header strong,
-.trend-group__note strong {
+.trend-group__header strong {
   color: var(--text-primary);
-}
-
-.trend-summary__item strong {
-  font-size: 1.2rem;
-  font-family: var(--font-display);
 }
 
 .trend-groups {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .trend-group {
@@ -356,13 +285,7 @@ function getRangeLabel(rangeCode?: InsightRangeCode) {
   gap: 0.9rem;
 }
 
-.trend-group__header p {
-  margin: 0.35rem 0 0;
-  line-height: 1.6;
-}
-
-.trend-group__legend,
-.trend-group__notes {
+.trend-group__legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -379,14 +302,7 @@ function getRangeLabel(rangeCode?: InsightRangeCode) {
   height: 20rem;
 }
 
-.trend-group__note {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 10rem;
-}
-
 @media (max-width: 1024px) {
-  .trend-summary,
   .trend-groups {
     grid-template-columns: 1fr;
   }

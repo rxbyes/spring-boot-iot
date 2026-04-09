@@ -416,11 +416,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     public List<DeviceProperty> listProperties(Long currentUserId, String deviceCode) {
         Device device = getRequiredByCode(deviceCode);
         ensureDeviceAccessible(currentUserId, device);
-        return devicePropertyMapper.selectList(
+        List<DeviceProperty> properties = devicePropertyMapper.selectList(
                 new LambdaQueryWrapper<DeviceProperty>()
                         .eq(DeviceProperty::getDeviceId, device.getId())
                         .orderByDesc(DeviceProperty::getUpdateTime)
         );
+        overlayLatestPropertyNames(device, properties);
+        return properties;
     }
 
     @Override
@@ -517,6 +519,34 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
+    }
+
+    private void overlayLatestPropertyNames(Device device, List<DeviceProperty> properties) {
+        if (device == null || device.getProductId() == null || CollectionUtils.isEmpty(properties)) {
+            return;
+        }
+        Map<String, String> latestNameMap = productModelMapper.selectList(
+                        new LambdaQueryWrapper<ProductModel>()
+                                .eq(ProductModel::getProductId, device.getProductId())
+                                .eq(ProductModel::getModelType, "property")
+                                .eq(ProductModel::getDeleted, 0)
+                ).stream()
+                .filter(model -> StringUtils.hasText(model.getIdentifier()) && StringUtils.hasText(model.getModelName()))
+                .collect(Collectors.toMap(
+                        ProductModel::getIdentifier,
+                        ProductModel::getModelName,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        if (latestNameMap.isEmpty()) {
+            return;
+        }
+        properties.forEach(property -> {
+            String latestName = latestNameMap.get(property.getIdentifier());
+            if (StringUtils.hasText(latestName)) {
+                property.setPropertyName(latestName);
+            }
+        });
     }
 
     private Device createDeviceRecord(Long currentUserId, DeviceAddDTO dto) {

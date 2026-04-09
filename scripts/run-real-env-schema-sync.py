@@ -493,6 +493,75 @@ CREATE TABLE IF NOT EXISTS sys_governance_approval_transition (
     KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition'
 """,
+    "iot_governance_work_item": """
+CREATE TABLE IF NOT EXISTS iot_governance_work_item (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    work_item_code VARCHAR(64) NOT NULL COMMENT '工作项编码',
+    subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE',
+    subject_id BIGINT NOT NULL COMMENT '主题ID',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
+    release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
+    approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+    work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/ACKED/BLOCKED/RESOLVED/CLOSED/CANCELLED',
+    priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT 'P1/P2/P3',
+    assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',
+    source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',
+    blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',
+    snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',
+    due_time DATETIME DEFAULT NULL COMMENT '截止时间',
+    resolved_time DATETIME DEFAULT NULL COMMENT '解决时间',
+    closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    KEY idx_governance_work_item_subject (subject_type, subject_id, work_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理与运营工作项表'
+""",
+    "iot_governance_ops_alert": """
+CREATE TABLE IF NOT EXISTS iot_governance_ops_alert (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    alert_type VARCHAR(64) NOT NULL COMMENT '告警类型',
+    alert_code VARCHAR(128) NOT NULL COMMENT '告警业务编码',
+    subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE',
+    subject_id BIGINT DEFAULT NULL COMMENT '主题ID',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
+    release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
+    trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+    alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/ACKED/SUPPRESSED/RESOLVED/CLOSED',
+    severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT 'INFO/WARN/CRITICAL',
+    affected_count BIGINT NOT NULL DEFAULT 0 COMMENT '影响数量',
+    alert_title VARCHAR(255) NOT NULL COMMENT '告警标题',
+    alert_message VARCHAR(1000) DEFAULT NULL COMMENT '告警内容',
+    dimension_key VARCHAR(128) DEFAULT NULL COMMENT '维度键',
+    dimension_label VARCHAR(255) DEFAULT NULL COMMENT '维度标签',
+    source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',
+    snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',
+    assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',
+    first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次出现时间',
+    last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近出现时间',
+    resolved_time DATETIME DEFAULT NULL COMMENT '恢复时间',
+    closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_governance_ops_alert_code (tenant_id, alert_type, alert_code, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理运维告警表'
+""",
     "sys_notification_channel": """
 CREATE TABLE IF NOT EXISTS sys_notification_channel (
     id BIGINT NOT NULL COMMENT 'pk',
@@ -726,6 +795,18 @@ INDEXES_TO_ADD: IndexSpecMap = {
             "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
         ),
     ],
+    "iot_governance_work_item": [
+        (
+            "idx_governance_work_item_subject",
+            "ALTER TABLE `iot_governance_work_item` ADD INDEX `idx_governance_work_item_subject` (`subject_type`, `subject_id`, `work_status`, `deleted`)",
+        ),
+    ],
+    "iot_governance_ops_alert": [
+        (
+            "uk_governance_ops_alert_code",
+            "ALTER TABLE `iot_governance_ops_alert` ADD UNIQUE INDEX `uk_governance_ops_alert_code` (`tenant_id`, `alert_type`, `alert_code`, `deleted`)",
+        ),
+    ],
 }
 
 UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
@@ -739,6 +820,12 @@ UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
         "tenant_id",
         "risk_metric_id",
         "emergency_plan_id",
+        "deleted",
+    ),
+    ("iot_governance_ops_alert", "uk_governance_ops_alert_code"): (
+        "tenant_id",
+        "alert_type",
+        "alert_code",
         "deleted",
     ),
 }
@@ -767,6 +854,14 @@ EXPECTED_INDEX_SHAPES: IndexShapeMap = {
     ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric"): (
         False,
         ("risk_metric_id", "binding_status", "deleted"),
+    ),
+    ("iot_governance_work_item", "idx_governance_work_item_subject"): (
+        False,
+        ("subject_type", "subject_id", "work_status", "deleted"),
+    ),
+    ("iot_governance_ops_alert", "uk_governance_ops_alert_code"): (
+        True,
+        ("tenant_id", "alert_type", "alert_code", "deleted"),
     ),
 }
 

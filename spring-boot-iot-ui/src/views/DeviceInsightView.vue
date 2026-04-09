@@ -2,7 +2,7 @@
   <StandardPageShell class="page-stack device-insight-view" :show-title="false">
     <StandardWorkbenchPanel
       title="对象洞察台"
-      description="围绕单台设备展示基础档案、核心指标、TDengine 时序折线与综合分析。"
+      description="围绕单台设备展示基础档案、监测快照、TDengine 时序折线与综合分析。"
       show-filters
       :show-inline-state="showInlineState"
     >
@@ -67,17 +67,6 @@
             </div>
           </section>
 
-          <section class="core-metric-grid">
-            <MetricCard
-              v-for="metric in coreMetrics"
-              :key="metric.label"
-              :label="metric.label"
-              :value="metric.value"
-              :hint="metric.hint"
-              :badge="metric.badge"
-            />
-          </section>
-
           <section class="two-column-grid">
             <PanelCard
               title="基础档案信息"
@@ -120,7 +109,7 @@
 
             <PanelCard
               title="综合分析"
-              description="结合设备当前值、状态值、风险上下文和扩展参数形成可复述结论。"
+              description="结合监测快照、设备状态和风险上下文形成可复述结论。"
             >
               <div class="narrative-list">
                 <article v-for="paragraph in analysisParagraphs" :key="paragraph.title" class="narrative-card">
@@ -137,46 +126,22 @@
           <RiskInsightTrendPanel
             :range-code="selectedRange"
             :groups="trendGroups"
-            :summary="trendSummaryCards"
             :empty-message="trendEmptyMessage"
           />
 
-          <section class="two-column-grid">
-            <PanelCard
-              title="核心指标"
-              description="仅使用中文业务名称展示当前最关心的监测值、状态值和关键状态项。"
-            >
-              <div class="highlight-grid">
-                <article v-for="metric in highlightedMetrics" :key="metric.label" class="highlight-card">
-                  <span>{{ metric.label }}</span>
-                  <strong>{{ metric.value }}</strong>
-                  <small>{{ metric.hint }}</small>
-                </article>
-              </div>
-            </PanelCard>
-
-            <PanelCard
-              title="系统自定义参数"
-              description="为后续湿度、4G 信号等扩展项预留统一展示位。"
-            >
-              <div v-if="extensionMetrics.length" class="highlight-grid">
-                <article v-for="metric in extensionMetrics" :key="metric.label" class="highlight-card">
-                  <span>{{ metric.label }}</span>
-                  <strong>{{ metric.value }}</strong>
-                  <small>{{ metric.hint }}</small>
-                </article>
-              </div>
-              <div v-else class="empty-state">当前设备暂无已接入的系统自定义参数。</div>
-            </PanelCard>
-          </section>
-
           <PanelCard
             title="设备属性快照"
-            description="保留设备当前最新快照，便于继续核对时序指标与现场状态。"
+            description="保留设备当前最新快照，按单行记录核对时序指标与现场状态。"
           >
-            <el-table v-if="propertyTableRows.length" :data="propertyTableRows" stripe>
+            <el-table
+              v-if="propertyTableRows.length"
+              :data="propertyTableRows"
+              class="monitoring-snapshot-table"
+              stripe
+              table-layout="fixed"
+            >
               <StandardTableTextColumn prop="identifier" label="标识符" :min-width="180" />
-              <StandardTableTextColumn prop="propertyName" label="属性名称" :min-width="160" />
+              <StandardTableTextColumn prop="displayName" label="属性名称" :min-width="160" />
               <StandardTableTextColumn prop="propertyValue" label="当前值" :min-width="140" />
               <StandardTableTextColumn prop="valueType" label="类型" :min-width="120" />
               <StandardTableTextColumn prop="displayTime" label="更新时间" :min-width="180" />
@@ -198,7 +163,6 @@ import { getTelemetryHistoryBatch, type InsightRangeCode, type TelemetryHistoryB
 import { getRiskMonitoringDetail, getRiskMonitoringList, type RiskMonitoringDetail, type RiskMonitoringListItem } from '@/api/riskMonitoring';
 import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
 import { productApi } from '@/api/product';
-import MetricCard from '@/components/MetricCard.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import RiskInsightTrendPanel from '@/components/RiskInsightTrendPanel.vue';
 import StandardInlineState from '@/components/StandardInlineState.vue';
@@ -216,6 +180,7 @@ import {
   type InsightCapabilityProfile
 } from '@/utils/deviceInsightCapability';
 import { getInsightObjectTypeLabel, getRiskLevelLabel, pickPrimaryBinding } from '@/utils/deviceInsight';
+import { resolveInsightMetricDisplayName } from '@/utils/deviceInsightNaming';
 
 interface InsightTrendBucket {
   time: string;
@@ -235,12 +200,6 @@ interface InsightTrendGroup {
   title: string;
   description: string;
   series: InsightTrendSeries[];
-}
-
-interface SummaryCard {
-  label: string;
-  value: string;
-  hint: string;
 }
 
 interface NarrativeBlock {
@@ -319,67 +278,16 @@ const trendSeriesMap = computed(() => {
   return map;
 });
 
-const coreMetrics = computed(() =>
+const snapshotMetrics = computed(() =>
   capabilityProfile.value.heroMetrics.map((metric) => {
     const property = propertyMap.value.get(metric.identifier);
     const series = trendSeriesMap.value.get(metric.identifier);
     return {
-      label: metric.displayName,
-      value: property?.propertyValue || resolveLatestTrendValue(series),
-      hint: metric.group === 'measure' ? '关键监测指标' : '关键状态指标',
-      badge: {
-        label: metric.group === 'measure' ? '监测' : '状态',
-        tone: metric.group === 'measure' ? 'brand' : 'success'
-      }
+      label: resolveInsightMetricDisplayName(metric.identifier, metric.displayName || property?.propertyName),
+      value: property?.propertyValue || resolveLatestTrendValue(series)
     };
   })
 );
-
-const highlightedMetrics = computed(() =>
-  coreMetrics.value.map((metric) => ({
-    label: metric.label,
-    value: metric.value || '--',
-    hint: metric.hint
-  }))
-);
-
-const extensionMetrics = computed(() =>
-  capabilityProfile.value.extensionParameters
-    .map((parameter) => {
-      const value = resolveMetricValueByIdentifier(parameter.identifier);
-      return value === '--'
-        ? null
-        : {
-            label: parameter.displayName,
-            value,
-            hint: '系统自定义参数'
-          };
-    })
-    .filter((item): item is { label: string; value: string; hint: string } => Boolean(item))
-);
-
-const trendSummaryCards = computed<SummaryCard[]>(() => [
-  {
-    label: '默认范围',
-    value: getRangeLabel(selectedRange.value),
-    hint: '按固定时间维度从 TDengine 取数'
-  },
-  {
-    label: '趋势分组',
-    value: String(trendGroups.value.length),
-    hint: '监测数据 / 状态数据'
-  },
-  {
-    label: '最新上报',
-    value: formatDateTime(riskDetail.value?.latestReportTime || device.value?.lastReportTime),
-    hint: '优先显示设备最近上报时间'
-  },
-  {
-    label: '风险态势',
-    value: riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '未纳入风险监测',
-    hint: riskDetail.value?.riskPointName || '当前未纳管'
-  }
-]);
 
 const trendEmptyMessage = computed(() => {
   if (!normalizedDeviceCode.value) {
@@ -414,9 +322,9 @@ const riskArchiveEntries = computed(() => [
 ]);
 
 const analysisParagraphs = computed<NarrativeBlock[]>(() => {
-  const firstMetric = coreMetrics.value[0];
-  const statusMetric = coreMetrics.value[1];
-  const batteryMetric = coreMetrics.value[2];
+  const metricSummary = snapshotMetrics.value.length
+    ? snapshotMetrics.value.map((metric) => `${metric.label}当前为${metric.value || '--'}`).join('，')
+    : '当前暂无可直接引用的监测快照';
   const blocks: NarrativeBlock[] = [
     {
       title: '设备现状',
@@ -431,49 +339,18 @@ const analysisParagraphs = computed<NarrativeBlock[]>(() => {
         : '当前设备尚未纳入风险监测绑定，可先从设备本体趋势与状态指标开展单设备分析。'
     },
     {
-      title: '核心指标解读',
+      title: '监测研判',
       tag: '综合研判',
-      description: `${firstMetric?.label || '监测值'}当前为${firstMetric?.value || '--'}，${statusMetric?.label || '状态值'}当前为${statusMetric?.value || '--'}，${batteryMetric?.label || '关键状态项'}当前为${batteryMetric?.value || '--'}。`
+      description: `${metricSummary}。`
     }
   ];
-  const customAnalysisBlocks = capabilityProfile.value.customMetrics
-    .filter((item) => item.analysisTemplate)
-    .map((item) => {
-      const value = resolveMetricValueByIdentifier(item.identifier);
-      if (value === '--' || !item.analysisTemplate) {
-        return null;
-      }
-      return {
-        title: item.analysisTitle || resolveMetricDisplayName(item.identifier),
-        tag: item.analysisTag || '系统自定义参数',
-        description: renderAnalysisTemplate(item.analysisTemplate, {
-          label: resolveMetricDisplayName(item.identifier),
-          value,
-          deviceName: device.value?.deviceName || normalizedDeviceCode.value || '当前设备',
-          deviceCode: device.value?.deviceCode || normalizedDeviceCode.value || '--',
-          productName: device.value?.productName || '--',
-          riskPointName: riskDetail.value?.riskPointName || '当前未纳管',
-          onlineStatus: onlineStatusLabel.value
-        })
-      };
-    })
-    .filter((item): item is NarrativeBlock => Boolean(item));
-
-  if (customAnalysisBlocks.length) {
-    blocks.push(...customAnalysisBlocks);
-  } else if (extensionMetrics.value.length) {
-    blocks.push({
-      title: '系统自定义参数',
-      tag: '扩展位',
-      description: extensionMetrics.value.map((item) => `${item.label}${item.value}`).join('，')
-    });
-  }
   return blocks;
 });
 
 const propertyTableRows = computed(() =>
   properties.value.map((item) => ({
     ...item,
+    displayName: resolveInsightMetricDisplayName(item.identifier, item.propertyName),
     displayTime: formatDateTime(item.updateTime || item.reportTime)
   }))
 );
@@ -658,7 +535,10 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
           }
           return {
             identifier,
-            displayName: point.displayName || resolveDisplayName(profile, identifier),
+            displayName: resolveInsightMetricDisplayName(
+              identifier,
+              point.displayName || propertyMap.value.get(identifier)?.propertyName || resolveDisplayName(profile, identifier)
+            ),
             seriesType: point.seriesType || group.key,
             buckets: point.buckets ?? []
           };
@@ -671,11 +551,11 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
 function resolveDisplayName(profile: InsightCapabilityProfile, identifier: string) {
   const heroMetric = profile.heroMetrics.find((item) => item.identifier === identifier);
   if (heroMetric) {
-    return heroMetric.displayName;
+    return resolveInsightMetricDisplayName(identifier, heroMetric.displayName);
   }
   const extensionMetric = profile.extensionParameters.find((item) => item.identifier === identifier);
   if (extensionMetric) {
-    return extensionMetric.displayName;
+    return resolveInsightMetricDisplayName(identifier, extensionMetric.displayName);
   }
   return identifier;
 }
@@ -699,34 +579,6 @@ async function loadProductMetadataJson(productId?: string | number | null) {
     console.warn('对象洞察产品配置补充失败', error);
     return null;
   }
-}
-
-function resolveMetricValueByIdentifier(identifier: string) {
-  const propertyValue = propertyMap.value.get(identifier)?.propertyValue?.trim();
-  if (propertyValue) {
-    return propertyValue;
-  }
-  return resolveLatestTrendValue(trendSeriesMap.value.get(identifier));
-}
-
-function resolveMetricDisplayName(identifier: string) {
-  const heroMetric = capabilityProfile.value.heroMetrics.find((item) => item.identifier === identifier);
-  if (heroMetric) {
-    return heroMetric.displayName;
-  }
-  const extensionMetric = capabilityProfile.value.extensionParameters.find((item) => item.identifier === identifier);
-  if (extensionMetric) {
-    return extensionMetric.displayName;
-  }
-  const customMetric = capabilityProfile.value.customMetrics.find((item) => item.identifier === identifier);
-  if (customMetric) {
-    return customMetric.displayName;
-  }
-  return identifier;
-}
-
-function renderAnalysisTemplate(template: string, values: Record<string, string>) {
-  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_token, key: string) => values[key] ?? '--');
 }
 
 function getRangeLabel(rangeCode: InsightRangeCode) {
@@ -807,7 +659,6 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   color: #d76610;
 }
 
-.core-metric-grid,
 .archive-stack,
 .narrative-list,
 .highlight-grid {
@@ -815,7 +666,6 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   gap: 0.9rem;
 }
 
-.core-metric-grid,
 .highlight-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -868,9 +718,14 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   font-family: var(--font-display);
 }
 
+.monitoring-snapshot-table :deep(.cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 1024px) {
   .insight-hero,
-  .core-metric-grid,
   .highlight-grid {
     grid-template-columns: 1fr;
   }

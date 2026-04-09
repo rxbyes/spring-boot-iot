@@ -291,7 +291,7 @@ describe('AccessErrorArchivePanel', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('160');
+    expect(actionColumn?.attributes('data-width')).toBe('136');
   });
 
   it('collapses archive actions into direct actions plus menu and uses shared list surface', () => {

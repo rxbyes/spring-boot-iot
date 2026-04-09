@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_INSIGHT_RANGE,
+  INSIGHT_RANGE_OPTIONS,
   buildInsightHistoryRequest,
   getInsightCapabilityProfile
 } from '@/utils/deviceInsightCapability';
@@ -33,6 +34,68 @@ describe('deviceInsightCapability', () => {
     expect(request.identifiers).toContain('L4_NW_1');
     expect(request.identifiers).toContain('S1_ZT_1.sensor_state.L4_NW_1');
     expect(request.identifiers).toContain('S1_ZT_1.battery_dump_energy');
+  });
+
+  it('preserves snowflake device ids instead of coercing them to unsafe numbers', () => {
+    const profile = getInsightCapabilityProfile({ deviceCode: 'SJ11E6148716807A' });
+    const request = buildInsightHistoryRequest('1987747920257933314', profile, DEFAULT_INSIGHT_RANGE);
+
+    expect(request.deviceId).toBe('1987747920257933314');
+  });
+
+  it('keeps object insight ranges focused on day week month and year', () => {
+    expect(DEFAULT_INSIGHT_RANGE).toBe('7d');
+    expect(
+      INSIGHT_RANGE_OPTIONS.map((item) => item.value)
+    ).toEqual(['1d', '7d', '30d', '365d']);
+  });
+
+  it('prioritizes multidimensional device snapshot metrics with fixed chinese names', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'CXH15522832',
+      productName: '中海达 监测型 多维位移监测仪',
+      properties: [
+        {
+          id: 1,
+          identifier: 'L1_LF_1.value',
+          propertyName: 'value',
+          propertyValue: '1224.37',
+          valueType: 'double'
+        },
+        {
+          id: 2,
+          identifier: 'L1_QJ_1.angle',
+          propertyName: '1号倾角测点angle',
+          propertyValue: '-6.03',
+          valueType: 'double'
+        },
+        {
+          id: 3,
+          identifier: 'L1_JS_1.gX',
+          propertyName: '1号加速度测点gX',
+          propertyValue: '0.48',
+          valueType: 'double'
+        },
+        {
+          id: 4,
+          identifier: 'L1_QJ_1.X',
+          propertyName: '1号倾角测点X',
+          propertyValue: '3.19',
+          valueType: 'double'
+        }
+      ]
+    });
+
+    expect(profile.heroMetrics.map((item) => item.displayName)).toEqual([
+      '裂缝量',
+      '水平面夹角',
+      'X向加速度'
+    ]);
+    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([
+      'L1_LF_1.value',
+      'L1_QJ_1.angle',
+      'L1_JS_1.gX'
+    ]);
   });
 
   it('builds collect-device profile from runtime properties instead of falling back to empty generic template', () => {

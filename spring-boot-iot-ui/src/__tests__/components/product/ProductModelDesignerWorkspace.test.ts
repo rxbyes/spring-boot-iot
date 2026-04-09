@@ -9,6 +9,7 @@ const {
   mockPageProductContractReleaseBatches,
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
+  mockUpdateProductModel,
   mockRollbackProductContractReleaseBatch,
   mockGetGovernanceApprovalOrderDetail,
   mockResubmitGovernanceApprovalOrder,
@@ -18,6 +19,7 @@ const {
   mockPageProductContractReleaseBatches: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
+  mockUpdateProductModel: vi.fn(),
   mockRollbackProductContractReleaseBatch: vi.fn(),
   mockGetGovernanceApprovalOrderDetail: vi.fn(),
   mockResubmitGovernanceApprovalOrder: vi.fn(),
@@ -32,7 +34,7 @@ vi.mock('@/api/product', () => ({
     applyProductModelGovernance: mockApplyProductModelGovernance,
     rollbackProductContractReleaseBatch: mockRollbackProductContractReleaseBatch,
     addProductModel: vi.fn(),
-    updateProductModel: vi.fn(),
+    updateProductModel: mockUpdateProductModel,
     deleteProductModel: vi.fn()
   }
 }))
@@ -169,6 +171,7 @@ describe('ProductModelDesignerWorkspace', () => {
     mockPageProductContractReleaseBatches.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
+    mockUpdateProductModel.mockReset()
     mockRollbackProductContractReleaseBatch.mockReset()
     mockGetGovernanceApprovalOrderDetail.mockReset()
     mockResubmitGovernanceApprovalOrder.mockReset()
@@ -232,6 +235,18 @@ describe('ProductModelDesignerWorkspace', () => {
         approvalOrderId: 88001,
         approvalStatus: 'PENDING',
         executionPending: true
+      }
+    })
+    mockUpdateProductModel.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 2001,
+        modelType: 'property',
+        identifier: 'value',
+        modelName: '裂缝量',
+        dataType: 'double',
+        description: '正式字段'
       }
     })
     mockRollbackProductContractReleaseBatch.mockResolvedValue({
@@ -507,6 +522,27 @@ describe('ProductModelDesignerWorkspace', () => {
 
     expect(wrapper.text()).toContain('已驳回')
     expect(wrapper.text()).toContain('字段单位缺失')
+  })
+
+  it('renames formal fields inline and persists the updated chinese model name', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-rename-2001"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="formal-model-name-input-2001"]').setValue('裂缝量')
+    await wrapper.get('[data-testid="formal-model-name-save-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProductModel).toHaveBeenCalledWith(1001, 2001, expect.objectContaining({
+      modelType: 'property',
+      identifier: 'value',
+      modelName: '裂缝量',
+      dataType: 'double'
+    }))
+    expect(wrapper.text()).toContain('裂缝量')
   })
 
   it('resubmits the rejected apply approval order with a new approver', async () => {

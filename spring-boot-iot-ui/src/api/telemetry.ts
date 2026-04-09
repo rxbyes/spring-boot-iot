@@ -1,7 +1,7 @@
 import { request } from './request';
 import type { ApiEnvelope, IdType } from '../types/api';
 
-export type InsightRangeCode = '1d' | '7d' | '30d' | '90d' | '365d';
+export type InsightRangeCode = '1d' | '7d' | '30d' | '365d';
 
 export interface TelemetryHistoryBatchRequest {
   deviceId: IdType;
