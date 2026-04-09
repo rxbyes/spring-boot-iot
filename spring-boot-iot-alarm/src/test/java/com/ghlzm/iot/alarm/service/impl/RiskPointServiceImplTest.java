@@ -460,14 +460,23 @@ class RiskPointServiceImplTest {
         RegionService regionService = mock(RegionService.class);
         UserService userService = mock(UserService.class);
         DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
         RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
                 deviceMapper,
                 organizationService,
                 regionService,
                 userService,
-                dictService
+                dictService,
+                null,
+                deviceService
         ));
 
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
         RiskPointDevice existing = new RiskPointDevice();
         existing.setRiskPointId(12L);
         existing.setDeviceId(2001L);
@@ -479,7 +488,8 @@ class RiskPointServiceImplTest {
         request.setDeviceId(2001L);
         request.setMetricIdentifier("temperature");
 
-        doReturn(existingRiskPoint("RP-OLD-001")).when(service).getById(12L);
+        doReturn(riskPoint).when(service).getById(12L);
+        when(deviceService.getRequiredById(2001L)).thenReturn(device);
         doReturn(existing).when(deviceMapper).selectOne(any());
 
         BizException error = assertThrows(BizException.class, () -> service.bindDevice(request));

@@ -184,6 +184,17 @@ const StandardDrawerFooterStub = defineComponent({
   `
 })
 
+const ElFormItemStub = defineComponent({
+  name: 'ElFormItem',
+  props: ['label'],
+  template: `
+    <label class="el-form-item-stub">
+      <span v-if="label" class="el-form-item-stub__label">{{ label }}</span>
+      <slot />
+    </label>
+  `
+})
+
 const ElInputStub = defineComponent({
   name: 'ElInput',
   props: ['modelValue', 'type', 'placeholder'],
@@ -261,7 +272,7 @@ function mountView() {
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub,
         ElInput: ElInputStub,
-        ElFormItem: true,
+        ElFormItem: ElFormItemStub,
         ElTag: true,
         ElSelect: true,
         ElOption: true
@@ -388,9 +399,10 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('通过'))?.trigger('click')
     await flushPromises()
 
-    const commentInput = wrapper.find('textarea.el-input-stub')
+    const actionDrawer = wrapper.get('.governance-approval-form-drawer-stub')
+    const commentInput = actionDrawer.get('textarea.el-input-stub')
     await commentInput.setValue('审批通过')
-    await wrapper.findAll('button').find((button) => button.text().includes('确认通过'))?.trigger('click')
+    await actionDrawer.findAll('button').find((button) => button.text().includes('确认通过'))?.trigger('click')
     await flushPromises()
 
     expect(mockConfirmAction).toHaveBeenCalled()
@@ -418,11 +430,12 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('原单重提'))?.trigger('click')
     await flushPromises()
 
-    const inputs = wrapper.findAll('input.el-input-stub')
-    await inputs[0]?.setValue('3003')
-    const commentInput = wrapper.find('textarea.el-input-stub')
+    const actionDrawer = wrapper.get('.governance-approval-form-drawer-stub')
+    const approverInput = actionDrawer.get('input[placeholder=\"请输入新的复核人用户 ID\"]')
+    await approverInput.setValue('3003')
+    const commentInput = actionDrawer.get('textarea.el-input-stub')
     await commentInput.setValue('重新指定复核人后提交')
-    await wrapper.findAll('button').find((button) => button.text().includes('确认重提'))?.trigger('click')
+    await actionDrawer.findAll('button').find((button) => button.text().includes('确认重提'))?.trigger('click')
     await flushPromises()
 
     expect(mockResubmitOrder).toHaveBeenCalledWith(88002, {
