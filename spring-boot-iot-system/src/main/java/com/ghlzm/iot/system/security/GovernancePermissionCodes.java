@@ -16,6 +16,7 @@ public final class GovernancePermissionCodes {
 
     // 契约治理/发布/回滚
     public static final String PRODUCT_CONTRACT_GOVERN = "iot:product-contract:govern";
+    public static final String PRODUCT_CONTRACT_WRITE = PRODUCT_CONTRACT_GOVERN;
 
     public static final String PRODUCT_CONTRACT_RELEASE = "iot:product-contract:release";
 
@@ -30,14 +31,17 @@ public final class GovernancePermissionCodes {
     // 阈值策略：执行/复核
     public static final String RULE_DEFINITION_EDIT = "risk:rule-definition:edit";
     public static final String RULE_DEFINITION_APPROVE = "risk:rule-definition:approve";
+    public static final String RULE_DEFINITION_WRITE = RULE_DEFINITION_EDIT;
 
     // 联动编排：执行/复核
     public static final String LINKAGE_RULE_EDIT = "risk:linkage-rule:edit";
     public static final String LINKAGE_RULE_APPROVE = "risk:linkage-rule:approve";
+    public static final String LINKAGE_RULE_WRITE = LINKAGE_RULE_EDIT;
 
     // 应急预案：执行/复核
     public static final String EMERGENCY_PLAN_EDIT = "risk:emergency-plan:edit";
     public static final String EMERGENCY_PLAN_APPROVE = "risk:emergency-plan:approve";
+    public static final String EMERGENCY_PLAN_WRITE = EMERGENCY_PLAN_EDIT;
 
     // 密钥托管：查看/执行/复核
     public static final String SECRET_CUSTODY_VIEW = "iot:secret-custody:view";
