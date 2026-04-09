@@ -40,16 +40,16 @@ public interface RiskPointService extends IService<RiskPoint> {
       /**
        * 查询风险点列表
        */
-      List<RiskPoint> listRiskPoints(String riskPointCode, String riskPointLevel, Integer status);
+      List<RiskPoint> listRiskPoints(String keyword, String riskPointLevel, Integer status);
 
-      List<RiskPoint> listRiskPoints(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status);
+      List<RiskPoint> listRiskPoints(Long currentUserId, String keyword, String riskPointLevel, Integer status);
 
       /**
        * 分页查询风险点列表
        */
-      PageResult<RiskPoint> pageRiskPoints(String riskPointCode, String riskPointLevel, Integer status, Long pageNum, Long pageSize);
+      PageResult<RiskPoint> pageRiskPoints(String keyword, String riskPointLevel, Integer status, Long pageNum, Long pageSize);
 
-      PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String riskPointCode, String riskPointLevel, Integer status, Long pageNum, Long pageSize);
+      PageResult<RiskPoint> pageRiskPoints(Long currentUserId, String keyword, String riskPointLevel, Integer status, Long pageNum, Long pageSize);
 
       /**
        * 绑定风险点与设备

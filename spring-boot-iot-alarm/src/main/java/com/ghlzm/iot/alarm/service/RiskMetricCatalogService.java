@@ -10,7 +10,10 @@ import java.util.Set;
  */
 public interface RiskMetricCatalogService {
 
-    void publishFromReleasedContracts(Long productId, List<ProductModel> releasedContracts, Set<String> riskEnabledIdentifiers);
+    void publishFromReleasedContracts(Long productId,
+                                      Long releaseBatchId,
+                                      List<ProductModel> releasedContracts,
+                                      Set<String> riskEnabledIdentifiers);
 
     RiskMetricCatalog getRequiredByProductAndIdentifier(Long productId, String contractIdentifier);
 

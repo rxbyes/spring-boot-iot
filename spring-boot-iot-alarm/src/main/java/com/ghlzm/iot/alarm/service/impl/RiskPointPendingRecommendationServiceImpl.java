@@ -204,7 +204,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         if (riskEnabledIdentifiers.isEmpty()) {
             return;
         }
-        riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), productModels, riskEnabledIdentifiers);
+        riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), null, productModels, riskEnabledIdentifiers);
     }
 
     private void mergeProductModelEvidence(Map<String, CandidateAccumulator> candidateMap, List<ProductModel> productModels) {

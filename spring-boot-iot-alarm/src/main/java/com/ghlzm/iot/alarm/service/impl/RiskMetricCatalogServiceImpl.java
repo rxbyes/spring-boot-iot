@@ -4,9 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
+import com.ghlzm.iot.alarm.service.spi.RiskMetricScenarioResolver;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
-import java.util.ArrayList;
+import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -15,21 +19,35 @@ import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 风险指标目录服务实现。
+ * Risk metric catalog service implementation.
  */
 @Service
 public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     private final RiskMetricCatalogMapper riskMetricCatalogMapper;
+    private final ProductMapper productMapper;
+    private final NormativeMetricDefinitionService normativeMetricDefinitionService;
+    private final List<RiskMetricScenarioResolver> scenarioResolvers;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
-    public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper) {
+    public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper,
+                                        ProductMapper productMapper,
+                                        NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                        List<RiskMetricScenarioResolver> scenarioResolvers) {
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
+        this.productMapper = productMapper;
+        this.normativeMetricDefinitionService = normativeMetricDefinitionService;
+        this.scenarioResolvers = scenarioResolvers == null ? List.of() : List.copyOf(scenarioResolvers);
     }
 
     @Override
     public void publishFromReleasedContracts(Long productId,
+                                             Long releaseBatchId,
                                              List<ProductModel> releasedContracts,
                                              Set<String> riskEnabledIdentifiers) {
         if (productId == null || releasedContracts == null || releasedContracts.isEmpty()) {
@@ -42,6 +60,8 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         Map<String, RiskMetricCatalog> existingByIdentifier = listAllByProduct(productId).stream()
                 .filter(row -> StringUtils.hasText(row.getContractIdentifier()))
                 .collect(LinkedHashMap::new, (map, row) -> map.put(row.getContractIdentifier(), row), Map::putAll);
+        Map<String, MetricSemanticProfile> semanticByIdentifier =
+                resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers);
         Set<String> publishedIdentifiers = new LinkedHashSet<>();
         for (ProductModel contract : releasedContracts) {
             String identifier = normalize(contract == null ? null : contract.getIdentifier());
@@ -49,15 +69,16 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 continue;
             }
             RiskMetricCatalog row = existingByIdentifier.remove(identifier);
+            MetricSemanticProfile profile = semanticByIdentifier.getOrDefault(identifier, MetricSemanticProfile.empty());
             if (row == null) {
                 row = new RiskMetricCatalog();
                 row.setProductId(productId);
                 row.setContractIdentifier(identifier);
                 row.setEnabled(1);
-                populateCatalogRow(row, contract);
+                populateCatalogRow(row, releaseBatchId, contract, profile);
                 riskMetricCatalogMapper.insert(row);
             } else {
-                populateCatalogRow(row, contract);
+                populateCatalogRow(row, releaseBatchId, contract, profile);
                 row.setEnabled(1);
                 row.setDeleted(0);
                 riskMetricCatalogMapper.updateById(row);
@@ -73,6 +94,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 continue;
             }
             stale.setEnabled(0);
+            stale.setLifecycleStatus("RETIRED");
             riskMetricCatalogMapper.updateById(stale);
         }
     }
@@ -81,7 +103,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
     public RiskMetricCatalog getRequiredByProductAndIdentifier(Long productId, String contractIdentifier) {
         RiskMetricCatalog catalog = getByProductAndIdentifier(productId, contractIdentifier);
         if (catalog == null) {
-            throw new BizException("风险指标目录未发布: " + contractIdentifier);
+            throw new BizException("\u98ce\u9669\u6307\u6807\u76ee\u5f55\u672a\u53d1\u5e03: " + contractIdentifier);
         }
         return catalog;
     }
@@ -133,17 +155,191 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return rows == null ? List.of() : rows;
     }
 
-    private void populateCatalogRow(RiskMetricCatalog row, ProductModel contract) {
+    private Map<String, MetricSemanticProfile> resolveSemanticProfiles(Long productId,
+                                                                       List<ProductModel> releasedContracts,
+                                                                       Set<String> enabledIdentifiers) {
+        if (releasedContracts == null || releasedContracts.isEmpty() || enabledIdentifiers == null || enabledIdentifiers.isEmpty()) {
+            return Map.of();
+        }
+        Product product = productMapper.selectById(productId);
+        String scenarioCode = resolveScenarioCode(product);
+        Map<String, NormativeMetricDefinition> normativeByIdentifier = loadNormativeByIdentifier(scenarioCode);
+        Map<String, MetricSemanticProfile> semanticByIdentifier = new LinkedHashMap<>();
+        for (ProductModel contract : releasedContracts) {
+            String identifier = normalize(contract == null ? null : contract.getIdentifier());
+            if (!StringUtils.hasText(identifier) || !enabledIdentifiers.contains(identifier)) {
+                continue;
+            }
+            NormativeMetricDefinition definition = normativeByIdentifier.get(identifier);
+            semanticByIdentifier.put(identifier, buildSemanticProfile(contract, definition, scenarioCode));
+        }
+        return semanticByIdentifier;
+    }
+
+    private Map<String, NormativeMetricDefinition> loadNormativeByIdentifier(String scenarioCode) {
+        if (!StringUtils.hasText(scenarioCode)) {
+            return Map.of();
+        }
+        List<NormativeMetricDefinition> definitions = normativeMetricDefinitionService.listByScenario(scenarioCode);
+        if (definitions == null || definitions.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, NormativeMetricDefinition> map = new LinkedHashMap<>();
+        for (NormativeMetricDefinition definition : definitions) {
+            String identifier = normalize(definition == null ? null : definition.getIdentifier());
+            if (!StringUtils.hasText(identifier)) {
+                continue;
+            }
+            map.putIfAbsent(identifier, definition);
+        }
+        return map;
+    }
+
+    private MetricSemanticProfile buildSemanticProfile(ProductModel contract,
+                                                       NormativeMetricDefinition definition,
+                                                       String fallbackScenarioCode) {
+        Map<String, Object> specs = parseJsonObject(contract == null ? null : contract.getSpecsJson());
+        Map<String, Object> metadata = parseJsonObject(definition == null ? null : definition.getMetadataJson());
+
+        String scenarioCode = firstNonBlank(
+                normalize(definition == null ? null : definition.getScenarioCode()),
+                normalize(fallbackScenarioCode)
+        );
+        String normativeIdentifier = firstNonBlank(
+                normalize(definition == null ? null : definition.getIdentifier()),
+                normalize(contract == null ? null : contract.getIdentifier())
+        );
+        String metricUnit = firstNonBlank(
+                readString(specs, "unit"),
+                normalize(definition == null ? null : definition.getUnit()),
+                readString(metadata, "unit")
+        );
+        String metricDimension = firstNonBlank(
+                readString(specs, "dimension"),
+                normalize(definition == null ? null : definition.getMetricDimension()),
+                readString(metadata, "dimension"),
+                normalize(definition == null ? null : definition.getMonitorTypeCode())
+        );
+        String thresholdType = firstNonBlank(
+                readString(specs, "thresholdType"),
+                normalize(definition == null ? null : definition.getThresholdType()),
+                readString(metadata, "thresholdType"),
+                readString(metadata, "thresholdKind")
+        );
+        String semanticDirection = firstNonBlank(
+                readString(specs, "semanticDirection"),
+                normalize(definition == null ? null : definition.getSemanticDirection()),
+                readString(metadata, "semanticDirection")
+        );
+        String thresholdDirection = firstNonBlank(
+                readString(specs, "thresholdDirection"),
+                readString(metadata, "thresholdDirection"),
+                normalize(definition == null ? null : definition.getSemanticDirection()),
+                normalize(semanticDirection),
+                resolveDefaultThresholdDirection(contract)
+        );
+        String normalizedSemanticDirection = firstNonBlank(semanticDirection, thresholdDirection);
+        String riskCategory = firstNonBlank(
+                readString(specs, "riskCategory"),
+                readString(metadata, "riskCategory"),
+                normalize(definition == null ? null : definition.getMonitorContentCode()),
+                scenarioCode
+        );
+        String metricRole = firstNonBlank(
+                readString(specs, "metricRole"),
+                readString(metadata, "metricRole"),
+                defaultMetricRole(contract)
+        );
+        String lifecycleStatus = firstNonBlank(
+                readString(specs, "lifecycleStatus"),
+                readString(metadata, "lifecycleStatus"),
+                normalize(definition == null ? null : definition.getStatus()),
+                "ACTIVE"
+        );
+
+        Integer trendEnabled = firstNonNull(
+                readBooleanAsInt(specs, "trendEnabled"),
+                normalizeFlag(definition == null ? null : definition.getTrendEnabled()),
+                readBooleanAsInt(metadata, "trendEnabled"),
+                defaultTrendEnabled(contract)
+        );
+        Integer gisEnabled = firstNonNull(
+                readBooleanAsInt(specs, "gisEnabled", "fitGis"),
+                normalizeFlag(definition == null ? null : definition.getGisEnabled()),
+                readBooleanAsInt(metadata, "gisEnabled", "fitGis"),
+                0
+        );
+        Integer insightEnabled = firstNonNull(
+                readBooleanAsInt(specs, "insightEnabled", "fitInsight"),
+                normalizeFlag(definition == null ? null : definition.getInsightEnabled()),
+                readBooleanAsInt(metadata, "insightEnabled", "fitInsight"),
+                1
+        );
+        Integer analyticsEnabled = firstNonNull(
+                readBooleanAsInt(specs, "analyticsEnabled", "fitAnalytics"),
+                normalizeFlag(definition == null ? null : definition.getAnalyticsEnabled()),
+                readBooleanAsInt(metadata, "analyticsEnabled", "fitAnalytics"),
+                defaultAnalyticsEnabled(contract)
+        );
+
+        return new MetricSemanticProfile(
+                scenarioCode,
+                normativeIdentifier,
+                riskCategory,
+                metricRole,
+                lifecycleStatus,
+                metricUnit,
+                metricDimension,
+                thresholdType,
+                normalizedSemanticDirection,
+                thresholdDirection,
+                trendEnabled,
+                gisEnabled,
+                insightEnabled,
+                analyticsEnabled
+        );
+    }
+
+    private void populateCatalogRow(RiskMetricCatalog row,
+                                    Long releaseBatchId,
+                                    ProductModel contract,
+                                    MetricSemanticProfile profile) {
         String identifier = normalize(contract == null ? null : contract.getIdentifier());
+        row.setReleaseBatchId(releaseBatchId);
         row.setProductModelId(contract == null ? null : contract.getId());
+        row.setNormativeIdentifier(firstNonBlank(profile.normativeIdentifier(), identifier));
         row.setContractIdentifier(identifier);
         row.setRiskMetricCode(buildRiskMetricCode(row.getProductId(), identifier));
         row.setRiskMetricName(resolveRiskMetricName(contract));
-        row.setThresholdDirection(resolveThresholdDirection(identifier));
-        row.setTrendEnabled(1);
-        row.setGisEnabled(1);
-        row.setInsightEnabled(1);
-        row.setAnalyticsEnabled(1);
+        row.setRiskCategory(profile.riskCategory());
+        row.setMetricRole(profile.metricRole());
+        row.setLifecycleStatus(profile.lifecycleStatus());
+        row.setSourceScenarioCode(profile.sourceScenarioCode());
+        row.setMetricUnit(profile.metricUnit());
+        row.setMetricDimension(profile.metricDimension());
+        row.setThresholdType(profile.thresholdType());
+        row.setSemanticDirection(profile.semanticDirection());
+        row.setThresholdDirection(profile.thresholdDirection());
+        row.setTrendEnabled(profile.trendEnabled());
+        row.setGisEnabled(profile.gisEnabled());
+        row.setInsightEnabled(profile.insightEnabled());
+        row.setAnalyticsEnabled(profile.analyticsEnabled());
+    }
+
+    private String resolveScenarioCode(Product product) {
+        if (product == null || scenarioResolvers == null || scenarioResolvers.isEmpty()) {
+            return null;
+        }
+        for (RiskMetricScenarioResolver resolver : scenarioResolvers) {
+            if (resolver == null) {
+                continue;
+            }
+            String resolved = normalize(resolver.resolveScenarioCode(product));
+            if (StringUtils.hasText(resolved)) {
+                return resolved;
+            }
+        }
+        return null;
     }
 
     private String resolveRiskMetricName(ProductModel contract) {
@@ -162,8 +358,34 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return "RM_" + (productId == null ? "GLOBAL" : productId) + "_" + normalizedIdentifier.toUpperCase(Locale.ROOT);
     }
 
-    private String resolveThresholdDirection(String identifier) {
-        return "value".equalsIgnoreCase(normalize(identifier)) ? "HIGHER_IS_RISKIER" : null;
+    private String resolveDefaultThresholdDirection(ProductModel contract) {
+        return isNumericDataType(contract == null ? null : contract.getDataType())
+                ? "HIGHER_IS_RISKIER"
+                : null;
+    }
+
+    private Integer defaultTrendEnabled(ProductModel contract) {
+        return isNumericDataType(contract == null ? null : contract.getDataType()) ? 1 : 0;
+    }
+
+    private Integer defaultAnalyticsEnabled(ProductModel contract) {
+        return isNumericDataType(contract == null ? null : contract.getDataType()) ? 1 : 0;
+    }
+
+    private String defaultMetricRole(ProductModel contract) {
+        if (contract == null) {
+            return "PRIMARY";
+        }
+        return isNumericDataType(contract.getDataType()) ? "PRIMARY" : "STATE";
+    }
+
+    private boolean isNumericDataType(String dataType) {
+        String normalized = normalize(dataType);
+        if (!StringUtils.hasText(normalized)) {
+            return false;
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        return Set.of("double", "float", "int", "integer", "long", "short", "decimal").contains(lower);
     }
 
     private Set<String> normalizeIdentifiers(Set<String> identifiers) {
@@ -180,7 +402,137 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return normalized;
     }
 
+    private Map<String, Object> parseJsonObject(String json) {
+        if (!StringUtils.hasText(json)) {
+            return Map.of();
+        }
+        try {
+            var node = objectMapper.readTree(json);
+            if (node == null || !node.isObject()) {
+                return Map.of();
+            }
+            Map<String, Object> parsed = objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {
+            });
+            return parsed == null ? Map.of() : parsed;
+        } catch (Exception ex) {
+            return Map.of();
+        }
+    }
+
+    private String readString(Map<String, Object> source, String... keys) {
+        if (source == null || source.isEmpty() || keys == null || keys.length == 0) {
+            return null;
+        }
+        for (String key : keys) {
+            if (!StringUtils.hasText(key) || !source.containsKey(key)) {
+                continue;
+            }
+            Object value = source.get(key);
+            if (value == null) {
+                continue;
+            }
+            String normalized = normalize(String.valueOf(value));
+            if (StringUtils.hasText(normalized)) {
+                return normalized;
+            }
+        }
+        return null;
+    }
+
+    private Integer readBooleanAsInt(Map<String, Object> source, String... keys) {
+        if (source == null || source.isEmpty() || keys == null || keys.length == 0) {
+            return null;
+        }
+        for (String key : keys) {
+            if (!StringUtils.hasText(key) || !source.containsKey(key)) {
+                continue;
+            }
+            Object value = source.get(key);
+            Integer parsed = toBooleanInt(value);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    private Integer toBooleanInt(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Boolean bool) {
+            return bool ? 1 : 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() > 0 ? 1 : 0;
+        }
+        String normalized = normalize(String.valueOf(value));
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        if ("1".equals(normalized) || "true".equalsIgnoreCase(normalized) || "yes".equalsIgnoreCase(normalized)) {
+            return 1;
+        }
+        if ("0".equals(normalized) || "false".equalsIgnoreCase(normalized) || "no".equalsIgnoreCase(normalized)) {
+            return 0;
+        }
+        return null;
+    }
+
+    private Integer normalizeFlag(Integer value) {
+        if (value == null) {
+            return null;
+        }
+        return value > 0 ? 1 : 0;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null || values.length == 0) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    @SafeVarargs
+    private final <T> T firstNonNull(T... values) {
+        if (values == null || values.length == 0) {
+            return null;
+        }
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    record MetricSemanticProfile(
+            String sourceScenarioCode,
+            String normativeIdentifier,
+            String riskCategory,
+            String metricRole,
+            String lifecycleStatus,
+            String metricUnit,
+            String metricDimension,
+            String thresholdType,
+            String semanticDirection,
+            String thresholdDirection,
+            Integer trendEnabled,
+            Integer gisEnabled,
+            Integer insightEnabled,
+            Integer analyticsEnabled
+    ) {
+        static MetricSemanticProfile empty() {
+            return new MetricSemanticProfile(null, null, null, "PRIMARY", "ACTIVE", null, null, null, null, null, 0, 0, 1, 0);
+        }
     }
 }

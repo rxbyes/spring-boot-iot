@@ -10,58 +10,51 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 规范字段定义。
+ * 厂商字段映射规则。
  */
 @Data
-@TableName("iot_normative_metric_definition")
-public class NormativeMetricDefinition {
+@TableName("iot_vendor_metric_mapping_rule")
+public class VendorMetricMappingRule {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    @TableField(fill = FieldFill.INSERT)
     private Long tenantId;
+
+    private String scopeType;
+
+    private Long productId;
+
+    private String protocolCode;
 
     private String scenarioCode;
 
     private String deviceFamily;
 
-    private String identifier;
+    private String rawIdentifier;
 
-    private String displayName;
+    private String logicalChannelCode;
 
-    private String unit;
+    private String relationConditionJson;
 
-    private Integer precisionDigits;
+    private String normalizationRuleJson;
 
-    private String monitorContentCode;
-
-    private String monitorTypeCode;
-
-    private Integer riskEnabled;
-
-    private Integer trendEnabled;
-
-    private String metricDimension;
-
-    private String thresholdType;
-
-    private String semanticDirection;
-
-    private Integer gisEnabled;
-
-    private Integer insightEnabled;
-
-    private Integer analyticsEnabled;
+    private String targetNormativeIdentifier;
 
     private String status;
 
     private Integer versionNo;
 
-    private String metadataJson;
+    private Long approvalOrderId;
+
+    @TableField(fill = FieldFill.INSERT)
+    private Long createBy;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private Long updateBy;
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;

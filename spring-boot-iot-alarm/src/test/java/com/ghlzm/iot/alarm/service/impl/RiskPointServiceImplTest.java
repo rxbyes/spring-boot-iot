@@ -8,6 +8,7 @@ import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
@@ -29,10 +30,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -837,6 +840,97 @@ class RiskPointServiceImplTest {
         String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
         assertTrue(sqlSegment.contains("tenant_id"));
         assertTrue(sqlSegment.contains("responsible_user") || sqlSegment.contains("create_by"));
+    }
+
+    @Test
+    void pageRiskPointsShouldPreferExactKeywordMatchBeforeFuzzyFallback() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        RiskPoint exactMatched = existingRiskPoint("RP-NORTH-001");
+        exactMatched.setRiskPointName("北坡一号");
+        Page<RiskPoint> exactPage = new Page<>(1L, 10L);
+        exactPage.setRecords(List.of(exactMatched));
+        exactPage.setTotal(1L);
+        int[] pageCalls = {0};
+
+        doAnswer(invocation -> {
+            pageCalls[0]++;
+            @SuppressWarnings("unchecked")
+            LambdaQueryWrapper<RiskPoint> wrapper = invocation.getArgument(1);
+            String sqlSegment = wrapper.getSqlSegment().toLowerCase(Locale.ROOT);
+            assertKeywordSqlIncludesFields(sqlSegment);
+            assertFalse(sqlSegment.contains(" like "), "完整编号/名称命中时应先走精确匹配");
+            return exactPage;
+        }).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        PageResult<RiskPoint> result = service.pageRiskPoints(null, "RP-NORTH-001", null, null, 1L, 10L);
+
+        assertEquals(1, pageCalls[0]);
+        assertEquals(1L, result.getTotal());
+        assertEquals("RP-NORTH-001", result.getRecords().get(0).getRiskPointCode());
+    }
+
+    @Test
+    void pageRiskPointsShouldFallbackToKeywordSearchAcrossCodeNameAndRegionWhenExactMatchMissing() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        Page<RiskPoint> emptyExactPage = new Page<>(1L, 10L);
+        emptyExactPage.setRecords(List.of());
+        emptyExactPage.setTotal(0L);
+        RiskPoint fuzzyMatched = existingRiskPoint("RP-NORTH-002");
+        fuzzyMatched.setRiskPointName("北坡二号");
+        Page<RiskPoint> fuzzyPage = new Page<>(1L, 10L);
+        fuzzyPage.setRecords(List.of(fuzzyMatched));
+        fuzzyPage.setTotal(1L);
+        int[] pageCalls = {0};
+
+        doAnswer(invocation -> {
+            pageCalls[0]++;
+            @SuppressWarnings("unchecked")
+            LambdaQueryWrapper<RiskPoint> wrapper = invocation.getArgument(1);
+            String sqlSegment = wrapper.getSqlSegment().toLowerCase(Locale.ROOT);
+            assertKeywordSqlIncludesFields(sqlSegment);
+            if (pageCalls[0] == 1) {
+                assertFalse(sqlSegment.contains(" like "), "首轮应先尝试精确匹配");
+                return emptyExactPage;
+            }
+            assertTrue(sqlSegment.contains(" like "), "精确匹配为空后应回退模糊搜索");
+            return fuzzyPage;
+        }).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        PageResult<RiskPoint> result = service.pageRiskPoints(null, "北坡", null, null, 1L, 10L);
+
+        assertEquals(2, pageCalls[0]);
+        assertEquals(1L, result.getTotal());
+        assertEquals("北坡二号", result.getRecords().get(0).getRiskPointName());
+    }
+
+    private void assertKeywordSqlIncludesFields(String sqlSegment) {
+        assertTrue(sqlSegment.contains("risk_point_code"));
+        assertTrue(sqlSegment.contains("risk_point_name"));
+        assertTrue(sqlSegment.contains("region_name"));
     }
 
     private RiskPoint existingRiskPoint(String code) {
