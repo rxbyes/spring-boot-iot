@@ -242,4 +242,81 @@ describe('RiskInsightTrendPanel', () => {
       '2026-04-09 04:00:00'
     ]);
   });
+
+  it('uses non-repeating colors across measure and status trend groups', async () => {
+    mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 12.4, filled: false }]
+          },
+          {
+            identifier: 'L1_QJ_1.angle',
+            displayName: '水平面夹角',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 3.1, filled: false }]
+          }
+        ]
+      },
+      {
+        key: 'status',
+        title: '状态数据',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '在线状态',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 1, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.battery_dump_energy',
+            displayName: '剩余电量',
+            buckets: [{ time: '2026-04-09 00:00:00', value: 86, filled: false }]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const measureOption = mockChartSetOption.mock.calls.at(-2)?.[0] as { color?: string[] } | undefined;
+    const statusOption = mockChartSetOption.mock.calls.at(-1)?.[0] as { color?: string[] } | undefined;
+    const colors = [...(measureOption?.color ?? []), ...(statusOption?.color ?? [])];
+
+    expect(colors).toHaveLength(4);
+    expect(new Set(colors).size).toBe(4);
+  });
+
+  it('reduces y-axis density and adds visual buffer for small fluctuations', async () => {
+    mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 1224.37, filled: false },
+              { time: '2026-04-09 01:00:00', value: 1224.92, filled: false },
+              { time: '2026-04-09 02:00:00', value: 1225.11, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      yAxis?: { splitNumber?: number; min?: number; max?: number };
+    } | undefined;
+
+    expect(latestOption?.yAxis?.splitNumber).toBe(4);
+    expect(latestOption?.yAxis?.min).toBeLessThan(1224.37);
+    expect(latestOption?.yAxis?.max).toBeGreaterThan(1225.11);
+    expect((latestOption?.yAxis?.max ?? 0) - (latestOption?.yAxis?.min ?? 0)).toBeGreaterThan(0.74);
+  });
 });

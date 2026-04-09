@@ -374,11 +374,7 @@ describe('DeviceInsightView', () => {
     }));
     expect(getRiskMonitoringDetail).toHaveBeenCalledWith(22);
     expect(getDeviceProperties).toHaveBeenCalledWith('SK00EB0D1308313');
-    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
-      deviceId: 2001,
-      rangeCode: '1d',
-      fillPolicy: 'ZERO'
-    }));
+    expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('对象洞察台');
     expect(wrapper.text()).toContain('基础档案信息');
     expect(wrapper.text()).toContain('设备基础档案');
@@ -393,7 +389,7 @@ describe('DeviceInsightView', () => {
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
 
-  it('derives dynamic metrics for collect devices and includes runtime status extensions in trend query', async () => {
+  it('only queries explicitly configured trend metrics for collect devices', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -557,16 +553,124 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledTimes(1);
     expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
       deviceId: 3001,
-      identifiers: expect.arrayContaining(['YL_1', 'S1_ZT_1.sensor_state.YL_1', 'S1_ZT_1.signal_4g', 'S1_ZT_1.humidity'])
+      identifiers: expect.arrayContaining(['S1_ZT_1.humidity', 'S1_ZT_1.signal_4g'])
     }));
+    const trendRequest = vi.mocked(getTelemetryHistoryBatch).mock.calls[0]?.[0];
+    expect(trendRequest?.identifiers).not.toContain('YL_1');
+    expect(trendRequest?.identifiers).not.toContain('S1_ZT_1.sensor_state.YL_1');
     expect(wrapper.text()).toContain('雨量');
     expect(wrapper.text()).toContain('采集通道在线状态');
     expect(wrapper.text()).toContain('4G 信号强度');
     expect(wrapper.text()).toContain('相对湿度');
     expect(wrapper.text()).not.toContain('系统自定义参数');
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
+  });
+
+  it('keeps trend preview empty when no manual trend metric is configured', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3101,
+        deviceCode: 'COLLECT-NO-TREND',
+        deviceName: '未配置趋势的采集设备',
+        productName: '雨量采集终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-08 11:00:00',
+        lastReportTime: '2026-04-08 11:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'YL_1',
+          propertyName: '雨量',
+          propertyValue: '12.4',
+          valueType: 'double',
+          updateTime: '2026-04-08 11:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.sensor_state.YL_1',
+          propertyName: '采集通道在线状态',
+          propertyValue: '1',
+          valueType: 'int',
+          updateTime: '2026-04-08 11:05:00'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-82',
+          valueType: 'int',
+          updateTime: '2026-04-08 11:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            bindingId: 31,
+            deviceCode: 'COLLECT-NO-TREND',
+            deviceName: '未配置趋势的采集设备',
+            riskPointName: '沟道采集点',
+            riskLevel: 'NOTICE',
+            metricIdentifier: 'YL_1',
+            metricName: '雨量',
+            onlineStatus: 1,
+            latestReportTime: '2026-04-08 11:05:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getRiskMonitoringDetail).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        bindingId: 31,
+        riskPointId: 9,
+        riskPointCode: 'RP-031',
+        riskPointName: '沟道采集点',
+        riskLevel: 'NOTICE',
+        deviceId: 3101,
+        deviceCode: 'COLLECT-NO-TREND',
+        deviceName: '未配置趋势的采集设备',
+        productName: '雨量采集终端',
+        metricIdentifier: 'YL_1',
+        metricName: '雨量',
+        currentValue: '12.4',
+        monitorStatus: 'NORMAL',
+        onlineStatus: 1,
+        latestReportTime: '2026-04-08 11:05:00'
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'COLLECT-NO-TREND'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('未配置趋势的采集设备');
+    expect(wrapper.text()).not.toContain('监测数据');
+    expect(wrapper.text()).not.toContain('状态数据');
   });
 
   it('loads product-level insight config by productId when device metadata is absent', async () => {
@@ -727,7 +831,7 @@ describe('DeviceInsightView', () => {
     expect(productApi.getProductById).toHaveBeenCalledWith(601);
     expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
       deviceId: 3201,
-      identifiers: expect.arrayContaining(['S1_ZT_1.signal_4g'])
+      identifiers: ['S1_ZT_1.signal_4g']
     }));
     expect(wrapper.text()).toContain('传输信号');
     expect(wrapper.text()).not.toContain('系统自定义参数');
@@ -861,10 +965,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
-    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
-      deviceId: '1983438980179222530',
-      identifiers: ['L1_LF_1.value', 'L1_QJ_1.angle', 'L1_JS_1.gX']
-    }));
+    expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('裂缝量');
     expect(wrapper.text()).toContain('水平面夹角');
     expect(wrapper.text()).toContain('X向加速度');
@@ -876,6 +977,41 @@ describe('DeviceInsightView', () => {
   });
 
   it('keeps the range selector inside the trend panel and requeries telemetry when range changes', async () => {
+    vi.mocked(productApi.getProductById).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 501,
+        productKey: 'muddy-water-product',
+        productName: '宏观现象监测设备泥水位',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'L4_NW_1',
+                displayName: '泥水位高程',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 1
+              },
+              {
+                identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+                displayName: '传感器在线状态',
+                group: 'status',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 1
+              }
+            ]
+          }
+        })
+      }
+    });
     mockRoute.query = {
       deviceCode: 'SK00EB0D1308313'
     };
@@ -893,6 +1029,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledTimes(2);
     expect(getTelemetryHistoryBatch).toHaveBeenLastCalledWith(expect.objectContaining({
       deviceId: 2001,
       rangeCode: '365d',

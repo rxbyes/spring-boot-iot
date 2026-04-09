@@ -55,6 +55,21 @@ interface TrendGroup {
   series: TrendSeries[];
 }
 
+const TREND_SERIES_COLORS = [
+  '#1f6feb',
+  '#13b38b',
+  '#ff7a1a',
+  '#8f5cff',
+  '#e55381',
+  '#12a6c8',
+  '#c28a00',
+  '#2f855a',
+  '#d9485f',
+  '#5b8def',
+  '#fb8c00',
+  '#7c4dff'
+];
+
 const props = withDefaults(defineProps<{
   rangeCode?: InsightRangeCode;
   groups?: TrendGroup[];
@@ -142,11 +157,15 @@ function renderAllCharts() {
       chartInstances.delete(key);
     }
   });
-  activeGroups.value.forEach((group) => renderGroupChart(group));
+  let colorOffset = 0;
+  activeGroups.value.forEach((group) => {
+    renderGroupChart(group, colorOffset);
+    colorOffset += group.series.length;
+  });
   observeCharts();
 }
 
-function renderGroupChart(group: TrendGroup) {
+function renderGroupChart(group: TrendGroup, colorOffset: number) {
   const container = chartRefs.get(group.key);
   if (!container) {
     return;
@@ -163,11 +182,11 @@ function renderGroupChart(group: TrendGroup) {
     chartInstances.set(group.key, chart);
   }
 
+  const yAxisConfig = buildYAxisConfig(group);
+
   chart.setOption({
     animationDuration: 300,
-    color: group.key === 'measure'
-      ? ['#1f6feb', '#4da3ff', '#13b38b']
-      : ['#ff7a1a', '#f5b440', '#6a8dff'],
+    color: group.series.map((_, index) => resolveTrendSeriesColor(colorOffset + index)),
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255, 255, 255, 0.98)',
@@ -205,17 +224,7 @@ function renderGroupChart(group: TrendGroup) {
         }
       }
     },
-    yAxis: {
-      type: 'value',
-      axisLabel: {
-        color: '#6c7e97'
-      },
-      splitLine: {
-        lineStyle: {
-          color: 'rgba(67, 98, 148, 0.12)'
-        }
-      }
-    },
+    yAxis: yAxisConfig,
     series: group.series.map((series) => ({
       name: series.displayName,
       type: 'line',
@@ -285,6 +294,60 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
     return `${marker}${seriesName}：${value}${suffix}`;
   });
   return [axisValue, ...lines].join('<br/>');
+}
+
+function resolveTrendSeriesColor(index: number) {
+  if (index < TREND_SERIES_COLORS.length) {
+    return TREND_SERIES_COLORS[index];
+  }
+  const hue = (index * 47) % 360;
+  return `hsl(${hue}, 68%, 48%)`;
+}
+
+function buildYAxisConfig(group: TrendGroup) {
+  const values = group.series
+    .flatMap((series) => series.buckets.map((bucket) => Number(bucket.value)))
+    .filter((value) => Number.isFinite(value));
+
+  const baseConfig = {
+    type: 'value' as const,
+    splitNumber: 4,
+    scale: true,
+    axisLabel: {
+      color: '#6c7e97'
+    },
+    splitLine: {
+      lineStyle: {
+        color: 'rgba(67, 98, 148, 0.12)'
+      }
+    }
+  };
+
+  if (!values.length) {
+    return baseConfig;
+  }
+
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const dataSpan = maxValue - minValue;
+  const midpoint = (maxValue + minValue) / 2;
+  const targetSpan = dataSpan === 0
+    ? Math.max(Math.abs(midpoint) * 0.12, midpoint === 0 ? 1 : Math.abs(midpoint) * 0.04)
+    : Math.max(dataSpan * 1.8, Math.abs(midpoint) * 0.01);
+  const padding = Math.max((targetSpan - dataSpan) / 2, 0);
+
+  return {
+    ...baseConfig,
+    min: normalizeAxisNumber(minValue - padding),
+    max: normalizeAxisNumber(maxValue + padding)
+  };
+}
+
+function normalizeAxisNumber(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Number(value.toFixed(6));
 }
 
 </script>

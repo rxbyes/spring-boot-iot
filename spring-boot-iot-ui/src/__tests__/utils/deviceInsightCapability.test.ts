@@ -31,9 +31,7 @@ describe('deviceInsightCapability', () => {
     expect(request.deviceId).toBe(2001);
     expect(request.rangeCode).toBe('1d');
     expect(request.fillPolicy).toBe('ZERO');
-    expect(request.identifiers).toContain('L4_NW_1');
-    expect(request.identifiers).toContain('S1_ZT_1.sensor_state.L4_NW_1');
-    expect(request.identifiers).toContain('S1_ZT_1.battery_dump_energy');
+    expect(request.identifiers).toEqual([]);
   });
 
   it('preserves snowflake device ids instead of coercing them to unsafe numbers', () => {
@@ -91,14 +89,10 @@ describe('deviceInsightCapability', () => {
       '水平面夹角',
       'X向加速度'
     ]);
-    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([
-      'L1_LF_1.value',
-      'L1_QJ_1.angle',
-      'L1_JS_1.gX'
-    ]);
+    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([]);
   });
 
-  it('builds collect-device profile from runtime properties instead of falling back to empty generic template', () => {
+  it('builds collect-device snapshot metrics without auto-filling trend groups', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-001',
       productName: '雨量采集终端',
@@ -140,9 +134,9 @@ describe('deviceInsightCapability', () => {
       '采集通道在线状态',
       '4G 信号强度'
     ]);
-    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toContain('YL_1');
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).toContain('S1_ZT_1.humidity');
-    expect(profile.extensionParameters.map((item) => item.displayName)).toContain('相对湿度');
+    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([]);
+    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).toEqual([]);
+    expect(profile.historyIdentifiers).toEqual([]);
   });
 
   it('builds warning-device profile with warning-centric metrics and dynamic status extensions', () => {
@@ -189,8 +183,7 @@ describe('deviceInsightCapability', () => {
       '剩余电量'
     ]);
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('4G 信号强度');
-    expect(profile.historyIdentifiers).toContain('warning_level');
-    expect(profile.historyIdentifiers).toContain('S1_ZT_1.signal_4g');
+    expect(profile.historyIdentifiers).toEqual([]);
   });
 
   it('merges metadataJson custom metrics and analysis templates into the capability profile', () => {

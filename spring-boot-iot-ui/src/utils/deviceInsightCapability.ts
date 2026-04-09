@@ -83,8 +83,6 @@ interface RuntimeTemplateConfig {
   statusPriorityKeywords: string[];
 }
 
-const MAX_MEASURE_SERIES = 3;
-const MAX_STATUS_SERIES = 5;
 const MAX_EXTENSION_PARAMETERS = 4;
 const STATUS_METRIC_PATTERN =
   /(sensor_state|status|online|battery|signal|humidity|temperature|temp|voltage|current|network|energy|power|4g|rssi|snr|dbm|strength|state|zt|soc|dump_energy|remaining)/;
@@ -147,24 +145,14 @@ const MUDDY_WATER_PROFILE: InsightCapabilityProfile = {
     { identifier: 'S1_ZT_1.battery_dump_energy', displayName: '剩余电量', group: 'status' }
   ],
   trendGroups: [
-    { key: 'measure', title: '监测数据', identifiers: ['L4_NW_1'] },
-    {
-      key: 'status',
-      title: '状态数据',
-      identifiers: ['S1_ZT_1.sensor_state.L4_NW_1', 'S1_ZT_1.battery_dump_energy']
-    }
+    { key: 'measure', title: '监测数据', identifiers: [] },
+    { key: 'status', title: '状态数据', identifiers: [] }
   ],
   extensionParameters: [
     { parameterKey: 'humidity', identifier: 'S1_ZT_1.humidity', displayName: '相对湿度' },
     { parameterKey: 'signal_4g', identifier: 'S1_ZT_1.signal_4g', displayName: '4G 信号强度' }
   ],
-  historyIdentifiers: [
-    'L4_NW_1',
-    'S1_ZT_1.sensor_state.L4_NW_1',
-    'S1_ZT_1.battery_dump_energy',
-    'S1_ZT_1.humidity',
-    'S1_ZT_1.signal_4g'
-  ],
+  historyIdentifiers: [],
   customMetrics: []
 };
 
@@ -262,26 +250,16 @@ function buildRuntimeProfile(source: InsightCapabilitySource): InsightCapability
       displayName: item.displayName
     }));
 
-  const measureIdentifiers = uniqueIdentifiers([
-    ...heroMetrics.filter((item) => item.group === 'measure').map((item) => item.identifier),
-    ...measureCandidates.slice(0, MAX_MEASURE_SERIES).map((item) => item.identifier)
-  ]);
-  const statusIdentifiers = uniqueIdentifiers([
-    ...heroMetrics.filter((item) => item.group === 'status').map((item) => item.identifier),
-    ...extensionParameters.map((item) => item.identifier),
-    ...statusCandidates.slice(0, MAX_STATUS_SERIES).map((item) => item.identifier)
-  ]);
-
   return {
     key: config.key,
     objectType,
     heroMetrics,
     trendGroups: [
-      { key: 'measure', title: '监测数据', identifiers: measureIdentifiers },
-      { key: 'status', title: '状态数据', identifiers: statusIdentifiers }
+      { key: 'measure', title: '监测数据', identifiers: [] },
+      { key: 'status', title: '状态数据', identifiers: [] }
     ],
     extensionParameters,
-    historyIdentifiers: uniqueIdentifiers([...measureIdentifiers, ...statusIdentifiers]),
+    historyIdentifiers: [],
     customMetrics: []
   };
 }
@@ -406,6 +384,7 @@ function buildConfiguredMetricDefinition(
     return null;
   }
   const builtIn = BUILTIN_CUSTOM_METRIC_REGISTRY[normalizedIdentifier.toLowerCase()];
+  const hasExplicitConfig = Object.keys(config).length > 0;
   const displayName = normalizeOptionalText(config.displayName)
     || builtIn?.displayName
     || resolveConfiguredMetricDisplayName(normalizedIdentifier, source.properties ?? [])
@@ -420,7 +399,7 @@ function buildConfiguredMetricDefinition(
     identifier: normalizedIdentifier,
     displayName,
     group,
-    includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : true,
+    includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : hasExplicitConfig ? true : false,
     includeInExtension: typeof config.includeInExtension === 'boolean' ? config.includeInExtension : !existsInHero,
     analysisTitle: normalizeOptionalText(config.analysisTitle) || builtIn?.analysisTitle,
     analysisTag: normalizeOptionalText(config.analysisTag) || builtIn?.analysisTag,
