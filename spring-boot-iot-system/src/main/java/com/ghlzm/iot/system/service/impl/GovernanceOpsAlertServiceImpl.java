@@ -81,19 +81,22 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         refreshed.setTraceId(normalize(normalized.traceId()));
         refreshed.setDeviceCode(normalize(normalized.deviceCode()));
         refreshed.setProductKey(normalize(normalized.productKey()));
-        refreshed.setAlertStatus(STATUS_OPEN);
+        refreshed.setAlertStatus(resolveAlertStatus(existing));
         refreshed.setSeverityLevel(defaultSeverity(normalized.severityLevel()));
         refreshed.setAffectedCount(defaultAffectedCount(normalized.affectedCount()));
         refreshed.setAlertTitle(normalize(normalized.alertTitle()));
-        refreshed.setAlertMessage(normalize(normalized.alertMessage()));
+        refreshed.setAlertMessage(resolveAlertMessage(existing, normalized));
         refreshed.setDimensionKey(normalize(normalized.dimensionKey()));
         refreshed.setDimensionLabel(normalize(normalized.dimensionLabel()));
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
         refreshed.setLastSeenTime(now);
-        refreshed.setResolvedTime(null);
-        refreshed.setClosedTime(null);
+        refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
+        refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
         refreshed.setUpdateBy(normalized.operatorUserId());
+        if (!shouldReopen(existing) && existing.getAssigneeUserId() != null) {
+            refreshed.setAssigneeUserId(existing.getAssigneeUserId());
+        }
         alertMapper.updateById(refreshed);
     }
 
@@ -124,7 +127,7 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         update.setId(alert.getId());
         update.setAlertStatus(STATUS_ACKED);
         update.setAssigneeUserId(currentUserId);
-        update.setAlertMessage(normalize(comment));
+        update.setAlertMessage(resolveManualComment(alert.getAlertMessage(), comment));
         update.setUpdateBy(currentUserId);
         alertMapper.updateById(update);
     }
@@ -136,7 +139,7 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         update.setId(alert.getId());
         update.setAlertStatus(STATUS_SUPPRESSED);
         update.setAssigneeUserId(currentUserId);
-        update.setAlertMessage(normalize(comment));
+        update.setAlertMessage(resolveManualComment(alert.getAlertMessage(), comment));
         update.setUpdateBy(currentUserId);
         alertMapper.updateById(update);
     }
@@ -148,9 +151,33 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         update.setId(alert.getId());
         update.setAlertStatus(STATUS_CLOSED);
         update.setClosedTime(new Date());
-        update.setAlertMessage(normalize(comment));
+        update.setAlertMessage(resolveManualComment(alert.getAlertMessage(), comment));
         update.setUpdateBy(currentUserId);
         alertMapper.updateById(update);
+    }
+
+    private String resolveAlertStatus(GovernanceOpsAlert existing) {
+        if (existing == null || shouldReopen(existing)) {
+            return STATUS_OPEN;
+        }
+        return StringUtils.hasText(existing.getAlertStatus()) ? existing.getAlertStatus() : STATUS_OPEN;
+    }
+
+    private boolean shouldReopen(GovernanceOpsAlert existing) {
+        return existing == null || STATUS_RESOLVED.equals(existing.getAlertStatus());
+    }
+
+    private String resolveAlertMessage(GovernanceOpsAlert existing, GovernanceOpsAlertCommand command) {
+        String generated = normalize(command.alertMessage());
+        if (existing == null || shouldReopen(existing)) {
+            return generated;
+        }
+        return StringUtils.hasText(existing.getAlertMessage()) ? existing.getAlertMessage() : generated;
+    }
+
+    private String resolveManualComment(String existingMessage, String comment) {
+        String normalizedComment = normalize(comment);
+        return StringUtils.hasText(normalizedComment) ? normalizedComment : normalize(existingMessage);
     }
 
     private GovernanceOpsAlert requireByNaturalKey(String alertType, String alertCode) {

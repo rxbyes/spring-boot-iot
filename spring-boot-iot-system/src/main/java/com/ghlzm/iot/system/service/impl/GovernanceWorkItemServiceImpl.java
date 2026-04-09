@@ -7,12 +7,17 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
+import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -27,9 +32,16 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private static final String DEFAULT_PRIORITY = "P2";
 
     private final GovernanceWorkItemMapper workItemMapper;
+    private final List<GovernanceWorkItemContributor> contributors;
 
     public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper) {
+        this(workItemMapper, List.of());
+    }
+
+    public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                         List<GovernanceWorkItemContributor> contributors) {
         this.workItemMapper = workItemMapper;
+        this.contributors = contributors == null ? List.of() : List.copyOf(contributors);
     }
 
     @Override
@@ -71,13 +83,16 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setApprovalOrderId(normalized.approvalOrderId());
         refreshed.setAssigneeUserId(normalized.assigneeUserId());
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
-        refreshed.setBlockingReason(normalize(normalized.blockingReason()));
+        refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
         refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
-        refreshed.setWorkStatus(STATUS_OPEN);
-        refreshed.setResolvedTime(null);
-        refreshed.setClosedTime(null);
+        refreshed.setWorkStatus(resolveWorkStatus(existing));
+        refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
+        refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
         refreshed.setUpdateBy(normalized.operatorUserId());
+        if (!shouldReopen(existing) && existing.getAssigneeUserId() != null && normalized.assigneeUserId() == null) {
+            refreshed.setAssigneeUserId(existing.getAssigneeUserId());
+        }
         workItemMapper.updateById(refreshed);
     }
 
@@ -95,6 +110,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     @Override
     public PageResult<GovernanceWorkItemVO> pageWorkItems(GovernanceWorkItemPageQuery query, Long currentUserId) {
+        syncContributedWorkItems();
         Page<GovernanceWorkItem> page = PageQueryUtils.buildPage(query == null ? null : query.getPageNum(), query == null ? null : query.getPageSize());
         Page<GovernanceWorkItem> result = workItemMapper.selectPage(page, buildPageWrapper(query));
         List<GovernanceWorkItemVO> rows = result.getRecords().stream().map(this::toVO).toList();
@@ -108,7 +124,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         update.setId(item.getId());
         update.setWorkStatus(STATUS_ACKED);
         update.setAssigneeUserId(currentUserId);
-        update.setBlockingReason(normalize(comment));
+        update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
         workItemMapper.updateById(update);
     }
@@ -120,7 +136,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         update.setId(item.getId());
         update.setWorkStatus(STATUS_BLOCKED);
         update.setAssigneeUserId(currentUserId);
-        update.setBlockingReason(normalize(comment));
+        update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
         workItemMapper.updateById(update);
     }
@@ -132,9 +148,52 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         update.setId(item.getId());
         update.setWorkStatus(STATUS_CLOSED);
         update.setClosedTime(new Date());
-        update.setBlockingReason(normalize(comment));
+        update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
         workItemMapper.updateById(update);
+    }
+
+    private void syncContributedWorkItems() {
+        if (contributors.isEmpty()) {
+            return;
+        }
+        List<GovernanceWorkItemCommand> commands = contributors.stream()
+                .flatMap(contributor -> contributor.collectWorkItems().stream())
+                .toList();
+        if (commands.isEmpty()) {
+            return;
+        }
+        Map<String, Map<String, GovernanceWorkItemCommand>> desiredByCode = new LinkedHashMap<>();
+        for (GovernanceWorkItemCommand command : commands) {
+            GovernanceWorkItemCommand normalized = requireCommand(command);
+            desiredByCode
+                    .computeIfAbsent(normalized.workItemCode(), key -> new LinkedHashMap<>())
+                    .put(naturalKey(normalized.workItemCode(), normalized.subjectType(), normalized.subjectId()), normalized);
+        }
+        for (Map<String, GovernanceWorkItemCommand> itemsByKey : desiredByCode.values()) {
+            for (GovernanceWorkItemCommand command : itemsByKey.values()) {
+                openOrRefresh(command);
+            }
+        }
+        for (Map.Entry<String, Map<String, GovernanceWorkItemCommand>> entry : desiredByCode.entrySet()) {
+            List<GovernanceWorkItem> existingItems = workItemMapper.selectList(new LambdaQueryWrapper<GovernanceWorkItem>()
+                    .eq(GovernanceWorkItem::getDeleted, 0)
+                    .eq(GovernanceWorkItem::getWorkItemCode, entry.getKey()));
+            Set<String> desiredKeys = entry.getValue().keySet();
+            for (GovernanceWorkItem existing : existingItems) {
+                if (existing == null || !StringUtils.hasText(existing.getWorkStatus()) || STATUS_CLOSED.equals(existing.getWorkStatus())) {
+                    continue;
+                }
+                if (!desiredKeys.contains(naturalKey(existing.getWorkItemCode(), existing.getSubjectType(), existing.getSubjectId()))) {
+                    GovernanceWorkItem update = new GovernanceWorkItem();
+                    update.setId(existing.getId());
+                    update.setWorkStatus(STATUS_RESOLVED);
+                    update.setResolvedTime(new Date());
+                    update.setUpdateBy(1L);
+                    workItemMapper.updateById(update);
+                }
+            }
+        }
     }
 
     private GovernanceWorkItem requireByNaturalKey(String workItemCode, String subjectType, Long subjectId) {
@@ -159,6 +218,34 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             throw new BizException("治理工作项不存在");
         }
         return item;
+    }
+
+    private String resolveManualComment(String existingReason, String comment) {
+        String normalizedComment = normalize(comment);
+        return StringUtils.hasText(normalizedComment) ? normalizedComment : normalize(existingReason);
+    }
+
+    private String resolveBlockingReason(GovernanceWorkItem existing, GovernanceWorkItemCommand command) {
+        String generated = normalize(command.blockingReason());
+        if (existing == null || shouldReopen(existing)) {
+            return generated;
+        }
+        return StringUtils.hasText(existing.getBlockingReason()) ? existing.getBlockingReason() : generated;
+    }
+
+    private String resolveWorkStatus(GovernanceWorkItem existing) {
+        if (existing == null || shouldReopen(existing)) {
+            return STATUS_OPEN;
+        }
+        return StringUtils.hasText(existing.getWorkStatus()) ? existing.getWorkStatus() : STATUS_OPEN;
+    }
+
+    private boolean shouldReopen(GovernanceWorkItem existing) {
+        return existing == null || STATUS_RESOLVED.equals(existing.getWorkStatus());
+    }
+
+    private String naturalKey(String workItemCode, String subjectType, Long subjectId) {
+        return normalize(workItemCode) + "|" + normalize(subjectType) + "|" + (subjectId == null ? "" : subjectId);
     }
 
     private GovernanceWorkItemCommand requireCommand(GovernanceWorkItemCommand command) {

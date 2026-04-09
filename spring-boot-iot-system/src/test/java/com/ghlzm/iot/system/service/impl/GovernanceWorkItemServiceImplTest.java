@@ -1,5 +1,6 @@
 package com.ghlzm.iot.system.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
@@ -122,6 +123,12 @@ class GovernanceWorkItemServiceImplTest {
         ));
         when(workItemMapper.selectOne(any())).thenReturn(null);
         when(workItemMapper.selectList(any())).thenReturn(List.of(stale));
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of());
+            page.setTotal(0);
+            return page;
+        });
 
         GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of(contributor));
 
