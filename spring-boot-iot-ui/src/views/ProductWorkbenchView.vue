@@ -1,8 +1,16 @@
 <template>
-  <div class="product-asset-view">
+  <div class="page-stack product-asset-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '产品定义中心' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
       title="产品定义中心"
-      description="聚焦产品台账维护，支持筛选、查看、编辑、删除、导出和关联设备跳转。"
+      description="统一维护产品台账、协议绑定与接入契约。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -134,8 +142,8 @@
 
       <template #inline-state>
         <StandardInlineState
-          :message="listRefreshMessage"
-          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+          :message="workbenchInlineMessage"
+          :tone="workbenchInlineTone"
         />
       </template>
 
@@ -280,17 +288,18 @@
               <StandardTableTextColumn prop="updateTime" label="更新时间" :width="180">
                 <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
               </StandardTableTextColumn>
-              <el-table-column label="操作" width="224" fixed="right" :show-overflow-tooltip="false">
+              <el-table-column label="操作" width="276" fixed="right" :show-overflow-tooltip="false">
                 <template #default="{ row }">
-                  <StandardRowActions variant="table" gap="wide">
+                  <StandardRowActions variant="table" gap="comfortable">
                     <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
                     <StandardActionLink v-permission="'iot:products:update'" @click="handleEdit(row)">编辑</StandardActionLink>
                     <StandardActionLink
                       v-permission="'iot:products:update'"
                       data-testid="open-product-model-designer"
+                      title="打开物模型设计器"
                       @click="handleOpenProductModelDesigner(row)"
                     >
-                      物模型设计器
+                      物模型
                     </StandardActionLink>
                     <StandardActionMenu :items="productRowActions" @command="(command) => handleRowAction(command, row)" />
                   </StandardRowActions>
@@ -645,6 +654,7 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
 import DeviceListDrawer from '@/components/DeviceListDrawer.vue'
 import ProductModelDesignerDrawer from '@/components/product/ProductModelDesignerDrawer.vue'
 import { productApi } from '@/api/product'
@@ -687,6 +697,7 @@ import {
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime } from '@/utils/format'
+import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 function formatCount(value?: number | null) {
   const count = Number(value)
@@ -742,6 +753,7 @@ const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
 
 // 设备列表抽屉相关状态
 import type { Device } from '@/types/api'
@@ -846,7 +858,19 @@ const enabledProductCount = computed(() => tableData.value.filter((item) => item
 const disabledProductCount = computed(() => tableData.value.filter((item) => item.status === 0).length)
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
-const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
+const diagnosticEntryMessage = computed(() => {
+  if (!diagnosticContext.value) {
+    return ''
+  }
+  const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
+  const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
+  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, '优先核对产品契约、协议编码与物模型完整性。']
+    .filter(Boolean)
+    .join(' · ')
+})
+const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
+const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
+const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const productRowActions = computed<ProductRowAction[]>(() =>
   [
     { key: 'devices', command: 'devices', label: '查看设备' },

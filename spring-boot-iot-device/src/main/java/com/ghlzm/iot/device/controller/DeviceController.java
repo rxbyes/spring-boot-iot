@@ -66,6 +66,7 @@ public class DeviceController {
                                             @RequestParam(required = false) Integer onlineStatus,
                                             @RequestParam(required = false) Integer activateStatus,
                                             @RequestParam(required = false) Integer deviceStatus,
+                                            @RequestParam(required = false) Integer registrationStatus,
                                             @RequestParam(defaultValue = "1") Long pageNum,
                                             @RequestParam(defaultValue = "10") Long pageSize) {
         return R.ok(deviceService.pageDevices(
@@ -76,6 +77,7 @@ public class DeviceController {
                 onlineStatus,
                 activateStatus,
                 deviceStatus,
+                registrationStatus,
                 pageNum,
                 pageSize
         ));

@@ -537,18 +537,132 @@ Expected:
 
 | productKey | 当前草案关注点 | 代表性缺口 / 建议 identifier | 当前草案动作 | 当前阻塞 |
 |---|---|---|---|---|
-| `south_rtu` | 裂缝家族 + 状态类补点 | `L1_LF_1`、`L1_LF_2`、`L1_LF_3`、`S1_ZT_1.ext_power_volt` | 新增代表性 `property seed`，全部使用 `tdengineLegacy.enabled=false` 占位结构 | 还缺 live 全量 identifier 导出，`l1_lf_1 / s1_zt_1` 目标列名未核验 |
-| `south_multi_displacement` | 多维位移代表性指标补点 | `L1_JS_1.gX`、`L1_QJ_1.angle`、`L1_LF_1.value`、`S1_ZT_1.pa_state` | 新增代表性 `property seed`，保留 stable/column hint，不回写正式映射 | 倾角 / 加速度 / 状态类列名仍需 TDengine 实库核验 |
-| `south_gnss_monitor` | GNSS 位移 + 惯导指标补点 | `L1_GP_1.gpsTotalX`、`L1_GP_1.gpsTotalY`、`L1_GP_1.gpsTotalZ`、`L1_JS_1.gX` | 新增代表性 `property seed`，建议 identifier 先保持 live key | `l1_gp_1` 列命名口径未核验，当前不能直接切回 legacy |
-| `south_deep_displacement` | 现有 `dispsX / dispsY` 仅补占位结构，父级状态类单独补点 | 现有 `dispsX / dispsY`，补充 `S1_ZT_1.ext_power_volt` | 对现有 property 只补 `tdengineLegacy` 占位结构；父级状态类以代表性 seed 入草案 | 还需区分 split child 指标与父级状态类的最终 stable 列映射 |
+| `south_rtu` | 裂缝家族 + 状态类补点 | `L1_LF_1` ~ `L1_LF_9`、父级 `S1_ZT_1.*`、`sensor_state.L1_LF_*` | 已把 RTU 当前 live gap 全量补到 35 条 draft seed，全部使用 `tdengineLegacy.enabled=false` 占位结构 | `DESCRIBE` 已确认 `l1_lf_1.lf` 与 `s1_zt_1.signal_nb / signal_db` 存在；当前阻塞转为 identifier canonicalization（`L1_LF_1.value`、`singal_*` 拼写漂移）与 mixed type 收敛 |
+| `south_multi_displacement` | 多维位移指标与状态类补点 | `L1_JS_1.*`、`L1_QJ_1.*`、`L1_LF_1 / L1_LF_1.value`、`S1_ZT_1.*` | 已把当前 26 个 live identifier 全量补到 draft seed，并把 `pa_state` 修正为 `bool` 占位 | `DESCRIBE` 已确认 `l1_js_1(gx,gy,gz)`、`l1_qj_1(angle,azi,x,y,z)`、`l1_lf_1.lf`、`s1_zt_1.*`；当前阻塞转为 `gX/gY/gZ`、`X/Y/Z/azimuth` 到真实列名的 canonicalization 与 `gz`/状态类 mixed type 收敛 |
+| `south_gnss_monitor` | GNSS 位移、惯导、倾角与状态类补点 | `L1_GP_1.*`、`L1_JS_1.*`、`L1_QJ_1.*`、`S1_ZT_1.*` | 已把当前 31 个 live identifier 全量补到 draft seed，建议 identifier 继续保持 live key | `DESCRIBE` 已确认 `l1_gp_1(gps_total_z,gps_total_x,gps_total_y)`、`l1_js_1(gx,gy,gz)`、`l1_qj_1(angle,azi,x,y,z)`、`s1_zt_1.*`；当前阻塞转为 live identifier 到真实列名的映射收敛与 mixed type 处置 |
+| `south_deep_displacement` | 现有 `dispsX / dispsY` 仅补占位结构，父级状态类单独补点 | 现有 `dispsX / dispsY`，补充 17 个 `S1_ZT_1.*` 父级状态 seed | 对现有 property 只补 `tdengineLegacy` 占位结构；父级状态类已扩到一整组 draft seed | `DESCRIBE` 已确认 `l1_sw_1.disps_x / disps_y` 与 `s1_zt_1.*` 存在；单设备 `L1_SW_1.* -> dispsX/dispsY` 协议 alias 已补齐，当前重点转为历史残留 `L1_SW_*`、临时验证指标与列名下划线映射收敛 |
+
+### 2026-03-25 dry-run 结果补记
+
+- 已在当前真实库执行 `sql/upgrade/20260324_phase5_tdengine_mapping_gap_draft.sql` 的 dry-run 预览；为兼容 `rm_iot` 当前库级 `utf8mb4_general_ci` 与业务表字段 `utf8mb4_0900_ai_ci` 的混用，脚本已补充临时表显式 collation，避免预览阶段 join 直接报错。
+- 当前 property 基线：
+  - `south_rtu`：`iot_product_model` 中 `property_count=0`，`tdengineLegacy=0`。
+  - `south_multi_displacement`：`property_count=0`，`tdengineLegacy=0`。
+  - `south_gnss_monitor`：`property_count=0`，`tdengineLegacy=0`。
+  - `south_deep_displacement`：`property_count=2`（仅 `dispsX / dispsY`），`tdengineLegacy=0`。
+- 代表性 seed 覆盖情况：
+  - `south_rtu / south_multi_displacement / south_gnss_monitor` 的 12 个代表性 seed 当前全部 `MISSING_MODEL`。
+  - `south_deep_displacement` 中 `dispsX / dispsY` 已存在，但仍是 `MISSING_TDENGINE_LEGACY`；`S1_ZT_1.ext_power_volt` 仍为 `MISSING_MODEL`。
+- live gap 汇总：
+  - `south_rtu`：`DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=31`。当前已确认未追踪的裂缝点位至少包含 `L1_LF_4` ~ `L1_LF_9`。
+  - `south_multi_displacement`：`DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=22`。
+  - `south_gnss_monitor`：`DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=27`。
+  - `south_deep_displacement`：`DRAFT_PATCH=2`，`DRAFT_SEED=1`，`UNTRACKED_LIVE_GAP=36`；父级 `S1_ZT_1.*` 已确认还缺 `battery_dump_energy`、`battery_volt`、`consume_power`、`humidity`、`humidity_out`、`lat`、`lon`、`sensor_state.L1_SW_1`、`signal_4g`、`singal_db`、`singal_NB`、`solar_volt`、`supply_power`、`sw_version`、`temp`、`temp_out`。
+- 为避免下一轮继续靠人工比对，草案 SQL 末尾已新增 live gap 导出查询，会直接输出 `MISSING_MODEL / MISSING_TDENGINE_LEGACY` 与 `DRAFT_SEED / DRAFT_PATCH / UNTRACKED_LIVE_GAP`。
+
+### 2026-03-25 第二轮 seed 扩充 dry-run 补记
+
+- 已把 `south_rtu` 的 `L1_LF_4` ~ `L1_LF_9` 追加到 `tmp_tdengine_mapping_gap_seed`，并把 `south_deep_displacement` 父级 `S1_ZT_1.*` 缺口一次性扩充到 17 条 draft seed。
+- 当前 seed 行数：
+  - `south_rtu=10`
+  - `south_multi_displacement=4`
+  - `south_gnss_monitor=4`
+  - `south_deep_displacement=17`
+- 第二轮 dry-run 后的 live gap 汇总：
+  - `south_rtu`：`DRAFT_SEED=10`，`UNTRACKED_LIVE_GAP=25`。
+  - `south_multi_displacement`：仍为 `DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=22`。
+  - `south_gnss_monitor`：仍为 `DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=27`。
+  - `south_deep_displacement`：`DRAFT_PATCH=2`，`DRAFT_SEED=17`，`UNTRACKED_LIVE_GAP=20`。
+- 本轮 dry-run 额外发现：
+  - `south_rtu` 的 `L1_LF_4` 在真实库中同时出现 `int / double` 两种 `value_type`，草案先统一按裂缝数值 `double` 占位，后续要结合 live 样本再确认是否需要类型兼容。
+  - `south_rtu` 的 `S1_ZT_1.signal_4g`、`S1_ZT_1.singal_NB` 当前也存在 `int / string` 混型，下一轮不宜直接按单一数值类型落正式映射，优先补 normalizer 类型兼容或在草案里保留更保守的占位口径。
+  - `south_rtu` 当前剩余未追踪缺口，已集中收敛到父级状态类与传感器状态指标：`S1_ZT_1.battery_dump_energy`、`battery_volt`、`consume_power`、`humidity`、`humidity_out`、`lat`、`lon`、`signal_4g`、`singal_bd`、`singal_db`、`singal_NB`、`solar_volt`、`supply_power`、`sw_version`、`temp`、`temp_out`，以及 `S1_ZT_1.sensor_state.L1_LF_1` ~ `S1_ZT_1.sensor_state.L1_LF_9`。
+  - `south_deep_displacement` 当前剩余未追踪缺口，已主要集中在 split child 指标 `L1_SW_1` ~ `L1_SW_8` 的 `dispsX / dispsY`，以及临时验证残留 `codex_verify_humidity_20260324`、`codex_verify_temp_20260324`、`humidity`、`temperature`；其中 `L1_SW_*.(dispsX|dispsY)` 当前全部为 `double`，更适合作为下一轮批量 seed / alias 决策对象。
+
+### 2026-03-25 第三轮 seed 扩充 dry-run 补记
+
+- 已把 `south_rtu` 父级状态类与 `sensor_state.L1_LF_*` 一次性补齐到草案：
+  - 父级状态字段：`battery_dump_energy`、`battery_volt`、`consume_power`、`humidity`、`humidity_out`、`lat`、`lon`、`signal_4g`、`singal_bd`、`singal_db`、`singal_NB`、`solar_volt`、`supply_power`、`sw_version`、`temp`、`temp_out`
+  - 传感器状态字段：`S1_ZT_1.sensor_state.L1_LF_1` ~ `S1_ZT_1.sensor_state.L1_LF_9`
+- 当前 seed 行数：
+  - `south_rtu=35`
+  - `south_multi_displacement=4`
+  - `south_gnss_monitor=4`
+  - `south_deep_displacement=17`
+- 第三轮 dry-run 后的 live gap 汇总：
+  - `south_rtu`：`DRAFT_SEED=35`，已无 `UNTRACKED_LIVE_GAP`。
+  - `south_multi_displacement`：仍为 `DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=22`。
+  - `south_gnss_monitor`：仍为 `DRAFT_SEED=4`，`UNTRACKED_LIVE_GAP=27`。
+  - `south_deep_displacement`：`DRAFT_PATCH=2`，`DRAFT_SEED=17`，`UNTRACKED_LIVE_GAP=20`。
+- 本轮 dry-run 额外发现：
+  - `south_rtu` 当前的主要问题已从“seed 缺失”转为“字段类型与 legacy 列定义尚未收敛”，其中 `L1_LF_3 / L1_LF_4` 仍有 `int / double` 混型，`signal_4g / singal_NB` 仍有 `int / string` 混型。
+  - 草案因此对 `signal_4g`、`singal_NB` 先采用 `string` 占位；这只是治理占位，不代表最终产品物模型应直接固化为字符串。
+  - 当前唯一仍未追踪的真实环境 gap 已集中到 `south_deep_displacement`：`L1_SW_1` ~ `L1_SW_8` 的 `dispsX / dispsY`，以及临时验证残留 `codex_verify_humidity_20260324`、`codex_verify_temp_20260324`、`humidity`、`temperature`。
+
+### 2026-03-25 深部位移单设备 alias 根因补记
+
+- 继续排查 `south_deep_displacement` 的 `UNTRACKED_LIVE_GAP=20` 后，已确认其中最新写入的 `L1_SW_1.dispsX / L1_SW_1.dispsY` 并非“基站缺少子设备映射”，而是单设备深部位移终端 `SK00EB0D1308310 / SK00EB0D1308314` 在无 `sub-device-mappings` 场景下仍把唯一逻辑测点保留为 `L1_SW_1.*` 前缀。
+- 代码对照结论：
+  - 基准站 `SK00FB0D1310195` 的“基站 + 8 子设备”路径仍应走 `LegacyDpChildMessageSplitter` 的子消息拆分，并写入子设备 `dispsX / dispsY`。
+  - 单设备深部位移场景不应继续向 `iot_device_property` 写入 `L1_SW_1.dispsX` 这类前缀属性，而应折叠为当前设备自身的 `dispsX / dispsY`，与现有产品物模型保持一致。
+- 已补协议层修复：
+  - `LegacyDpChildMessageSplitter` 在“无子设备映射 + family code 仅包含 `S1_ZT_1` 与单个 `L1_SW_*` 逻辑测点”场景下，会把逻辑前缀属性折叠为当前设备属性，并保留混合传感器报文的原始 `L1_SW_*` 前缀。
+  - 新增 `LegacyDpChildMessageSplitterTest.shouldCollapseSingleDeepDisplacementLogicalCodeWhenNoSubDeviceMappingExists` 回归测试，覆盖 `S1_ZT_1` 状态字段与 `L1_SW_1.dispsX / dispsY` 共存场景。
+  - 新增 `MqttJsonProtocolAdapterTest.shouldCollapseSingleDeepDisplacementLogicalPropertiesWithoutSubDeviceMappings` 适配器层回归测试，并补充 `LegacyDpChildMessageSplitterTest.shouldKeepLogicalPrefixWhenLegacyPayloadContainsOtherSensorFamilies` 反例，锁住“混合传感器报文不折叠”边界。
+  - 协议回归命令 `mvn -pl spring-boot-iot-protocol -am "-DskipTests=false" "-Dmaven.test.skip=false" "-Dtest=MqttJsonProtocolAdapterTest,LegacyDpEnvelopeDecoderTest,LegacyDpPropertyNormalizerTest,LegacyDpChildMessageSplitterTest,MqttTopicParserTest,MqttPayloadSecurityValidatorTest,MqttPayloadDecryptorRegistryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 已通过，合计 30 条测试全部通过。
+- `2026-03-27` 已在当前 worktree 对应的 `dev` 实例补做真实环境复验：
+  - 通过 `POST /api/message/mqtt/report/publish` 向 `$dp` 发送 `STANDARD_TYPE_2` 明文帧，样本设备 `SK00EB0D1308310`，`sessionId=bb342847b1b14fefa8c2d238f4c68bdc`，`traceId=c15a78d53f0443c0a47ad20154ab8a3b`。
+  - `GET /api/device/message-flow/trace/c15a78d53f0443c0a47ad20154ab8a3b` 已确认阶段完整闭环，`PROTOCOL_DECODE.summary.familyCodes=["L1_SW_1"]`、`normalizationStrategy=LEGACY_DP_COMPAT`、`childSplitApplied=false`，`PAYLOAD_APPLY.summary.propertyCount=2`，`TELEMETRY_PERSIST.summary.normalizedFallbackCount=2`。
+  - `GET /api/device/SK00EB0D1308310/properties` 已确认本轮新增写入的是当前设备 `dispsX=-0.0445`、`dispsY=0.0293`，`updateTime=2026-03-27T09:08:35`；历史残留 `L1_SW_1.dispsX / L1_SW_1.dispsY` 没有被继续刷新。
+  - `GET /api/telemetry/latest?deviceId=1925451072155930626` 已确认最新 `traceId=c15a78d53f0443c0a47ad20154ab8a3b` 只把本轮新值写入 canonical `dispsX / dispsY`，而旧 `L1_SW_1.*` 仅作为历史残留继续可见。
+- 注意：当前真实库里的 `UNTRACKED_LIVE_GAP=20` 仍是历史数据快照，未随代码修改自动清零；但 `2026-03-27` 的新样本已确认单设备场景不会继续生成新的 `L1_SW_1.*` 前缀属性。
+
+### 2026-03-25 第四轮 seed 扩充 dry-run 补记
+
+- 已把 `south_multi_displacement` 的剩余 22 个 live identifier 全量补到 draft seed，并修正 `S1_ZT_1.pa_state` 为 `bool` 占位。
+- 已把 `south_gnss_monitor` 的剩余 27 个 live identifier 全量补到 draft seed，覆盖 `L1_JS_1.*`、`L1_QJ_1.*` 与父级 `S1_ZT_1.*` 状态类。
+- 当前 seed 行数：
+  - `south_rtu=35`
+  - `south_multi_displacement=26`
+  - `south_gnss_monitor=31`
+  - `south_deep_displacement=17`
+- 第四轮 dry-run 后的 live gap 汇总：
+  - `south_rtu`：`DRAFT_SEED=35`。
+  - `south_multi_displacement`：`DRAFT_SEED=26`，已无 `UNTRACKED_LIVE_GAP`。
+  - `south_gnss_monitor`：`DRAFT_SEED=31`，已无 `UNTRACKED_LIVE_GAP`。
+  - `south_deep_displacement`：`DRAFT_PATCH=2`，`DRAFT_SEED=17`，`UNTRACKED_LIVE_GAP=20`。
+- 本轮 dry-run 额外发现：
+  - `south_multi_displacement` 当前的主要问题已从“seed 缺失”转为“字段类型与 legacy 列定义尚未收敛”，其中 `humidity / solar_volt / temp` 存在 `double / int` 混型，`lat / lon` 存在 `string / double` 混型，`pa_state` 的真实类型为 `bool`。
+  - `south_gnss_monitor` 当前也已从“seed 缺失”转为“类型与列定义收敛”问题，其中 `L1_JS_1.gY / gZ`、`L1_QJ_1.angle / Y / Z`、`S1_ZT_1.ext_power_volt` 仍存在 `double / int` 混型；此外 `S1_ZT_1.sensor_state.L1_JZ_1` 说明 live 场景还带有额外传感器状态分支，后续要结合 TDengine `DESCRIBE` 决定是否长期纳管。
+  - 经过本轮补齐后，映射草案的唯一未追踪 live gap 已稳定收敛到 `south_deep_displacement` 的历史残留 `L1_SW_*.(dispsX|dispsY)` 与临时验证指标。
+
+### 2026-03-25 TDengine DESCRIBE 复核补记
+
+- 已通过 `curl -u root:*** http://8.130.107.120:6041/rest/sql/iot -d "DESCRIBE <stable>"` 复核 TDengine REST 鉴权与 SQL 查询链路，`PENDING_TDENGINE_VERIFICATION` 的“认证未恢复”阻塞已解除。
+- 关键 stable 当前真实列定义如下：
+  - `s1_zt_1`：`ext_power_volt`、`solar_volt`、`battery_dump_energy`、`signal_nb`、`signal_db`、`temp`、`humidity`、`lon`、`lat`、`signal_4g`、`sw_version`、`pa_state`、`sound_state`、`sensor_state`
+  - `l1_lf_1`：`lf`
+  - `l1_js_1`：`gx`、`gy`、`gz`
+  - `l1_qj_1`：`angle`、`azi`、`x`、`y`、`z`
+  - `l1_gp_1`：`gps_total_z`、`gps_total_x`、`gps_total_y`
+  - `l1_sw_1`：`disps_x`、`disps_y`
+- 复核后结论：
+  - 当前阻塞不再是“TDengine 连不上 / 查不到 stable”，而是 live identifier 到真实列名的 canonicalization、下划线风格收敛，以及 mixed type 与历史脏数据清理。
+  - `l1_js_1.gz` 当前真实类型为 `NCHAR`，与 live 侧 `gZ` 的数值预期存在冲突，后续需要先确认是否沿用字符串列、改写映射策略，还是把该指标继续保留为 `enabled=false` 占位。
+  - `s1_zt_1` 已确认采用 `signal_nb / signal_db` 命名，不应继续把 `singal_NB / singal_db` 这类拼写漂移当作正式映射候选。
 
 ## Task 7 Step 2 下一步实现计划
 
 1. 先执行 `sql/upgrade/20260324_phase5_tdengine_mapping_gap_draft.sql` 的 dry-run 预览，确认四类 `productKey` 在当前真实库里的 property 基线、已有 `tdengineLegacy` 和代表性缺口。
-2. 再把 live 窗口中尚未收录的完整 identifier 导出追加到草案，尤其是 `south_rtu` 的剩余裂缝点位和 `south_deep_displacement` 父级 `S1_ZT_1.*` 指标。
-3. 待 TDengine REST / SQL 认证恢复后，逐 stable 执行 `DESCRIBE`，把草案中的 stable/column hint 收敛成真实映射，再决定哪些指标允许切换到 `enabled=true`。
-4. 在映射核验完成前，继续把 `NORMALIZED_FALLBACK_ONLY` 视为治理信号，而不是默认成功态；草案 SQL 也不得直接作为真实环境最终升级脚本执行。
-5. 映射补齐后，重新执行 Task 7 的 live 验收，至少对 `south_rtu / south_multi_displacement / south_gnss_monitor / south_deep_displacement` 各补 1 个正样本，复核 `legacyStableCount` 是否恢复。
+2. `south_deep_displacement` 不再继续盲补 `L1_SW_*.(dispsX|dispsY)` 到草案；`2026-03-27` 真实环境补采样已确认单设备场景回到 `dispsX / dispsY`。下一步只清理历史残留 `L1_SW_*` 与临时验证指标，并为现有 `dispsX / dispsY` 收敛 `tdengineLegacy -> l1_sw_1.disps_x / disps_y` 的 canonical mapping；`south_multi_displacement / south_gnss_monitor` 当前仅剩类型收敛与 TDengine 列核验。
+3. 基于已确认的 `DESCRIBE` 结果，逐 stable 把草案里的 hint 收敛为真实列名建议：
+   - `L1_GP_1.gpsTotalZ/X/Y -> l1_gp_1.gps_total_z/x/y`
+   - `L1_JS_1.gX/gY/gZ -> l1_js_1.gx/gy/gz`
+   - `L1_QJ_1.azimuth/X/Y/Z -> l1_qj_1.azi/x/y/z`
+   - `dispsX/dispsY -> l1_sw_1.disps_x/disps_y`
+   - `signal_NB/signal_db/singal_* -> s1_zt_1.signal_nb/signal_db`
+4. 在 canonicalization 与 mixed type 策略未定前，继续把 `NORMALIZED_FALLBACK_ONLY` 视为治理信号，而不是默认成功态；草案 SQL 也不得直接作为真实环境最终升级脚本执行。
+5. 映射 hint 收敛后，重新执行 Task 7 的 live 验收，至少对 `south_rtu / south_multi_displacement / south_gnss_monitor / south_deep_displacement` 各补 1 个正样本，复核 `legacyStableCount` 是否恢复，并重点观察 `l1_sw_1.disps_x / disps_y` 是否开始命中 legacy stable。
 6. 若后续需要新的隔离验收环境，优先在仓库根目录 `.worktrees/` 下创建 worktree，不再继续复用 `~/.codex/worktrees/2a61/...` 这类临时路径。
 
 ## 推进顺序建议

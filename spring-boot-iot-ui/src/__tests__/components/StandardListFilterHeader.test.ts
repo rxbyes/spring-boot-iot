@@ -132,4 +132,29 @@ describe('StandardListFilterHeader', () => {
 
     expect(wrapper.emitted('toggle-advanced')?.[0]).toEqual([])
   })
+
+  it('marks the filter shell as the refined minimal header', async () => {
+    const wrapper = mount(StandardListFilterHeader, {
+      props: {
+        model: {}
+      },
+      slots: {
+        primary: createPrimaryFields(3),
+        actions: '<button class="query-button" type="button">查询</button>'
+      },
+      global: {
+        stubs: {
+          ElForm: ElFormStub,
+          ElCollapseTransition: ElCollapseTransitionStub,
+          ElButton: ElButtonStub,
+          StandardActionGroup: StandardActionGroupStub
+        }
+      }
+    })
+
+    await flushComponentTicks()
+
+    expect(wrapper.classes()).toContain('standard-list-filter-header--minimal')
+    expect(wrapper.find('.standard-list-filter-header__actions-row').classes()).toContain('standard-list-filter-header__actions-row--minimal')
+  })
 })

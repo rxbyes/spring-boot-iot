@@ -1,23 +1,14 @@
 <template>
   <StandardWorkbenchPanel
+    eyebrow="FAILURE ARCHIVE"
     title="接入失败归档台"
     description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，快速回放失败上下文。"
-    show-header-actions
     show-filters
     :show-applied-filters="hasAppliedFilters"
     show-notices
     show-toolbar
     show-pagination
   >
-    <template #header-actions>
-      <StandardChoiceGroup
-        :model-value="viewMode"
-        :options="viewModeOptions"
-        responsive
-        @update:modelValue="handleModeChange"
-      />
-    </template>
-
     <template #filters>
       <StandardListFilterHeader
         :model="searchForm"
@@ -338,6 +329,14 @@
           <div class="detail-field__value detail-field__value--pre">{{ detailContractSnapshot }}</div>
         </div>
       </div>
+      <div class="detail-notice__actions">
+        <StandardButton action="refresh" link :disabled="!detailData.productKey" @click="jumpToProductGovernance">
+          产品定义中心
+        </StandardButton>
+        <StandardButton action="refresh" link :disabled="!detailData.deviceCode" @click="jumpToDeviceGovernance">
+          设备资产中心
+        </StandardButton>
+      </div>
     </section>
 
     <section class="detail-panel">
@@ -375,22 +374,11 @@ import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
 import type { DeviceAccessErrorLog, DeviceAccessErrorStats } from '@/types/api';
 import { formatDateTime, prettyJson } from '@/utils/format';
-
-type ObservabilityViewMode = 'message-trace' | 'access-error';
-
-type ViewModeOption = {
-  label: string;
-  value: ObservabilityViewMode;
-};
-
-const props = defineProps<{
-  viewMode: ObservabilityViewMode;
-  viewModeOptions: ViewModeOption[];
-}>();
-
-const emit = defineEmits<{
-  (event: 'change-view-mode', value: ObservabilityViewMode): void;
-}>();
+import {
+  buildDiagnosticRouteQuery,
+  persistDiagnosticContext,
+  resolveDiagnosticContext
+} from '@/utils/iotAccessDiagnostics';
 
 const route = useRoute();
 const router = useRouter();
@@ -429,6 +417,7 @@ const detailLoading = ref(false);
 const detailErrorMessage = ref('');
 const tableData = ref<DeviceAccessErrorLog[]>([]);
 const detailData = ref<Partial<DeviceAccessErrorLog>>({});
+const restoredDiagnosticContext = ref(resolveDiagnosticContext(route.query as Record<string, unknown>));
 
 const createEmptyStats = (): DeviceAccessErrorStats => ({
   total: 0,
@@ -528,12 +517,6 @@ const statsSummaryText = computed(() => {
   return `失败总量 ${accessErrorStats.value.total}，近1小时 ${accessErrorStats.value.recentHourCount}，近24小时 ${accessErrorStats.value.recent24HourCount}，Trace ${accessErrorStats.value.distinctTraceCount}，高频阶段 ${topStage}，高频协议 ${topProtocol}`;
 });
 
-function handleModeChange(value: ObservabilityViewMode | string | number | boolean) {
-  if (value === 'message-trace' || value === 'access-error') {
-    emit('change-view-mode', value);
-  }
-}
-
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;
 }
@@ -558,12 +541,14 @@ function readQueryValue(key: keyof DeviceAccessErrorQueryParams) {
 }
 
 function applyRouteQuery() {
-  searchForm.traceId = readQueryValue('traceId');
+  const context = resolveDiagnosticContext(route.query as Record<string, unknown>);
+  restoredDiagnosticContext.value = context;
+  searchForm.traceId = readQueryValue('traceId') || context?.traceId || '';
   searchForm.protocolCode = readQueryValue('protocolCode');
   searchForm.failureStage = readQueryValue('failureStage');
-  searchForm.deviceCode = readQueryValue('deviceCode');
-  searchForm.productKey = readQueryValue('productKey');
-  searchForm.topic = readQueryValue('topic');
+  searchForm.deviceCode = readQueryValue('deviceCode') || context?.deviceCode || '';
+  searchForm.productKey = readQueryValue('productKey') || context?.productKey || '';
+  searchForm.topic = readQueryValue('topic') || context?.topic || '';
   searchForm.clientId = readQueryValue('clientId');
   searchForm.errorCode = readQueryValue('errorCode');
   searchForm.exceptionClass = readQueryValue('exceptionClass');
@@ -737,21 +722,37 @@ function canJumpToSystemLog(row?: Partial<DeviceAccessErrorLog>) {
   return Boolean(source.traceId || source.deviceCode || source.productKey || source.topic);
 }
 
+function persistAccessErrorContext(source?: Partial<DeviceAccessErrorLog>) {
+  persistDiagnosticContext({
+    sourcePage: 'access-error',
+    traceId: source?.traceId || appliedFilters.traceId || restoredDiagnosticContext.value?.traceId || undefined,
+    deviceCode: source?.deviceCode || appliedFilters.deviceCode || restoredDiagnosticContext.value?.deviceCode || undefined,
+    productKey: source?.productKey || appliedFilters.productKey || restoredDiagnosticContext.value?.productKey || undefined,
+    topic: source?.topic || appliedFilters.topic || restoredDiagnosticContext.value?.topic || undefined,
+    reportStatus: 'failed',
+    capturedAt: new Date().toISOString()
+  });
+}
+
 function jumpToMessageTrace(row?: Partial<DeviceAccessErrorLog>) {
   const source = row || appliedFilters;
+  persistAccessErrorContext(source);
   router.push({
     path: '/message-trace',
-    query: {
+    query: buildDiagnosticRouteQuery({
+      sourcePage: 'access-error',
       traceId: source.traceId || undefined,
       deviceCode: source.deviceCode || undefined,
       productKey: source.productKey || undefined,
-      topic: source.topic || undefined
-    }
+      topic: source.topic || undefined,
+      capturedAt: new Date().toISOString()
+    })
   });
 }
 
 function jumpToSystemLog(row?: Partial<DeviceAccessErrorLog>) {
   const source = row || appliedFilters;
+  persistAccessErrorContext(source);
   router.push({
     path: '/system-log',
     query: {
@@ -762,6 +763,35 @@ function jumpToSystemLog(row?: Partial<DeviceAccessErrorLog>) {
       requestMethod: source.topic ? 'MQTT' : undefined,
       errorCode: 'errorCode' in source ? source.errorCode || undefined : undefined,
       exceptionClass: 'exceptionClass' in source ? source.exceptionClass || undefined : undefined
+    }
+  });
+}
+
+function jumpToProductGovernance() {
+  if (!detailData.value.productKey) {
+    return;
+  }
+  persistAccessErrorContext(detailData.value);
+  router.push({
+    path: '/products',
+    query: {
+      productKey: detailData.value.productKey,
+      traceId: detailData.value.traceId || undefined
+    }
+  });
+}
+
+function jumpToDeviceGovernance() {
+  if (!detailData.value.deviceCode) {
+    return;
+  }
+  persistAccessErrorContext(detailData.value);
+  router.push({
+    path: '/devices',
+    query: {
+      deviceCode: detailData.value.deviceCode,
+      productKey: detailData.value.productKey || undefined,
+      traceId: detailData.value.traceId || undefined
     }
   });
 }

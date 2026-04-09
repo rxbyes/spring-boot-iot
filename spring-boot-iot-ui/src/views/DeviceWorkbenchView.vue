@@ -1,8 +1,16 @@
 <template>
-  <div class="device-asset-view">
+  <div class="page-stack device-asset-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '设备资产中心' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
-      title="设备资产中心"
-      description="聚焦设备台账维护，支持筛选、查看、父子拓扑维护、编辑、更换、导入导出和设备洞察跳转。"
+      title="设备台账"
+      description="统一维护设备主数据、在线状态与登记信息。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-toolbar
@@ -42,6 +50,12 @@
                 <el-option label="禁用" :value="0" />
               </el-select>
             </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.registrationStatus" placeholder="登记状态" clearable>
+                <el-option label="已登记" :value="1" />
+                <el-option label="未登记" :value="0" />
+              </el-select>
+            </el-form-item>
           </template>
           <template #actions>
             <StandardButton action="query" @click="handleSearch">查询</StandardButton>
@@ -70,6 +84,8 @@
         <StandardTableToolbar
           :meta-items="[
             `已选 ${selectedRows.length} 项`,
+            `已登记 ${registeredCount} 台`,
+            `未登记 ${unregisteredCount} 台`,
             `在线 ${onlineCount} 台`,
             `已激活 ${activatedCount} 台`,
             `停用 ${disabledCount} 台`
@@ -88,8 +104,8 @@
 
       <template #inline-state>
         <StandardInlineState
-          :message="listRefreshMessage"
-          :tone="listRefreshState === 'error' ? 'error' : 'info'"
+          :message="workbenchInlineMessage"
+          :tone="workbenchInlineTone"
         />
       </template>
 
@@ -152,6 +168,7 @@
                 <div class="device-mobile-card__header">
                   <el-checkbox
                     :model-value="isRowSelected(row)"
+                    :disabled="!isSelectableDeviceRow(row)"
                     @change="(checked) => handleMobileSelectionChange(row, Boolean(checked))"
                   />
                   <div class="device-mobile-card__heading">
@@ -163,13 +180,25 @@
 
                 <div class="device-mobile-card__meta">
                   <span class="device-mobile-card__meta-item" :title="formatTextValue(row.productKey)">{{ formatTextValue(row.productKey) }}</span>
+                  <span
+                    :class="[
+                      'device-mobile-card__meta-item',
+                      isRegisteredDeviceRow(row)
+                        ? 'device-mobile-card__meta-item--success'
+                        : 'device-mobile-card__meta-item--warning'
+                    ]"
+                  >
+                    {{ getRegistrationStatusText(row.registrationStatus) }}
+                  </span>
                   <span class="device-mobile-card__meta-item">{{ getNodeTypeText(row.nodeType) }}</span>
                   <span
                     :class="[
                       'device-mobile-card__meta-item',
                       row.activateStatus === 1
                         ? 'device-mobile-card__meta-item--success'
-                        : 'device-mobile-card__meta-item--warning'
+                        : row.activateStatus === 0
+                          ? 'device-mobile-card__meta-item--warning'
+                          : ''
                     ]"
                   >
                     {{ getActivateStatusText(row.activateStatus) }}
@@ -179,7 +208,9 @@
                       'device-mobile-card__meta-item',
                       row.deviceStatus === 1
                         ? 'device-mobile-card__meta-item--success'
-                        : 'device-mobile-card__meta-item--danger'
+                        : row.deviceStatus === 0
+                          ? 'device-mobile-card__meta-item--danger'
+                          : ''
                     ]"
                   >
                     {{ getDeviceStatusText(row.deviceStatus) }}
@@ -219,33 +250,38 @@
 
                 <StandardRowActions variant="card" gap="comfortable" class="device-mobile-card__actions">
                   <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionMenu :items="deviceRowActions" @command="(command) => handleMobileRowAction(command, row)" />
+                  <StandardActionLink v-if="canEditDeviceRow(row)" v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                  <StandardActionMenu :items="getDeviceRowActions(row)" @command="(command) => handleMobileRowAction(command, row)" />
                 </StandardRowActions>
               </article>
             </div>
           </div>
 
           <el-table ref="tableRef" class="device-desktop-table" :data="tableData" border stripe @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="48" />
+            <el-table-column type="selection" width="48" :selectable="isSelectableDeviceRow" />
             <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="170" />
             <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="160" />
+            <StandardTableTextColumn prop="registrationStatus" label="登记状态" :width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.registrationStatus === 1 ? 'success' : 'warning'" round>{{ getRegistrationStatusText(row.registrationStatus) }}</el-tag>
+              </template>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
             <StandardTableTextColumn prop="protocolCode" label="协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="row.onlineStatus === 1 ? 'success' : 'info'" round>{{ getOnlineStatusText(row.onlineStatus) }}</el-tag>
+                <el-tag :type="getOnlineStatusTagType(row.onlineStatus)" round>{{ getOnlineStatusText(row.onlineStatus) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="activateStatus" label="激活状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="row.activateStatus === 1 ? 'success' : 'warning'" round>{{ getActivateStatusText(row.activateStatus) }}</el-tag>
+                <el-tag :type="getActivateStatusTagType(row.activateStatus)" round>{{ getActivateStatusText(row.activateStatus) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="deviceStatus" label="设备状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="row.deviceStatus === 1 ? 'success' : 'danger'" round>{{ getDeviceStatusText(row.deviceStatus) }}</el-tag>
+                <el-tag :type="getDeviceStatusTagType(row.deviceStatus)" round>{{ getDeviceStatusText(row.deviceStatus) }}</el-tag>
               </template>
             </el-table-column>
             <StandardTableTextColumn prop="firmwareVersion" label="固件版本" :width="130" />
@@ -260,8 +296,8 @@
               <template #default="{ row }">
                 <StandardRowActions variant="table" gap="wide">
                   <StandardActionLink @click="handleOpenDetail(row)">详情</StandardActionLink>
-                  <StandardActionLink v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
-                  <StandardActionMenu :items="deviceRowActions" @command="(command) => handleMobileRowAction(command, row)" />
+                  <StandardActionLink v-if="canEditDeviceRow(row)" v-permission="'iot:devices:update'" @click="handleEdit(row)">编辑</StandardActionLink>
+                  <StandardActionMenu :items="getDeviceRowActions(row)" @command="(command) => handleMobileRowAction(command, row)" />
                 </StandardRowActions>
               </template>
             </el-table-column>
@@ -296,7 +332,7 @@
       v-model="detailVisible"
       eyebrow="设备资产详情"
       :title="detailTitle"
-      subtitle="统一查看设备资产主档、父子拓扑、维护状态、认证字段与扩展元数据。"
+      :subtitle="detailSubtitle"
       :tags="detailTags"
       :loading="detailLoading"
       :error-message="detailErrorMessage"
@@ -317,34 +353,34 @@
           <div class="detail-section-header">
             <div>
               <h3>资产概览</h3>
-              <p>设备台账先回答“是否已入库、当前是否在线、是否已激活、是否可继续运维”。</p>
+              <p>{{ detailIsRegistered ? '设备台账先回答“是否已入库、当前是否在线、是否已激活、是否可继续运维”。' : '未登记设备优先确认最近一次上报发生在什么阶段失败、当前来源于哪条失败归档。' }}</p>
             </div>
           </div>
           <div class="detail-summary-grid">
             <div class="detail-summary-card">
-              <span class="detail-summary-card__label">产品归属</span>
-              <strong class="detail-summary-card__value">{{ detailData.productName || '--' }}</strong>
+              <span class="detail-summary-card__label">{{ detailIsRegistered ? '产品归属' : '登记状态' }}</span>
+              <strong class="detail-summary-card__value">{{ detailIsRegistered ? detailData.productName || '--' : getRegistrationStatusText(detailData.registrationStatus) }}</strong>
               <p class="detail-summary-card__hint">{{ detailData.productKey || '--' }}</p>
             </div>
             <div class="detail-summary-card">
-              <span class="detail-summary-card__label">在线状态</span>
-              <strong class="detail-summary-card__value">{{ getOnlineStatusText(detailData.onlineStatus) }}</strong>
-              <p class="detail-summary-card__hint">{{ formatDateTime(detailData.lastReportTime) }}</p>
+              <span class="detail-summary-card__label">{{ detailIsRegistered ? '在线状态' : '最近上报' }}</span>
+              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getOnlineStatusText(detailData.onlineStatus) : formatDateTime(detailData.lastReportTime) }}</strong>
+              <p class="detail-summary-card__hint">{{ detailIsRegistered ? formatDateTime(detailData.lastReportTime) : getSourceTypeText(detailData.assetSourceType) }}</p>
             </div>
             <div class="detail-summary-card">
-              <span class="detail-summary-card__label">激活状态</span>
-              <strong class="detail-summary-card__value">{{ getActivateStatusText(detailData.activateStatus) }}</strong>
-              <p class="detail-summary-card__hint">设备可用性基线</p>
+              <span class="detail-summary-card__label">{{ detailIsRegistered ? '激活状态' : '失败阶段' }}</span>
+              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getActivateStatusText(detailData.activateStatus) : formatTextValue(detailData.lastFailureStage) }}</strong>
+              <p class="detail-summary-card__hint">{{ detailIsRegistered ? '设备可用性基线' : formatTextValue(detailData.lastTraceId) }}</p>
             </div>
             <div class="detail-summary-card">
-              <span class="detail-summary-card__label">设备状态</span>
-              <strong class="detail-summary-card__value">{{ getDeviceStatusText(detailData.deviceStatus) }}</strong>
-              <p class="detail-summary-card__hint">是否允许继续使用</p>
+              <span class="detail-summary-card__label">{{ detailIsRegistered ? '设备状态' : '失败摘要' }}</span>
+              <strong class="detail-summary-card__value">{{ detailIsRegistered ? getDeviceStatusText(detailData.deviceStatus) : formatTextValue(detailData.lastErrorMessage) }}</strong>
+              <p class="detail-summary-card__hint">{{ detailIsRegistered ? '是否允许继续使用' : formatTextValue(detailData.lastReportTopic) }}</p>
             </div>
           </div>
         </section>
 
-        <section class="detail-panel">
+        <section v-if="detailIsRegistered" class="detail-panel">
           <div class="detail-section-header">
             <div>
               <h3>资产档案</h3>
@@ -387,7 +423,7 @@
           </div>
         </section>
 
-        <section class="detail-panel">
+        <section v-if="detailIsRegistered" class="detail-panel">
           <div class="detail-section-header">
             <div>
               <h3>拓扑关系</h3>
@@ -414,7 +450,7 @@
           </div>
         </section>
 
-        <section class="detail-panel">
+        <section v-if="detailIsRegistered" class="detail-panel">
           <div class="detail-section-header">
             <div>
               <h3>运维信息</h3>
@@ -445,7 +481,7 @@
           </div>
         </section>
 
-        <section class="detail-panel">
+        <section v-if="detailIsRegistered" class="detail-panel">
           <div class="detail-section-header">
             <div>
               <h3>认证信息</h3>
@@ -472,7 +508,7 @@
           </div>
         </section>
 
-        <section class="detail-panel">
+        <section v-if="detailIsRegistered" class="detail-panel">
           <div class="detail-section-header">
             <div>
               <h3>扩展元数据</h3>
@@ -484,6 +520,56 @@
             <pre class="detail-field__value detail-field__value--pre">{{ metadataPreview }}</pre>
           </div>
         </section>
+
+        <template v-else>
+          <section class="detail-panel">
+            <div class="detail-section-header">
+              <div>
+                <h3>上报档案</h3>
+                <p>当前设备尚未登记，详情来自最近一次失败归档，只用于确认设备编码、产品标识、协议与 Topic。</p>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div class="detail-field">
+                <span class="detail-field__label">设备编码</span>
+                <strong class="detail-field__value">{{ detailData.deviceCode || '--' }}</strong>
+              </div>
+              <div class="detail-field">
+                <span class="detail-field__label">产品标识</span>
+                <strong class="detail-field__value">{{ detailData.productKey || '--' }}</strong>
+              </div>
+              <div class="detail-field">
+                <span class="detail-field__label">协议编码</span>
+                <strong class="detail-field__value">{{ detailData.protocolCode || '--' }}</strong>
+              </div>
+              <div class="detail-field">
+                <span class="detail-field__label">来源记录</span>
+                <strong class="detail-field__value">{{ formatTextValue(detailData.sourceRecordId) }}</strong>
+              </div>
+              <div class="detail-field detail-field--full">
+                <span class="detail-field__label">Topic</span>
+                <strong class="detail-field__value detail-field__value--plain">{{ detailData.lastReportTopic || '--' }}</strong>
+              </div>
+              <div class="detail-field detail-field--full">
+                <span class="detail-field__label">失败摘要</span>
+                <strong class="detail-field__value detail-field__value--plain">{{ detailData.lastErrorMessage || '--' }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="detail-panel">
+            <div class="detail-section-header">
+              <div>
+                <h3>最近载荷</h3>
+                <p>保留最近一次未登记上报的原始载荷，便于后续补建设备主档或回查协议映射。</p>
+              </div>
+            </div>
+            <div class="detail-field detail-field--full">
+              <span class="detail-field__label">payload</span>
+              <pre class="detail-field__value detail-field__value--pre">{{ prettyJson(detailData.lastPayload || '--') }}</pre>
+            </div>
+          </section>
+        </template>
       </div>
 
       <template #footer>
@@ -494,7 +580,7 @@
           <StandardButton
             action="confirm"
             class="standard-drawer-footer__button standard-drawer-footer__button--primary"
-            :disabled="!detailData?.deviceCode"
+            :disabled="!canJumpToInsight(detailData)"
             @click="handleJumpToInsight(detailData)"
           >
             进入对象洞察台
@@ -746,6 +832,8 @@ import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue'
+import { accessErrorApi } from '@/api/accessError'
 import { deviceApi } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
@@ -753,6 +841,7 @@ import { usePermissionStore } from '@/stores/permission'
 import type {
   Device,
   DeviceAddPayload,
+  DeviceAccessErrorLog,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
   DeviceOption,
@@ -795,6 +884,7 @@ import {
 } from '@/utils/csvColumns'
 import { confirmAction, confirmDelete, isConfirmCancelled } from '@/utils/confirm'
 import { formatDateTime, prettyJson } from '@/utils/format'
+import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 
 interface DeviceSearchForm {
   deviceId: string
@@ -804,6 +894,7 @@ interface DeviceSearchForm {
   onlineStatus: number | undefined
   activateStatus: number | undefined
   deviceStatus: number | undefined
+  registrationStatus: number | undefined
 }
 
 type DeviceFilterKey = keyof DeviceSearchForm
@@ -847,6 +938,7 @@ const detailErrorMessage = ref('')
 const detailRefreshErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
+const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
 const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const replaceRefreshMessage = ref('')
@@ -898,7 +990,8 @@ const searchForm = reactive<DeviceSearchForm>({
   deviceName: '',
   onlineStatus: undefined,
   activateStatus: undefined,
-  deviceStatus: undefined
+  deviceStatus: undefined,
+  registrationStatus: undefined
 })
 const appliedFilters = reactive<DeviceSearchForm>({
   deviceId: '',
@@ -907,7 +1000,8 @@ const appliedFilters = reactive<DeviceSearchForm>({
   deviceName: '',
   onlineStatus: undefined,
   activateStatus: undefined,
-  deviceStatus: undefined
+  deviceStatus: undefined,
+  registrationStatus: undefined
 })
 const quickSearchKeyword = ref('')
 const showAdvancedFilters = ref(false)
@@ -936,10 +1030,23 @@ const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTota
 
 const formTitle = computed(() => (editingDeviceId.value ? '编辑设备' : '新增设备'))
 const submitPermission = computed(() => (editingDeviceId.value ? 'iot:devices:update' : 'iot:devices:add'))
-const detailTitle = computed(() => detailData.value?.deviceName || detailData.value?.deviceCode || '设备详情')
+const detailTitle = computed(() => {
+  if (detailData.value?.registrationStatus === 0) {
+    return detailData.value.deviceCode || '未登记设备'
+  }
+  return detailData.value?.deviceName || detailData.value?.deviceCode || '设备详情'
+})
+const detailIsRegistered = computed(() => isRegisteredDeviceRow(detailData.value))
+const detailSubtitle = computed(() =>
+  detailIsRegistered.value
+    ? '统一查看设备资产主档、父子拓扑、维护状态、认证字段与扩展元数据。'
+    : '当前设备尚未登记，详情来自最近一次失败归档，用于补档和排障。'
+)
 const onlineCount = computed(() => tableData.value.filter((item) => item.onlineStatus === 1).length)
 const activatedCount = computed(() => tableData.value.filter((item) => item.activateStatus === 1).length)
 const disabledCount = computed(() => tableData.value.filter((item) => item.deviceStatus === 0).length)
+const registeredCount = computed(() => tableData.value.filter((item) => item.registrationStatus !== 0).length)
+const unregisteredCount = computed(() => tableData.value.filter((item) => item.registrationStatus === 0).length)
 const metadataPreview = computed(() => prettyJson(detailData.value?.metadataJson || '{}'))
 const deviceOptionMap = computed(() => new Map(deviceOptions.value.map((option) => [normalizeIdKey(option.id), option])))
 const selectedFormProduct = computed(() => productOptions.value.find((product) => product.productKey === formData.productKey) ?? null)
@@ -971,14 +1078,20 @@ const formGatewayPreview = computed(() => resolveGatewayPreviewText(selectedForm
 const selectedRowKeySet = computed(() => new Set(selectedRows.value.map((item) => getDeviceRowKey(item)).filter(Boolean)))
 const hasRecords = computed(() => tableData.value.length > 0)
 const showListSkeleton = computed(() => loading.value && !hasRecords.value)
-const showListInlineState = computed(() => Boolean(listRefreshMessage.value) && hasRecords.value)
-const deviceRowActions = computed<DeviceRowAction[]>(() =>
-  [
-    { key: 'replace', command: 'replace', label: '更换', permission: 'iot:devices:replace' },
-    { key: 'insight', command: 'insight', label: '洞察' },
-    { key: 'delete', command: 'delete', label: '删除', permission: 'iot:devices:delete' }
-  ].filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
-)
+const diagnosticEntryMessage = computed(() => {
+  if (!diagnosticContext.value) {
+    return ''
+  }
+  const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
+  const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
+  const deviceLabel = diagnosticContext.value.deviceCode ? `设备 ${diagnosticContext.value.deviceCode}` : ''
+  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, deviceLabel, '优先核对登记状态、在线态与失败来源。']
+    .filter(Boolean)
+    .join(' · ')
+})
+const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
+const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
+const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const advancedAppliedFilterCount = computed(() => countFilledFilters(appliedFilters, advancedFilterKeys))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedFilterCount.value === 0) {
@@ -1013,21 +1126,41 @@ const activeFilterTags = computed(() => {
   if (appliedFilters.deviceStatus !== undefined) {
     tags.push({ key: 'deviceStatus', label: `设备状态：${getDeviceStatusText(appliedFilters.deviceStatus)}` })
   }
+  if (appliedFilters.registrationStatus !== undefined) {
+    tags.push({ key: 'registrationStatus', label: `登记状态：${getRegistrationStatusText(appliedFilters.registrationStatus)}` })
+  }
   return tags
 })
 const hasAppliedFilters = computed(() => activeFilterTags.value.length > 0)
-const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的设备' : '还没有设备资产'))
+const emptyStateTitle = computed(() => {
+  if (hasAppliedFilters.value) {
+    return '没有符合条件的设备'
+  }
+  if (searchForm.registrationStatus === 0 || appliedFilters.registrationStatus === 0) {
+    return '还没有未登记上报设备'
+  }
+  return '还没有设备资产'
+})
 const emptyStateDescription = computed(() =>
   hasAppliedFilters.value
     ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
-    : '当前还没有设备资产，先新增设备或批量导入，再继续做台账维护和状态核查。'
+    : searchForm.registrationStatus === 0 || appliedFilters.registrationStatus === 0
+      ? '当前还没有命中未登记上报名单，可先切回全部或已登记视图继续排查。'
+      : '当前还没有设备资产，先新增设备或批量导入，再继续做台账维护和状态核查。'
 )
 
 const detailTags = computed(() => {
   if (!detailData.value) {
     return []
   }
+  if (!detailIsRegistered.value) {
+    return [
+      { label: getRegistrationStatusText(detailData.value.registrationStatus), type: 'warning' as const },
+      { label: getSourceTypeText(detailData.value.assetSourceType), type: 'info' as const }
+    ]
+  }
   return [
+    { label: getRegistrationStatusText(detailData.value.registrationStatus), type: 'success' as const },
     { label: getOnlineStatusText(detailData.value.onlineStatus), type: detailData.value.onlineStatus === 1 ? 'success' : 'info' as const },
     { label: getActivateStatusText(detailData.value.activateStatus), type: detailData.value.activateStatus === 1 ? 'success' : 'warning' as const },
     { label: getDeviceStatusText(detailData.value.deviceStatus), type: detailData.value.deviceStatus === 1 ? 'success' : 'danger' as const }
@@ -1059,6 +1192,7 @@ const formRules: FormRules<DeviceFormState> = {
 
 const exportColumns: CsvColumn<Device>[] = [
   { key: 'id', label: '设备 ID' },
+  { key: 'registrationStatus', label: '登记状态', formatter: (value) => getRegistrationStatusText(value as number | null | undefined) },
   { key: 'deviceCode', label: '设备编码' },
   { key: 'deviceName', label: '设备名称' },
   { key: 'parentDeviceCode', label: '父设备编码' },
@@ -1068,6 +1202,7 @@ const exportColumns: CsvColumn<Device>[] = [
   { key: 'productKey', label: '产品 Key' },
   { key: 'productName', label: '产品名称' },
   { key: 'protocolCode', label: '接入协议' },
+  { key: 'assetSourceType', label: '数据来源', formatter: (value) => getSourceTypeText(value as string | null | undefined) },
   { key: 'nodeType', label: '节点类型', formatter: (value) => getNodeTypeText(Number(value)) },
   { key: 'onlineStatus', label: '在线状态', formatter: (value) => getOnlineStatusText(Number(value)) },
   { key: 'activateStatus', label: '激活状态', formatter: (value) => getActivateStatusText(Number(value)) },
@@ -1093,15 +1228,59 @@ const selectedExportColumnKeys = ref<string[]>(
 )
 
 function getOnlineStatusText(value?: number | null) {
+  if (value === undefined || value === null) {
+    return '--'
+  }
   return value === 1 ? '在线' : '离线'
 }
 
 function getActivateStatusText(value?: number | null) {
+  if (value === undefined || value === null) {
+    return '--'
+  }
   return value === 1 ? '已激活' : '未激活'
 }
 
 function getDeviceStatusText(value?: number | null) {
+  if (value === undefined || value === null) {
+    return '--'
+  }
   return value === 1 ? '启用' : '禁用'
+}
+
+function getRegistrationStatusText(value?: number | null) {
+  return value === 0 ? '未登记' : '已登记'
+}
+
+function getSourceTypeText(value?: string | null) {
+  if (value === 'access_error') {
+    return '失败归档'
+  }
+  if (value === 'dispatch_failed') {
+    return '失败轨迹'
+  }
+  return '设备主档'
+}
+
+function getOnlineStatusTagType(value?: number | null) {
+  if (value === undefined || value === null) {
+    return 'info'
+  }
+  return value === 1 ? 'success' : 'info'
+}
+
+function getActivateStatusTagType(value?: number | null) {
+  if (value === undefined || value === null) {
+    return 'info'
+  }
+  return value === 1 ? 'success' : 'warning'
+}
+
+function getDeviceStatusTagType(value?: number | null) {
+  if (value === undefined || value === null) {
+    return 'info'
+  }
+  return value === 1 ? 'success' : 'danger'
 }
 
 function getNodeTypeText(value?: number | null) {
@@ -1185,6 +1364,40 @@ function hasFilledFilter(filters: DeviceSearchForm, key: DeviceFilterKey) {
     return value.trim() !== ''
   }
   return value !== undefined
+}
+
+function isRegisteredDeviceRow(row?: Partial<Device> | null) {
+  return row?.registrationStatus !== 0
+}
+
+function isSelectableDeviceRow(row?: Device) {
+  return isRegisteredDeviceRow(row)
+}
+
+function canEditDeviceRow(row?: Device | null) {
+  return Boolean(row && isRegisteredDeviceRow(row))
+}
+
+function canReplaceDeviceRow(row?: Device | null) {
+  return Boolean(row && isRegisteredDeviceRow(row))
+}
+
+function canDeleteDeviceRow(row?: Device | null) {
+  return Boolean(row && isRegisteredDeviceRow(row) && row.id !== undefined && row.id !== null && row.id !== '')
+}
+
+function canJumpToInsight(row?: Device | null) {
+  return Boolean(row?.deviceCode && isRegisteredDeviceRow(row))
+}
+
+function getDeviceRowActions(row: Device): DeviceRowAction[] {
+  const actions: DeviceRowAction[] = []
+  if (canReplaceDeviceRow(row)) {
+    actions.push({ key: 'replace', command: 'replace', label: '更换', permission: 'iot:devices:replace' })
+    actions.push({ key: 'insight', command: 'insight', label: '洞察' })
+    actions.push({ key: 'delete', command: 'delete', label: '删除', permission: 'iot:devices:delete' })
+  }
+  return actions.filter((action) => !action.permission || permissionStore.hasPermission(action.permission))
 }
 
 function countFilledFilters(filters: DeviceSearchForm, keys: readonly DeviceFilterKey[]) {
@@ -1271,7 +1484,8 @@ function matchesCurrentFilters(device: Device) {
     deviceName: appliedFilters.deviceName,
     onlineStatus: appliedFilters.onlineStatus,
     activateStatus: appliedFilters.activateStatus,
-    deviceStatus: appliedFilters.deviceStatus
+    deviceStatus: appliedFilters.deviceStatus,
+    registrationStatus: appliedFilters.registrationStatus
   })
 }
 
@@ -1352,7 +1566,7 @@ function removeLocalTableRows(rows: Array<Partial<Device> | null | undefined>) {
 }
 
 function handleSelectionChange(rows: Device[]) {
-  selectedRows.value = rows
+  selectedRows.value = rows.filter((row) => isSelectableDeviceRow(row))
 }
 
 function isRowSelected(row: Device) {
@@ -1360,6 +1574,9 @@ function isRowSelected(row: Device) {
 }
 
 function handleMobileSelectionChange(row: Device, checked: boolean) {
+  if (!isSelectableDeviceRow(row)) {
+    return
+  }
   const rowKey = getDeviceRowKey(row)
   const nextRows = checked
     ? [...selectedRows.value.filter((item) => getDeviceRowKey(item) !== rowKey), row]
@@ -1397,6 +1614,7 @@ function syncAppliedFilters() {
   appliedFilters.onlineStatus = searchForm.onlineStatus
   appliedFilters.activateStatus = searchForm.activateStatus
   appliedFilters.deviceStatus = searchForm.deviceStatus
+  appliedFilters.registrationStatus = searchForm.registrationStatus
 }
 
 function clearSearchForm() {
@@ -1407,6 +1625,7 @@ function clearSearchForm() {
   searchForm.onlineStatus = undefined
   searchForm.activateStatus = undefined
   searchForm.deviceStatus = undefined
+  searchForm.registrationStatus = undefined
   showAdvancedFilters.value = false
 }
 
@@ -1454,6 +1673,7 @@ function applyRouteQueryToFilters() {
   searchForm.onlineStatus = parseRouteNumberQuery(route.query.onlineStatus)
   searchForm.activateStatus = parseRouteNumberQuery(route.query.activateStatus)
   searchForm.deviceStatus = parseRouteNumberQuery(route.query.deviceStatus)
+  searchForm.registrationStatus = parseRouteNumberQuery(route.query.registrationStatus)
   showAdvancedFilters.value = countFilledFilters(searchForm, advancedFilterKeys) > 0
   pagination.pageNum = parseRoutePositiveIntQuery(route.query.pageNum, 1)
   pagination.pageSize = parseRoutePositiveIntQuery(route.query.pageSize, defaultPageSize)
@@ -1486,7 +1706,7 @@ function normalizeQueryValue(value: unknown) {
 
 function assignListQueryValue(
   query: Record<string, unknown>,
-  key: 'deviceId' | 'productKey' | 'deviceCode' | 'deviceName' | 'onlineStatus' | 'activateStatus' | 'deviceStatus' | 'pageNum' | 'pageSize',
+  key: 'deviceId' | 'productKey' | 'deviceCode' | 'deviceName' | 'onlineStatus' | 'activateStatus' | 'deviceStatus' | 'registrationStatus' | 'pageNum' | 'pageSize',
   value: string | number | undefined
 ) {
   if (value === undefined || value === '') {
@@ -1505,6 +1725,7 @@ function hasSameListRouteQuery(nextQuery: Record<string, unknown>) {
     normalizeQueryValue(route.query.onlineStatus) === normalizeQueryValue(nextQuery.onlineStatus) &&
     normalizeQueryValue(route.query.activateStatus) === normalizeQueryValue(nextQuery.activateStatus) &&
     normalizeQueryValue(route.query.deviceStatus) === normalizeQueryValue(nextQuery.deviceStatus) &&
+    normalizeQueryValue(route.query.registrationStatus) === normalizeQueryValue(nextQuery.registrationStatus) &&
     normalizeQueryValue(route.query.pageNum) === normalizeQueryValue(nextQuery.pageNum) &&
     normalizeQueryValue(route.query.pageSize) === normalizeQueryValue(nextQuery.pageSize)
   )
@@ -1524,6 +1745,7 @@ async function syncListRouteQuery(options: DevicePageLoadOptions = {}) {
   assignListQueryValue(nextQuery, 'onlineStatus', searchForm.onlineStatus)
   assignListQueryValue(nextQuery, 'activateStatus', searchForm.activateStatus)
   assignListQueryValue(nextQuery, 'deviceStatus', searchForm.deviceStatus)
+  assignListQueryValue(nextQuery, 'registrationStatus', searchForm.registrationStatus)
   assignListQueryValue(nextQuery, 'pageNum', pagination.pageNum > 1 ? pagination.pageNum : undefined)
   assignListQueryValue(nextQuery, 'pageSize', pagination.pageSize !== defaultPageSize ? pagination.pageSize : undefined)
 
@@ -1611,6 +1833,7 @@ function buildCurrentDevicePageQuery(): DevicePageQuerySnapshot {
     onlineStatus: searchForm.onlineStatus,
     activateStatus: searchForm.activateStatus,
     deviceStatus: searchForm.deviceStatus,
+    registrationStatus: searchForm.registrationStatus,
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
@@ -1620,6 +1843,27 @@ function buildDetailPreview(row: Device) {
   return {
     ...row,
     metadataJson: row.metadataJson ?? null
+  }
+}
+
+function mergeUnregisteredDetailSnapshot(base: Partial<Device>, source: DeviceAccessErrorLog): Device {
+  return {
+    ...base,
+    sourceRecordId: source.id,
+    deviceCode: source.deviceCode || base.deviceCode || '',
+    productKey: source.productKey || base.productKey || null,
+    protocolCode: source.protocolCode || base.protocolCode || null,
+    assetSourceType: 'access_error',
+    registrationStatus: 0,
+    lastFailureStage: source.failureStage || base.lastFailureStage || null,
+    lastErrorMessage: source.errorMessage || base.lastErrorMessage || null,
+    lastReportTopic: source.topic || base.lastReportTopic || null,
+    lastTraceId: source.traceId || base.lastTraceId || null,
+    lastPayload: source.rawPayload || base.lastPayload || null,
+    lastReportTime: source.createTime || base.lastReportTime || null,
+    createTime: source.createTime || base.createTime || null,
+    updateTime: source.createTime || base.updateTime || null,
+    deviceName: base.deviceName || '未登记设备'
   }
 }
 
@@ -1882,6 +2126,7 @@ async function prefetchNextDevicePage(query: DevicePageQuerySnapshot, total: num
         onlineStatus: nextQuery.onlineStatus,
         activateStatus: nextQuery.activateStatus,
         deviceStatus: nextQuery.deviceStatus,
+        registrationStatus: nextQuery.registrationStatus,
         pageNum: nextQuery.pageNum,
         pageSize: nextQuery.pageSize
       },
@@ -1951,6 +2196,7 @@ async function loadDevicePage(options: DevicePageLoadOptions = {}) {
         onlineStatus: query.onlineStatus,
         activateStatus: query.activateStatus,
         deviceStatus: query.deviceStatus,
+        registrationStatus: query.registrationStatus,
         pageNum: query.pageNum,
         pageSize: query.pageSize
       },
@@ -2005,6 +2251,45 @@ async function openDetail(target: Device | string | number) {
   detailData.value = detailSnapshot
   detailLoading.value = !detailSnapshot
 
+  if (row && !isRegisteredDeviceRow(row)) {
+    detailLoading.value = false
+    detailRefreshing.value = false
+    if (!row.sourceRecordId) {
+      return
+    }
+
+    const controller = new AbortController()
+    detailAbortController = controller
+    detailRefreshing.value = true
+
+    try {
+      const res = await accessErrorApi.getAccessErrorById(row.sourceRecordId)
+      if (requestId !== latestDetailRequestId) {
+        return
+      }
+      if (res.code === 200 && res.data) {
+        detailData.value = mergeUnregisteredDetailSnapshot(detailSnapshot ?? row, res.data)
+        detailErrorMessage.value = ''
+        return
+      }
+      detailRefreshErrorMessage.value = res.msg || '未登记设备补充详情失败，当前先展示列表摘要。'
+    } catch (error) {
+      if (requestId !== latestDetailRequestId || isAbortError(error)) {
+        return
+      }
+      detailRefreshErrorMessage.value =
+        error instanceof Error ? error.message : '未登记设备补充详情失败，当前先展示列表摘要。'
+    } finally {
+      if (requestId === latestDetailRequestId) {
+        detailRefreshing.value = false
+      }
+      if (detailAbortController === controller) {
+        detailAbortController = null
+      }
+    }
+    return
+  }
+
   if (row && detailSnapshot && !shouldRefreshDeviceDetail(row, cachedDetail)) {
     detailRefreshing.value = false
     return
@@ -2053,11 +2338,16 @@ async function openDetail(target: Device | string | number) {
 }
 
 async function refreshEditableDetail(row: Device, editSessionId: number, cachedDetail: Device | null) {
+  if (row.id === undefined || row.id === null || row.id === '') {
+    clearFormRefreshState()
+    return
+  }
   if (!shouldRefreshDeviceDetail(row, cachedDetail)) {
     clearFormRefreshState()
     return
   }
 
+  const deviceId = row.id
   const requestId = ++latestEditRequestId
   abortEditRequest()
   const controller = new AbortController()
@@ -2067,13 +2357,13 @@ async function refreshEditableDetail(row: Device, editSessionId: number, cachedD
   formRefreshMessage.value = ''
 
   try {
-    const res = await deviceApi.getDeviceById(row.id, {
+    const res = await deviceApi.getDeviceById(deviceId, {
       signal: controller.signal
     })
     if (
       requestId !== latestEditRequestId ||
       editSessionId !== activeEditSessionId ||
-      editingDeviceId.value !== row.id
+      editingDeviceId.value !== deviceId
     ) {
       return
     }
@@ -2095,7 +2385,7 @@ async function refreshEditableDetail(row: Device, editSessionId: number, cachedD
     if (
       requestId !== latestEditRequestId ||
       editSessionId !== activeEditSessionId ||
-      editingDeviceId.value !== row.id ||
+      editingDeviceId.value !== deviceId ||
       isAbortError(error)
     ) {
       return
@@ -2114,11 +2404,16 @@ async function refreshEditableDetail(row: Device, editSessionId: number, cachedD
 }
 
 async function refreshReplacingDevice(row: Device, replaceSessionId: number, cachedDetail: Device | null) {
+  if (row.id === undefined || row.id === null || row.id === '') {
+    clearReplaceRefreshState()
+    return
+  }
   if (!shouldRefreshDeviceDetail(row, cachedDetail)) {
     clearReplaceRefreshState()
     return
   }
 
+  const deviceId = row.id
   const requestId = ++latestReplaceRequestId
   abortReplaceRequest()
   const controller = new AbortController()
@@ -2128,13 +2423,13 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
   replaceRefreshMessage.value = ''
 
   try {
-    const res = await deviceApi.getDeviceById(row.id, {
+    const res = await deviceApi.getDeviceById(deviceId, {
       signal: controller.signal
     })
     if (
       requestId !== latestReplaceRequestId ||
       replaceSessionId !== activeReplaceSessionId ||
-      normalizeIdKey(replacingDevice.value?.id) !== normalizeIdKey(row.id)
+      normalizeIdKey(replacingDevice.value?.id) !== normalizeIdKey(deviceId)
     ) {
       return
     }
@@ -2155,7 +2450,7 @@ async function refreshReplacingDevice(row: Device, replaceSessionId: number, cac
     if (
       requestId !== latestReplaceRequestId ||
       replaceSessionId !== activeReplaceSessionId ||
-      normalizeIdKey(replacingDevice.value?.id) !== normalizeIdKey(row.id) ||
+      normalizeIdKey(replacingDevice.value?.id) !== normalizeIdKey(deviceId) ||
       isAbortError(error)
     ) {
       return
@@ -2203,6 +2498,8 @@ function removeAppliedFilter(key: DeviceFilterKey) {
     searchForm.onlineStatus = undefined
   } else if (key === 'activateStatus') {
     searchForm.activateStatus = undefined
+  } else if (key === 'registrationStatus') {
+    searchForm.registrationStatus = undefined
   } else {
     searchForm.deviceStatus = undefined
   }
@@ -2267,6 +2564,10 @@ function handleAdd() {
 }
 
 function handleEdit(row: Device) {
+  if (!canEditDeviceRow(row) || row.id === undefined || row.id === null || row.id === '') {
+    ElMessage.warning('未登记设备暂不支持编辑，请先完成建档。')
+    return
+  }
   const cachedDetail = getCachedDeviceDetail(row)
   const editSnapshot = resolveDetailSnapshot(row, cachedDetail)
 
@@ -2330,6 +2631,8 @@ function buildReplacementTargetSnapshot(source: Device, payload: DeviceReplacePa
     onlineStatus: 0,
     activateStatus: payload.activateStatus ?? source.activateStatus ?? 1,
     deviceStatus: payload.deviceStatus ?? 1,
+    registrationStatus: 1,
+    assetSourceType: 'registry',
     firmwareVersion: payload.firmwareVersion || '',
     ipAddress: payload.ipAddress || '',
     address: payload.address || '',
@@ -2343,12 +2646,17 @@ function buildReplacementTargetSnapshot(source: Device, payload: DeviceReplacePa
 }
 
 async function handleOpenReplaceLegacy(row: Device) {
+  if (!canReplaceDeviceRow(row) || row.id === undefined || row.id === null || row.id === '') {
+    ElMessage.warning('未登记设备暂不支持更换，请先完成建档。')
+    return
+  }
+  const deviceId = row.id
   try {
     if (productOptions.value.length === 0) {
       await loadProducts()
     }
     void loadDeviceOptions()
-    const res = await deviceApi.getDeviceById(row.id)
+    const res = await deviceApi.getDeviceById(deviceId)
     if (res.code === 200 && res.data) {
       cacheDeviceDetail(res.data)
       replacingDevice.value = res.data
@@ -2363,6 +2671,10 @@ async function handleOpenReplaceLegacy(row: Device) {
 }
 
 async function handleOpenReplace(row: Device) {
+  if (!canReplaceDeviceRow(row)) {
+    ElMessage.warning('未登记设备暂不支持更换，请先完成建档。')
+    return
+  }
   const cachedDetail = getCachedDeviceDetail(row)
   const replaceSnapshot = resolveDetailSnapshot(row, cachedDetail)
 
@@ -2379,7 +2691,7 @@ async function handleOpenReplace(row: Device) {
 }
 
 function handleJumpToInsight(row?: Device | null) {
-  if (!row?.deviceCode) {
+  if (!canJumpToInsight(row)) {
     return
   }
   void router.push({
@@ -2405,9 +2717,14 @@ function handleMobileRowAction(command: string | number | object, row: Device) {
 }
 
 async function handleDelete(row: Device) {
+  if (!canDeleteDeviceRow(row)) {
+    ElMessage.warning('未登记设备暂不支持删除，请先完成建档。')
+    return
+  }
+  const deviceId = row.id as string | number
   try {
     await confirmDelete('设备', row.deviceName || row.deviceCode)
-    await deviceApi.deleteDevice(row.id)
+    await deviceApi.deleteDevice(deviceId)
     ElMessage.success('删除成功')
     clearDeviceOptionCache()
     removeCachedDeviceDetail(row)
@@ -2452,7 +2769,11 @@ async function handleBatchDelete() {
       type: 'warning',
       confirmButtonText: '确认删除'
     })
-    await deviceApi.batchDeleteDevices(selectedRows.value.map((item) => item.id))
+    await deviceApi.batchDeleteDevices(
+      selectedRows.value
+        .map((item) => item.id)
+        .filter((id): id is string | number => id !== undefined && id !== null && id !== '')
+    )
     ElMessage.success('批量删除成功')
     clearDeviceOptionCache()
     deletingRows.forEach((item) => removeCachedDeviceDetail(item))
@@ -2663,6 +2984,7 @@ watch(
       route.query.onlineStatus,
       route.query.activateStatus,
       route.query.deviceStatus,
+      route.query.registrationStatus,
       route.query.pageNum,
       route.query.pageSize
     ] as const,

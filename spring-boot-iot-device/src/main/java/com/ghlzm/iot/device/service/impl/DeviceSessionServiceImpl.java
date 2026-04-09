@@ -43,26 +43,31 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
 
     @Override
     public void online(String deviceCode, String clientId) {
+        online(deviceCode, clientId, LocalDateTime.now());
+    }
+
+    @Override
+    public void online(String deviceCode, String clientId, LocalDateTime seenTime) {
         if (!hasText(deviceCode)) {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime effectiveSeenTime = resolveSeenTime(seenTime);
         DeviceSessionRecord sessionRecord = getSessionRecord(deviceCode);
         if (sessionRecord == null) {
             sessionRecord = new DeviceSessionRecord();
             sessionRecord.setDeviceCode(deviceCode);
-            sessionRecord.setConnectTime(now);
+            sessionRecord.setConnectTime(effectiveSeenTime);
         }
         sessionRecord.setClientId(clientId);
         sessionRecord.setConnected(Boolean.TRUE);
         if (sessionRecord.getConnectTime() == null) {
-            sessionRecord.setConnectTime(now);
+            sessionRecord.setConnectTime(effectiveSeenTime);
         }
-        sessionRecord.setLastSeenTime(now);
+        sessionRecord.setLastSeenTime(effectiveSeenTime);
         saveSessionRecord(sessionRecord);
 
-        updateDeviceOnline(deviceCode, now);
+        updateDeviceOnline(deviceCode, effectiveSeenTime);
     }
 
     @Override
@@ -91,16 +96,21 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
 
     @Override
     public void refreshLastSeen(String deviceCode, String clientId, String topic) {
+        refreshLastSeen(deviceCode, clientId, topic, LocalDateTime.now());
+    }
+
+    @Override
+    public void refreshLastSeen(String deviceCode, String clientId, String topic, LocalDateTime seenTime) {
         if (!hasText(deviceCode)) {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime effectiveSeenTime = resolveSeenTime(seenTime);
         DeviceSessionRecord sessionRecord = getSessionRecord(deviceCode);
         if (sessionRecord == null) {
             sessionRecord = new DeviceSessionRecord();
             sessionRecord.setDeviceCode(deviceCode);
-            sessionRecord.setConnectTime(now);
+            sessionRecord.setConnectTime(effectiveSeenTime);
             sessionRecord.setConnected(Boolean.TRUE);
         }
         if (hasText(clientId)) {
@@ -108,9 +118,9 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
         }
         sessionRecord.setTopic(topic);
         sessionRecord.setConnected(Boolean.TRUE);
-        sessionRecord.setLastSeenTime(now);
+        sessionRecord.setLastSeenTime(effectiveSeenTime);
         if (sessionRecord.getConnectTime() == null) {
-            sessionRecord.setConnectTime(now);
+            sessionRecord.setConnectTime(effectiveSeenTime);
         }
         saveSessionRecord(sessionRecord);
     }
@@ -191,6 +201,10 @@ public class DeviceSessionServiceImpl implements DeviceSessionService {
         update.setOnlineStatus(1);
         update.setLastOnlineTime(now);
         deviceMapper.updateById(update);
+    }
+
+    private LocalDateTime resolveSeenTime(LocalDateTime seenTime) {
+        return seenTime == null ? LocalDateTime.now() : seenTime;
     }
 
     private void updateDeviceOffline(String deviceCode, LocalDateTime now) {

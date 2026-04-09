@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -183,7 +184,23 @@ public class TdengineTelemetryFacade {
                 reasons.add(reason);
             }
         }
-        return List.copyOf(reasons);
+        return reasons.stream()
+                .sorted(Comparator.comparingInt(this::fallbackReasonPriority).thenComparing(reason -> reason))
+                .toList();
+    }
+
+    private int fallbackReasonPriority(String reason) {
+        return switch (reason) {
+            case TelemetryMetricMapping.REASON_MAPPING_NOT_CONFIGURED -> 10;
+            case TelemetryMetricMapping.REASON_MAPPING_DISABLED -> 20;
+            case TelemetryMetricMapping.REASON_STABLE_MISSING -> 30;
+            case TelemetryMetricMapping.REASON_STABLE_INVALID -> 40;
+            case TelemetryMetricMapping.REASON_COLUMN_MISSING -> 50;
+            case TelemetryMetricMapping.REASON_COLUMN_INVALID -> 60;
+            case TelemetryMetricMapping.REASON_PROPERTY_METADATA_MISSING -> 70;
+            case TelemetryMetricMapping.REASON_SCHEMA_COLUMN_MISSING -> 80;
+            default -> 999;
+        };
     }
 
     private Map<String, DevicePropertyMetadata> listPropertyMetadataMap(DeviceProcessingTarget target) {

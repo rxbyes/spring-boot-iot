@@ -1,88 +1,72 @@
 <template>
   <div class="ops-workbench risk-monitoring-view">
-    <PanelCard
-      eyebrow="Real-Time Monitoring"
+    <StandardWorkbenchPanel
+      eyebrow="RISK MONITORING"
       title="实时监测台"
-      description="统一汇总当前监测项的在线状态、告警风险与详情入口，帮助值班人员快速完成筛选与研判。"
-      class="ops-hero-card"
+      :description="`当前 ${pagination.total} 条监测记录，支持按区域、风险点、设备编码和在线状态快速定位。`"
+      show-filters
+      show-notices
+      show-toolbar
+      show-pagination
     >
-      <div class="ops-kpi-grid">
-        <MetricCard label="筛选结果" :value="String(pagination.total)" :badge="{ label: '当前条件', tone: 'brand' }" />
-        <MetricCard label="当前页在线" :value="String(onlineCount)" :badge="{ label: '稳定', tone: 'success' }" />
-        <MetricCard label="当前页告警" :value="String(alarmCount)" :badge="{ label: '优先', tone: 'danger' }" />
-        <MetricCard label="高风险项" :value="String(criticalCount)" :badge="{ label: '严重', tone: 'warning' }" />
-      </div>
-      <div class="ops-inline-note">
-        支持按区域、风险点、设备编码、风险等级和在线状态组合筛选，列表与右侧详情抽屉保持统一的监测预警平台视觉风格。
-      </div>
-    </PanelCard>
-
-    <PanelCard
-      eyebrow="Monitoring Filters"
-      title="筛选条件"
-      description="优先关注当前页告警项、无数据项和高风险项，快速定位需要立即跟进的监测对象。"
-      class="ops-filter-card"
-    >
-      <el-form :model="filters" label-position="top" class="ops-filter-form">
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-form-item label="区域">
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <el-form-item>
               <el-select v-model="filters.regionId" clearable placeholder="全部区域">
                 <el-option v-for="region in regionOptions" :key="region.value" :label="region.label" :value="region.value" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="风险点">
+            <el-form-item>
               <el-select v-model="filters.riskPointId" clearable placeholder="全部风险点">
                 <el-option v-for="riskPoint in riskPointOptions" :key="riskPoint.value" :label="riskPoint.label" :value="riskPoint.value" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="4">
-            <el-form-item label="设备编码">
+            <el-form-item>
               <el-input v-model="filters.deviceCode" clearable placeholder="请输入设备编码" />
             </el-form-item>
-          </el-col>
-          <el-col :span="4">
-            <el-form-item label="风险等级">
+            <el-form-item>
               <el-select v-model="filters.riskLevel" clearable placeholder="全部等级">
                 <el-option label="严重" value="CRITICAL" />
                 <el-option label="警告" value="WARNING" />
                 <el-option label="提醒" value="INFO" />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="4">
-            <el-form-item label="在线状态">
+            <el-form-item>
               <el-select v-model="filters.onlineStatus" clearable placeholder="全部状态">
                 <el-option label="在线" :value="1" />
                 <el-option label="离线" :value="0" />
               </el-select>
             </el-form-item>
-          </el-col>
-        </el-row>
-        <div class="ops-filter-actions">
-          <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-          <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-        </div>
-      </el-form>
-    </PanelCard>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+      </template>
 
-    <PanelCard
-      eyebrow="Monitoring List"
-      title="监测列表"
-      :description="`当前 ${pagination.total} 条监测记录，详情统一从右侧抽屉展开。`"
-      class="ops-table-card"
-    >
-      <StandardTableToolbar
-        :meta-items="[`当前页 ${displayedCount} 项`, `告警 ${alarmCount} 项`, `无数据 ${noDataCount} 项`]"
-      >
-        <template #right>
-          <StandardButton action="reset" link @click="handleReset">重置筛选</StandardButton>
-          <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-        </template>
-      </StandardTableToolbar>
+      <template #notices>
+        <el-alert
+          :title="monitoringAdvice"
+          type="info"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
+      </template>
+
+      <template #toolbar>
+        <StandardTableToolbar
+          compact
+          :meta-items="monitoringMetaItems"
+        >
+          <template #right>
+            <StandardButton action="reset" link @click="handleReset">重置筛选</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+          </template>
+        </StandardTableToolbar>
+      </template>
 
       <div v-if="loading" class="ops-state">正在加载实时监测数据...</div>
       <div v-else-if="rows.length === 0" class="ops-state">暂无符合条件的监测记录</div>
@@ -131,6 +115,9 @@
           </el-table-column>
         </el-table>
 
+      </template>
+
+      <template #pagination>
         <div class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -143,7 +130,7 @@
           />
         </div>
       </template>
-    </PanelCard>
+    </StandardWorkbenchPanel>
 
     <RiskMonitoringDetailDrawer v-model="detailVisible" :binding-id="activeBindingId" />
   </div>
@@ -153,12 +140,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from '@/utils/message';
 
-import MetricCard from '../components/MetricCard.vue';
-import PanelCard from '../components/PanelCard.vue';
 import RiskMonitoringDetailDrawer from '../components/RiskMonitoringDetailDrawer.vue';
 import StandardPagination from '../components/StandardPagination.vue';
+import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
 import StandardTableTextColumn from '../components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '../components/StandardTableToolbar.vue';
+import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { useServerPagination } from '../composables/useServerPagination';
 import { getRiskMonitoringList, type RiskMonitoringListItem } from '../api/riskMonitoring';
 import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
@@ -199,6 +186,14 @@ const onlineCount = computed(() => rows.value.filter((row) => Number(row.onlineS
 const alarmCount = computed(() => rows.value.filter((row) => Boolean(row.alarmFlag)).length);
 const noDataCount = computed(() => rows.value.filter((row) => (row.monitorStatus || '').toUpperCase() === 'NO_DATA').length);
 const criticalCount = computed(() => rows.value.filter((row) => (row.riskLevel || '').toUpperCase() === 'CRITICAL').length);
+const monitoringAdvice = '优先关注告警中、无数据和高风险监测项，详情统一从右侧抽屉展开。';
+const monitoringMetaItems = computed(() => [
+  `当前页 ${displayedCount.value} 项`,
+  `在线 ${onlineCount.value} 项`,
+  `告警 ${alarmCount.value} 项`,
+  `无数据 ${noDataCount.value} 项`,
+  `高风险 ${criticalCount.value} 项`
+]);
 
 onMounted(async () => {
   await Promise.all([loadFilterOptions(), loadList()]);
@@ -354,10 +349,9 @@ function formatCurrentValue(value?: string | null, unit?: string | null) {
 
 <style scoped>
 .risk-monitoring-view {
-  padding: 18px;
-  border-radius: calc(var(--radius-lg) + 2px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 249, 253, 0.58));
-  border: 1px solid rgba(41, 60, 92, 0.08);
-  box-shadow: var(--shadow-inset-highlight-72);
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 </style>

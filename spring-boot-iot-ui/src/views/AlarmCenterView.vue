@@ -1,22 +1,5 @@
 ﻿<template>
   <div class="ops-workbench alarm-center-view">
-    <PanelCard
-      eyebrow="Alarm Command"
-      title="告警运营台"
-      description="聚合今日告警、待确认状态与处置结果，统一通过下方工作台完成告警研判与处置。"
-      class="ops-hero-card"
-    >
-      <div class="ops-kpi-grid">
-        <MetricCard label="今日告警" :value="String(stats.todayAlarms)" :badge="{ label: '实时', tone: 'brand' }" />
-        <MetricCard label="未确认告警" :value="String(stats.unconfirmedAlarms)" :badge="{ label: '待处理', tone: 'danger' }" />
-        <MetricCard label="已确认告警" :value="String(stats.confirmedAlarms)" :badge="{ label: '跟踪中', tone: 'warning' }" />
-        <MetricCard label="已关闭告警" :value="String(stats.closedAlarms)" :badge="{ label: '已收口', tone: 'success' }" />
-      </div>
-      <div class="ops-inline-note">
-        当前支持按设备编码、告警等级和状态快速筛选，并通过统一详情抽屉查看完整告警上下文与处置记录。
-      </div>
-    </PanelCard>
-
     <StandardWorkbenchPanel
       title="告警列表"
       :description="`当前 ${pagination.total} 条告警记录，支持选择、导出和批量排查。`"
@@ -74,7 +57,16 @@
       </template>
 
       <template #toolbar>
-        <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项`, `未确认 ${stats.unconfirmedAlarms} 项` ]">
+        <StandardTableToolbar
+          compact
+          :meta-items="[
+            `今日告警 ${stats.todayAlarms} 项`,
+            `未确认 ${stats.unconfirmedAlarms} 项`,
+            `已确认 ${stats.confirmedAlarms} 项`,
+            `已关闭 ${stats.closedAlarms} 项`,
+            `已选 ${selectedRows.length} 项`
+          ]"
+        >
           <template #right>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
             <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
@@ -159,8 +151,6 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from '@/utils/message';
 import AlarmDetailDrawer from '@/components/AlarmDetailDrawer.vue';
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';

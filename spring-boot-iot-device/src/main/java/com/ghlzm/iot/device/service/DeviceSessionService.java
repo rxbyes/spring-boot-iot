@@ -15,6 +15,11 @@ public interface DeviceSessionService {
     void online(String deviceCode, String clientId);
 
     /**
+     * 按指定活跃时间标记设备上线，并初始化最小会话信息。
+     */
+    void online(String deviceCode, String clientId, LocalDateTime seenTime);
+
+    /**
      * 标记设备下线，并同步清理会话。
      */
     void offline(String deviceCode);
@@ -28,6 +33,11 @@ public interface DeviceSessionService {
      * 收到 MQTT 消息时刷新最后活跃时间。
      */
     void refreshLastSeen(String deviceCode, String clientId, String topic);
+
+    /**
+     * 按指定活跃时间刷新最后活跃时间。
+     */
+    void refreshLastSeen(String deviceCode, String clientId, String topic, LocalDateTime seenTime);
 
     /**
      * 查询设备是否在线。

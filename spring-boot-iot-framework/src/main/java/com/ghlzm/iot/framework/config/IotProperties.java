@@ -173,6 +173,7 @@ public class IotProperties {
     @Data
     public static class Telemetry {
         private String storageType = "mysql";
+        private String primaryStorage = "legacy-compatible";
         /**
          * TDengine 存储模式：
          * legacy-compatible 优先写既有 stable，未映射指标再兼容回退到通用表；
@@ -186,12 +187,68 @@ public class IotProperties {
         private Boolean legacyMappingValidateOnly = Boolean.FALSE;
         private String latestCachePrefix = "iot:telemetry:latest:";
         private String tsPrefix = "iot:telemetry:ts:";
+        private Raw raw = new Raw();
+        private Latest latest = new Latest();
+        private Aggregate aggregate = new Aggregate();
+        private LegacyMirror legacyMirror = new LegacyMirror();
+        private ReadRouting readRouting = new ReadRouting();
+        private TenantRouting tenantRouting = new TenantRouting();
+
+        @Data
+        public static class Raw {
+            private Integer retentionDays = 180;
+        }
+
+        @Data
+        public static class Latest {
+            private Boolean redisEnabled = Boolean.TRUE;
+            private Boolean mysqlProjectionEnabled = Boolean.TRUE;
+        }
+
+        @Data
+        public static class Aggregate {
+            private Boolean enabled = Boolean.FALSE;
+            private Boolean hourlyEnabled = Boolean.FALSE;
+            private Boolean dailyEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class LegacyMirror {
+            private Boolean enabled = Boolean.FALSE;
+            private String mode = "legacy-compatible";
+            private Boolean retryEnabled = Boolean.FALSE;
+        }
+
+        @Data
+        public static class ReadRouting {
+            private String latestSource = "legacy";
+            private String historySource = "legacy";
+            private String aggregateSource = "legacy";
+            private Boolean legacyReadFallbackEnabled = Boolean.TRUE;
+        }
+
+        @Data
+        public static class TenantRouting {
+            private String mode = "tenant-device";
+        }
     }
 
     @Data
     public static class Device {
-        private Integer onlineTimeoutSeconds = 120;
+        private Integer onlineTimeoutSeconds = 120 * 60;
         private Boolean activateDefault = Boolean.TRUE;
+        /**
+         * 是否启用设备离线超时调度集群单活，避免多实例重复收口在线状态。
+         */
+        private Boolean offlineTimeoutClusterSingletonEnabled = Boolean.TRUE;
+        /**
+         * Redis 中的设备离线超时调度集群锁 Key。
+         */
+        private String offlineTimeoutLockKey = "iot:device:offline-timeout:leader";
+        /**
+         * 设备离线超时调度锁租约时长，单位秒。
+         */
+        private Integer offlineTimeoutLockTtlSeconds = 90;
         /**
          * 基准站设备编码 -> 逻辑子设备编码 -> 实际子设备 deviceCode。
          * 当前用于兼容“基准站一包多测点”的历史上报场景。
@@ -266,6 +323,7 @@ public class IotProperties {
         private Performance performance = new Performance();
         private InAppUnreadBridge inAppUnreadBridge = new InAppUnreadBridge();
         private Alerting alerting = new Alerting();
+        private InvalidReportGovernance invalidReportGovernance = new InvalidReportGovernance();
 
         @Data
         public static class Console {
@@ -330,6 +388,28 @@ public class IotProperties {
                 private Boolean enabled = Boolean.TRUE;
                 private Integer windowMinutes = 10;
                 private Integer threshold = 3;
+            }
+        }
+
+        @Data
+        public static class InvalidReportGovernance {
+            private Boolean enabled = Boolean.FALSE;
+            private Integer bucketTtlHours = 26;
+            private EmptyPayload emptyPayload = new EmptyPayload();
+            private DeviceNotFound deviceNotFound = new DeviceNotFound();
+
+            @Data
+            public static class EmptyPayload {
+                private Integer thresholdWindowSeconds = 60;
+                private Integer thresholdCount = 3;
+                private Integer cooldownMinutes = 15;
+            }
+
+            @Data
+            public static class DeviceNotFound {
+                private Integer thresholdWindowSeconds = 60;
+                private Integer thresholdCount = 2;
+                private Integer cooldownMinutes = 30;
             }
         }
     }

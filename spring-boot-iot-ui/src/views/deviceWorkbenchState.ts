@@ -8,6 +8,7 @@ export interface DeviceFilterSnapshot {
   onlineStatus?: number
   activateStatus?: number
   deviceStatus?: number
+  registrationStatus?: number
 }
 
 export interface DevicePageQuerySnapshot extends DeviceFilterSnapshot {
@@ -76,6 +77,7 @@ export function buildDevicePageCacheKey(query: DevicePageQuerySnapshot) {
     query.onlineStatus ?? '',
     query.activateStatus ?? '',
     query.deviceStatus ?? '',
+    query.registrationStatus ?? '',
     normalizePositiveInt(query.pageNum, 1),
     normalizePositiveInt(query.pageSize, 10)
   ].join('|')
@@ -356,6 +358,9 @@ export function matchesDeviceFilters(device: Device, filters: DeviceFilterSnapsh
     return false
   }
   if (filters.deviceStatus !== undefined && device.deviceStatus !== filters.deviceStatus) {
+    return false
+  }
+  if (filters.registrationStatus !== undefined && device.registrationStatus !== filters.registrationStatus) {
     return false
   }
 

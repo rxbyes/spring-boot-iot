@@ -13,6 +13,7 @@ import com.ghlzm.iot.device.service.DeviceAccessErrorLogService;
 import com.ghlzm.iot.device.vo.DeviceAccessErrorStatsVO;
 import com.ghlzm.iot.device.vo.DeviceStatsBucketVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.invalidreport.InvalidReportCounterStore;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,12 @@ import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,24 +56,33 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
     private static final int MAX_ERROR_CODE_LENGTH = 64;
     private static final int MAX_EXCEPTION_CLASS_LENGTH = 255;
+    private static final List<String> FAILURE_STAGE_BUCKETS = List.of(
+            "topic_route",
+            "protocol_decode",
+            "device_validate",
+            "message_dispatch"
+    );
 
     private final JdbcTemplate jdbcTemplate;
     private final DeviceAccessErrorLogSchemaSupport schemaSupport;
     private final DeviceMapper deviceMapper;
     private final ProductMapper productMapper;
     private final IotProperties iotProperties;
+    private final InvalidReportCounterStore invalidReportCounterStore;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceAccessErrorLogServiceImpl(JdbcTemplate jdbcTemplate,
                                            DeviceAccessErrorLogSchemaSupport schemaSupport,
                                            DeviceMapper deviceMapper,
                                            ProductMapper productMapper,
-                                           IotProperties iotProperties) {
+                                           IotProperties iotProperties,
+                                           InvalidReportCounterStore invalidReportCounterStore) {
         this.jdbcTemplate = jdbcTemplate;
         this.schemaSupport = schemaSupport;
         this.deviceMapper = deviceMapper;
         this.productMapper = productMapper;
         this.iotProperties = iotProperties;
+        this.invalidReportCounterStore = invalidReportCounterStore;
     }
 
     @Override
@@ -169,11 +182,17 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
             return stats;
         }
 
-        stats.setRecentHourCount(queryRecentCount(querySpec, columns, 1));
-        stats.setRecent24HourCount(queryRecentCount(querySpec, columns, 24));
+        if (isUnfilteredQuery(query)) {
+            stats.setRecentHourCount(sumFailureStageCounts(Instant.now().minus(Duration.ofHours(1))));
+            stats.setRecent24HourCount(sumFailureStageCounts(Instant.now().minus(Duration.ofHours(24))));
+            stats.setTopFailureStages(listFailureStageBuckets(Instant.now().minus(Duration.ofHours(24))));
+        } else {
+            stats.setRecentHourCount(queryRecentCount(querySpec, columns, 1));
+            stats.setRecent24HourCount(queryRecentCount(querySpec, columns, 24));
+            stats.setTopFailureStages(queryTopBuckets(querySpec, resolveColumn(columns, "failure_stage")));
+        }
         stats.setDistinctTraceCount(queryDistinctCount(querySpec, resolveColumn(columns, "trace_id")));
         stats.setDistinctDeviceCount(queryDistinctCount(querySpec, resolveColumn(columns, "device_code")));
-        stats.setTopFailureStages(queryTopBuckets(querySpec, resolveColumn(columns, "failure_stage")));
         stats.setTopErrorCodes(queryTopBuckets(querySpec, resolveColumn(columns, "error_code")));
         stats.setTopExceptionClasses(queryTopBuckets(querySpec, resolveColumn(columns, "exception_class")));
         stats.setTopProtocolCodes(queryTopBuckets(querySpec, resolveColumn(columns, "protocol_code")));
@@ -183,36 +202,19 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
 
     @Override
     public List<DeviceAccessErrorLogService.FailureStageCount> listFailureStageCountsSince(java.util.Date startTime) {
-        Set<String> columns = schemaSupport.getColumns();
-        QuerySpec querySpec = buildQuerySpec(null, columns);
-        if (querySpec.emptyResult()) {
-            return List.of();
-        }
-        String stageColumn = resolveColumn(columns, "failure_stage");
-        String timeColumn = resolveColumn(columns, "create_time");
-        if (stageColumn == null || timeColumn == null) {
-            return List.of();
-        }
-        String bucketExpression = "TRIM(" + stageColumn + ")";
-        String sql = "SELECT " + bucketExpression + " AS stage_value, COUNT(1) AS stage_count"
-                + " FROM " + TABLE_NAME
-                + querySpec.whereClause()
-                + " AND " + stageColumn + " IS NOT NULL AND TRIM(" + stageColumn + ") <> ''"
-                + (startTime == null ? "" : " AND " + timeColumn + " >= ?")
-                + " GROUP BY " + bucketExpression
-                + " ORDER BY stage_count DESC, stage_value ASC";
-        List<Object> params = new ArrayList<>(querySpec.params());
-        if (startTime != null) {
-            params.add(new Timestamp(startTime.getTime()));
-        }
-        return jdbcTemplate.query(
-                sql,
-                (rs, rowNum) -> new DeviceAccessErrorLogService.FailureStageCount(
-                        rs.getString("stage_value"),
-                        rs.getLong("stage_count")
-                ),
-                params.toArray()
-        );
+        Instant start = startTime == null
+                ? Instant.now().minus(Duration.ofMinutes(10))
+                : startTime.toInstant();
+        return FAILURE_STAGE_BUCKETS.stream()
+                .map(stage -> new DeviceAccessErrorLogService.FailureStageCount(
+                        stage,
+                        invalidReportCounterStore.sumFailureStageSince(stage, start)
+                ))
+                .filter(item -> item.failureCount() > 0L)
+                .sorted(Comparator.comparingLong(DeviceAccessErrorLogService.FailureStageCount::failureCount)
+                        .reversed()
+                        .thenComparing(DeviceAccessErrorLogService.FailureStageCount::failureStage))
+                .toList();
     }
 
     @Override
@@ -294,6 +296,42 @@ public class DeviceAccessErrorLogServiceImpl implements DeviceAccessErrorLogServ
                 ),
                 querySpec.params().toArray()
         );
+    }
+
+    private long sumFailureStageCounts(Instant startInclusive) {
+        return listFailureStageBuckets(startInclusive).stream()
+                .map(DeviceStatsBucketVO::getCount)
+                .filter(value -> value != null && value > 0L)
+                .mapToLong(Long::longValue)
+                .sum();
+    }
+
+    private List<DeviceStatsBucketVO> listFailureStageBuckets(Instant startInclusive) {
+        return FAILURE_STAGE_BUCKETS.stream()
+                .map(stage -> new DeviceStatsBucketVO(
+                        stage,
+                        stage,
+                        invalidReportCounterStore.sumFailureStageSince(stage, startInclusive)
+                ))
+                .filter(bucket -> bucket.getCount() != null && bucket.getCount() > 0L)
+                .sorted(Comparator.comparingLong(DeviceStatsBucketVO::getCount).reversed()
+                        .thenComparing(DeviceStatsBucketVO::getValue))
+                .toList();
+    }
+
+    private boolean isUnfilteredQuery(DeviceAccessErrorQuery query) {
+        return query == null
+                || (!StringUtils.hasText(query.getTraceId())
+                && !StringUtils.hasText(query.getProtocolCode())
+                && !StringUtils.hasText(query.getFailureStage())
+                && !StringUtils.hasText(query.getDeviceCode())
+                && !StringUtils.hasText(query.getProductKey())
+                && !StringUtils.hasText(query.getTopicRouteType())
+                && !StringUtils.hasText(query.getMessageType())
+                && !StringUtils.hasText(query.getTopic())
+                && !StringUtils.hasText(query.getClientId())
+                && !StringUtils.hasText(query.getErrorCode())
+                && !StringUtils.hasText(query.getExceptionClass()));
     }
 
     private void appendExtraCondition(StringBuilder sql, List<Object> params, String extraCondition, Object... extraParams) {

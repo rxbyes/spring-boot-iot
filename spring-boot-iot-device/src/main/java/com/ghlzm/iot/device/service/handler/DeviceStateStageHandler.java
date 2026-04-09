@@ -50,8 +50,8 @@ public class DeviceStateStageHandler {
         String clientId = hasText(target.getMessage().getDeviceCode())
                 ? target.getMessage().getDeviceCode()
                 : target.getDevice().getDeviceCode();
-        deviceSessionService.online(target.getDevice().getDeviceCode(), clientId);
-        deviceSessionService.refreshLastSeen(target.getDevice().getDeviceCode(), clientId, target.getMessage().getTopic());
+        deviceSessionService.online(target.getDevice().getDeviceCode(), clientId, reportTime);
+        deviceSessionService.refreshLastSeen(target.getDevice().getDeviceCode(), clientId, target.getMessage().getTopic(), reportTime);
     }
 
     private boolean hasText(String value) {

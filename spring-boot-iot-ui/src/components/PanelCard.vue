@@ -31,14 +31,14 @@ const hasHeaderSlot = computed(() => Boolean(slots.header));
 
 <style scoped>
 .panel-card {
-  border-radius: calc(var(--radius-lg) + 2px);
+  border-radius: var(--radius-2xl);
   border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 250, 252, 0.98));
-  box-shadow: var(--shadow-card-soft);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow-card);
 }
 
 .panel-card :deep(.el-card__body) {
-  padding: 1rem 1.05rem;
+  padding: 14px;
 }
 
 .panel-card__header {
@@ -46,16 +46,17 @@ const hasHeaderSlot = computed(() => Boolean(slots.header));
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
-  padding-bottom: 0.82rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--line-soft);
 }
 
 .panel-card__eyebrow {
   margin: 0 0 0.3rem;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: var(--text-tertiary);
-  font-size: 0.72rem;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .panel-card__title {

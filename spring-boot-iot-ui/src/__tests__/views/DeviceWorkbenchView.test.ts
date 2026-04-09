@@ -35,6 +35,12 @@ vi.mock('@/api/device', () => ({
   }
 }))
 
+vi.mock('@/api/accessError', () => ({
+  accessErrorApi: {
+    getAccessErrorById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null })
+  }
+}))
+
 vi.mock('@/api/product', () => ({
   productApi: {
     getAllProducts: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] })
@@ -67,9 +73,10 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
-  props: ['title', 'description'],
+  props: ['eyebrow', 'title', 'description'],
   template: `
     <section class="device-workbench-panel-stub">
+      <p class="device-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div class="device-workbench-panel-stub__filters"><slot name="filters" /></div>
@@ -78,6 +85,17 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div class="device-workbench-panel-stub__inline"><slot name="inline-state" /></div>
       <div class="device-workbench-panel-stub__body"><slot /></div>
       <div class="device-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+})
+
+const IotAccessPageShellStub = defineComponent({
+  name: 'IotAccessPageShell',
+  props: ['breadcrumbs', 'title', 'showTitle'],
+  template: `
+    <section class="iot-access-page-shell-stub">
+      <h1 v-if="showTitle !== false">{{ title }}</h1>
+      <slot />
     </section>
   `
 })
@@ -107,17 +125,23 @@ const ElInputStub = defineComponent({
       :id="id"
       class="el-input-stub"
       :value="modelValue"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      @input="$emit('update:modelValue', $event.target && $event.target.value)"
     />
   `
+})
+
+const StandardInlineStateStub = defineComponent({
+  name: 'StandardInlineState',
+  props: ['message', 'tone'],
+  template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function installSessionStorageMock() {
-  const store = new Map<string, string>()
+function installSessionStorageMock(value?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(value || {}))
   Object.defineProperty(window, 'sessionStorage', {
     configurable: true,
     value: {
@@ -140,10 +164,12 @@ function mountView() {
         permission: () => undefined
       },
       stubs: {
+        IotAccessPageShell: IotAccessPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         ElFormItem: ElFormItemStub,
-        ElInput: ElInputStub
+        ElInput: ElInputStub,
+        StandardInlineState: StandardInlineStateStub
       }
     }
   })
@@ -194,5 +220,42 @@ describe('DeviceWorkbenchView', () => {
 
     warnSpy.mockRestore()
     errorSpy.mockRestore()
+  })
+
+  it('renders the device page inside the two-level access shell without the legacy eyebrow tier', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.iot-access-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('设备台账')
+    expect(wrapper.text()).not.toContain('DEVICE ASSET')
+  })
+
+  it('shows a compact diagnostic intake hint when opened from access-error', async () => {
+    mockRoute.query = {
+      deviceCode: 'demo-device-01',
+      productKey: 'demo-product',
+      traceId: 'trace-001'
+    }
+    installSessionStorageMock({
+      'iot-access:diagnostic-context': JSON.stringify({
+        storedAt: Date.now(),
+        context: {
+          sourcePage: 'access-error',
+          deviceCode: 'demo-device-01',
+          productKey: 'demo-product',
+          traceId: 'trace-001',
+          capturedAt: new Date().toISOString()
+        }
+      })
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('来自失败归档')
+    expect(wrapper.text()).toContain('demo-device-01')
   })
 })

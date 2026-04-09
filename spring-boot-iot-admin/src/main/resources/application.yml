@@ -112,8 +112,12 @@ iot:
 #    ts-prefix: iot:telemetry:ts:
 
   device:
-    online-timeout-seconds: 120
+    # 超过2小时没有上报数据，判定为离线状态
+    online-timeout-seconds: 7200
     activate-default: true
+    offline-timeout-cluster-singleton-enabled: ${IOT_DEVICE_OFFLINE_TIMEOUT_CLUSTER_SINGLETON_ENABLED:true}
+    offline-timeout-lock-key: ${IOT_DEVICE_OFFLINE_TIMEOUT_LOCK_KEY:iot:device:offline-timeout:leader}
+    offline-timeout-lock-ttl-seconds: ${IOT_DEVICE_OFFLINE_TIMEOUT_LOCK_TTL_SECONDS:90}
 
   message:
     transport: direct

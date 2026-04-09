@@ -16,7 +16,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class MqttConnectionListenerTest {
 
@@ -100,8 +104,29 @@ class MqttConnectionListenerTest {
         assertSame(ex, event.throwable());
     }
 
+    @Test
+    void shouldSkipArchiveAndBackendExceptionWhenFailureIsSuppressed() {
+        AtomicReference<BackendExceptionEvent> captured = new AtomicReference<>();
+        AtomicReference<ArchiveCall> archived = new AtomicReference<>();
+        MqttInvalidReportGovernanceService governanceService = mock(MqttInvalidReportGovernanceService.class);
+        when(governanceService.handleDispatchFailure(any(), any(), any(), any()))
+                .thenReturn(InvalidMqttReportDecision.dropSuppressed());
+
+        MqttConnectionListener listener = newListener(captured, archived, governanceService);
+        listener.onMessageDispatchFailed("$dp", new byte[0], new RawDeviceMessage(), new BizException("设备不存在: missing-01"));
+
+        assertNull(captured.get());
+        assertNull(archived.get());
+    }
+
     private MqttConnectionListener newListener(AtomicReference<BackendExceptionEvent> captured,
                                                AtomicReference<ArchiveCall> archived) {
+        return newListener(captured, archived, null);
+    }
+
+    private MqttConnectionListener newListener(AtomicReference<BackendExceptionEvent> captured,
+                                               AtomicReference<ArchiveCall> archived,
+                                               MqttInvalidReportGovernanceService governanceService) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("backendExceptionRecorder", (BackendExceptionRecorder) captured::set);
         beanFactory.addBean("deviceAccessErrorLogService", new DeviceAccessErrorLogService() {
@@ -139,7 +164,10 @@ class MqttConnectionListenerTest {
         });
         return new MqttConnectionListener(
                 beanFactory.getBeanProvider(BackendExceptionRecorder.class),
-                beanFactory.getBeanProvider(DeviceAccessErrorLogService.class)
+                beanFactory.getBeanProvider(DeviceAccessErrorLogService.class),
+                null,
+                null,
+                governanceService
         );
     }
 

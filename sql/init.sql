@@ -596,6 +596,40 @@ CREATE TABLE iot_device_access_error_log (
     KEY idx_access_error_stage_time (failure_stage, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备接入失败归档表';
 
+CREATE TABLE iot_device_invalid_report_state (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    governance_key VARCHAR(255) NOT NULL COMMENT '治理唯一键',
+    reason_code VARCHAR(64) NOT NULL COMMENT '治理原因编码',
+    request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',
+    failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
+    topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic 路由类型',
+    topic VARCHAR(255) DEFAULT NULL COMMENT '最近 topic',
+    client_id VARCHAR(128) DEFAULT NULL COMMENT '最近 clientId',
+    payload_size INT DEFAULT NULL COMMENT '最近 payload 大小',
+    payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '最近 payload 编码',
+    last_payload LONGTEXT DEFAULT NULL COMMENT '最近 payload',
+    last_trace_id VARCHAR(64) DEFAULT NULL COMMENT '最近 traceId',
+    sample_error_message VARCHAR(500) DEFAULT NULL COMMENT '样本错误消息',
+    sample_exception_class VARCHAR(255) DEFAULT NULL COMMENT '样本异常类',
+    first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次命中时间',
+    last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近命中时间',
+    hit_count BIGINT NOT NULL DEFAULT 0 COMMENT '总命中次数',
+    sampled_count BIGINT NOT NULL DEFAULT 0 COMMENT '已采样次数',
+    suppressed_count BIGINT NOT NULL DEFAULT 0 COMMENT '被抑制次数',
+    suppressed_until DATETIME DEFAULT NULL COMMENT '抑制截止时间',
+    resolved TINYINT NOT NULL DEFAULT 0 COMMENT '是否已解封',
+    resolved_time DATETIME DEFAULT NULL COMMENT '解封时间',
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_invalid_report_state_governance_key (governance_key),
+    KEY idx_invalid_report_device_resolved (device_code, product_key, resolved, last_seen_time),
+    KEY idx_invalid_report_reason_time (reason_code, last_seen_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='无效 MQTT 上报最新态表';
+
 CREATE TABLE iot_command_record (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',

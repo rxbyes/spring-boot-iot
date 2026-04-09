@@ -1,300 +1,182 @@
 <template>
-  <div class="message-trace-view">
-    <AccessErrorArchivePanel
-      v-if="isAccessErrorMode"
-      :view-mode="pageMode"
-      :view-mode-options="pageModeOptions"
-      @change-view-mode="handlePageModeChange"
+  <div class="page-stack message-trace-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '链路追踪台' }
+      ]"
+      :show-title="false"
     />
 
-    <StandardWorkbenchPanel
-      v-else
-      title="链路追踪台"
-      description="按 TraceId、设备编码、产品标识与 Topic 串联设备接入消息链路。"
-      show-header-actions
-      show-filters
-      :show-applied-filters="hasAppliedFilters"
-      show-notices
-      show-toolbar
-      show-pagination
+    <IotAccessTabWorkspace
+      :items="pageModeOptions"
+      :default-key="'message-trace'"
+      query-key="mode"
     >
-      <template #header-actions>
-        <StandardChoiceGroup
-          :model-value="pageMode"
-          :options="pageModeOptions"
-          responsive
-          @update:modelValue="handlePageModeChange"
-        />
-      </template>
+      <template #default="{ activeKey }">
+        <AccessErrorArchivePanel v-if="activeKey === 'access-error'" />
 
-      <template #filters>
-        <StandardListFilterHeader
-          :model="searchForm"
-          :show-advanced="showAdvancedFilters"
-          show-advanced-toggle
-          :advanced-hint="advancedFilterHint"
-          @toggle-advanced="toggleAdvancedFilters"
+        <StandardWorkbenchPanel
+          v-else
+          title="链路追踪台"
+          description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
+          show-filters
+          :show-applied-filters="hasAppliedFilters"
+          :show-inline-state="showTraceInlineState"
+          show-toolbar
+          show-pagination
         >
-          <template #primary>
-            <el-form-item>
-              <el-input
-                id="quick-search"
-                v-model="quickSearchKeyword"
-                placeholder="快速搜索（TraceId）"
-                clearable
-                prefix-icon="Search"
-                @keyup.enter="handleQuickSearch"
-                @clear="handleClearQuickSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-input
-                v-model="searchForm.deviceCode"
-                placeholder="设备编码"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-input
-                v-model="searchForm.productKey"
-                placeholder="产品标识"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-select v-model="searchForm.messageType" placeholder="消息类型" clearable>
-                <el-option
-                  v-for="item in messageTypeOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+
+        <template #filters>
+          <StandardListFilterHeader
+            :model="searchForm"
+            :show-advanced="showAdvancedFilters"
+            show-advanced-toggle
+            :advanced-hint="advancedFilterHint"
+            @toggle-advanced="toggleAdvancedFilters"
+          >
+            <template #primary>
+              <el-form-item>
+                <el-input
+                  id="quick-search"
+                  v-model="quickSearchKeyword"
+                  placeholder="快速搜索（TraceId）"
+                  clearable
+                  prefix-icon="Search"
+                  @keyup.enter="handleQuickSearch"
+                  @clear="handleClearQuickSearch"
                 />
-              </el-select>
-            </el-form-item>
-          </template>
-          <template #advanced>
-            <el-form-item>
-              <el-input
-                v-model="searchForm.topic"
-                placeholder="Topic"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-          </template>
-          <template #actions>
-            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-          </template>
-        </StandardListFilterHeader>
-        <div v-if="appliedFilters.traceId.trim()" class="message-trace-quick-search-tag">
-          <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
-            快速搜索：{{ appliedFilters.traceId.trim() }}
-          </el-tag>
-        </div>
-      </template>
-
-      <template #applied-filters>
-        <StandardAppliedFiltersBar
-          :tags="activeFilterTags"
-          @remove="handleRemoveAppliedFilter"
-          @clear="handleClearAppliedFilters"
-        />
-      </template>
-
-      <template #notices>
-        <div class="message-trace-notice-grid">
-          <el-alert
-            title="链路追踪台基于 `iot_device_message_log` 分页查询，可与异常观测台通过 TraceId、设备编码和 Topic 联动排查。"
-            type="info"
-            :closable="false"
-            show-icon
-            class="view-alert"
-          />
-          <el-alert
-            :title="statsSummaryText"
-            type="success"
-            :closable="false"
-            show-icon
-            class="stats-alert"
-          />
-          <div class="message-trace-ops-grid">
-            <PanelCard
-              class="message-trace-ops-card"
-              eyebrow="message-flow"
-              title="运维看板"
-              description="基于 runtime 指标查看 session 状态、关联命中、lookup 健康度和各阶段性能。"
-            >
-              <div v-if="opsLoading" class="message-trace-ops-empty">
-                正在加载 message-flow 运维指标...
-              </div>
-              <template v-else>
-                <section class="message-trace-ops-metrics">
-                  <MetricCard
-                    v-for="item in opsOverviewMetrics"
-                    :key="item.label"
+              </el-form-item>
+              <el-form-item>
+                <el-input
+                  v-model="searchForm.deviceCode"
+                  placeholder="设备编码"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-input
+                  v-model="searchForm.productKey"
+                  placeholder="产品标识"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-select v-model="searchForm.messageType" placeholder="消息类型" clearable>
+                  <el-option
+                    v-for="item in messageTypeOptions"
+                    :key="item.value"
                     :label="item.label"
                     :value="item.value"
-                    :badge="item.badge"
-                    size="compact"
                   />
-                </section>
-                <div class="message-trace-ops-runtime">
-                  runtime 起点：{{ formatDateTime(opsOverview.runtimeStartedAt) }}
-                </div>
-                <div class="message-trace-stage-table-wrapper">
-                  <table class="message-trace-stage-table">
-                    <thead>
-                      <tr>
-                        <th>阶段</th>
-                        <th>执行</th>
-                        <th>失败</th>
-                        <th>跳过</th>
-                        <th>平均耗时</th>
-                        <th>P95</th>
-                        <th>最大耗时</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="stage in opsOverview.stageMetrics" :key="stage.stage">
-                        <td>{{ stage.stage }}</td>
-                        <td>{{ formatCount(stage.count) }}</td>
-                        <td>{{ formatCount(stage.failureCount) }}</td>
-                        <td>{{ formatCount(stage.skippedCount) }}</td>
-                        <td>{{ formatCost(stage.avgCostMs) }}</td>
-                        <td>{{ formatCost(stage.p95CostMs) }}</td>
-                        <td>{{ formatCost(stage.maxCostMs) }}</td>
-                      </tr>
-                      <tr v-if="opsOverview.stageMetrics.length === 0">
-                        <td colspan="7" class="message-trace-stage-table__empty">当前 runtime 还没有可展示的 stage 指标。</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </template>
-            </PanelCard>
-
-            <PanelCard
-              class="message-trace-ops-card"
-              eyebrow="message-flow"
-              title="最近会话"
-              description="无需先记下 sessionId，可直接把最近 message-flow 会话带入当前追踪条件。"
-            >
-              <div class="message-trace-recent-toolbar">
-                <StandardButton action="refresh" link @click="loadRecentMessageFlowSessions">
-                  刷新最近会话
-                </StandardButton>
-              </div>
-              <div v-if="recentSessionsLoading" class="message-trace-ops-empty">
-                正在加载最近会话...
-              </div>
-              <div v-else-if="recentMessageFlowSessions.length === 0" class="message-trace-ops-empty">
-                当前还没有可带入的 message-flow 会话。
-              </div>
-              <div v-else class="message-trace-recent-list">
-                <button
-                  v-for="session in recentMessageFlowSessions"
-                  :key="session.sessionId || `${session.deviceCode}-${session.submittedAt}`"
-                  type="button"
-                  class="message-trace-recent-item"
-                  @click="applyRecentMessageFlowSession(session)"
-                >
-                  <div class="message-trace-recent-item__header">
-                    <strong>{{ session.sessionId || '--' }}</strong>
-                    <span>{{ session.transportMode || '--' }} / {{ session.status || '--' }}</span>
-                  </div>
-                  <div class="message-trace-recent-item__meta">
-                    <span>{{ session.deviceCode || '--' }}</span>
-                    <span>{{ formatDateTime(session.submittedAt) }}</span>
-                  </div>
-                  <div class="message-trace-recent-item__meta">
-                    <span>{{ session.topic || '--' }}</span>
-                    <span>{{ session.traceId ? `Trace ${session.traceId}` : session.correlationPending ? '等待回流' : '无 trace' }}</span>
-                  </div>
-                </button>
-              </div>
-            </PanelCard>
+                </el-select>
+              </el-form-item>
+            </template>
+            <template #advanced>
+              <el-form-item>
+                <el-input
+                  v-model="searchForm.topic"
+                  placeholder="Topic"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+            </template>
+            <template #actions>
+              <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+              <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            </template>
+          </StandardListFilterHeader>
+          <div v-if="appliedFilters.traceId.trim()" class="message-trace-quick-search-tag">
+            <el-tag closable class="message-trace-quick-search-tag__chip" @close="handleClearQuickSearch">
+              快速搜索：{{ appliedFilters.traceId.trim() }}
+            </el-tag>
           </div>
-        </div>
-      </template>
+        </template>
 
-      <template #toolbar>
-        <StandardTableToolbar
-          compact
-          :meta-items="[
-            `当前结果 ${pagination.total} 条`,
-            `近1小时 ${traceStats.recentHourCount} 条`,
-            `近24小时 ${traceStats.recent24HourCount} 条`,
-            `失败摘要 ${traceStats.dispatchFailureCount} 条`
-          ]"
+        <template #applied-filters>
+          <StandardAppliedFiltersBar
+            :tags="activeFilterTags"
+            @remove="handleRemoveAppliedFilter"
+            @clear="handleClearAppliedFilters"
+          />
+        </template>
+
+        <template v-if="showTraceInlineState" #inline-state>
+          <StandardInlineState :message="traceInlineMessage" tone="info" />
+        </template>
+
+        <template #toolbar>
+          <StandardTableToolbar
+            compact
+            :meta-items="[
+              `当前结果 ${pagination.total} 条`,
+              `近1小时 ${traceStats.recentHourCount} 条`,
+              `近24小时 ${traceStats.recent24HourCount} 条`,
+              `失败摘要 ${traceStats.dispatchFailureCount} 条`
+            ]"
         >
           <template #right>
-            <StandardButton
-              action="refresh"
-              link
-              :disabled="!canJumpWithSearch"
-              @click="jumpToSystemLog()"
-            >
-              跳转异常观测台
-            </StandardButton>
-            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
-          </template>
-        </StandardTableToolbar>
-      </template>
+              <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            </template>
+          </StandardTableToolbar>
+        </template>
 
-      <el-table
-        v-loading="loading"
-        class="message-trace-table"
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-      >
-        <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
-        <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-        <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
-        <StandardTableTextColumn label="消息类型" :width="120">
-          <template #default="{ row }">
-            {{ getMessageTypeLabel(row.messageType) }}
-          </template>
-        </StandardTableTextColumn>
-        <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
-        <StandardTableTextColumn label="Payload 摘要" :min-width="260">
-          <template #default="{ row }">
-            {{ formatInlineText(row.payload) }}
-          </template>
-        </StandardTableTextColumn>
-        <StandardTableTextColumn label="上报时间" :width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.reportTime || row.createTime) }}
-          </template>
-        </StandardTableTextColumn>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <StandardRowActions variant="table" gap="wide">
-              <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
-              <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
-            </StandardRowActions>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-table
+          v-loading="loading"
+          class="message-trace-table"
+          :data="tableData"
+          border
+          stripe
+          style="width: 100%"
+        >
+          <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+          <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+          <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
+          <StandardTableTextColumn label="消息类型" :width="120">
+            <template #default="{ row }">
+              {{ getMessageTypeLabel(row.messageType) }}
+            </template>
+          </StandardTableTextColumn>
+          <StandardTableTextColumn prop="topic" label="Topic" :min-width="220" />
+          <StandardTableTextColumn label="Payload 摘要" :min-width="260">
+            <template #default="{ row }">
+              {{ formatInlineText(row.payload) }}
+            </template>
+          </StandardTableTextColumn>
+          <StandardTableTextColumn label="上报时间" :width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.reportTime || row.createTime) }}
+            </template>
+          </StandardTableTextColumn>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <StandardRowActions variant="table" gap="wide">
+                <StandardActionLink @click="openDetail(row)">详情</StandardActionLink>
+                <StandardActionLink :disabled="!canJumpWithRow(row)" @click="jumpToSystemLog(row)">观测</StandardActionLink>
+              </StandardRowActions>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <template #pagination>
-        <div v-if="pagination.total > 0" class="ops-pagination">
-          <StandardPagination
-            v-model:current-page="pagination.pageNum"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
-            @current-change="handlePageChange"
-          />
-        </div>
+        <template #pagination>
+          <div v-if="pagination.total > 0" class="ops-pagination">
+            <StandardPagination
+              v-model:current-page="pagination.pageNum"
+              v-model:page-size="pagination.pageSize"
+              :total="pagination.total"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSizeChange"
+              @current-change="handlePageChange"
+            />
+          </div>
+        </template>
+        </StandardWorkbenchPanel>
       </template>
-    </StandardWorkbenchPanel>
+    </IotAccessTabWorkspace>
 
     <StandardDetailDrawer
       v-model="detailVisible"
@@ -427,22 +309,30 @@ import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
 import AccessErrorArchivePanel from '@/components/AccessErrorArchivePanel.vue';
-import MetricCard from '@/components/MetricCard.vue';
-import PanelCard from '@/components/PanelCard.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
+import StandardButton from '@/components/StandardButton.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
+import StandardInlineState from '@/components/StandardInlineState.vue';
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue';
 import StandardPagination from '@/components/StandardPagination.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
+import StandardActionLink from '@/components/StandardActionLink.vue';
+import StandardRowActions from '@/components/StandardRowActions.vue';
+import IotAccessPageShell from '@/components/iotAccess/IotAccessPageShell.vue';
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue';
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters';
 import { useServerPagination } from '@/composables/useServerPagination';
+import {
+  describeDiagnosticSource,
+  persistDiagnosticContext,
+  resolveDiagnosticContext,
+  type DiagnosticContext
+} from '@/utils/iotAccessDiagnostics';
 import type {
   DeviceMessageLog,
-  MessageFlowOpsOverview,
-  MessageFlowRecentSession,
   MessageFlowTimeline,
   MessageTraceStats
 } from '@/types/api';
@@ -453,8 +343,8 @@ type ObservabilityViewMode = 'message-trace' | 'access-error';
 const route = useRoute();
 const router = useRouter();
 const pageModeOptions = [
-  { label: '链路追踪', value: 'message-trace' as const },
-  { label: '失败归档', value: 'access-error' as const }
+  { key: 'message-trace', label: '链路追踪' },
+  { key: 'access-error', label: '失败归档' }
 ];
 const pageMode = computed<ObservabilityViewMode>(() =>
   route.query.mode === 'access-error' ? 'access-error' : 'message-trace'
@@ -491,13 +381,13 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTo
 const loading = ref(false);
 const statsLoading = ref(false);
 const timelineLoading = ref(false);
-const opsLoading = ref(false);
-const recentSessionsLoading = ref(false);
 const tableData = ref<DeviceMessageLog[]>([]);
 const detailVisible = ref(false);
 const detailData = ref<Partial<DeviceMessageLog>>({});
 const detailTimeline = ref<MessageFlowTimeline | null>(null);
 const detailTimelineLookupError = ref(false);
+let detailTimelineRequestToken = 0;
+const restoredDiagnosticContext = ref<DiagnosticContext | null>(null);
 const createEmptyTraceStats = (): MessageTraceStats => ({
   total: 0,
   recentHourCount: 0,
@@ -511,15 +401,6 @@ const createEmptyTraceStats = (): MessageTraceStats => ({
   topTopics: []
 });
 const traceStats = ref<MessageTraceStats>(createEmptyTraceStats());
-const createEmptyOpsOverview = (): MessageFlowOpsOverview => ({
-  runtimeStartedAt: '',
-  sessionCounts: [],
-  correlationCounts: [],
-  lookupCounts: [],
-  stageMetrics: []
-});
-const opsOverview = ref<MessageFlowOpsOverview>(createEmptyOpsOverview());
-const recentMessageFlowSessions = ref<MessageFlowRecentSession[]>([]);
 
 const hasDetail = computed(() => Object.keys(detailData.value).length > 0);
 const timelineExpired = computed(() =>
@@ -577,9 +458,6 @@ const detailTags = computed(() => {
     ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
   ];
 });
-const canJumpWithSearch = computed(() =>
-  Boolean(appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey || appliedFilters.topic)
-);
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -610,55 +488,31 @@ const advancedFilterHint = computed(() => {
   }
   return `更多条件已生效 ${advancedAppliedCount.value} 项`;
 });
-const statsSummaryText = computed(() => {
-  if (statsLoading.value) {
-    return '正在加载链路统计概览...';
+const traceRuleSummary = computed(() => {
+  if (detailTimelineLookupError.value) {
+    return '时间线查询异常，优先排查 Redis / message-flow 存储';
   }
-  const topMessageType = traceStats.value.topMessageTypes[0]?.label || '--';
-  const topDeviceCode = traceStats.value.topDeviceCodes[0]?.label || '--';
-  return `链路总量 ${traceStats.value.total}，近1小时 ${traceStats.value.recentHourCount}，近24小时 ${traceStats.value.recent24HourCount}，Trace ${traceStats.value.distinctTraceCount}，设备 ${traceStats.value.distinctDeviceCount}，高频消息 ${topMessageType}，高频设备 ${topDeviceCode}`;
+  if (timelineExpired.value) {
+    return '时间线已过期，仅保留消息日志。';
+  }
+  if (appliedFilters.traceId && tableData.value.length > 0) {
+    return '当前 Trace 可继续查 system_error';
+  }
+  if (restoredDiagnosticContext.value) {
+    return '已恢复跨页排查上下文，可继续联动定位。';
+  }
+  return '按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。';
 });
-const opsOverviewMetrics = computed(() => {
-  const completedCount = sumSessionCount('COMPLETED');
-  const failedCount = sumSessionCount('FAILED');
-  const publishedCount = sumCorrelationCount('published');
-  const matchedCount = sumCorrelationCount('matched');
-  const missedCount = sumCorrelationCount('missed');
-  const lookupErrorCount = sumLookupCount('error');
-
-  return [
-    {
-      label: '完成链路',
-      value: formatCount(completedCount),
-      badge: { label: 'COMPLETED', tone: 'success' as const }
-    },
-    {
-      label: '失败链路',
-      value: formatCount(failedCount),
-      badge: { label: failedCount > 0 ? '需关注' : '稳定', tone: failedCount > 0 ? 'danger' as const : 'muted' as const }
-    },
-    {
-      label: '关联发布',
-      value: formatCount(publishedCount),
-      badge: { label: 'PUBLISHED', tone: 'brand' as const }
-    },
-    {
-      label: '关联命中',
-      value: formatCount(matchedCount),
-      badge: { label: matchedCount >= publishedCount && publishedCount > 0 ? '良好' : '持续观察', tone: matchedCount >= publishedCount && publishedCount > 0 ? 'success' as const : 'warning' as const }
-    },
-    {
-      label: '关联超时',
-      value: formatCount(missedCount),
-      badge: { label: missedCount > 0 ? 'MISS' : '无超时', tone: missedCount > 0 ? 'warning' as const : 'muted' as const }
-    },
-    {
-      label: 'Lookup 异常',
-      value: formatCount(lookupErrorCount),
-      badge: { label: lookupErrorCount > 0 ? '异常' : '正常', tone: lookupErrorCount > 0 ? 'danger' as const : 'success' as const }
-    }
-  ];
+const traceInlineMessage = computed(() => {
+  const contextSource = restoredDiagnosticContext.value
+    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
+    : '';
+  if (statsLoading.value) {
+    return [contextSource, '链路追踪统计加载中。'].filter(Boolean).join(' · ');
+  }
+  return [contextSource, traceRuleSummary.value].filter(Boolean).join(' · ');
 });
+const showTraceInlineState = computed(() => Boolean(traceInlineMessage.value));
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.traceId;
@@ -672,30 +526,67 @@ function syncAdvancedFilterState() {
   showAdvancedFilters.value = Boolean(searchForm.topic.trim());
 }
 
-function handlePageModeChange(value: ObservabilityViewMode | string | number | boolean) {
-  if (value !== 'message-trace' && value !== 'access-error') {
-    return;
-  }
-  router.replace({
-    path: '/message-trace',
-    query: {
-      ...route.query,
-      mode: value === 'access-error' ? 'access-error' : undefined
-    }
-  });
-}
-
 function readQueryValue(key: keyof MessageTraceQueryParams) {
   const value = route.query[key];
   return typeof value === 'string' ? value : '';
 }
 
+function normalizeText(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function pickDiagnosticValue(...values: unknown[]) {
+  for (const value of values) {
+    const normalized = normalizeText(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return undefined;
+}
+
+interface DiagnosticSourceCandidate {
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  topic?: string | null;
+}
+
+function buildVisibleDiagnosticContext(): DiagnosticContext {
+  return {
+    sourcePage: 'message-trace',
+    traceId: pickDiagnosticValue(quickSearchKeyword.value),
+    deviceCode: pickDiagnosticValue(searchForm.deviceCode),
+    productKey: pickDiagnosticValue(searchForm.productKey),
+    topic: pickDiagnosticValue(searchForm.topic),
+    capturedAt: new Date().toISOString()
+  };
+}
+
+function buildDiagnosticContext(source?: DiagnosticSourceCandidate): DiagnosticContext {
+  const visibleContext = buildVisibleDiagnosticContext();
+  return {
+    ...visibleContext,
+    traceId: pickDiagnosticValue(source?.traceId, visibleContext.traceId),
+    deviceCode: pickDiagnosticValue(source?.deviceCode, visibleContext.deviceCode),
+    productKey: pickDiagnosticValue(source?.productKey, visibleContext.productKey),
+    topic: pickDiagnosticValue(source?.topic, visibleContext.topic),
+    capturedAt: new Date().toISOString()
+  };
+}
+
+function persistCurrentDiagnosticContext(source?: DiagnosticSourceCandidate) {
+  persistDiagnosticContext(buildDiagnosticContext(source));
+}
+
 function applyRouteQuery() {
-  searchForm.deviceCode = readQueryValue('deviceCode');
-  searchForm.productKey = readQueryValue('productKey');
-  searchForm.traceId = readQueryValue('traceId');
+  const resolvedContext = resolveDiagnosticContext(route.query as Record<string, unknown>);
+  restoredDiagnosticContext.value = resolvedContext;
+  searchForm.deviceCode = readQueryValue('deviceCode') || resolvedContext?.deviceCode || '';
+  searchForm.productKey = readQueryValue('productKey') || resolvedContext?.productKey || '';
+  searchForm.traceId = readQueryValue('traceId') || resolvedContext?.traceId || '';
   searchForm.messageType = readQueryValue('messageType');
-  searchForm.topic = readQueryValue('topic');
+  searchForm.topic = readQueryValue('topic') || resolvedContext?.topic || '';
   syncQuickSearchKeywordFromFilters();
   syncAdvancedFilterState();
 }
@@ -756,51 +647,6 @@ async function loadTraceStats() {
   }
 }
 
-async function loadOpsOverview() {
-  if (!isMessageTraceMode.value) {
-    return;
-  }
-  opsLoading.value = true;
-  try {
-    opsOverview.value = createEmptyOpsOverview();
-    const response = await messageApi.getMessageFlowOpsOverview();
-    if (response.code === 200 && response.data) {
-      opsOverview.value = {
-        ...createEmptyOpsOverview(),
-        ...response.data,
-        sessionCounts: response.data.sessionCounts || [],
-        correlationCounts: response.data.correlationCounts || [],
-        lookupCounts: response.data.lookupCounts || [],
-        stageMetrics: response.data.stageMetrics || []
-      };
-    }
-  } catch (error) {
-    opsOverview.value = createEmptyOpsOverview();
-    ElMessage.error(error instanceof Error ? error.message : '获取 message-flow 运维指标失败');
-  } finally {
-    opsLoading.value = false;
-  }
-}
-
-async function loadRecentMessageFlowSessions() {
-  if (!isMessageTraceMode.value) {
-    return;
-  }
-  recentSessionsLoading.value = true;
-  try {
-    recentMessageFlowSessions.value = [];
-    const response = await messageApi.getMessageFlowRecentSessions({ size: 8 });
-    if (response.code === 200) {
-      recentMessageFlowSessions.value = response.data || [];
-    }
-  } catch (error) {
-    recentMessageFlowSessions.value = [];
-    ElMessage.error(error instanceof Error ? error.message : '获取最近 message-flow 会话失败');
-  } finally {
-    recentSessionsLoading.value = false;
-  }
-}
-
 function resetSearchForm() {
   searchForm.deviceCode = '';
   searchForm.productKey = '';
@@ -834,8 +680,6 @@ function handleReset() {
 function handleRefresh() {
   loadTableData();
   loadTraceStats();
-  loadOpsOverview();
-  loadRecentMessageFlowSessions();
 }
 
 function handleQuickSearch() {
@@ -879,39 +723,21 @@ function openDetail(row: DeviceMessageLog) {
   loadDetailTimeline(row.traceId);
 }
 
-function applyRecentMessageFlowSession(session: MessageFlowRecentSession) {
-  searchForm.deviceCode = session.deviceCode || '';
-  searchForm.topic = session.topic || '';
-  if (session.traceId) {
-    searchForm.traceId = session.traceId;
-    quickSearchKeyword.value = session.traceId;
-  } else {
-    searchForm.traceId = '';
-    quickSearchKeyword.value = '';
-  }
-  syncAdvancedFilterState();
-  triggerSearch(true);
-}
-
 function canJumpWithRow(row: DeviceMessageLog) {
   return Boolean(row.traceId || row.deviceCode || row.productKey || row.topic);
 }
 
 function jumpToSystemLog(row?: DeviceMessageLog) {
-  const source = row || {
-    traceId: appliedFilters.traceId,
-    deviceCode: appliedFilters.deviceCode,
-    productKey: appliedFilters.productKey,
-    topic: appliedFilters.topic
-  };
+  const context = buildDiagnosticContext(row);
+  persistCurrentDiagnosticContext(row);
   router.push({
     path: '/system-log',
     query: {
-      traceId: source.traceId || undefined,
-      deviceCode: source.deviceCode || undefined,
-      productKey: source.productKey || undefined,
-      requestUrl: source.topic || undefined,
-      requestMethod: source.topic ? 'MQTT' : undefined
+      traceId: context.traceId || undefined,
+      deviceCode: context.deviceCode || undefined,
+      productKey: context.productKey || undefined,
+      requestUrl: context.topic || undefined,
+      requestMethod: context.topic ? 'MQTT' : undefined
     }
   });
 }
@@ -947,51 +773,38 @@ function formatInlineText(value?: string | null) {
 }
 
 async function loadDetailTimeline(traceId?: string | null) {
+  const requestToken = ++detailTimelineRequestToken;
   detailTimeline.value = null;
   detailTimelineLookupError.value = false;
   if (!traceId) {
+    timelineLoading.value = false;
     return;
   }
   timelineLoading.value = true;
   try {
     const response = await messageApi.getMessageFlowTrace(traceId);
+    if (requestToken !== detailTimelineRequestToken) {
+      return;
+    }
+    if (response.code !== 200) {
+      detailTimeline.value = null;
+      detailTimelineLookupError.value = true;
+      ElMessage.error(response.msg || '获取处理时间线失败');
+      return;
+    }
     detailTimeline.value = response.data || null;
   } catch (error) {
+    if (requestToken !== detailTimelineRequestToken) {
+      return;
+    }
     detailTimeline.value = null;
     detailTimelineLookupError.value = true;
     ElMessage.error(error instanceof Error ? error.message : '获取处理时间线失败');
   } finally {
-    timelineLoading.value = false;
+    if (requestToken === detailTimelineRequestToken) {
+      timelineLoading.value = false;
+    }
   }
-}
-
-function sumSessionCount(status: string) {
-  return opsOverview.value.sessionCounts
-    .filter((item) => String(item.status || '').toUpperCase() === status)
-    .reduce((total, item) => total + Number(item.count || 0), 0);
-}
-
-function sumCorrelationCount(result: string) {
-  return opsOverview.value.correlationCounts
-    .filter((item) => String(item.result || '').toLowerCase() === result)
-    .reduce((total, item) => total + Number(item.count || 0), 0);
-}
-
-function sumLookupCount(result: string) {
-  return opsOverview.value.lookupCounts
-    .filter((item) => String(item.result || '').toLowerCase() === result)
-    .reduce((total, item) => total + Number(item.count || 0), 0);
-}
-
-function formatCount(value?: number | null) {
-  return `${Number(value || 0)}`;
-}
-
-function formatCost(value?: number | null) {
-  if (value === undefined || value === null) {
-    return '--';
-  }
-  return `${Math.round(Number(value) * 10) / 10} ms`;
 }
 
 watch(
@@ -1015,13 +828,12 @@ watch(
     syncAppliedFilters();
     loadTableData();
     loadTraceStats();
-    loadOpsOverview();
-    loadRecentMessageFlowSessions();
   }
 );
 
 watch(detailVisible, (visible) => {
   if (!visible) {
+    detailTimelineRequestToken += 1;
     detailData.value = {};
     detailTimeline.value = null;
     timelineLoading.value = false;
@@ -1037,14 +849,55 @@ onMounted(() => {
   syncAppliedFilters();
   loadTableData();
   loadTraceStats();
-  loadOpsOverview();
-  loadRecentMessageFlowSessions();
 });
 </script>
 
 <style scoped>
 .message-trace-view {
   min-width: 0;
+}
+
+.message-trace-command-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+  box-shadow: var(--shadow-card);
+}
+
+.message-trace-command-strip__copy {
+  min-width: 0;
+}
+
+.message-trace-command-strip__title {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.22rem;
+}
+
+.message-trace-command-strip__judgement {
+  margin: 0.42rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.message-trace-command-strip__meta {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.message-trace-command-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.72rem;
 }
 
 .message-trace-quick-search-tag {
@@ -1060,10 +913,11 @@ onMounted(() => {
   gap: 0.72rem;
 }
 
-.message-trace-ops-grid {
+.message-trace-support-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 0.9rem;
+  margin-top: 0.85rem;
 }
 
 .message-trace-ops-card {
@@ -1177,12 +1031,22 @@ onMounted(() => {
 }
 
 @media (max-width: 1280px) {
-  .message-trace-ops-grid {
+  .message-trace-support-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
+  .message-trace-command-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .message-trace-command-strip__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .message-trace-ops-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

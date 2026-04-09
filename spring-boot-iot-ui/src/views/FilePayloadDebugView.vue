@@ -1,8 +1,16 @@
 <template>
-  <div class="file-payload-debug-view">
+  <div class="page-stack file-payload-debug-view">
+    <IotAccessPageShell
+      :breadcrumbs="[
+        { label: '接入智维', to: '/device-access' },
+        { label: '数据校验台' }
+      ]"
+      :show-title="false"
+    />
+
     <StandardWorkbenchPanel
       title="数据校验台"
-      description="按设备编码查看文件快照、固件聚合结果和原始响应，统一完成接入数据完整性核查。"
+      description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
       show-filters
       :show-inline-state="showInlineState"
     >
@@ -34,14 +42,6 @@
       </template>
 
       <div class="page-stack">
-        <PanelCard
-          eyebrow="数据校验台"
-          title="文件消息完整性概况"
-          description="统一汇总文件快照数量、固件聚合数量、最近文件类型和最近一次抓取时间。"
-        >
-          <StandardInfoGrid :items="validationSummaryItems" :columns="4" />
-        </PanelCard>
-
         <section class="two-column-grid file-payload-debug-view__results">
           <PanelCard
             eyebrow="文件快照 C.3"
@@ -106,21 +106,29 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { getDeviceFileSnapshots, getDeviceFirmwareAggregates } from '../api/iot';
 import EmptyState from '../components/EmptyState.vue';
 import PanelCard from '../components/PanelCard.vue';
 import ResponsePanel from '../components/ResponsePanel.vue';
-import StandardInfoGrid from '../components/StandardInfoGrid.vue';
 import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardListFilterHeader from '../components/StandardListFilterHeader.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
+import IotAccessPageShell from '../components/iotAccess/IotAccessPageShell.vue';
 import { recordActivity } from '../stores/activity';
 import type { DeviceFileSnapshot, DeviceFirmwareAggregate } from '../types/api';
 import { formatDateTime } from '../utils/format';
+import {
+  describeDiagnosticSource,
+  persistDiagnosticContext,
+  resolveDiagnosticContext
+} from '../utils/iotAccessDiagnostics';
 
-const defaultDeviceCode = 'demo-device-01';
-const deviceCode = ref(defaultDeviceCode);
+const route = useRoute();
+const restoredDiagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>));
+const defaultDeviceCode = computed(() => restoredDiagnosticContext.value?.deviceCode || 'demo-device-01');
+const deviceCode = ref(defaultDeviceCode.value);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const lastFetchTime = ref<string | null>(null);
@@ -128,39 +136,31 @@ const fileSnapshots = ref<DeviceFileSnapshot[]>([]);
 const firmwareAggregates = ref<DeviceFirmwareAggregate[]>([]);
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
 const inlineStateMessage = computed(() => {
+  const sourceLabel = restoredDiagnosticContext.value
+    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
+    : '';
   if (errorMessage.value) {
-    return errorMessage.value;
+    return [sourceLabel, errorMessage.value].filter(Boolean).join(' · ');
   }
-  if (lastFetchTime.value) {
-    return `最近一次抓取：${formatDateTime(lastFetchTime.value)}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条。`;
-  }
-  return '';
+  const summary = lastFetchTime.value
+    ? `最近一次抓取：${formatDateTime(lastFetchTime.value)}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条。`
+    : `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
+  return [sourceLabel, summary].filter(Boolean).join(' · ');
 });
 const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
 const showInlineState = computed(() => Boolean(inlineStateMessage.value));
 
-const validationSummaryItems = computed(() => [
-  {
-    key: 'file-snapshot-count',
-    label: '文件快照数量',
-    value: fileSnapshots.value.length
-  },
-  {
-    key: 'firmware-aggregate-count',
-    label: '固件聚合数量',
-    value: firmwareAggregates.value.length
-  },
-  {
-    key: 'latest-file-type',
-    label: '最近文件类型',
-    value: fileSnapshots.value[0]?.fileType || firmwareAggregates.value[0]?.fileType
-  },
-  {
-    key: 'last-fetch-time',
-    label: '最近抓取时间',
-    value: formatDateTime(lastFetchTime.value)
-  }
-]);
+function persistValidationContext(snapshotCount: number, aggregateCount: number) {
+  persistDiagnosticContext({
+    sourcePage: 'file-debug',
+    deviceCode: normalizedDeviceCode.value,
+    traceId: restoredDiagnosticContext.value?.traceId || undefined,
+    productKey: restoredDiagnosticContext.value?.productKey || undefined,
+    topic: restoredDiagnosticContext.value?.topic || undefined,
+    reportStatus: snapshotCount || aggregateCount ? 'validated' : 'timeline-missing',
+    capturedAt: new Date().toISOString()
+  });
+}
 
 function formatMd5(value?: boolean | null) {
   if (value === true) {
@@ -190,6 +190,7 @@ async function refreshAll() {
     fileSnapshots.value = snapshotResponse.data;
     firmwareAggregates.value = firmwareResponse.data;
     lastFetchTime.value = new Date().toISOString();
+    persistValidationContext(snapshotResponse.data.length, firmwareResponse.data.length);
 
     recordActivity({
       module: '数据校验台',
@@ -204,6 +205,7 @@ async function refreshAll() {
     });
   } catch (error) {
     errorMessage.value = (error as Error).message;
+    persistValidationContext(0, 0);
     recordActivity({
       module: '数据校验台',
       action: '刷新校验数据',
@@ -218,12 +220,13 @@ async function refreshAll() {
 }
 
 function handleReset() {
-  deviceCode.value = defaultDeviceCode;
+  deviceCode.value = defaultDeviceCode.value;
   errorMessage.value = '';
   lastFetchTime.value = null;
   fileSnapshots.value = [];
   firmwareAggregates.value = [];
 }
+
 </script>
 
 <style scoped>

@@ -11,11 +11,15 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * `$dp` 基站一包多测点子消息拆分器。
  */
 public class LegacyDpChildMessageSplitter {
+
+    private static final String DEEP_DISPLACEMENT_PARENT_STATUS_FAMILY = "S1_ZT_1";
+    private static final Pattern DEEP_DISPLACEMENT_LOGICAL_CODE_PATTERN = Pattern.compile("^L1_SW_\\d+$");
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final LegacyDpFamilyResolver familyResolver = new LegacyDpFamilyResolver();
@@ -37,6 +41,7 @@ public class LegacyDpChildMessageSplitter {
 
         Map<String, String> subDeviceMappings = resolveSubDeviceMappings(parentMessage.getDeviceCode());
         if (subDeviceMappings.isEmpty()) {
+            result.setProperties(collapseStandaloneDeepDisplacementProperties(parentMessage, result));
             result.setChildMessages(List.of());
             result.setChildSplitApplied(Boolean.FALSE);
             return result;
@@ -98,6 +103,94 @@ public class LegacyDpChildMessageSplitter {
         }
         Map<String, String> configuredMappings = iotProperties.getDevice().getSubDeviceMappings().get(baseDeviceCode);
         return configuredMappings == null || configuredMappings.isEmpty() ? Map.of() : configuredMappings;
+    }
+
+    private Map<String, Object> collapseStandaloneDeepDisplacementProperties(DeviceUpMessage parentMessage,
+                                                                             LegacyDpNormalizeResult result) {
+        if (parentMessage == null
+                || !"$dp".equals(parentMessage.getTopic())
+                || result == null
+                || result.getProperties() == null
+                || result.getProperties().isEmpty()) {
+            return result == null ? Map.of() : result.getProperties();
+        }
+
+        List<String> deepDisplacementLogicalCodes = result.getFamilyCodes() == null
+                ? List.of()
+                : result.getFamilyCodes().stream()
+                .filter(this::isDeepDisplacementLogicalCode)
+                .toList();
+        if (deepDisplacementLogicalCodes.size() != 1) {
+            return result.getProperties();
+        }
+
+        String logicalCode = deepDisplacementLogicalCodes.get(0);
+        if (!containsOnlyStandaloneDeepDisplacementFamilies(result.getFamilyCodes(), logicalCode)) {
+            return result.getProperties();
+        }
+        if (!containsOnlyStandaloneDeepDisplacementLogicalCode(result.getProperties(), logicalCode)) {
+            return result.getProperties();
+        }
+        String logicalPrefix = logicalCode + ".";
+        Map<String, Object> collapsedProperties = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : result.getProperties().entrySet()) {
+            String key = entry.getKey();
+            if (key != null && key.startsWith(logicalPrefix)) {
+                collapsedProperties.put(key.substring(logicalPrefix.length()), entry.getValue());
+                continue;
+            }
+            collapsedProperties.put(key, entry.getValue());
+        }
+        return collapsedProperties;
+    }
+
+    private boolean isDeepDisplacementLogicalCode(String familyCode) {
+        return familyCode != null && DEEP_DISPLACEMENT_LOGICAL_CODE_PATTERN.matcher(familyCode).matches();
+    }
+
+    private boolean containsOnlyStandaloneDeepDisplacementFamilies(List<String> familyCodes, String logicalCode) {
+        if (familyCodes == null || familyCodes.isEmpty() || logicalCode == null || logicalCode.isBlank()) {
+            return false;
+        }
+        for (String familyCode : familyCodes) {
+            if (logicalCode.equals(familyCode) || DEEP_DISPLACEMENT_PARENT_STATUS_FAMILY.equals(familyCode)) {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private boolean containsOnlyStandaloneDeepDisplacementLogicalCode(Map<String, Object> properties, String logicalCode) {
+        if (properties == null || properties.isEmpty() || logicalCode == null || logicalCode.isBlank()) {
+            return false;
+        }
+        String logicalPrefix = logicalCode + ".";
+        boolean aliased = false;
+        for (String key : properties.keySet()) {
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+            if (key.startsWith(logicalPrefix)) {
+                aliased = true;
+                continue;
+            }
+            if (isDeepDisplacementLogicalProperty(key)) {
+                return false;
+            }
+        }
+        return aliased;
+    }
+
+    private boolean isDeepDisplacementLogicalProperty(String propertyKey) {
+        if (propertyKey == null || propertyKey.isBlank()) {
+            return false;
+        }
+        int separatorIndex = propertyKey.indexOf('.');
+        if (separatorIndex <= 0) {
+            return false;
+        }
+        return isDeepDisplacementLogicalCode(propertyKey.substring(0, separatorIndex));
     }
 
     private LatestLogicalPayload extractLatestLogicalPayload(String logicalCode, Object logicalPayload) {

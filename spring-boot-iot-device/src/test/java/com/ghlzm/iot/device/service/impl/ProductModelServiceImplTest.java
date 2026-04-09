@@ -1,17 +1,30 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.dto.ProductModelCandidateConfirmDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
+import com.ghlzm.iot.device.entity.CommandRecord;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.DeviceMessageLog;
+import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.mapper.CommandRecordMapper;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
+import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.vo.ProductModelCandidateResultVO;
+import com.ghlzm.iot.device.vo.ProductModelCandidateSummaryVO;
+import com.ghlzm.iot.device.vo.ProductModelCandidateVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
+import java.time.LocalDateTime;
 import java.util.List;
-import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,8 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,12 +46,27 @@ class ProductModelServiceImplTest {
     private ProductMapper productMapper;
     @Mock
     private ProductModelMapper productModelMapper;
+    @Mock
+    private DeviceMapper deviceMapper;
+    @Mock
+    private DevicePropertyMapper devicePropertyMapper;
+    @Mock
+    private DeviceMessageLogMapper deviceMessageLogMapper;
+    @Mock
+    private CommandRecordMapper commandRecordMapper;
 
     private ProductModelServiceImpl productModelService;
 
     @BeforeEach
     void setUp() {
-        productModelService = new ProductModelServiceImpl(productMapper, productModelMapper);
+        productModelService = new ProductModelServiceImpl(
+                productMapper,
+                productModelMapper,
+                deviceMapper,
+                devicePropertyMapper,
+                deviceMessageLogMapper,
+                commandRecordMapper
+        );
     }
 
     @Test
@@ -204,11 +232,156 @@ class ProductModelServiceImplTest {
         verify(productModelMapper).selectList(any());
     }
 
+    @Test
+    void listModelCandidatesShouldGroupPropertyCandidatesAndFlagSuspiciousFields() {
+        LocalDateTime now = LocalDateTime.of(2026, 3, 27, 10, 0, 0);
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of(existingModel(2001L, "existing.temperature", 10)));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L), device(3002L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "L1_QJ_1.angle", "角度", "double", now.minusMinutes(20)),
+                property(3002L, "L1_QJ_1.angle", "角度", "double", now.minusMinutes(10)),
+                property(3001L, "S1_ZT_1.signal_4g", "4G 信号强度", "integer", now.minusMinutes(9)),
+                property(3001L, "lat", "纬度", "double", now.minusMinutes(8)),
+                property(3001L, "codex_verify_temp", "验证温度", "double", now.minusMinutes(7)),
+                property(3001L, "singal_NB", "NB 信号", "integer", now.minusMinutes(6))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog("property", "{\"properties\":{\"L1_QJ_1\":{\"angle\":1.25}}}", now.minusMinutes(5)),
+                messageLog("status", "{\"status\":{\"S1_ZT_1\":{\"signal_4g\":91}}}", now.minusMinutes(4))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of(commandRecord("property", null)));
+
+        ProductModelCandidateResultVO result = productModelService.listModelCandidates(1001L);
+
+        assertEquals(5, result.getPropertyCandidates().size());
+        ProductModelCandidateVO telemetry = candidate(result.getPropertyCandidates(), "L1_QJ_1.angle");
+        assertEquals("telemetry", telemetry.getGroupKey());
+        assertEquals(Boolean.FALSE, telemetry.getNeedsReview());
+        assertEquals(2, telemetry.getEvidenceCount());
+        assertTrue(telemetry.getDescription().contains("测点属性"));
+
+        ProductModelCandidateVO deviceStatus = candidate(result.getPropertyCandidates(), "S1_ZT_1.signal_4g");
+        assertEquals("device_status", deviceStatus.getGroupKey());
+        assertEquals(Boolean.FALSE, deviceStatus.getNeedsReview());
+        assertTrue(deviceStatus.getDescription().contains("设备状态"));
+
+        ProductModelCandidateVO location = candidate(result.getPropertyCandidates(), "lat");
+        assertEquals("location", location.getGroupKey());
+        assertTrue(location.getDescription().contains("定位属性"));
+
+        ProductModelCandidateVO verifyField = candidate(result.getPropertyCandidates(), "codex_verify_temp");
+        assertEquals(Boolean.TRUE, verifyField.getNeedsReview());
+        assertEquals("needs_review", verifyField.getCandidateStatus());
+        assertTrue(verifyField.getDescription().contains("人工归一"));
+
+        ProductModelCandidateVO typoField = candidate(result.getPropertyCandidates(), "singal_NB");
+        assertEquals(Boolean.TRUE, typoField.getNeedsReview());
+        assertEquals("needs_review", typoField.getCandidateStatus());
+        assertTrue(typoField.getDescription().contains("人工归一"));
+
+        assertEquals(5, result.getSummary().getPropertyCandidateCount());
+        assertEquals(0, result.getSummary().getEventCandidateCount());
+        assertEquals(0, result.getSummary().getServiceCandidateCount());
+        assertEquals(2, result.getSummary().getNeedsReviewCount());
+        assertEquals(1, result.getSummary().getExistingModelCount());
+    }
+
+    @Test
+    void listModelCandidatesShouldRefineSouthGnssTelemetryAndStatusFields() {
+        LocalDateTime now = LocalDateTime.of(2026, 3, 27, 22, 29, 14);
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "south_gnss_monitor", "南方GNSS位移监测仪"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "L1_GP_1.gpsTotalX", "L1_GP_1.gpsTotalX", "double", now.minusMinutes(2)),
+                property(3001L, "L1_GP_1.gpsTotalY", "L1_GP_1.gpsTotalY", "double", now.minusMinutes(2)),
+                property(3001L, "L1_QJ_1.X", "L1_QJ_1.X", "double", now.minusMinutes(2)),
+                property(3001L, "L1_QJ_1.AZI", "L1_QJ_1.AZI", "int", now.minusMinutes(2)),
+                property(3001L, "S1_ZT_1.sensor_state.L1_GP_1", "S1_ZT_1.sensor_state.L1_GP_1", "int", now.minusMinutes(1))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog("property", "{\"properties\":{\"L1_GP_1\":{\"gpsTotalX\":0.12,\"gpsTotalY\":0.08},\"L1_QJ_1\":{\"X\":1.2,\"AZI\":182},\"S1_ZT_1\":{\"sensor_state\":{\"L1_GP_1\":1}}}}", now.minusMinutes(1))
+        ));
+        when(commandRecordMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelCandidateResultVO result = productModelService.listModelCandidates(1001L);
+
+        ProductModelCandidateVO gpsTotalX = candidate(result.getPropertyCandidates(), "L1_GP_1.gpsTotalX");
+        assertEquals("telemetry", gpsTotalX.getGroupKey());
+        assertEquals(Boolean.FALSE, gpsTotalX.getNeedsReview());
+        assertTrue(gpsTotalX.getModelName().contains("GNSS"));
+        assertTrue(gpsTotalX.getDescription().contains("测点属性"));
+
+        ProductModelCandidateVO inclinometerX = candidate(result.getPropertyCandidates(), "L1_QJ_1.X");
+        assertEquals("telemetry", inclinometerX.getGroupKey());
+        assertTrue(inclinometerX.getModelName().contains("倾角"));
+
+        ProductModelCandidateVO azimuth = candidate(result.getPropertyCandidates(), "L1_QJ_1.AZI");
+        assertEquals("telemetry", azimuth.getGroupKey());
+        assertTrue(azimuth.getModelName().contains("方位"));
+
+        ProductModelCandidateVO gnssState = candidate(result.getPropertyCandidates(), "S1_ZT_1.sensor_state.L1_GP_1");
+        assertEquals("device_status", gnssState.getGroupKey());
+        assertEquals(Boolean.FALSE, gnssState.getNeedsReview());
+        assertTrue(gnssState.getModelName().contains("传感器状态"));
+    }
+
+    @Test
+    void listModelCandidatesShouldReturnEmptyEventAndServiceCandidatesWhenEvidenceMissing() {
+        LocalDateTime now = LocalDateTime.of(2026, 3, 27, 10, 0, 0);
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(3001L)));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                property(3001L, "S1_ZT_1.temp", "设备温度", "double", now.minusMinutes(12))
+        ));
+        when(deviceMessageLogMapper.selectList(any())).thenReturn(List.of(
+                messageLog("status", "{\"status\":{\"S1_ZT_1\":{\"temp\":36.5}}}", now.minusMinutes(6))
+        ));
+        when(commandRecordMapper.selectList(any())).thenThrow(new RuntimeException("Unknown column 'service_identifier'"));
+
+        ProductModelCandidateResultVO result = productModelService.listModelCandidates(1001L);
+
+        assertTrue(result.getEventCandidates().isEmpty());
+        assertTrue(result.getServiceCandidates().isEmpty());
+        assertTrue(result.getSummary().getEventHint().contains("暂无真实事件证据"));
+        assertTrue(result.getSummary().getServiceHint().contains("iot_command_record"));
+        assertTrue(result.getSummary().getServiceHint().contains("字段"));
+    }
+
+    @Test
+    void confirmModelCandidatesShouldOnlyInsertConfirmedItemsAndSkipExistingIdentifiers() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of(existingModel(2001L, "temperature", 10)));
+
+        ProductModelCandidateConfirmDTO dto = new ProductModelCandidateConfirmDTO();
+        dto.setItems(List.of(
+                confirmItem("temperature", "温度", "double", "已存在正式模型"),
+                confirmItem("S1_ZT_1.signal_4g", "4G 信号强度", "integer", "归属设备状态属性")
+        ));
+
+        ProductModelCandidateSummaryVO summary = productModelService.confirmModelCandidates(1001L, dto);
+
+        ArgumentCaptor<ProductModel> captor = ArgumentCaptor.forClass(ProductModel.class);
+        verify(productModelMapper).insert(captor.capture());
+        assertEquals("S1_ZT_1.signal_4g", captor.getValue().getIdentifier());
+        assertEquals("property", captor.getValue().getModelType());
+        assertEquals("integer", captor.getValue().getDataType());
+        assertEquals(1, summary.getCreatedCount());
+        assertEquals(1, summary.getConflictCount());
+        assertEquals(1, summary.getSkippedCount());
+    }
+
     private Product product(Long id) {
+        return product(id, "accept-product", "验收产品");
+    }
+
+    private Product product(Long id, String productKey, String productName) {
         Product product = new Product();
         product.setId(id);
-        product.setProductKey("accept-product");
-        product.setProductName("验收产品");
+        product.setProductKey(productKey);
+        product.setProductName(productName);
         product.setProtocolCode("mqtt-json");
         product.setNodeType(1);
         return product;
@@ -238,5 +411,66 @@ class ProductModelServiceImplTest {
         dto.setRequiredFlag(1);
         dto.setDescription("温度属性");
         return dto;
+    }
+
+    private Device device(Long id) {
+        Device device = new Device();
+        device.setId(id);
+        device.setProductId(1001L);
+        device.setDeviceCode("device-" + id);
+        device.setDeviceName("设备-" + id);
+        device.setDeleted(0);
+        return device;
+    }
+
+    private DeviceProperty property(Long deviceId, String identifier, String propertyName, String valueType, LocalDateTime reportTime) {
+        DeviceProperty property = new DeviceProperty();
+        property.setDeviceId(deviceId);
+        property.setIdentifier(identifier);
+        property.setPropertyName(propertyName);
+        property.setValueType(valueType);
+        property.setReportTime(reportTime);
+        property.setUpdateTime(reportTime);
+        return property;
+    }
+
+    private DeviceMessageLog messageLog(String messageType, String payload, LocalDateTime reportTime) {
+        DeviceMessageLog log = new DeviceMessageLog();
+        log.setProductId(1001L);
+        log.setMessageType(messageType);
+        log.setPayload(payload);
+        log.setReportTime(reportTime);
+        log.setCreateTime(reportTime);
+        return log;
+    }
+
+    private CommandRecord commandRecord(String commandType, String serviceIdentifier) {
+        CommandRecord record = new CommandRecord();
+        record.setCommandType(commandType);
+        record.setServiceIdentifier(serviceIdentifier);
+        return record;
+    }
+
+    private ProductModelCandidateVO candidate(List<ProductModelCandidateVO> candidates, String identifier) {
+        return candidates.stream()
+                .filter(item -> identifier.equals(item.getIdentifier()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private ProductModelCandidateConfirmDTO.ProductModelCandidateConfirmItem confirmItem(String identifier,
+                                                                                         String modelName,
+                                                                                         String dataType,
+                                                                                         String description) {
+        ProductModelCandidateConfirmDTO.ProductModelCandidateConfirmItem item =
+                new ProductModelCandidateConfirmDTO.ProductModelCandidateConfirmItem();
+        item.setModelType("property");
+        item.setIdentifier(identifier);
+        item.setModelName(modelName);
+        item.setDataType(dataType);
+        item.setDescription(description);
+        item.setSortNo(10);
+        item.setRequiredFlag(0);
+        return item;
     }
 }
