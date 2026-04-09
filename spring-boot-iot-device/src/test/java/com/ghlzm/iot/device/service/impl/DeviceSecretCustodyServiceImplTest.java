@@ -10,11 +10,13 @@ import com.ghlzm.iot.device.mapper.DeviceSecretRotationLogMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.DeviceSecretRotateResultVO;
+import com.ghlzm.iot.system.entity.AuditLog;
 import com.ghlzm.iot.system.service.AuditLogService;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -99,7 +101,14 @@ class DeviceSecretCustodyServiceImplTest {
         );
         verify(deviceMapper).updateById(any(Device.class));
         verify(deviceSecretRotationLogMapper).insert(any(DeviceSecretRotationLog.class));
-        verify(auditLogService).addLog(any());
+        ArgumentCaptor<AuditLog> auditLogCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(auditLogService).addLog(auditLogCaptor.capture());
+        assertEquals(
+                "{\"governanceAction\":\"DEVICE_SECRET_ROTATE\",\"rotationBatchId\":\""
+                        + result.getRotationBatchId()
+                        + "\",\"approverUserId\":2002,\"reason\":\"routine-rotation\",\"dualControl\":true}",
+                auditLogCaptor.getValue().getRequestParams()
+        );
     }
 
     @Test
