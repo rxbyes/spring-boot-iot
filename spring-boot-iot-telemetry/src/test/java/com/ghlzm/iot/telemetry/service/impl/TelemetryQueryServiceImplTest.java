@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +37,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TelemetryQueryServiceImplTest {
+
+    private static final DateTimeFormatter BUCKET_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Mock
     private DeviceMapper deviceMapper;
@@ -236,6 +239,49 @@ class TelemetryQueryServiceImplTest {
     }
 
     @Test
+    void getHistoryBatchShouldBucketByIngestedAtBeforeReportedAt() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata measureMetadata = metadata("泥水位高程", "double");
+        LocalDateTime now = LocalDateTime.now().withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime reportedAt = now.minusDays(2).withHour(10);
+        LocalDateTime ingestedAt = now.minusDays(1).withHour(10);
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "L4_NW_1", measureMetadata
+        ));
+        when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
+        when(telemetryRawHistoryReader.listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")), anyInt()))
+                .thenReturn(List.of(
+                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, reportedAt, ingestedAt)
+                ));
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        TelemetryHistoryBatchResponse result = telemetryQueryService.getHistoryBatch(request);
+
+        Map<String, Double> bucketMap = result.getPoints().get(0).getBuckets().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        item -> item.getTime(),
+                        item -> item.getValue(),
+                        (left, right) -> right,
+                        java.util.LinkedHashMap::new
+                ));
+
+        assertEquals(2.6D, bucketMap.get(BUCKET_TIME_FORMATTER.format(ingestedAt.withHour(0))));
+        assertEquals(0D, bucketMap.get(BUCKET_TIME_FORMATTER.format(reportedAt.withHour(0))));
+    }
+
+    @Test
     void shouldReadV2LatestBeforeLegacyFallback() {
         Device device = buildDevice();
         Product product = buildProduct();
@@ -334,10 +380,19 @@ class TelemetryQueryServiceImplTest {
                                           String metricName,
                                           Object value,
                                           LocalDateTime reportedAt) {
+        return historyPoint(metricCode, metricName, value, reportedAt, reportedAt);
+    }
+
+    private TelemetryV2Point historyPoint(String metricCode,
+                                          String metricName,
+                                          Object value,
+                                          LocalDateTime reportedAt,
+                                          LocalDateTime ingestedAt) {
         TelemetryV2Point point = new TelemetryV2Point();
         point.setMetricCode(metricCode);
         point.setMetricName(metricName);
         point.setReportedAt(reportedAt);
+        point.setIngestedAt(ingestedAt);
         if (value instanceof Double number) {
             point.setValueDouble(number);
             point.setValueType("double");

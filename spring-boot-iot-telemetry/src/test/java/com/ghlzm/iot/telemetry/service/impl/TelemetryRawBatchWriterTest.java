@@ -10,16 +10,19 @@ import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -72,6 +75,60 @@ class TelemetryRawBatchWriterTest {
         verify(schemaSupport).ensureChildTable(points.get(0));
         verify(jdbcTemplate, never()).update(anyString(), anyList());
         verify(jdbcTemplate, org.mockito.Mockito.times(2)).batchUpdate(anyString(), anyList());
+    }
+
+    @Test
+    void shouldAllocateUniqueRowTimestampPerRawPointWithinSameStream() {
+        when(jdbcTemplateProvider.getJdbcTemplate()).thenReturn(jdbcTemplate);
+        List<TelemetryV2Point> points = writer.toPoints(buildTarget(), buildProperties(), metadataMap());
+
+        writer.write(points);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Object[]>> batchArgsCaptor = ArgumentCaptor.forClass((Class) List.class);
+        verify(jdbcTemplate, org.mockito.Mockito.times(2)).batchUpdate(anyString(), batchArgsCaptor.capture());
+        List<Object[]> measureRows = batchArgsCaptor.getAllValues().stream()
+                .filter(rows -> rows.stream().anyMatch(row -> "temperature".equals(row[1])))
+                .findFirst()
+                .orElseThrow();
+
+        Timestamp firstRowTs = (Timestamp) measureRows.get(0)[0];
+        Timestamp secondRowTs = (Timestamp) measureRows.get(1)[0];
+        Timestamp firstReportedAt = (Timestamp) measureRows.get(0)[2];
+        Timestamp secondReportedAt = (Timestamp) measureRows.get(1)[2];
+
+        assertEquals(firstReportedAt, secondReportedAt);
+        assertNotEquals(firstRowTs, secondRowTs);
+    }
+
+    @Test
+    void shouldUseIngestedAtAsRowTimestampBaseForTrendOrdering() {
+        when(jdbcTemplateProvider.getJdbcTemplate()).thenReturn(jdbcTemplate);
+        List<TelemetryV2Point> points = writer.toPoints(buildTarget(), buildProperties(), metadataMap());
+        LocalDateTime reportedAt = LocalDateTime.of(2026, 3, 27, 9, 0);
+        LocalDateTime ingestedAt = LocalDateTime.of(2026, 3, 27, 9, 5);
+        points.stream()
+                .filter(point -> point.getStreamKind() == TelemetryStreamKind.MEASURE)
+                .forEach(point -> {
+                    point.setReportedAt(reportedAt);
+                    point.setIngestedAt(ingestedAt);
+                });
+
+        writer.write(points);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Object[]>> batchArgsCaptor = ArgumentCaptor.forClass((Class) List.class);
+        verify(jdbcTemplate, org.mockito.Mockito.times(2)).batchUpdate(anyString(), batchArgsCaptor.capture());
+        List<Object[]> measureRows = batchArgsCaptor.getAllValues().stream()
+                .filter(rows -> rows.stream().anyMatch(row -> "temperature".equals(row[1])))
+                .findFirst()
+                .orElseThrow();
+
+        Timestamp firstRowTs = (Timestamp) measureRows.get(0)[0];
+        Timestamp secondRowTs = (Timestamp) measureRows.get(1)[0];
+
+        assertEquals(Timestamp.valueOf(ingestedAt), firstRowTs);
+        assertTrue(secondRowTs.after(firstRowTs));
     }
 
     private DeviceProcessingTarget buildTarget() {

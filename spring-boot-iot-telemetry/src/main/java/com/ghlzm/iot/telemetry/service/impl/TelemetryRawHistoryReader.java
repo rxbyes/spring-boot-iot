@@ -70,8 +70,8 @@ public class TelemetryRawHistoryReader {
             points.addAll(readChildTable(jdbcTemplate, childTable, streamKind, device, product, metadataMap, identifiers, batchSize));
         }
         points.sort((left, right) -> {
-            LocalDateTime leftTime = left.getReportedAt();
-            LocalDateTime rightTime = right.getReportedAt();
+            LocalDateTime leftTime = resolveHistoryTime(left);
+            LocalDateTime rightTime = resolveHistoryTime(right);
             if (leftTime == null && rightTime == null) {
                 return 0;
             }
@@ -135,8 +135,10 @@ public class TelemetryRawHistoryReader {
                     point.setSessionId(rs.getString("session_id"));
                     point.setSourceMessageType(rs.getString("source_message_type"));
                     point.setSensorGroup(streamKind.name().toLowerCase(Locale.ROOT));
-                    point.setReportedAt(reportedAt == null ? (ts == null ? null : ts.toLocalDateTime()) : reportedAt.toLocalDateTime());
-                    point.setIngestedAt(ingestedAt == null ? null : ingestedAt.toLocalDateTime());
+                    point.setReportedAt(reportedAt == null ? null : reportedAt.toLocalDateTime());
+                    point.setIngestedAt(ingestedAt == null
+                            ? (ts == null ? null : ts.toLocalDateTime())
+                            : ingestedAt.toLocalDateTime());
                     points.add(point);
                 }
                 return points;
@@ -171,8 +173,18 @@ public class TelemetryRawHistoryReader {
         return SELECT_COLUMNS
                 + childTable
                 + " WHERE metric_id IN (" + placeholders + ")"
-                + " ORDER BY reported_at ASC, ts ASC"
+                + " ORDER BY ts ASC"
                 + " LIMIT " + Math.max(batchSize, 1);
+    }
+
+    private LocalDateTime resolveHistoryTime(TelemetryV2Point point) {
+        if (point == null) {
+            return null;
+        }
+        if (point.getIngestedAt() != null) {
+            return point.getIngestedAt();
+        }
+        return point.getReportedAt();
     }
 
     private String resolveMetricName(String metricCode, DevicePropertyMetadata metadata) {

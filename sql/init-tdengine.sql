@@ -71,9 +71,9 @@ CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
 --   tb_s_<tenantId>_<deviceId>
 --   tb_e_<tenantId>_<deviceId>
 -- 共享字段含义：
--- - ts：行键时间
--- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表同时间多测点覆盖
--- - reported_at：真实上报时间
+-- - ts：入库时间行键，趋势默认按该时间轴读取
+-- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表同时间多测点覆盖
+-- - reported_at：真实上报/采集时间，仅用于追溯和 latest 判新
 -- - ingested_at：进入平台的写入时间
 -- - value_double/value_long/value_bool/value_text：按类型拆分后的指标值
 -- - quality_code：质量码
@@ -101,9 +101,9 @@ CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
 -- - 承载温度、湿度、雨量、位移、倾角等连续测量指标
 -- - 运行时通过 `tb_m_<tenantId>_<deviceId>` 派生设备子表
 -- 字段含义：
--- - ts：行键时间
--- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表多测点覆盖
--- - reported_at：设备真实上报时间
+-- - ts：入库时间行键，趋势默认按该时间轴读取
+-- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表多测点覆盖
+-- - reported_at：设备真实上报/采集时间，仅用于追溯和 latest 判新
 -- - ingested_at：平台写入时间
 -- - value_double：浮点型测量值
 -- - value_long：整型测量值
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
 -- ----------------------------------------
 CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
     ts TIMESTAMP,
-    metric_id BINARY(128) COMPOSITE KEY,
+    metric_id BINARY(128),
     reported_at TIMESTAMP,
     ingested_at TIMESTAMP,
     value_double DOUBLE,
@@ -152,9 +152,9 @@ CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
 -- - 承载在线状态、开关状态、运行状态、故障状态等离散状态指标
 -- - 运行时通过 `tb_s_<tenantId>_<deviceId>` 派生设备子表
 -- 字段含义：
--- - ts：行键时间
--- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表多状态覆盖
--- - reported_at：设备真实上报时间
+-- - ts：入库时间行键，趋势默认按该时间轴读取
+-- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表多状态覆盖
+-- - reported_at：设备真实上报/采集时间，仅用于追溯和 latest 判新
 -- - ingested_at：平台写入时间
 -- - value_double：浮点型状态值
 -- - value_long：整型状态值
@@ -175,7 +175,7 @@ CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
 -- ----------------------------------------
 CREATE STABLE IF NOT EXISTS iot_raw_status_point (
     ts TIMESTAMP,
-    metric_id BINARY(128) COMPOSITE KEY,
+    metric_id BINARY(128),
     reported_at TIMESTAMP,
     ingested_at TIMESTAMP,
     value_double DOUBLE,
@@ -203,9 +203,9 @@ CREATE STABLE IF NOT EXISTS iot_raw_status_point (
 -- - 承载告警事件、动作事件、业务事件等事件型指标
 -- - 运行时通过 `tb_e_<tenantId>_<deviceId>` 派生设备子表
 -- 字段含义：
--- - ts：行键时间
--- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同避免同子表多事件覆盖
--- - reported_at：事件真实发生/上报时间
+-- - ts：入库时间行键，趋势默认按该时间轴读取
+-- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表多事件覆盖
+-- - reported_at：事件真实发生/上报时间，仅用于追溯和 latest 判新
 -- - ingested_at：平台写入时间
 -- - value_double：浮点型事件值
 -- - value_long：整型事件值
@@ -226,7 +226,7 @@ CREATE STABLE IF NOT EXISTS iot_raw_status_point (
 -- ----------------------------------------
 CREATE STABLE IF NOT EXISTS iot_raw_event_point (
     ts TIMESTAMP,
-    metric_id BINARY(128) COMPOSITE KEY,
+    metric_id BINARY(128),
     reported_at TIMESTAMP,
     ingested_at TIMESTAMP,
     value_double DOUBLE,
@@ -254,9 +254,10 @@ CREATE STABLE IF NOT EXISTS iot_raw_event_point (
 -- - 当前只覆盖 MEASURE 数值类指标，不承载 STATUS / EVENT 聚合
 -- - 该 stable 必须通过本脚本手动初始化；应用运行时不会自动创建 stable
 -- - 运行时按设备自动派生 child table：tb_ah_<tenantId>_<deviceId>
+-- - 当前共享 TDengine 基线同样不接受 COMPOSITE KEY 语法；如需开启小时聚合，请先在目标版本复验同小时多指标写入语义
 -- 字段含义：
 -- - ts：小时窗口起点时间，同时作为行键时间
--- - metric_id：标准化指标 ID，声明为 COMPOSITE KEY，与 ts 共同定位同小时同指标聚合行
+-- - metric_id：标准化指标 ID
 -- - metric_code / metric_name：指标编码与显示名称
 -- - value_type：值类型，当前统一为 double 聚合
 -- - first_reported_at / last_reported_at：窗口内最早 / 最晚真实上报时间
@@ -274,7 +275,7 @@ CREATE STABLE IF NOT EXISTS iot_raw_event_point (
 -- ========================================
 CREATE STABLE IF NOT EXISTS iot_agg_measure_hour (
     ts TIMESTAMP,
-    metric_id BINARY(128) COMPOSITE KEY,
+    metric_id BINARY(128),
     metric_code BINARY(128),
     metric_name NCHAR(128),
     value_type BINARY(32),

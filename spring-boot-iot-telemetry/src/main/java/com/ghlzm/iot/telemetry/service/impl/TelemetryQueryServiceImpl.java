@@ -310,7 +310,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private String historyPointKey(TelemetryV2Point point) {
         return String.valueOf(point == null ? null : point.getMetricCode())
                 + "@"
-                + String.valueOf(point == null ? null : point.getReportedAt());
+                + String.valueOf(resolveHistoryTime(point));
     }
 
     private TelemetryHistoryBatchResponse buildHistoryBatchResponse(Long deviceId,
@@ -342,11 +342,11 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             if (point == null || !Objects.equals(identifier, point.getMetricCode())) {
                 continue;
             }
-            LocalDateTime reportedAt = point.getReportedAt();
-            if (reportedAt == null) {
+            LocalDateTime historyTime = resolveHistoryTime(point);
+            if (historyTime == null) {
                 continue;
             }
-            LocalDateTime bucketStart = alignToBucket(reportedAt, rangeDefinition.unit());
+            LocalDateTime bucketStart = alignToBucket(historyTime, rangeDefinition.unit());
             if (!containsSlot(slots, bucketStart)) {
                 continue;
             }
@@ -413,6 +413,16 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private String resolveSeriesType(String identifier, DevicePropertyMetadata metadata) {
         TelemetryStreamKind streamKind = TelemetryStreamKind.resolve("property", identifier, metadata, null);
         return streamKind == TelemetryStreamKind.MEASURE ? "measure" : "status";
+    }
+
+    private LocalDateTime resolveHistoryTime(TelemetryV2Point point) {
+        if (point == null) {
+            return null;
+        }
+        if (point.getIngestedAt() != null) {
+            return point.getIngestedAt();
+        }
+        return point.getReportedAt();
     }
 
     private List<String> normalizeIdentifiers(List<String> identifiers) {
