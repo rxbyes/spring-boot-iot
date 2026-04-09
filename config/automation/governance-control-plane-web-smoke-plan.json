@@ -1,0 +1,275 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-04-09T00:00:00+08:00",
+  "target": {
+    "planName": "治理控制面与管理驾驶舱冒烟基线",
+    "frontendBaseUrl": "http://127.0.0.1:5174",
+    "backendBaseUrl": "http://127.0.0.1:9999",
+    "loginRoute": "/login",
+    "username": "admin",
+    "password": "123456",
+    "browserPath": "",
+    "headless": true,
+    "outputPrefix": "governance-control-plane-browser",
+    "baselineDir": "config/automation/baselines",
+    "scenarioScopes": [
+      "delivery"
+    ],
+    "failScopes": [
+      "delivery"
+    ]
+  },
+  "tags": [
+    "playwright",
+    "config-driven",
+    "governance-control-plane"
+  ],
+  "plugins": [
+    "builtin-report",
+    "builtin-suggestion",
+    "capture-response"
+  ],
+  "scenarios": [
+    {
+      "key": "governance-login",
+      "name": "治理控制面登录初始化",
+      "route": "/login",
+      "scope": "delivery",
+      "readySelector": "#login-submit",
+      "requiresLogin": false,
+      "description": "初始化治理控制面浏览器会话。",
+      "businessFlow": "登录鉴权与控制面会话建立",
+      "featurePoints": [
+        "登录页可达",
+        "登录接口返回 200",
+        "进入受保护工作台"
+      ],
+      "steps": [
+        {
+          "id": "governance-login-fill-username",
+          "label": "填写账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-username"
+          },
+          "value": "${target.username}"
+        },
+        {
+          "id": "governance-login-fill-password",
+          "label": "填写密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-password"
+          },
+          "value": "${target.password}"
+        },
+        {
+          "id": "governance-login-submit",
+          "label": "提交登录",
+          "type": "triggerApi",
+          "matcher": "/api/auth/login",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#login-submit"
+            }
+          }
+        },
+        {
+          "id": "governance-login-assert-shell",
+          "label": "断言进入平台壳层",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "平台治理"
+        }
+      ]
+    },
+    {
+      "key": "manager-cockpit",
+      "name": "管理视角治理经营驾驶舱",
+      "route": "/",
+      "scope": "delivery",
+      "readySelector": ".role-tabs",
+      "requiresLogin": true,
+      "description": "验证首页管理视角已接上治理经营聚合，并保留治理任务台/运维台入口。",
+      "businessFlow": "管理视角治理经营聚合与控制面入口冒烟",
+      "featurePoints": [
+        "治理经营聚合接口返回 200",
+        "管理视角 KPI 可见",
+        "控制面入口可见"
+      ],
+      "initialApis": [
+        {
+          "label": "治理经营聚合",
+          "matcher": "/api/risk-governance/dashboard-overview"
+        }
+      ],
+      "steps": [
+        {
+          "id": "manager-cockpit-switch-role",
+          "label": "切换到管理人员视角",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "管理人员"
+          }
+        },
+        {
+          "id": "manager-cockpit-assert-kpi",
+          "label": "断言治理 KPI 可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "治理完成率"
+        },
+        {
+          "id": "manager-cockpit-assert-queue",
+          "label": "断言六类治理任务队列可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "待治理产品"
+        },
+        {
+          "id": "manager-cockpit-assert-control-entry",
+          "label": "断言治理控制面入口可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "治理任务台"
+        },
+        {
+          "id": "manager-cockpit-assert-ops-entry",
+          "label": "断言治理运维入口可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "治理运维台"
+        }
+      ]
+    },
+    {
+      "key": "governance-task-workbench",
+      "name": "治理任务台共享 dev 冒烟",
+      "route": "/governance-task?workStatus=OPEN&workItemCode=PENDING_CONTRACT_RELEASE",
+      "expectedPath": "/governance-task",
+      "scope": "delivery",
+      "readySelector": ".governance-task-view",
+      "requiresLogin": true,
+      "description": "验证治理任务台页面、列表接口和 query 上下文恢复可用。",
+      "businessFlow": "控制面任务工作台可达性与待发布合同上下文复验",
+      "featurePoints": [
+        "治理任务分页接口返回 200",
+        "治理任务台页面可达",
+        "待发布合同 query 上下文可见"
+      ],
+      "initialApis": [
+        {
+          "label": "治理任务分页",
+          "matcher": "/api/governance/work-items"
+        }
+      ],
+      "steps": [
+        {
+          "id": "governance-task-assert-title",
+          "label": "断言治理任务台标题",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "治理任务台"
+        },
+        {
+          "id": "governance-task-assert-guide",
+          "label": "断言任务导向说明",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "任务导向"
+        },
+        {
+          "id": "governance-task-assert-scope",
+          "label": "断言待发布合同上下文",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "待发布合同"
+        }
+      ]
+    },
+    {
+      "key": "governance-ops-workbench",
+      "name": "治理运维台共享 dev 冒烟",
+      "route": "/governance-ops?alertStatus=OPEN&alertType=FIELD_DRIFT",
+      "expectedPath": "/governance-ops",
+      "scope": "delivery",
+      "readySelector": ".governance-ops-view",
+      "requiresLogin": true,
+      "description": "验证治理运维台页面、告警接口和字段漂移上下文可用。",
+      "businessFlow": "控制面运维告警工作台可达性与字段漂移告警复验",
+      "featurePoints": [
+        "治理运维告警分页接口返回 200",
+        "治理运维台页面可达",
+        "字段漂移告警上下文可见"
+      ],
+      "initialApis": [
+        {
+          "label": "治理运维告警分页",
+          "matcher": "/api/governance/ops-alerts"
+        }
+      ],
+      "steps": [
+        {
+          "id": "governance-ops-assert-title",
+          "label": "断言治理运维台标题",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "治理运维台"
+        },
+        {
+          "id": "governance-ops-assert-guide",
+          "label": "断言运维导向说明",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "运维导向"
+        },
+        {
+          "id": "governance-ops-assert-scope",
+          "label": "断言字段漂移上下文",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "字段漂移告警"
+        }
+      ]
+    }
+  ]
+}
