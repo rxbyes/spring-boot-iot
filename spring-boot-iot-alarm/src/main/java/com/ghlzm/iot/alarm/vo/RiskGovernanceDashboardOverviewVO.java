@@ -28,6 +28,14 @@ public class RiskGovernanceDashboardOverviewVO {
 
     private Long pendingPolicyCount;
 
+    private Long pendingThresholdPolicyCount;
+
+    private Long pendingLinkageCount;
+
+    private Long pendingEmergencyPlanCount;
+
+    private Long pendingLinkagePlanCount;
+
     private Long pendingReplayCount;
 
     private Double governanceCompletionRate;
@@ -35,4 +43,26 @@ public class RiskGovernanceDashboardOverviewVO {
     private Double metricBindingCoverageRate;
 
     private Double policyCoverageRate;
+
+    private Double thresholdPolicyCoverageRate;
+
+    private Double linkageCoverageRate;
+
+    private Double emergencyPlanCoverageRate;
+
+    private Double linkagePlanCoverageRate;
+
+    private Double averageOnboardingDurationHours;
+
+    private Double bottleneckPendingProductGovernanceRate;
+
+    private Double bottleneckPendingContractReleaseRate;
+
+    private Double bottleneckPendingRiskBindingRate;
+
+    private Double bottleneckPendingThresholdPolicyRate;
+
+    private Double bottleneckPendingLinkagePlanRate;
+
+    private Double bottleneckPendingReplayRate;
 }

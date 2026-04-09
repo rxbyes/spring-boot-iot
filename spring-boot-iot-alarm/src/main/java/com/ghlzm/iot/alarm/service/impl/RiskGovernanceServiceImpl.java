@@ -1,12 +1,17 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.entity.EmergencyPlan;
+import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
+import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
+import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
@@ -29,12 +34,18 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -46,6 +57,8 @@ import java.util.stream.Collectors;
 @Service
 public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
+
     private final DeviceMapper deviceMapper;
     private final RiskPointMapper riskPointMapper;
     private final RiskPointDeviceMapper riskPointDeviceMapper;
@@ -54,6 +67,8 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final ProductModelMapper productModelMapper;
     private final ProductMapper productMapper;
     private final ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
+    private final LinkageRuleMapper linkageRuleMapper;
+    private final EmergencyPlanMapper emergencyPlanMapper;
 
     public RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                                      RiskPointMapper riskPointMapper,
@@ -62,7 +77,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                                      RiskMetricCatalogMapper riskMetricCatalogMapper,
                                      ProductModelMapper productModelMapper,
                                      ProductMapper productMapper,
-                                     ProductContractReleaseBatchMapper productContractReleaseBatchMapper) {
+                                     ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
+                                     LinkageRuleMapper linkageRuleMapper,
+                                     EmergencyPlanMapper emergencyPlanMapper) {
         this.deviceMapper = deviceMapper;
         this.riskPointMapper = riskPointMapper;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
@@ -71,6 +88,8 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.productModelMapper = productModelMapper;
         this.productMapper = productMapper;
         this.productContractReleaseBatchMapper = productContractReleaseBatchMapper;
+        this.linkageRuleMapper = linkageRuleMapper;
+        this.emergencyPlanMapper = emergencyPlanMapper;
     }
 
     @Override
@@ -184,10 +203,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        List<RiskMetricCatalog> catalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
-                .eq(RiskMetricCatalog::getDeleted, 0)
-                .eq(RiskMetricCatalog::getEnabled, 1)
-                .eq(RiskMetricCatalog::getProductId, productId));
+        List<RiskMetricCatalog> catalogs = selectEnabledCatalogs(productId);
         Set<Long> catalogIds = catalogs.stream()
                 .map(RiskMetricCatalog::getId)
                 .filter(Objects::nonNull)
@@ -245,25 +261,38 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
     @Override
     public RiskGovernanceDashboardOverviewVO getDashboardOverview() {
-        Set<Long> productIds = productMapper.selectList(new LambdaQueryWrapper<Product>()
-                        .eq(Product::getDeleted, 0))
-                .stream()
+        List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
+                        .eq(Product::getDeleted, 0));
+        Set<Long> productIds = products.stream()
                 .map(Product::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         long totalProductCount = productIds.size();
 
-        Set<Long> releasedProductIds = productContractReleaseBatchMapper.selectList(new LambdaQueryWrapper<ProductContractReleaseBatch>()
-                        .eq(ProductContractReleaseBatch::getDeleted, 0))
-                .stream()
+        Map<Long, Product> productMap = products.stream()
+                .filter(product -> product.getId() != null)
+                .collect(Collectors.toMap(Product::getId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
+
+        List<ProductContractReleaseBatch> releaseBatches = productContractReleaseBatchMapper.selectList(new LambdaQueryWrapper<ProductContractReleaseBatch>()
+                .eq(ProductContractReleaseBatch::getDeleted, 0));
+        Set<Long> releasedProductIds = releaseBatches.stream()
                 .map(ProductContractReleaseBatch::getProductId)
                 .filter(Objects::nonNull)
                 .filter(productIds::contains)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        List<RiskMetricCatalog> enabledCatalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
-                .eq(RiskMetricCatalog::getDeleted, 0)
-                .eq(RiskMetricCatalog::getEnabled, 1));
+        Map<Long, LocalDateTime> firstReleaseTimeByProduct = releaseBatches.stream()
+                .filter(batch -> batch.getProductId() != null)
+                .filter(batch -> batch.getCreateTime() != null)
+                .filter(batch -> productIds.contains(batch.getProductId()))
+                .collect(Collectors.toMap(
+                        ProductContractReleaseBatch::getProductId,
+                        ProductContractReleaseBatch::getCreateTime,
+                        (left, right) -> left.isBefore(right) ? left : right,
+                        LinkedHashMap::new
+                ));
+
+        List<RiskMetricCatalog> enabledCatalogs = selectEnabledCatalogs(null);
         Set<Long> catalogIds = enabledCatalogs.stream()
                 .map(RiskMetricCatalog::getId)
                 .filter(Objects::nonNull)
@@ -283,13 +312,14 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         governedProductIds.addAll(releasedProductIds);
         governedProductIds.addAll(catalogProductIds);
 
-        Set<String> boundMetricKeys = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
-                        .eq(RiskPointDevice::getDeleted, 0))
-                .stream()
+        List<RiskPointDevice> boundBindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                .eq(RiskPointDevice::getDeleted, 0));
+        Set<String> boundMetricKeys = boundBindings.stream()
                 .map(this::toBindingMetricKey)
                 .filter(StringUtils::hasText)
                 .filter(key -> matchesCatalogKey(key, catalogIds, catalogIdentifiers))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MetricBindingDimension> boundMetricDimensions = buildBoundMetricDimensions(boundBindings, catalogIds, catalogIdentifiers);
 
         Set<String> ruleMetricKeys = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
                         .eq(RuleDefinition::getDeleted, 0)
@@ -301,17 +331,51 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
         long publishedRiskMetricCount = catalogIds.size();
         long boundRiskMetricCount = boundMetricKeys.size();
+        long boundMetricDimensionCount = boundMetricDimensions.size();
         long ruleCoveredRiskMetricCount = ruleMetricKeys.stream()
                 .filter(boundMetricKeys::contains)
                 .count();
+        long linkageCoveredMetricCount = countLinkageCoveredMetrics(
+                boundMetricDimensions,
+                linkageRuleMapper.selectList(new LambdaQueryWrapper<LinkageRule>()
+                        .eq(LinkageRule::getDeleted, 0)
+                        .eq(LinkageRule::getStatus, 0))
+        );
+        long emergencyPlanCoveredMetricCount = countEmergencyPlanCoveredMetrics(
+                boundMetricDimensions,
+                emergencyPlanMapper.selectList(new LambdaQueryWrapper<EmergencyPlan>()
+                        .eq(EmergencyPlan::getDeleted, 0)
+                        .eq(EmergencyPlan::getStatus, 0))
+        );
 
         long releasedProductCount = releasedProductIds.size();
         long governedProductCount = governedProductIds.size();
         long pendingProductGovernanceCount = Math.max(0L, totalProductCount - governedProductCount);
         long pendingContractReleaseCount = Math.max(0L, totalProductCount - releasedProductCount);
         long pendingRiskBindingCount = listMissingBindings(null).getTotal();
-        long pendingPolicyCount = listMissingPolicies(null).getTotal();
+        long pendingThresholdPolicyCount = listMissingPolicies(null).getTotal();
+        long pendingLinkageCount = Math.max(0L, boundMetricDimensionCount - linkageCoveredMetricCount);
+        long pendingEmergencyPlanCount = Math.max(0L, boundMetricDimensionCount - emergencyPlanCoveredMetricCount);
+        long pendingLinkagePlanCount = pendingLinkageCount + pendingEmergencyPlanCount;
         long pendingReplayCount = listMissingPolicyAlertSignals().size();
+        long totalBacklogCount = pendingProductGovernanceCount
+                + pendingContractReleaseCount
+                + pendingRiskBindingCount
+                + pendingThresholdPolicyCount
+                + pendingLinkagePlanCount
+                + pendingReplayCount;
+        double policyCoverageRate = calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount);
+        double linkageCoverageRate = calculateRate(linkageCoveredMetricCount, boundMetricDimensionCount);
+        double emergencyPlanCoverageRate = calculateRate(emergencyPlanCoveredMetricCount, boundMetricDimensionCount);
+        double linkagePlanCoverageRate = calculateRate(
+                linkageCoveredMetricCount + emergencyPlanCoveredMetricCount,
+                boundMetricDimensionCount * 2L
+        );
+        double averageOnboardingDurationHours = calculateAverageOnboardingDurationHours(
+                productMap,
+                firstReleaseTimeByProduct,
+                releasedProductIds
+        );
 
         RiskGovernanceDashboardOverviewVO overview = new RiskGovernanceDashboardOverviewVO();
         overview.setTotalProductCount(totalProductCount);
@@ -323,12 +387,36 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         overview.setBoundRiskMetricCount(boundRiskMetricCount);
         overview.setRuleCoveredRiskMetricCount(ruleCoveredRiskMetricCount);
         overview.setPendingRiskBindingCount(pendingRiskBindingCount);
-        overview.setPendingPolicyCount(pendingPolicyCount);
+        overview.setPendingPolicyCount(pendingThresholdPolicyCount);
+        overview.setPendingThresholdPolicyCount(pendingThresholdPolicyCount);
+        overview.setPendingLinkageCount(pendingLinkageCount);
+        overview.setPendingEmergencyPlanCount(pendingEmergencyPlanCount);
+        overview.setPendingLinkagePlanCount(pendingLinkagePlanCount);
         overview.setPendingReplayCount(pendingReplayCount);
         overview.setGovernanceCompletionRate(calculateRate(governedProductCount, totalProductCount));
         overview.setMetricBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
-        overview.setPolicyCoverageRate(calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount));
+        overview.setPolicyCoverageRate(policyCoverageRate);
+        overview.setThresholdPolicyCoverageRate(policyCoverageRate);
+        overview.setLinkageCoverageRate(linkageCoverageRate);
+        overview.setEmergencyPlanCoverageRate(emergencyPlanCoverageRate);
+        overview.setLinkagePlanCoverageRate(linkagePlanCoverageRate);
+        overview.setAverageOnboardingDurationHours(averageOnboardingDurationHours);
+        overview.setBottleneckPendingProductGovernanceRate(calculateRate(pendingProductGovernanceCount, totalBacklogCount));
+        overview.setBottleneckPendingContractReleaseRate(calculateRate(pendingContractReleaseCount, totalBacklogCount));
+        overview.setBottleneckPendingRiskBindingRate(calculateRate(pendingRiskBindingCount, totalBacklogCount));
+        overview.setBottleneckPendingThresholdPolicyRate(calculateRate(pendingThresholdPolicyCount, totalBacklogCount));
+        overview.setBottleneckPendingLinkagePlanRate(calculateRate(pendingLinkagePlanCount, totalBacklogCount));
+        overview.setBottleneckPendingReplayRate(calculateRate(pendingReplayCount, totalBacklogCount));
         return overview;
+    }
+
+    private List<RiskMetricCatalog> selectEnabledCatalogs(Long productId) {
+        QueryWrapper<RiskMetricCatalog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "product_id", "contract_identifier")
+                .eq("deleted", 0)
+                .eq("enabled", 1)
+                .eq(productId != null, "product_id", productId);
+        return riskMetricCatalogMapper.selectList(queryWrapper);
     }
 
     private boolean matchesDeviceCode(Device device, RiskGovernanceGapQuery query) {
@@ -388,10 +476,20 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         RiskMetricCatalogItemVO item = new RiskMetricCatalogItemVO();
         item.setId(catalog.getId());
         item.setProductId(catalog.getProductId());
+        item.setReleaseBatchId(catalog.getReleaseBatchId());
         item.setProductModelId(catalog.getProductModelId());
+        item.setNormativeIdentifier(catalog.getNormativeIdentifier());
         item.setContractIdentifier(catalog.getContractIdentifier());
         item.setRiskMetricCode(catalog.getRiskMetricCode());
         item.setRiskMetricName(catalog.getRiskMetricName());
+        item.setRiskCategory(catalog.getRiskCategory());
+        item.setMetricRole(catalog.getMetricRole());
+        item.setLifecycleStatus(catalog.getLifecycleStatus());
+        item.setSourceScenarioCode(catalog.getSourceScenarioCode());
+        item.setMetricUnit(catalog.getMetricUnit());
+        item.setMetricDimension(catalog.getMetricDimension());
+        item.setThresholdType(catalog.getThresholdType());
+        item.setSemanticDirection(catalog.getSemanticDirection());
         item.setThresholdDirection(catalog.getThresholdDirection());
         item.setTrendEnabled(catalog.getTrendEnabled());
         item.setGisEnabled(catalog.getGisEnabled());
@@ -452,6 +550,188 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             return 0D;
         }
         return Math.min(100D, (numerator * 100D) / denominator);
+    }
+
+    private List<MetricBindingDimension> buildBoundMetricDimensions(List<RiskPointDevice> bindings,
+                                                                    Set<Long> catalogIds,
+                                                                    Set<String> catalogIdentifiers) {
+        if (bindings == null || bindings.isEmpty()) {
+            return List.of();
+        }
+        Map<String, MetricBindingDimension> dimensions = new LinkedHashMap<>();
+        for (RiskPointDevice binding : bindings) {
+            String key = toBindingMetricKey(binding);
+            if (!matchesCatalogKey(key, catalogIds, catalogIdentifiers)) {
+                continue;
+            }
+            MetricBindingDimension dimension = toMetricBindingDimension(binding);
+            if (dimension == null) {
+                continue;
+            }
+            dimensions.putIfAbsent(dimension.dimensionKey(), dimension);
+        }
+        return new ArrayList<>(dimensions.values());
+    }
+
+    private MetricBindingDimension toMetricBindingDimension(RiskPointDevice binding) {
+        if (binding == null) {
+            return null;
+        }
+        String metricIdentifier = normalizeLower(binding.getMetricIdentifier());
+        String metricName = normalizeLower(binding.getMetricName());
+        String dimensionKey = binding.getRiskMetricId() != null
+                ? "ID:" + binding.getRiskMetricId()
+                : (StringUtils.hasText(metricIdentifier) ? "IDENT:" + metricIdentifier : null);
+        if (!StringUtils.hasText(dimensionKey)) {
+            return null;
+        }
+        return new MetricBindingDimension(dimensionKey, metricIdentifier, metricName);
+    }
+
+    private long countLinkageCoveredMetrics(List<MetricBindingDimension> dimensions, List<LinkageRule> linkageRules) {
+        if (dimensions == null || dimensions.isEmpty() || linkageRules == null || linkageRules.isEmpty()) {
+            return 0L;
+        }
+        Set<String> coveredDimensionKeys = new LinkedHashSet<>();
+        for (LinkageRule linkageRule : linkageRules) {
+            if (linkageRule == null || !StringUtils.hasText(linkageRule.getTriggerCondition())) {
+                continue;
+            }
+            String triggerConditionText = normalizeLower(linkageRule.getTriggerCondition());
+            Set<String> metricIdentifiersInTrigger = extractMetricIdentifiersFromTriggerCondition(linkageRule.getTriggerCondition());
+            for (MetricBindingDimension dimension : dimensions) {
+                if (coveredDimensionKeys.contains(dimension.dimensionKey())) {
+                    continue;
+                }
+                if (StringUtils.hasText(dimension.metricIdentifier())
+                        && (metricIdentifiersInTrigger.contains(dimension.metricIdentifier())
+                        || triggerConditionText.contains(dimension.metricIdentifier()))) {
+                    coveredDimensionKeys.add(dimension.dimensionKey());
+                    continue;
+                }
+                if (StringUtils.hasText(dimension.metricName()) && triggerConditionText.contains(dimension.metricName())) {
+                    coveredDimensionKeys.add(dimension.dimensionKey());
+                }
+            }
+        }
+        return coveredDimensionKeys.size();
+    }
+
+    private long countEmergencyPlanCoveredMetrics(List<MetricBindingDimension> dimensions, List<EmergencyPlan> emergencyPlans) {
+        if (dimensions == null || dimensions.isEmpty() || emergencyPlans == null || emergencyPlans.isEmpty()) {
+            return 0L;
+        }
+        Set<String> coveredDimensionKeys = new LinkedHashSet<>();
+        for (EmergencyPlan emergencyPlan : emergencyPlans) {
+            String searchableText = buildEmergencyPlanSearchText(emergencyPlan);
+            if (!StringUtils.hasText(searchableText)) {
+                continue;
+            }
+            for (MetricBindingDimension dimension : dimensions) {
+                if (coveredDimensionKeys.contains(dimension.dimensionKey())) {
+                    continue;
+                }
+                if (StringUtils.hasText(dimension.metricIdentifier()) && searchableText.contains(dimension.metricIdentifier())) {
+                    coveredDimensionKeys.add(dimension.dimensionKey());
+                    continue;
+                }
+                if (StringUtils.hasText(dimension.metricName()) && searchableText.contains(dimension.metricName())) {
+                    coveredDimensionKeys.add(dimension.dimensionKey());
+                }
+            }
+        }
+        return coveredDimensionKeys.size();
+    }
+
+    private Set<String> extractMetricIdentifiersFromTriggerCondition(String triggerCondition) {
+        if (!StringUtils.hasText(triggerCondition)) {
+            return Set.of();
+        }
+        try {
+            Object parsed = OBJECT_MAPPER.readValue(triggerCondition, Object.class);
+            Set<String> metricIdentifiers = new LinkedHashSet<>();
+            collectMetricIdentifiers(parsed, metricIdentifiers);
+            return metricIdentifiers;
+        } catch (Exception ignored) {
+            return Set.of();
+        }
+    }
+
+    private void collectMetricIdentifiers(Object value, Set<String> collector) {
+        if (value instanceof List<?> list) {
+            for (Object item : list) {
+                collectMetricIdentifiers(item, collector);
+            }
+            return;
+        }
+        if (!(value instanceof Map<?, ?> rawMap)) {
+            return;
+        }
+        Object metricIdentifier = rawMap.get("metricIdentifier");
+        Object metric = rawMap.get("metric");
+        Object identifier = rawMap.get("identifier");
+        if (metricIdentifier instanceof String text && StringUtils.hasText(text)) {
+            collector.add(normalizeLower(text));
+        }
+        if (metric instanceof String text && StringUtils.hasText(text)) {
+            collector.add(normalizeLower(text));
+        }
+        if (identifier instanceof String text && StringUtils.hasText(text)) {
+            collector.add(normalizeLower(text));
+        }
+        for (Object nested : rawMap.values()) {
+            collectMetricIdentifiers(nested, collector);
+        }
+    }
+
+    private String buildEmergencyPlanSearchText(EmergencyPlan emergencyPlan) {
+        if (emergencyPlan == null) {
+            return "";
+        }
+        return normalizeLower(String.join(" ",
+                defaultString(emergencyPlan.getPlanName()),
+                defaultString(emergencyPlan.getDescription()),
+                defaultString(emergencyPlan.getResponseSteps()),
+                defaultString(emergencyPlan.getContactList())
+        ));
+    }
+
+    private double calculateAverageOnboardingDurationHours(Map<Long, Product> productMap,
+                                                           Map<Long, LocalDateTime> firstReleaseTimeByProduct,
+                                                           Set<Long> releasedProductIds) {
+        if (releasedProductIds == null || releasedProductIds.isEmpty()) {
+            return 0D;
+        }
+        double totalHours = 0D;
+        long validSampleCount = 0L;
+        for (Long productId : releasedProductIds) {
+            if (productId == null) {
+                continue;
+            }
+            Product product = productMap.get(productId);
+            LocalDateTime productCreateTime = product == null ? null : product.getCreateTime();
+            LocalDateTime releaseTime = firstReleaseTimeByProduct.get(productId);
+            if (productCreateTime == null || releaseTime == null || releaseTime.isBefore(productCreateTime)) {
+                continue;
+            }
+            totalHours += Duration.between(productCreateTime, releaseTime).toMinutes() / 60D;
+            validSampleCount++;
+        }
+        if (validSampleCount <= 0L) {
+            return 0D;
+        }
+        return totalHours / validSampleCount;
+    }
+
+    private String normalizeLower(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String defaultString(String value) {
+        return value == null ? "" : value;
     }
 
     private List<RiskPointDevice> listMissingPolicyBindings(RiskGovernanceGapQuery query) {
@@ -526,6 +806,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         int fromIndex = (int) Math.min((pageNum - 1) * pageSize, items.size());
         int toIndex = (int) Math.min(fromIndex + pageSize, items.size());
         return PageResult.of((long) items.size(), pageNum, pageSize, items.subList(fromIndex, toIndex));
+    }
+
+    private record MetricBindingDimension(String dimensionKey, String metricIdentifier, String metricName) {
     }
 
     private static final class MissingPolicyAlertAccumulator {

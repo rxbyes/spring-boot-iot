@@ -1,9 +1,13 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.entity.EmergencyPlan;
+import com.ghlzm.iot.alarm.entity.LinkageRule;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
+import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
+import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
@@ -26,11 +30,16 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,6 +69,12 @@ class RiskGovernanceServiceImplTest {
     @Mock
     private ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
 
+    @Mock
+    private LinkageRuleMapper linkageRuleMapper;
+
+    @Mock
+    private EmergencyPlanMapper emergencyPlanMapper;
+
     @Test
     void pageMetricCatalogsShouldReturnProductScopedRows() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
@@ -70,7 +85,9 @@ class RiskGovernanceServiceImplTest {
                 riskMetricCatalogMapper,
                 productModelMapper,
                 productMapper,
-                productContractReleaseBatchMapper
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper
         );
         RiskMetricCatalog catalog = new RiskMetricCatalog();
         catalog.setId(9101L);
@@ -104,7 +121,9 @@ class RiskGovernanceServiceImplTest {
                 riskMetricCatalogMapper,
                 productModelMapper,
                 productMapper,
-                productContractReleaseBatchMapper
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper
         );
 
         ProductModel value = new ProductModel();
@@ -160,6 +179,41 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void getCoverageOverviewShouldOnlySelectColumnsNeededForCatalogProjection() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper
+        );
+
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        service.getCoverageOverview(1001L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RiskMetricCatalog>> captor =
+                ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.QueryWrapper.class);
+        verify(riskMetricCatalogMapper).selectList(captor.capture());
+        String sqlSelect = captor.getValue().getSqlSelect();
+
+        assertNotNull(sqlSelect);
+        assertTrue(sqlSelect.contains("id"));
+        assertTrue(sqlSelect.contains("contract_identifier"));
+        assertFalse(sqlSelect.contains("release_batch_id"));
+    }
+
+    @Test
     void listMissingPolicyAlertSignalsShouldAggregateByRiskMetricIdOrIdentifierAndSkipCoveredMetrics() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,
@@ -169,7 +223,9 @@ class RiskGovernanceServiceImplTest {
                 riskMetricCatalogMapper,
                 productModelMapper,
                 productMapper,
-                productContractReleaseBatchMapper
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper
         );
 
         RiskPointDevice coveredA = binding(8001L, 5001L, 9101L, "value", "裂缝监测值");
@@ -215,18 +271,23 @@ class RiskGovernanceServiceImplTest {
                 riskMetricCatalogMapper,
                 productModelMapper,
                 productMapper,
-                productContractReleaseBatchMapper
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper
         );
 
         Product productA = new Product();
         productA.setId(1001L);
+        productA.setCreateTime(LocalDateTime.of(2026, 4, 1, 10, 0));
         Product productB = new Product();
         productB.setId(1002L);
+        productB.setCreateTime(LocalDateTime.of(2026, 4, 3, 10, 0));
         when(productMapper.selectList(any())).thenReturn(List.of(productA, productB));
 
         ProductContractReleaseBatch releaseBatch = new ProductContractReleaseBatch();
         releaseBatch.setId(5001L);
         releaseBatch.setProductId(1001L);
+        releaseBatch.setCreateTime(LocalDateTime.of(2026, 4, 2, 10, 0));
         when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(releaseBatch));
 
         RiskMetricCatalog metricA = new RiskMetricCatalog();
@@ -245,7 +306,13 @@ class RiskGovernanceServiceImplTest {
         binding.setDeviceId(8001L);
         binding.setRiskMetricId(9101L);
         binding.setMetricIdentifier("value");
-        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        binding.setMetricName("裂缝监测值");
+        RiskPointDevice missingPolicyBinding = new RiskPointDevice();
+        missingPolicyBinding.setDeviceId(8001L);
+        missingPolicyBinding.setRiskMetricId(9102L);
+        missingPolicyBinding.setMetricIdentifier("gpsTotalX");
+        missingPolicyBinding.setMetricName("X 向累计位移");
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding, missingPolicyBinding));
 
         RuleDefinition rule = new RuleDefinition();
         rule.setId(6001L);
@@ -253,6 +320,19 @@ class RiskGovernanceServiceImplTest {
         rule.setMetricIdentifier("value");
         rule.setStatus(0);
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        LinkageRule linkageRule = new LinkageRule();
+        linkageRule.setId(7001L);
+        linkageRule.setStatus(0);
+        linkageRule.setTriggerCondition("[{\"metricIdentifier\":\"value\",\"operator\":\">\",\"value\":0.5}]");
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of(linkageRule));
+
+        EmergencyPlan emergencyPlan = new EmergencyPlan();
+        emergencyPlan.setId(7101L);
+        emergencyPlan.setStatus(0);
+        emergencyPlan.setPlanName("gpsTotalX 指标预案");
+        emergencyPlan.setDescription("针对 gpsTotalX 超阈值场景");
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of(emergencyPlan));
 
         Device reportedAndBound = new Device();
         reportedAndBound.setId(8001L);
@@ -274,13 +354,69 @@ class RiskGovernanceServiceImplTest {
         assertEquals(1L, overview.getReleasedProductCount());
         assertEquals(1L, overview.getPendingContractReleaseCount());
         assertEquals(2L, overview.getPublishedRiskMetricCount());
-        assertEquals(1L, overview.getBoundRiskMetricCount());
+        assertEquals(2L, overview.getBoundRiskMetricCount());
         assertEquals(1L, overview.getRuleCoveredRiskMetricCount());
         assertEquals(1L, overview.getPendingRiskBindingCount());
-        assertEquals(0L, overview.getPendingPolicyCount());
-        assertEquals(100.0, overview.getGovernanceCompletionRate());
-        assertEquals(50.0, overview.getMetricBindingCoverageRate());
-        assertEquals(100.0, overview.getPolicyCoverageRate());
+        assertEquals(1L, overview.getPendingThresholdPolicyCount());
+        assertEquals(1L, overview.getPendingLinkageCount());
+        assertEquals(1L, overview.getPendingEmergencyPlanCount());
+        assertEquals(2L, overview.getPendingLinkagePlanCount());
+        assertEquals(1L, overview.getPendingReplayCount());
+        assertEquals(100.0, overview.getGovernanceCompletionRate(), 1e-6);
+        assertEquals(100.0, overview.getMetricBindingCoverageRate(), 1e-6);
+        assertEquals(50.0, overview.getPolicyCoverageRate(), 1e-6);
+        assertEquals(50.0, overview.getLinkageCoverageRate(), 1e-6);
+        assertEquals(50.0, overview.getEmergencyPlanCoverageRate(), 1e-6);
+        assertEquals(50.0, overview.getLinkagePlanCoverageRate(), 1e-6);
+        assertEquals(24.0, overview.getAverageOnboardingDurationHours(), 1e-6);
+        assertEquals(0.0, overview.getBottleneckPendingProductGovernanceRate(), 1e-6);
+        assertEquals(16.666666666666668, overview.getBottleneckPendingContractReleaseRate(), 1e-6);
+        assertEquals(16.666666666666668, overview.getBottleneckPendingRiskBindingRate(), 1e-6);
+        assertEquals(16.666666666666668, overview.getBottleneckPendingThresholdPolicyRate(), 1e-6);
+        assertEquals(33.333333333333336, overview.getBottleneckPendingLinkagePlanRate(), 1e-6);
+        assertEquals(16.666666666666668, overview.getBottleneckPendingReplayRate(), 1e-6);
+    }
+
+    @Test
+    void getDashboardOverviewShouldOnlySelectColumnsNeededForCatalogProjection() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper
+        );
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setCreateTime(LocalDateTime.of(2026, 4, 1, 10, 0));
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of());
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of());
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        service.getDashboardOverview();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RiskMetricCatalog>> captor =
+                ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.QueryWrapper.class);
+        verify(riskMetricCatalogMapper).selectList(captor.capture());
+        String sqlSelect = captor.getValue().getSqlSelect();
+
+        assertNotNull(sqlSelect);
+        assertTrue(sqlSelect.contains("id"));
+        assertTrue(sqlSelect.contains("product_id"));
+        assertTrue(sqlSelect.contains("contract_identifier"));
+        assertFalse(sqlSelect.contains("release_batch_id"));
     }
 
     private RiskPointDevice binding(Long deviceId,
