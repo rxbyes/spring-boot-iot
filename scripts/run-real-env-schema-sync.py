@@ -107,6 +107,14 @@ CREATE TABLE IF NOT EXISTS iot_normative_metric_definition (
     monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',
     risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',
     trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许趋势分析',
+    metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '量纲',
+    threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',
+    semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',
+    gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持GIS',
+    insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持对象洞察',
+    analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持运营分析',
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',
+    version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
     metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -139,6 +147,31 @@ CREATE TABLE IF NOT EXISTS iot_vendor_metric_evidence (
     KEY idx_vendor_metric_product_seen (product_id, last_seen_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段证据表'
 """,
+    "iot_vendor_metric_mapping_rule": """
+CREATE TABLE IF NOT EXISTS iot_vendor_metric_mapping_rule (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    scope_type VARCHAR(32) NOT NULL COMMENT 'PRODUCT/PROTOCOL/SCENARIO',
+    product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+    protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
+    scenario_code VARCHAR(64) DEFAULT NULL COMMENT '治理场景编码',
+    device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',
+    raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
+    logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
+    relation_condition_json JSON DEFAULT NULL COMMENT '关系条件JSON',
+    normalization_rule_json JSON DEFAULT NULL COMMENT '归一化规则JSON',
+    target_normative_identifier VARCHAR(64) NOT NULL COMMENT '目标规范字段标识',
+    status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',
+    version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+    approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='厂商字段映射规则表'
+""",
     "iot_product_contract_release_batch": """
 CREATE TABLE IF NOT EXISTS iot_product_contract_release_batch (
     id BIGINT NOT NULL COMMENT '主键',
@@ -147,12 +180,56 @@ CREATE TABLE IF NOT EXISTS iot_product_contract_release_batch (
     scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
     release_source VARCHAR(64) NOT NULL COMMENT '发布来源',
     released_field_count INT NOT NULL DEFAULT 0 COMMENT '发布字段数',
+    approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
+    release_reason VARCHAR(500) DEFAULT NULL COMMENT '发布说明',
+    release_status VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT 'RELEASED/ROLLED_BACK',
     create_by BIGINT DEFAULT NULL COMMENT '创建人',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rollback_by BIGINT DEFAULT NULL COMMENT '回滚执行人',
+    rollback_time DATETIME DEFAULT NULL COMMENT '回滚时间',
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     KEY idx_product_contract_release_product_time (product_id, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布批次表'
+""",
+    "iot_product_contract_release_snapshot": """
+CREATE TABLE IF NOT EXISTS iot_product_contract_release_snapshot (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    batch_id BIGINT NOT NULL COMMENT '发布批次ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    snapshot_stage VARCHAR(32) NOT NULL COMMENT '快照阶段',
+    snapshot_json JSON NOT NULL COMMENT '快照载荷',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布快照表'
+""",
+    "iot_device_secret_rotation_log": """
+CREATE TABLE IF NOT EXISTS iot_device_secret_rotation_log (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
+    product_key VARCHAR(64) DEFAULT NULL COMMENT '产品key',
+    rotation_batch_id VARCHAR(64) NOT NULL COMMENT '轮换批次ID',
+    reason VARCHAR(500) DEFAULT NULL COMMENT '轮换原因',
+    previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '旧密钥摘要',
+    current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '新密钥摘要',
+    rotated_by BIGINT NOT NULL COMMENT '执行人',
+    approved_by BIGINT NOT NULL COMMENT '复核人',
+    rotate_time DATETIME NOT NULL COMMENT '轮换时间',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_device_rotation_device_time (device_id, rotate_time),
+    KEY idx_device_rotation_batch (rotation_batch_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备密钥轮换日志表'
 """,
     "iot_device_access_error_log": """
 CREATE TABLE IF NOT EXISTS iot_device_access_error_log (
@@ -308,10 +385,20 @@ CREATE TABLE IF NOT EXISTS risk_metric_catalog (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
     product_id BIGINT NOT NULL COMMENT '产品ID',
+    release_batch_id BIGINT DEFAULT NULL COMMENT '来源发布批次',
     product_model_id BIGINT DEFAULT NULL COMMENT '合同字段ID',
+    normative_identifier VARCHAR(64) DEFAULT NULL COMMENT '来源规范字段标识',
     contract_identifier VARCHAR(64) NOT NULL COMMENT '合同字段标识',
     risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',
     risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',
+    risk_category VARCHAR(64) DEFAULT NULL COMMENT '风险指标类别',
+    metric_role VARCHAR(32) DEFAULT NULL COMMENT '指标角色',
+    lifecycle_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/RETIRED',
+    source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT '来源场景编码',
+    metric_unit VARCHAR(32) DEFAULT NULL COMMENT '指标单位',
+    metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',
+    threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',
+    semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',
     threshold_direction VARCHAR(32) DEFAULT NULL COMMENT '阈值方向',
     trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持趋势分析',
     gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否用于GIS',
@@ -324,6 +411,86 @@ CREATE TABLE IF NOT EXISTS risk_metric_catalog (
     PRIMARY KEY (id),
     UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标目录表'
+""",
+    "risk_metric_linkage_binding": """
+CREATE TABLE IF NOT EXISTS risk_metric_linkage_binding (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
+    linkage_rule_id BIGINT NOT NULL COMMENT '联动规则ID',
+    binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/INACTIVE',
+    binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT 'AUTO_INFERRED/MANUAL_CONFIRMED/BACKFILL',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_linkage_active (tenant_id, risk_metric_id, linkage_rule_id, deleted),
+    KEY idx_risk_metric_linkage_rule (linkage_rule_id, binding_status, deleted),
+    KEY idx_risk_metric_linkage_metric (risk_metric_id, binding_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与联动规则绑定表'
+""",
+    "risk_metric_emergency_plan_binding": """
+CREATE TABLE IF NOT EXISTS risk_metric_emergency_plan_binding (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
+    emergency_plan_id BIGINT NOT NULL COMMENT '应急预案ID',
+    binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/INACTIVE',
+    binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT 'AUTO_INFERRED/MANUAL_CONFIRMED/BACKFILL',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL COMMENT '更新人',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_metric_plan_active (tenant_id, risk_metric_id, emergency_plan_id, deleted),
+    KEY idx_risk_metric_plan_rule (emergency_plan_id, binding_status, deleted),
+    KEY idx_risk_metric_plan_metric (risk_metric_id, binding_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与应急预案绑定表'
+""",
+    "sys_governance_approval_order": """
+CREATE TABLE IF NOT EXISTS sys_governance_approval_order (
+    id BIGINT NOT NULL COMMENT 'approval order id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    action_code VARCHAR(64) NOT NULL COMMENT 'approval action code',
+    action_name VARCHAR(128) DEFAULT NULL COMMENT 'approval action name',
+    subject_type VARCHAR(64) DEFAULT NULL COMMENT 'approval subject type',
+    subject_id BIGINT DEFAULT NULL COMMENT 'approval subject id',
+    status VARCHAR(32) NOT NULL COMMENT 'approval status',
+    operator_user_id BIGINT NOT NULL COMMENT 'operator user id',
+    approver_user_id BIGINT NOT NULL COMMENT 'approver user id',
+    payload_json LONGTEXT DEFAULT NULL COMMENT 'approval payload',
+    approval_comment VARCHAR(500) DEFAULT NULL COMMENT 'approval comment',
+    approved_time DATETIME DEFAULT NULL COMMENT 'approved time',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),
+    KEY idx_governance_approval_order_status_time (status, create_time, deleted),
+    KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval order'
+""",
+    "sys_governance_approval_transition": """
+CREATE TABLE IF NOT EXISTS sys_governance_approval_transition (
+    id BIGINT NOT NULL COMMENT 'approval transition id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    order_id BIGINT NOT NULL COMMENT 'approval order id',
+    from_status VARCHAR(32) DEFAULT NULL COMMENT 'from status',
+    to_status VARCHAR(32) NOT NULL COMMENT 'to status',
+    actor_user_id BIGINT NOT NULL COMMENT 'actor user id',
+    transition_comment VARCHAR(500) DEFAULT NULL COMMENT 'transition comment',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
+    KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition'
 """,
     "sys_notification_channel": """
 CREATE TABLE IF NOT EXISTS sys_notification_channel (
@@ -369,12 +536,32 @@ FROM iot_device_message_log
 
 
 COLUMNS_TO_ADD: ColumnSpecMap = {
+    "iot_product": [
+        ("metadata_json", "JSON DEFAULT NULL COMMENT '产品扩展元数据'"),
+    ],
+    "iot_normative_metric_definition": [
+        ("metric_dimension", "VARCHAR(64) DEFAULT NULL COMMENT '量纲'"),
+        ("threshold_type", "VARCHAR(32) DEFAULT NULL COMMENT '阈值类型'"),
+        ("semantic_direction", "VARCHAR(32) DEFAULT NULL COMMENT '语义方向'"),
+        ("gis_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持GIS'"),
+        ("insight_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持对象洞察'"),
+        ("analytics_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持运营分析'"),
+        ("status", "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态'"),
+        ("version_no", "INT NOT NULL DEFAULT 1 COMMENT '版本号'"),
+    ],
     "iot_device": [
         ("org_id", "BIGINT DEFAULT NULL COMMENT 'organization id' AFTER `tenant_id`"),
         ("org_name", "VARCHAR(128) DEFAULT NULL COMMENT 'organization name' AFTER `org_id`"),
     ],
     "iot_device_access_error_log": [
         ("contract_snapshot", "LONGTEXT DEFAULT NULL COMMENT 'contract snapshot'"),
+    ],
+    "iot_product_contract_release_batch": [
+        ("approval_order_id", "BIGINT DEFAULT NULL COMMENT 'approval order id'"),
+        ("release_reason", "VARCHAR(500) DEFAULT NULL COMMENT 'release reason'"),
+        ("release_status", "VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT 'RELEASED/ROLLED_BACK'"),
+        ("rollback_by", "BIGINT DEFAULT NULL COMMENT 'rollback operator user id'"),
+        ("rollback_time", "DATETIME DEFAULT NULL COMMENT 'rollback time'"),
     ],
     "iot_command_record": [
         ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),
@@ -411,6 +598,23 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
         ("current_risk_level", "VARCHAR(16) DEFAULT NULL COMMENT 'current risk level'"),
         ("create_by", "BIGINT DEFAULT NULL COMMENT 'creator'"),
         ("update_by", "BIGINT DEFAULT NULL COMMENT 'updater'"),
+    ],
+    "risk_metric_catalog": [
+        ("release_batch_id", "BIGINT DEFAULT NULL COMMENT 'source release batch id'"),
+        ("normative_identifier", "VARCHAR(64) DEFAULT NULL COMMENT 'normative identifier'"),
+        ("risk_category", "VARCHAR(64) DEFAULT NULL COMMENT 'risk category'"),
+        ("metric_role", "VARCHAR(32) DEFAULT NULL COMMENT 'metric role'"),
+        ("lifecycle_status", "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/RETIRED'"),
+        ("source_scenario_code", "VARCHAR(64) DEFAULT NULL COMMENT 'source scenario code'"),
+        ("metric_unit", "VARCHAR(32) DEFAULT NULL COMMENT 'metric unit'"),
+        ("metric_dimension", "VARCHAR(64) DEFAULT NULL COMMENT 'metric dimension'"),
+        ("threshold_type", "VARCHAR(32) DEFAULT NULL COMMENT 'threshold type'"),
+        ("semantic_direction", "VARCHAR(32) DEFAULT NULL COMMENT 'semantic direction'"),
+        ("threshold_direction", "VARCHAR(32) DEFAULT NULL COMMENT 'threshold direction'"),
+        ("trend_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT 'trend enabled flag'"),
+        ("gis_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT 'GIS enabled flag'"),
+        ("insight_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT 'Insight enabled flag'"),
+        ("analytics_enabled", "TINYINT NOT NULL DEFAULT 0 COMMENT 'Analytics enabled flag'"),
     ],
     "risk_point_device": [
         ("risk_metric_id", "BIGINT DEFAULT NULL COMMENT '风险指标ID'"),
@@ -493,6 +697,49 @@ INDEXES_TO_ADD: IndexSpecMap = {
             "ALTER TABLE `rule_definition` ADD INDEX `idx_rule_definition_metric_catalog` (`risk_metric_id`)",
         ),
     ],
+    "risk_metric_linkage_binding": [
+        (
+            "uk_risk_metric_linkage_active",
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+        ),
+        (
+            "idx_risk_metric_linkage_rule",
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
+        ),
+        (
+            "idx_risk_metric_linkage_metric",
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        ),
+    ],
+    "risk_metric_emergency_plan_binding": [
+        (
+            "uk_risk_metric_plan_active",
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
+        ),
+        (
+            "idx_risk_metric_plan_rule",
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
+        ),
+        (
+            "idx_risk_metric_plan_metric",
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        ),
+    ],
+}
+
+UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
+    ("risk_metric_linkage_binding", "uk_risk_metric_linkage_active"): (
+        "tenant_id",
+        "risk_metric_id",
+        "linkage_rule_id",
+        "deleted",
+    ),
+    ("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active"): (
+        "tenant_id",
+        "risk_metric_id",
+        "emergency_plan_id",
+        "deleted",
+    ),
 }
 
 
@@ -994,6 +1241,236 @@ def ensure_menu_compat(cur: pymysql.cursors.Cursor, db: str) -> None:
         cur.execute("UPDATE sys_menu SET type = menu_type WHERE type IS NULL")
 
 
+def ensure_legacy_governance_write_permissions(cur: pymysql.cursors.Cursor, db: str) -> None:
+    if not table_exists(cur, db, "sys_menu") or not table_exists(cur, db, "sys_role_menu"):
+        return
+    if not column_exists(cur, db, "sys_menu", "menu_code"):
+        return
+    if not all(
+        column_exists(cur, db, "sys_role_menu", column) for column in ("menu_id", "deleted", "update_by", "update_time")
+    ):
+        return
+    if not all(column_exists(cur, db, "sys_menu", column) for column in ("id", "deleted", "update_by", "update_time")):
+        return
+
+    legacy_codes = "', '".join(
+        (
+            "risk:rule-definition:write",
+            "risk:linkage-rule:write",
+            "risk:emergency-plan:write",
+        )
+    )
+    cur.execute(
+        f"""
+        UPDATE sys_role_menu rm
+        INNER JOIN sys_menu m ON m.id = rm.menu_id
+        SET rm.deleted = 1,
+            rm.update_by = 1,
+            rm.update_time = NOW()
+        WHERE m.menu_code IN ('{legacy_codes}')
+          AND rm.deleted = 0
+        """
+    )
+    cur.execute(
+        f"""
+        UPDATE sys_menu
+        SET deleted = 1,
+            update_by = 1,
+            update_time = NOW()
+        WHERE menu_code IN ('{legacy_codes}')
+          AND deleted = 0
+        """
+    )
+
+
+def ensure_governance_fine_grained_permissions(cur: pymysql.cursors.Cursor, db: str) -> None:
+    if not table_exists(cur, db, "sys_menu") or not table_exists(cur, db, "sys_role") or not table_exists(cur, db, "sys_role_menu"):
+        return
+
+    required_menu_columns = (
+        "id",
+        "tenant_id",
+        "parent_id",
+        "menu_name",
+        "menu_code",
+        "path",
+        "component",
+        "icon",
+        "meta_json",
+        "sort",
+        "type",
+        "menu_type",
+        "route_path",
+        "permission",
+        "sort_no",
+        "visible",
+        "status",
+        "create_by",
+        "create_time",
+        "update_by",
+        "update_time",
+        "deleted",
+    )
+    required_role_columns = ("id", "tenant_id", "role_code", "deleted")
+    required_role_menu_columns = ("id", "tenant_id", "role_id", "menu_id", "create_by", "create_time", "update_by", "update_time", "deleted")
+    if not all(column_exists(cur, db, "sys_menu", column) for column in required_menu_columns):
+        print("[skip] governance permission seeds: sys_menu columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_role", column) for column in required_role_columns):
+        print("[skip] governance permission seeds: sys_role columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_role_menu", column) for column in required_role_menu_columns):
+        print("[skip] governance permission seeds: sys_role_menu columns missing")
+        return
+
+    menu_seeds = (
+        {
+            "preferred_id": 93001029,
+            "parent_id": 93001001,
+            "menu_name": "规范库复核",
+            "menu_code": "iot:normative-library:approve",
+            "permission": "iot:normative-library:approve",
+            "meta_json": '{"caption":"规范库关键写动作复核授权"}',
+            "sort_no": 1129,
+            "role_codes": ("MANAGEMENT_STAFF",),
+        },
+        {
+            "preferred_id": 93002051,
+            "parent_id": 93002003,
+            "menu_name": "风险指标复核",
+            "menu_code": "risk:metric-catalog:approve",
+            "permission": "risk:metric-catalog:approve",
+            "meta_json": '{"caption":"风险指标标注关键写动作双人复核"}',
+            "sort_no": 3145,
+            "role_codes": ("MANAGEMENT_STAFF", "OPS_STAFF"),
+        },
+    )
+
+    for seed in menu_seeds:
+        cur.execute(
+            """
+            SELECT id
+            FROM sys_menu
+            WHERE tenant_id = 1
+              AND menu_code = %s
+            ORDER BY deleted ASC, id ASC
+            LIMIT 1
+            """,
+            (seed["menu_code"],),
+        )
+        existing_menu = cur.fetchone()
+        menu_id = int(existing_menu[0]) if existing_menu else next_preferred_id(cur, "sys_menu", int(seed["preferred_id"]))
+        if existing_menu:
+            cur.execute(
+                """
+                UPDATE sys_menu
+                SET parent_id = %s,
+                    menu_name = %s,
+                    path = '',
+                    component = '',
+                    icon = '',
+                    meta_json = %s,
+                    sort = %s,
+                    type = 2,
+                    menu_type = 2,
+                    route_path = '',
+                    permission = %s,
+                    sort_no = %s,
+                    visible = 1,
+                    status = 1,
+                    update_by = 1,
+                    update_time = NOW(),
+                    deleted = 0
+                WHERE id = %s
+                """,
+                (
+                    int(seed["parent_id"]),
+                    seed["menu_name"],
+                    seed["meta_json"],
+                    int(seed["sort_no"]),
+                    seed["permission"],
+                    int(seed["sort_no"]),
+                    menu_id,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO sys_menu (
+                    id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json,
+                    sort, type, menu_type, route_path, permission, sort_no, visible, status,
+                    create_by, create_time, update_by, update_time, deleted
+                ) VALUES (
+                    %s, 1, %s, %s, %s, '', '', '', %s,
+                    %s, 2, 2, '', %s, %s, 1, 1,
+                    1, NOW(), 1, NOW(), 0
+                )
+                """,
+                (
+                    menu_id,
+                    int(seed["parent_id"]),
+                    seed["menu_name"],
+                    seed["menu_code"],
+                    seed["meta_json"],
+                    int(seed["sort_no"]),
+                    seed["permission"],
+                    int(seed["sort_no"]),
+                ),
+            )
+
+        for role_code in seed["role_codes"]:
+            cur.execute(
+                """
+                SELECT id
+                FROM sys_role
+                WHERE tenant_id = 1
+                  AND role_code = %s
+                  AND deleted = 0
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (role_code,),
+            )
+            role_row = cur.fetchone()
+            if role_row is None:
+                continue
+            role_id = int(role_row[0])
+            cur.execute(
+                """
+                SELECT id
+                FROM sys_role_menu
+                WHERE tenant_id = 1
+                  AND role_id = %s
+                  AND menu_id = %s
+                ORDER BY deleted ASC, id ASC
+                LIMIT 1
+                """,
+                (role_id, menu_id),
+            )
+            existing_binding = cur.fetchone()
+            if existing_binding:
+                cur.execute(
+                    """
+                    UPDATE sys_role_menu
+                    SET deleted = 0,
+                        update_by = 1,
+                        update_time = NOW()
+                    WHERE id = %s
+                    """,
+                    (int(existing_binding[0]),),
+                )
+            else:
+                binding_id = next_table_id(cur, "sys_role_menu")
+                cur.execute(
+                    """
+                    INSERT INTO sys_role_menu (
+                        id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted
+                    ) VALUES (%s, 1, %s, %s, 1, NOW(), 1, NOW(), 0)
+                    """,
+                    (binding_id, role_id, menu_id),
+                )
+
+
 def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
     for table, specs in INDEXES_TO_ADD.items():
         if not table_exists(cur, db, table):
@@ -1002,8 +1479,30 @@ def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
         for index_name, ddl in specs:
             if index_exists(cur, db, table, index_name):
                 continue
+            unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index_name))
+            if unique_columns and has_duplicate_unique_key_rows(cur, table, unique_columns):
+                raise RuntimeError(
+                    f"Cannot add unique index {table}.{index_name}: duplicate rows detected; "
+                    "duplicate rows must be cleaned before schema sync can continue."
+                )
             cur.execute(ddl)
             print(f"[index] {table}.{index_name} added")
+
+
+def has_duplicate_unique_key_rows(
+    cur: pymysql.cursors.Cursor, table: str, unique_columns: Tuple[str, ...]
+) -> bool:
+    group_columns = ", ".join(f"`{column}`" for column in unique_columns)
+    cur.execute(
+        f"""
+        SELECT 1
+        FROM `{table}`
+        GROUP BY {group_columns}
+        HAVING COUNT(1) > 1
+        LIMIT 1
+        """
+    )
+    return cur.fetchone() is not None
 
 
 def find_multi_risk_point_conflicts(cur: pymysql.cursors.Cursor, db: str) -> List[Tuple[int, str, str, str]]:
@@ -1151,6 +1650,10 @@ def main() -> int:
 
                 ensure_menu_compat(cur, args.db)
                 print("[menu] sys_menu legacy columns aligned")
+                ensure_legacy_governance_write_permissions(cur, args.db)
+                print("[menu] legacy governance write permissions cleaned")
+                ensure_governance_fine_grained_permissions(cur, args.db)
+                print("[menu] governance fine-grained permission seeds aligned")
 
                 for view_name, ddl in VIEW_SQL.items():
                     cur.execute(ddl)

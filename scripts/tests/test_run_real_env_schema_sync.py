@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+from unittest import mock
 
 
 SCRIPT_PATH = pathlib.Path(__file__).resolve().parents[1] / "run-real-env-schema-sync.py"
@@ -54,6 +55,65 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIn("idx_relation_parent_code", create_sql)
         self.assertIn("idx_relation_child_code", create_sql)
 
+    def test_create_table_sql_covers_governance_approval_tables(self):
+        order_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_order")
+        transition_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_transition")
+        self.assertIsNotNone(order_sql)
+        self.assertIsNotNone(transition_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_order", order_sql)
+        self.assertIn("idx_governance_approval_order_subject", order_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
+        self.assertIn("idx_governance_approval_transition_order", transition_sql)
+
+    def test_product_metadata_json_column_is_declared_for_schema_sync(self):
+        self.assertIn("iot_product", schema_sync.COLUMNS_TO_ADD)
+        self.assertIn(
+            ("metadata_json", "JSON DEFAULT NULL COMMENT '产品扩展元数据'"),
+            schema_sync.COLUMNS_TO_ADD["iot_product"],
+        )
+
+    def test_create_table_sql_covers_risk_metric_binding_tables(self):
+        linkage_sql = schema_sync.CREATE_TABLE_SQL.get("risk_metric_linkage_binding")
+        plan_sql = schema_sync.CREATE_TABLE_SQL.get("risk_metric_emergency_plan_binding")
+        self.assertIsNotNone(linkage_sql)
+        self.assertIsNotNone(plan_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS risk_metric_linkage_binding", linkage_sql)
+        self.assertIn("uk_risk_metric_linkage_active", linkage_sql)
+        self.assertIn("idx_risk_metric_linkage_metric", linkage_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS risk_metric_emergency_plan_binding", plan_sql)
+        self.assertIn("uk_risk_metric_plan_active", plan_sql)
+        self.assertIn("idx_risk_metric_plan_metric", plan_sql)
+
+    def test_indexes_to_add_covers_risk_metric_binding_tables(self):
+        self.assertIn("risk_metric_linkage_binding", schema_sync.INDEXES_TO_ADD)
+        self.assertIn("risk_metric_emergency_plan_binding", schema_sync.INDEXES_TO_ADD)
+        linkage_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_linkage_binding"])
+        plan_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_emergency_plan_binding"])
+        self.assertEqual(
+            linkage_index_sql["uk_risk_metric_linkage_active"],
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+        )
+        self.assertEqual(
+            linkage_index_sql["idx_risk_metric_linkage_rule"],
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            linkage_index_sql["idx_risk_metric_linkage_metric"],
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            plan_index_sql["uk_risk_metric_plan_active"],
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
+        )
+        self.assertEqual(
+            plan_index_sql["idx_risk_metric_plan_rule"],
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
+        )
+        self.assertEqual(
+            plan_index_sql["idx_risk_metric_plan_metric"],
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+        )
+
 
 class FakeCursor:
     def __init__(self):
@@ -66,6 +126,8 @@ class FakeCursor:
 
     def fetchone(self):
         if "FROM information_schema.TABLES" in self._last_sql:
+            return (1,)
+        if "FROM information_schema.COLUMNS" in self._last_sql:
             return (1,)
         if "SELECT COUNT(1) FROM `sys_dict_item`" in self._last_sql:
             return (0,)
@@ -164,6 +226,211 @@ class MigrateLevelValuesTest(unittest.TestCase):
         self.assertIn("WHEN 'warning' THEN 'orange'", risk_point_risk_level_updates[0])
         self.assertEqual(len(emergency_plan_risk_level_updates), 1)
         self.assertIn("WHEN 'critical' THEN 'red'", emergency_plan_risk_level_updates[0])
+
+
+class LegacyGovernancePermissionCleanupTest(unittest.TestCase):
+    def test_cleanup_marks_legacy_governance_write_permissions_deleted(self):
+        cursor = FakeCursor()
+
+        schema_sync.ensure_legacy_governance_write_permissions(cursor, "rm_iot")
+
+        update_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith("UPDATE")]
+        self.assertEqual(len(update_sql), 2)
+        self.assertIn("UPDATE sys_role_menu rm", update_sql[0])
+        self.assertIn("UPDATE sys_menu", update_sql[1])
+        self.assertIn("risk:rule-definition:write", update_sql[0])
+        self.assertIn("risk:linkage-rule:write", update_sql[0])
+        self.assertIn("risk:emergency-plan:write", update_sql[0])
+        self.assertIn("risk:rule-definition:write", update_sql[1])
+        self.assertIn("risk:linkage-rule:write", update_sql[1])
+        self.assertIn("risk:emergency-plan:write", update_sql[1])
+
+
+class GovernanceFineGrainedPermissionSeedCursor:
+    def __init__(self):
+        self.executed = []
+        self._last_sql = ""
+        self._last_params = None
+        self.next_role_menu_id = 97000000
+
+    def execute(self, sql, params=None):
+        self._last_sql = sql
+        self._last_params = params
+        self.executed.append((sql, params))
+
+    def fetchone(self):
+        if "SELECT id" in self._last_sql and "FROM sys_menu" in self._last_sql and "menu_code = %s" in self._last_sql:
+            code = self._last_params[0]
+            if code == "iot:normative-library:approve":
+                return None
+            if code == "risk:metric-catalog:approve":
+                return (93002051,)
+            return None
+        if "SELECT COUNT(1) FROM `sys_menu` WHERE id = %s" in self._last_sql:
+            return (0,)
+        if "SELECT id" in self._last_sql and "FROM sys_role" in self._last_sql and "role_code = %s" in self._last_sql:
+            role_code = self._last_params[0]
+            role_map = {
+                "MANAGEMENT_STAFF": (92000002,),
+                "OPS_STAFF": (92000003,),
+            }
+            return role_map.get(role_code)
+        if "SELECT id" in self._last_sql and "FROM sys_role_menu" in self._last_sql:
+            return None
+        if "SELECT COALESCE(MAX(id), 0) + 1 FROM `sys_role_menu`" in self._last_sql:
+            self.next_role_menu_id += 1
+            return (self.next_role_menu_id,)
+        raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+    def fetchall(self):
+        raise AssertionError(f"Unexpected fetchall for SQL: {self._last_sql}")
+
+
+class GovernanceFineGrainedPermissionSeedTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_permission_menus_and_role_bindings(self, _mock_table_exists, _mock_column_exists):
+        cursor = GovernanceFineGrainedPermissionSeedCursor()
+
+        schema_sync.ensure_governance_fine_grained_permissions(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO sys_menu", combined_sql)
+        self.assertIn("UPDATE sys_menu", combined_sql)
+        self.assertIn("INSERT INTO sys_role_menu", combined_sql)
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("iot:normative-library:approve", params_text)
+        self.assertIn("risk:metric-catalog:approve", params_text)
+        self.assertIn("MANAGEMENT_STAFF", params_text)
+        self.assertIn("OPS_STAFF", params_text)
+
+
+class EnsureIndexesCursor:
+    def __init__(self):
+        self.executed = []
+        self._last_sql = ""
+        self._last_params = None
+
+    def execute(self, sql, params=None):
+        self._last_sql = sql
+        self._last_params = params
+        self.executed.append((sql, params))
+
+    def fetchone(self):
+        if "risk_metric_linkage_binding" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
+            return None
+        if "risk_metric_emergency_plan_binding" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
+            return None
+        raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+    def fetchall(self):
+        if "FROM information_schema.STATISTICS" in self._last_sql:
+            db, table, index = self._last_params
+            if db != "rm_iot":
+                raise AssertionError(f"Unexpected db in params: {self._last_params}")
+            if table == "risk_metric_linkage_binding" and index == "uk_risk_metric_linkage_active":
+                return [
+                    (1, "tenant_id", 1),
+                    (1, "risk_metric_id", 2),
+                    (1, "linkage_rule_id", 3),
+                    (1, "deleted", 4),
+                ]
+            return []
+        raise AssertionError(f"Unexpected fetchall for SQL: {self._last_sql}")
+
+
+class EnsureIndexesBehaviorTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_ensure_indexes_executes_binding_index_ddl_when_missing(self, _mock_table_exists):
+        cursor = EnsureIndexesCursor()
+
+        missing_binding_indexes = {
+            ("risk_metric_linkage_binding", "uk_risk_metric_linkage_active"),
+            ("risk_metric_linkage_binding", "idx_risk_metric_linkage_rule"),
+            ("risk_metric_linkage_binding", "idx_risk_metric_linkage_metric"),
+            ("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active"),
+            ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_rule"),
+            ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric"),
+        }
+
+        def fake_index_exists(_cur, _db, table, index):
+            return (table, index) not in missing_binding_indexes
+
+        with mock.patch.object(schema_sync, "index_exists", side_effect=fake_index_exists):
+            schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        executed_sql = {sql for sql, _ in cursor.executed}
+        self.assertIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+            executed_sql,
+        )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_ensure_indexes_raises_when_unique_index_has_duplicate_rows(self, _mock_table_exists):
+        cursor = EnsureIndexesCursor()
+
+        def fake_index_exists(_cur, _db, table, index):
+            return not (table == "risk_metric_linkage_binding" and index == "uk_risk_metric_linkage_active")
+
+        original_fetchone = cursor.fetchone
+
+        def fetchone_with_duplicate():
+            if "risk_metric_linkage_binding" in cursor._last_sql and "HAVING COUNT(1) > 1" in cursor._last_sql:
+                return (1,)
+            return original_fetchone()
+
+        cursor.fetchone = fetchone_with_duplicate
+
+        with mock.patch.object(schema_sync, "index_exists", side_effect=fake_index_exists):
+            with self.assertRaises(RuntimeError) as cm:
+                schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        self.assertIn("risk_metric_linkage_binding.uk_risk_metric_linkage_active", str(cm.exception))
+        self.assertIn("duplicate rows must be cleaned before schema sync can continue", str(cm.exception))
+        executed_sql = {sql for sql, _ in cursor.executed}
+        self.assertNotIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            executed_sql,
+        )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    @mock.patch.object(schema_sync, "index_exists", return_value=True)
+    def test_ensure_indexes_raises_when_existing_binding_index_shape_drifts(
+        self, _mock_index_exists, _mock_table_exists
+    ):
+        cursor = EnsureIndexesCursor()
+
+        with self.assertRaises(RuntimeError) as cm:
+            schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        self.assertIn("risk_metric_linkage_binding.uk_risk_metric_linkage_active", str(cm.exception))
+        self.assertIn("drifts from expected shape", str(cm.exception))
+        executed_sql = {sql for sql, _ in cursor.executed}
+        self.assertNotIn(
+            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            executed_sql,
+        )
 
 
 if __name__ == "__main__":

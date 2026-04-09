@@ -265,6 +265,38 @@ class DeviceAccessErrorLogServiceImplTest {
     }
 
     @Test
+    void archiveMqttFailureShouldPersistEvenWhenContractSnapshotLookupFails() {
+        when(schemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of("id", "trace_id", "failure_stage", "contract_snapshot")));
+
+        Device device = new Device();
+        device.setDeviceCode("demo-device-02");
+        device.setProductId(1002L);
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1002L)).thenThrow(new RuntimeException("Unknown column 'metadata_json' in 'field list'"));
+
+        RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
+        rawDeviceMessage.setTraceId("trace-demo-002");
+        rawDeviceMessage.setDeviceCode("demo-device-02");
+        rawDeviceMessage.setProductKey("demo-product");
+        rawDeviceMessage.setTopic("$dp");
+
+        service.archiveMqttFailure(
+                "$dp",
+                "{\"body\":1}".getBytes(StandardCharsets.UTF_8),
+                rawDeviceMessage,
+                "device_contract",
+                new BizException("设备所属产品不存在: demo-device-02")
+        );
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).update(sqlCaptor.capture(), argsCaptor.capture());
+        assertTrue(sqlCaptor.getValue().contains("failure_stage"));
+        assertTrue(Arrays.asList(argsCaptor.getValue()).contains("trace-demo-002"));
+        assertTrue(Arrays.asList(argsCaptor.getValue()).contains("device_contract"));
+    }
+
+    @Test
     void mapRowShouldReadContractSnapshot() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
         when(resultSet.getLong("id")).thenReturn(2001L);
@@ -315,6 +347,7 @@ class DeviceAccessErrorLogServiceImplTest {
                     }
                     return List.of(new DeviceStatsBucketVO("$dp", "$dp", 4L));
                 });
+        when(invalidReportCounterStore.sumFailureStageSince(anyString(), any(Instant.class))).thenReturn(0L);
         when(invalidReportCounterStore.sumFailureStageSince(eq("topic_route"), any(Instant.class))).thenReturn(0L);
         when(invalidReportCounterStore.sumFailureStageSince(eq("protocol_decode"), any(Instant.class))).thenReturn(5L);
         when(invalidReportCounterStore.sumFailureStageSince(eq("device_validate"), any(Instant.class))).thenReturn(4L);
@@ -337,6 +370,7 @@ class DeviceAccessErrorLogServiceImplTest {
 
     @Test
     void listFailureStageCountsSinceShouldReadAggregatedBucketsInsteadOfDetailRows() {
+        when(invalidReportCounterStore.sumFailureStageSince(anyString(), any(Instant.class))).thenReturn(0L);
         when(invalidReportCounterStore.sumFailureStageSince("protocol_decode", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(12L);
         when(invalidReportCounterStore.sumFailureStageSince("device_validate", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(9L);
         when(invalidReportCounterStore.sumFailureStageSince("topic_route", Instant.parse("2026-03-27T13:30:00Z"))).thenReturn(0L);

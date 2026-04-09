@@ -72,7 +72,7 @@ iot:
       retry-enabled: ${IOT_TELEMETRY_LEGACY_MIRROR_RETRY_ENABLED:false}
     read-routing:
       latest-source: ${IOT_TELEMETRY_READ_LATEST_SOURCE:v2}
-      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:legacy}
+      history-source: ${IOT_TELEMETRY_READ_HISTORY_SOURCE:v2}
       aggregate-source: ${IOT_TELEMETRY_READ_AGGREGATE_SOURCE:v2-aggregate}
       legacy-read-fallback-enabled: ${IOT_TELEMETRY_LEGACY_READ_FALLBACK_ENABLED:true}
     tenant-routing:
@@ -93,3 +93,16 @@ iot:
         threshold-window-seconds: ${IOT_OBSERVABILITY_INVALID_REPORT_DEVICE_NOT_FOUND_WINDOW_SECONDS:60}
         threshold-count: ${IOT_OBSERVABILITY_INVALID_REPORT_DEVICE_NOT_FOUND_THRESHOLD_COUNT:2}
         cooldown-minutes: ${IOT_OBSERVABILITY_INVALID_REPORT_DEVICE_NOT_FOUND_COOLDOWN_MINUTES:30}
+    alerting:
+      enabled: ${IOT_OBSERVABILITY_ALERTING_ENABLED:false}
+      scene: ${IOT_OBSERVABILITY_ALERTING_SCENE:observability_alert}
+      evaluate-interval-seconds: ${IOT_OBSERVABILITY_ALERTING_EVALUATE_INTERVAL_SECONDS:60}
+      cooldown-minutes: ${IOT_OBSERVABILITY_ALERTING_COOLDOWN_MINUTES:30}
+      risk-governance-missing-policy:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_MISSING_POLICY_ENABLED:true}
+        threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_MISSING_POLICY_THRESHOLD:3}
+      risk-governance-ops-alerts:
+        enabled: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_ENABLED:true}
+        field-drift-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_FIELD_DRIFT_THRESHOLD:1}
+        contract-diff-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_CONTRACT_DIFF_THRESHOLD:1}
+        missing-risk-metric-threshold: ${IOT_OBSERVABILITY_ALERTING_RISK_GOVERNANCE_OPS_ALERTS_MISSING_RISK_METRIC_THRESHOLD:1}

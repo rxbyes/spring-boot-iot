@@ -369,6 +369,7 @@ public class IotProperties {
             private FailureStage failureStage = new FailureStage();
             private InAppBridge inAppBridge = new InAppBridge();
             private RiskGovernanceMissingPolicy riskGovernanceMissingPolicy = new RiskGovernanceMissingPolicy();
+            private RiskGovernanceOpsAlerts riskGovernanceOpsAlerts = new RiskGovernanceOpsAlerts();
 
             @Data
             public static class SystemError {
@@ -401,6 +402,14 @@ public class IotProperties {
             public static class RiskGovernanceMissingPolicy {
                 private Boolean enabled = Boolean.TRUE;
                 private Integer threshold = 3;
+            }
+
+            @Data
+            public static class RiskGovernanceOpsAlerts {
+                private Boolean enabled = Boolean.TRUE;
+                private Integer fieldDriftThreshold = 1;
+                private Integer contractDiffThreshold = 1;
+                private Integer missingRiskMetricThreshold = 1;
             }
         }
 

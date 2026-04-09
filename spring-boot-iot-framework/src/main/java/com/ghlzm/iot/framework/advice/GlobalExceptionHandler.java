@@ -2,6 +2,8 @@ package com.ghlzm.iot.framework.advice;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.observability.HttpHandledExceptionContext;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -68,8 +70,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public R<?> handleException(Exception e) {
+    public R<?> handleException(Exception e, HttpServletRequest request) {
         log.error("系统异常", e);
+        HttpHandledExceptionContext.attach(request, e, null);
         return R.fail("系统繁忙，请稍后再试");
     }
 }

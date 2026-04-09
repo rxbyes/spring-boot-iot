@@ -893,12 +893,26 @@ function jumpToDeviceGovernance() {
 
 function getFailureStageLabel(value?: string | null) {
   switch (value) {
+    case 'ingress':
+      return '接入预处理失败';
     case 'protocol_decode':
       return '协议解码失败';
     case 'topic_parse':
       return 'Topic 解析失败';
+    case 'device_contract':
+      return '设备契约失败';
     case 'device_validate':
       return '设备校验失败';
+    case 'message_log':
+      return '消息日志失败';
+    case 'payload_apply':
+      return '载荷应用失败';
+    case 'telemetry_persist':
+      return '遥测落库失败';
+    case 'device_state':
+      return '设备状态失败';
+    case 'risk_dispatch':
+      return '风险派发失败';
     case 'product_validate':
       return '产品校验失败';
     case 'message_dispatch':

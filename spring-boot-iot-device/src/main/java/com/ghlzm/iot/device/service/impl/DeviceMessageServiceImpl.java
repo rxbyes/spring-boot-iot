@@ -248,7 +248,7 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         String deviceCode = rawDeviceMessage == null ? null : rawDeviceMessage.getDeviceCode();
         String productKey = rawDeviceMessage == null ? null : rawDeviceMessage.getProductKey();
         Device device = hasText(deviceCode) ? findDeviceByCode(deviceCode) : null;
-        Product product = hasText(productKey) ? findProductByKey(productKey) : null;
+        Product product = safeFindProductByKey(productKey);
 
         DeviceMessageLog logRecord = new DeviceMessageLog();
         logRecord.setTenantId(resolveTenantId(rawDeviceMessage, device));
@@ -264,6 +264,20 @@ public class DeviceMessageServiceImpl implements DeviceMessageService {
         logRecord.setReportTime(LocalDateTime.now());
         logRecord.setCreateTime(LocalDateTime.now());
         deviceMessageLogMapper.insert(logRecord);
+    }
+
+    private Product safeFindProductByKey(String productKey) {
+        if (!hasText(productKey)) {
+            return null;
+        }
+        try {
+            return findProductByKey(productKey);
+        } catch (Exception ex) {
+            log.warn("查询失败轨迹产品信息失败，将按缺省产品上下文继续落库, productKey={}, error={}",
+                    productKey,
+                    ex.getMessage());
+            return null;
+        }
     }
 
     private Product getRequiredProduct(Device device) {

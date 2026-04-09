@@ -80,12 +80,14 @@ public class RiskGovernanceController {
     public R<RiskGovernanceReplayVO> replay(@RequestParam(required = false) String traceId,
                                             @RequestParam(required = false) String deviceCode,
                                             @RequestParam(required = false) String productKey,
+                                            @RequestParam(required = false) Long releaseBatchId,
                                             Authentication authentication) {
         return R.ok(riskGovernanceOpsService.replay(
                 requireCurrentUserId(authentication),
                 traceId,
                 deviceCode,
-                productKey
+                productKey,
+                releaseBatchId
         ));
     }
 

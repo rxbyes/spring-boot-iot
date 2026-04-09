@@ -36,6 +36,7 @@ import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
+import com.ghlzm.iot.protocol.core.model.RawDeviceMessage;
 import com.ghlzm.iot.protocol.core.registry.ProtocolAdapterRegistry;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.PermissionService;
@@ -737,6 +738,26 @@ class DeviceMessageServiceImplTest {
                 "{\"header\":{\"appId\":\"62000001\"},\"bodies\":{\"body\":\"cipher-text\"}}",
                 JsonMapper.builder().findAndAddModules().build().readTree(storedPayload).toString()
         );
+    }
+
+    @Test
+    void recordDispatchFailureTraceShouldPersistWhenProductLookupFails() {
+        RawDeviceMessage rawDeviceMessage = new RawDeviceMessage();
+        rawDeviceMessage.setTraceId("trace-demo-003");
+        rawDeviceMessage.setDeviceCode("demo-device-03");
+        rawDeviceMessage.setProductKey("demo-product");
+
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(productMapper.selectOne(any())).thenThrow(new RuntimeException("Unknown column 'metadata_json' in 'field list'"));
+
+        deviceMessageService.recordDispatchFailureTrace("$dp", "{\"body\":1}".getBytes(StandardCharsets.UTF_8), rawDeviceMessage);
+
+        ArgumentCaptor<DeviceMessageLog> logCaptor = ArgumentCaptor.forClass(DeviceMessageLog.class);
+        verify(deviceMessageLogMapper).insert(logCaptor.capture());
+        assertEquals("trace-demo-003", logCaptor.getValue().getTraceId());
+        assertEquals("demo-device-03", logCaptor.getValue().getDeviceCode());
+        assertEquals("demo-product", logCaptor.getValue().getProductKey());
+        assertEquals("dispatch_failed", logCaptor.getValue().getMessageType());
     }
 
     @Test

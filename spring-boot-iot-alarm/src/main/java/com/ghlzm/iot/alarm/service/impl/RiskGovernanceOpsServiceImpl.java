@@ -14,8 +14,10 @@ import com.ghlzm.iot.device.dto.DeviceAccessErrorQuery;
 import com.ghlzm.iot.device.dto.DeviceMessageTraceQuery;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
@@ -29,7 +31,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -49,6 +50,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     private final ProductModelMapper productModelMapper;
     private final RiskMetricCatalogMapper riskMetricCatalogMapper;
     private final ProductMapper productMapper;
+    private final ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
     private final DeviceMessageService deviceMessageService;
     private final DeviceAccessErrorLogService deviceAccessErrorLogService;
     private final RiskGovernanceService riskGovernanceService;
@@ -57,6 +59,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
                                         ProductModelMapper productModelMapper,
                                         RiskMetricCatalogMapper riskMetricCatalogMapper,
                                         ProductMapper productMapper,
+                                        ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
                                         DeviceMessageService deviceMessageService,
                                         DeviceAccessErrorLogService deviceAccessErrorLogService,
                                         RiskGovernanceService riskGovernanceService) {
@@ -64,6 +67,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         this.productModelMapper = productModelMapper;
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
         this.productMapper = productMapper;
+        this.productContractReleaseBatchMapper = productContractReleaseBatchMapper;
         this.deviceMessageService = deviceMessageService;
         this.deviceAccessErrorLogService = deviceAccessErrorLogService;
         this.riskGovernanceService = riskGovernanceService;
@@ -131,16 +135,19 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     public RiskGovernanceReplayVO replay(Long currentUserId,
                                          String traceId,
                                          String deviceCode,
-                                         String productKey) {
+                                         String productKey,
+                                         Long releaseBatchId) {
+        ReplayContext replayContext = resolveReplayContext(releaseBatchId, productKey);
+        String replayProductKey = replayContext.productKey();
         if (!StringUtils.hasText(traceId)
                 && !StringUtils.hasText(deviceCode)
-                && !StringUtils.hasText(productKey)) {
-            throw new BizException("请至少提供 traceId、deviceCode、productKey 之一");
+                && !StringUtils.hasText(replayProductKey)) {
+            throw new BizException("请至少提供 traceId、deviceCode、productKey、releaseBatchId 之一");
         }
         DeviceMessageTraceQuery traceQuery = new DeviceMessageTraceQuery();
         traceQuery.setTraceId(normalize(traceId));
         traceQuery.setDeviceCode(normalize(deviceCode));
-        traceQuery.setProductKey(normalize(productKey));
+        traceQuery.setProductKey(replayProductKey);
         PageResult<DeviceMessageLog> messagePage = deviceMessageService.pageMessageTraceLogs(currentUserId, traceQuery, 1, 20);
         List<DeviceMessageLog> messages = messagePage == null || messagePage.getRecords() == null
                 ? List.of()
@@ -150,7 +157,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         DeviceAccessErrorQuery errorQuery = new DeviceAccessErrorQuery();
         errorQuery.setTraceId(normalize(traceId));
         errorQuery.setDeviceCode(normalize(deviceCode));
-        errorQuery.setProductKey(normalize(productKey));
+        errorQuery.setProductKey(replayProductKey);
         PageResult<com.ghlzm.iot.device.entity.DeviceAccessErrorLog> errorPage =
                 deviceAccessErrorLogService.pageLogs(currentUserId, errorQuery, 1, 10);
         List<com.ghlzm.iot.device.entity.DeviceAccessErrorLog> errors = errorPage == null || errorPage.getRecords() == null
@@ -164,9 +171,15 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
 
         String resolvedTraceId = firstNonBlank(traceId, latestMessage == null ? null : latestMessage.getTraceId(), latestDetail == null ? null : latestDetail.getTraceId());
         String resolvedDeviceCode = firstNonBlank(deviceCode, latestMessage == null ? null : latestMessage.getDeviceCode(), latestDetail == null ? null : latestDetail.getDeviceCode());
-        String resolvedProductKey = firstNonBlank(productKey, latestMessage == null ? null : latestMessage.getProductKey(), latestDetail == null ? null : latestDetail.getProductKey());
+        String resolvedProductKey = firstNonBlank(
+                replayProductKey,
+                latestMessage == null ? null : latestMessage.getProductKey(),
+                latestDetail == null ? null : latestDetail.getProductKey()
+        );
 
-        Long resolvedProductId = resolveProductId(latestMessage, resolvedProductKey);
+        Long resolvedProductId = replayContext.productId() != null
+                ? replayContext.productId()
+                : resolveProductId(latestMessage, resolvedProductKey);
         RiskGovernanceReplayGapSummaryVO gapSummary = new RiskGovernanceReplayGapSummaryVO();
         gapSummary.setMissingBindingCount(queryMissingBindingCount(resolvedDeviceCode));
         gapSummary.setMissingPolicyCount(queryMissingPolicyCount(resolvedDeviceCode));
@@ -176,6 +189,8 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         replay.setTraceId(resolvedTraceId);
         replay.setDeviceCode(resolvedDeviceCode);
         replay.setProductKey(resolvedProductKey);
+        replay.setReleaseBatchId(replayContext.releaseBatchId());
+        replay.setReleaseScenarioCode(replayContext.releaseScenarioCode());
         replay.setMatchedMessageCount(messagePage == null ? 0L : safeLong(messagePage.getTotal()));
         replay.setMatchedAccessErrorCount(errorPage == null ? 0L : safeLong(errorPage.getTotal()));
         replay.setRecentMessages(new ArrayList<>(messages));
@@ -183,6 +198,39 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         replay.setLatestMessageDetail(latestDetail);
         replay.setGapSummary(gapSummary);
         return replay;
+    }
+
+    private ReplayContext resolveReplayContext(Long releaseBatchId, String productKey) {
+        String normalizedProductKey = normalize(productKey);
+        if (releaseBatchId == null) {
+            return new ReplayContext(null, null, null, normalizedProductKey);
+        }
+        ProductContractReleaseBatch batch = productContractReleaseBatchMapper.selectById(releaseBatchId);
+        if (batch == null) {
+            throw new BizException("发布批次不存在或已删除");
+        }
+        Long batchProductId = batch.getProductId();
+        if (batchProductId == null) {
+            throw new BizException("发布批次未绑定产品，无法回放");
+        }
+        Product product = productMapper.selectById(batchProductId);
+        if (product == null) {
+            throw new BizException("发布批次对应产品不存在，无法回放");
+        }
+        String batchProductKey = normalize(product.getProductKey());
+        if (!StringUtils.hasText(batchProductKey)) {
+            throw new BizException("发布批次对应产品缺少 productKey，无法回放");
+        }
+        if (StringUtils.hasText(normalizedProductKey)
+                && !batchProductKey.equalsIgnoreCase(normalizedProductKey)) {
+            throw new BizException("releaseBatchId 与 productKey 不匹配");
+        }
+        return new ReplayContext(
+                releaseBatchId,
+                normalize(batch.getScenarioCode()),
+                batchProductId,
+                batchProductKey
+        );
     }
 
     private Map<Long, Set<String>> buildContractIdentifierMap(Set<Long> productIds) {
@@ -440,5 +488,11 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
             vo.setSampleDetail(sampleDetail);
             return vo;
         }
+    }
+
+    private record ReplayContext(Long releaseBatchId,
+                                 String releaseScenarioCode,
+                                 Long productId,
+                                 String productKey) {
     }
 }

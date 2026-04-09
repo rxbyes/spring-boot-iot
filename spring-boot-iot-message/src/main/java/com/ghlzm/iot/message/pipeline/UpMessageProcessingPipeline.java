@@ -613,6 +613,7 @@ public class UpMessageProcessingPipeline {
                     step.getStatus(),
                     step.getCostMs()
             );
+            MessagePipelineFailureMetadata.attach(ex, stage, context.traceId, context.rawDeviceMessage, context.upMessage);
             throw ex;
         }
     }

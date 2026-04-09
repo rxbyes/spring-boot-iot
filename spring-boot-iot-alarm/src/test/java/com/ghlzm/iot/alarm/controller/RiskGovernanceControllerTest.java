@@ -83,11 +83,21 @@ class RiskGovernanceControllerTest {
         RiskMetricCatalogItemVO item = new RiskMetricCatalogItemVO();
         item.setId(9101L);
         item.setRiskMetricCode("RM_1001_VALUE");
+        item.setReleaseBatchId(7001L);
+        item.setNormativeIdentifier("value");
+        item.setRiskCategory("CRACK");
+        item.setMetricRole("PRIMARY");
+        item.setLifecycleStatus("ACTIVE");
         when(service.getMetricCatalog(9101L)).thenReturn(item);
 
         R<RiskMetricCatalogItemVO> response = controller.getMetricCatalog(9101L);
 
         assertEquals("RM_1001_VALUE", response.getData().getRiskMetricCode());
+        assertEquals(7001L, response.getData().getReleaseBatchId());
+        assertEquals("value", response.getData().getNormativeIdentifier());
+        assertEquals("CRACK", response.getData().getRiskCategory());
+        assertEquals("PRIMARY", response.getData().getMetricRole());
+        assertEquals("ACTIVE", response.getData().getLifecycleStatus());
     }
 
     @Test
@@ -149,12 +159,14 @@ class RiskGovernanceControllerTest {
         Authentication authentication = authentication(1001L);
         RiskGovernanceReplayVO replay = new RiskGovernanceReplayVO();
         replay.setTraceId("trace-001");
+        replay.setReleaseBatchId(7001L);
         replay.setMatchedMessageCount(3L);
-        when(opsService.replay(1001L, "trace-001", null, null)).thenReturn(replay);
+        when(opsService.replay(1001L, "trace-001", null, null, 7001L)).thenReturn(replay);
 
-        R<RiskGovernanceReplayVO> response = controller.replay("trace-001", null, null, authentication);
+        R<RiskGovernanceReplayVO> response = controller.replay("trace-001", null, null, 7001L, authentication);
 
         assertEquals("trace-001", response.getData().getTraceId());
+        assertEquals(7001L, response.getData().getReleaseBatchId());
         assertEquals(3L, response.getData().getMatchedMessageCount());
     }
 
