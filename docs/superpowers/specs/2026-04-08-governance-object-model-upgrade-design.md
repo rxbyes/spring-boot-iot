@@ -1,7 +1,7 @@
 # 治理对象模型与控制面升级设计
 
 > 日期：2026-04-08
-> 状态：会话内已确认设计方向，待用户评审 spec 后进入实施计划
+> 状态：2026-04-09 已补充字段级对象边界、模块归属、服务边界、状态机与事件清单，待用户评审 spec 后进入实施计划
 > 适用范围：`spring-boot-iot-device`、`spring-boot-iot-alarm`、`spring-boot-iot-system`、`spring-boot-iot-protocol`、`spring-boot-iot-admin`、`spring-boot-iot-ui`
 > 目标：在不破坏 `spring-boot-iot` 现有模块化单体、真实环境验收与 `iot_product_model` 合同真相表基线的前提下，把“语义契约治理域 + 风险运营闭环域”进一步收口为可持续演进的对象模型、桥层模型与控制面模型。
 
@@ -301,13 +301,13 @@
 2. 记录状态迁移、执行结果和失败原因。
 3. 为发布、回滚、密钥治理、策略变更提供统一审计入口。
 
-### 5.11 治理任务对象
+### 5.11 治理工作项对象
 
 定位：把“工作提示”升级为正式任务对象。
 
 表归属：
 
-- 新增 `iot_governance_task`
+- 新增 `iot_governance_work_item`
 
 对象职责：
 
@@ -318,6 +318,7 @@
 设计说明：
 
 - `missing-bindings`、`missing-policies`、`dashboard-overview` 等接口后续可以继续保留读侧兼容，但底层应逐步切换到正式任务对象。
+- 该对象是控制面工作项，不等同于站内信、审批单或事件工单；审批单只负责关键写动作复核，工作项负责持续跟踪“还有什么没收口”。
 
 ### 5.12 复盘与运维对象
 
@@ -325,18 +326,20 @@
 
 表归属：
 
-- 当前阶段继续使用读侧聚合 API
-- 如后续需要认领、抑制、升级、关闭，可新增 `iot_governance_alert`
+- 新增 `iot_governance_ops_alert`
+- 当前阶段 `replay` 继续使用读侧聚合 API
 - 如后续需要复盘派单和结案，可新增 `iot_governance_replay_case`
 
 对象职责：
 
 1. 承接字段漂移、合同差异、风险指标缺失等治理告警。
-2. 承接基于 `traceId / deviceCode / productKey / releaseBatchId` 的复盘案例。
+2. 为告警提供认领、抑制、升级、关闭和恢复生命周期。
+3. 承接基于 `traceId / deviceCode / productKey / releaseBatchId` 的复盘入口。
 
 设计说明：
 
-- 本轮优先级低于桥层对象和任务对象，先不强制落表。
+- 告警本身需要正式生命周期，否则越配置化越难运维；因此运维告警对象优先级提升为与治理工作项同级。
+- `replay` 先保持按条件实时聚合，不在本轮强制新增复盘案件主表。
 
 ## 6. 数据模型增量方案
 
@@ -345,7 +348,8 @@
 1. `iot_vendor_metric_mapping_rule`
 2. `risk_metric_linkage_binding`
 3. `risk_metric_emergency_plan_binding`
-4. `iot_governance_task`
+4. `iot_governance_work_item`
+5. `iot_governance_ops_alert`
 
 ### 6.2 建议补强现表
 
@@ -458,13 +462,13 @@ CREATE TABLE risk_metric_emergency_plan_binding (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险指标与应急预案绑定表';
 ```
 
-### 7.5 治理任务对象
+### 7.5 治理工作项对象
 
 ```sql
-CREATE TABLE iot_governance_task (
+CREATE TABLE iot_governance_work_item (
     id BIGINT NOT NULL,
     tenant_id BIGINT NOT NULL DEFAULT 1,
-    task_code VARCHAR(64) NOT NULL COMMENT 'PENDING_PRODUCT_GOVERNANCE等',
+    work_item_code VARCHAR(64) NOT NULL COMMENT 'PENDING_PRODUCT_GOVERNANCE等',
     subject_type VARCHAR(64) NOT NULL COMMENT 'PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE',
     subject_id BIGINT NOT NULL,
     product_id BIGINT DEFAULT NULL,
@@ -474,12 +478,14 @@ CREATE TABLE iot_governance_task (
     trace_id VARCHAR(64) DEFAULT NULL,
     device_code VARCHAR(64) DEFAULT NULL,
     product_key VARCHAR(64) DEFAULT NULL,
-    task_status VARCHAR(16) NOT NULL DEFAULT 'OPEN',
+    work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/ACKED/BLOCKED/RESOLVED/CLOSED/CANCELLED',
+    priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT 'P1/P2/P3',
     assignee_user_id BIGINT DEFAULT NULL,
     source_stage VARCHAR(64) DEFAULT NULL,
     blocking_reason VARCHAR(255) DEFAULT NULL,
     snapshot_json JSON DEFAULT NULL,
     due_time DATETIME DEFAULT NULL,
+    resolved_time DATETIME DEFAULT NULL,
     closed_time DATETIME DEFAULT NULL,
     create_by BIGINT DEFAULT NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -487,7 +493,46 @@ CREATE TABLE iot_governance_task (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理与运营任务表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理与运营工作项表';
+```
+
+### 7.6 运维告警对象
+
+```sql
+CREATE TABLE iot_governance_ops_alert (
+    id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    alert_type VARCHAR(64) NOT NULL COMMENT 'FIELD_DRIFT/CONTRACT_DIFF/MISSING_RISK_METRIC等',
+    alert_code VARCHAR(128) NOT NULL COMMENT '去重键或业务编码',
+    subject_type VARCHAR(64) NOT NULL COMMENT 'PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE',
+    subject_id BIGINT DEFAULT NULL,
+    product_id BIGINT DEFAULT NULL,
+    risk_metric_id BIGINT DEFAULT NULL,
+    release_batch_id BIGINT DEFAULT NULL,
+    trace_id VARCHAR(64) DEFAULT NULL,
+    device_code VARCHAR(64) DEFAULT NULL,
+    product_key VARCHAR(64) DEFAULT NULL,
+    alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/ACKED/SUPPRESSED/RESOLVED/CLOSED',
+    severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT 'INFO/WARN/CRITICAL',
+    affected_count BIGINT NOT NULL DEFAULT 0,
+    alert_title VARCHAR(255) NOT NULL,
+    alert_message VARCHAR(1000) DEFAULT NULL,
+    dimension_key VARCHAR(128) DEFAULT NULL,
+    dimension_label VARCHAR(255) DEFAULT NULL,
+    source_stage VARCHAR(64) DEFAULT NULL,
+    snapshot_json JSON DEFAULT NULL,
+    assignee_user_id BIGINT DEFAULT NULL,
+    first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_time DATETIME DEFAULT NULL,
+    closed_time DATETIME DEFAULT NULL,
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='治理运维告警表';
 ```
 
 ## 8. API 归口建议
@@ -556,16 +601,150 @@ CREATE TABLE iot_governance_task (
 
 其中审批台当前已有页面基础，但需补独立前端路由和可达入口。
 
-## 9. 实施顺序
+## 9. 模块归属与服务边界
 
-### 9.1 第一阶段：冻结对象边界与文档口径
+### 9.1 模块归属
+
+| 对象 / 能力 | 归属模块 | 说明 |
+| --- | --- | --- |
+| 规范字段、厂商证据、厂商映射规则、正式合同、合同发布批次 | `spring-boot-iot-device` | 语义契约治理域主归口 |
+| 风险指标目录、风险点绑定、阈值策略、联动/预案显式绑定、运营 replay 读侧 | `spring-boot-iot-alarm` | 风险运营闭环域与桥层读写归口 |
+| 审批单、审批流转、审计日志、治理工作项、运维告警生命周期、权限守卫 | `spring-boot-iot-system` | 控制面主归口 |
+| 协议族、解密、编解码、主题路由 | `spring-boot-iot-protocol` + `spring-boot-iot-message` | 运行底座入口 |
+| 路由、工作台、驾驶舱与控制台 UI | `spring-boot-iot-ui` | 只负责展示与交互编排 |
+
+### 9.2 服务边界
+
+1. `ProductModelService`  
+   - 负责 compare / apply / 正式合同落库 / 生成发布批次  
+   - **不直接编排风险闭环对象**
+2. `ProductContractReleaseService`  
+   - 负责发布批次、快照、影响分析、回滚  
+   - 发布成功后只发领域事件，不直接回写风险对象
+3. `RiskMetricCatalogService`  
+   - 负责把正式合同发布为桥层目录  
+   - 负责目录退役、目录读侧查询
+4. `RiskPointService` / `RuleDefinitionService` / `LinkageRuleService` / `EmergencyPlanService`  
+   - 负责闭环域正式关系  
+   - 统一优先消费 `risk_metric_id`
+5. `GovernanceWorkItemService`（新增）  
+   - 负责六类治理工作项的创建、关闭、阻塞、认领
+6. `GovernanceOpsAlertService`（新增）  
+   - 负责治理运维告警的落表、去重、恢复、关闭
+7. `GovernanceApprovalService`  
+   - 只负责关键写操作复核  
+   - 不直接承担长期待办职责
+
+### 9.3 关键边界规则
+
+1. `device -> alarm` 不走“服务硬调用”主路径，优先改为领域事件通知
+2. `alarm -> system` 对工作项、运维告警的更新也优先走事件
+3. 驾驶舱、产品工作台、运维工作台后续优先读取控制面对象，聚合接口保留兼容但不再作为唯一真相
+
+## 10. 状态机建议
+
+### 10.1 合同发布批次
+
+`RELEASED -> ROLLED_BACK`
+
+说明：
+
+- 审批中的状态继续留在 `sys_governance_approval_order`
+- `iot_product_contract_release_batch` 只表示已执行成功的发布批次及其后续回滚结果
+
+### 10.2 风险指标目录
+
+`ACTIVE -> RETIRED`
+
+说明：
+
+- 同一产品下旧合同字段退役时，目录项进入 `RETIRED`
+- 下游闭环新建关系默认只允许绑定 `ACTIVE`
+
+### 10.3 治理工作项
+
+`OPEN -> ACKED -> RESOLVED -> CLOSED`
+
+辅助分支：
+
+- `OPEN -> BLOCKED`
+- `BLOCKED -> OPEN`
+- `OPEN/ACKED/BLOCKED -> CANCELLED`
+
+说明：
+
+- `ACKED` 表示已认领开始处理
+- `RESOLVED` 表示业务条件已满足，等待自动或人工关单
+- `CLOSED` 表示确认收口
+
+### 10.4 运维告警
+
+`OPEN -> ACKED -> RESOLVED -> CLOSED`
+
+辅助分支：
+
+- `OPEN/ACKED -> SUPPRESSED`
+- `SUPPRESSED -> OPEN`
+
+说明：
+
+- `RESOLVED` 表示告警条件已恢复
+- `CLOSED` 表示运维确认已处理完成
+
+## 11. 事件清单与跨域流转
+
+### 11.1 事件清单
+
+1. `ProductContractReleasedEvent`
+   - 生产者：`spring-boot-iot-device`
+   - 载荷：`productId / releaseBatchId / scenarioCode / releasedIdentifiers / operatorId / approvalOrderId`
+   - 消费者：`RiskMetricCatalogService`、`GovernanceWorkItemService`
+2. `ProductContractRolledBackEvent`
+   - 生产者：`spring-boot-iot-device`
+   - 消费者：`RiskMetricCatalogService`、`GovernanceWorkItemService`
+3. `RiskMetricCatalogPublishedEvent`
+   - 生产者：`spring-boot-iot-alarm`
+   - 载荷：`productId / releaseBatchId / publishedRiskMetricIds / retiredRiskMetricIds`
+   - 消费者：`GovernanceWorkItemService`
+4. `RiskPointBindingChangedEvent`
+   - 生产者：`spring-boot-iot-alarm`
+   - 消费者：`GovernanceWorkItemService`
+5. `RuleDefinitionChangedEvent`
+   - 生产者：`spring-boot-iot-alarm`
+   - 消费者：`GovernanceWorkItemService`
+6. `RiskMetricCoverageChangedEvent`
+   - 生产者：`spring-boot-iot-alarm`
+   - 消费者：`GovernanceWorkItemService`
+7. `GovernanceOpsAlertRaisedEvent`
+   - 生产者：`spring-boot-iot-alarm`
+   - 消费者：`GovernanceOpsAlertService`
+8. `GovernanceOpsAlertRecoveredEvent`
+   - 生产者：`spring-boot-iot-alarm`
+   - 消费者：`GovernanceOpsAlertService`
+
+### 11.2 最小闭环流
+
+1. 产品合同 apply 审批通过
+2. `device` 落正式合同 + 发布批次 + 快照
+3. 发出 `ProductContractReleasedEvent`
+4. `alarm` 发布 `risk_metric_catalog`，并带上同一个 `releaseBatchId`
+5. 发出 `RiskMetricCatalogPublishedEvent`
+6. `system` 更新治理工作项：
+   - 关闭“待发布合同”
+   - 判断是否开启“待发布风险指标目录 / 待绑定风险点 / 待补阈值策略 / 待补联动预案”
+7. 运维侧根据证据与目录差异发出 `GovernanceOpsAlertRaisedEvent`
+8. 控制面统一展示审批、工作项、运维告警、replay
+
+## 12. 实施顺序
+
+### 12.1 第一阶段：冻结对象边界与文档口径
 
 目标：
 
 1. 把“正式合同”“风险指标”“治理任务”“控制面”四类对象正式写入架构文档。
 2. 升级 `docs/01`、`docs/02`、`docs/03`、`docs/04`、`docs/08`、`docs/19`、`docs/21`，并检查 `README.md` 与 `AGENTS.md`。
 
-### 9.2 第二阶段：先补桥层，不动大前台
+### 12.2 第二阶段：先补桥层，不动大前台
 
 目标：
 
@@ -574,7 +753,7 @@ CREATE TABLE iot_governance_task (
 3. 补强 `risk_metric_catalog`
 4. 明确“风险闭环必须经过风险指标目录”
 
-### 9.3 第三阶段：补显式处置绑定
+### 12.3 第三阶段：补显式处置绑定
 
 目标：
 
@@ -582,16 +761,17 @@ CREATE TABLE iot_governance_task (
 2. 新增 `risk_metric_emergency_plan_binding`
 3. 把联动/预案覆盖率从语义猜测切换成显式关系
 
-### 9.4 第四阶段：补控制面对象
+### 12.4 第四阶段：补控制面对象
 
 目标：
 
-1. 新增 `iot_governance_task`
-2. 补审批台独立路由
-3. 新增治理任务工作台
-4. 新增运维复盘工作台
+1. 新增 `iot_governance_work_item`
+2. 新增 `iot_governance_ops_alert`
+3. 补审批台独立路由
+4. 新增治理任务工作台
+5. 新增运维复盘工作台
 
-### 9.5 第五阶段：补扩展模型
+### 12.5 第五阶段：补扩展模型
 
 建议后续继续新增如下对象：
 
@@ -605,7 +785,7 @@ CREATE TABLE iot_governance_task (
 1. 让协议族、解密、父子关系归一和风险指标生成有正式扩展对象
 2. 逐步把 `LegacyDp*` 与散落在 service 里的厂商特例迁出
 
-## 10. 验收口径
+## 13. 验收口径
 
 本轮设计落地后，至少应达到以下口径：
 
@@ -618,7 +798,7 @@ CREATE TABLE iot_governance_task (
 4. 首页和对象页的治理待办可回收到正式任务对象，而不是只靠聚合提示。
 5. 真实环境验收时，可以按 `releaseBatchId / traceId / deviceCode / productKey` 回答治理与风险链路断点。
 
-## 11. 非目标
+## 14. 非目标
 
 本轮明确不做以下事项：
 
@@ -628,9 +808,10 @@ CREATE TABLE iot_governance_task (
 4. 不把覆盖率和驾驶舱 KPI 单独落成统计真相表。
 5. 不把全部厂商/全部协议一次性纳入零代码接入。
 
-## 12. 风险与后续关注点
+## 15. 风险与后续关注点
 
 1. 若不尽快把映射规则对象独立出来，`iot_vendor_metric_evidence` 会继续膨胀成“证据 + 规则 + 决策”混合体。
 2. 若不尽快把联动/预案覆盖关系显式化，驾驶舱和影响分析会长期依赖语义推测，难以稳定。
 3. 若不把六类待办落成正式任务对象，前台仍会停留在“提示式工作台”，难以升级成真正的任务系统。
 4. 若不把桥层对象继续扩成长期真相，风险域仍可能被 `iot_product_model` 的运行态细节反向牵制。
+5. 若继续让 `device` 服务直接调用 `alarm` 服务完成目录发布，会逐步破坏模块边界，后续回滚、补偿和审计都会变得更脆弱。
