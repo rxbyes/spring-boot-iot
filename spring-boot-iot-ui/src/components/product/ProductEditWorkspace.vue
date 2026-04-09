@@ -86,6 +86,7 @@
 
       <ProductObjectInsightConfigEditor
         :model-value="objectInsightMetrics"
+        :available-models="availableModels"
         @update:model-value="emit('update:objectInsightMetrics', $event)"
       />
     </el-form>
@@ -113,7 +114,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import ProductObjectInsightConfigEditor from '@/components/product/ProductObjectInsightConfigEditor.vue'
-import type { ProductAddPayload, ProductObjectInsightCustomMetricConfig } from '@/types/api'
+import type { ProductAddPayload, ProductModel, ProductObjectInsightCustomMetricConfig } from '@/types/api'
 
 type ProductEditFormState = ProductAddPayload
 
@@ -121,6 +122,7 @@ const props = withDefaults(
   defineProps<{
     model: ProductEditFormState
     objectInsightMetrics: ProductObjectInsightCustomMetricConfig[]
+    availableModels?: ProductModel[]
     rules: FormRules<ProductEditFormState>
     editing?: boolean
     submitLoading?: boolean
@@ -129,6 +131,7 @@ const props = withDefaults(
   }>(),
   {
     editing: false,
+    availableModels: () => [],
     submitLoading: false,
     refreshState: '',
     refreshMessage: ''

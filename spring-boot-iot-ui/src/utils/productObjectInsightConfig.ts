@@ -1,4 +1,4 @@
-import type { ProductMetadata, ProductObjectInsightCustomMetricConfig } from '@/types/api'
+import type { ProductMetadata, ProductModel, ProductObjectInsightCustomMetricConfig } from '@/types/api'
 
 export const MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS = 20
 
@@ -14,6 +14,27 @@ export function createEmptyProductObjectInsightMetric(): ProductObjectInsightCus
     analysisTemplate: '',
     enabled: true,
     sortNo: 10
+  }
+}
+
+export function createProductObjectInsightMetricFromModel(
+  model: Pick<ProductModel, 'identifier' | 'modelName' | 'sortNo'>,
+  group: 'measure' | 'status'
+): ProductObjectInsightCustomMetricConfig {
+  const identifier = normalizeText(model.identifier)
+  const displayName = normalizeText(model.modelName) || identifier
+  return {
+    ...createEmptyProductObjectInsightMetric(),
+    identifier,
+    displayName,
+    group,
+    includeInTrend: true,
+    includeInExtension: false,
+    analysisTitle: '',
+    analysisTag: '',
+    analysisTemplate: '',
+    enabled: true,
+    sortNo: normalizeSortNo(model.sortNo)
   }
 }
 
@@ -105,6 +126,53 @@ export function buildProductMetadataJson(
   return JSON.stringify(nextMetadata)
 }
 
+export function findProductObjectInsightMetric(
+  rows: ProductObjectInsightCustomMetricConfig[],
+  identifier: string
+) {
+  const normalizedIdentifier = normalizeText(identifier)
+  return rows.find((item) => normalizeText(item.identifier) === normalizedIdentifier)
+}
+
+export function upsertProductObjectInsightMetric(
+  rows: ProductObjectInsightCustomMetricConfig[],
+  metric: ProductObjectInsightCustomMetricConfig
+) {
+  const normalizedMetric = normalizeMetric(metric)
+  const targetIndex = rows.findIndex(
+    (item) => normalizeText(item.identifier) === normalizedMetric.identifier
+  )
+
+  if (targetIndex < 0) {
+    return [...rows, normalizedMetric]
+  }
+
+  const existingMetric = normalizeMetric(rows[targetIndex])
+  const nextMetric: ProductObjectInsightCustomMetricConfig = {
+    ...existingMetric,
+    identifier: normalizedMetric.identifier || existingMetric.identifier,
+    displayName: normalizedMetric.displayName || existingMetric.displayName,
+    group: normalizedMetric.group,
+    includeInTrend: normalizedMetric.includeInTrend ?? existingMetric.includeInTrend,
+    includeInExtension: normalizedMetric.includeInExtension ?? existingMetric.includeInExtension,
+    analysisTitle: normalizedMetric.analysisTitle || existingMetric.analysisTitle,
+    analysisTag: normalizedMetric.analysisTag || existingMetric.analysisTag,
+    analysisTemplate: normalizedMetric.analysisTemplate || existingMetric.analysisTemplate,
+    enabled: normalizedMetric.enabled ?? existingMetric.enabled,
+    sortNo: normalizeSortNo(normalizedMetric.sortNo ?? existingMetric.sortNo)
+  }
+
+  return rows.map((item, index) => (index === targetIndex ? nextMetric : item))
+}
+
+export function removeProductObjectInsightMetric(
+  rows: ProductObjectInsightCustomMetricConfig[],
+  identifier: string
+) {
+  const normalizedIdentifier = normalizeText(identifier)
+  return rows.filter((item) => normalizeText(item.identifier) !== normalizedIdentifier)
+}
+
 function parseProductMetadata(metadataJson?: string | null): ProductMetadata | null {
   const text = normalizeText(metadataJson)
   if (!text) {
@@ -124,4 +192,26 @@ function parseProductMetadata(metadataJson?: string | null): ProductMetadata | n
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): ProductObjectInsightCustomMetricConfig {
+  return {
+    ...createEmptyProductObjectInsightMetric(),
+    ...metric,
+    identifier: normalizeText(metric.identifier),
+    displayName: normalizeText(metric.displayName),
+    analysisTitle: normalizeText(metric.analysisTitle),
+    analysisTag: normalizeText(metric.analysisTag),
+    analysisTemplate: normalizeText(metric.analysisTemplate),
+    group: metric.group === 'measure' ? 'measure' : 'status',
+    includeInTrend: metric.includeInTrend ?? true,
+    includeInExtension: metric.includeInExtension ?? true,
+    enabled: metric.enabled ?? true,
+    sortNo: normalizeSortNo(metric.sortNo)
+  }
+}
+
+function normalizeSortNo(value: unknown) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 10
 }

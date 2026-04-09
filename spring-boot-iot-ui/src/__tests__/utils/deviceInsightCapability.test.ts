@@ -328,4 +328,79 @@ describe('deviceInsightCapability', () => {
       expect.arrayContaining(['S1_ZT_1.signal_4g', 'S1_ZT_1.humidity'])
     );
   });
+
+  it('prioritizes enabled product-level focus metrics and excludes disabled ones from trend preview', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'COLLECT-FOCUS-001',
+      productName: '雨量采集终端',
+      productMetadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'S1_ZT_1.signal_4g',
+              displayName: '传输信号',
+              group: 'status',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true,
+              sortNo: 1
+            },
+            {
+              identifier: 'YL_1',
+              displayName: '重点雨量',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true,
+              sortNo: 2
+            },
+            {
+              identifier: 'S1_ZT_1.humidity',
+              displayName: '相对湿度',
+              group: 'status',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: false,
+              sortNo: 3
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'YL_1',
+          propertyName: '雨量',
+          propertyValue: '5.6',
+          valueType: 'double'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.sensor_state.YL_1',
+          propertyName: '采集通道在线状态',
+          propertyValue: '1',
+          valueType: 'int'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-79',
+          valueType: 'int'
+        },
+        {
+          id: 4,
+          identifier: 'S1_ZT_1.humidity',
+          propertyName: '相对湿度',
+          propertyValue: '72',
+          valueType: 'double'
+        }
+      ]
+    });
+
+    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers[0]).toBe('YL_1');
+    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers[0]).toBe('S1_ZT_1.signal_4g');
+    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).not.toContain('S1_ZT_1.humidity');
+    expect(profile.historyIdentifiers).not.toContain('S1_ZT_1.humidity');
+  });
 });

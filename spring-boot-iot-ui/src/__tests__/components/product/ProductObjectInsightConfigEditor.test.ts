@@ -168,4 +168,52 @@ describe('ProductObjectInsightConfigEditor', () => {
 
     expect(removeSpy).toHaveBeenCalledWith([])
   })
+
+  it('quick-adds formal property models as trend focus metrics', async () => {
+    const updateSpy = vi.fn()
+    const wrapper = mount(ProductObjectInsightConfigEditor, {
+      props: {
+        modelValue: [],
+        availableModels: [
+          {
+            id: 11,
+            productId: 1001,
+            modelType: 'property',
+            identifier: 'L1_LF_1.value',
+            modelName: '裂缝量',
+            dataType: 'double',
+            sortNo: 6
+          }
+        ],
+        'onUpdate:modelValue': updateSpy
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          ElInput: ElInputStub,
+          ElInputNumber: ElInputNumberStub,
+          ElSelect: ElSelectStub,
+          ElOption: ElOptionStub,
+          ElSwitch: ElSwitchStub,
+          ElAlert: ElAlertStub,
+          ElTag: ElTagStub,
+          ElFormItem: ElFormItemStub
+        }
+      }
+    })
+
+    await wrapper.get('[data-testid="product-object-insight-add-measure-L1_LF_1.value"]').trigger('click')
+
+    expect(updateSpy).toHaveBeenCalledWith([
+      expect.objectContaining({
+        identifier: 'L1_LF_1.value',
+        displayName: '裂缝量',
+        group: 'measure',
+        includeInTrend: true,
+        includeInExtension: false,
+        enabled: true,
+        sortNo: 6
+      })
+    ])
+  })
 })

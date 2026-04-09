@@ -364,6 +364,7 @@
         <ProductModelDesignerWorkspace
           v-if="businessWorkbenchLoadedViews.models && businessWorkbenchProduct"
           :product="businessWorkbenchProduct"
+          @product-updated="handleBusinessWorkbenchProductUpdated"
         />
       </template>
 
@@ -385,6 +386,7 @@
           ref="editWorkspaceRef"
           :model="formData"
           :object-insight-metrics="objectInsightMetricRows"
+          :available-models="editAvailableModels"
           :rules="formRules"
           :editing="Boolean(editingProductId)"
           :submit-loading="submitLoading"
@@ -466,6 +468,7 @@
 
           <ProductObjectInsightConfigEditor
             :model-value="objectInsightMetricRows"
+            :available-models="[]"
             @update:model-value="handleObjectInsightMetricsChange"
           />
         </el-form>
@@ -545,6 +548,7 @@ import type {
   PageResult,
   Product,
   ProductAddPayload,
+  ProductModel,
   ProductObjectInsightCustomMetricConfig
 } from '@/types/api'
 import {
@@ -680,6 +684,7 @@ const deviceListErrorMessage = ref('')
 
 // 当前选择的产品
 const currentProduct = ref<Product | null>(null)
+const editAvailableModels = ref<ProductModel[]>([])
 const detailRefreshing = ref(false)
 const detailErrorMessage = ref('')
 const listRefreshMessage = ref('')
@@ -703,6 +708,7 @@ const defaultPageSize = 10
 let latestListRequestId = 0
 let latestDetailRequestId = 0
 let latestEditRequestId = 0
+let latestEditModelRequestId = 0
 let latestGovernanceRequestId = 0
 let listAbortController: AbortController | null = null
 let listPrefetchAbortController: AbortController | null = null
@@ -1093,6 +1099,22 @@ function clearListRefreshState() {
 
 function handleObjectInsightMetricsChange(value: ProductObjectInsightCustomMetricConfig[]) {
   objectInsightMetricRows.value = value
+}
+
+function handleBusinessWorkbenchProductUpdated(product: Product) {
+  cacheProductDetail(product)
+  currentProduct.value = product
+  detailData.value = product
+  businessWorkbenchProduct.value = product
+  if (matchesCurrentFilters(product)) {
+    mergeLocalTableRow(product)
+  } else {
+    removeLocalTableRow(product)
+  }
+  rebuildVisibleProductPageCache()
+  if (editingProductId.value && String(editingProductId.value) === String(product.id) && !formDirtySinceOpen) {
+    applyFormDataWithoutDirty(product)
+  }
 }
 
 function markBusinessWorkbenchViewLoaded(view: ProductBusinessWorkbenchView) {
@@ -1778,6 +1800,31 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
   }
 }
 
+async function refreshEditAvailableModels(productId: string | number, editSessionId: number) {
+  const requestId = ++latestEditModelRequestId
+  editAvailableModels.value = []
+  try {
+    const res = await productApi.listProductModels(productId)
+    if (
+      requestId !== latestEditModelRequestId ||
+      editSessionId !== activeEditSessionId ||
+      String(editingProductId.value) !== String(productId)
+    ) {
+      return
+    }
+    editAvailableModels.value = res.data ?? []
+  } catch {
+    if (
+      requestId !== latestEditModelRequestId ||
+      editSessionId !== activeEditSessionId ||
+      String(editingProductId.value) !== String(productId)
+    ) {
+      return
+    }
+    editAvailableModels.value = []
+  }
+}
+
 function handleSearch() {
   searchForm.productName = searchForm.productName.trim()
   resetPage()
@@ -1821,7 +1868,9 @@ function handleRefresh() {
 function handleAdd() {
   activeEditSessionId += 1
   abortEditRequest()
+  latestEditModelRequestId += 1
   editingProductId.value = null
+  editAvailableModels.value = []
   formDirtySinceOpen = false
   clearFormRefreshState()
   applyFormDataWithoutDirty()
@@ -1841,9 +1890,11 @@ function openEditWorkbench(row: Product, initialProduct?: Product | null) {
   applyFormDataWithoutDirty(editSnapshot)
   currentProduct.value = row
   businessWorkbenchProduct.value = editSnapshot
+  editAvailableModels.value = []
   businessWorkbenchVisible.value = true
   handleBusinessWorkbenchViewChange('edit')
   editWorkspaceRef.value?.clearValidate()
+  void refreshEditAvailableModels(row.id, editSessionId)
   void refreshEditableDetail(row, editSessionId, cachedDetail)
 }
 
@@ -2223,6 +2274,8 @@ async function handleSubmit() {
 function handleFormClose() {
   activeEditSessionId += 1
   abortEditRequest()
+  latestEditModelRequestId += 1
+  editAvailableModels.value = []
   createFormRef.value?.clearValidate?.()
   clearFormRefreshState()
   formDirtySinceOpen = false
@@ -2275,6 +2328,8 @@ watch(businessWorkbenchVisible, (visible) => {
   if (editingProductId.value) {
     activeEditSessionId += 1
     abortEditRequest()
+    latestEditModelRequestId += 1
+    editAvailableModels.value = []
     editWorkspaceRef.value?.clearValidate()
     clearFormRefreshState()
     formDirtySinceOpen = false

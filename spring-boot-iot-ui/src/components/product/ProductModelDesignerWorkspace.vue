@@ -489,6 +489,44 @@
               <span>{{ model.dataType || model.eventType || formatServiceSummary(model) || '--' }}</span>
               <span>排序 {{ model.sortNo ?? '--' }}</span>
             </div>
+            <div v-if="model.modelType === 'property'" class="product-model-designer__formal-card-actions">
+              <span class="product-model-designer__formal-card-state">
+                {{ resolveTrendMetricStateLabel(model) }}
+              </span>
+              <StandardButton
+                v-if="model.id !== undefined && model.id !== null"
+                :data-testid="`formal-model-trend-measure-${model.id}`"
+                action="query"
+                link
+                :loading="isTrendMetricSubmitting(model.id, 'measure')"
+                :disabled="trendMetricSubmitting"
+                @click="handleSetTrendMetric(model, 'measure')"
+              >
+                设为监测趋势
+              </StandardButton>
+              <StandardButton
+                v-if="model.id !== undefined && model.id !== null"
+                :data-testid="`formal-model-trend-status-${model.id}`"
+                action="query"
+                link
+                :loading="isTrendMetricSubmitting(model.id, 'status')"
+                :disabled="trendMetricSubmitting"
+                @click="handleSetTrendMetric(model, 'status')"
+              >
+                设为状态趋势
+              </StandardButton>
+              <StandardButton
+                v-if="model.id !== undefined && model.id !== null && resolveTrendMetricConfig(model)"
+                :data-testid="`formal-model-trend-remove-${model.id}`"
+                action="delete"
+                link
+                :loading="isTrendMetricSubmitting(model.id, 'remove')"
+                :disabled="trendMetricSubmitting"
+                @click="handleRemoveTrendMetric(model)"
+              >
+                取消趋势展示
+              </StandardButton>
+            </div>
             <p>{{ model.description?.trim() || emptyDescriptionMap[model.modelType] }}</p>
           </article>
         </div>
@@ -515,6 +553,7 @@ import type {
   GovernanceApprovalStatus,
   IdType,
   Product,
+  ProductAddPayload,
   ProductModel,
   ProductModelGovernanceApplyItem,
   ProductModelGovernanceApplyResult,
@@ -524,6 +563,14 @@ import type {
   ProductModelType
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
+import {
+  buildProductMetadataJson,
+  createProductObjectInsightMetricFromModel,
+  findProductObjectInsightMetric,
+  parseProductObjectInsightMetrics,
+  removeProductObjectInsightMetric,
+  upsertProductObjectInsightMetric
+} from '@/utils/productObjectInsightConfig'
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
 type SampleType = 'business' | 'status'
@@ -548,6 +595,10 @@ interface GovernanceApprovalPayload<TResult, TRequest = unknown> {
 
 const props = defineProps<{
   product: Product | null
+}>()
+
+const emit = defineEmits<{
+  (event: 'product-updated', value: Product): void
 }>()
 
 const typeOptions: Array<{ label: string; value: ProductModelType }> = [
@@ -602,6 +653,9 @@ const rollbackResubmitLoading = ref(false)
 const renamingModelId = ref<IdType | null>(null)
 const renamingModelName = ref('')
 const renameSubmitting = ref(false)
+const productSnapshot = ref<Product | null>(null)
+const trendMetricSubmitting = ref(false)
+const trendMetricSubmittingKey = ref('')
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
@@ -738,6 +792,17 @@ const samplePayloadPlaceholder = computed(() =>
     ? '请粘贴单台父设备的复合上报 JSON，例如 {"SK00EA0D1307986":{"L1_LF_1":{"2026-04-05T20:14:06.000Z":10.86}}}'
     : '请粘贴单台设备的上报 JSON，例如 {"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}'
 )
+const trendMetricRows = computed(() =>
+  parseProductObjectInsightMetrics(productSnapshot.value?.metadataJson ?? props.product?.metadataJson)
+)
+
+watch(
+  () => props.product,
+  (product) => {
+    productSnapshot.value = product ? { ...product } : null
+  },
+  { immediate: true, deep: true }
+)
 
 watch(
   () => props.product?.id,
@@ -783,6 +848,22 @@ function formatServiceSummary(model: ProductModel) {
 
 function isRenamingModel(model: ProductModel) {
   return model.id !== undefined && model.id !== null && String(renamingModelId.value) === String(model.id)
+}
+
+function resolveTrendMetricConfig(model: ProductModel) {
+  return findProductObjectInsightMetric(trendMetricRows.value, model.identifier)
+}
+
+function resolveTrendMetricStateLabel(model: ProductModel) {
+  const metric = resolveTrendMetricConfig(model)
+  if (!metric || metric.includeInTrend === false || metric.enabled === false) {
+    return '当前未加入对象洞察趋势'
+  }
+  return metric.group === 'measure' ? '当前为监测趋势重点' : '当前为状态趋势重点'
+}
+
+function isTrendMetricSubmitting(modelId: IdType, group: 'measure' | 'status' | 'remove') {
+  return trendMetricSubmittingKey.value === `${String(modelId)}:${group}`
 }
 
 async function loadModels(productId: string | number) {
@@ -890,6 +971,65 @@ async function handleRenameModel(model: ProductModel) {
     ElMessage.error(error instanceof Error ? error.message : '更新正式字段名称失败')
   } finally {
     renameSubmitting.value = false
+  }
+}
+
+async function handleSetTrendMetric(model: ProductModel, group: 'measure' | 'status') {
+  const product = productSnapshot.value ?? props.product
+  if (!product?.id) {
+    return
+  }
+
+  const nextRows = upsertProductObjectInsightMetric(
+    trendMetricRows.value,
+    createProductObjectInsightMetricFromModel(model, group)
+  )
+  await persistTrendMetricConfig(product, nextRows, `${String(model.id ?? model.identifier)}:${group}`, `${model.modelName}已加入对象洞察趋势`)
+}
+
+async function handleRemoveTrendMetric(model: ProductModel) {
+  const product = productSnapshot.value ?? props.product
+  if (!product?.id) {
+    return
+  }
+
+  const existingMetric = resolveTrendMetricConfig(model)
+  if (!existingMetric) {
+    return
+  }
+
+  const nextRows = removeProductObjectInsightMetric(trendMetricRows.value, model.identifier)
+  await persistTrendMetricConfig(
+    product,
+    nextRows,
+    `${String(model.id ?? model.identifier)}:remove`,
+    `${model.modelName}已取消对象洞察趋势`
+  )
+}
+
+async function persistTrendMetricConfig(
+  product: Product,
+  rows: ReturnType<typeof parseProductObjectInsightMetrics>,
+  submittingKey: string,
+  successMessage: string
+) {
+  trendMetricSubmitting.value = true
+  trendMetricSubmittingKey.value = submittingKey
+  try {
+    const metadataJson = buildProductMetadataJson(rows, product.metadataJson)
+    const response = await productApi.updateProduct(product.id, buildProductUpdatePayload(product, metadataJson))
+    const updatedProduct: Product = response.data ?? {
+      ...product,
+      metadataJson: metadataJson ?? null
+    }
+    productSnapshot.value = updatedProduct
+    emit('product-updated', updatedProduct)
+    ElMessage.success(successMessage)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '更新对象洞察趋势配置失败')
+  } finally {
+    trendMetricSubmitting.value = false
+    trendMetricSubmittingKey.value = ''
   }
 }
 
@@ -1267,6 +1407,21 @@ function applyEvidenceSummary(row: ProductModelGovernanceCompareRow) {
     .join(' · ')
 }
 
+function buildProductUpdatePayload(product: Product, metadataJson?: string) {
+  const payload: ProductAddPayload = {
+    productKey: product.productKey,
+    productName: product.productName,
+    protocolCode: product.protocolCode,
+    nodeType: product.nodeType,
+    dataFormat: product.dataFormat ?? undefined,
+    manufacturer: product.manufacturer ?? undefined,
+    description: product.description ?? undefined,
+    metadataJson,
+    status: product.status ?? 1
+  }
+  return payload
+}
+
 function parseApprovalPayload<TResult>(payloadJson?: string | null): GovernanceApprovalPayload<TResult> | null {
   if (!payloadJson?.trim()) {
     return null
@@ -1589,6 +1744,19 @@ function resetSession() {
   display: flex;
   flex-wrap: wrap;
   gap: 0.42rem 0.8rem;
+}
+
+.product-model-designer__formal-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.72rem;
+}
+
+.product-model-designer__formal-card-state {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .product-model-designer__apply-footer {

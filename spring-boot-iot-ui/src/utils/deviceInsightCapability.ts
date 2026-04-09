@@ -35,6 +35,8 @@ export interface InsightCustomMetricDefinition {
   analysisTitle?: string;
   analysisTag?: string;
   analysisTemplate?: string;
+  enabled?: boolean;
+  sortNo?: number;
 }
 
 export interface InsightCapabilityProfile {
@@ -303,6 +305,17 @@ function applyCustomMetrics(
     ...group,
     identifiers: [...group.identifiers]
   }));
+  const excludedIdentifiers = new Set(
+    customMetrics
+      .filter((item) => item.enabled === false || item.includeInTrend === false)
+      .map((item) => item.identifier)
+  );
+  const filteredExtensionParameters = extensionParameters.filter(
+    (item) => !excludedIdentifiers.has(item.identifier)
+  );
+  trendGroups.forEach((group) => {
+    group.identifiers = group.identifiers.filter((identifier) => !excludedIdentifiers.has(identifier));
+  });
 
   customMetrics.forEach((metric) => {
     heroMetrics
@@ -311,33 +324,47 @@ function applyCustomMetrics(
         item.displayName = metric.displayName;
       });
 
-    const existingExtension = extensionParameters.find((item) => item.identifier === metric.identifier);
-    if (existingExtension) {
-      existingExtension.displayName = metric.displayName;
-    } else if (metric.includeInExtension !== false) {
-      extensionParameters.push({
+    const existingExtensionIndex = filteredExtensionParameters.findIndex((item) => item.identifier === metric.identifier);
+    if (metric.enabled === false || metric.includeInExtension === false) {
+      if (existingExtensionIndex >= 0) {
+        filteredExtensionParameters.splice(existingExtensionIndex, 1);
+      }
+    } else if (existingExtensionIndex >= 0) {
+      filteredExtensionParameters[existingExtensionIndex] = {
+        ...filteredExtensionParameters[existingExtensionIndex],
+        displayName: metric.displayName
+      };
+    } else {
+      filteredExtensionParameters.push({
         parameterKey: metric.parameterKey,
         identifier: metric.identifier,
         displayName: metric.displayName
       });
     }
 
-    if (metric.includeInTrend === false) {
-      return;
-    }
     const trendGroup = trendGroups.find((group) => group.key === metric.group);
     if (!trendGroup) {
+      return;
+    }
+
+    trendGroup.identifiers = trendGroup.identifiers.filter((identifier) => identifier !== metric.identifier);
+    if (metric.enabled === false || metric.includeInTrend === false) {
       return;
     }
     trendGroup.identifiers = uniqueIdentifiers([...trendGroup.identifiers, metric.identifier]);
   });
 
+  const prioritizedTrendGroups = trendGroups.map((group) => ({
+    ...group,
+    identifiers: prioritizeTrendGroupIdentifiers(group, customMetrics)
+  }));
+
   return {
     ...profile,
     heroMetrics,
-    trendGroups,
-    extensionParameters,
-    historyIdentifiers: uniqueIdentifiers(trendGroups.flatMap((group) => group.identifiers)),
+    trendGroups: prioritizedTrendGroups,
+    extensionParameters: filteredExtensionParameters,
+    historyIdentifiers: uniqueIdentifiers(prioritizedTrendGroups.flatMap((group) => group.identifiers)),
     customMetrics
   };
 }
@@ -397,7 +424,9 @@ function buildConfiguredMetricDefinition(
     includeInExtension: typeof config.includeInExtension === 'boolean' ? config.includeInExtension : !existsInHero,
     analysisTitle: normalizeOptionalText(config.analysisTitle) || builtIn?.analysisTitle,
     analysisTag: normalizeOptionalText(config.analysisTag) || builtIn?.analysisTag,
-    analysisTemplate: normalizeOptionalText(config.analysisTemplate) || builtIn?.analysisTemplate
+    analysisTemplate: normalizeOptionalText(config.analysisTemplate) || builtIn?.analysisTemplate,
+    enabled: typeof config.enabled === 'boolean' ? config.enabled : true,
+    sortNo: normalizeOptionalNumber(config.sortNo)
   };
 }
 
@@ -420,7 +449,9 @@ function parseObjectInsightMetadata(metadataJson?: string | null): Array<Partial
       includeInExtension: typeof config?.includeInExtension === 'boolean' ? config.includeInExtension : undefined,
       analysisTitle: normalizeOptionalText(config?.analysisTitle) || undefined,
       analysisTag: normalizeOptionalText(config?.analysisTag) || undefined,
-      analysisTemplate: normalizeOptionalText(config?.analysisTemplate) || undefined
+      analysisTemplate: normalizeOptionalText(config?.analysisTemplate) || undefined,
+      enabled: typeof config?.enabled === 'boolean' ? config.enabled : undefined,
+      sortNo: normalizeOptionalNumber(config?.sortNo)
     }];
   });
 }
@@ -446,10 +477,7 @@ function resolveMetricGroup(profile: InsightCapabilityProfile, identifier: strin
 function uniqueCustomMetrics(values: InsightCustomMetricDefinition[]) {
   const map = new Map<string, InsightCustomMetricDefinition>();
   values.forEach((item) => {
-    map.set(item.identifier, {
-      ...(map.get(item.identifier) ?? {}),
-      ...item
-    });
+    map.set(item.identifier, mergeCustomMetricDefinition(map.get(item.identifier), item));
   });
   return Array.from(map.values());
 }
@@ -476,6 +504,11 @@ function safeReadObject(value: unknown): Record<string, any> | null {
 
 function normalizeOptionalText(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function normalizeOptionalNumber(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
 }
 
 function toRuntimeCandidate(property: DeviceProperty): RuntimeMetricCandidate[] {
@@ -542,4 +575,83 @@ function scoreCandidate(candidate: RuntimeMetricCandidate, priorityKeywords: str
 
 function uniqueIdentifiers(values: string[]) {
   return values.filter((value, index) => Boolean(value) && values.indexOf(value) === index);
+}
+
+function prioritizeTrendGroupIdentifiers(
+  group: InsightTrendGroupDefinition,
+  customMetrics: InsightCustomMetricDefinition[]
+) {
+  const prioritizedIdentifiers = customMetrics
+    .filter((item) =>
+      item.group === group.key
+      && item.enabled !== false
+      && item.includeInTrend !== false
+      && item.includeInExtension === false
+    )
+    .sort((left, right) => {
+      const sortDiff = (left.sortNo ?? Number.MAX_SAFE_INTEGER) - (right.sortNo ?? Number.MAX_SAFE_INTEGER);
+      if (sortDiff !== 0) {
+        return sortDiff;
+      }
+      return left.identifier.localeCompare(right.identifier);
+    })
+    .map((item) => item.identifier);
+
+  return uniqueIdentifiers([
+    ...prioritizedIdentifiers,
+    ...group.identifiers.filter((identifier) => !prioritizedIdentifiers.includes(identifier))
+  ]);
+}
+
+function mergeCustomMetricDefinition(
+  current: InsightCustomMetricDefinition | undefined,
+  incoming: InsightCustomMetricDefinition
+): InsightCustomMetricDefinition {
+  if (!current) {
+    return incoming;
+  }
+
+  const merged: InsightCustomMetricDefinition = { ...current };
+  const normalizedParameterKey = normalizeOptionalText(incoming.parameterKey);
+  const normalizedIdentifier = normalizeOptionalText(incoming.identifier);
+  const normalizedDisplayName = normalizeOptionalText(incoming.displayName);
+  const normalizedAnalysisTitle = normalizeOptionalText(incoming.analysisTitle);
+  const normalizedAnalysisTag = normalizeOptionalText(incoming.analysisTag);
+  const normalizedAnalysisTemplate = normalizeOptionalText(incoming.analysisTemplate);
+
+  if (normalizedParameterKey) {
+    merged.parameterKey = normalizedParameterKey;
+  }
+  if (normalizedIdentifier) {
+    merged.identifier = normalizedIdentifier;
+  }
+  if (normalizedDisplayName) {
+    merged.displayName = normalizedDisplayName;
+  }
+  if (incoming.group === 'measure' || incoming.group === 'status') {
+    merged.group = incoming.group;
+  }
+  if (typeof incoming.includeInTrend === 'boolean') {
+    merged.includeInTrend = incoming.includeInTrend;
+  }
+  if (typeof incoming.includeInExtension === 'boolean') {
+    merged.includeInExtension = incoming.includeInExtension;
+  }
+  if (normalizedAnalysisTitle) {
+    merged.analysisTitle = normalizedAnalysisTitle;
+  }
+  if (normalizedAnalysisTag) {
+    merged.analysisTag = normalizedAnalysisTag;
+  }
+  if (normalizedAnalysisTemplate) {
+    merged.analysisTemplate = normalizedAnalysisTemplate;
+  }
+  if (typeof incoming.enabled === 'boolean') {
+    merged.enabled = incoming.enabled;
+  }
+  if (typeof incoming.sortNo === 'number') {
+    merged.sortNo = incoming.sortNo;
+  }
+
+  return merged;
 }

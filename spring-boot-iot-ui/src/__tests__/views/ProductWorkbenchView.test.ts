@@ -14,6 +14,7 @@ const {
   mockRouter,
   mockPageProducts,
   mockPageProductContractReleaseBatches,
+  mockListProductModels,
   mockGetProductById,
   mockAddProduct,
   mockUpdateProduct,
@@ -30,6 +31,7 @@ const {
   },
   mockPageProducts: vi.fn(),
   mockPageProductContractReleaseBatches: vi.fn(),
+  mockListProductModels: vi.fn(),
   mockGetProductById: vi.fn(),
   mockAddProduct: vi.fn(),
   mockUpdateProduct: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock('@/api/product', () => ({
   productApi: {
     pageProducts: mockPageProducts,
     pageProductContractReleaseBatches: mockPageProductContractReleaseBatches,
+    listProductModels: mockListProductModels,
     getProductById: mockGetProductById,
     addProduct: mockAddProduct,
     updateProduct: mockUpdateProduct,
@@ -241,7 +244,7 @@ const ProductDeviceListWorkspaceStub = defineComponent({
 
 const ProductEditWorkspaceStub = defineComponent({
   name: 'ProductEditWorkspace',
-  props: ['model', 'editing'],
+  props: ['model', 'editing', 'availableModels'],
   emits: ['cancel', 'submit'],
   setup(props, { expose }) {
     expose({
@@ -251,7 +254,8 @@ const ProductEditWorkspaceStub = defineComponent({
     return () =>
       h('section', { class: 'product-edit-workspace-stub' }, [
         h('span', props.model?.productName || ''),
-        h('span', props.editing ? 'editing' : 'creating')
+        h('span', props.editing ? 'editing' : 'creating'),
+        h('span', `available-models:${props.availableModels?.length ?? 0}`)
       ])
   }
 })
@@ -397,6 +401,7 @@ describe('ProductWorkbenchView', () => {
     mockRouter.push.mockResolvedValue(undefined)
     mockPageProducts.mockReset()
     mockPageProductContractReleaseBatches.mockReset()
+    mockListProductModels.mockReset()
     mockGetProductById.mockReset()
     mockAddProduct.mockReset()
     mockUpdateProduct.mockReset()
@@ -421,6 +426,21 @@ describe('ProductWorkbenchView', () => {
         pageSize: 1,
         records: []
       }
+    })
+    mockListProductModels.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 7001,
+          productId: 1001,
+          modelType: 'property',
+          identifier: 'value',
+          modelName: '裂缝值',
+          dataType: 'double',
+          sortNo: 10
+        }
+      ]
     })
     mockGetProductById.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockAddProduct.mockResolvedValue({ code: 200, msg: 'success', data: null })
@@ -786,6 +806,30 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
     expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
     expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)
+  })
+
+  it('loads formal property candidates into the edit workspace object-insight editor', async () => {
+    const wrapper = mountView()
+
+    const product = {
+      id: 1001,
+      productKey: 'demo-product',
+      productName: '演示产品',
+      protocolCode: 'mqtt-json',
+      nodeType: 1,
+      dataFormat: 'JSON',
+      status: 1
+    }
+
+    ;(wrapper.vm as any).handleRowAction('edit', product)
+    await flushPromises()
+    await nextTick()
+
+    expect(mockListProductModels).toHaveBeenCalledWith(1001)
+    const editWorkspace = wrapper.findComponent(ProductEditWorkspaceStub)
+    expect(editWorkspace.exists()).toBe(true)
+    expect((editWorkspace.props('availableModels') as Array<{ identifier: string }> | undefined)?.[0]?.identifier).toBe('value')
+    expect(editWorkspace.text()).toContain('available-models:1')
   })
 
   it('keeps the unified workbench context in sync after saving product edits', async () => {

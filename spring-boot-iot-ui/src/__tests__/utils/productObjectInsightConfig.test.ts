@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
   buildProductMetadataJson,
   createEmptyProductObjectInsightMetric,
+  createProductObjectInsightMetricFromModel,
+  findProductObjectInsightMetric,
+  removeProductObjectInsightMetric,
   parseProductObjectInsightMetrics,
+  upsertProductObjectInsightMetric,
   validateProductObjectInsightMetrics
 } from '@/utils/productObjectInsightConfig'
 
@@ -78,5 +82,51 @@ describe('productObjectInsightConfig', () => {
     const message = validateProductObjectInsightMetrics(rows)
 
     expect(message).toBe('对象洞察配置最多允许 20 个指标')
+  })
+
+  it('creates and upserts trend focus metrics from formal product models', () => {
+    const created = createProductObjectInsightMetricFromModel(
+      {
+        identifier: 'L1_LF_1.value',
+        modelName: '裂缝量',
+        sortNo: 6
+      },
+      'measure'
+    )
+
+    expect(created).toEqual(
+      expect.objectContaining({
+        identifier: 'L1_LF_1.value',
+        displayName: '裂缝量',
+        group: 'measure',
+        includeInTrend: true,
+        includeInExtension: false,
+        enabled: true,
+        sortNo: 6
+      })
+    )
+
+    const updated = upsertProductObjectInsightMetric(
+      [
+        {
+          ...created,
+          group: 'status',
+          analysisTemplate: '{{label}}来自旧配置'
+        }
+      ],
+      createProductObjectInsightMetricFromModel(
+        {
+          identifier: 'L1_LF_1.value',
+          modelName: '裂缝量',
+          sortNo: 2
+        },
+        'measure'
+      )
+    )
+
+    expect(updated).toHaveLength(1)
+    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.group).toBe('measure')
+    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.analysisTemplate).toBe('{{label}}来自旧配置')
+    expect(removeProductObjectInsightMetric(updated, 'L1_LF_1.value')).toEqual([])
   })
 })

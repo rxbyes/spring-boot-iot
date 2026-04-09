@@ -24,6 +24,60 @@
       仅面向单设备对象洞察配置使用；趋势图会按“监测数据 / 状态数据”分组展示，后续可继续扩展湿度、4G 信号、电量等状态参数。
     </el-alert>
 
+    <section v-if="availablePropertyModels.length" class="product-object-insight-config-editor__candidate-section">
+      <header class="product-object-insight-config-editor__candidate-head">
+        <div>
+          <h4>从正式字段快速加入</h4>
+          <p>只展示当前已生效的属性字段，可直接设为对象洞察趋势重点指标。</p>
+        </div>
+      </header>
+
+      <div class="product-object-insight-config-editor__candidate-list">
+        <article
+          v-for="model in availablePropertyModels"
+          :key="model.identifier"
+          class="product-object-insight-config-editor__candidate-card"
+        >
+          <div class="product-object-insight-config-editor__candidate-copy">
+            <strong>{{ model.modelName }}</strong>
+            <p>{{ model.identifier }}</p>
+          </div>
+          <div class="product-object-insight-config-editor__candidate-actions">
+            <span class="product-object-insight-config-editor__candidate-state">
+              {{ resolveMetricStateLabel(model.identifier) }}
+            </span>
+            <StandardButton
+              :data-testid="`product-object-insight-add-measure-${model.identifier}`"
+              action="query"
+              link
+              :disabled="isQuickAddDisabled(model.identifier)"
+              @click="handleQuickAdd(model, 'measure')"
+            >
+              设为监测趋势
+            </StandardButton>
+            <StandardButton
+              :data-testid="`product-object-insight-add-status-${model.identifier}`"
+              action="query"
+              link
+              :disabled="isQuickAddDisabled(model.identifier)"
+              @click="handleQuickAdd(model, 'status')"
+            >
+              设为状态趋势
+            </StandardButton>
+            <StandardButton
+              v-if="hasMetric(model.identifier)"
+              :data-testid="`product-object-insight-remove-identifier-${model.identifier}`"
+              action="delete"
+              link
+              @click="handleQuickRemove(model.identifier)"
+            >
+              取消趋势
+            </StandardButton>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <div v-if="normalizedMetrics.length" class="product-object-insight-config-editor__list">
       <article
         v-for="(metric, index) in normalizedMetrics"
@@ -144,15 +198,24 @@
 import { computed } from 'vue'
 
 import StandardButton from '@/components/StandardButton.vue'
-import type { ProductObjectInsightCustomMetricConfig } from '@/types/api'
+import type { ProductModel, ProductObjectInsightCustomMetricConfig } from '@/types/api'
 import {
   MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS,
-  createEmptyProductObjectInsightMetric
+  createEmptyProductObjectInsightMetric,
+  createProductObjectInsightMetricFromModel,
+  removeProductObjectInsightMetric,
+  upsertProductObjectInsightMetric
 } from '@/utils/productObjectInsightConfig'
 
-const props = defineProps<{
-  modelValue: ProductObjectInsightCustomMetricConfig[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: ProductObjectInsightCustomMetricConfig[]
+    availableModels?: ProductModel[]
+  }>(),
+  {
+    availableModels: () => []
+  }
+)
 
 const emit = defineEmits<{
   (event: 'update:modelValue', value: ProductObjectInsightCustomMetricConfig[]): void
@@ -163,6 +226,11 @@ const normalizedMetrics = computed(() =>
     ...createEmptyProductObjectInsightMetric(),
     ...metric
   }))
+)
+const availablePropertyModels = computed(() =>
+  (props.availableModels ?? []).filter(
+    (item) => item.modelType === 'property' && normalizeText(item.identifier) && normalizeText(item.modelName)
+  )
 )
 
 const countLabel = computed(
@@ -181,6 +249,25 @@ function handleRemove(index: number) {
     'update:modelValue',
     normalizedMetrics.value.filter((_, rowIndex) => rowIndex !== index)
   )
+}
+
+function handleQuickAdd(model: ProductModel, group: 'measure' | 'status') {
+  const existingCount = normalizedMetrics.value.length
+  const identifierExists = hasMetric(model.identifier)
+  if (!identifierExists && existingCount >= MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS) {
+    return
+  }
+  emit(
+    'update:modelValue',
+    upsertProductObjectInsightMetric(
+      normalizedMetrics.value,
+      createProductObjectInsightMetricFromModel(model, group)
+    )
+  )
+}
+
+function handleQuickRemove(identifier: string) {
+  emit('update:modelValue', removeProductObjectInsightMetric(normalizedMetrics.value, identifier))
 }
 
 function updateMetric(index: number, patch: Partial<ProductObjectInsightCustomMetricConfig>) {
@@ -203,6 +290,22 @@ function normalizeSortNo(value: unknown) {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 10
 }
+
+function hasMetric(identifier: string) {
+  return normalizedMetrics.value.some((item) => item.identifier === normalizeText(identifier))
+}
+
+function isQuickAddDisabled(identifier: string) {
+  return !hasMetric(identifier) && normalizedMetrics.value.length >= MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS
+}
+
+function resolveMetricStateLabel(identifier: string) {
+  const metric = normalizedMetrics.value.find((item) => item.identifier === normalizeText(identifier))
+  if (!metric) {
+    return '当前未加入趋势'
+  }
+  return metric.group === 'measure' ? '当前为监测趋势' : '当前为状态趋势'
+}
 </script>
 
 <style scoped>
@@ -213,7 +316,8 @@ function normalizeSortNo(value: unknown) {
 
 .product-object-insight-config-editor__header,
 .product-object-insight-config-editor__title-row,
-.product-object-insight-config-editor__metric-head {
+.product-object-insight-config-editor__metric-head,
+.product-object-insight-config-editor__candidate-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -222,20 +326,66 @@ function normalizeSortNo(value: unknown) {
 
 .product-object-insight-config-editor__summary,
 .product-object-insight-config-editor__list,
-.product-object-insight-config-editor__metric-copy {
+.product-object-insight-config-editor__metric-copy,
+.product-object-insight-config-editor__candidate-section,
+.product-object-insight-config-editor__candidate-copy,
+.product-object-insight-config-editor__candidate-list {
   display: grid;
   gap: 0.4rem;
 }
 
 .product-object-insight-config-editor__summary p,
-.product-object-insight-config-editor__metric-copy p {
+.product-object-insight-config-editor__metric-copy p,
+.product-object-insight-config-editor__candidate-copy p,
+.product-object-insight-config-editor__candidate-head p {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.7;
 }
 
+.product-object-insight-config-editor__candidate-head h4 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
 .product-object-insight-config-editor__notice {
   margin: 0;
+}
+
+.product-object-insight-config-editor__candidate-section {
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(255, 252, 244, 0.92), rgba(255, 255, 255, 0.98));
+}
+
+.product-object-insight-config-editor__candidate-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.88rem 0.92rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.product-object-insight-config-editor__candidate-copy strong {
+  color: var(--text-primary);
+}
+
+.product-object-insight-config-editor__candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.product-object-insight-config-editor__candidate-state {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .product-object-insight-config-editor__list {
@@ -266,9 +416,15 @@ function normalizeSortNo(value: unknown) {
 @media (max-width: 768px) {
   .product-object-insight-config-editor__header,
   .product-object-insight-config-editor__metric-head,
-  .product-object-insight-config-editor__title-row {
+  .product-object-insight-config-editor__title-row,
+  .product-object-insight-config-editor__candidate-head,
+  .product-object-insight-config-editor__candidate-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .product-object-insight-config-editor__candidate-actions {
+    justify-content: flex-start;
   }
 }
 </style>

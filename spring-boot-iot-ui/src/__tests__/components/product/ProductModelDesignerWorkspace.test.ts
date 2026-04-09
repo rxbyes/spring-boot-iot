@@ -9,6 +9,7 @@ const {
   mockPageProductContractReleaseBatches,
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
+  mockUpdateProduct,
   mockUpdateProductModel,
   mockRollbackProductContractReleaseBatch,
   mockGetGovernanceApprovalOrderDetail,
@@ -19,6 +20,7 @@ const {
   mockPageProductContractReleaseBatches: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
+  mockUpdateProduct: vi.fn(),
   mockUpdateProductModel: vi.fn(),
   mockRollbackProductContractReleaseBatch: vi.fn(),
   mockGetGovernanceApprovalOrderDetail: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock('@/api/product', () => ({
     compareProductModelGovernance: mockCompareProductModelGovernance,
     applyProductModelGovernance: mockApplyProductModelGovernance,
     rollbackProductContractReleaseBatch: mockRollbackProductContractReleaseBatch,
+    updateProduct: mockUpdateProduct,
     addProductModel: vi.fn(),
     updateProductModel: mockUpdateProductModel,
     deleteProductModel: vi.fn()
@@ -140,6 +143,7 @@ function mountWorkspace(productOverrides?: Partial<{
   protocolCode: string
   nodeType: number
   deviceCount: number
+  metadataJson: string | null
 }>){
   return mount(ProductModelDesignerWorkspace, {
     props: {
@@ -150,6 +154,7 @@ function mountWorkspace(productOverrides?: Partial<{
         protocolCode: 'mqtt-json',
         nodeType: 1,
         deviceCount: 3,
+        metadataJson: null,
         ...productOverrides
       }
     },
@@ -171,6 +176,7 @@ describe('ProductModelDesignerWorkspace', () => {
     mockPageProductContractReleaseBatches.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
+    mockUpdateProduct.mockReset()
     mockUpdateProductModel.mockReset()
     mockRollbackProductContractReleaseBatch.mockReset()
     mockGetGovernanceApprovalOrderDetail.mockReset()
@@ -235,6 +241,33 @@ describe('ProductModelDesignerWorkspace', () => {
         approvalOrderId: 88001,
         approvalStatus: 'PENDING',
         executionPending: true
+      }
+    })
+    mockUpdateProduct.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1001,
+        productKey: 'south-crack-sensor-v1',
+        productName: '南方裂缝传感器',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        deviceCount: 3,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'value',
+                displayName: '裂缝值',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              }
+            ]
+          }
+        })
       }
     })
     mockUpdateProductModel.mockResolvedValue({
@@ -356,6 +389,34 @@ describe('ProductModelDesignerWorkspace', () => {
     const childInput = wrapper.get('[data-testid="relation-child-L1_LF_1-202018143"]')
     expect((logicalInput.element as HTMLInputElement).value).toBe('L1_LF_1')
     expect((childInput.element as HTMLInputElement).value).toBe('202018143')
+  })
+
+  it('can mark a formal property as a measure trend focus metric from the contract-field workspace', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-trend-measure-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProduct).toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"identifier":"value"')
+      })
+    )
+    expect(mockUpdateProduct).toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"group":"measure"')
+      })
+    )
+    expect(wrapper.emitted('product-updated')?.[0]?.[0]).toEqual(
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"identifier":"value"')
+      })
+    )
   })
 
   it('submits the new manual compare payload and keeps apply on the same page', async () => {
