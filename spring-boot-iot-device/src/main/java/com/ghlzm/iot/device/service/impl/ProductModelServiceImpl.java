@@ -66,8 +66,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String SAMPLE_TYPE_STATUS = "status";
     private static final String DEVICE_STRUCTURE_SINGLE = "single";
     private static final String DEVICE_STRUCTURE_COMPOSITE = "composite";
+    private static final String RELEASE_SOURCE_MANUAL_COMPARE_APPLY = "manual_compare_apply";
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
+    private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
+    private static final String SNAPSHOT_STAGE_AFTER_APPLY = "AFTER_APPLY";
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of(
             "properties",
             "property",
@@ -223,8 +226,20 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ProductModelGovernanceApplyResultVO applyGovernance(Long productId, ProductModelGovernanceApplyDTO dto) {
+    public ProductModelGovernanceApplyResultVO applyGovernance(Long productId,
+                                                               ProductModelGovernanceApplyDTO dto,
+                                                               Long operatorId) {
+        return applyGovernance(productId, dto, operatorId, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProductModelGovernanceApplyResultVO applyGovernance(Long productId,
+                                                               ProductModelGovernanceApplyDTO dto,
+                                                               Long operatorId,
+                                                               Long approvalOrderId) {
         Product product = getRequiredProduct(productId);
+        List<ReleaseModelSnapshotItem> beforeSnapshot = captureReleaseSnapshot(productId);
         int createdCount = 0;
         int updatedCount = 0;
         int skippedCount = 0;
@@ -243,13 +258,21 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 default -> throw new BizException("治理决策不支持: " + decision);
             }
         }
+        List<ReleaseModelSnapshotItem> afterSnapshot = captureReleaseSnapshot(productId);
         ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
         result.setCreatedCount(createdCount);
         result.setUpdatedCount(updatedCount);
         result.setSkippedCount(skippedCount);
         result.setConflictCount(0);
         result.setLastAppliedAt(LocalDateTime.now());
-        result.setReleaseBatchId(createReleaseBatch(product, createdCount + updatedCount));
+        result.setReleaseBatchId(createReleaseBatch(
+                product,
+                createdCount + updatedCount,
+                operatorId,
+                approvalOrderId,
+                beforeSnapshot,
+                afterSnapshot
+        ));
         result.setAppliedItems(buildGovernanceAppliedItems(productId, safeApplyItems(dto)));
         return result;
     }
@@ -433,21 +456,80 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         productMetricEvidenceService.replaceManualEvidence(product.getId(), scenarioCode, rows);
     }
 
-    private Long createReleaseBatch(Product product, int releasedFieldCount) {
+    private Long createReleaseBatch(Product product,
+                                    int releasedFieldCount,
+                                    Long operatorId,
+                                    Long approvalOrderId,
+                                    List<ReleaseModelSnapshotItem> beforeSnapshot,
+                                    List<ReleaseModelSnapshotItem> afterSnapshot) {
         if (product == null || releasedFieldCount <= 0) {
             return null;
+        }
+        if (operatorId == null || operatorId <= 0) {
+            throw new BizException("发布操作缺少有效操作者");
         }
         String scenarioCode = normativeMatcher.resolveScenarioCode(product);
         if (!StringUtils.hasText(scenarioCode)) {
             return null;
         }
-        return productContractReleaseService.createBatch(
+        Long batchId = productContractReleaseService.createBatch(
                 product.getId(),
                 scenarioCode,
-                "manual_compare_apply",
+                RELEASE_SOURCE_MANUAL_COMPARE_APPLY,
                 releasedFieldCount,
-                0L
+                operatorId,
+                approvalOrderId,
+                RELEASE_SOURCE_MANUAL_COMPARE_APPLY
         );
+        if (batchId == null) {
+            return null;
+        }
+        productContractReleaseService.saveBatchSnapshot(
+                batchId,
+                product.getId(),
+                SNAPSHOT_STAGE_BEFORE_APPLY,
+                serializeReleaseSnapshot(beforeSnapshot),
+                operatorId
+        );
+        productContractReleaseService.saveBatchSnapshot(
+                batchId,
+                product.getId(),
+                SNAPSHOT_STAGE_AFTER_APPLY,
+                serializeReleaseSnapshot(afterSnapshot),
+                operatorId
+        );
+        return batchId;
+    }
+
+    private List<ReleaseModelSnapshotItem> captureReleaseSnapshot(Long productId) {
+        return listActiveModels(productId).stream()
+                .sorted(Comparator
+                        .comparing((ProductModel model) -> normalizeOptional(model.getModelType()), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModel::getSortNo, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(model -> normalizeOptional(model.getIdentifier()), Comparator.nullsLast(String::compareTo)))
+                .map(model -> new ReleaseModelSnapshotItem(
+                        normalizeOptional(model.getModelType()),
+                        normalizeOptional(model.getIdentifier()),
+                        normalizeOptional(model.getModelName()),
+                        normalizeOptional(model.getDataType()),
+                        normalizeOptional(model.getSpecsJson()),
+                        normalizeOptional(model.getEventType()),
+                        normalizeOptional(model.getServiceInputJson()),
+                        normalizeOptional(model.getServiceOutputJson()),
+                        model.getSortNo(),
+                        model.getRequiredFlag(),
+                        normalizeOptional(model.getDescription())
+                ))
+                .toList();
+    }
+
+    private String serializeReleaseSnapshot(List<ReleaseModelSnapshotItem> snapshotItems) {
+        List<ReleaseModelSnapshotItem> safeItems = snapshotItems == null ? List.of() : snapshotItems;
+        try {
+            return objectMapper.writeValueAsString(safeItems);
+        } catch (Exception ex) {
+            throw new BizException("生成发布快照失败");
+        }
     }
 
     private List<ProductModelGovernanceAppliedItemVO> buildGovernanceAppliedItems(Long productId,
@@ -1223,6 +1305,19 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         vo.setCreateTime(model.getCreateTime());
         vo.setUpdateTime(model.getUpdateTime());
         return vo;
+    }
+
+    private record ReleaseModelSnapshotItem(String modelType,
+                                            String identifier,
+                                            String modelName,
+                                            String dataType,
+                                            String specsJson,
+                                            String eventType,
+                                            String serviceInputJson,
+                                            String serviceOutputJson,
+                                            Integer sortNo,
+                                            Integer requiredFlag,
+                                            String description) {
     }
 
     private record PropertyEvidenceBundle(List<ProductModelCandidateVO> candidates, int evidenceCount, int needsReviewCount) {

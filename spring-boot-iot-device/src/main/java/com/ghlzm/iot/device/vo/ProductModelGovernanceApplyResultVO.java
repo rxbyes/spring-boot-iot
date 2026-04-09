@@ -22,5 +22,11 @@ public class ProductModelGovernanceApplyResultVO {
 
     private Long releaseBatchId;
 
+    private Long approvalOrderId;
+
+    private String approvalStatus;
+
+    private Boolean executionPending;
+
     private List<ProductModelGovernanceAppliedItemVO> appliedItems;
 }

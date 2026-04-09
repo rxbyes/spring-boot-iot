@@ -88,7 +88,7 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("command");
         dto.setIdentifier("set-temp");
-        dto.setModelName("设置温度");
+        dto.setModelName("璁剧疆娓╁害");
 
         BizException ex = assertThrows(BizException.class, () -> productModelService.createModel(1001L, dto));
 
@@ -128,7 +128,7 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("event");
         dto.setIdentifier("alarmRaised");
-        dto.setModelName("告警触发");
+        dto.setModelName("鍛婅瑙﹀彂");
         dto.setEventType("warning");
         dto.setServiceInputJson("{\"unexpected\":true}");
 
@@ -145,7 +145,7 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("service");
         dto.setIdentifier("setThreshold");
-        dto.setModelName("设置阈值");
+        dto.setModelName("set-threshold");
         dto.setServiceInputJson("{\"threshold\":10}");
         dto.setServiceOutputJson("{\"accepted\":true}");
         dto.setEventType("warning");
@@ -163,7 +163,7 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("service");
         dto.setIdentifier("setThreshold");
-        dto.setModelName("设置阈值");
+        dto.setModelName("set-threshold");
         dto.setServiceInputJson("{invalid");
 
         BizException ex = assertThrows(BizException.class, () -> productModelService.createModel(1001L, dto));
@@ -180,7 +180,7 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("event");
         dto.setIdentifier("alarmRaised");
-        dto.setModelName("告警触发");
+        dto.setModelName("鍛婅瑙﹀彂");
         dto.setEventType("warning");
         dto.setSortNo(20);
 
@@ -200,7 +200,7 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("service");
         dto.setIdentifier("setThreshold");
-        dto.setModelName("设置阈值");
+        dto.setModelName("set-threshold");
         dto.setServiceInputJson("{\"threshold\":10}");
         dto.setServiceOutputJson("{\"accepted\":true}");
         dto.setSortNo(30);
@@ -257,7 +257,7 @@ class ProductModelServiceImplTest {
 
     @Test
     void compareGovernanceShouldCanonicalizeCompositeBusinessSampleIntoChildValueField() {
-        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
 
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
@@ -284,11 +284,11 @@ class ProductModelServiceImplTest {
 
     @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
-        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
-                normativeDefinition("phase1-crack", "value", "裂缝监测值", 1),
-                normativeDefinition("phase1-crack", "sensor_state", "传感器状态", 0)
+                normativeDefinition("phase1-crack", "value", "crack-value", 1),
+                normativeDefinition("phase1-crack", "sensor_state", "sensor-state", 0)
         ));
 
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
@@ -308,14 +308,14 @@ class ProductModelServiceImplTest {
         ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
         assertEquals("value", row.getIdentifier());
         assertEquals("value", row.getNormativeIdentifier());
-        assertEquals("裂缝监测值", row.getNormativeName());
+        assertEquals("crack-value", row.getNormativeName());
         assertTrue(row.getRiskReady());
         assertEquals(List.of("L1_LF_1"), row.getRawIdentifiers());
     }
 
     @Test
     void compareGovernanceShouldOnlyMirrorCompositeSensorStateWithoutLeakingParentTerminalStatus() {
-        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
 
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
@@ -343,13 +343,13 @@ class ProductModelServiceImplTest {
 
     @Test
     void compareGovernanceShouldDecorateGnssRowsWithNormativeMetadata() {
-        when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "GNSS位移监测仪"));
+        when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "gnss-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         when(normativeMetricDefinitionService.listByScenario("phase2-gnss")).thenReturn(List.of(
-                normativeDefinition("phase2-gnss", "gpsInitial", "GNSS 原始观测基础数据", 0),
-                normativeDefinition("phase2-gnss", "gpsTotalX", "GNSS 累计位移 X", 1),
-                normativeDefinition("phase2-gnss", "gpsTotalY", "GNSS 累计位移 Y", 1),
-                normativeDefinition("phase2-gnss", "gpsTotalZ", "GNSS 累计位移 Z", 1)
+                normativeDefinition("phase2-gnss", "gpsInitial", "GNSS 鍘熷瑙傛祴鍩虹鏁版嵁", 0),
+                normativeDefinition("phase2-gnss", "gpsTotalX", "GNSS 绱浣嶇Щ X", 1),
+                normativeDefinition("phase2-gnss", "gpsTotalY", "GNSS 绱浣嶇Щ Y", 1),
+                normativeDefinition("phase2-gnss", "gpsTotalZ", "GNSS 绱浣嶇Щ Z", 1)
         ));
 
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
@@ -372,14 +372,14 @@ class ProductModelServiceImplTest {
         );
         ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
         assertEquals("gpsTotalX", row.getNormativeIdentifier());
-        assertEquals("GNSS 累计位移 X", row.getNormativeName());
+        assertEquals("GNSS 绱浣嶇Щ X", row.getNormativeName());
         assertTrue(row.getRiskReady());
         assertEquals(List.of("gpsTotalX"), row.getRawIdentifiers());
     }
 
     @Test
     void compareGovernanceShouldRequireRelationMappingsForCompositeSamples() {
-        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "裂缝监测仪"));
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
 
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
@@ -405,12 +405,12 @@ class ProductModelServiceImplTest {
 
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
         dto.setItems(List.of(
-                applyItem("create", null, "property", "S1_ZT_1.signal_4g", "4G 信号强度"),
-                applyItem("update", 2001L, "event", "alarmRaised", "告警触发"),
-                applyItem("skip", null, "service", "reboot", "重启设备")
+                applyItem("create", null, "property", "S1_ZT_1.signal_4g", "4G 淇″彿寮哄害"),
+                applyItem("update", 2001L, "event", "alarmRaised", "鍛婅瑙﹀彂"),
+                applyItem("skip", null, "service", "reboot", "閲嶅惎璁惧")
         ));
 
-        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto);
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto, 10001L);
 
         verify(productModelMapper).insert(any(ProductModel.class));
         verify(productModelMapper).updateById(any(ProductModel.class));
@@ -421,15 +421,23 @@ class ProductModelServiceImplTest {
 
     @Test
     void applyGovernanceShouldReturnReleaseBatchIdAfterPublishingFormalFields() {
-        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "裂缝监测产品"));
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "瑁傜紳鐩戞祴浜у搧"));
         when(productModelMapper.selectOne(any())).thenReturn(null);
-        when(productContractReleaseService.createBatch(1001L, "phase1-crack", "manual_compare_apply", 1, 0L))
+        when(productContractReleaseService.createBatch(
+                eq(1001L),
+                eq("phase1-crack"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
                 .thenReturn(12345L);
 
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
-        dto.setItems(List.of(applyItem("create", null, "property", "value", "裂缝监测值")));
+        dto.setItems(List.of(applyItem("create", null, "property", "value", "crack-value")));
 
-        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto);
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(1001L, dto, 10001L);
 
         assertNotNull(result.getReleaseBatchId());
         assertEquals(1, result.getCreatedCount());
@@ -437,15 +445,23 @@ class ProductModelServiceImplTest {
 
     @Test
     void applyGovernanceShouldReturnGnssReleaseBatchIdAfterPublishingFormalFields() {
-        when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "GNSS位移监测仪"));
+        when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "gnss-monitor"));
         when(productModelMapper.selectOne(any())).thenReturn(null);
-        when(productContractReleaseService.createBatch(3003L, "phase2-gnss", "manual_compare_apply", 1, 0L))
+        when(productContractReleaseService.createBatch(
+                eq(3003L),
+                eq("phase2-gnss"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
                 .thenReturn(22345L);
 
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
-        dto.setItems(List.of(applyItem("create", null, "property", "gpsTotalX", "GNSS 累计位移 X")));
+        dto.setItems(List.of(applyItem("create", null, "property", "gpsTotalX", "GNSS 绱浣嶇Щ X")));
 
-        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(3003L, dto);
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(3003L, dto, 10001L);
 
         assertEquals(22345L, result.getReleaseBatchId());
         assertEquals(1, result.getCreatedCount());
@@ -456,15 +472,15 @@ class ProductModelServiceImplTest {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
 
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
-        dto.setItems(List.of(applyItem("update", null, "event", "alarmRaised", "告警触发")));
+        dto.setItems(List.of(applyItem("update", null, "event", "alarmRaised", "鍛婅瑙﹀彂")));
 
-        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(1001L, dto));
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(1001L, dto, 10001L));
 
         assertEquals("治理修订必须指定 targetModelId", ex.getMessage());
     }
 
     private Product product(Long id) {
-        return product(id, "accept-product", "验收产品");
+        return product(id, "accept-product", "楠屾敹浜у搧");
     }
 
     private Product product(Long id, String productKey, String productName) {
@@ -508,12 +524,12 @@ class ProductModelServiceImplTest {
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("property");
         dto.setIdentifier(identifier);
-        dto.setModelName("温度");
+        dto.setModelName("娓╁害");
         dto.setDataType(dataType);
-        dto.setSpecsJson("{\"unit\":\"℃\"}");
+        dto.setSpecsJson("{\"unit\":\"celsius\"}");
         dto.setSortNo(10);
         dto.setRequiredFlag(1);
-        dto.setDescription("温度属性");
+        dto.setDescription("temperature");
         return dto;
     }
 
@@ -539,7 +555,7 @@ class ProductModelServiceImplTest {
         item.setModelName(modelName);
         item.setSortNo(10);
         item.setRequiredFlag(0);
-        item.setDescription("治理测试项");
+        item.setDescription("governance-test-item");
         if ("property".equals(modelType)) {
             item.setDataType("integer");
             item.setSpecsJson("{\"unit\":\"dBm\"}");

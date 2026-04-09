@@ -12,6 +12,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLSyntaxErrorException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
@@ -170,6 +172,37 @@ class AuditLogFilterTest {
 
         assertEquals(0, log.getOperationResult());
         assertEquals("设备不存在: demo-device-02", log.getResultMessage());
+    }
+
+    @Test
+    void shouldRecordHandledHttpExceptionAsSystemError() throws ServletException, IOException {
+        AuditLogRecorder recorder = newRecorder();
+        AuditLogFilter filter = new AuditLogFilter(recorder.service());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/risk-governance/coverage-overview");
+        request.setQueryString("productId=1001");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        BadSqlGrammarException handledException = new BadSqlGrammarException(
+                "coverageOverview",
+                "SELECT id,release_batch_id FROM risk_metric_catalog",
+                new SQLSyntaxErrorException("Unknown column 'release_batch_id' in 'field list'")
+        );
+
+        FilterChain chain = (req, res) -> {
+            req.setAttribute("com.ghlzm.iot.framework.observability.handledException", handledException);
+            res.setContentType("application/json");
+            res.getWriter().write("{\"code\":500,\"msg\":\"系统繁忙，请稍后再试\"}");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        AuditLog log = recorder.lastLog().get();
+
+        assertEquals("system_error", log.getOperationType());
+        assertEquals(0, log.getOperationResult());
+        assertEquals(BadSqlGrammarException.class.getName(), log.getExceptionClass());
+        assertTrue(log.getResultMessage().contains("Unknown column 'release_batch_id'"));
+        assertTrue(log.getResponseResult().contains("BadSqlGrammarException"));
     }
 
     @Test

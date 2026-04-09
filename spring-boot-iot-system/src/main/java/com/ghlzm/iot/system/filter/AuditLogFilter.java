@@ -1,8 +1,10 @@
 package com.ghlzm.iot.system.filter;
 
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.config.DiagnosticLoggingConstants;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.observability.HttpHandledExceptionContext;
 import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.SensitiveLogSanitizer;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
@@ -31,6 +33,8 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -50,6 +54,9 @@ public class AuditLogFilter extends OncePerRequestFilter {
     private static final int MAX_RESULT_MESSAGE_LENGTH = 500;
     private static final int MAX_REQUEST_URL_LENGTH = 255;
     private static final int MAX_OPERATION_METHOD_LENGTH = 255;
+    private static final int MAX_ERROR_CODE_LENGTH = 64;
+    private static final int MAX_EXCEPTION_CLASS_LENGTH = 255;
+    private static final String SYSTEM_ERROR_TYPE = "system_error";
 
     private final AuditLogService auditLogService;
     private final IotProperties iotProperties;
@@ -99,21 +106,24 @@ public class AuditLogFilter extends OncePerRequestFilter {
 
         AuditLog auditLog = new AuditLog();
         ResponseCapture responseCapture = captureResponse(response);
+        Throwable auditThrowable = resolveAuditThrowable(request, chainException);
         Date now = new Date();
         auditLog.setTenantId(DEFAULT_TENANT_ID);
         fillUserInfo(auditLog);
         auditLog.setTraceId(TraceContextHolder.currentOrCreate());
-        auditLog.setOperationType(resolveOperationType(request.getMethod()));
+        auditLog.setOperationType(resolveOperationType(request.getMethod(), auditThrowable));
         auditLog.setOperationModule(resolveOperationModule(request.getRequestURI()));
         auditLog.setOperationMethod(truncate(resolveOperationMethod(request), MAX_OPERATION_METHOD_LENGTH));
         auditLog.setRequestUrl(truncate(request.getRequestURI(), MAX_REQUEST_URL_LENGTH));
         auditLog.setRequestMethod(request.getMethod());
         auditLog.setRequestParams(resolveRequestParams(request));
-        auditLog.setResponseResult(responseCapture.responseResult());
+        auditLog.setResponseResult(resolveResponseResult(responseCapture, auditThrowable));
         auditLog.setIpAddress(resolveIp(request));
         auditLog.setLocation("");
-        auditLog.setOperationResult(resolveOperationResult(response, chainException, responseCapture));
-        auditLog.setResultMessage(resolveResultMessage(response, chainException, responseCapture));
+        auditLog.setOperationResult(resolveOperationResult(response, auditThrowable, responseCapture));
+        auditLog.setResultMessage(resolveResultMessage(response, auditThrowable, responseCapture));
+        auditLog.setErrorCode(resolveErrorCode(request, auditThrowable));
+        auditLog.setExceptionClass(resolveExceptionClass(auditThrowable));
         auditLog.setOperationTime(now);
         auditLog.setCreateTime(now);
         auditLog.setDeleted(0);
@@ -150,7 +160,10 @@ public class AuditLogFilter extends OncePerRequestFilter {
         }
     }
 
-    private String resolveOperationType(String method) {
+    private String resolveOperationType(String method, Throwable auditThrowable) {
+        if (auditThrowable != null) {
+            return SYSTEM_ERROR_TYPE;
+        }
         if (!StringUtils.hasText(method)) {
             return "unknown";
         }
@@ -214,9 +227,9 @@ public class AuditLogFilter extends OncePerRequestFilter {
     }
 
     private Integer resolveOperationResult(HttpServletResponse response,
-                                           Exception chainException,
+                                           Throwable auditThrowable,
                                            ResponseCapture responseCapture) {
-        if (chainException != null || response.getStatus() >= 400) {
+        if (auditThrowable != null || response.getStatus() >= 400) {
             return 0;
         }
         if (responseCapture.businessCode() != null && responseCapture.businessCode() != R.SUCCESS) {
@@ -226,13 +239,10 @@ public class AuditLogFilter extends OncePerRequestFilter {
     }
 
     private String resolveResultMessage(HttpServletResponse response,
-                                        Exception chainException,
+                                        Throwable auditThrowable,
                                         ResponseCapture responseCapture) {
-        if (chainException != null) {
-            if (StringUtils.hasText(chainException.getMessage())) {
-                return truncate(SensitiveLogSanitizer.sanitize(chainException.getMessage()), MAX_RESULT_MESSAGE_LENGTH);
-            }
-            return chainException.getClass().getSimpleName();
+        if (auditThrowable != null) {
+            return truncate(resolveThrowableSummary(auditThrowable), MAX_RESULT_MESSAGE_LENGTH);
         }
         if (responseCapture.businessCode() != null && responseCapture.businessCode() != R.SUCCESS) {
             if (StringUtils.hasText(responseCapture.businessMessage())) {
@@ -241,6 +251,75 @@ public class AuditLogFilter extends OncePerRequestFilter {
             return "业务失败: code=" + responseCapture.businessCode();
         }
         return response.getStatus() < 400 ? "OK" : "HTTP " + response.getStatus();
+    }
+
+    private Throwable resolveAuditThrowable(HttpServletRequest request, Exception chainException) {
+        if (chainException != null) {
+            return chainException;
+        }
+        return HttpHandledExceptionContext.resolveThrowable(request);
+    }
+
+    private String resolveResponseResult(ResponseCapture responseCapture, Throwable auditThrowable) {
+        if (auditThrowable != null) {
+            return buildThrowableDetail(auditThrowable);
+        }
+        return responseCapture.responseResult();
+    }
+
+    private String resolveThrowableSummary(Throwable throwable) {
+        String message = throwable.getMessage();
+        String rootCauseMessage = resolveRootCauseMessage(throwable);
+        if (!StringUtils.hasText(message) && !StringUtils.hasText(rootCauseMessage)) {
+            return throwable.getClass().getSimpleName();
+        }
+        String detail;
+        if (!StringUtils.hasText(message)) {
+            detail = rootCauseMessage;
+        } else if (StringUtils.hasText(rootCauseMessage) && !message.contains(rootCauseMessage)) {
+            detail = message + "; rootCause=" + rootCauseMessage;
+        } else {
+            detail = message;
+        }
+        return SensitiveLogSanitizer.sanitize(throwable.getClass().getSimpleName() + ": " + detail);
+    }
+
+    private String resolveRootCauseMessage(Throwable throwable) {
+        Throwable current = throwable;
+        String message = null;
+        while (current != null) {
+            if (StringUtils.hasText(current.getMessage())) {
+                message = current.getMessage();
+            }
+            current = current.getCause();
+        }
+        return message;
+    }
+
+    private String resolveErrorCode(HttpServletRequest request, Throwable auditThrowable) {
+        String errorCode = HttpHandledExceptionContext.resolveErrorCode(request);
+        if (StringUtils.hasText(errorCode)) {
+            return truncate(errorCode, MAX_ERROR_CODE_LENGTH);
+        }
+        if (auditThrowable instanceof BizException bizException && bizException.getCode() != null) {
+            return truncate(String.valueOf(bizException.getCode()), MAX_ERROR_CODE_LENGTH);
+        }
+        return null;
+    }
+
+    private String resolveExceptionClass(Throwable auditThrowable) {
+        if (auditThrowable == null) {
+            return null;
+        }
+        return truncate(auditThrowable.getClass().getName(), MAX_EXCEPTION_CLASS_LENGTH);
+    }
+
+    private String buildThrowableDetail(Throwable throwable) {
+        StringWriter writer = new StringWriter();
+        try (PrintWriter printWriter = new PrintWriter(writer)) {
+            throwable.printStackTrace(printWriter);
+        }
+        return truncate(writer.toString(), MAX_CAPTURE_LENGTH);
     }
 
     private String resolveOperationMethod(HttpServletRequest request) {
