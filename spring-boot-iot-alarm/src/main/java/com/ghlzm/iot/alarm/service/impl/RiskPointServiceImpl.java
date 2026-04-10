@@ -352,43 +352,18 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPointDevice == null || device == null || device.getProductId() == null || riskMetricCatalogService == null) {
                   return;
             }
-            RiskMetricCatalog catalog = resolveRiskMetricCatalog(device.getProductId(),
+            RiskMetricCatalog catalog = RiskMetricCatalogBindingSupport.resolveCatalog(
+                    riskMetricCatalogService,
+                    device.getProductId(),
                     riskPointDevice.getRiskMetricId(),
-                    riskPointDevice.getMetricIdentifier());
+                    riskPointDevice.getMetricIdentifier()
+            );
             if (catalog == null) {
                   riskPointDevice.setMetricIdentifier(normalizeMetricIdentifier(riskPointDevice.getMetricIdentifier()));
                   riskPointDevice.setMetricName(resolveMetricName(riskPointDevice.getMetricName(), riskPointDevice.getMetricIdentifier()));
                   return;
             }
-            bindCatalogIdentity(riskPointDevice, catalog);
-      }
-
-      private RiskMetricCatalog resolveRiskMetricCatalog(Long productId, Long riskMetricId, String metricIdentifier) {
-            if (riskMetricCatalogService == null || productId == null) {
-                  return null;
-            }
-            if (riskMetricId != null) {
-                  RiskMetricCatalog catalog = riskMetricCatalogService.getById(riskMetricId);
-                  if (catalog == null || !Objects.equals(productId, catalog.getProductId())) {
-                        throw new BizException("风险指标不存在或不属于当前设备产品");
-                  }
-                  return catalog;
-            }
-            return riskMetricCatalogService.getByProductAndIdentifier(productId, metricIdentifier);
-      }
-
-      private void bindCatalogIdentity(RiskPointDevice riskPointDevice, RiskMetricCatalog catalog) {
-            String contractIdentifier = normalizeMetricIdentifier(catalog == null ? null : catalog.getContractIdentifier());
-            if (!StringUtils.hasText(contractIdentifier)) {
-                  throw new BizException("风险指标目录缺少合同字段标识: " + (catalog == null ? null : catalog.getId()));
-            }
-            String metricIdentifier = normalizeMetricIdentifier(riskPointDevice == null ? null : riskPointDevice.getMetricIdentifier());
-            if (StringUtils.hasText(metricIdentifier) && !contractIdentifier.equals(metricIdentifier)) {
-                  throw new BizException("目录指标与测点标识符不一致");
-            }
-            riskPointDevice.setRiskMetricId(catalog.getId());
-            riskPointDevice.setMetricIdentifier(contractIdentifier);
-            riskPointDevice.setMetricName(resolveMetricName(catalog.getRiskMetricName(), contractIdentifier));
+            RiskMetricCatalogBindingSupport.bindRiskPointDevice(riskPointDevice, catalog);
       }
 
       private Device resolveRequiredDevice(Long currentUserId, Long deviceId) {

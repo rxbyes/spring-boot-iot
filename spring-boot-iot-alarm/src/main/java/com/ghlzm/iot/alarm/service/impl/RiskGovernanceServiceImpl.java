@@ -212,11 +212,15 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     }
 
     @Override
-    public PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long pageNum, Long pageSize) {
+    public PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId,
+                                                                  Long releaseBatchId,
+                                                                  Long pageNum,
+                                                                  Long pageSize) {
         Page<RiskMetricCatalog> page = PageQueryUtils.buildPage(pageNum, pageSize);
         Page<RiskMetricCatalog> result = riskMetricCatalogMapper.selectPage(page, new LambdaQueryWrapper<RiskMetricCatalog>()
                 .eq(RiskMetricCatalog::getDeleted, 0)
                 .eq(productId != null, RiskMetricCatalog::getProductId, productId)
+                .eq(releaseBatchId != null, RiskMetricCatalog::getReleaseBatchId, releaseBatchId)
                 .orderByDesc(RiskMetricCatalog::getUpdateTime)
                 .orderByDesc(RiskMetricCatalog::getCreateTime)
                 .orderByDesc(RiskMetricCatalog::getId));

@@ -116,6 +116,27 @@ class RuleDefinitionServiceImplTest {
     }
 
     @Test
+    void addRuleShouldRejectRetiredRiskMetricCatalog() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRuleName("已退役目录策略");
+        rule.setRiskMetricId(6103L);
+        rule.setExpression("value >= 12");
+        rule.setStatus(0);
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(6103L);
+        catalog.setContractIdentifier("gpsTotalY");
+        catalog.setLifecycleStatus("RETIRED");
+        when(riskMetricCatalogService.getById(6103L)).thenReturn(catalog);
+
+        BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
+
+        assertEquals("风险指标目录当前不可绑定: 6103", error.getMessage());
+        verify(service, never()).save(any(RuleDefinition.class));
+    }
+
+    @Test
     void pageRuleListShouldApplyRuleNameLikeFilter() {
         initLambdaCache();
         RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));

@@ -48,9 +48,10 @@ public class RiskGovernanceController {
 
     @GetMapping("/metric-catalogs")
     public R<PageResult<RiskMetricCatalogItemVO>> pageMetricCatalogs(@RequestParam(required = false) Long productId,
+                                                                     @RequestParam(required = false) Long releaseBatchId,
                                                                      @RequestParam(required = false) Long pageNum,
                                                                      @RequestParam(required = false) Long pageSize) {
-        return R.ok(riskGovernanceService.pageMetricCatalogs(productId, pageNum, pageSize));
+        return R.ok(riskGovernanceService.pageMetricCatalogs(productId, releaseBatchId, pageNum, pageSize));
     }
 
     @GetMapping("/metric-catalogs/{id}")

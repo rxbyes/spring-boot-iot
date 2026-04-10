@@ -125,11 +125,49 @@ class RiskGovernanceServiceImplTest {
         when(riskMetricCatalogMapper.selectPage(any(), any())).thenReturn(new Page<RiskMetricCatalog>(1L, 10L, 1L)
                 .setRecords(List.of(catalog)));
 
-        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, 1L, 10L);
+        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, null, 1L, 10L);
 
         assertEquals(1L, page.getTotal());
         assertEquals("value", page.getRecords().get(0).getContractIdentifier());
         assertEquals("RM_1001_VALUE", page.getRecords().get(0).getRiskMetricCode());
+    }
+
+    @Test
+    void pageMetricCatalogsShouldFilterByReleaseBatchId() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(1001L);
+        catalog.setReleaseBatchId(7001L);
+        catalog.setContractIdentifier("value");
+        catalog.setRiskMetricCode("RM_1001_VALUE");
+        catalog.setRiskMetricName("裂缝监测值");
+        when(riskMetricCatalogMapper.selectPage(any(), any())).thenReturn(new Page<RiskMetricCatalog>(1L, 10L, 1L)
+                .setRecords(List.of(catalog)));
+
+        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, 7001L, 1L, 10L);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(7001L, page.getRecords().get(0).getReleaseBatchId());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RiskMetricCatalog>> captor =
+                ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(riskMetricCatalogMapper).selectPage(any(), captor.capture());
+        assertTrue(captor.getValue().getParamNameValuePairs().values().contains(7001L));
     }
 
     @Test

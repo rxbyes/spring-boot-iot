@@ -19,7 +19,7 @@ public interface RiskGovernanceService {
 
     List<MissingPolicyAlertSignal> listMissingPolicyAlertSignals();
 
-    PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long pageNum, Long pageSize);
+    PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long releaseBatchId, Long pageNum, Long pageSize);
 
     RiskMetricCatalogItemVO getMetricCatalog(Long id);
 

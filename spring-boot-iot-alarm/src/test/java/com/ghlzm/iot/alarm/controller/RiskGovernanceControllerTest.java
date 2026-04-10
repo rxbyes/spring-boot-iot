@@ -67,9 +67,9 @@ class RiskGovernanceControllerTest {
         item.setId(9101L);
         item.setContractIdentifier("value");
         PageResult<RiskMetricCatalogItemVO> page = PageResult.of(1L, 1L, 10L, List.of(item));
-        when(service.pageMetricCatalogs(1001L, 1L, 10L)).thenReturn(page);
+        when(service.pageMetricCatalogs(1001L, null, 1L, 10L)).thenReturn(page);
 
-        R<PageResult<RiskMetricCatalogItemVO>> response = controller.pageMetricCatalogs(1001L, 1L, 10L);
+        R<PageResult<RiskMetricCatalogItemVO>> response = controller.pageMetricCatalogs(1001L, null, 1L, 10L);
 
         assertEquals(1L, response.getData().getTotal());
         assertEquals("value", response.getData().getRecords().get(0).getContractIdentifier());

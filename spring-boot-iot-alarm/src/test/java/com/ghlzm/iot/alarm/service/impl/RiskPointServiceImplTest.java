@@ -783,6 +783,54 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void bindDeviceAndReturnShouldRejectRetiredCatalogMetric() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                riskMetricCatalogService
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setRiskMetricId(9102L);
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+        device.setProductId(3001L);
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9102L);
+        catalog.setProductId(3001L);
+        catalog.setContractIdentifier("value");
+        catalog.setLifecycleStatus("RETIRED");
+
+        doReturn(riskPoint).when(service).getById(12L);
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        when(deviceService.getRequiredById(1001L, 2001L)).thenReturn(device);
+        when(riskMetricCatalogService.getById(9102L)).thenReturn(catalog);
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDeviceAndReturn(request, 1001L));
+
+        assertEquals("风险指标目录当前不可绑定: 9102", error.getMessage());
+        verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
+    }
+
+    @Test
     void deleteRiskPointShouldUseLogicalDeleteApi() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
