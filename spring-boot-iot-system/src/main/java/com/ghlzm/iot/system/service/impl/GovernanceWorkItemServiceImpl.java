@@ -34,10 +34,6 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private final GovernanceWorkItemMapper workItemMapper;
     private final List<GovernanceWorkItemContributor> contributors;
 
-    public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper) {
-        this(workItemMapper, List.of());
-    }
-
     public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
                                          List<GovernanceWorkItemContributor> contributors) {
         this.workItemMapper = workItemMapper;

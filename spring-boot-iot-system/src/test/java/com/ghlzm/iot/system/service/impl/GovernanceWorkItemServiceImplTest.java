@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,6 +29,20 @@ class GovernanceWorkItemServiceImplTest {
 
     @Mock
     private GovernanceWorkItemContributor contributor;
+
+    @Test
+    void springContextShouldInstantiateServiceWhenContributorBeanExists() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(GovernanceWorkItemMapper.class, () -> workItemMapper);
+            context.registerBean(GovernanceWorkItemContributor.class, () -> contributor);
+            context.register(GovernanceWorkItemServiceImpl.class);
+
+            context.refresh();
+
+            GovernanceWorkItemServiceImpl service = context.getBean(GovernanceWorkItemServiceImpl.class);
+            assertNotNull(service);
+        }
+    }
 
     @Test
     void openOrRefreshShouldCreateOpenItemForSubject() {
