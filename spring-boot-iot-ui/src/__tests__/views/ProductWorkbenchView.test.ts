@@ -682,6 +682,47 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('demo-product')
   })
 
+  it('auto-opens the product workbench models view when entered from governance-task dispatch context', async () => {
+    mockRoute.query = {
+      openProductId: '1001',
+      workbenchView: 'models',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_CONTRACT_RELEASE'
+    }
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetProductById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1001,
+        productKey: 'phase2-gnss',
+        productName: 'GNSS产品',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        dataFormat: 'JSON',
+        status: 1
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockGetProductById).toHaveBeenCalledWith('1001', expect.any(Object))
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('models')
+    expect(wrapper.text()).toContain('GNSS产品')
+  })
+
   it('reuses the shared workbench row-actions component for both table and mobile product rows', async () => {
     const wrapper = mountView()
     await flushPromises()

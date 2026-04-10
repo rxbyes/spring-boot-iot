@@ -70,7 +70,8 @@
                 <dd>{{ item.updateTime || item.createTime || '--' }}</dd>
               </div>
             </dl>
-            <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item)" class="governance-task-card__actions">
+            <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item) || canDispatchWorkItem(item)" class="governance-task-card__actions">
+              <StandardButton v-if="canDispatchWorkItem(item)" @click="handleDispatchWorkItem(item)">去处理</StandardButton>
               <StandardButton v-if="canReplayWorkItem(item)" @click="handleOpenReplay(item)">复盘</StandardButton>
               <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('ack', item)">确认</StandardButton>
               <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('block', item)">阻塞</StandardButton>
@@ -206,7 +207,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from '@/utils/message'
 
 import { productApi } from '@/api/product'
@@ -223,8 +224,10 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import type { GovernanceWorkItem, GovernanceWorkItemPageQuery } from '@/types/api'
+import { buildGovernanceTaskDispatchLocation } from '@/utils/governanceTaskDispatch'
 
 const route = useRoute()
+const router = useRouter()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
 
 const taskList = ref<GovernanceWorkItem[]>([])
@@ -383,6 +386,18 @@ function canReplayWorkItem(item: GovernanceWorkItem) {
       || Boolean(snapshotValue(item.snapshotJson, 'productKey'))
       || snapshotNumberValue(item.snapshotJson, 'releaseBatchId') != null
     )
+}
+
+function canDispatchWorkItem(item: GovernanceWorkItem) {
+  return buildGovernanceTaskDispatchLocation(item) != null
+}
+
+async function handleDispatchWorkItem(item: GovernanceWorkItem) {
+  const location = buildGovernanceTaskDispatchLocation(item)
+  if (!location) {
+    return
+  }
+  await router.push(location)
 }
 
 async function handleOpenReplay(item: GovernanceWorkItem) {

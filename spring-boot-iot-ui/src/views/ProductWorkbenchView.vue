@@ -667,6 +667,7 @@ const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as
 const businessWorkbenchVisible = ref(false)
 const businessWorkbenchActiveView = ref<ProductBusinessWorkbenchView>('overview')
 const businessWorkbenchProduct = ref<Product | null>(null)
+const handledGovernanceWorkbenchRouteKey = ref('')
 const businessWorkbenchLoadedViews = reactive<Record<ProductBusinessWorkbenchView, boolean>>({
   overview: false,
   models: false,
@@ -1529,6 +1530,22 @@ function applyRouteQueryToFilters() {
   pagination.pageSize = parseRoutePositiveIntQuery(route.query.pageSize, defaultPageSize)
 }
 
+function parseRouteStringQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return undefined
+  }
+  const trimmed = raw.trim()
+  return trimmed || undefined
+}
+
+function resolveRouteWorkbenchView(value: unknown): ProductBusinessWorkbenchView {
+  const view = parseRouteStringQuery(value)
+  return view === 'overview' || view === 'models' || view === 'devices' || view === 'edit'
+    ? view
+    : 'overview'
+}
+
 function parseRouteNumberQuery(value: unknown) {
   const raw = Array.isArray(value) ? value[0] : value
   if (typeof raw !== 'string' || raw.trim() === '') {
@@ -1665,6 +1682,7 @@ async function loadProductPage(options: { silent?: boolean; force?: boolean; sil
       cacheProductPage(query, res.data)
       void syncTableSelection()
       void prefetchNextProductPage(query, res.data.total)
+      await resolveGovernanceRouteWorkbench()
     }
   } catch (error) {
     if (requestId !== latestListRequestId || isAbortError(error)) {
@@ -1798,6 +1816,53 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
       editAbortController = null
     }
   }
+}
+
+async function resolveGovernanceRouteWorkbench() {
+  const openProductId = parseRouteStringQuery(route.query.openProductId)
+  if (!openProductId) {
+    handledGovernanceWorkbenchRouteKey.value = ''
+    return
+  }
+  const targetView = resolveRouteWorkbenchView(route.query.workbenchView)
+  const routeKey = `${openProductId}:${targetView}`
+  if (handledGovernanceWorkbenchRouteKey.value === routeKey) {
+    return
+  }
+
+  let targetProduct = tableData.value.find((item) => String(item.id) === openProductId) || null
+  if (!targetProduct) {
+    try {
+      const response = await productApi.getProductById(openProductId, {})
+      if (response.code === 200 && response.data) {
+        targetProduct = response.data
+      }
+    } catch (error) {
+      console.warn('治理控制面产品上下文补数失败', error)
+      return
+    }
+  }
+
+  if (!targetProduct) {
+    return
+  }
+
+  handledGovernanceWorkbenchRouteKey.value = routeKey
+
+  if (targetView === 'overview') {
+    await openDetail(targetProduct)
+    return
+  }
+
+  if (targetView === 'edit') {
+    openEditWorkbench(targetProduct, targetProduct)
+    return
+  }
+
+  currentProduct.value = targetProduct
+  businessWorkbenchProduct.value = targetProduct
+  businessWorkbenchVisible.value = true
+  handleBusinessWorkbenchViewChange(targetView)
 }
 
 async function refreshEditAvailableModels(productId: string | number, editSessionId: number) {
@@ -2301,6 +2366,17 @@ watch(
     applyRouteQueryToFilters()
     clearSelection()
     void loadProductPage()
+  }
+)
+
+watch(
+  () => [route.query.openProductId, route.query.workbenchView],
+  () => {
+    if (!parseRouteStringQuery(route.query.openProductId)) {
+      handledGovernanceWorkbenchRouteKey.value = ''
+      return
+    }
+    void resolveGovernanceRouteWorkbench()
   }
 )
 

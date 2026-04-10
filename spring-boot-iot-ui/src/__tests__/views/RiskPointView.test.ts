@@ -1225,6 +1225,69 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('PRODUCT_MODEL')
   })
 
+  it('auto-opens pending promotion when entered from governance-task dispatch context', async () => {
+    mockRoute.query = {
+      openRiskPointId: '1',
+      bindingAction: 'pending-promotion',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_RISK_BINDING'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetRiskPointById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createRiskPointRow()
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            metricIdentifier: 'dispsX',
+            metricName: 'X轴位移',
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(mockGetRiskPointById).toHaveBeenCalledWith('1')
+    expect(mockListPendingBindings).toHaveBeenCalledWith({ riskPointId: 1, pageNum: 1, pageSize: 10 })
+    expect(wrapper.text()).toContain('待治理转正')
+    expect(wrapper.text()).toContain('X轴位移')
+  })
+
   it('loads binding summaries for the current page without rendering a binding-status column in the list', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,

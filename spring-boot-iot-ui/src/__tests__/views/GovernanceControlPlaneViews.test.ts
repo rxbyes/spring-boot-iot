@@ -18,7 +18,9 @@ const {
   mockCloseOpsAlert,
   mockConfirmAction,
   mockMessageSuccess,
-  mockMessageError
+  mockMessageError,
+  mockRoute,
+  mockRouter
 } = vi.hoisted(() => ({
   mockPageWorkItems: vi.fn(),
   mockAckWorkItem: vi.fn(),
@@ -32,7 +34,13 @@ const {
   mockCloseOpsAlert: vi.fn(),
   mockConfirmAction: vi.fn(),
   mockMessageSuccess: vi.fn(),
-  mockMessageError: vi.fn()
+  mockMessageError: vi.fn(),
+  mockRoute: {
+    query: {} as Record<string, unknown>
+  },
+  mockRouter: {
+    push: vi.fn()
+  }
 }))
 
 vi.mock('@/api/governanceWorkItem', () => ({
@@ -60,12 +68,8 @@ vi.mock('@/api/riskGovernance', () => ({
 }))
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({
-    query: {}
-  }),
-  useRouter: () => ({
-    push: vi.fn()
-  })
+  useRoute: () => mockRoute,
+  useRouter: () => mockRouter
 }))
 
 vi.mock('@/utils/confirm', () => ({
@@ -179,6 +183,8 @@ describe('governance control plane views', () => {
     mockConfirmAction.mockReset()
     mockMessageSuccess.mockReset()
     mockMessageError.mockReset()
+    mockRoute.query = {}
+    mockRouter.push.mockReset()
     mockConfirmAction.mockResolvedValue(undefined)
     mockAckWorkItem.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockBlockWorkItem.mockResolvedValue({ code: 200, msg: 'success', data: null })
@@ -234,6 +240,91 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('待补联动预案')
     expect(wrapper.text()).toContain('待运营复盘')
     expect(wrapper.text()).toContain('产品尚未进入治理主链路')
+  })
+
+  it('dispatches pending contract release work items into the product contract workspace', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 11,
+            workItemCode: 'PENDING_CONTRACT_RELEASE',
+            workStatus: 'OPEN',
+            productId: 1001,
+            productKey: 'phase2-gnss',
+            blockingReason: '合同尚未发布'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const dispatchButton = wrapper.findAll('button').find((button) => button.text() === '去处理')
+    expect(dispatchButton).toBeTruthy()
+
+    await dispatchButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products',
+      query: {
+        openProductId: '1001',
+        workbenchView: 'models',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_CONTRACT_RELEASE'
+      }
+    })
+  })
+
+  it('dispatches pending risk binding work items into the risk-point pending promotion workspace', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 12,
+            workItemCode: 'PENDING_RISK_BINDING',
+            workStatus: 'OPEN',
+            subjectId: 3001,
+            deviceCode: 'DEVICE-3001',
+            blockingReason: '风险点绑定缺口待收口',
+            snapshotJson: JSON.stringify({
+              riskPointId: 3001,
+              riskPointName: '北坡GNSS-01'
+            })
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const dispatchButton = wrapper.findAll('button').find((button) => button.text() === '去处理')
+    expect(dispatchButton).toBeTruthy()
+
+    await dispatchButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/risk-point',
+      query: {
+        openRiskPointId: '3001',
+        bindingAction: 'pending-promotion',
+        keyword: '北坡GNSS-01',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_RISK_BINDING'
+      }
+    })
   })
 
   it('loads governance replay from pending replay work items by resolving product key', async () => {

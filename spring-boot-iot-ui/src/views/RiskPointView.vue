@@ -575,6 +575,7 @@ import {
 } from '@/utils/riskPointLevel';
 import {
   pageRiskPointList,
+  getRiskPointById,
   addRiskPoint,
   updateRiskPoint,
   deleteRiskPoint,
@@ -616,6 +617,7 @@ const bindDeviceVisible = ref(false);
 const riskPointDetailVisible = ref(false);
 const bindingMaintenanceVisible = ref(false);
 const pendingPromotionVisible = ref(false);
+const handledGovernanceBindingRouteKey = ref('');
 const riskPointList = ref<RiskPoint[]>([]);
 const bindingSummaryMap = ref<Record<string, RiskPointBindingSummary>>({});
 const organizationOptions = ref<Organization[]>([]);
@@ -1407,6 +1409,11 @@ function parseRouteStringQuery(value: unknown) {
   return typeof raw === 'string' ? raw.trim() : '';
 }
 
+function parseRouteBindingAction(value: unknown): 'pending-promotion' | 'maintain-binding' | '' {
+  const text = parseRouteStringQuery(value);
+  return text === 'pending-promotion' || text === 'maintain-binding' ? text : '';
+}
+
 function parseRouteNumberQuery(value: unknown) {
   const text = parseRouteStringQuery(value);
   if (!text) {
@@ -1729,6 +1736,43 @@ const handlePendingDrawerClose = () => {
   resetPendingPromotionState();
 };
 
+const resolveGovernanceBindingRouteContext = async () => {
+  const openRiskPointId = parseRouteStringQuery(route.query.openRiskPointId);
+  const bindingAction = parseRouteBindingAction(route.query.bindingAction);
+  if (!openRiskPointId || !bindingAction) {
+    handledGovernanceBindingRouteKey.value = '';
+    return;
+  }
+  const routeKey = `${openRiskPointId}:${bindingAction}`;
+  if (handledGovernanceBindingRouteKey.value === routeKey) {
+    return;
+  }
+
+  let targetRiskPoint = riskPointList.value.find((item) => getIdKey(item.id) === openRiskPointId) || null;
+  if (!targetRiskPoint) {
+    try {
+      const response = await getRiskPointById(openRiskPointId);
+      if (response.code === 200 && response.data) {
+        targetRiskPoint = response.data;
+      }
+    } catch (error) {
+      logRiskPointRequestError('治理控制面风险点上下文补数失败', error);
+      return;
+    }
+  }
+
+  if (!targetRiskPoint) {
+    return;
+  }
+
+  handledGovernanceBindingRouteKey.value = routeKey;
+  if (bindingAction === 'maintain-binding') {
+    openBindingMaintenance(targetRiskPoint);
+    return;
+  }
+  await handleOpenPendingPromotion(targetRiskPoint);
+};
+
 watch(
   () => form.orgId,
   async () => {
@@ -1784,12 +1828,24 @@ watch(
   }
 );
 
-onMounted(() => {
+watch(
+  () => [route.query.openRiskPointId, route.query.bindingAction],
+  () => {
+    if (!parseRouteStringQuery(route.query.openRiskPointId) || !parseRouteBindingAction(route.query.bindingAction)) {
+      handledGovernanceBindingRouteKey.value = '';
+      return;
+    }
+    void resolveGovernanceBindingRouteContext();
+  }
+);
+
+onMounted(async () => {
   applyRouteQueryToFilters();
   syncAppliedFilters();
   void loadOrganizationOptions();
   void loadRiskPointLevelOptions();
-  void loadRiskPointList();
+  await loadRiskPointList();
+  await resolveGovernanceBindingRouteContext();
 });
 </script>
 

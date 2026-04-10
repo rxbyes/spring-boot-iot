@@ -1027,7 +1027,6 @@ const versionLedgerErrorMessage = ref('')
 const versionDiffErrorMessage = ref('')
 const applyApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const rollbackApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
-const governanceApproverId = ref('')
 const latestReleaseBatchId = ref<string | number | null>(null)
 const decisionState = ref<Record<string, GovernanceDecisionUi>>({})
 const sampleType = ref<SampleType>('business')
@@ -1157,7 +1156,7 @@ const applyApprovalSummaryText = computed(() => {
     case 'CANCELLED':
       return `审批单 ${approvalOrderId ?? '--'} 已撤销`
     case 'PENDING':
-      return `审批单 ${approvalOrderId ?? '--'} 已提交，待复核人处理`
+      return `审批单 ${approvalOrderId ?? '--'} 已提交，待系统固定复核人处理`
     default:
       return '审批单已提交，等待状态同步'
   }
@@ -1633,15 +1632,9 @@ async function handleResubmitApplyApproval() {
   if (!applyApprovalOrderId.value || !canResubmitApplyApproval.value) {
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   applyResubmitLoading.value = true
   try {
-    await governanceApprovalApi.resubmitOrder(applyApprovalOrderId.value, {
-      approverUserId
-    })
+    await productApi.resubmitProductGovernanceApproval(applyApprovalOrderId.value)
     if (applyResult.value) {
       applyResult.value = {
         ...applyResult.value,
@@ -1663,15 +1656,9 @@ async function handleResubmitRollbackApproval() {
   if (!rollbackApprovalOrderId.value || !canResubmitRollbackApproval.value) {
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   rollbackResubmitLoading.value = true
   try {
-    await governanceApprovalApi.resubmitOrder(rollbackApprovalOrderId.value, {
-      approverUserId
-    })
+    await productApi.resubmitProductGovernanceApproval(rollbackApprovalOrderId.value)
     if (rollbackResult.value) {
       rollbackResult.value = {
         ...rollbackResult.value,
@@ -1899,17 +1886,11 @@ async function handleApply() {
   if (!props.product?.id || !selectedApplyItems.value.length) {
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   applyLoading.value = true
   try {
     const response = await productApi.applyProductModelGovernance(props.product.id, {
       items: selectedApplyItems.value
-    }, {
-      approverUserId
-    })
+    }, {})
     applyResult.value = response.data ?? null
     rollbackResult.value = null
     compareResult.value = null
@@ -1931,13 +1912,9 @@ async function handleRollbackCurrentBatch() {
     ElMessage.warning('当前没有可回滚的发布批次')
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   rollbackLoading.value = true
   try {
-    const response = await productApi.rollbackProductContractReleaseBatch(latestReleaseBatchId.value, approverUserId)
+    const response = await productApi.rollbackProductContractReleaseBatch(latestReleaseBatchId.value)
     rollbackResult.value = response.data ?? null
     applyResult.value = null
     compareResult.value = null
@@ -1952,19 +1929,6 @@ async function handleRollbackCurrentBatch() {
   } finally {
     rollbackLoading.value = false
   }
-}
-
-function resolveApproverUserId() {
-  const normalized = governanceApproverId.value.trim()
-  if (!normalized) {
-    ElMessage.warning('请先输入复核人用户 ID')
-    return null
-  }
-  if (!/^\d+$/.test(normalized)) {
-    ElMessage.warning('复核人用户 ID 必须为正整数')
-    return null
-  }
-  return normalized
 }
 
 function resolveModelUnit(model: ProductModel) {
@@ -2122,7 +2086,6 @@ function resetSession() {
   applyResubmitLoading.value = false
   rollbackResubmitLoading.value = false
   decisionState.value = {}
-  governanceApproverId.value = ''
   latestReleaseBatchId.value = null
   sampleType.value = 'business'
   deviceStructure.value = 'single'
@@ -2642,6 +2605,19 @@ function inferRelationStrategies(
 
 .product-model-designer__approver-field {
   min-width: min(24rem, 100%);
+}
+
+.product-model-designer__governance-note {
+  padding: 0.72rem 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.72rem;
+  background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__governance-note strong {
+  color: var(--text-heading);
+  font-size: 0.96rem;
+  line-height: 1.42;
 }
 
 .product-model-designer__formal-tabs {
