@@ -70,10 +70,11 @@
                 <dd>{{ item.lastSeenTime || item.createTime || '--' }}</dd>
               </div>
             </dl>
-            <div v-if="canOperateAlert(item)" class="governance-ops-card__actions">
-              <StandardButton @click="handleAlertAction('ack', item)">确认</StandardButton>
-              <StandardButton @click="handleAlertAction('suppress', item)">抑制</StandardButton>
-              <StandardButton @click="handleAlertAction('close', item)">关闭</StandardButton>
+            <div v-if="canOperateAlert(item) || hasReplayContext(item)" class="governance-ops-card__actions">
+              <StandardButton v-if="hasReplayContext(item)" @click="handleOpenReplay(item)">复盘</StandardButton>
+              <StandardButton v-if="canOperateAlert(item)" @click="handleAlertAction('ack', item)">确认</StandardButton>
+              <StandardButton v-if="canOperateAlert(item)" @click="handleAlertAction('suppress', item)">抑制</StandardButton>
+              <StandardButton v-if="canOperateAlert(item)" @click="handleAlertAction('close', item)">关闭</StandardButton>
             </div>
           </article>
         </div>
@@ -95,6 +96,111 @@
         />
       </template>
     </StandardWorkbenchPanel>
+
+    <StandardDetailDrawer
+      v-model="replayVisible"
+      title="治理链路复盘"
+      subtitle="统一回看发布批次、消息轨迹、失败归档与治理缺口。"
+      :loading="replayLoading"
+      :error-message="replayErrorMessage"
+      :empty="!replayData"
+    >
+      <div class="governance-ops-detail-stack">
+        <section class="governance-ops-detail-section">
+          <h3>复盘概览</h3>
+          <div class="governance-ops-detail-grid">
+            <div class="governance-ops-detail-field">
+              <span>发布批次</span>
+              <strong>{{ replayData?.releaseBatchId != null ? `发布批次 ${replayData.releaseBatchId}` : '--' }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>TraceId</span>
+              <strong>{{ replayData?.traceId || '--' }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>设备编码</span>
+              <strong>{{ replayData?.deviceCode || '--' }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>产品标识</span>
+              <strong>{{ replayData?.productKey || '--' }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>命中消息</span>
+              <strong>{{ replayData?.matchedMessageCount ?? 0 }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>命中失败归档</span>
+              <strong>{{ replayData?.matchedAccessErrorCount ?? 0 }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="replayData?.gapSummary" class="governance-ops-detail-section">
+          <h3>治理缺口</h3>
+          <div class="governance-ops-gap-grid">
+            <div class="governance-ops-gap-card">
+              <span>待补绑定</span>
+              <strong>{{ `待补绑定 ${replayData.gapSummary.missingBindingCount ?? 0}` }}</strong>
+            </div>
+            <div class="governance-ops-gap-card">
+              <span>待补策略</span>
+              <strong>{{ `待补策略 ${replayData.gapSummary.missingPolicyCount ?? 0}` }}</strong>
+            </div>
+            <div class="governance-ops-gap-card">
+              <span>待补指标目录</span>
+              <strong>{{ `待补指标目录 ${replayData.gapSummary.missingRiskMetricCount ?? 0}` }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="replayData?.batchReconciliation" class="governance-ops-detail-section">
+          <h3>批次对账</h3>
+          <div class="governance-ops-detail-grid">
+            <div class="governance-ops-detail-field">
+              <span>对账结果</span>
+              <strong>{{ booleanLabel(replayData.batchReconciliation.consistent, '一致', '需处理') }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>快照可用</span>
+              <strong>{{ booleanLabel(replayData.batchReconciliation.snapshotAvailable) }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>发布状态</span>
+              <strong>{{ replayData.batchReconciliation.releaseStatus || '--' }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>审批单</span>
+              <strong>{{ replayData.batchReconciliation.approvalOrderId ?? '--' }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>缺失正式字段</span>
+              <strong>{{ replayData.batchReconciliation.missingCurrentFieldCount ?? 0 }}</strong>
+            </div>
+            <div class="governance-ops-detail-field">
+              <span>多余正式字段</span>
+              <strong>{{ replayData.batchReconciliation.extraCurrentFieldCount ?? 0 }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="replayData?.replayChainSteps?.length" class="governance-ops-detail-section">
+          <h3>复盘链路</h3>
+          <div class="governance-ops-chain-list">
+            <article
+              v-for="(step, index) in replayData.replayChainSteps"
+              :key="`${step.stepCode || '--'}-${index}`"
+              class="governance-ops-chain-item"
+            >
+              <strong>{{ step.stepCode || step.stepName || '--' }}</strong>
+              <span>{{ step.stepName || '--' }} · {{ replayChainStatusLabel(step.status) }}</span>
+              <span>{{ step.summary || '--' }}</span>
+              <span>{{ step.nextAction || '--' }}</span>
+            </article>
+          </div>
+        </section>
+      </div>
+    </StandardDetailDrawer>
   </StandardPageShell>
 </template>
 
@@ -105,8 +211,10 @@ import { ElMessage } from '@/utils/message'
 
 import { resolveRequestErrorMessage } from '@/api/request'
 import { ackGovernanceOpsAlert, closeGovernanceOpsAlert, pageGovernanceOpsAlerts, suppressGovernanceOpsAlert } from '@/api/governanceOpsAlert'
+import { getRiskGovernanceReplay, type RiskGovernanceReplay, type RiskGovernanceReplayQuery } from '@/api/riskGovernance'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
+import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
@@ -119,6 +227,10 @@ const route = useRoute()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
 
 const alertList = ref<GovernanceOpsAlert[]>([])
+const replayVisible = ref(false)
+const replayLoading = ref(false)
+const replayErrorMessage = ref('')
+const replayData = ref<RiskGovernanceReplay | null>(null)
 const initialPageNum = parseNumberQuery(route.query.pageNum)
 const initialPageSize = parseNumberQuery(route.query.pageSize)
 
@@ -222,6 +334,31 @@ function canOperateAlert(item: GovernanceOpsAlert) {
   return item.id != null && item.alertStatus !== 'CLOSED' && item.alertStatus !== 'RESOLVED'
 }
 
+function hasReplayContext(item: GovernanceOpsAlert) {
+  return item.releaseBatchId != null
+    || Boolean(normalizeText(item.traceId))
+    || Boolean(normalizeText(item.deviceCode))
+    || Boolean(normalizeText(item.productKey))
+}
+
+async function handleOpenReplay(item: GovernanceOpsAlert) {
+  if (!hasReplayContext(item)) {
+    return
+  }
+  replayVisible.value = true
+  replayLoading.value = true
+  replayErrorMessage.value = ''
+  replayData.value = null
+  try {
+    const response = await getRiskGovernanceReplay(buildReplayQuery(item))
+    replayData.value = response.data ?? null
+  } catch (error) {
+    replayErrorMessage.value = resolveRequestErrorMessage(error, '治理链路复盘加载失败')
+  } finally {
+    replayLoading.value = false
+  }
+}
+
 async function handleAlertAction(action: 'ack' | 'suppress' | 'close', item: GovernanceOpsAlert) {
   if (item.id == null) {
     return
@@ -273,10 +410,49 @@ async function handleAlertAction(action: 'ack' | 'suppress' | 'close', item: Gov
   }
 }
 
+function buildReplayQuery(item: GovernanceOpsAlert): RiskGovernanceReplayQuery {
+  return {
+    traceId: normalizeText(item.traceId),
+    deviceCode: normalizeText(item.deviceCode),
+    productKey: normalizeText(item.productKey),
+    releaseBatchId: item.releaseBatchId ?? null
+  }
+}
+
+function replayChainStatusLabel(status?: string | null) {
+  switch (status) {
+    case 'READY':
+      return '已就绪'
+    case 'ACTION_REQUIRED':
+      return '待处理'
+    case 'MISSING':
+      return '缺失'
+    case 'SKIPPED':
+      return '已跳过'
+    default:
+      return status || '--'
+  }
+}
+
+function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '否') {
+  if (value == null) {
+    return '--'
+  }
+  return value ? trueLabel : falseLabel
+}
+
 function parseStringQuery(value: unknown) {
   if (Array.isArray(value)) {
     return parseStringQuery(value[0])
   }
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const trimmed = value.trim()
+  return trimmed || undefined
+}
+
+function normalizeText(value?: string | null) {
   if (typeof value !== 'string') {
     return undefined
   }
@@ -303,6 +479,57 @@ function parseNumberQuery(value: unknown) {
 
 .governance-ops-view {
   gap: 0.75rem;
+}
+
+.governance-ops-detail-stack,
+.governance-ops-detail-section,
+.governance-ops-chain-list {
+  display: grid;
+}
+
+.governance-ops-detail-stack {
+  gap: 1rem;
+}
+
+.governance-ops-detail-section {
+  gap: 0.75rem;
+}
+
+.governance-ops-detail-section h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1rem;
+}
+
+.governance-ops-detail-grid,
+.governance-ops-gap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+
+.governance-ops-detail-field,
+.governance-ops-gap-card,
+.governance-ops-chain-item {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.85rem 1rem;
+}
+
+.governance-ops-detail-field span,
+.governance-ops-gap-card span,
+.governance-ops-chain-item span {
+  color: var(--text-caption);
+  font-size: 13px;
+}
+
+.governance-ops-detail-field strong,
+.governance-ops-gap-card strong,
+.governance-ops-chain-item strong {
+  color: var(--text-heading);
 }
 
 .governance-ops-summary {

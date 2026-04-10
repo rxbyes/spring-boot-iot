@@ -30,11 +30,14 @@ import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -70,8 +73,39 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final EmergencyPlanMapper emergencyPlanMapper;
     private final RiskMetricLinkageBindingMapper linkageBindingMapper;
     private final RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
+    private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final RiskMetricActionBindingBackfillService backfillService;
 
+    RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
+                              RiskPointMapper riskPointMapper,
+                              RiskPointDeviceMapper riskPointDeviceMapper,
+                              RuleDefinitionMapper ruleDefinitionMapper,
+                              RiskMetricCatalogMapper riskMetricCatalogMapper,
+                              ProductModelMapper productModelMapper,
+                              ProductMapper productMapper,
+                              ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
+                              LinkageRuleMapper linkageRuleMapper,
+                              EmergencyPlanMapper emergencyPlanMapper,
+                              RiskMetricLinkageBindingMapper linkageBindingMapper,
+                              RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper,
+                              RiskMetricActionBindingBackfillService backfillService) {
+        this(deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                null,
+                backfillService);
+    }
+
+    @Autowired
     public RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                                      RiskPointMapper riskPointMapper,
                                      RiskPointDeviceMapper riskPointDeviceMapper,
@@ -84,6 +118,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                                      EmergencyPlanMapper emergencyPlanMapper,
                                      RiskMetricLinkageBindingMapper linkageBindingMapper,
                                      RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper,
+                                     VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                      RiskMetricActionBindingBackfillService backfillService) {
         this.deviceMapper = deviceMapper;
         this.riskPointMapper = riskPointMapper;
@@ -97,6 +132,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.emergencyPlanMapper = emergencyPlanMapper;
         this.linkageBindingMapper = linkageBindingMapper;
         this.emergencyPlanBindingMapper = emergencyPlanBindingMapper;
+        this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
         this.backfillService = backfillService;
     }
 
@@ -393,6 +429,21 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 firstReleaseTimeByProduct,
                 releasedProductIds
         );
+        List<RawStageProductAccumulator> rawStageProducts = listRawStageProducts(productMap, governedProductIds);
+        long rawStageProductCount = rawStageProducts.size();
+        List<String> rawStageProductNames = rawStageProducts.stream()
+                .map(RawStageProductAccumulator::productDisplayName)
+                .limit(3)
+                .toList();
+        List<String> rawStageVendorNames = rawStageProducts.stream()
+                .map(RawStageProductAccumulator::vendorDisplayName)
+                .distinct()
+                .limit(3)
+                .toList();
+        long rawStageVendorCount = rawStageProducts.stream()
+                .map(RawStageProductAccumulator::vendorDisplayName)
+                .distinct()
+                .count();
 
         RiskGovernanceDashboardOverviewVO overview = new RiskGovernanceDashboardOverviewVO();
         overview.setTotalProductCount(totalProductCount);
@@ -410,6 +461,10 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         overview.setPendingEmergencyPlanCount(pendingEmergencyPlanCount);
         overview.setPendingLinkagePlanCount(pendingLinkagePlanCount);
         overview.setPendingReplayCount(pendingReplayCount);
+        overview.setRawStageProductCount(rawStageProductCount);
+        overview.setRawStageVendorCount(rawStageVendorCount);
+        overview.setRawStageProductNames(rawStageProductNames);
+        overview.setRawStageVendorNames(rawStageVendorNames);
         overview.setGovernanceCompletionRate(calculateRate(governedProductCount, totalProductCount));
         overview.setMetricBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
         overview.setPolicyCoverageRate(policyCoverageRate);
@@ -704,6 +759,39 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return totalHours / validSampleCount;
     }
 
+    private List<RawStageProductAccumulator> listRawStageProducts(Map<Long, Product> productMap,
+                                                                  Set<Long> governedProductIds) {
+        if (vendorMetricEvidenceMapper == null || productMap == null || productMap.isEmpty()) {
+            return List.of();
+        }
+        QueryWrapper<VendorMetricEvidence> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("product_id", "raw_identifier", "evidence_count", "last_seen_time")
+                .eq("deleted", 0)
+                .isNotNull("product_id");
+        List<VendorMetricEvidence> evidenceList = vendorMetricEvidenceMapper.selectList(queryWrapper);
+        if (evidenceList == null || evidenceList.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, RawStageProductAccumulator> rawStageByProduct = new LinkedHashMap<>();
+        for (VendorMetricEvidence evidence : evidenceList) {
+            Long productId = evidence == null ? null : evidence.getProductId();
+            if (productId == null || (governedProductIds != null && governedProductIds.contains(productId))) {
+                continue;
+            }
+            Product product = productMap.get(productId);
+            if (product == null) {
+                continue;
+            }
+            rawStageByProduct.computeIfAbsent(productId, ignored -> new RawStageProductAccumulator(product))
+                    .add(evidence);
+        }
+        return rawStageByProduct.values().stream()
+                .sorted(Comparator.comparingInt(RawStageProductAccumulator::totalEvidenceCount).reversed()
+                        .thenComparing(RawStageProductAccumulator::lastSeenTime, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(RawStageProductAccumulator::productDisplayName))
+                .toList();
+    }
+
     private String normalizeLower(String value) {
         if (!StringUtils.hasText(value)) {
             return "";
@@ -786,6 +874,58 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     }
 
     private record MetricBindingDimension(String dimensionKey, String metricIdentifier, String metricName) {
+    }
+
+    private static final class RawStageProductAccumulator {
+        private final Product product;
+        private int totalEvidenceCount;
+        private LocalDateTime lastSeenTime;
+
+        private RawStageProductAccumulator(Product product) {
+            this.product = product;
+        }
+
+        private void add(VendorMetricEvidence evidence) {
+            int currentCount = evidence == null || evidence.getEvidenceCount() == null || evidence.getEvidenceCount() < 1
+                    ? 1
+                    : evidence.getEvidenceCount();
+            totalEvidenceCount += currentCount;
+            LocalDateTime candidateTime = evidence == null ? null : evidence.getLastSeenTime();
+            if (candidateTime != null && (lastSeenTime == null || candidateTime.isAfter(lastSeenTime))) {
+                lastSeenTime = candidateTime;
+            }
+        }
+
+        private int totalEvidenceCount() {
+            return totalEvidenceCount;
+        }
+
+        private LocalDateTime lastSeenTime() {
+            return lastSeenTime;
+        }
+
+        private String vendorDisplayName() {
+            if (product == null) {
+                return "未标注厂商";
+            }
+            if (StringUtils.hasText(product.getManufacturer())) {
+                return product.getManufacturer().trim();
+            }
+            return "未标注厂商";
+        }
+
+        private String productDisplayName() {
+            if (product == null) {
+                return "--";
+            }
+            if (StringUtils.hasText(product.getProductName())) {
+                return product.getProductName().trim();
+            }
+            if (StringUtils.hasText(product.getProductKey())) {
+                return product.getProductKey().trim();
+            }
+            return String.valueOf(product.getId());
+        }
     }
 
     private static final class MissingPolicyAlertAccumulator {

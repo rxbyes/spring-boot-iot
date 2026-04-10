@@ -24,10 +24,12 @@ import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.BeanWrapperImpl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -83,6 +86,9 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
+
+    @Mock
+    private VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
 
     @Mock
     private RiskMetricActionBindingBackfillService backfillService;
@@ -401,6 +407,73 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void getDashboardOverviewShouldExposeRawStageVendorAndProductBacklog() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                vendorMetricEvidenceMapper,
+                backfillService
+        );
+
+        Product governedProduct = new Product();
+        governedProduct.setId(1001L);
+        governedProduct.setProductKey("nf-monitor-crack-meter-v1");
+        governedProduct.setProductName("裂缝计");
+        governedProduct.setManufacturer("南方测绘");
+        governedProduct.setCreateTime(LocalDateTime.of(2026, 4, 1, 10, 0));
+
+        Product rawStageProduct = new Product();
+        rawStageProduct.setId(1002L);
+        rawStageProduct.setProductKey("nf-monitor-gnss-v1");
+        rawStageProduct.setProductName("GNSS位移监测仪");
+        rawStageProduct.setManufacturer("中海达");
+        rawStageProduct.setCreateTime(LocalDateTime.of(2026, 4, 2, 10, 0));
+
+        when(productMapper.selectList(any())).thenReturn(List.of(governedProduct, rawStageProduct));
+
+        ProductContractReleaseBatch releaseBatch = new ProductContractReleaseBatch();
+        releaseBatch.setId(5001L);
+        releaseBatch.setProductId(1001L);
+        releaseBatch.setCreateTime(LocalDateTime.of(2026, 4, 3, 10, 0));
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(releaseBatch));
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(1001L);
+        catalog.setContractIdentifier("value");
+        catalog.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(vendorMetricEvidenceMapper.selectList(any())).thenReturn(List.of(
+                vendorEvidence(1002L, "gpsTotalX", 9, LocalDateTime.of(2026, 4, 5, 9, 0)),
+                vendorEvidence(1002L, "gpsTotalY", 3, LocalDateTime.of(2026, 4, 5, 8, 0))
+        ));
+
+        RiskGovernanceDashboardOverviewVO overview = service.getDashboardOverview();
+        BeanWrapperImpl wrapper = new BeanWrapperImpl(overview);
+
+        assertEquals(1L, wrapper.getPropertyValue("rawStageProductCount"));
+        assertEquals(1L, wrapper.getPropertyValue("rawStageVendorCount"));
+        assertEquals(List.of("中海达"), wrapper.getPropertyValue("rawStageVendorNames"));
+        assertEquals(List.of("GNSS位移监测仪"), wrapper.getPropertyValue("rawStageProductNames"));
+    }
+
+    @Test
     void getDashboardOverviewShouldOnlySelectColumnsNeededForCatalogProjection() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,
@@ -619,6 +692,18 @@ class RiskGovernanceServiceImplTest {
         value.setBindingOrigin(bindingOrigin);
         value.setBindingStatus(bindingStatus);
         value.setDeleted(deleted);
+        return value;
+    }
+
+    private VendorMetricEvidence vendorEvidence(Long productId,
+                                                String rawIdentifier,
+                                                Integer evidenceCount,
+                                                LocalDateTime lastSeenTime) {
+        VendorMetricEvidence value = new VendorMetricEvidence();
+        value.setProductId(productId);
+        value.setRawIdentifier(rawIdentifier);
+        value.setEvidenceCount(evidenceCount);
+        value.setLastSeenTime(lastSeenTime);
         return value;
     }
 }

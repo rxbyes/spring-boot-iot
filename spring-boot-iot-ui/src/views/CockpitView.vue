@@ -424,6 +424,16 @@ function formatDurationHours(value?: number | null) {
   return `${value.toFixed(1)} 小时`;
 }
 
+function formatNamePreview(values?: Array<string | null | undefined> | null) {
+  if (!Array.isArray(values)) {
+    return '';
+  }
+  return values
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0)
+    .join(' / ');
+}
+
 function formatDateYmd(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
@@ -503,6 +513,10 @@ function applyLiveMetrics(payload: {
         governanceOverview.pendingLinkagePlanCount ?? (pendingLinkageCount + pendingEmergencyPlanCount)
       );
       const pendingReplayCount = Number(governanceOverview.pendingReplayCount ?? 0);
+      const rawStageVendorCount = Number(governanceOverview.rawStageVendorCount ?? 0);
+      const rawStageProductCount = Number(governanceOverview.rawStageProductCount ?? 0);
+      const rawStageVendorPreview = formatNamePreview(governanceOverview.rawStageVendorNames);
+      const rawStageProductPreview = formatNamePreview(governanceOverview.rawStageProductNames);
       const publishedRiskMetricCount = Number(governanceOverview.publishedRiskMetricCount ?? 0);
       const boundRiskMetricCount = Number(governanceOverview.boundRiskMetricCount ?? 0);
       const ruleCoveredRiskMetricCount = Number(governanceOverview.ruleCoveredRiskMetricCount ?? 0);
@@ -568,14 +582,16 @@ function applyLiveMetrics(payload: {
       };
 
       manager.focusDimensions[0].value = `${formatInteger(governedProductCount)} / ${formatInteger(totalProductCount)}`;
-      manager.focusDimensions[0].description = '已进入合同发布或风险指标目录的产品规模。';
-      manager.focusDimensions[0].trend = formatPercent(governanceCompletionRate, 1);
-      manager.focusDimensions[0].trendTone = governanceCompletionRate >= 80 ? 'up' : 'down';
+      manager.focusDimensions[0].description = rawStageProductCount > 0
+        ? `已进入合同发布或风险指标目录的产品规模。原始字段阶段 ${formatInteger(rawStageVendorCount)} 个厂商 / ${formatInteger(rawStageProductCount)} 个产品`
+        : '已进入合同发布或风险指标目录的产品规模。';
+      manager.focusDimensions[0].trend = rawStageVendorPreview || formatPercent(governanceCompletionRate, 1);
+      manager.focusDimensions[0].trendTone = rawStageProductCount > 0 ? 'down' : (governanceCompletionRate >= 80 ? 'up' : 'down');
 
       manager.focusDimensions[1].value = formatDurationHours(averageOnboardingDurationHours);
       manager.focusDimensions[1].description = '新产品从建档到首个合同发布的平均耗时。';
-      manager.focusDimensions[1].trend = `待发布合同 ${formatInteger(pendingContractReleaseCount)} 个`;
-      manager.focusDimensions[1].trendTone = averageOnboardingDurationHours > 72 ? 'down' : 'up';
+      manager.focusDimensions[1].trend = rawStageProductPreview || `待发布合同 ${formatInteger(pendingContractReleaseCount)} 个`;
+      manager.focusDimensions[1].trendTone = rawStageProductPreview ? 'down' : (averageOnboardingDurationHours > 72 ? 'down' : 'up');
 
       manager.focusDimensions[2].value = dominantBottleneck
         ? `${dominantBottleneck.label} ${formatPercent(dominantBottleneck.rate, 1)}`
@@ -592,7 +608,9 @@ function applyLiveMetrics(payload: {
       manager.focusDimensions[3].trendTone = pendingReplayCount > 0 ? 'down' : 'stable';
 
       manager.queues[0].value = formatInteger(pendingProductGovernanceCount);
-      manager.queues[0].hint = '尚未进入治理主链路';
+      manager.queues[0].hint = rawStageProductCount > 0
+        ? `原始字段阶段 ${formatInteger(rawStageVendorCount)} 个厂商 / ${formatInteger(rawStageProductCount)} 个产品`
+        : '尚未进入治理主链路';
       manager.queues[0].percent = Math.round(Math.max(0, Math.min(100, bottleneckPendingProductGovernanceRate)));
       manager.queues[0].tag = pendingProductGovernanceCount > 0 ? '待治理' : '已收口';
       manager.queues[0].tone = pendingProductGovernanceCount > 0 ? 'warning' : 'muted';
@@ -630,9 +648,13 @@ function applyLiveMetrics(payload: {
       manager.todos[0].title = pendingProductGovernanceCount > 0
         ? `处理 ${formatInteger(pendingProductGovernanceCount)} 个待治理产品`
         : '复核产品治理进度';
-      manager.todos[0].detail = pendingContractReleaseCount > 0
-        ? `当前还有 ${formatInteger(pendingContractReleaseCount)} 个产品待发布合同。`
-        : '当前无待发布合同，建议抽查最新发布批次。';
+      manager.todos[0].detail = rawStageProductCount > 0
+        ? `厂商：${rawStageVendorPreview || '--'}；产品：${rawStageProductPreview || '--'}。${pendingContractReleaseCount > 0
+          ? `当前还有 ${formatInteger(pendingContractReleaseCount)} 个产品待发布合同。`
+          : '建议优先推动这些产品进入正式治理。'}`
+        : (pendingContractReleaseCount > 0
+          ? `当前还有 ${formatInteger(pendingContractReleaseCount)} 个产品待发布合同。`
+          : '当前无待发布合同，建议抽查最新发布批次。');
       manager.todos[0].tone = pendingProductGovernanceCount > 0 ? 'warning' : 'muted';
 
       manager.todos[1].title = pendingContractReleaseCount > 0

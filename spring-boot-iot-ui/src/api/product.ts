@@ -53,6 +53,29 @@ export interface ProductContractReleaseRollbackResult {
   executionPending?: boolean | null
 }
 
+export interface ProductContractReleaseImpactItem {
+  changeType?: string | null
+  modelType?: string | null
+  identifier?: string | null
+  changedFields?: string[] | null
+}
+
+export interface ProductContractReleaseImpact {
+  batchId?: IdType | null
+  productId?: IdType | null
+  scenarioCode?: string | null
+  releaseSource?: string | null
+  releasedFieldCount?: number | null
+  totalBeforeCount?: number | null
+  totalAfterCount?: number | null
+  addedCount?: number | null
+  removedCount?: number | null
+  changedCount?: number | null
+  unchangedCount?: number | null
+  comparedAt?: string | null
+  impactItems?: ProductContractReleaseImpactItem[] | null
+}
+
 type ProductRequestOptions = Pick<RequestOptions, 'signal'>
 
 function buildQuery(params: Record<string, unknown>) {
@@ -183,6 +206,10 @@ export const productApi = {
 
   getProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseBatch>> {
     return request<ProductContractReleaseBatch>(`/api/device/product/contract-release-batches/${batchId}`, { method: 'GET' })
+  },
+
+  getProductContractReleaseBatchImpact(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseImpact>> {
+    return request<ProductContractReleaseImpact>(`/api/device/product/contract-release-batches/${batchId}/impact`, { method: 'GET' })
   },
 
   rollbackProductContractReleaseBatch(

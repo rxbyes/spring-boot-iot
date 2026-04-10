@@ -1,5 +1,6 @@
 package com.ghlzm.iot.alarm.vo;
 
+import java.util.List;
 import lombok.Data;
 
 /**
@@ -37,6 +38,14 @@ public class RiskGovernanceDashboardOverviewVO {
     private Long pendingLinkagePlanCount;
 
     private Long pendingReplayCount;
+
+    private Long rawStageProductCount;
+
+    private Long rawStageVendorCount;
+
+    private List<String> rawStageProductNames;
+
+    private List<String> rawStageVendorNames;
 
     private Double governanceCompletionRate;
 

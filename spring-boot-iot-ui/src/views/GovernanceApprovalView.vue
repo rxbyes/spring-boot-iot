@@ -197,6 +197,46 @@
           <pre class="governance-approval-json-preview">{{ executionResultText }}</pre>
         </section>
 
+        <section v-if="shouldShowImpactSection" class="governance-approval-detail-section">
+          <h3>发布影响分析</h3>
+          <p v-if="detailImpactLoading" class="governance-approval-detail-empty">正在加载发布影响分析...</p>
+          <p v-else-if="detailImpactErrorMessage" class="governance-approval-detail-empty">{{ detailImpactErrorMessage }}</p>
+          <template v-else-if="detailImpact">
+            <div class="governance-approval-impact-summary">
+              <div class="governance-approval-impact-summary__card">
+                <span>新增</span>
+                <strong>{{ `新增 ${detailImpact.addedCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>删除</span>
+                <strong>{{ `删除 ${detailImpact.removedCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>变更</span>
+                <strong>{{ `变更 ${detailImpact.changedCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>未变更</span>
+                <strong>{{ `未变更 ${detailImpact.unchangedCount ?? 0}` }}</strong>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.impactItems?.length" class="governance-approval-impact-list">
+              <article
+                v-for="(item, index) in detailImpact.impactItems"
+                :key="`${item.identifier || '--'}-${item.changeType || '--'}-${index}`"
+                class="governance-approval-impact-item"
+              >
+                <strong>{{ item.identifier || '--' }}</strong>
+                <span>{{ impactChangeTypeLabel(item.changeType) }} · {{ impactModelTypeLabel(item.modelType) }}</span>
+                <span v-if="item.changedFields?.length">变更字段 {{ item.changedFields.join(' / ') }}</span>
+              </article>
+            </div>
+            <p v-else class="governance-approval-detail-empty">当前发布批次没有字段级差异明细。</p>
+          </template>
+          <p v-else class="governance-approval-detail-empty">当前审批单未携带可复盘的发布批次信息。</p>
+        </section>
+
         <section class="governance-approval-detail-section">
           <h3>状态流转</h3>
           <div v-if="detailTransitions.length" class="governance-approval-timeline">
@@ -256,6 +296,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { governanceApprovalApi } from '@/api/governanceApproval'
+import { productApi, type ProductContractReleaseImpact } from '@/api/product'
 import { resolveRequestErrorMessage } from '@/api/request'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
@@ -318,6 +359,9 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailErrorMessage = ref('')
 const detailData = ref<GovernanceApprovalOrderDetail | null>(null)
+const detailImpactLoading = ref(false)
+const detailImpactErrorMessage = ref('')
+const detailImpact = ref<ProductContractReleaseImpact | null>(null)
 
 const actionDrawerVisible = ref(false)
 const actionMode = ref<ActionMode>(null)
@@ -343,12 +387,17 @@ const detailTitle = computed(() => {
 })
 
 const parsedPayload = computed<Record<string, unknown> | null>(() => parsePayload(detailOrder.value?.payloadJson))
+const parsedExecution = computed<Record<string, unknown> | null>(() => toRecord(parsedPayload.value?.execution))
+const parsedExecutionResult = computed<Record<string, unknown> | null>(() => toRecord(parsedExecution.value?.result))
+const detailReleaseBatchId = computed<IdType | null>(() => {
+  return normalizeId(parsedExecutionResult.value?.releaseBatchId) ?? normalizeId(parsedExecutionResult.value?.rolledBackBatchId)
+})
+const shouldShowImpactSection = computed(() => detailReleaseBatchId.value != null || detailImpact.value != null || detailImpactLoading.value || Boolean(detailImpactErrorMessage.value))
 const executionResultText = computed(() => {
-  const execution = parsedPayload.value?.execution
-  if (!execution || typeof execution !== 'object') {
+  if (!parsedExecution.value) {
     return '暂无执行结果'
   }
-  return JSON.stringify(execution, null, 2)
+  return JSON.stringify(parsedExecution.value, null, 2)
 })
 
 const actionDrawerTitle = computed(() => {
@@ -513,14 +562,35 @@ async function loadOrderDetail(orderId: IdType, silent = false) {
   }
   detailLoading.value = !silent
   detailErrorMessage.value = ''
+  resetDetailImpact()
   try {
     const response = await governanceApprovalApi.getOrderDetail(orderId)
     detailData.value = response.data ?? null
+    await loadDetailImpact()
   } catch (error) {
     detailData.value = null
     detailErrorMessage.value = resolveRequestErrorMessage(error, '审批详情加载失败')
   } finally {
     detailLoading.value = false
+  }
+}
+
+async function loadDetailImpact() {
+  const batchId = detailReleaseBatchId.value
+  if (batchId == null) {
+    resetDetailImpact()
+    return
+  }
+  detailImpactLoading.value = true
+  detailImpactErrorMessage.value = ''
+  try {
+    const response = await productApi.getProductContractReleaseBatchImpact(batchId)
+    detailImpact.value = response.data ?? null
+  } catch (error) {
+    detailImpact.value = null
+    detailImpactErrorMessage.value = resolveRequestErrorMessage(error, '发布影响分析加载失败')
+  } finally {
+    detailImpactLoading.value = false
   }
 }
 
@@ -716,6 +786,44 @@ function parsePayload(payloadJson: string | null | undefined): Record<string, un
     return null
   }
 }
+
+function resetDetailImpact() {
+  detailImpact.value = null
+  detailImpactLoading.value = false
+  detailImpactErrorMessage.value = ''
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function impactChangeTypeLabel(changeType: string | null | undefined) {
+  switch (changeType) {
+    case 'ADDED':
+      return '新增'
+    case 'REMOVED':
+      return '删除'
+    case 'UPDATED':
+      return '变更'
+    case 'UNCHANGED':
+      return '未变更'
+    default:
+      return changeType || '--'
+  }
+}
+
+function impactModelTypeLabel(modelType: string | null | undefined) {
+  switch (modelType) {
+    case 'property':
+      return '属性'
+    case 'event':
+      return '事件'
+    case 'service':
+      return '服务'
+    default:
+      return modelType || '--'
+  }
+}
 </script>
 
 <style scoped>
@@ -781,6 +889,38 @@ function parsePayload(payloadJson: string | null | undefined): Record<string, un
 .governance-approval-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+
+.governance-approval-impact-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.governance-approval-impact-summary__card,
+.governance-approval-impact-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.governance-approval-impact-summary__card strong,
+.governance-approval-impact-item strong {
+  color: var(--text-heading);
+}
+
+.governance-approval-impact-summary__card span,
+.governance-approval-impact-item span {
+  color: var(--text-caption);
+  font-size: 13px;
+}
+
+.governance-approval-impact-list {
+  display: grid;
   gap: 0.75rem;
 }
 

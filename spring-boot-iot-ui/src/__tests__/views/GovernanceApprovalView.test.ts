@@ -11,6 +11,7 @@ const {
   mockRejectOrder,
   mockCancelOrder,
   mockResubmitOrder,
+  mockGetProductContractReleaseBatchImpact,
   mockConfirmAction,
   mockPermissionStore
 } = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ const {
   mockRejectOrder: vi.fn(),
   mockCancelOrder: vi.fn(),
   mockResubmitOrder: vi.fn(),
+  mockGetProductContractReleaseBatchImpact: vi.fn(),
   mockConfirmAction: vi.fn(),
   mockPermissionStore: {
     userInfo: {
@@ -36,6 +38,12 @@ vi.mock('@/api/governanceApproval', () => ({
     rejectOrder: mockRejectOrder,
     cancelOrder: mockCancelOrder,
     resubmitOrder: mockResubmitOrder
+  }
+}))
+
+vi.mock('@/api/product', () => ({
+  productApi: {
+    getProductContractReleaseBatchImpact: mockGetProductContractReleaseBatchImpact
   }
 }))
 
@@ -318,6 +326,7 @@ describe('GovernanceApprovalView', () => {
     mockRejectOrder.mockReset()
     mockCancelOrder.mockReset()
     mockResubmitOrder.mockReset()
+    mockGetProductContractReleaseBatchImpact.mockReset()
     mockConfirmAction.mockReset()
     mockConfirmAction.mockResolvedValue(undefined)
     mockPermissionStore.userInfo.id = 2002
@@ -364,6 +373,25 @@ describe('GovernanceApprovalView', () => {
         ]
       }
     })
+    mockGetProductContractReleaseBatchImpact.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchId: 99001,
+        addedCount: 1,
+        removedCount: 1,
+        changedCount: 2,
+        unchangedCount: 3,
+        impactItems: [
+          {
+            changeType: 'UPDATED',
+            modelType: 'property',
+            identifier: 'value',
+            changedFields: ['modelName']
+          }
+        ]
+      }
+    })
   })
 
   it('loads approval orders and renders pending status', async () => {
@@ -390,6 +418,52 @@ describe('GovernanceApprovalView', () => {
     expect(wrapper.text()).toContain('审批概览')
     expect(wrapper.text()).toContain('99001')
     expect(wrapper.text()).toContain('submit')
+  })
+
+  it('loads and renders release batch impact when approval detail exposes releaseBatchId', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001)
+    expect(wrapper.text()).toContain('发布影响分析')
+    expect(wrapper.text()).toContain('新增 1')
+    expect(wrapper.text()).toContain('删除 1')
+    expect(wrapper.text()).toContain('变更 2')
+    expect(wrapper.text()).toContain('value')
+    expect(wrapper.text()).toContain('modelName')
+  })
+
+  it('does not load release impact when approval detail has no release batch context', async () => {
+    mockGetOrderDetail.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        order: {
+          ...createPendingOrder(),
+          payloadJson: JSON.stringify({
+            version: 1,
+            execution: {
+              result: {
+                createdCount: 1
+              }
+            }
+          })
+        },
+        transitions: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductContractReleaseBatchImpact).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('发布影响分析')
   })
 
   it('submits approve action from the action drawer', async () => {

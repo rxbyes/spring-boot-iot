@@ -84,6 +84,10 @@ export interface RiskGovernanceDashboardOverview {
   pendingEmergencyPlanCount?: number | null;
   pendingLinkagePlanCount?: number | null;
   pendingReplayCount?: number | null;
+  rawStageProductCount?: number | null;
+  rawStageVendorCount?: number | null;
+  rawStageProductNames?: string[] | null;
+  rawStageVendorNames?: string[] | null;
   governanceCompletionRate?: number | null;
   metricBindingCoverageRate?: number | null;
   policyCoverageRate?: number | null;
@@ -98,6 +102,58 @@ export interface RiskGovernanceDashboardOverview {
   bottleneckPendingThresholdPolicyRate?: number | null;
   bottleneckPendingLinkagePlanRate?: number | null;
   bottleneckPendingReplayRate?: number | null;
+}
+
+export interface RiskGovernanceReplayGapSummary {
+  missingBindingCount?: number | null;
+  missingPolicyCount?: number | null;
+  missingRiskMetricCount?: number | null;
+}
+
+export interface RiskGovernanceReplayBatchReconciliation {
+  releaseBatchId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  releaseStatus?: string | null;
+  releaseReason?: string | null;
+  rollbackTime?: string | null;
+  snapshotAvailable?: boolean | null;
+  consistent?: boolean | null;
+  beforeApplyFieldCount?: number | null;
+  afterApplyFieldCount?: number | null;
+  currentFormalFieldCount?: number | null;
+  batchCatalogMetricCount?: number | null;
+  missingCurrentFieldCount?: number | null;
+  extraCurrentFieldCount?: number | null;
+  sampleMissingCurrentIdentifier?: string | null;
+  sampleExtraCurrentIdentifier?: string | null;
+}
+
+export interface RiskGovernanceReplayChainStep {
+  stepCode?: string | null;
+  stepName?: string | null;
+  status?: string | null;
+  summary?: string | null;
+  nextAction?: string | null;
+}
+
+export interface RiskGovernanceReplay {
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  releaseBatchId?: IdType | null;
+  releaseScenarioCode?: string | null;
+  matchedMessageCount?: number | null;
+  matchedAccessErrorCount?: number | null;
+  gapSummary?: RiskGovernanceReplayGapSummary | null;
+  batchReconciliation?: RiskGovernanceReplayBatchReconciliation | null;
+  replayChainSteps?: RiskGovernanceReplayChainStep[] | null;
+}
+
+export interface RiskGovernanceReplayQuery {
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  releaseBatchId?: IdType | null;
 }
 
 export function listMissingBindings(
@@ -137,4 +193,14 @@ export function getRiskGovernanceCoverageOverview(productId: IdType): Promise<Ap
 
 export function getRiskGovernanceDashboardOverview(): Promise<ApiEnvelope<RiskGovernanceDashboardOverview>> {
   return request<RiskGovernanceDashboardOverview>('/api/risk-governance/dashboard-overview', { method: 'GET' });
+}
+
+export function getRiskGovernanceReplay(
+  params: RiskGovernanceReplayQuery
+): Promise<ApiEnvelope<RiskGovernanceReplay>> {
+  const queryString = buildQueryString(params)
+  const path = queryString
+    ? `/api/risk-governance/replay?${queryString}`
+    : '/api/risk-governance/replay'
+  return request<RiskGovernanceReplay>(path, { method: 'GET' })
 }

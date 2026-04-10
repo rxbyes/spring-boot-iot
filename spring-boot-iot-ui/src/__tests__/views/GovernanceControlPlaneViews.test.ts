@@ -10,7 +10,9 @@ const {
   mockAckWorkItem,
   mockBlockWorkItem,
   mockCloseWorkItem,
+  mockGetProductById,
   mockPageOpsAlerts,
+  mockGetRiskGovernanceReplay,
   mockAckOpsAlert,
   mockSuppressOpsAlert,
   mockCloseOpsAlert,
@@ -22,7 +24,9 @@ const {
   mockAckWorkItem: vi.fn(),
   mockBlockWorkItem: vi.fn(),
   mockCloseWorkItem: vi.fn(),
+  mockGetProductById: vi.fn(),
   mockPageOpsAlerts: vi.fn(),
+  mockGetRiskGovernanceReplay: vi.fn(),
   mockAckOpsAlert: vi.fn(),
   mockSuppressOpsAlert: vi.fn(),
   mockCloseOpsAlert: vi.fn(),
@@ -38,11 +42,21 @@ vi.mock('@/api/governanceWorkItem', () => ({
   closeGovernanceWorkItem: mockCloseWorkItem
 }))
 
+vi.mock('@/api/product', () => ({
+  productApi: {
+    getProductById: mockGetProductById
+  }
+}))
+
 vi.mock('@/api/governanceOpsAlert', () => ({
   pageGovernanceOpsAlerts: mockPageOpsAlerts,
   ackGovernanceOpsAlert: mockAckOpsAlert,
   suppressGovernanceOpsAlert: mockSuppressOpsAlert,
   closeGovernanceOpsAlert: mockCloseOpsAlert
+}))
+
+vi.mock('@/api/riskGovernance', () => ({
+  getRiskGovernanceReplay: mockGetRiskGovernanceReplay
 }))
 
 vi.mock('vue-router', () => ({
@@ -122,6 +136,18 @@ const PanelCardStub = defineComponent({
   `
 })
 
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: ['modelValue', 'title', 'subtitle'],
+  template: `
+    <section v-if="modelValue" class="governance-control-plane-detail-drawer-stub">
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+      <slot />
+    </section>
+  `
+})
+
 function mountWithStubs(component: Parameters<typeof mount>[0]) {
   return mount(component, {
     global: {
@@ -131,7 +157,8 @@ function mountWithStubs(component: Parameters<typeof mount>[0]) {
         StandardTableToolbar: StandardTableToolbarStub,
         StandardPagination: StandardPaginationStub,
         StandardButton: StandardButtonStub,
-        PanelCard: PanelCardStub
+        PanelCard: PanelCardStub,
+        StandardDetailDrawer: StandardDetailDrawerStub
       }
     }
   })
@@ -143,7 +170,9 @@ describe('governance control plane views', () => {
     mockAckWorkItem.mockReset()
     mockBlockWorkItem.mockReset()
     mockCloseWorkItem.mockReset()
+    mockGetProductById.mockReset()
     mockPageOpsAlerts.mockReset()
+    mockGetRiskGovernanceReplay.mockReset()
     mockAckOpsAlert.mockReset()
     mockSuppressOpsAlert.mockReset()
     mockCloseOpsAlert.mockReset()
@@ -207,6 +236,81 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('产品尚未进入治理主链路')
   })
 
+  it('loads governance replay from pending replay work items by resolving product key', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 5,
+            workItemCode: 'PENDING_REPLAY',
+            workStatus: 'OPEN',
+            productId: 3001,
+            blockingReason: '风险指标缺阈值策略，待运营复盘',
+            snapshotJson: JSON.stringify({
+              metricIdentifier: 'gpsTotalX',
+              dimensionLabel: 'GNSS 累计位移 X'
+            })
+          }
+        ]
+      }
+    })
+    mockGetProductById.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3001,
+        productKey: 'phase2-gnss'
+      }
+    })
+    mockGetRiskGovernanceReplay.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        productKey: 'phase2-gnss',
+        matchedMessageCount: 2,
+        matchedAccessErrorCount: 0,
+        gapSummary: {
+          missingBindingCount: 0,
+          missingPolicyCount: 1,
+          missingRiskMetricCount: 0
+        },
+        replayChainSteps: [
+          {
+            stepCode: 'GOVERNANCE_GAPS',
+            stepName: '治理缺口',
+            status: 'ACTION_REQUIRED',
+            summary: '仍有 1 条待补策略',
+            nextAction: '继续补齐阈值策略'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const replayButton = wrapper.findAll('button').find((button) => button.text() === '复盘')
+    expect(replayButton).toBeTruthy()
+
+    await replayButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductById).toHaveBeenCalledWith(3001)
+    expect(mockGetRiskGovernanceReplay).toHaveBeenCalledWith({
+      productKey: 'phase2-gnss'
+    })
+    expect(wrapper.text()).toContain('治理链路复盘')
+    expect(wrapper.text()).toContain('phase2-gnss')
+    expect(wrapper.text()).toContain('待补策略 1')
+    expect(wrapper.text()).toContain('GOVERNANCE_GAPS')
+    expect(wrapper.text()).toContain('继续补齐阈值策略')
+  })
+
   it('renders governance ops rows from backend alerts', async () => {
     mockPageOpsAlerts.mockResolvedValue({
       code: 200,
@@ -231,6 +335,82 @@ describe('governance control plane views', () => {
 
     expect(wrapper.text()).toContain('字段漂移告警')
     expect(wrapper.text()).toContain('value 已偏离正式合同')
+  })
+
+  it('loads governance replay from ops alerts with replay context', async () => {
+    mockPageOpsAlerts.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 12,
+            alertType: 'CONTRACT_DIFF',
+            alertTitle: '合同差异告警',
+            alertMessage: 'gpsTotalX 与正式合同存在差异',
+            releaseBatchId: 7001,
+            traceId: 'trace-ops-1',
+            deviceCode: 'device-ops-1',
+            productKey: 'phase2-gnss'
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceReplay.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-ops-1',
+        deviceCode: 'device-ops-1',
+        productKey: 'phase2-gnss',
+        releaseBatchId: 7001,
+        matchedMessageCount: 4,
+        matchedAccessErrorCount: 1,
+        gapSummary: {
+          missingBindingCount: 2,
+          missingPolicyCount: 1,
+          missingRiskMetricCount: 0
+        },
+        batchReconciliation: {
+          consistent: false,
+          missingCurrentFieldCount: 1,
+          extraCurrentFieldCount: 0
+        },
+        replayChainSteps: [
+          {
+            stepCode: 'MESSAGE_TRACE',
+            stepName: '消息追踪',
+            status: 'READY',
+            summary: '已命中 4 条消息',
+            nextAction: '继续核对最近消息'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceOpsWorkbenchView)
+    await flushPromises()
+
+    const replayButton = wrapper.findAll('button').find((button) => button.text() === '复盘')
+    expect(replayButton).toBeTruthy()
+
+    await replayButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockGetRiskGovernanceReplay).toHaveBeenCalledWith({
+      traceId: 'trace-ops-1',
+      deviceCode: 'device-ops-1',
+      productKey: 'phase2-gnss',
+      releaseBatchId: 7001
+    })
+    expect(wrapper.text()).toContain('治理链路复盘')
+    expect(wrapper.text()).toContain('发布批次 7001')
+    expect(wrapper.text()).toContain('待补绑定 2')
+    expect(wrapper.text()).toContain('MESSAGE_TRACE')
+    expect(wrapper.text()).toContain('继续核对最近消息')
   })
 
   it('executes governance task actions from card buttons', async () => {
