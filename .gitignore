@@ -18,3 +18,7 @@
 /.worktrees/
 /.codex-tmp/
 #/.superpowers/
+/.superpowers/
+/.codex-stage/
+/.codex-temp/
+/.vite/
