@@ -1,4 +1,4 @@
-import { defineComponent } from 'vue';
+import { defineComponent, inject } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,6 +50,7 @@ vi.mock('@/api/iot', () => ({
         propertyName: '泥水位高程',
         propertyValue: '2.60',
         valueType: 'double',
+        unit: 'm',
         updateTime: '2026-04-08 10:05:00'
       },
       {
@@ -88,6 +89,34 @@ vi.mock('@/api/product', () => ({
         nodeType: 1,
         metadataJson: null
       }
+    }),
+    listProductModels: vi.fn().mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          productId: 501,
+          modelType: 'property',
+          identifier: 'L4_NW_1',
+          modelName: '泥水位高程',
+          dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: 'm'
+          })
+        },
+        {
+          id: 2,
+          productId: 501,
+          modelType: 'property',
+          identifier: 'S1_ZT_1.battery_dump_energy',
+          modelName: '剩余电量',
+          dataType: 'int',
+          specsJson: JSON.stringify({
+            unit: '%'
+          })
+        }
+      ]
     })
   }
 }));
@@ -310,6 +339,49 @@ const ElSegmentedStub = defineComponent({
   `
 });
 
+const ElTableStub = defineComponent({
+  name: 'ElTable',
+  props: {
+    data: {
+      type: Array,
+      default: () => []
+    }
+  },
+  provide() {
+    return {
+      deviceInsightTableRows: this.data
+    };
+  },
+  template: `
+    <section class="el-table-stub">
+      <slot />
+    </section>
+  `
+});
+
+const StandardTableTextColumnStub = defineComponent({
+  name: 'StandardTableTextColumn',
+  props: ['label', 'prop'],
+  setup() {
+    const rows = inject<any[]>('deviceInsightTableRows', []);
+    return { rows };
+  },
+  template: `
+    <div class="standard-table-text-column-stub" :data-label="label">
+      <span class="standard-table-text-column-stub__label">{{ label }}</span>
+      <template v-if="prop === 'displayUnit' || prop === 'displayName'">
+        <div
+          v-for="(row, index) in rows"
+          :key="index"
+          class="standard-table-text-column-stub__value"
+        >
+          {{ row?.[prop] }}
+        </div>
+      </template>
+    </div>
+  `
+});
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -327,7 +399,7 @@ function mountView() {
         MetricCard: MetricCardStub,
         PanelCard: PanelCardStub,
         RiskInsightTrendPanel: TrendPanelStub,
-        StandardTableTextColumn: true,
+        StandardTableTextColumn: StandardTableTextColumnStub,
         'el-form-item': true,
         'el-input': true,
         'el-tag': true,
@@ -335,7 +407,7 @@ function mountView() {
         'el-descriptions': true,
         'el-descriptions-item': true,
         'el-empty': true,
-        'el-table': true,
+        'el-table': ElTableStub,
         'el-table-column': true
       }
     }
@@ -387,6 +459,253 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).not.toContain('L4_NW_1');
     expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
+  });
+
+  it('shows property snapshot units from snapshot first and product model fallback', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const unitColumn = wrapper.find('[data-label="单位"]');
+    expect(unitColumn.exists()).toBe(true);
+    expect(unitColumn.text()).toContain('单位');
+    expect(unitColumn.text()).toContain('m');
+    expect(unitColumn.text()).toContain('%');
+    expect(productApi.listProductModels).toHaveBeenCalledWith(501);
+  });
+
+  it('prefers renamed formal field names over stale trend labels and fixed fallback labels', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4101,
+        productId: 701,
+        deviceCode: 'RENAMED-001',
+        deviceName: '多维检测仪',
+        productName: '多维检测仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-10 09:00:00',
+        lastReportTime: '2026-04-10 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_JS_1.gX',
+          propertyName: '甲方X轴指标',
+          propertyValue: '0.12',
+          valueType: 'double',
+          updateTime: '2026-04-10 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 701,
+        productKey: 'renamed-device-product',
+        productName: '多维检测仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'L1_JS_1.gX',
+                displayName: '甲方X轴指标',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 11,
+          productId: 701,
+          modelType: 'property',
+          identifier: 'L1_JS_1.gX',
+          modelName: '甲方X轴指标',
+          dataType: 'double',
+          specsJson: null
+        }
+      ]
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 4101,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'L1_JS_1.gX',
+            displayName: '旧X轴加速度',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-10 09:00:00', value: 0.12, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'RENAMED-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('甲方X轴指标');
+    expect(wrapper.text()).not.toContain('旧X轴加速度');
+  });
+
+  it('uses full formal display names with units for trend series labels', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4201,
+        productId: 702,
+        deviceCode: 'RENAMED-UNIT-001',
+        deviceName: '多维检测仪',
+        productName: '多维检测仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-10 10:00:00',
+        lastReportTime: '2026-04-10 10:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_JS_1.gX',
+          propertyName: '1号加速度测点gX',
+          propertyValue: '0.12',
+          valueType: 'double',
+          updateTime: '2026-04-10 10:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 702,
+        productKey: 'renamed-device-product-unit',
+        productName: '多维检测仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'L1_JS_1.gX',
+                displayName: 'X轴加速度',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 12,
+          productId: 702,
+          modelType: 'property',
+          identifier: 'L1_JS_1.gX',
+          modelName: 'X轴加速度',
+          dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: 'm/s²'
+          })
+        }
+      ]
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 4201,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'L1_JS_1.gX',
+            displayName: '轴加速度',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-10 10:00:00', value: 0.12, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'RENAMED-UNIT-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const trendPanelTexts = wrapper.find('.trend-panel-stub').findAll('div').map((node) => node.text());
+
+    expect(wrapper.text()).toContain('X轴加速度（m/s²）');
+    expect(trendPanelTexts).toContain('X轴加速度（m/s²）');
+    expect(trendPanelTexts).not.toContain('轴加速度');
   });
 
   it('only queries explicitly configured trend metrics for collect devices', async () => {

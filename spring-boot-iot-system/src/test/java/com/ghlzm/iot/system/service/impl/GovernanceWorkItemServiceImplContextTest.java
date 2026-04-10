@@ -2,6 +2,7 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import java.util.concurrent.Executor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -32,6 +33,11 @@ class GovernanceWorkItemServiceImplContextTest {
         @Bean
         GovernanceWorkItemMapper governanceWorkItemMapper() {
             return mock(GovernanceWorkItemMapper.class);
+        }
+
+        @Bean(name = {"applicationTaskExecutor", "taskExecutor"})
+        Executor applicationTaskExecutor() {
+            return Runnable::run;
         }
     }
 }

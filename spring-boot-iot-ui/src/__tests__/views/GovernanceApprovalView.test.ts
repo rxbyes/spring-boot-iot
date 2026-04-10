@@ -382,6 +382,13 @@ describe('GovernanceApprovalView', () => {
         removedCount: 1,
         changedCount: 2,
         unchangedCount: 3,
+        dependencySummary: {
+          affectedRiskMetricCount: 2,
+          affectedRiskPointBindingCount: 4,
+          affectedRuleCount: 1,
+          affectedLinkageBindingCount: 1,
+          affectedEmergencyPlanBindingCount: 0
+        },
         impactItems: [
           {
             changeType: 'UPDATED',
@@ -432,6 +439,9 @@ describe('GovernanceApprovalView', () => {
     expect(wrapper.text()).toContain('新增 1')
     expect(wrapper.text()).toContain('删除 1')
     expect(wrapper.text()).toContain('变更 2')
+    expect(wrapper.text()).toContain('受影响风险指标 2')
+    expect(wrapper.text()).toContain('受影响风险点绑定 4')
+    expect(wrapper.text()).toContain('受影响阈值规则 1')
     expect(wrapper.text()).toContain('value')
     expect(wrapper.text()).toContain('modelName')
   })

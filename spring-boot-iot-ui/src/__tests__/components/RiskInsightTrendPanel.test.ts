@@ -331,6 +331,120 @@ describe('RiskInsightTrendPanel', () => {
     expect(tooltipText).not.toContain('离线');
   });
 
+  it('keeps filled zero as numeric zero for non-status series tooltip and adds more bottom spacing', async () => {
+    mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: true },
+              { time: '2026-04-09 01:00:00', value: 0.68, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      tooltip?: { formatter?: (params: Array<Record<string, unknown>>) => string };
+      grid?: { bottom?: number };
+      xAxis?: { axisLabel?: { margin?: number } };
+    } | undefined;
+
+    const tooltipText = latestOption?.tooltip?.formatter?.([
+      {
+        axisValue: '2026-04-09 00:00:00',
+        marker: '',
+        seriesName: '裂缝量',
+        data: {
+          value: 0,
+          filled: true
+        }
+      }
+    ]);
+
+    expect(tooltipText).toContain('裂缝量：0');
+    expect(tooltipText).not.toContain('否');
+    expect(latestOption?.grid?.bottom).toBeGreaterThan(24);
+    expect(Number(latestOption?.xAxis?.axisLabel?.margin ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('keeps full legend labels and uses gentler axis spacing', async () => {
+    mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_JS_1.gX',
+            displayName: 'X轴加速度（m/s²）',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 1224.37, filled: false },
+              { time: '2026-04-09 01:00:00', value: 1224.92, filled: false },
+              { time: '2026-04-09 02:00:00', value: 1225.11, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      legend?: { data?: string[]; type?: string; left?: number | string; right?: number | string };
+      grid?: { bottom?: number };
+      xAxis?: { axisLabel?: { margin?: number } };
+      yAxis?: { min?: number; max?: number };
+    } | undefined;
+
+    const span = Number(latestOption?.yAxis?.max ?? 0) - Number(latestOption?.yAxis?.min ?? 0);
+
+    expect(latestOption?.legend?.data).toContain('X轴加速度（m/s²）');
+    expect(latestOption?.legend?.type).toBe('scroll');
+    expect(Number(latestOption?.grid?.bottom ?? 0)).toBeGreaterThanOrEqual(48);
+    expect(Number(latestOption?.xAxis?.axisLabel?.margin ?? 0)).toBeGreaterThanOrEqual(16);
+    expect(span).toBeLessThan(4);
+  });
+
+  it('compresses status-event y-axis when only normal and abnormal states exist', async () => {
+    const wrapper = mountTrend([
+      {
+        key: 'status-event',
+        title: '状态事件',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '倾角状态',
+            seriesType: 'event',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: false },
+              { time: '2026-04-09 01:00:00', value: 1, filled: false },
+              { time: '2026-04-09 02:00:00', value: 0, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      yAxis?: { min?: number; max?: number };
+      grid?: { bottom?: number };
+    } | undefined;
+
+    expect(wrapper.find('.trend-group__chart--compact').exists()).toBe(true);
+    expect(Number(latestOption?.yAxis?.min ?? 0)).toBeLessThan(0);
+    expect(Number(latestOption?.yAxis?.max ?? 0)).toBeGreaterThan(1);
+    expect(Number(latestOption?.grid?.bottom ?? 0)).toBeGreaterThanOrEqual(48);
+  });
+
   it('hides trend summary cards and chart footer notes in the simplified insight layout', () => {
     const wrapper = mountTrend([
       {
@@ -485,7 +599,7 @@ describe('RiskInsightTrendPanel', () => {
     expect(latestOption?.yAxis?.splitNumber).toBe(4);
     expect(latestOption?.yAxis?.min).toBeLessThan(1224.37);
     expect(latestOption?.yAxis?.max).toBeGreaterThan(1225.11);
-    expect((latestOption?.yAxis?.max ?? 0) - (latestOption?.yAxis?.min ?? 0)).toBeGreaterThan(0.74);
+    expect((latestOption?.yAxis?.max ?? 0) - (latestOption?.yAxis?.min ?? 0)).toBeLessThan(4);
   });
 
   it('renders binary status metrics as step lines while keeping continuous status metrics as normal lines', async () => {

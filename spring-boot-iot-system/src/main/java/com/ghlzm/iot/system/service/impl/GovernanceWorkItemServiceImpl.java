@@ -16,13 +16,21 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
 public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService {
+
+    private static final Logger log = LoggerFactory.getLogger(GovernanceWorkItemServiceImpl.class);
 
     private static final String STATUS_OPEN = "OPEN";
     private static final String STATUS_ACKED = "ACKED";
@@ -30,14 +38,39 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private static final String STATUS_RESOLVED = "RESOLVED";
     private static final String STATUS_CLOSED = "CLOSED";
     private static final String DEFAULT_PRIORITY = "P2";
+    private static final long DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS = 300_000L;
 
     private final GovernanceWorkItemMapper workItemMapper;
     private final List<GovernanceWorkItemContributor> contributors;
+    private final Executor contributorSyncExecutor;
+    private final LongSupplier currentTimeSupplier;
+    private final long contributorSyncIntervalMs;
+    private final AtomicBoolean contributorSyncInProgress = new AtomicBoolean(false);
 
+    private volatile long lastContributorSyncCompletedAt;
+
+    @Autowired
     public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
-                                         List<GovernanceWorkItemContributor> contributors) {
+                                         List<GovernanceWorkItemContributor> contributors,
+                                         @Qualifier("applicationTaskExecutor") Executor contributorSyncExecutor) {
+        this(workItemMapper, contributors, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  List<GovernanceWorkItemContributor> contributors) {
+        this(workItemMapper, contributors, Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
         this.workItemMapper = workItemMapper;
         this.contributors = contributors == null ? List.of() : List.copyOf(contributors);
+        this.contributorSyncExecutor = contributorSyncExecutor == null ? Runnable::run : contributorSyncExecutor;
+        this.currentTimeSupplier = currentTimeSupplier == null ? System::currentTimeMillis : currentTimeSupplier;
+        this.contributorSyncIntervalMs = Math.max(0L, contributorSyncIntervalMs);
     }
 
     @Override
@@ -112,7 +145,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     @Override
     public PageResult<GovernanceWorkItemVO> pageWorkItems(GovernanceWorkItemPageQuery query, Long currentUserId) {
-        syncContributedWorkItems();
+        scheduleContributorSyncIfStale();
         Page<GovernanceWorkItem> page = PageQueryUtils.buildPage(query == null ? null : query.getPageNum(), query == null ? null : query.getPageSize());
         Page<GovernanceWorkItem> result = workItemMapper.selectPage(page, buildPageWrapper(query));
         List<GovernanceWorkItemVO> rows = result.getRecords().stream().map(this::toVO).toList();
@@ -155,6 +188,35 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         workItemMapper.updateById(update);
     }
 
+    private void scheduleContributorSyncIfStale() {
+        if (contributors.isEmpty()) {
+            return;
+        }
+        long now = currentTimeSupplier.getAsLong();
+        if (lastContributorSyncCompletedAt > 0L
+                && now - lastContributorSyncCompletedAt < contributorSyncIntervalMs) {
+            return;
+        }
+        if (!contributorSyncInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            contributorSyncExecutor.execute(() -> {
+                try {
+                    syncContributedWorkItems();
+                    lastContributorSyncCompletedAt = currentTimeSupplier.getAsLong();
+                } catch (RuntimeException ex) {
+                    log.warn("governance work item contributor sync failed", ex);
+                } finally {
+                    contributorSyncInProgress.set(false);
+                }
+            });
+        } catch (RuntimeException ex) {
+            contributorSyncInProgress.set(false);
+            log.warn("governance work item contributor sync dispatch failed", ex);
+        }
+    }
+
     private void syncContributedWorkItems() {
         if (contributors.isEmpty()) {
             return;
@@ -172,30 +234,90 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                     .computeIfAbsent(normalized.workItemCode(), key -> new LinkedHashMap<>())
                     .put(naturalKey(normalized.workItemCode(), normalized.subjectType(), normalized.subjectId()), normalized);
         }
+        List<GovernanceWorkItem> existingItems = workItemMapper.selectList(new LambdaQueryWrapper<GovernanceWorkItem>()
+                .eq(GovernanceWorkItem::getDeleted, 0)
+                .in(GovernanceWorkItem::getWorkItemCode, desiredByCode.keySet()));
+        Map<String, GovernanceWorkItem> existingByNaturalKey = existingItems.stream()
+                .filter(item -> item != null)
+                .collect(Collectors.toMap(
+                        item -> naturalKey(item.getWorkItemCode(), item.getSubjectType(), item.getSubjectId()),
+                        item -> item,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
         for (Map<String, GovernanceWorkItemCommand> itemsByKey : desiredByCode.values()) {
             for (GovernanceWorkItemCommand command : itemsByKey.values()) {
-                openOrRefresh(command);
+                syncContributedCommand(command, existingByNaturalKey.get(naturalKey(command.workItemCode(), command.subjectType(), command.subjectId())));
             }
         }
-        for (Map.Entry<String, Map<String, GovernanceWorkItemCommand>> entry : desiredByCode.entrySet()) {
-            List<GovernanceWorkItem> existingItems = workItemMapper.selectList(new LambdaQueryWrapper<GovernanceWorkItem>()
-                    .eq(GovernanceWorkItem::getDeleted, 0)
-                    .eq(GovernanceWorkItem::getWorkItemCode, entry.getKey()));
-            Set<String> desiredKeys = entry.getValue().keySet();
-            for (GovernanceWorkItem existing : existingItems) {
-                if (existing == null || !StringUtils.hasText(existing.getWorkStatus()) || STATUS_CLOSED.equals(existing.getWorkStatus())) {
-                    continue;
-                }
-                if (!desiredKeys.contains(naturalKey(existing.getWorkItemCode(), existing.getSubjectType(), existing.getSubjectId()))) {
-                    GovernanceWorkItem update = new GovernanceWorkItem();
-                    update.setId(existing.getId());
-                    update.setWorkStatus(STATUS_RESOLVED);
-                    update.setResolvedTime(new Date());
-                    update.setUpdateBy(1L);
-                    workItemMapper.updateById(update);
-                }
+        for (GovernanceWorkItem existing : existingItems) {
+            if (existing == null || !StringUtils.hasText(existing.getWorkStatus()) || STATUS_CLOSED.equals(existing.getWorkStatus())) {
+                continue;
+            }
+            Map<String, GovernanceWorkItemCommand> desiredItems = desiredByCode.get(existing.getWorkItemCode());
+            if (desiredItems == null) {
+                continue;
+            }
+            if (!desiredItems.containsKey(naturalKey(existing.getWorkItemCode(), existing.getSubjectType(), existing.getSubjectId()))) {
+                GovernanceWorkItem update = new GovernanceWorkItem();
+                update.setId(existing.getId());
+                update.setWorkStatus(STATUS_RESOLVED);
+                update.setResolvedTime(new Date());
+                update.setUpdateBy(1L);
+                workItemMapper.updateById(update);
             }
         }
+    }
+
+    private void syncContributedCommand(GovernanceWorkItemCommand command, GovernanceWorkItem existing) {
+        GovernanceWorkItemCommand normalized = requireCommand(command);
+        if (existing == null) {
+            GovernanceWorkItem item = new GovernanceWorkItem();
+            item.setWorkItemCode(normalized.workItemCode());
+            item.setSubjectType(normalized.subjectType());
+            item.setSubjectId(normalized.subjectId());
+            item.setProductId(normalized.productId());
+            item.setRiskMetricId(normalized.riskMetricId());
+            item.setReleaseBatchId(normalized.releaseBatchId());
+            item.setApprovalOrderId(normalized.approvalOrderId());
+            item.setTraceId(normalize(normalized.traceId()));
+            item.setDeviceCode(normalize(normalized.deviceCode()));
+            item.setProductKey(normalize(normalized.productKey()));
+            item.setAssigneeUserId(normalized.assigneeUserId());
+            item.setSourceStage(normalize(normalized.sourceStage()));
+            item.setBlockingReason(normalize(normalized.blockingReason()));
+            item.setSnapshotJson(normalize(normalized.snapshotJson()));
+            item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
+            item.setWorkStatus(STATUS_OPEN);
+            item.setCreateBy(normalized.operatorUserId());
+            item.setUpdateBy(normalized.operatorUserId());
+            item.setDeleted(0);
+            workItemMapper.insert(item);
+            return;
+        }
+
+        GovernanceWorkItem refreshed = new GovernanceWorkItem();
+        refreshed.setId(existing.getId());
+        refreshed.setProductId(normalized.productId());
+        refreshed.setRiskMetricId(normalized.riskMetricId());
+        refreshed.setReleaseBatchId(normalized.releaseBatchId());
+        refreshed.setApprovalOrderId(normalized.approvalOrderId());
+        refreshed.setTraceId(normalize(normalized.traceId()));
+        refreshed.setDeviceCode(normalize(normalized.deviceCode()));
+        refreshed.setProductKey(normalize(normalized.productKey()));
+        refreshed.setAssigneeUserId(normalized.assigneeUserId());
+        refreshed.setSourceStage(normalize(normalized.sourceStage()));
+        refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
+        refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
+        refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
+        refreshed.setWorkStatus(resolveWorkStatus(existing));
+        refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
+        refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
+        refreshed.setUpdateBy(normalized.operatorUserId());
+        if (!shouldReopen(existing) && existing.getAssigneeUserId() != null && normalized.assigneeUserId() == null) {
+            refreshed.setAssigneeUserId(existing.getAssigneeUserId());
+        }
+        workItemMapper.updateById(refreshed);
     }
 
     private GovernanceWorkItem requireByNaturalKey(String workItemCode, String subjectType, Long subjectId) {

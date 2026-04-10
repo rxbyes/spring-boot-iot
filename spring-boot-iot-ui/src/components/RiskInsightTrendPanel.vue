@@ -15,7 +15,11 @@
           <strong>{{ group.title }}</strong>
         </header>
 
-        <div :ref="(element) => registerChartRef(group.key, element)" class="trend-group__chart" />
+        <div
+          :ref="(element) => registerChartRef(group.key, element)"
+          class="trend-group__chart"
+          :class="{ 'trend-group__chart--compact': shouldCompactGroup(group) }"
+        />
       </section>
     </div>
     <div v-else class="empty-state">{{ emptyMessage }}</div>
@@ -206,17 +210,21 @@ function renderGroupChart(group: TrendGroup, colorOffset: number) {
       formatter: (params: Array<Record<string, unknown>>) => formatTooltip(params)
     },
     legend: {
-      top: 0,
+      type: 'scroll',
+      top: 4,
+      left: 20,
+      right: 20,
+      itemGap: 16,
       data: group.series.map((series) => series.displayName),
       textStyle: {
         color: '#5a6d85'
       }
     },
     grid: {
-      top: 42,
-      right: 18,
-      bottom: 24,
-      left: 16,
+      top: 64,
+      right: 24,
+      bottom: 52,
+      left: 28,
       containLabel: true
     },
     xAxis: {
@@ -225,7 +233,8 @@ function renderGroupChart(group: TrendGroup, colorOffset: number) {
       data: axisLabels,
       axisLabel: {
         color: '#6c7e97',
-        hideOverlap: true
+        hideOverlap: true,
+        margin: 16
       },
       axisLine: {
         lineStyle: {
@@ -305,7 +314,8 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
     const seriesName = String(item.seriesName ?? '');
     const data = item.data as { value?: number; filled?: boolean; statusText?: string } | undefined;
     const value = data?.value ?? 0;
-    const labelValue = data?.statusText || resolveBinaryStatusTextFromSemanticSource(seriesName, Number(value)) || value;
+    const binaryStatusText = data?.filled ? '' : resolveBinaryStatusTextFromSemanticSource(seriesName, Number(value));
+    const labelValue = data?.statusText || binaryStatusText || value;
     return `${marker}${seriesName}：${labelValue}`;
   });
   return [axisValue, ...lines].join('<br/>');
@@ -388,7 +398,7 @@ function resolveBinaryStatusTextFromSemanticSource(semanticSource: string, numer
   if (/(switch|enable|open|close|relay|valve|pump|door|light|horn|开关|启停|开启|关闭|阀|泵|门|声光)/.test(normalizedSource)) {
     return numericValue === 1 ? '开启' : '关闭';
   }
-  return numericValue === 1 ? '是' : '否';
+  return '';
 }
 
 function buildYAxisConfig(group: TrendGroup) {
@@ -416,19 +426,33 @@ function buildYAxisConfig(group: TrendGroup) {
         series.buckets.map((bucket) => bucket.filled ? STATUS_EVENT_MISSING_SENTINEL : Number(bucket.value))
       )
       .filter((value) => Number.isFinite(value));
+    const visibleStatusValues = new Set(
+      visualValues
+        .map((value) => Math.round(value))
+        .filter((value) => Number.isFinite(value))
+    );
     if (!visualValues.length) {
       return baseConfig;
     }
 
+    const minValue = Math.floor(Math.min(...visualValues)) - 1;
+    const maxValue = Math.ceil(Math.max(...visualValues)) + 1;
+
     return {
       ...baseConfig,
-      min: Math.floor(Math.min(...visualValues)),
-      max: Math.ceil(Math.max(...visualValues)),
+      min: minValue,
+      max: maxValue,
       interval: 1,
-      splitNumber: Math.min(4, Math.max(1, Math.ceil(Math.max(...visualValues) - Math.min(...visualValues)))),
+      splitNumber: Math.min(5, Math.max(2, maxValue - minValue)),
       axisLabel: {
         ...baseConfig.axisLabel,
-        formatter: (value: number) => resolveStatusEventText(Number(value), Number(value) === STATUS_EVENT_MISSING_SENTINEL)
+        formatter: (value: number) => {
+          const roundedValue = Math.round(Number(value));
+          if (!visibleStatusValues.has(roundedValue)) {
+            return '';
+          }
+          return resolveStatusEventText(roundedValue, roundedValue === STATUS_EVENT_MISSING_SENTINEL);
+        }
       }
     };
   }
@@ -441,10 +465,9 @@ function buildYAxisConfig(group: TrendGroup) {
   const maxValue = Math.max(...values);
   const dataSpan = maxValue - minValue;
   const midpoint = (maxValue + minValue) / 2;
-  const targetSpan = dataSpan === 0
-    ? Math.max(Math.abs(midpoint) * 0.12, midpoint === 0 ? 1 : Math.abs(midpoint) * 0.04)
-    : Math.max(dataSpan * 1.8, Math.abs(midpoint) * 0.01);
-  const padding = Math.max((targetSpan - dataSpan) / 2, 0);
+  const padding = dataSpan === 0
+    ? Math.max(Math.abs(midpoint) * 0.002, midpoint === 0 ? 1 : 0.2)
+    : Math.max(dataSpan * 0.4, Math.abs(midpoint) * 0.0005, 0.02);
 
   return {
     ...baseConfig,
@@ -484,6 +507,22 @@ function isRuntimeStatusGroup(group: TrendGroup) {
   return group.key === 'status'
     || group.key === 'status-runtime'
     || group.key === 'runtime';
+}
+
+function shouldCompactGroup(group: TrendGroup) {
+  if (!isStatusEventGroup(group)) {
+    return false;
+  }
+  const uniqueValues = new Set(
+    group.series
+      .flatMap((series) =>
+        series.buckets
+          .filter((bucket) => bucket.filled === false)
+          .map((bucket) => Number(bucket.value))
+      )
+      .filter((value) => Number.isFinite(value))
+  );
+  return uniqueValues.size <= 2;
 }
 
 </script>
@@ -533,6 +572,10 @@ function isRuntimeStatusGroup(group: TrendGroup) {
 .trend-group__chart {
   width: 100%;
   height: 20rem;
+}
+
+.trend-group__chart--compact {
+  height: 15rem;
 }
 
 @media (max-width: 1024px) {

@@ -135,6 +135,7 @@
               <StandardTableTextColumn prop="identifier" label="标识符" :min-width="180" />
               <StandardTableTextColumn prop="displayName" label="属性名称" :min-width="160" />
               <StandardTableTextColumn prop="propertyValue" label="当前值" :min-width="140" />
+              <StandardTableTextColumn prop="displayUnit" label="单位" :min-width="100" />
               <StandardTableTextColumn prop="valueType" label="类型" :min-width="120" />
               <StandardTableTextColumn prop="displayTime" label="更新时间" :min-width="180" />
             </el-table>
@@ -162,7 +163,7 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import type { Device, DeviceProperty } from '@/types/api';
+import type { Device, DeviceProperty, ProductModel } from '@/types/api';
 import { formatDateTime } from '@/utils/format';
 import {
   DEFAULT_INSIGHT_RANGE,
@@ -226,6 +227,8 @@ const riskBindings = ref<RiskMonitoringListItem[]>([]);
 const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const capabilityProfile = ref<InsightCapabilityProfile>(getInsightCapabilityProfile({}));
 const trendGroups = ref<InsightTrendGroup[]>([]);
+const productModelDisplayNameMap = ref<Map<string, string>>(new Map());
+const productModelUnitMap = ref<Map<string, string>>(new Map());
 const lastFetchTime = ref<string | null>(null);
 const requestVersion = ref(0);
 let syncingRoute = false;
@@ -279,7 +282,15 @@ const snapshotMetrics = computed(() =>
     const property = propertyMap.value.get(metric.identifier);
     const series = trendSeriesMap.value.get(metric.identifier);
     return {
-      label: resolveInsightMetricDisplayName(metric.identifier, metric.displayName || property?.propertyName),
+      label: appendUnitToDisplayName(
+        resolveMetricBaseName(
+          metric.identifier,
+          productModelDisplayNameMap.value.get(metric.identifier),
+          metric.displayName,
+          property?.propertyName
+        ),
+        resolveMetricUnit(metric.identifier, property)
+      ),
       value: property?.propertyValue || resolveLatestTrendValue(series)
     };
   })
@@ -346,7 +357,12 @@ const analysisParagraphs = computed<NarrativeBlock[]>(() => {
 const propertyTableRows = computed(() =>
   properties.value.map((item) => ({
     ...item,
-    displayName: resolveInsightMetricDisplayName(item.identifier, item.propertyName),
+    displayName: resolveMetricBaseName(
+      item.identifier,
+      productModelDisplayNameMap.value.get(item.identifier),
+      item.propertyName
+    ),
+    displayUnit: resolvePropertyUnit(item),
     displayTime: formatDateTime(item.updateTime || item.reportTime)
   }))
 );
@@ -425,14 +441,14 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     device.value = deviceResponse.data;
 
-    const [propertyResponse, bindingResponse, productMetadataJson] = await Promise.all([
+    const [propertyResponse, bindingResponse, productInsightSupplement] = await Promise.all([
       getDeviceProperties(code),
       getRiskMonitoringList({
         deviceCode: code,
         pageNum: 1,
         pageSize: 50
       }),
-      loadProductMetadataJson(deviceResponse.data?.productId)
+      loadProductInsightSupplement(deviceResponse.data?.productId)
     ]);
     if (version !== requestVersion.value) {
       return;
@@ -440,6 +456,8 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     properties.value = propertyResponse.data ?? [];
     riskBindings.value = bindingResponse.data.records ?? [];
+    productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
+    productModelUnitMap.value = productInsightSupplement.modelUnitMap;
 
     const primaryBinding = pickPrimaryBinding(riskBindings.value);
     if (primaryBinding) {
@@ -460,7 +478,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
       riskPointName: riskDetail.value?.riskPointName,
       properties: properties.value,
       deviceMetadataJson: device.value?.metadataJson,
-      productMetadataJson
+      productMetadataJson: productInsightSupplement.metadataJson
     });
 
     if (device.value?.id && capabilityProfile.value.historyIdentifiers.length) {
@@ -503,6 +521,8 @@ function resetInsightState() {
   riskBindings.value = [];
   riskDetail.value = null;
   trendGroups.value = [];
+  productModelDisplayNameMap.value = new Map();
+  productModelUnitMap.value = new Map();
   lastFetchTime.value = null;
 }
 
@@ -532,11 +552,19 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
           if (!point) {
             return null;
           }
+          const property = propertyMap.value.get(identifier);
+          const profileDisplayName = resolveDisplayName(profile, identifier);
           return {
             identifier,
-            displayName: resolveInsightMetricDisplayName(
-              identifier,
-              point.displayName || propertyMap.value.get(identifier)?.propertyName || resolveDisplayName(profile, identifier)
+            displayName: appendUnitToDisplayName(
+              resolveMetricBaseName(
+                identifier,
+                productModelDisplayNameMap.value.get(identifier),
+                profileDisplayName,
+                property?.propertyName,
+                point.displayName
+              ),
+              resolveMetricUnit(identifier, property)
             ),
             seriesType: resolveTrendSeriesType(point.seriesType, group.key),
             buckets: point.buckets ?? []
@@ -644,11 +672,15 @@ function isStatusEventSeries(series: InsightTrendSeries) {
 function resolveDisplayName(profile: InsightCapabilityProfile, identifier: string) {
   const heroMetric = profile.heroMetrics.find((item) => item.identifier === identifier);
   if (heroMetric) {
-    return resolveInsightMetricDisplayName(identifier, heroMetric.displayName);
+    return resolveMetricBaseName(identifier, heroMetric.displayName);
   }
   const extensionMetric = profile.extensionParameters.find((item) => item.identifier === identifier);
   if (extensionMetric) {
-    return resolveInsightMetricDisplayName(identifier, extensionMetric.displayName);
+    return resolveMetricBaseName(identifier, extensionMetric.displayName);
+  }
+  const productModelDisplayName = productModelDisplayNameMap.value.get(identifier);
+  if (productModelDisplayName) {
+    return resolveMetricBaseName(identifier, productModelDisplayName);
   }
   return identifier;
 }
@@ -661,17 +693,114 @@ function resolveLatestTrendValue(series?: InsightTrendSeries) {
   return String(latestBucket.value);
 }
 
-async function loadProductMetadataJson(productId?: string | number | null) {
+function resolvePropertyUnit(item: DeviceProperty) {
+  return resolveMetricUnit(item.identifier, item) || '--';
+}
+
+async function loadProductInsightSupplement(productId?: string | number | null) {
+  const emptySupplement = {
+    metadataJson: null as string | null,
+    modelDisplayNameMap: new Map<string, string>(),
+    modelUnitMap: new Map<string, string>()
+  };
   if (productId === undefined || productId === null || productId === '') {
+    return emptySupplement;
+  }
+  try {
+    const [productResult, modelResult] = await Promise.allSettled([
+      productApi.getProductById(productId),
+      productApi.listProductModels(productId)
+    ]);
+    return {
+      metadataJson: productResult.status === 'fulfilled' && productResult.value.code === 200
+        ? productResult.value.data?.metadataJson ?? null
+        : null,
+      modelDisplayNameMap: buildProductModelDisplayNameMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      ),
+      modelUnitMap: buildProductModelUnitMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      )
+    };
+  } catch (error) {
+    console.warn('对象洞察产品配置补充失败', error);
+    return emptySupplement;
+  }
+}
+
+function buildProductModelDisplayNameMap(models: ProductModel[]) {
+  const map = new Map<string, string>();
+  models.forEach((model) => {
+    const displayName = normalizeText(model.modelName);
+    if (displayName) {
+      map.set(model.identifier, displayName);
+    }
+  });
+  return map;
+}
+
+function buildProductModelUnitMap(models: ProductModel[]) {
+  const map = new Map<string, string>();
+  models.forEach((model) => {
+    const unit = resolveProductModelUnit(model);
+    if (unit) {
+      map.set(model.identifier, unit);
+    }
+  });
+  return map;
+}
+
+function resolveProductModelUnit(model: ProductModel) {
+  return normalizeText(parseSpecsJson(model.specsJson)?.unit);
+}
+
+function resolveMetricBaseName(identifier: string, ...candidates: Array<unknown>) {
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeText(candidate);
+    if (!normalizedCandidate) {
+      continue;
+    }
+    const resolved = resolveInsightMetricDisplayName(identifier, normalizedCandidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return resolveInsightMetricDisplayName(identifier);
+}
+
+function resolveMetricUnit(identifier: string, property?: DeviceProperty | null) {
+  return normalizeText(property?.unit) || productModelUnitMap.value.get(identifier) || '';
+}
+
+function appendUnitToDisplayName(displayName: string, unit?: string) {
+  const normalizedDisplayName = normalizeText(displayName);
+  const normalizedUnit = normalizeText(unit);
+  if (!normalizedDisplayName || !normalizedUnit || normalizedDisplayName.includes(normalizedUnit)) {
+    return normalizedDisplayName;
+  }
+  return `${normalizedDisplayName}（${normalizedUnit}）`;
+}
+
+function parseSpecsJson(specsJson?: string | null) {
+  if (!specsJson) {
     return null;
   }
   try {
-    const response = await productApi.getProductById(productId);
-    return response.code === 200 ? response.data?.metadataJson ?? null : null;
-  } catch (error) {
-    console.warn('对象洞察产品配置补充失败', error);
+    const parsed = JSON.parse(specsJson);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
     return null;
   }
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
 function getRangeLabel(rangeCode: InsightRangeCode) {

@@ -443,8 +443,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             String identifier = requireMetricText(metricNode, "identifier", "对象洞察指标标识不能为空");
             requireMetricText(metricNode, "displayName", "对象洞察指标中文名称不能为空");
             String group = requireMetricText(metricNode, "group", "对象洞察指标分组不能为空");
-            if (!"measure".equals(group) && !"status".equals(group)) {
-                throw new BizException("对象洞察指标分组仅支持 measure 或 status");
+            if (!"measure".equals(group) && !"status".equals(group) && !"runtime".equals(group)) {
+                throw new BizException("对象洞察指标分组仅支持 measure、status 或 runtime");
             }
             if (!identifiers.add(identifier)) {
                 throw new BizException("对象洞察自定义指标标识符不能重复: " + identifier);

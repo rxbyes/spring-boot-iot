@@ -90,6 +90,67 @@ class LegacyDpChildMessageSplitterTest {
     }
 
     @Test
+    void shouldSplitMappedDeepDisplacementChildrenAndMirrorSensorState() {
+        IotProperties iotProperties = new IotProperties();
+        IotProperties.Device device = new IotProperties.Device();
+        device.setSubDeviceMappings(Map.of(
+                "SK00FB0D1310195",
+                Map.of("L1_SW_1", "84330701", "L1_SW_2", "84330695")
+        ));
+        iotProperties.setDevice(device);
+
+        Object splitter = newInstance(
+                "com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpChildMessageSplitter",
+                new Class<?>[]{IotProperties.class},
+                iotProperties
+        );
+        Object normalizeResult = newInstance(
+                "com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult",
+                new Class<?>[0]
+        );
+
+        invoke(normalizeResult, "setProperties", new LinkedHashMap<>(Map.of(
+                "S1_ZT_1.temp", 26.4,
+                "S1_ZT_1.sensor_state.L1_SW_1", 0,
+                "S1_ZT_1.sensor_state.L1_SW_2", 1
+        )));
+        invoke(normalizeResult, "setTimestamp", LocalDateTime.of(2026, 4, 10, 8, 23, 10));
+        invoke(normalizeResult, "setMessageType", "status");
+        invoke(normalizeResult, "setFamilyCodes", List.of("S1_ZT_1"));
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setTenantId("1");
+        parentMessage.setProductKey("south_deep_displacement");
+        parentMessage.setDeviceCode("SK00FB0D1310195");
+        parentMessage.setMessageType("status");
+        parentMessage.setTopic("$dp");
+        parentMessage.setTimestamp(LocalDateTime.of(2026, 4, 10, 8, 23, 10));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        Map<String, Object> devicePayload = new LinkedHashMap<>();
+        devicePayload.put("S1_ZT_1", timestampPayload(Map.of(
+                "temp", 26.4,
+                "sensor_state", Map.of("L1_SW_1", 0, "L1_SW_2", 1)
+        )));
+        payload.put("SK00FB0D1310195", devicePayload);
+
+        Object result = invoke(splitter, "split", payload, parentMessage, normalizeResult);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parentProperties = (Map<String, Object>) invoke(result, "getProperties");
+        @SuppressWarnings("unchecked")
+        List<DeviceUpMessage> childMessages = (List<DeviceUpMessage>) invoke(result, "getChildMessages");
+
+        assertEquals(Boolean.TRUE, invoke(result, "getChildSplitApplied"));
+        assertEquals(2, childMessages.size());
+        assertEquals(Map.of("sensor_state", 0), childMessages.get(0).getProperties());
+        assertEquals(Map.of("sensor_state", 1), childMessages.get(1).getProperties());
+        assertEquals(26.4, parentProperties.get("S1_ZT_1.temp"));
+        assertFalse(parentProperties.containsKey("S1_ZT_1.sensor_state.L1_SW_1"));
+        assertFalse(parentProperties.containsKey("S1_ZT_1.sensor_state.L1_SW_2"));
+    }
+
+    @Test
     void shouldCollapseSingleDeepDisplacementLogicalCodeWhenNoSubDeviceMappingExists() {
         IotProperties iotProperties = new IotProperties();
         Object splitter = newInstance(

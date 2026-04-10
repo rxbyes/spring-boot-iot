@@ -58,6 +58,82 @@
             <strong>{{ selectedApplyItems.length }}</strong>
           </article>
         </div>
+
+        <section
+          v-if="latestReleaseBatchId"
+          class="product-model-designer__rollback-preview"
+          data-testid="contract-field-rollback-preview"
+        >
+          <div class="product-model-designer__rollback-preview-head">
+            <div>
+              <strong>回滚试算</strong>
+              <p>基于最新发布批次快照，预估回滚后会删除、恢复或回退哪些正式字段。</p>
+            </div>
+            <span>批次 {{ latestReleaseBatchId }}</span>
+          </div>
+
+          <p v-if="rollbackPreviewLoading" class="product-model-designer__detail-tip">正在加载回滚试算...</p>
+          <p v-else-if="rollbackPreviewErrorMessage" class="product-model-designer__detail-tip">{{ rollbackPreviewErrorMessage }}</p>
+          <template v-else-if="rollbackPreview">
+            <div class="product-model-designer__receipt">
+              <article class="product-model-designer__summary-card">
+                <span>将删除</span>
+                <strong>{{ `将删除 ${rollbackPreview.addedCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>将恢复</span>
+                <strong>{{ `将恢复 ${rollbackPreview.removedCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>将回退</span>
+                <strong>{{ `将回退 ${rollbackPreview.changedCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>无需处理</span>
+                <strong>{{ `无需处理 ${rollbackPreview.unchangedCount ?? 0}` }}</strong>
+              </article>
+            </div>
+
+            <div
+              v-if="rollbackPreview.dependencySummary"
+              class="product-model-designer__receipt"
+              data-testid="contract-field-rollback-dependency-summary"
+            >
+              <article class="product-model-designer__summary-card">
+                <span>受影响风险指标</span>
+                <strong>{{ `受影响风险指标 ${rollbackPreview.dependencySummary.affectedRiskMetricCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响风险点绑定</span>
+                <strong>{{ `受影响风险点绑定 ${rollbackPreview.dependencySummary.affectedRiskPointBindingCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响阈值规则</span>
+                <strong>{{ `受影响阈值规则 ${rollbackPreview.dependencySummary.affectedRuleCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响联动</span>
+                <strong>{{ `受影响联动 ${rollbackPreview.dependencySummary.affectedLinkageBindingCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响预案</span>
+                <strong>{{ `受影响预案 ${rollbackPreview.dependencySummary.affectedEmergencyPlanBindingCount ?? 0}` }}</strong>
+              </article>
+            </div>
+
+            <div v-if="rollbackPreview.impactItems?.length" class="product-model-designer__rollback-preview-list">
+              <article
+                v-for="(item, index) in rollbackPreview.impactItems"
+                :key="`${item.identifier || '--'}-${item.changeType || '--'}-${index}`"
+                class="product-model-designer__rollback-preview-item"
+              >
+                <strong>{{ item.identifier || '--' }}</strong>
+                <span>{{ rollbackPreviewActionLabel(item.changeType) }} · {{ rollbackPreviewModelTypeLabel(item.modelType) }}</span>
+                <span v-if="item.changedFields?.length">差异字段 {{ item.changedFields.join(' / ') }}</span>
+              </article>
+            </div>
+          </template>
+        </section>
       </section>
 
       <section
@@ -458,6 +534,13 @@
                   placeholder="请输入正式中文名称"
                   @update:model-value="(value) => renamingModelName = typeof value === 'string' ? value : ''"
                 />
+                <ElInput
+                  v-if="model.modelType === 'property'"
+                  :model-value="renamingModelUnit"
+                  :data-testid="`formal-model-unit-input-${model.id}`"
+                  placeholder="请输入单位，例如 mm、m/s²"
+                  @update:model-value="(value) => renamingModelUnit = typeof value === 'string' ? value : ''"
+                />
                 <div class="product-model-designer__formal-rename-actions">
                   <StandardButton
                     :data-testid="`formal-model-name-save-${model.id}`"
@@ -502,6 +585,7 @@
             <div class="product-model-designer__formal-card-meta">
               <span>{{ model.modelType }}</span>
               <span>{{ model.dataType || model.eventType || formatServiceSummary(model) || '--' }}</span>
+              <span v-if="model.modelType === 'property'">单位 {{ resolveModelUnit(model) || '--' }}</span>
               <span>排序 {{ model.sortNo ?? '--' }}</span>
             </div>
             <div v-if="model.modelType === 'property'" class="product-model-designer__formal-card-actions">
@@ -570,10 +654,15 @@
 import { computed, nextTick, ref, watch } from 'vue'
 
 import StandardButton from '@/components/StandardButton.vue'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
 import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'
-import { productApi, type ProductContractReleaseRollbackResult } from '@/api/product'
+import {
+  productApi,
+  type ProductContractReleaseImpact,
+  type ProductContractReleaseRollbackResult
+} from '@/api/product'
 import type {
   GovernanceApprovalOrderDetail,
   GovernanceApprovalStatus,
@@ -657,6 +746,7 @@ const loading = ref(false)
 const compareLoading = ref(false)
 const applyLoading = ref(false)
 const rollbackLoading = ref(false)
+const rollbackPreviewLoading = ref(false)
 const relationLoading = ref(false)
 const loadErrorMessage = ref('')
 const samplePayloadError = ref('')
@@ -664,6 +754,8 @@ const models = ref<ProductModel[]>([])
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
 const rollbackResult = ref<ProductContractReleaseRollbackResult | null>(null)
+const rollbackPreview = ref<ProductContractReleaseImpact | null>(null)
+const rollbackPreviewErrorMessage = ref('')
 const applyApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const rollbackApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const governanceApproverId = ref('')
@@ -682,6 +774,7 @@ const applyResubmitLoading = ref(false)
 const rollbackResubmitLoading = ref(false)
 const renamingModelId = ref<IdType | null>(null)
 const renamingModelName = ref('')
+const renamingModelUnit = ref('')
 const renameSubmitting = ref(false)
 const productSnapshot = ref<Product | null>(null)
 const trendMetricSubmitting = ref(false)
@@ -853,13 +946,12 @@ watch(
 )
 
 function createRelationRow(): RelationMappingRow {
-  const fallbackStrategy = inferRelationStrategies()
   return {
     key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     logicalChannelCode: '',
     childDeviceCode: '',
-    canonicalizationStrategy: fallbackStrategy.canonicalizationStrategy,
-    statusMirrorStrategy: fallbackStrategy.statusMirrorStrategy
+    canonicalizationStrategy: '',
+    statusMirrorStrategy: ''
   }
 }
 
@@ -914,12 +1006,32 @@ async function loadModels(productId: string | number) {
     ])
     models.value = modelResponse.data ?? []
     latestReleaseBatchId.value = releaseResponse.data?.records?.[0]?.id ?? null
+    await loadRollbackPreview(latestReleaseBatchId.value)
   } catch (error) {
     models.value = []
     latestReleaseBatchId.value = null
+    resetRollbackPreview()
     loadErrorMessage.value = error instanceof Error ? error.message : '加载产品物模型失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadRollbackPreview(batchId: IdType | null | undefined) {
+  if (batchId === undefined || batchId === null || batchId === '') {
+    resetRollbackPreview()
+    return
+  }
+  rollbackPreviewLoading.value = true
+  rollbackPreviewErrorMessage.value = ''
+  try {
+    const response = await productApi.getProductContractReleaseBatchImpact(batchId)
+    rollbackPreview.value = response.data ?? null
+  } catch (error) {
+    rollbackPreview.value = null
+    rollbackPreviewErrorMessage.value = error instanceof Error ? error.message : '回滚试算加载失败'
+  } finally {
+    rollbackPreviewLoading.value = false
   }
 }
 
@@ -959,11 +1071,27 @@ async function refreshRollbackApprovalDetail() {
 function startRenameModel(model: ProductModel) {
   renamingModelId.value = model.id ?? null
   renamingModelName.value = model.modelName?.trim() || model.identifier
+  renamingModelUnit.value = model.modelType === 'property' ? resolveModelUnit(model) : ''
 }
 
 function cancelRenameModel() {
   renamingModelId.value = null
   renamingModelName.value = ''
+  renamingModelUnit.value = ''
+}
+
+function showRequestErrorMessage(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
+}
+
+function showRequestWarningMessage(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.warning(resolveRequestErrorMessage(error, fallbackMessage))
 }
 
 async function handleRenameModel(model: ProductModel) {
@@ -976,14 +1104,19 @@ async function handleRenameModel(model: ProductModel) {
     ElMessage.warning('正式字段名称不能为空')
     return
   }
+  const nextModelUnit = model.modelType === 'property' ? renamingModelUnit.value.trim() : ''
+  const nextSpecsJson = model.modelType === 'property'
+    ? buildUpdatedModelSpecsJson(model, nextModelUnit)
+    : model.specsJson || undefined
   renameSubmitting.value = true
   try {
+    const currentProduct = productSnapshot.value ?? props.product
     const response = await productApi.updateProductModel(productId, model.id, {
       modelType: model.modelType,
       identifier: model.identifier,
       modelName: nextModelName,
       dataType: model.dataType || undefined,
-      specsJson: model.specsJson || undefined,
+      specsJson: nextSpecsJson,
       eventType: model.eventType || undefined,
       serviceInputJson: model.serviceInputJson || undefined,
       serviceOutputJson: model.serviceOutputJson || undefined,
@@ -991,9 +1124,11 @@ async function handleRenameModel(model: ProductModel) {
       requiredFlag: model.requiredFlag ?? undefined,
       description: model.description || undefined
     })
-    const updatedModel = response.data ?? {
+    const updatedModel = {
       ...model,
-      modelName: nextModelName
+      ...response.data,
+      modelName: response.data?.modelName ?? nextModelName,
+      specsJson: response.data?.specsJson ?? nextSpecsJson ?? null
     }
     models.value = models.value.map((item) =>
       String(item.id) === String(model.id)
@@ -1003,10 +1138,30 @@ async function handleRenameModel(model: ProductModel) {
           }
         : item
     )
-    ElMessage.success('正式字段名称已更新')
+    const matchedMetric = resolveTrendMetricConfig(model)
+    if (currentProduct?.id && matchedMetric) {
+      try {
+        const updatedProduct = await updateProductObjectInsightMetrics(
+          currentProduct,
+          trendMetricRows.value.map((item) =>
+            item.identifier === model.identifier
+              ? {
+                  ...item,
+                  displayName: nextModelName
+                }
+              : item
+          )
+        )
+        productSnapshot.value = updatedProduct
+        emit('product-updated', updatedProduct)
+      } catch (error) {
+        showRequestWarningMessage(error, '正式字段名称已更新，但对象洞察配置同步失败')
+      }
+    }
+    ElMessage.success(model.modelType === 'property' ? '正式字段名称与单位已更新' : '正式字段名称已更新')
     cancelRenameModel()
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '更新正式字段名称失败')
+    showRequestErrorMessage(error, '更新正式字段名称或单位失败')
   } finally {
     renameSubmitting.value = false
   }
@@ -1449,6 +1604,38 @@ function resolveApproverUserId() {
   return normalized
 }
 
+function resolveModelUnit(model: ProductModel) {
+  return normalizeOptionalText(parseSpecsJsonObject(model.specsJson)?.unit)
+}
+
+function buildUpdatedModelSpecsJson(model: ProductModel, unit: string) {
+  const specs = parseSpecsJsonObject(model.specsJson) ?? {}
+  if (unit) {
+    specs.unit = unit
+  } else {
+    delete specs.unit
+  }
+  return Object.keys(specs).length ? JSON.stringify(specs) : undefined
+}
+
+function parseSpecsJsonObject(specsJson?: string | null) {
+  if (!specsJson) {
+    return null
+  }
+  try {
+    const parsed = JSON.parse(specsJson)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null
+  } catch {
+    return null
+  }
+}
+
+function normalizeOptionalText(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
 function approvalStatusLabel(status: GovernanceApprovalStatus | null | undefined) {
   return {
     PENDING: '待审批',
@@ -1537,10 +1724,17 @@ function resolveApprovalComment(
   return transition?.transitionComment?.trim() || detail.order?.approvalComment?.trim() || ''
 }
 
+function resetRollbackPreview() {
+  rollbackPreview.value = null
+  rollbackPreviewLoading.value = false
+  rollbackPreviewErrorMessage.value = ''
+}
+
 function resetSession() {
   compareResult.value = null
   applyResult.value = null
   rollbackResult.value = null
+  resetRollbackPreview()
   applyApprovalDetail.value = null
   rollbackApprovalDetail.value = null
   applyApprovalLoading.value = false
@@ -1559,17 +1753,50 @@ function resetSession() {
   cancelRenameModel()
 }
 
+function rollbackPreviewActionLabel(changeType?: string | null) {
+  switch (changeType) {
+    case 'ADDED':
+      return '回滚后删除'
+    case 'REMOVED':
+      return '回滚后恢复'
+    case 'UPDATED':
+      return '回滚后回退'
+    case 'UNCHANGED':
+      return '无需处理'
+    default:
+      return changeType || '--'
+  }
+}
+
+function rollbackPreviewModelTypeLabel(modelType?: string | null) {
+  switch (modelType) {
+    case 'property':
+      return '属性'
+    case 'event':
+      return '事件'
+    case 'service':
+      return '服务'
+    default:
+      return modelType || '--'
+  }
+}
+
 function inferRelationStrategies(
   logicalChannelCode?: string,
   canonicalizationStrategy?: string,
   statusMirrorStrategy?: string
 ) {
   const normalizedLogicalChannelCode = logicalChannelCode?.trim().toUpperCase() ?? ''
-  const inferredStrategy = /LF/.test(normalizedLogicalChannelCode)
+  const inferredStrategy = normalizedLogicalChannelCode.includes('_LF_')
     ? {
         canonicalizationStrategy: 'LF_VALUE',
         statusMirrorStrategy: 'SENSOR_STATE'
       }
+    : normalizedLogicalChannelCode.includes('_SW_')
+      ? {
+          canonicalizationStrategy: 'LEGACY',
+          statusMirrorStrategy: 'SENSOR_STATE'
+        }
     : {
         canonicalizationStrategy: 'LEGACY',
         statusMirrorStrategy: 'NONE'
@@ -1679,6 +1906,56 @@ function inferRelationStrategies(
   grid-column: 1 / -1;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: 0.72rem;
+}
+
+.product-model-designer__rollback-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.78rem;
+  background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__rollback-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.product-model-designer__rollback-preview-head strong,
+.product-model-designer__rollback-preview-item strong {
+  color: var(--text-heading);
+}
+
+.product-model-designer__rollback-preview-head p,
+.product-model-designer__detail-tip {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.56;
+}
+
+.product-model-designer__rollback-preview-head span,
+.product-model-designer__rollback-preview-item span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.56;
+}
+
+.product-model-designer__rollback-preview-list {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.product-model-designer__rollback-preview-item {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.8rem 0.88rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: 0.72rem;
+  background: white;
 }
 
 .product-model-designer__summary-card,
@@ -1936,6 +2213,7 @@ function inferRelationStrategies(
 @media (max-width: 720px) {
   .product-model-designer__approval-head,
   .product-model-designer__approval-inline,
+  .product-model-designer__rollback-preview-head,
   .product-model-designer__relation-head,
   .product-model-designer__apply-footer,
   .product-model-designer__stage-head,

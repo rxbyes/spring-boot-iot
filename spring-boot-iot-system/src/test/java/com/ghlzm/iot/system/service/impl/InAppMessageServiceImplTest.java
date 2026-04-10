@@ -105,6 +105,24 @@ class InAppMessageServiceImplTest {
     }
 
     @Test
+    void shouldIgnoreUnknownMessageTypeBucketsWhenAggregatingUnreadStats() {
+        Long userId = 2L;
+        when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));
+        when(inAppMessageMapper.selectList(any())).thenReturn(List.of(
+                message(111L, null, "high", "all", null, null),
+                message(112L, "system", "medium", "all", null, null)
+        ));
+        when(inAppMessageReadMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        InAppMessageUnreadStatsVO stats = inAppMessageService.getMyUnreadStats(userId);
+
+        assertEquals(2L, stats.getTotalUnreadCount());
+        assertEquals(1L, stats.getSystemUnreadCount());
+        assertEquals(0L, stats.getBusinessUnreadCount());
+        assertEquals(0L, stats.getErrorUnreadCount());
+    }
+
+    @Test
     void shouldQueryUnreadStatsWithoutSelectingMessageBodyColumns() {
         Long userId = 2L;
         when(permissionService.getUserAuthContext(userId)).thenReturn(authContext(userId, 1L, "BUSINESS_STAFF"));

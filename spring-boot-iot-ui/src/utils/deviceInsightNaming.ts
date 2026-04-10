@@ -12,6 +12,12 @@ const FIXED_DISPLAY_NAME_RULES: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /^L\d+_JS_\d+\.gZ$/i, label: 'Z轴加速度' }
 ];
 
+const RAW_PROPERTY_NAME_RULES: RegExp[] = [
+  /^\d+号倾角测点(angle|AZI|X|Y|Z)$/i,
+  /^\d+号加速度测点g[XYZ]$/i,
+  /^\d+号裂缝测点value$/i
+];
+
 const PRIORITY_BOOST_RULES: Array<{ pattern: RegExp; priority: number }> = [
   { pattern: /^L\d+_LF_\d+\.value$/i, priority: 320 },
   { pattern: /^L\d+_QJ_\d+\.angle$/i, priority: 260 },
@@ -25,16 +31,23 @@ const PRIORITY_BOOST_RULES: Array<{ pattern: RegExp; priority: number }> = [
 ];
 
 export function resolveInsightMetricDisplayName(identifier: string, propertyName?: string | null) {
+  const normalizedPropertyName = propertyName?.trim();
+  if (normalizedPropertyName && !/^value$/i.test(normalizedPropertyName) && !isRawPropertyName(normalizedPropertyName)) {
+    return normalizedPropertyName;
+  }
+
   const fixedLabel = FIXED_DISPLAY_NAME_RULES.find((item) => item.pattern.test(identifier))?.label;
   if (fixedLabel) {
     return fixedLabel;
   }
-
-  const normalizedPropertyName = propertyName?.trim();
-  if (!normalizedPropertyName || /^value$/i.test(normalizedPropertyName)) {
-    return identifier;
+  if (normalizedPropertyName) {
+    return normalizedPropertyName;
   }
-  return normalizedPropertyName;
+  return identifier;
+}
+
+function isRawPropertyName(propertyName: string) {
+  return RAW_PROPERTY_NAME_RULES.some((pattern) => pattern.test(propertyName));
 }
 
 export function getInsightMetricPriorityBoost(identifier: string) {

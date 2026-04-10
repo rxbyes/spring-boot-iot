@@ -1026,3 +1026,64 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 26. 浏览器自动化巡检记录（2026-04-10）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-10 11:42:22（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery`  
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260410114222.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260410114222.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260410114222.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260410114222/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`3`
+- 失败：`1`
+- 交付范围：`3` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：治理任务台共享 dev 冒烟 巡检失败
+
+- 场景：`governance-task-workbench`
+- 路由：`/governance-task?workStatus=OPEN&workItemCode=PENDING_CONTRACT_RELEASE`
+- 范围：`delivery`
+- 现象：治理任务分页 wait failed: page.waitForResponse: Timeout 15000ms exceeded while waiting for event "response"
+- 初步判断：后端接口或真实环境依赖异常，需要结合后端日志和共享库状态继续定位。
+- 证据：`logs/acceptance/governance-control-plane-browser-results-20260410114222.json`；`logs/acceptance/governance-control-plane-browser-screenshots-20260410114222/governance-task-workbench-fail.png`
+- 状态：待处理
+
+## 27. 浏览器自动化巡检记录（2026-04-10）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-10 12:33:10（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery`  
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260410123310.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260410123310.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260410123310.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260410123310/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

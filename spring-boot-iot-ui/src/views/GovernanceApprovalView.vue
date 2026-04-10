@@ -221,6 +221,32 @@
               </div>
             </div>
 
+            <div
+              v-if="detailImpact.dependencySummary"
+              class="governance-approval-impact-summary governance-approval-impact-summary--dependency"
+            >
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响风险指标</span>
+                <strong>{{ `受影响风险指标 ${detailImpact.dependencySummary.affectedRiskMetricCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响风险点绑定</span>
+                <strong>{{ `受影响风险点绑定 ${detailImpact.dependencySummary.affectedRiskPointBindingCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响阈值规则</span>
+                <strong>{{ `受影响阈值规则 ${detailImpact.dependencySummary.affectedRuleCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响联动</span>
+                <strong>{{ `受影响联动 ${detailImpact.dependencySummary.affectedLinkageBindingCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响预案</span>
+                <strong>{{ `受影响预案 ${detailImpact.dependencySummary.affectedEmergencyPlanBindingCount ?? 0}` }}</strong>
+              </div>
+            </div>
+
             <div v-if="detailImpact.impactItems?.length" class="governance-approval-impact-list">
               <article
                 v-for="(item, index) in detailImpact.impactItems"

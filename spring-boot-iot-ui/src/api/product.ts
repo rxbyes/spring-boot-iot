@@ -60,6 +60,14 @@ export interface ProductContractReleaseImpactItem {
   changedFields?: string[] | null
 }
 
+export interface ProductContractReleaseDependencySummary {
+  affectedRiskMetricCount?: number | null
+  affectedRiskPointBindingCount?: number | null
+  affectedRuleCount?: number | null
+  affectedLinkageBindingCount?: number | null
+  affectedEmergencyPlanBindingCount?: number | null
+}
+
 export interface ProductContractReleaseImpact {
   batchId?: IdType | null
   productId?: IdType | null
@@ -74,6 +82,7 @@ export interface ProductContractReleaseImpact {
   unchangedCount?: number | null
   comparedAt?: string | null
   impactItems?: ProductContractReleaseImpactItem[] | null
+  dependencySummary?: ProductContractReleaseDependencySummary | null
 }
 
 type ProductRequestOptions = Pick<RequestOptions, 'signal'>

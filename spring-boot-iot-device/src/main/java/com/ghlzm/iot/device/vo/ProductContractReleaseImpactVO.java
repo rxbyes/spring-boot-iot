@@ -36,6 +36,8 @@ public class ProductContractReleaseImpactVO {
 
     private List<ImpactItem> impactItems;
 
+    private DependencySummary dependencySummary;
+
     @Data
     public static class ImpactItem {
 
@@ -46,5 +48,19 @@ public class ProductContractReleaseImpactVO {
         private String identifier;
 
         private List<String> changedFields;
+    }
+
+    @Data
+    public static class DependencySummary {
+
+        private Long affectedRiskMetricCount;
+
+        private Long affectedRiskPointBindingCount;
+
+        private Long affectedRuleCount;
+
+        private Long affectedLinkageBindingCount;
+
+        private Long affectedEmergencyPlanBindingCount;
     }
 }

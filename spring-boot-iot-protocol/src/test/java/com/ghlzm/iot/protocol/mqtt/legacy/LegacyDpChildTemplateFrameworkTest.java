@@ -113,6 +113,44 @@ class LegacyDpChildTemplateFrameworkTest {
     }
 
     @Test
+    void shouldMirrorSensorStateWhenDeepDisplacementChildTemplateUsesSensorStateStrategy() {
+        Object registry = newInstance(REGISTRY_CLASS, new Class<?>[0]);
+        Object matcher = newInstance(MATCHER_CLASS, new Class<?>[]{loadClass(REGISTRY_CLASS)}, registry);
+        Object executor = newInstance(EXECUTOR_CLASS, new Class<?>[0]);
+        LegacyDpRelationRule relationRule = new LegacyDpRelationRule("L1_SW_1", "84330701", "LEGACY", "SENSOR_STATE");
+
+        Map<String, Object> parentProperties = new LinkedHashMap<>();
+        parentProperties.put("S1_ZT_1.sensor_state.L1_SW_1", 0);
+        Object context = newInstance(
+                CONTEXT_CLASS,
+                new Class<?>[]{LegacyDpRelationRule.class, String.class, Object.class, Map.class},
+                relationRule,
+                "L1_SW_1",
+                timestampPayload(Map.of("dispsX", -0.0445, "dispsY", 0.0293)),
+                parentProperties
+        );
+
+        Object matched = invoke(matcher, "match", context);
+        assertTrue((Boolean) invoke(matched, "isPresent"));
+
+        Object template = invoke(matched, "get");
+        Object execution = invoke(executor, "execute", template, context);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> childProperties = (Map<String, Object>) invoke(execution, "childProperties");
+        @SuppressWarnings("unchecked")
+        List<String> parentRemovalKeys = (List<String>) invoke(execution, "parentRemovalKeys");
+        @SuppressWarnings("unchecked")
+        List<Object> metricEvidence = (List<Object>) invoke(execution, "metricEvidence");
+
+        assertEquals(Map.of("dispsX", -0.0445, "dispsY", 0.0293, "sensor_state", 0), childProperties);
+        assertEquals(List.of("L1_SW_1", "S1_ZT_1.sensor_state.L1_SW_1"), parentRemovalKeys);
+        assertEquals(Boolean.TRUE, invoke(execution, "statusMirrorApplied"));
+        assertEquals(3, metricEvidence.size());
+        assertEquals("sensor_state", invoke(metricEvidence.get(2), "getCanonicalIdentifier"));
+    }
+
+    @Test
     void shouldLeaveUnsupportedPayloadShapeToCompatibilityFallback() {
         Object registry = newInstance(REGISTRY_CLASS, new Class<?>[0]);
         Object matcher = newInstance(MATCHER_CLASS, new Class<?>[]{loadClass(REGISTRY_CLASS)}, registry);

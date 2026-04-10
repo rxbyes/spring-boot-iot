@@ -16,6 +16,8 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.service.GovernanceImpactDependencyQueryService;
+import com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -47,6 +50,8 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
     private final ProductContractReleaseSnapshotMapper releaseSnapshotMapper;
     private final ProductModelMapper productModelMapper;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private GovernanceImpactDependencyQueryService impactDependencyQueryService =
+            (productId, contractIdentifiers) -> GovernanceImpactDependencySummary.empty();
 
     public ProductContractReleaseServiceImpl(ProductContractReleaseBatchMapper releaseBatchMapper,
                                              ProductContractReleaseSnapshotMapper releaseSnapshotMapper,
@@ -54,6 +59,13 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         this.releaseBatchMapper = releaseBatchMapper;
         this.releaseSnapshotMapper = releaseSnapshotMapper;
         this.productModelMapper = productModelMapper;
+    }
+
+    @Autowired(required = false)
+    void setImpactDependencyQueryService(GovernanceImpactDependencyQueryService impactDependencyQueryService) {
+        if (impactDependencyQueryService != null) {
+            this.impactDependencyQueryService = impactDependencyQueryService;
+        }
     }
 
     @Override
@@ -174,6 +186,10 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         impact.setUnchangedCount(unchangedCount);
         impact.setComparedAt(LocalDateTime.now());
         impact.setImpactItems(impactItems);
+        impact.setDependencySummary(toDependencySummary(impactDependencyQueryService.summarizeProductContractImpact(
+                batch.getProductId(),
+                collectImpactedContractIdentifiers(impactItems)
+        )));
         return impact;
     }
 
@@ -371,6 +387,34 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         item.setIdentifier(normalize(identifier));
         item.setChangedFields(changedFields == null ? List.of() : changedFields);
         return item;
+    }
+
+    private Set<String> collectImpactedContractIdentifiers(List<ProductContractReleaseImpactVO.ImpactItem> impactItems) {
+        if (impactItems == null || impactItems.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (ProductContractReleaseImpactVO.ImpactItem impactItem : impactItems) {
+            if (impactItem == null || !"property".equalsIgnoreCase(normalize(impactItem.getModelType()))) {
+                continue;
+            }
+            String identifier = normalize(impactItem.getIdentifier());
+            if (StringUtils.hasText(identifier)) {
+                identifiers.add(identifier);
+            }
+        }
+        return identifiers;
+    }
+
+    private ProductContractReleaseImpactVO.DependencySummary toDependencySummary(GovernanceImpactDependencySummary summary) {
+        GovernanceImpactDependencySummary safeSummary = summary == null ? GovernanceImpactDependencySummary.empty() : summary;
+        ProductContractReleaseImpactVO.DependencySummary dependencySummary = new ProductContractReleaseImpactVO.DependencySummary();
+        dependencySummary.setAffectedRiskMetricCount(safeSummary.affectedRiskMetricCount());
+        dependencySummary.setAffectedRiskPointBindingCount(safeSummary.affectedRiskPointBindingCount());
+        dependencySummary.setAffectedRuleCount(safeSummary.affectedRuleCount());
+        dependencySummary.setAffectedLinkageBindingCount(safeSummary.affectedLinkageBindingCount());
+        dependencySummary.setAffectedEmergencyPlanBindingCount(safeSummary.affectedEmergencyPlanBindingCount());
+        return dependencySummary;
     }
 
     private List<String> resolveChangedFields(ReleaseModelSnapshotItem before, ReleaseModelSnapshotItem after) {

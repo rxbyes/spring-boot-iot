@@ -304,7 +304,7 @@ class ProductModelServiceImplTest {
         manualExtract.setSampleType("business");
         manualExtract.setDeviceStructure("composite");
         manualExtract.setParentDeviceCode("SK00FB0D1310195");
-        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701", "LEGACY", "NONE")));
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701", "LEGACY", "SENSOR_STATE")));
         manualExtract.setSamplePayload("""
                 {"SK00FB0D1310195":{"L1_SW_1":{"2026-04-09T13:53:10.000Z":{"dispsX":-0.0166,"dispsY":-0.0368}}}}
                 """);
@@ -345,6 +345,34 @@ class ProductModelServiceImplTest {
                         .map(ProductModelGovernanceCompareRowVO::getIdentifier)
                         .toList()
         );
+    }
+
+    @Test
+    void compareGovernanceShouldInferDeepDisplacementSensorStateMirrorFromLogicalChannelCode() {
+        when(productMapper.selectById(4004L)).thenReturn(product(4004L, "nf-monitor-deep-displacement-v1", "南方测绘 深部位移"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00FB0D1310195");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701")));
+        manualExtract.setSamplePayload("""
+                {"SK00FB0D1310195":{"S1_ZT_1":{"2026-04-09T13:53:10.000Z":{"temp":19.0,"sensor_state":{"L1_SW_1":0}}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(4004L, dto);
+
+        assertEquals(
+                List.of("sensor_state"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .toList()
+        );
+        assertTrue(result.getCompareRows().stream().noneMatch(row -> "temp".equals(row.getIdentifier())));
     }
 
     @Test

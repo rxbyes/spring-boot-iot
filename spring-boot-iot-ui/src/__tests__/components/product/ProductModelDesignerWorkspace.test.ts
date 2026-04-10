@@ -1,12 +1,15 @@
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ElMessage } from 'element-plus'
 
 import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
+import { createRequestError } from '@/api/request'
 
 const {
   mockListProductModels,
   mockPageProductContractReleaseBatches,
+  mockGetProductContractReleaseBatchImpact,
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
   mockUpdateProduct,
@@ -19,6 +22,7 @@ const {
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
   mockPageProductContractReleaseBatches: vi.fn(),
+  mockGetProductContractReleaseBatchImpact: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
   mockUpdateProduct: vi.fn(),
@@ -34,6 +38,7 @@ vi.mock('@/api/product', () => ({
   productApi: {
     listProductModels: mockListProductModels,
     pageProductContractReleaseBatches: mockPageProductContractReleaseBatches,
+    getProductContractReleaseBatchImpact: mockGetProductContractReleaseBatchImpact,
     compareProductModelGovernance: mockCompareProductModelGovernance,
     applyProductModelGovernance: mockApplyProductModelGovernance,
     rollbackProductContractReleaseBatch: mockRollbackProductContractReleaseBatch,
@@ -176,6 +181,7 @@ describe('ProductModelDesignerWorkspace', () => {
   beforeEach(() => {
     mockListProductModels.mockReset()
     mockPageProductContractReleaseBatches.mockReset()
+    mockGetProductContractReleaseBatchImpact.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
     mockUpdateProduct.mockReset()
@@ -185,6 +191,9 @@ describe('ProductModelDesignerWorkspace', () => {
     mockGetGovernanceApprovalOrderDetail.mockReset()
     mockResubmitGovernanceApprovalOrder.mockReset()
     mockListDeviceRelations.mockReset()
+    vi.mocked(ElMessage.success).mockReset()
+    vi.mocked(ElMessage.error).mockReset()
+    vi.mocked(ElMessage.warning).mockReset()
 
     mockListProductModels.mockResolvedValue({
       code: 200,
@@ -196,6 +205,9 @@ describe('ProductModelDesignerWorkspace', () => {
           identifier: 'value',
           modelName: '裂缝值',
           dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: 'mm'
+          }),
           description: '正式字段'
         }
       ]
@@ -230,6 +242,38 @@ describe('ProductModelDesignerWorkspace', () => {
               modelName: '裂缝值',
               dataType: 'double'
             }
+          }
+        ]
+      }
+    })
+    mockGetProductContractReleaseBatchImpact.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchId: 99001,
+        addedCount: 1,
+        removedCount: 2,
+        changedCount: 3,
+        unchangedCount: 4,
+        dependencySummary: {
+          affectedRiskMetricCount: 2,
+          affectedRiskPointBindingCount: 3,
+          affectedRuleCount: 1,
+          affectedLinkageBindingCount: 1,
+          affectedEmergencyPlanBindingCount: 0
+        },
+        impactItems: [
+          {
+            changeType: 'ADDED',
+            modelType: 'property',
+            identifier: 'value',
+            changedFields: []
+          },
+          {
+            changeType: 'UPDATED',
+            modelType: 'property',
+            identifier: 'sensor_state',
+            changedFields: ['modelName']
           }
         ]
       }
@@ -282,6 +326,9 @@ describe('ProductModelDesignerWorkspace', () => {
         identifier: 'value',
         modelName: '裂缝量',
         dataType: 'double',
+        specsJson: JSON.stringify({
+          unit: 'mm'
+        }),
         description: '正式字段'
       }
     })
@@ -465,7 +512,7 @@ describe('ProductModelDesignerWorkspace', () => {
             logicalChannelCode: 'L1_SW_1',
             childDeviceCode: '84330701',
             canonicalizationStrategy: 'LEGACY',
-            statusMirrorStrategy: 'NONE'
+            statusMirrorStrategy: 'SENSOR_STATE'
           }
         ]
       }
@@ -727,6 +774,123 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('裂缝量')
   })
 
+  it('saves formal property unit together with renamed display name', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-rename-2001"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="formal-model-name-input-2001"]').setValue('裂缝量')
+    await wrapper.get('[data-testid="formal-model-unit-input-2001"]').setValue('cm')
+    await wrapper.get('[data-testid="formal-model-name-save-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProductModel).toHaveBeenCalledWith(1001, 2001, expect.objectContaining({
+      modelType: 'property',
+      identifier: 'value',
+      modelName: '裂缝量',
+      specsJson: expect.stringContaining('"unit":"cm"')
+    }))
+  })
+
+  it('syncs renamed formal field names into existing object-insight trend config', async () => {
+    mockUpdateProduct.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1001,
+        productKey: 'south-crack-sensor-v1',
+        productName: '南方裂缝传感器',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        deviceCount: 3,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'value',
+                displayName: '裂缝量',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              }
+            ]
+          }
+        })
+      }
+    })
+
+    const wrapper = mountWorkspace({
+      metadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'value',
+              displayName: '裂缝值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true,
+              sortNo: 10
+            }
+          ]
+        }
+      })
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-rename-2001"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="formal-model-name-input-2001"]').setValue('裂缝量')
+    await wrapper.get('[data-testid="formal-model-name-save-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProduct).toHaveBeenCalledWith(1001, expect.objectContaining({
+      metadataJson: expect.stringContaining('"displayName":"裂缝量"')
+    }))
+  })
+
+  it('does not add a second toast when handled object-insight sync errors happen after rename save', async () => {
+    mockUpdateProduct.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    const wrapper = mountWorkspace({
+      metadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'value',
+              displayName: '裂缝值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true,
+              sortNo: 10
+            }
+          ]
+        }
+      })
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-rename-2001"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="formal-model-name-input-2001"]').setValue('裂缝量')
+    await wrapper.get('[data-testid="formal-model-name-save-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(ElMessage.success).toHaveBeenCalledWith('正式字段名称与单位已更新')
+    expect(ElMessage.warning).not.toHaveBeenCalled()
+    expect(ElMessage.error).not.toHaveBeenCalled()
+  })
+
   it('resubmits the rejected apply approval order with a new approver', async () => {
     mockGetGovernanceApprovalOrderDetail
       .mockResolvedValueOnce({
@@ -894,6 +1058,23 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(mockRollbackProductContractReleaseBatch).toHaveBeenCalledWith(99001, '2002')
     expect(wrapper.text()).toContain('回滚审批已提交')
     expect(wrapper.text()).toContain('88002')
+  })
+
+  it('loads rollback preview from the latest release batch impact', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001)
+    expect(wrapper.text()).toContain('回滚试算')
+    expect(wrapper.text()).toContain('将删除 1')
+    expect(wrapper.text()).toContain('将恢复 2')
+    expect(wrapper.text()).toContain('将回退 3')
+    expect(wrapper.text()).toContain('受影响风险指标 2')
+    expect(wrapper.text()).toContain('受影响风险点绑定 3')
+    expect(wrapper.text()).toContain('受影响阈值规则 1')
+    expect(wrapper.text()).toContain('value')
+    expect(wrapper.text()).toContain('sensor_state')
   })
 
   it('disables confirm apply after a successful activation to prevent duplicate submissions', async () => {

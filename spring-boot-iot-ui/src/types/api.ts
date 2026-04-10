@@ -734,6 +734,7 @@ export interface DeviceProperty {
   propertyName?: string | null;
   propertyValue?: string | null;
   valueType?: string | null;
+  unit?: string | null;
   reportTime?: string | null;
   updateTime?: string | null;
 }

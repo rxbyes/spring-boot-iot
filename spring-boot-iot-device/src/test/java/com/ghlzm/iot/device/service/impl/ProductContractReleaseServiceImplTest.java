@@ -11,10 +11,16 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
+import com.ghlzm.iot.system.service.GovernanceImpactDependencyQueryService;
+import com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.PropertyAccessorFactory;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +44,9 @@ class ProductContractReleaseServiceImplTest {
 
     @Mock
     private ProductModelMapper productModelMapper;
+
+    @Mock
+    private GovernanceImpactDependencyQueryService impactDependencyQueryService;
 
     @Test
     void createBatchShouldPersistCurrentReleaseBatchFields() {
@@ -216,6 +225,55 @@ class ProductContractReleaseServiceImplTest {
         assertEquals(1, impact.getChangedCount());
         assertEquals(0, impact.getUnchangedCount());
         assertEquals(3, impact.getImpactItems().size());
+    }
+
+    @Test
+    void analyzeBatchImpactShouldIncludeDownstreamDependencySummary() {
+        ProductContractReleaseServiceImpl service = new ProductContractReleaseServiceImpl(
+                releaseBatchMapper,
+                releaseSnapshotMapper,
+                productModelMapper
+        );
+        ReflectionTestUtils.setField(service, "impactDependencyQueryService", impactDependencyQueryService);
+
+        ProductContractReleaseBatch target = batch(7001L, 1001L, "phase1-crack", "manual_compare_apply", 3);
+        ProductContractReleaseSnapshot before = new ProductContractReleaseSnapshot();
+        before.setId(8201L);
+        before.setBatchId(7001L);
+        before.setSnapshotStage(ProductContractReleaseServiceImpl.SNAPSHOT_STAGE_BEFORE_APPLY);
+        before.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"temp","modelName":"温度","dataType":"double","sortNo":1,"requiredFlag":0},
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值-旧","dataType":"double","sortNo":2,"requiredFlag":1}
+                ]
+                """);
+        ProductContractReleaseSnapshot after = new ProductContractReleaseSnapshot();
+        after.setId(8202L);
+        after.setBatchId(7001L);
+        after.setSnapshotStage(ProductContractReleaseServiceImpl.SNAPSHOT_STAGE_AFTER_APPLY);
+        after.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值-新","dataType":"double","sortNo":2,"requiredFlag":1},
+                  {"modelType":"property","identifier":"humidity","modelName":"湿度","dataType":"double","sortNo":3,"requiredFlag":0}
+                ]
+                """);
+        when(releaseBatchMapper.selectById(7001L)).thenReturn(target);
+        when(releaseSnapshotMapper.selectList(any())).thenReturn(List.of(before), List.of(after));
+        when(impactDependencyQueryService.summarizeProductContractImpact(1001L, Set.of("temp", "value", "humidity")))
+                .thenReturn(new GovernanceImpactDependencySummary(1L, 2L, 3L, 4L, 5L));
+
+        ProductContractReleaseImpactVO impact = service.analyzeBatchImpact(7001L);
+
+        BeanWrapper impactWrapper = PropertyAccessorFactory.forBeanPropertyAccess(impact);
+        Object dependencySummary = impactWrapper.getPropertyValue("dependencySummary");
+        assertNotNull(dependencySummary);
+        BeanWrapper summaryWrapper = PropertyAccessorFactory.forBeanPropertyAccess(dependencySummary);
+        assertEquals(1L, ((Number) summaryWrapper.getPropertyValue("affectedRiskMetricCount")).longValue());
+        assertEquals(2L, ((Number) summaryWrapper.getPropertyValue("affectedRiskPointBindingCount")).longValue());
+        assertEquals(3L, ((Number) summaryWrapper.getPropertyValue("affectedRuleCount")).longValue());
+        assertEquals(4L, ((Number) summaryWrapper.getPropertyValue("affectedLinkageBindingCount")).longValue());
+        assertEquals(5L, ((Number) summaryWrapper.getPropertyValue("affectedEmergencyPlanBindingCount")).longValue());
+        verify(impactDependencyQueryService).summarizeProductContractImpact(1001L, Set.of("temp", "value", "humidity"));
     }
 
     private ProductContractReleaseBatch batch(Long id,

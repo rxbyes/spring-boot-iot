@@ -309,7 +309,7 @@ class ProductServiceImplTest {
 
         BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
 
-        assertEquals("对象洞察指标分组仅支持 measure 或 status", ex.getMessage());
+        assertEquals("对象洞察指标分组仅支持 measure、status 或 runtime", ex.getMessage());
         verify(productService, never()).updateById(any(Product.class));
     }
 
@@ -417,6 +417,38 @@ class ProductServiceImplTest {
         verify(productService).updateById(captor.capture());
         assertTrue(captor.getValue().getMetadataJson().contains("S1_ZT_1.humidity"));
         assertTrue(captor.getValue().getMetadataJson().contains("\"objectInsight\""));
+    }
+
+    @Test
+    void updateProductShouldAllowRuntimeObjectInsightGroup() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "S1_ZT_1.battery_dump_energy",
+                        "displayName": "电池余量",
+                        "group": "runtime",
+                        "includeInTrend": true,
+                        "includeInExtension": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"group\":\"runtime\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("S1_ZT_1.battery_dump_energy"));
     }
 
     private Product buildExistingProduct() {

@@ -145,17 +145,25 @@ public class LegacyDpChildMessageSplitter {
                 ));
             } else {
                 LatestLogicalPayload latestLogicalPayload = extractLatestLogicalPayload(rule, basePayloadMap.get(logicalCode));
-                if (latestLogicalPayload == null || latestLogicalPayload.properties().isEmpty()) {
-                    continue;
+                if (latestLogicalPayload != null && !latestLogicalPayload.properties().isEmpty()) {
+                    childProperties = mergeDerivedChildProperties(
+                            rule,
+                            latestLogicalPayload.properties(),
+                            result.getProperties()
+                    );
+                    childTimestamp = latestLogicalPayload.timestamp();
+                    childRawPayload = latestLogicalPayload.rawPayload();
+                    parentRemovalKeys.addAll(resolveFallbackParentRemovalKeys(rule, latestLogicalPayload, childProperties));
+                } else {
+                    StatusOnlyChildPayload statusOnlyPayload = extractStatusOnlyChildPayload(rule, result);
+                    if (statusOnlyPayload == null || statusOnlyPayload.properties().isEmpty()) {
+                        continue;
+                    }
+                    childProperties = statusOnlyPayload.properties();
+                    childTimestamp = statusOnlyPayload.timestamp();
+                    childRawPayload = statusOnlyPayload.rawPayload();
+                    parentRemovalKeys.addAll(statusOnlyPayload.parentRemovalKeys());
                 }
-                childProperties = mergeDerivedChildProperties(
-                        rule,
-                        latestLogicalPayload.properties(),
-                        result.getProperties()
-                );
-                childTimestamp = latestLogicalPayload.timestamp();
-                childRawPayload = latestLogicalPayload.rawPayload();
-                parentRemovalKeys.add(logicalCode);
             }
             DeviceUpMessage childMessage = new DeviceUpMessage();
             childMessage.setTenantId(parentMessage.getTenantId());
@@ -163,9 +171,7 @@ public class LegacyDpChildMessageSplitter {
             childMessage.setDeviceCode(childDeviceCode);
             childMessage.setMessageType(parentMessage.getMessageType());
             childMessage.setTopic(parentMessage.getTopic());
-            childMessage.setTimestamp(childTimestamp == null
-                    ? parentMessage.getTimestamp()
-                    : childTimestamp);
+            childMessage.setTimestamp(resolveChildTimestamp(parentMessage, result, childTimestamp));
             childMessage.setProperties(childProperties);
             childMessage.setRawPayload(childRawPayload);
             childMessages.add(childMessage);
@@ -291,7 +297,9 @@ public class LegacyDpChildMessageSplitter {
     }
 
     private String resolveLegacyStatusMirrorStrategy(String logicalCode) {
-        return isCrackLogicalCode(logicalCode) ? STATUS_MIRROR_STRATEGY_SENSOR_STATE : STATUS_MIRROR_STRATEGY_NONE;
+        return isCrackLogicalCode(logicalCode) || isDeepDisplacementLogicalCode(logicalCode)
+                ? STATUS_MIRROR_STRATEGY_SENSOR_STATE
+                : STATUS_MIRROR_STRATEGY_NONE;
     }
 
     private Map<String, Object> collapseStandaloneDeepDisplacementProperties(DeviceUpMessage parentMessage,
@@ -408,7 +416,9 @@ public class LegacyDpChildMessageSplitter {
         }
 
         Map<String, Object> properties = toLogicalProperties(rule, latestValue);
-        return properties.isEmpty() ? null : new LatestLogicalPayload(logicalTimestamp, properties, rawPayload);
+        return properties.isEmpty()
+                ? null
+                : new LatestLogicalPayload(logicalTimestamp, properties, rawPayload, List.of(logicalCode));
     }
 
     private boolean isTimestampContainer(Map<?, ?> source) {
@@ -489,6 +499,50 @@ public class LegacyDpChildMessageSplitter {
         return parentProperties.get(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode());
     }
 
+    private List<String> resolveFallbackParentRemovalKeys(LegacyDpRelationRule rule,
+                                                          LatestLogicalPayload logicalPayload,
+                                                          Map<String, Object> childProperties) {
+        List<String> removalKeys = new ArrayList<>();
+        if (logicalPayload != null && logicalPayload.parentRemovalKeys() != null) {
+            removalKeys.addAll(logicalPayload.parentRemovalKeys());
+        }
+        if (shouldRemoveMirroredSensorStateFromParent(rule, childProperties)) {
+            removalKeys.add(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode());
+        }
+        return removalKeys;
+    }
+
+    private boolean shouldRemoveMirroredSensorStateFromParent(LegacyDpRelationRule rule,
+                                                              Map<String, Object> childProperties) {
+        return rule != null
+                && isDeepDisplacementLogicalCode(rule.logicalChannelCode())
+                && STATUS_MIRROR_STRATEGY_SENSOR_STATE.equalsIgnoreCase(normalizeStrategy(rule.statusMirrorStrategy()))
+                && childProperties != null
+                && childProperties.containsKey(CHILD_SENSOR_STATE_PROPERTY);
+    }
+
+    private StatusOnlyChildPayload extractStatusOnlyChildPayload(LegacyDpRelationRule rule,
+                                                                 LegacyDpNormalizeResult result) {
+        if (rule == null
+                || result == null
+                || !isDeepDisplacementLogicalCode(rule.logicalChannelCode())
+                || !STATUS_MIRROR_STRATEGY_SENSOR_STATE.equalsIgnoreCase(normalizeStrategy(rule.statusMirrorStrategy()))) {
+            return null;
+        }
+        Object sensorState = resolveDerivedChildSensorState(rule, result.getProperties());
+        if (sensorState == null) {
+            return null;
+        }
+        Map<String, Object> childProperties = new LinkedHashMap<>();
+        childProperties.put(CHILD_SENSOR_STATE_PROPERTY, sensorState);
+        return new StatusOnlyChildPayload(
+                result.getTimestamp(),
+                childProperties,
+                writeStatusOnlyChildRawPayload(rule.logicalChannelCode(), sensorState),
+                List.of(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode())
+        );
+    }
+
     private String normalizeStrategy(String strategy) {
         return strategy == null ? null : strategy.trim().toUpperCase();
     }
@@ -532,6 +586,28 @@ public class LegacyDpChildMessageSplitter {
         }
     }
 
+    private String writeStatusOnlyChildRawPayload(String logicalCode, Object sensorState) {
+        try {
+            Map<String, Object> rawPayload = new LinkedHashMap<>();
+            rawPayload.put(logicalCode, Map.of(CHILD_SENSOR_STATE_PROPERTY, sensorState));
+            return objectMapper.writeValueAsString(rawPayload);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private LocalDateTime resolveChildTimestamp(DeviceUpMessage parentMessage,
+                                                LegacyDpNormalizeResult result,
+                                                LocalDateTime childTimestamp) {
+        if (childTimestamp != null) {
+            return childTimestamp;
+        }
+        if (parentMessage != null && parentMessage.getTimestamp() != null) {
+            return parentMessage.getTimestamp();
+        }
+        return result == null ? null : result.getTimestamp();
+    }
+
     private Map<String, Object> removeChildLogicalProperties(Map<String, Object> properties, List<String> logicalCodes) {
         if (properties == null || properties.isEmpty() || logicalCodes == null || logicalCodes.isEmpty()) {
             return properties;
@@ -561,7 +637,14 @@ public class LegacyDpChildMessageSplitter {
 
     private record LatestLogicalPayload(LocalDateTime timestamp,
                                         Map<String, Object> properties,
-                                        String rawPayload) {
+                                        String rawPayload,
+                                        List<String> parentRemovalKeys) {
+    }
+
+    private record StatusOnlyChildPayload(LocalDateTime timestamp,
+                                          Map<String, Object> properties,
+                                          String rawPayload,
+                                          List<String> parentRemovalKeys) {
     }
 
     private record TimestampedValue(String key,

@@ -7,6 +7,8 @@ import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -35,6 +37,7 @@ class GovernanceWorkItemServiceImplTest {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.registerBean(GovernanceWorkItemMapper.class, () -> workItemMapper);
             context.registerBean(GovernanceWorkItemContributor.class, () -> contributor);
+            context.registerBean("applicationTaskExecutor", Executor.class, () -> Runnable::run);
             context.register(GovernanceWorkItemServiceImpl.class);
 
             context.refresh();
@@ -146,7 +149,6 @@ class GovernanceWorkItemServiceImplTest {
                         1L
                 )
         ));
-        when(workItemMapper.selectOne(any())).thenReturn(null);
         when(workItemMapper.selectList(any())).thenReturn(List.of(stale));
         when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
             Page<GovernanceWorkItem> page = invocation.getArgument(0);
@@ -169,6 +171,86 @@ class GovernanceWorkItemServiceImplTest {
                 Long.valueOf(9101L).equals(item.getId())
                         && "RESOLVED".equals(item.getWorkStatus())
         ));
+    }
+
+    @Test
+    void pageWorkItemsShouldNotPerformPerCommandSelectOneDuringContributorSync() {
+        when(contributor.collectWorkItems()).thenReturn(List.of(
+                new GovernanceWorkItemCommand(
+                        "PENDING_PRODUCT_GOVERNANCE",
+                        "PRODUCT",
+                        1001L,
+                        1001L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "phase1-crack",
+                        null,
+                        "MODEL_GOVERNANCE",
+                        "待治理产品",
+                        "{\"productId\":1001}",
+                        "P2",
+                        1L
+                ),
+                new GovernanceWorkItemCommand(
+                        "PENDING_CONTRACT_RELEASE",
+                        "PRODUCT",
+                        1001L,
+                        1001L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "phase1-crack",
+                        null,
+                        "CONTRACT_RELEASE",
+                        "待发布合同",
+                        "{\"productId\":1001}",
+                        "P1",
+                        1L
+                )
+        ));
+        when(workItemMapper.selectList(any())).thenReturn(List.of());
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of());
+            page.setTotal(0);
+            return page;
+        });
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of(contributor));
+
+        service.pageWorkItems(new GovernanceWorkItemPageQuery(), 10001L);
+
+        verify(workItemMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void pageWorkItemsShouldScheduleContributorRefreshWithoutBlockingPageQuery() {
+        AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of());
+            page.setTotal(0);
+            return page;
+        });
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(
+                workItemMapper,
+                List.of(contributor),
+                scheduledRefresh::set,
+                () -> 1_000L,
+                300_000L
+        );
+
+        service.pageWorkItems(new GovernanceWorkItemPageQuery(), 10001L);
+
+        verify(workItemMapper).selectPage(any(), any());
+        verify(contributor, never()).collectWorkItems();
+        assertNotNull(scheduledRefresh.get());
     }
 
     @Test

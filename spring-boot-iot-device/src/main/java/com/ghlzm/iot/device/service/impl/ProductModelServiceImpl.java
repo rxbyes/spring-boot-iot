@@ -975,7 +975,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private String inferCompositeStatusMirrorStrategy(String logicalChannelCode) {
         String normalizedLogicalChannelCode = normalizeOptional(logicalChannelCode);
         if (normalizedLogicalChannelCode != null
-                && normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_LF_")) {
+                && (normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_LF_")
+                || normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_SW_"))) {
             return "SENSOR_STATE";
         }
         return "NONE";
