@@ -13,12 +13,16 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import org.junit.jupiter.api.Test;
+import org.mockito.invocation.Invocation;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -73,6 +77,24 @@ class RiskGovernanceControllerTest {
 
         assertEquals(1L, response.getData().getTotal());
         assertEquals("value", response.getData().getRecords().get(0).getContractIdentifier());
+    }
+
+    @Test
+    void getReleaseBatchDiffShouldDelegateToService() throws Exception {
+        RiskGovernanceService service = mock(RiskGovernanceService.class);
+        RiskGovernanceOpsService opsService = mock(RiskGovernanceOpsService.class);
+        RiskGovernanceController controller = new RiskGovernanceController(service, opsService);
+
+        Method method = RiskGovernanceController.class.getMethod("getReleaseBatchDiff", Long.class, Long.class);
+        @SuppressWarnings("unchecked")
+        R<Object> response = (R<Object>) method.invoke(controller, 7001L, 7002L);
+
+        assertNull(response.getData());
+        List<Invocation> invocations = List.copyOf(mockingDetails(service).getInvocations());
+        assertEquals(1, invocations.size());
+        assertEquals("compareReleaseBatches", invocations.get(0).getMethod().getName());
+        assertEquals(7001L, invocations.get(0).getArguments()[0]);
+        assertEquals(7002L, invocations.get(0).getArguments()[1]);
     }
 
     @Test

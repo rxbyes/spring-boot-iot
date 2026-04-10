@@ -51,6 +51,57 @@ export interface RiskMetricCatalogItem {
   updateTime?: string | null;
 }
 
+export interface RiskGovernanceReleaseBatchSummary {
+  id?: IdType | null;
+  productId?: IdType | null;
+  scenarioCode?: string | null;
+  releaseSource?: string | null;
+  releasedFieldCount?: number | null;
+  approvalOrderId?: IdType | null;
+  releaseReason?: string | null;
+  releaseStatus?: string | null;
+  createTime?: string | null;
+  rollbackTime?: string | null;
+}
+
+export interface RiskGovernanceReleaseBatchContractDiffItem {
+  changeType?: string | null;
+  modelType?: string | null;
+  identifier?: string | null;
+  changedFields?: string[] | null;
+}
+
+export interface RiskGovernanceReleaseBatchMetricDiffItem {
+  changeType?: string | null;
+  contractIdentifier?: string | null;
+  riskMetricCode?: string | null;
+  riskMetricName?: string | null;
+  metricRole?: string | null;
+  lifecycleStatus?: string | null;
+  changedFields?: string[] | null;
+}
+
+export interface RiskGovernanceReleaseBatchDiff {
+  productId?: IdType | null;
+  baselineBatch?: RiskGovernanceReleaseBatchSummary | null;
+  targetBatch?: RiskGovernanceReleaseBatchSummary | null;
+  baselineContractFieldCount?: number | null;
+  targetContractFieldCount?: number | null;
+  baselineMetricCount?: number | null;
+  targetMetricCount?: number | null;
+  addedContractCount?: number | null;
+  removedContractCount?: number | null;
+  changedContractCount?: number | null;
+  unchangedContractCount?: number | null;
+  addedMetricCount?: number | null;
+  removedMetricCount?: number | null;
+  changedMetricCount?: number | null;
+  unchangedMetricCount?: number | null;
+  comparedAt?: string | null;
+  contractDiffItems?: RiskGovernanceReleaseBatchContractDiffItem[] | null;
+  metricDiffItems?: RiskGovernanceReleaseBatchMetricDiffItem[] | null;
+}
+
 export interface RiskGovernanceCoverageOverview {
   productId?: IdType | null;
   contractPropertyCount?: number | null;
@@ -184,6 +235,13 @@ export function pageRiskMetricCatalogs(
     ? `/api/risk-governance/metric-catalogs?${queryString}`
     : '/api/risk-governance/metric-catalogs';
   return request<PageResult<RiskMetricCatalogItem>>(path, { method: 'GET' });
+}
+
+export function getRiskGovernanceReleaseBatchDiff(
+  params: { baselineBatchId: IdType; targetBatchId: IdType }
+): Promise<ApiEnvelope<RiskGovernanceReleaseBatchDiff>> {
+  const queryString = buildQueryString(params);
+  return request<RiskGovernanceReleaseBatchDiff>(`/api/risk-governance/release-batch-diff?${queryString}`, { method: 'GET' });
 }
 
 export function getRiskGovernanceCoverageOverview(productId: IdType): Promise<ApiEnvelope<RiskGovernanceCoverageOverview>> {

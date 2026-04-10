@@ -25,9 +25,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductContractReleaseSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
@@ -44,6 +46,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,6 +92,9 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
+
+    @Mock
+    private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
 
     @Mock
     private LinkageRuleMapper linkageRuleMapper;
@@ -185,6 +191,127 @@ class RiskGovernanceServiceImplTest {
         captor.getValue().getSqlSegment();
         assertTrue(captor.getValue().getParamNameValuePairs().values().contains(1001L));
         assertTrue(captor.getValue().getParamNameValuePairs().values().contains(7001L));
+    }
+
+    @Test
+    void compareReleaseBatchesShouldReturnContractAndMetricDeltas() throws Exception {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        ReflectionTestUtils.setField(service, "productContractReleaseSnapshotMapper", productContractReleaseSnapshotMapper);
+
+        ProductContractReleaseBatch baselineBatch = new ProductContractReleaseBatch();
+        baselineBatch.setId(7001L);
+        baselineBatch.setProductId(1001L);
+        baselineBatch.setScenarioCode("phase1-crack");
+        baselineBatch.setReleaseStatus("ROLLED_BACK");
+        baselineBatch.setReleasedFieldCount(1);
+        baselineBatch.setCreateTime(LocalDateTime.of(2026, 4, 9, 18, 0));
+        ProductContractReleaseBatch targetBatch = new ProductContractReleaseBatch();
+        targetBatch.setId(7002L);
+        targetBatch.setProductId(1001L);
+        targetBatch.setScenarioCode("phase1-crack");
+        targetBatch.setReleaseStatus("RELEASED");
+        targetBatch.setReleasedFieldCount(2);
+        targetBatch.setCreateTime(LocalDateTime.of(2026, 4, 10, 18, 0));
+        when(productContractReleaseBatchMapper.selectById(7001L)).thenReturn(baselineBatch);
+        when(productContractReleaseBatchMapper.selectById(7002L)).thenReturn(targetBatch);
+
+        ProductContractReleaseSnapshot baselineSnapshot = new ProductContractReleaseSnapshot();
+        baselineSnapshot.setId(8101L);
+        baselineSnapshot.setBatchId(7001L);
+        baselineSnapshot.setProductId(1001L);
+        baselineSnapshot.setSnapshotStage("AFTER_APPLY");
+        baselineSnapshot.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值(旧)","dataType":"double","sortNo":1,"requiredFlag":1},
+                  {"modelType":"property","identifier":"sensor_state","modelName":"传感器状态","dataType":"int","sortNo":2,"requiredFlag":0}
+                ]
+                """);
+        ProductContractReleaseSnapshot targetSnapshot = new ProductContractReleaseSnapshot();
+        targetSnapshot.setId(8102L);
+        targetSnapshot.setBatchId(7002L);
+        targetSnapshot.setProductId(1001L);
+        targetSnapshot.setSnapshotStage("AFTER_APPLY");
+        targetSnapshot.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值(新)","dataType":"double","sortNo":1,"requiredFlag":1},
+                  {"modelType":"property","identifier":"humidity","modelName":"湿度","dataType":"double","sortNo":2,"requiredFlag":0}
+                ]
+                """);
+        when(productContractReleaseSnapshotMapper.selectList(any())).thenReturn(List.of(baselineSnapshot), List.of(targetSnapshot));
+
+        RiskMetricCatalog baselineValue = new RiskMetricCatalog();
+        baselineValue.setId(9101L);
+        baselineValue.setProductId(1001L);
+        baselineValue.setReleaseBatchId(7001L);
+        baselineValue.setContractIdentifier("value");
+        baselineValue.setRiskMetricCode("RM_1001_VALUE");
+        baselineValue.setRiskMetricName("裂缝监测值(旧)");
+        baselineValue.setMetricRole("PRIMARY");
+        baselineValue.setLifecycleStatus("ACTIVE");
+        RiskMetricCatalog baselineState = new RiskMetricCatalog();
+        baselineState.setId(9102L);
+        baselineState.setProductId(1001L);
+        baselineState.setReleaseBatchId(7001L);
+        baselineState.setContractIdentifier("sensor_state");
+        baselineState.setRiskMetricCode("RM_1001_SENSOR_STATE");
+        baselineState.setRiskMetricName("传感器状态");
+        baselineState.setMetricRole("SECONDARY");
+        baselineState.setLifecycleStatus("ACTIVE");
+        RiskMetricCatalog targetValue = new RiskMetricCatalog();
+        targetValue.setId(9201L);
+        targetValue.setProductId(1001L);
+        targetValue.setReleaseBatchId(7002L);
+        targetValue.setContractIdentifier("value");
+        targetValue.setRiskMetricCode("RM_1001_VALUE");
+        targetValue.setRiskMetricName("裂缝监测值");
+        targetValue.setMetricRole("PRIMARY");
+        targetValue.setLifecycleStatus("ACTIVE");
+        RiskMetricCatalog targetHumidity = new RiskMetricCatalog();
+        targetHumidity.setId(9202L);
+        targetHumidity.setProductId(1001L);
+        targetHumidity.setReleaseBatchId(7002L);
+        targetHumidity.setContractIdentifier("humidity");
+        targetHumidity.setRiskMetricCode("RM_1001_HUMIDITY");
+        targetHumidity.setRiskMetricName("湿度监测值");
+        targetHumidity.setMetricRole("SECONDARY");
+        targetHumidity.setLifecycleStatus("ACTIVE");
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(
+                List.of(baselineValue, baselineState),
+                List.of(targetValue, targetHumidity)
+        );
+
+        Object diff = RiskGovernanceServiceImpl.class
+                .getMethod("compareReleaseBatches", Long.class, Long.class)
+                .invoke(service, 7001L, 7002L);
+
+        BeanWrapperImpl wrapper = new BeanWrapperImpl(diff);
+        assertEquals(1001L, wrapper.getPropertyValue("productId"));
+        assertEquals(2, ((Number) wrapper.getPropertyValue("baselineContractFieldCount")).intValue());
+        assertEquals(2, ((Number) wrapper.getPropertyValue("targetContractFieldCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("addedContractCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("removedContractCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("changedContractCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("addedMetricCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("removedMetricCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("changedMetricCount")).intValue());
+        assertEquals(3, ((List<?>) wrapper.getPropertyValue("contractDiffItems")).size());
+        assertEquals(3, ((List<?>) wrapper.getPropertyValue("metricDiffItems")).size());
+        assertEquals(7001L, new BeanWrapperImpl(wrapper.getPropertyValue("baselineBatch")).getPropertyValue("id"));
+        assertEquals(7002L, new BeanWrapperImpl(wrapper.getPropertyValue("targetBatch")).getPropertyValue("id"));
     }
 
     @Test

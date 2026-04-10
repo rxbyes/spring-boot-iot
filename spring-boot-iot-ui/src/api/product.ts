@@ -150,15 +150,6 @@ function buildQuery(params: Record<string, unknown>) {
   return query.toString()
 }
 
-function buildGovernanceApproverHeaders(approverUserId?: IdType | null): HeadersInit | undefined {
-  if (approverUserId === undefined || approverUserId === null || approverUserId === '') {
-    return undefined
-  }
-  return {
-    'X-Governance-Approver-Id': String(approverUserId)
-  }
-}
-
 /**
  * 产品相关API
  */
@@ -246,12 +237,12 @@ export const productApi = {
   applyProductModelGovernance(
     productId: IdType,
     payload: ProductModelGovernanceApplyPayload,
-    options: { approverUserId?: IdType | null } = {}
+    options: ProductRequestOptions = {}
   ): Promise<ApiEnvelope<ProductModelGovernanceApplyResult>> {
     return request<ProductModelGovernanceApplyResult>(`/api/device/product/${productId}/model-governance/apply`, {
       method: 'POST',
       body: payload,
-      headers: buildGovernanceApproverHeaders(options.approverUserId)
+      ...options
     });
   },
 
@@ -274,17 +265,19 @@ export const productApi = {
     return request<ProductContractReleaseImpact>(`/api/device/product/contract-release-batches/${batchId}/impact`, { method: 'GET' })
   },
 
-  rollbackProductContractReleaseBatch(
-    batchId: IdType,
-    approverUserId?: IdType | null
-  ): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {
+  rollbackProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {
     return request<ProductContractReleaseRollbackResult>(
       `/api/device/product/contract-release-batches/${batchId}/rollback`,
       {
-        method: 'POST',
-        headers: buildGovernanceApproverHeaders(approverUserId)
+        method: 'POST'
       }
     )
+  },
+
+  resubmitProductGovernanceApproval(orderId: IdType): Promise<ApiEnvelope<void>> {
+    return request<void>(`/api/device/product/governance-approval/${orderId}/resubmit`, {
+      method: 'POST'
+    })
   },
 
   /**

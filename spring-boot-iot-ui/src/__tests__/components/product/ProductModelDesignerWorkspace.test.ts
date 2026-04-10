@@ -10,6 +10,7 @@ const {
   mockListProductModels,
   mockPageProductContractReleaseBatches,
   mockPageRiskMetricCatalogs,
+  mockGetRiskGovernanceReleaseBatchDiff,
   mockGetProductContractReleaseBatchImpact,
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
@@ -17,6 +18,7 @@ const {
   mockUpdateProductModel,
   mockDeleteProductModel,
   mockRollbackProductContractReleaseBatch,
+  mockResubmitProductGovernanceApproval,
   mockGetGovernanceApprovalOrderDetail,
   mockResubmitGovernanceApprovalOrder,
   mockListDeviceRelations,
@@ -25,6 +27,7 @@ const {
   mockListProductModels: vi.fn(),
   mockPageProductContractReleaseBatches: vi.fn(),
   mockPageRiskMetricCatalogs: vi.fn(),
+  mockGetRiskGovernanceReleaseBatchDiff: vi.fn(),
   mockGetProductContractReleaseBatchImpact: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
@@ -32,6 +35,7 @@ const {
   mockUpdateProductModel: vi.fn(),
   mockDeleteProductModel: vi.fn(),
   mockRollbackProductContractReleaseBatch: vi.fn(),
+  mockResubmitProductGovernanceApproval: vi.fn(),
   mockGetGovernanceApprovalOrderDetail: vi.fn(),
   mockResubmitGovernanceApprovalOrder: vi.fn(),
   mockListDeviceRelations: vi.fn(),
@@ -48,6 +52,7 @@ vi.mock('@/api/product', () => ({
     compareProductModelGovernance: mockCompareProductModelGovernance,
     applyProductModelGovernance: mockApplyProductModelGovernance,
     rollbackProductContractReleaseBatch: mockRollbackProductContractReleaseBatch,
+    resubmitProductGovernanceApproval: mockResubmitProductGovernanceApproval,
     updateProduct: mockUpdateProduct,
     addProductModel: vi.fn(),
     updateProductModel: mockUpdateProductModel,
@@ -62,7 +67,8 @@ vi.mock('@/api/device', () => ({
 }))
 
 vi.mock('@/api/riskGovernance', () => ({
-  pageRiskMetricCatalogs: mockPageRiskMetricCatalogs
+  pageRiskMetricCatalogs: mockPageRiskMetricCatalogs,
+  getRiskGovernanceReleaseBatchDiff: mockGetRiskGovernanceReleaseBatchDiff
 }))
 
 vi.mock('@/api/governanceApproval', () => ({
@@ -196,6 +202,7 @@ describe('ProductModelDesignerWorkspace', () => {
     mockListProductModels.mockReset()
     mockPageProductContractReleaseBatches.mockReset()
     mockPageRiskMetricCatalogs.mockReset()
+    mockGetRiskGovernanceReleaseBatchDiff.mockReset()
     mockGetProductContractReleaseBatchImpact.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
@@ -203,6 +210,7 @@ describe('ProductModelDesignerWorkspace', () => {
     mockUpdateProductModel.mockReset()
     mockRollbackProductContractReleaseBatch.mockReset()
     mockDeleteProductModel.mockReset()
+    mockResubmitProductGovernanceApproval.mockReset()
     mockGetGovernanceApprovalOrderDetail.mockReset()
     mockResubmitGovernanceApprovalOrder.mockReset()
     mockListDeviceRelations.mockReset()
@@ -357,6 +365,11 @@ describe('ProductModelDesignerWorkspace', () => {
         records: []
       }
     })
+    mockGetRiskGovernanceReleaseBatchDiff.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    })
     mockApplyProductModelGovernance.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -466,6 +479,11 @@ describe('ProductModelDesignerWorkspace', () => {
       msg: 'success',
       data: null
     })
+    mockResubmitProductGovernanceApproval.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    })
     mockListDeviceRelations.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -563,6 +581,106 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('版本台账')
     expect(wrapper.text()).toContain('批次 99002')
     expect(wrapper.text()).toContain('裂缝监测值')
+  })
+
+  it('loads release batch diff against the previous batch and renders contract and metric deltas', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 99002,
+            scenarioCode: 'phase1-crack',
+            releaseStatus: 'RELEASED',
+            releasedFieldCount: 2,
+            createTime: '2026-04-10 18:00:00'
+          },
+          {
+            id: 99001,
+            scenarioCode: 'phase1-crack',
+            releaseStatus: 'ROLLED_BACK',
+            releasedFieldCount: 1,
+            createTime: '2026-04-09 18:00:00'
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceReleaseBatchDiff.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        baselineBatch: {
+          id: 99001,
+          releaseStatus: 'ROLLED_BACK'
+        },
+        targetBatch: {
+          id: 99002,
+          releaseStatus: 'RELEASED'
+        },
+        baselineContractFieldCount: 1,
+        targetContractFieldCount: 2,
+        baselineMetricCount: 1,
+        targetMetricCount: 2,
+        addedContractCount: 1,
+        removedContractCount: 0,
+        changedContractCount: 1,
+        unchangedContractCount: 0,
+        addedMetricCount: 1,
+        removedMetricCount: 0,
+        changedMetricCount: 1,
+        unchangedMetricCount: 0,
+        contractDiffItems: [
+          {
+            changeType: 'ADDED',
+            modelType: 'property',
+            identifier: 'humidity',
+            changedFields: []
+          },
+          {
+            changeType: 'UPDATED',
+            modelType: 'property',
+            identifier: 'value',
+            changedFields: ['modelName']
+          }
+        ],
+        metricDiffItems: [
+          {
+            changeType: 'ADDED',
+            contractIdentifier: 'humidity',
+            riskMetricName: '湿度监测值',
+            metricRole: 'SECONDARY',
+            lifecycleStatus: 'ACTIVE',
+            changedFields: []
+          },
+          {
+            changeType: 'UPDATED',
+            contractIdentifier: 'value',
+            riskMetricName: '裂缝监测值',
+            metricRole: 'PRIMARY',
+            lifecycleStatus: 'ACTIVE',
+            changedFields: ['riskMetricName']
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockGetRiskGovernanceReleaseBatchDiff).toHaveBeenCalledWith({
+      baselineBatchId: 99001,
+      targetBatchId: 99002
+    })
+    expect(wrapper.text()).toContain('跨批次差异对账')
+    expect(wrapper.text()).toContain('批次 99002 对比 99001')
+    expect(wrapper.text()).toContain('humidity')
+    expect(wrapper.text()).toContain('湿度监测值')
   })
 
   it('loads existing device relations and exposes manual mapping rows in composite mode', async () => {
@@ -750,7 +868,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await wrapper.findAll('button').find((button) => button.text().includes('确认并提交审批'))?.trigger('click')
     await flushPromises()
     await nextTick()
@@ -758,7 +875,7 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(mockApplyProductModelGovernance).toHaveBeenCalledWith(
       1001,
       { items: expect.any(Array) },
-      { approverUserId: '2002' }
+      {}
     )
     expect(wrapper.find('[data-testid="contract-field-apply-receipt"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('本次申请新增')
@@ -778,7 +895,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()
@@ -835,7 +951,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()
@@ -884,7 +999,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()
@@ -1031,7 +1145,7 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(ElMessage.error).not.toHaveBeenCalled()
   })
 
-  it('resubmits the rejected apply approval order with a new approver', async () => {
+  it('resubmits the rejected apply approval order through the product governance endpoint', async () => {
     mockGetGovernanceApprovalOrderDetail
       .mockResolvedValueOnce({
         code: 200,
@@ -1071,13 +1185,13 @@ describe('ProductModelDesignerWorkspace', () => {
             subjectId: 1001,
             status: 'PENDING',
             operatorUserId: 1001,
-            approverUserId: 3003,
+            approverUserId: 99000001,
             payloadJson: JSON.stringify({
               version: 1,
               request: { productId: 1001, items: [] },
               execution: null
             }),
-            approvalComment: '重新指定复核人',
+            approvalComment: '系统固定复核人',
             approvedTime: null,
             createTime: '2026-04-08 10:00:00',
             updateTime: '2026-04-08 10:06:00'
@@ -1097,19 +1211,16 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()
 
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('3003')
     await wrapper.findAll('button').find((button) => button.text().includes('原单重提'))?.trigger('click')
     await flushPromises()
     await nextTick()
 
-    expect(mockResubmitGovernanceApprovalOrder).toHaveBeenCalledWith(88001, {
-      approverUserId: '3003'
-    })
+    expect(mockResubmitProductGovernanceApproval).toHaveBeenCalledWith(88001)
+    expect(mockResubmitGovernanceApprovalOrder).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('待审批')
   })
 
@@ -1152,7 +1263,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()
@@ -1166,7 +1276,7 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('样本输入')
   })
 
-  it('blocks apply when governance approver id is missing', async () => {
+  it('submits apply without rendering a manual governance approver input', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
     await nextTick()
@@ -1182,20 +1292,24 @@ describe('ProductModelDesignerWorkspace', () => {
     await flushPromises()
     await nextTick()
 
-    expect(mockApplyProductModelGovernance).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="governance-approver-id"]').exists()).toBe(false)
+    expect(mockApplyProductModelGovernance).toHaveBeenCalledWith(
+      1001,
+      { items: expect.any(Array) },
+      {}
+    )
   })
 
-  it('sends rollback request with governance approver id', async () => {
+  it('sends rollback request without a manual governance approver id', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
     await nextTick()
 
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await wrapper.get('[data-testid="contract-field-rollback-submit"]').trigger('click')
     await flushPromises()
     await nextTick()
 
-    expect(mockRollbackProductContractReleaseBatch).toHaveBeenCalledWith(99001, '2002')
+    expect(mockRollbackProductContractReleaseBatch).toHaveBeenCalledWith(99001)
     expect(wrapper.text()).toContain('回滚审批已提交')
     expect(wrapper.text()).toContain('88002')
   })
@@ -1241,7 +1355,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
 
     const applyButton = findApplyButton(wrapper)
     expect(applyButton).toBeTruthy()
@@ -1269,7 +1382,6 @@ describe('ProductModelDesignerWorkspace', () => {
 
     await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
     await nextTick()
-    await wrapper.get('[data-testid="governance-approver-id"]').setValue('2002')
     await findApplyButton(wrapper)?.trigger('click')
     await flushPromises()
     await nextTick()

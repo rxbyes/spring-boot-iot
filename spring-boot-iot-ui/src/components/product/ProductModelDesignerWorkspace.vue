@@ -270,6 +270,112 @@
             <strong>当前批次暂无风险指标目录</strong>
             <p>该批次还没有同步发布可进入风险闭环的风险指标。</p>
           </div>
+
+          <section class="product-model-designer__version-diff">
+            <div class="product-model-designer__rollback-preview-head">
+              <div>
+                <strong>跨批次差异对账</strong>
+                <p>对比两个正式合同发布批次的字段变化，以及同步发布的风险指标目录差异。</p>
+              </div>
+              <span v-if="selectedLedgerBatchId && comparisonBaselineBatchId">
+                {{ `批次 ${selectedLedgerBatchId} 对比 ${comparisonBaselineBatchId}` }}
+              </span>
+              <span v-else>至少需要两个发布批次</span>
+            </div>
+
+            <div v-if="comparisonLedgerRows.length" class="product-model-designer__version-ledger-grid">
+              <button
+                v-for="batch in comparisonLedgerRows"
+                :key="`baseline-${String(batch.id)}`"
+                type="button"
+                class="product-model-designer__version-ledger-batch"
+                :class="{ 'is-active': String(comparisonBaselineBatchId ?? '') === String(batch.id ?? '') }"
+                @click="selectComparisonBaselineBatch(batch.id)"
+              >
+                <strong>{{ `基线批次 ${batch.id ?? '--'}` }}</strong>
+                <span>{{ batch.releaseStatus || '--' }} · {{ batch.scenarioCode || '--' }}</span>
+                <span>{{ `字段 ${batch.releasedFieldCount ?? 0} 项` }}</span>
+              </button>
+            </div>
+
+            <div v-if="!comparisonLedgerRows.length" class="product-model-designer__empty">
+              <strong>当前还无法进行批次对账</strong>
+              <p>至少需要两个正式发布批次，才能查看跨批次差异。</p>
+            </div>
+            <p v-else-if="versionDiffLoading" class="product-model-designer__detail-tip">正在加载跨批次差异...</p>
+            <p v-else-if="versionDiffErrorMessage" class="product-model-designer__detail-tip">{{ versionDiffErrorMessage }}</p>
+            <template v-else-if="releaseBatchDiff">
+              <div class="product-model-designer__receipt">
+                <article class="product-model-designer__summary-card">
+                  <span>基线合同字段</span>
+                  <strong>{{ releaseBatchDiff.baselineContractFieldCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>当前合同字段</span>
+                  <strong>{{ releaseBatchDiff.targetContractFieldCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>合同差异</span>
+                  <strong>{{ `新增 ${releaseBatchDiff.addedContractCount ?? 0} / 删除 ${releaseBatchDiff.removedContractCount ?? 0} / 变更 ${releaseBatchDiff.changedContractCount ?? 0}` }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>基线风险指标</span>
+                  <strong>{{ releaseBatchDiff.baselineMetricCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>当前风险指标</span>
+                  <strong>{{ releaseBatchDiff.targetMetricCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>指标差异</span>
+                  <strong>{{ `新增 ${releaseBatchDiff.addedMetricCount ?? 0} / 删除 ${releaseBatchDiff.removedMetricCount ?? 0} / 变更 ${releaseBatchDiff.changedMetricCount ?? 0}` }}</strong>
+                </article>
+              </div>
+
+              <div
+                v-if="releaseBatchDiff.contractDiffItems?.length"
+                class="product-model-designer__rollback-dependency-group"
+              >
+                <div class="product-model-designer__rollback-dependency-head">
+                  <strong>合同字段差异</strong>
+                  <span>{{ `共 ${releaseBatchDiff.contractDiffItems.length} 项` }}</span>
+                </div>
+                <div class="product-model-designer__rollback-preview-list">
+                  <article
+                    v-for="item in releaseBatchDiff.contractDiffItems"
+                    :key="`${item.identifier || '--'}-${item.changeType || '--'}`"
+                    class="product-model-designer__rollback-preview-item"
+                  >
+                    <strong>{{ item.identifier || '--' }}</strong>
+                    <span>{{ releaseDiffChangeTypeLabel(item.changeType) }} · {{ rollbackPreviewModelTypeLabel(item.modelType) }}</span>
+                    <span v-if="item.changedFields?.length">差异字段 {{ item.changedFields.join(' / ') }}</span>
+                  </article>
+                </div>
+              </div>
+
+              <div
+                v-if="releaseBatchDiff.metricDiffItems?.length"
+                class="product-model-designer__rollback-dependency-group"
+              >
+                <div class="product-model-designer__rollback-dependency-head">
+                  <strong>风险指标目录差异</strong>
+                  <span>{{ `共 ${releaseBatchDiff.metricDiffItems.length} 项` }}</span>
+                </div>
+                <div class="product-model-designer__rollback-preview-list">
+                  <article
+                    v-for="item in releaseBatchDiff.metricDiffItems"
+                    :key="`${item.contractIdentifier || item.riskMetricCode || '--'}-${item.changeType || '--'}`"
+                    class="product-model-designer__rollback-preview-item"
+                  >
+                    <strong>{{ item.riskMetricName || item.contractIdentifier || '--' }}</strong>
+                    <span>{{ releaseDiffChangeTypeLabel(item.changeType) }} · {{ item.contractIdentifier || '--' }}</span>
+                    <span>{{ item.metricRole || '--' }} · {{ item.lifecycleStatus || '--' }}</span>
+                    <span v-if="item.changedFields?.length">差异字段 {{ item.changedFields.join(' / ') }}</span>
+                  </article>
+                </div>
+              </div>
+            </template>
+          </section>
         </section>
       </section>
 
@@ -463,14 +569,11 @@
 
         <div class="product-model-designer__apply-footer">
           <p>{{ footerSummaryText }}</p>
-          <label class="product-model-designer__input-field product-model-designer__approver-field">
-            <span>复核人用户 ID</span>
-            <ElInput
-              v-model="governanceApproverId"
-              data-testid="governance-approver-id"
-              placeholder="发布或回滚关键动作都需要填写复核人 ID"
-            />
-          </label>
+          <div class="product-model-designer__input-field product-model-designer__approver-field product-model-designer__governance-note">
+            <span>复核机制</span>
+            <strong>系统固定复核人</strong>
+            <p>发布、回滚和原单重提会自动分配给系统治理复核人，无需手工填写用户 ID。</p>
+          </div>
           <StandardButton
             action="confirm"
             :loading="applyLoading"
@@ -807,7 +910,9 @@ import {
   type ProductContractReleaseRuleDetail
 } from '@/api/product'
 import {
+  getRiskGovernanceReleaseBatchDiff,
   pageRiskMetricCatalogs,
+  type RiskGovernanceReleaseBatchDiff,
   type RiskMetricCatalogItem
 } from '@/api/riskGovernance'
 import {
@@ -903,19 +1008,23 @@ const applyLoading = ref(false)
 const rollbackLoading = ref(false)
 const rollbackPreviewLoading = ref(false)
 const versionLedgerLoading = ref(false)
+const versionDiffLoading = ref(false)
 const relationLoading = ref(false)
 const loadErrorMessage = ref('')
 const samplePayloadError = ref('')
 const models = ref<ProductModel[]>([])
 const releaseLedgerRows = ref<ProductContractReleaseBatch[]>([])
 const selectedLedgerBatchId = ref<IdType | null>(null)
+const comparisonBaselineBatchId = ref<IdType | null>(null)
 const selectedLedgerMetrics = ref<RiskMetricCatalogItem[]>([])
+const releaseBatchDiff = ref<RiskGovernanceReleaseBatchDiff | null>(null)
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
 const rollbackResult = ref<ProductContractReleaseRollbackResult | null>(null)
 const rollbackPreview = ref<ProductContractReleaseImpact | null>(null)
 const rollbackPreviewErrorMessage = ref('')
 const versionLedgerErrorMessage = ref('')
+const versionDiffErrorMessage = ref('')
 const applyApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const rollbackApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const governanceApproverId = ref('')
@@ -943,6 +1052,9 @@ const deletingModelId = ref<IdType | null>(null)
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
+const comparisonLedgerRows = computed(() =>
+  releaseLedgerRows.value.filter((batch) => !isSameId(batch.id ?? null, selectedLedgerBatchId.value))
+)
 const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
@@ -1168,15 +1280,19 @@ async function loadModels(productId: string | number) {
     releaseLedgerRows.value = releaseResponse.data?.records ?? []
     latestReleaseBatchId.value = releaseLedgerRows.value[0]?.id ?? null
     selectedLedgerBatchId.value = releaseLedgerRows.value[0]?.id ?? null
+    comparisonBaselineBatchId.value = resolveDefaultComparisonBaselineBatchId(selectedLedgerBatchId.value)
     await Promise.all([
       loadRollbackPreview(latestReleaseBatchId.value),
-      loadReleaseLedgerMetrics()
+      loadReleaseLedgerMetrics(),
+      loadReleaseBatchDiff()
     ])
   } catch (error) {
     models.value = []
     releaseLedgerRows.value = []
     selectedLedgerBatchId.value = null
+    comparisonBaselineBatchId.value = null
     selectedLedgerMetrics.value = []
+    releaseBatchDiff.value = null
     latestReleaseBatchId.value = null
     resetRollbackPreview()
     resetVersionLedger()
@@ -1188,7 +1304,9 @@ async function loadModels(productId: string | number) {
 
 async function loadReleaseLedgerMetrics() {
   if (!props.product?.id || selectedLedgerBatchId.value === undefined || selectedLedgerBatchId.value === null || selectedLedgerBatchId.value === '') {
-    resetVersionLedger()
+    selectedLedgerMetrics.value = []
+    versionLedgerErrorMessage.value = ''
+    versionLedgerLoading.value = false
     return
   }
   versionLedgerLoading.value = true
@@ -1209,13 +1327,57 @@ async function loadReleaseLedgerMetrics() {
   }
 }
 
+async function loadReleaseBatchDiff() {
+  if (
+    selectedLedgerBatchId.value === undefined
+    || selectedLedgerBatchId.value === null
+    || selectedLedgerBatchId.value === ''
+    || comparisonBaselineBatchId.value === undefined
+    || comparisonBaselineBatchId.value === null
+    || comparisonBaselineBatchId.value === ''
+    || isSameId(selectedLedgerBatchId.value, comparisonBaselineBatchId.value)
+  ) {
+    clearReleaseBatchDiff()
+    return
+  }
+  versionDiffLoading.value = true
+  versionDiffErrorMessage.value = ''
+  try {
+    const response = await getRiskGovernanceReleaseBatchDiff({
+      baselineBatchId: comparisonBaselineBatchId.value,
+      targetBatchId: selectedLedgerBatchId.value
+    })
+    releaseBatchDiff.value = response.data ?? null
+  } catch (error) {
+    releaseBatchDiff.value = null
+    versionDiffErrorMessage.value = error instanceof Error ? error.message : '跨批次差异对账加载失败'
+  } finally {
+    versionDiffLoading.value = false
+  }
+}
+
 async function selectLedgerBatch(batchId: IdType | null | undefined) {
   if (batchId === undefined || batchId === null || batchId === '') {
     resetVersionLedger()
     return
   }
   selectedLedgerBatchId.value = batchId
-  await loadReleaseLedgerMetrics()
+  if (!comparisonBaselineBatchId.value || isSameId(comparisonBaselineBatchId.value, batchId)) {
+    comparisonBaselineBatchId.value = resolveDefaultComparisonBaselineBatchId(batchId)
+  }
+  await Promise.all([
+    loadReleaseLedgerMetrics(),
+    loadReleaseBatchDiff()
+  ])
+}
+
+async function selectComparisonBaselineBatch(batchId: IdType | null | undefined) {
+  if (batchId === undefined || batchId === null || batchId === '' || isSameId(batchId, selectedLedgerBatchId.value)) {
+    clearReleaseBatchDiff()
+    return
+  }
+  comparisonBaselineBatchId.value = batchId
+  await loadReleaseBatchDiff()
 }
 
 async function loadRollbackPreview(batchId: IdType | null | undefined) {
@@ -1931,11 +2093,19 @@ function resetRollbackPreview() {
   rollbackPreviewErrorMessage.value = ''
 }
 
+function clearReleaseBatchDiff() {
+  versionDiffLoading.value = false
+  versionDiffErrorMessage.value = ''
+  releaseBatchDiff.value = null
+}
+
 function resetVersionLedger() {
   versionLedgerLoading.value = false
   versionLedgerErrorMessage.value = ''
   selectedLedgerBatchId.value = null
+  comparisonBaselineBatchId.value = null
   selectedLedgerMetrics.value = []
+  clearReleaseBatchDiff()
 }
 
 function resetSession() {
@@ -1988,6 +2158,30 @@ function rollbackPreviewModelTypeLabel(modelType?: string | null) {
       return '服务'
     default:
       return modelType || '--'
+  }
+}
+
+function resolveDefaultComparisonBaselineBatchId(targetBatchId: IdType | null | undefined) {
+  return releaseLedgerRows.value.find((batch) => !isSameId(batch.id ?? null, targetBatchId ?? null))?.id ?? null
+}
+
+function isSameId(left: IdType | null | undefined, right: IdType | null | undefined) {
+  if (left === undefined || left === null || left === '' || right === undefined || right === null || right === '') {
+    return false
+  }
+  return String(left) === String(right)
+}
+
+function releaseDiffChangeTypeLabel(changeType?: string | null) {
+  switch (changeType) {
+    case 'ADDED':
+      return '新增'
+    case 'REMOVED':
+      return '删除'
+    case 'UPDATED':
+      return '变更'
+    default:
+      return changeType || '--'
   }
 }
 
@@ -2046,6 +2240,7 @@ function inferRelationStrategies(
 .product-model-designer__summary-sheet,
 .product-model-designer__summary-grid,
 .product-model-designer__version-ledger,
+.product-model-designer__version-diff,
 .product-model-designer__version-ledger-grid,
 .product-model-designer__stage,
 .product-model-designer__approval-stage,
@@ -2153,6 +2348,11 @@ function inferRelationStrategies(
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
   border-radius: 0.78rem;
   background: color-mix(in srgb, var(--brand-light) 8%, white);
+}
+
+.product-model-designer__version-diff {
+  gap: 0.72rem;
+  padding-top: 0.16rem;
 }
 
 .product-model-designer__version-ledger-grid {
