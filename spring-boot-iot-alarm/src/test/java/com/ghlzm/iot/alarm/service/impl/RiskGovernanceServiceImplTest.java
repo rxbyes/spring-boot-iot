@@ -1,5 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
@@ -33,6 +35,9 @@ import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +55,16 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RiskGovernanceServiceImplTest {
+
+    @BeforeAll
+    static void initLambdaCache() {
+        if (TableInfoHelper.getTableInfo(RiskMetricCatalog.class) != null) {
+            return;
+        }
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new Configuration(), "");
+        assistant.setCurrentNamespace(RiskMetricCatalog.class.getName());
+        LambdaUtils.installCache(TableInfoHelper.initTableInfo(assistant, RiskMetricCatalog.class));
+    }
 
     @Mock
     private DeviceMapper deviceMapper;
@@ -167,6 +182,8 @@ class RiskGovernanceServiceImplTest {
         ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RiskMetricCatalog>> captor =
                 ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
         verify(riskMetricCatalogMapper).selectPage(any(), captor.capture());
+        captor.getValue().getSqlSegment();
+        assertTrue(captor.getValue().getParamNameValuePairs().values().contains(1001L));
         assertTrue(captor.getValue().getParamNameValuePairs().values().contains(7001L));
     }
 

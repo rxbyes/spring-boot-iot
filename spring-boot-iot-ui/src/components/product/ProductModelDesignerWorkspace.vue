@@ -224,6 +224,53 @@
             </div>
           </template>
         </section>
+
+        <section
+          v-if="releaseLedgerRows.length"
+          class="product-model-designer__version-ledger"
+          data-testid="contract-version-ledger"
+        >
+          <div class="product-model-designer__rollback-preview-head">
+            <div>
+              <strong>版本台账</strong>
+              <p>查看每次合同发布批次，以及该批次同步发布的风险指标目录。</p>
+            </div>
+            <span>共 {{ releaseLedgerRows.length }} 个批次</span>
+          </div>
+
+          <div class="product-model-designer__version-ledger-grid">
+            <button
+              v-for="batch in releaseLedgerRows"
+              :key="String(batch.id)"
+              type="button"
+              class="product-model-designer__version-ledger-batch"
+              :class="{ 'is-active': String(selectedLedgerBatchId ?? '') === String(batch.id ?? '') }"
+              @click="selectLedgerBatch(batch.id)"
+            >
+              <strong>{{ `批次 ${batch.id ?? '--'}` }}</strong>
+              <span>{{ batch.releaseStatus || '--' }} · {{ batch.scenarioCode || '--' }}</span>
+              <span>{{ `字段 ${batch.releasedFieldCount ?? 0} 项` }}</span>
+            </button>
+          </div>
+
+          <p v-if="versionLedgerLoading" class="product-model-designer__detail-tip">正在加载批次风险指标...</p>
+          <p v-else-if="versionLedgerErrorMessage" class="product-model-designer__detail-tip">{{ versionLedgerErrorMessage }}</p>
+          <div v-else-if="selectedLedgerMetrics.length" class="product-model-designer__rollback-preview-list">
+            <article
+              v-for="metric in selectedLedgerMetrics"
+              :key="`${metric.id || metric.contractIdentifier || '--'}`"
+              class="product-model-designer__rollback-preview-item"
+            >
+              <strong>{{ metric.riskMetricName || metric.contractIdentifier || '--' }}</strong>
+              <span>{{ metric.contractIdentifier || '--' }} · {{ metric.metricRole || '--' }}</span>
+              <span>{{ metric.lifecycleStatus || '--' }}</span>
+            </article>
+          </div>
+          <div v-else class="product-model-designer__empty">
+            <strong>当前批次暂无风险指标目录</strong>
+            <p>该批次还没有同步发布可进入风险闭环的风险指标。</p>
+          </div>
+        </section>
       </section>
 
       <section
@@ -751,6 +798,7 @@ import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'
 import {
   productApi,
+  type ProductContractReleaseBatch,
   type ProductContractReleaseEmergencyPlanBindingDetail,
   type ProductContractReleaseImpact,
   type ProductContractReleaseLinkageBindingDetail,
@@ -758,6 +806,10 @@ import {
   type ProductContractReleaseRollbackResult,
   type ProductContractReleaseRuleDetail
 } from '@/api/product'
+import {
+  pageRiskMetricCatalogs,
+  type RiskMetricCatalogItem
+} from '@/api/riskGovernance'
 import {
   buildEmergencyPlanContextLocation,
   buildLinkageContextLocation,
@@ -850,15 +902,20 @@ const compareLoading = ref(false)
 const applyLoading = ref(false)
 const rollbackLoading = ref(false)
 const rollbackPreviewLoading = ref(false)
+const versionLedgerLoading = ref(false)
 const relationLoading = ref(false)
 const loadErrorMessage = ref('')
 const samplePayloadError = ref('')
 const models = ref<ProductModel[]>([])
+const releaseLedgerRows = ref<ProductContractReleaseBatch[]>([])
+const selectedLedgerBatchId = ref<IdType | null>(null)
+const selectedLedgerMetrics = ref<RiskMetricCatalogItem[]>([])
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
 const rollbackResult = ref<ProductContractReleaseRollbackResult | null>(null)
 const rollbackPreview = ref<ProductContractReleaseImpact | null>(null)
 const rollbackPreviewErrorMessage = ref('')
+const versionLedgerErrorMessage = ref('')
 const applyApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const rollbackApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const governanceApproverId = ref('')
@@ -1105,19 +1162,60 @@ async function loadModels(productId: string | number) {
   try {
     const [modelResponse, releaseResponse] = await Promise.all([
       productApi.listProductModels(productId),
-      productApi.pageProductContractReleaseBatches(productId, { pageNum: 1, pageSize: 1 })
+      productApi.pageProductContractReleaseBatches(productId, { pageNum: 1, pageSize: 20 })
     ])
     models.value = modelResponse.data ?? []
-    latestReleaseBatchId.value = releaseResponse.data?.records?.[0]?.id ?? null
-    await loadRollbackPreview(latestReleaseBatchId.value)
+    releaseLedgerRows.value = releaseResponse.data?.records ?? []
+    latestReleaseBatchId.value = releaseLedgerRows.value[0]?.id ?? null
+    selectedLedgerBatchId.value = releaseLedgerRows.value[0]?.id ?? null
+    await Promise.all([
+      loadRollbackPreview(latestReleaseBatchId.value),
+      loadReleaseLedgerMetrics()
+    ])
   } catch (error) {
     models.value = []
+    releaseLedgerRows.value = []
+    selectedLedgerBatchId.value = null
+    selectedLedgerMetrics.value = []
     latestReleaseBatchId.value = null
     resetRollbackPreview()
+    resetVersionLedger()
     loadErrorMessage.value = error instanceof Error ? error.message : '加载产品物模型失败'
   } finally {
     loading.value = false
   }
+}
+
+async function loadReleaseLedgerMetrics() {
+  if (!props.product?.id || selectedLedgerBatchId.value === undefined || selectedLedgerBatchId.value === null || selectedLedgerBatchId.value === '') {
+    resetVersionLedger()
+    return
+  }
+  versionLedgerLoading.value = true
+  versionLedgerErrorMessage.value = ''
+  try {
+    const response = await pageRiskMetricCatalogs({
+      productId: props.product.id,
+      releaseBatchId: selectedLedgerBatchId.value,
+      pageNum: 1,
+      pageSize: 20
+    })
+    selectedLedgerMetrics.value = response.data?.records ?? []
+  } catch (error) {
+    selectedLedgerMetrics.value = []
+    versionLedgerErrorMessage.value = error instanceof Error ? error.message : '批次风险指标目录加载失败'
+  } finally {
+    versionLedgerLoading.value = false
+  }
+}
+
+async function selectLedgerBatch(batchId: IdType | null | undefined) {
+  if (batchId === undefined || batchId === null || batchId === '') {
+    resetVersionLedger()
+    return
+  }
+  selectedLedgerBatchId.value = batchId
+  await loadReleaseLedgerMetrics()
 }
 
 async function loadRollbackPreview(batchId: IdType | null | undefined) {
@@ -1833,11 +1931,20 @@ function resetRollbackPreview() {
   rollbackPreviewErrorMessage.value = ''
 }
 
+function resetVersionLedger() {
+  versionLedgerLoading.value = false
+  versionLedgerErrorMessage.value = ''
+  selectedLedgerBatchId.value = null
+  selectedLedgerMetrics.value = []
+}
+
 function resetSession() {
   compareResult.value = null
   applyResult.value = null
   rollbackResult.value = null
   resetRollbackPreview()
+  releaseLedgerRows.value = []
+  resetVersionLedger()
   applyApprovalDetail.value = null
   rollbackApprovalDetail.value = null
   applyApprovalLoading.value = false
@@ -1938,6 +2045,8 @@ function inferRelationStrategies(
 .product-model-designer-workspace,
 .product-model-designer__summary-sheet,
 .product-model-designer__summary-grid,
+.product-model-designer__version-ledger,
+.product-model-designer__version-ledger-grid,
 .product-model-designer__stage,
 .product-model-designer__approval-stage,
 .product-model-designer__sample-toolbar,
@@ -2035,6 +2144,41 @@ function inferRelationStrategies(
   border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
   border-radius: 0.78rem;
   background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__version-ledger {
+  grid-column: 1 / -1;
+  gap: 0.72rem;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.78rem;
+  background: color-mix(in srgb, var(--brand-light) 8%, white);
+}
+
+.product-model-designer__version-ledger-grid {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.72rem;
+}
+
+.product-model-designer__version-ledger-batch {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.8rem 0.88rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: 0.72rem;
+  background: white;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-model-designer__version-ledger-batch strong {
+  color: var(--text-heading);
+}
+
+.product-model-designer__version-ledger-batch.is-active {
+  border-color: color-mix(in srgb, var(--brand) 36%, white);
+  background: color-mix(in srgb, var(--brand-light) 16%, white);
 }
 
 .product-model-designer__rollback-preview-head {
@@ -2324,6 +2468,7 @@ function inferRelationStrategies(
   .product-model-designer__sample-toolbar,
   .product-model-designer__summary-grid,
   .product-model-designer__receipt,
+  .product-model-designer__version-ledger-grid,
   .product-model-designer__formal-tabs {
     grid-template-columns: 1fr;
   }

@@ -177,7 +177,7 @@ export function listMissingPolicies(
 }
 
 export function pageRiskMetricCatalogs(
-  params: Pick<RiskGovernanceGapQuery, 'productId' | 'pageNum' | 'pageSize'> = {}
+  params: Pick<RiskGovernanceGapQuery, 'productId' | 'pageNum' | 'pageSize'> & { releaseBatchId?: IdType | null } = {}
 ): Promise<ApiEnvelope<PageResult<RiskMetricCatalogItem>>> {
   const queryString = buildQueryString(params);
   const path = queryString

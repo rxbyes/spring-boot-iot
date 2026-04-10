@@ -528,15 +528,31 @@ ON DUPLICATE KEY UPDATE
 
 INSERT INTO iot_normative_metric_definition (
     id, tenant_id, scenario_code, device_family, identifier, display_name, unit,
-    precision_digits, monitor_content_code, monitor_type_code, risk_enabled, trend_enabled, metadata_json
+    precision_digits, monitor_content_code, monitor_type_code, risk_enabled, trend_enabled,
+    metric_dimension, threshold_type, semantic_direction, gis_enabled, insight_enabled, analytics_enabled,
+    status, version_no, metadata_json
 ) VALUES
-    (920001, 1, 'phase1-crack', 'CRACK', 'value', '裂缝监测值', 'mm', 4, 'L1', 'LF', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920002, 1, 'phase1-crack', 'CRACK', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state')),
-    (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 原始观测基础数据', NULL, 0, 'L1', 'GP', 0, 0, JSON_OBJECT('usage', 'raw_observation')),
-    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 累计位移 X', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 累计位移 Y', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 累计位移 Z', 'mm', 4, 'L1', 'GP', 1, 1, JSON_OBJECT('thresholdKind', 'absolute')),
-    (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0, JSON_OBJECT('usage', 'health_state'))
+    (920001, 1, 'phase1-crack', 'CRACK', 'value', '裂缝监测值', 'mm', 4, 'L1', 'LF', 1, 1,
+     'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'CRACK', 'metricRole', 'PRIMARY')),
+    (920002, 1, 'phase1-crack', 'CRACK', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0,
+     'health_state', 'enum', 'STATE_IS_RISK', 0, 1, 0, 'ACTIVE', 1,
+     JSON_OBJECT('usage', 'health_state', 'riskCategory', 'DEVICE_HEALTH', 'metricRole', 'STATE')),
+    (920011, 1, 'phase2-gnss', 'GNSS', 'gpsInitial', 'GNSS 原始观测基础数据', NULL, 0, 'L1', 'GP', 0, 0,
+     'raw_observation', 'snapshot', 'REFERENCE_ONLY', 0, 0, 0, 'ACTIVE', 1,
+     JSON_OBJECT('usage', 'raw_observation', 'metricRole', 'CONTEXT')),
+    (920012, 1, 'phase2-gnss', 'GNSS', 'gpsTotalX', 'GNSS 累计位移 X', 'mm', 4, 'L1', 'GP', 1, 1,
+     'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'GNSS', 'metricRole', 'PRIMARY')),
+    (920013, 1, 'phase2-gnss', 'GNSS', 'gpsTotalY', 'GNSS 累计位移 Y', 'mm', 4, 'L1', 'GP', 1, 1,
+     'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'GNSS', 'metricRole', 'PRIMARY')),
+    (920014, 1, 'phase2-gnss', 'GNSS', 'gpsTotalZ', 'GNSS 累计位移 Z', 'mm', 4, 'L1', 'GP', 1, 1,
+     'displacement', 'absolute', 'HIGHER_IS_RISKIER', 1, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'GNSS', 'metricRole', 'PRIMARY')),
+    (920015, 1, 'phase2-gnss', 'GNSS', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0,
+     'health_state', 'enum', 'STATE_IS_RISK', 0, 1, 0, 'ACTIVE', 1,
+     JSON_OBJECT('usage', 'health_state', 'riskCategory', 'DEVICE_HEALTH', 'metricRole', 'STATE'))
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),
     unit = VALUES(unit),
@@ -545,6 +561,14 @@ ON DUPLICATE KEY UPDATE
     monitor_type_code = VALUES(monitor_type_code),
     risk_enabled = VALUES(risk_enabled),
     trend_enabled = VALUES(trend_enabled),
+    metric_dimension = VALUES(metric_dimension),
+    threshold_type = VALUES(threshold_type),
+    semantic_direction = VALUES(semantic_direction),
+    gis_enabled = VALUES(gis_enabled),
+    insight_enabled = VALUES(insight_enabled),
+    analytics_enabled = VALUES(analytics_enabled),
+    status = VALUES(status),
+    version_no = VALUES(version_no),
     metadata_json = VALUES(metadata_json),
     deleted = 0;
 

@@ -9,6 +9,7 @@ import { createRequestError } from '@/api/request'
 const {
   mockListProductModels,
   mockPageProductContractReleaseBatches,
+  mockPageRiskMetricCatalogs,
   mockGetProductContractReleaseBatchImpact,
   mockCompareProductModelGovernance,
   mockApplyProductModelGovernance,
@@ -23,6 +24,7 @@ const {
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
   mockPageProductContractReleaseBatches: vi.fn(),
+  mockPageRiskMetricCatalogs: vi.fn(),
   mockGetProductContractReleaseBatchImpact: vi.fn(),
   mockCompareProductModelGovernance: vi.fn(),
   mockApplyProductModelGovernance: vi.fn(),
@@ -57,6 +59,10 @@ vi.mock('@/api/device', () => ({
   deviceApi: {
     listDeviceRelations: mockListDeviceRelations
   }
+}))
+
+vi.mock('@/api/riskGovernance', () => ({
+  pageRiskMetricCatalogs: mockPageRiskMetricCatalogs
 }))
 
 vi.mock('@/api/governanceApproval', () => ({
@@ -189,6 +195,7 @@ describe('ProductModelDesignerWorkspace', () => {
   beforeEach(() => {
     mockListProductModels.mockReset()
     mockPageProductContractReleaseBatches.mockReset()
+    mockPageRiskMetricCatalogs.mockReset()
     mockGetProductContractReleaseBatchImpact.mockReset()
     mockCompareProductModelGovernance.mockReset()
     mockApplyProductModelGovernance.mockReset()
@@ -340,6 +347,16 @@ describe('ProductModelDesignerWorkspace', () => {
         ]
       }
     })
+    mockPageRiskMetricCatalogs.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 20,
+        records: []
+      }
+    })
     mockApplyProductModelGovernance.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -485,6 +502,67 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.find('[data-testid="contract-field-sample-input"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('自动提炼')
     expect(wrapper.text()).not.toContain('父设备样本归一到子产品')
+  })
+
+  it('loads release history and shows risk metric catalog rows for the selected release batch', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 99002,
+            scenarioCode: 'phase1-crack',
+            releaseStatus: 'RELEASED',
+            releasedFieldCount: 2,
+            createTime: '2026-04-10 18:00:00'
+          },
+          {
+            id: 99001,
+            scenarioCode: 'phase1-crack',
+            releaseStatus: 'ROLLED_BACK',
+            releasedFieldCount: 1,
+            createTime: '2026-04-09 18:00:00'
+          }
+        ]
+      }
+    })
+    mockPageRiskMetricCatalogs.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 9101,
+            releaseBatchId: 99002,
+            contractIdentifier: 'value',
+            riskMetricName: '裂缝监测值',
+            metricRole: 'PRIMARY',
+            lifecycleStatus: 'ACTIVE'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(mockPageRiskMetricCatalogs).toHaveBeenCalledWith({
+      productId: 1001,
+      releaseBatchId: 99002,
+      pageNum: 1,
+      pageSize: 20
+    })
+    expect(wrapper.text()).toContain('版本台账')
+    expect(wrapper.text()).toContain('批次 99002')
+    expect(wrapper.text()).toContain('裂缝监测值')
   })
 
   it('loads existing device relations and exposes manual mapping rows in composite mode', async () => {
