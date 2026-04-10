@@ -58,6 +58,9 @@ class GovernanceWorkItemServiceImplTest {
                 null,
                 null,
                 null,
+                null,
+                "phase1-crack",
+                null,
                 "MODEL_GOVERNANCE",
                 "合同尚未发布",
                 "{\"publishedRiskMetricCount\":0}",
@@ -69,6 +72,7 @@ class GovernanceWorkItemServiceImplTest {
                 "PENDING_CONTRACT_RELEASE".equals(item.getWorkItemCode())
                         && "PRODUCT".equals(item.getSubjectType())
                         && Long.valueOf(1001L).equals(item.getSubjectId())
+                        && "phase1-crack".equals(item.getProductKey())
                         && "OPEN".equals(item.getWorkStatus())
                         && "P1".equals(item.getPriorityLevel())
                         && Long.valueOf(10001L).equals(item.getCreateBy())
@@ -93,6 +97,9 @@ class GovernanceWorkItemServiceImplTest {
                 1001L,
                 9102L,
                 7001L,
+                null,
+                null,
+                null,
                 null,
                 null,
                 "RULE_DEFINITION",
@@ -129,6 +136,9 @@ class GovernanceWorkItemServiceImplTest {
                         null,
                         null,
                         null,
+                        null,
+                        "phase1-crack",
+                        null,
                         "MODEL_GOVERNANCE",
                         "待治理产品",
                         "{\"productId\":1001}",
@@ -153,6 +163,7 @@ class GovernanceWorkItemServiceImplTest {
         verify(workItemMapper).insert(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
                 "PENDING_PRODUCT_GOVERNANCE".equals(item.getWorkItemCode())
                         && Long.valueOf(1001L).equals(item.getSubjectId())
+                        && "phase1-crack".equals(item.getProductKey())
         ));
         verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
                 Long.valueOf(9101L).equals(item.getId())
@@ -176,6 +187,39 @@ class GovernanceWorkItemServiceImplTest {
                         && "ACKED".equals(item.getWorkStatus())
                         && "待补联动预案".equals(item.getBlockingReason())
                         && Long.valueOf(10001L).equals(item.getAssigneeUserId())
+        ));
+    }
+
+    @Test
+    void openOrRefreshShouldPersistReplayContextFields() {
+        when(workItemMapper.selectOne(any())).thenReturn(null);
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.openOrRefresh(new GovernanceWorkItemCommand(
+                "PENDING_REPLAY",
+                "REPLAY_CASE",
+                5101L,
+                1001L,
+                9102L,
+                7001L,
+                null,
+                "trace-001",
+                "device-001",
+                "phase2-gnss",
+                null,
+                "REPLAY",
+                "待运营复盘",
+                "{\"metricIdentifier\":\"gpsTotalX\"}",
+                "P2",
+                10001L
+        ));
+
+        verify(workItemMapper).insert(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                "PENDING_REPLAY".equals(item.getWorkItemCode())
+                        && "trace-001".equals(item.getTraceId())
+                        && "device-001".equals(item.getDeviceCode())
+                        && "phase2-gnss".equals(item.getProductKey())
+                        && Long.valueOf(7001L).equals(item.getReleaseBatchId())
         ));
     }
 }

@@ -28,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -142,8 +143,52 @@ class RiskGovernanceWorkItemContributorTest {
         assertTrue(commands.stream().anyMatch(command ->
                 "PENDING_REPLAY".equals(command.workItemCode())
                         && Long.valueOf(9102L).equals(command.riskMetricId())
+                        && Long.valueOf(7001L).equals(command.releaseBatchId())
+                        && "dev-bound".equals(command.deviceCode())
+                        && "phase1-crack".equals(command.productKey())
                         && command.snapshotJson() != null
                         && command.snapshotJson().contains("dimensionKey")
+        ));
+    }
+
+    @Test
+    void collectWorkItemsShouldTolerateReplaySignalsWithoutRiskMetricId() {
+        Product product = product(1001L, "phase1-crack", "裂缝产品", LocalDateTime.of(2026, 4, 1, 10, 0));
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of());
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(
+                catalog(9101L, 1001L, "value")
+        ));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(
+                device(8001L, 1001L, "dev-bound", "已绑定设备")
+        ));
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
+                binding(5103L, 8001L, 5003L, null, "value", "裂缝值")
+        ));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+
+        RiskGovernanceWorkItemContributor contributor = new RiskGovernanceWorkItemContributor(
+                productMapper,
+                productContractReleaseBatchMapper,
+                riskMetricCatalogMapper,
+                deviceMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        List<GovernanceWorkItemCommand> commands = assertDoesNotThrow(contributor::collectWorkItems);
+
+        assertTrue(commands.stream().anyMatch(command ->
+                "PENDING_REPLAY".equals(command.workItemCode())
+                        && Long.valueOf(1001L).equals(command.productId())
+                        && command.riskMetricId() == null
+                        && command.snapshotJson() != null
+                        && command.snapshotJson().contains("\"metricIdentifier\":\"value\"")
         ));
     }
 

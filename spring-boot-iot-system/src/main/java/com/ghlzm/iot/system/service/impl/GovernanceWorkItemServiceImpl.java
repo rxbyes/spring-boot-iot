@@ -58,6 +58,9 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setRiskMetricId(normalized.riskMetricId());
             item.setReleaseBatchId(normalized.releaseBatchId());
             item.setApprovalOrderId(normalized.approvalOrderId());
+            item.setTraceId(normalize(normalized.traceId()));
+            item.setDeviceCode(normalize(normalized.deviceCode()));
+            item.setProductKey(normalize(normalized.productKey()));
             item.setAssigneeUserId(normalized.assigneeUserId());
             item.setSourceStage(normalize(normalized.sourceStage()));
             item.setBlockingReason(normalize(normalized.blockingReason()));
@@ -77,6 +80,9 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setRiskMetricId(normalized.riskMetricId());
         refreshed.setReleaseBatchId(normalized.releaseBatchId());
         refreshed.setApprovalOrderId(normalized.approvalOrderId());
+        refreshed.setTraceId(normalize(normalized.traceId()));
+        refreshed.setDeviceCode(normalize(normalized.deviceCode()));
+        refreshed.setProductKey(normalize(normalized.productKey()));
         refreshed.setAssigneeUserId(normalized.assigneeUserId());
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));

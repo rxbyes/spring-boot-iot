@@ -93,10 +93,15 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 new LambdaQueryWrapper<ProductContractReleaseBatch>()
                         .eq(ProductContractReleaseBatch::getDeleted, 0)
         );
-        Set<Long> releasedProductIds = releaseBatches.stream()
-                .map(ProductContractReleaseBatch::getProductId)
-                .filter(productIds::contains)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, ProductContractReleaseBatch> latestReleaseBatchByProductId = releaseBatches.stream()
+                .filter(batch -> batch.getProductId() != null && productIds.contains(batch.getProductId()))
+                .collect(Collectors.toMap(
+                        ProductContractReleaseBatch::getProductId,
+                        batch -> batch,
+                        this::chooseLatestReleaseBatch,
+                        LinkedHashMap::new
+                ));
+        Set<Long> releasedProductIds = latestReleaseBatchByProductId.keySet();
 
         List<RiskMetricCatalog> enabledCatalogs = selectEnabledCatalogs();
         Set<Long> catalogIds = enabledCatalogs.stream()
@@ -178,9 +183,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         null,
                         null,
                         null,
+                        null,
+                        trimToNull(product.getProductKey()),
+                        null,
                         "MODEL_GOVERNANCE",
                         "产品尚未进入治理主链路",
-                        snapshotOf(Map.of(
+                        snapshotOf(snapshotMap(
                                 "productId", product.getId(),
                                 "productKey", safeText(product.getProductKey()),
                                 "productName", safeText(product.getProductName())
@@ -199,9 +207,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         null,
                         null,
                         null,
+                        null,
+                        trimToNull(product.getProductKey()),
+                        null,
                         "CONTRACT_RELEASE",
                         "产品尚未形成正式合同发布批次",
-                        snapshotOf(Map.of(
+                        snapshotOf(snapshotMap(
                                 "productId", product.getId(),
                                 "productKey", safeText(product.getProductKey()),
                                 "productName", safeText(product.getProductName())
@@ -216,6 +227,7 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
             if (device == null || device.getId() == null || boundDeviceIds.contains(device.getId())) {
                 continue;
             }
+            Product product = device.getProductId() == null ? null : productMap.get(device.getProductId());
             commands.add(new GovernanceWorkItemCommand(
                     "PENDING_RISK_BINDING",
                     "DEVICE",
@@ -225,9 +237,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                     null,
                     null,
                     null,
+                    trimToNull(device.getDeviceCode()),
+                    product == null ? null : trimToNull(product.getProductKey()),
+                    null,
                     "RISK_BINDING",
                     "设备已上报，待绑定风险点",
-                    snapshotOf(Map.of(
+                    snapshotOf(snapshotMap(
                             "deviceId", device.getId(),
                             "deviceCode", safeText(device.getDeviceCode()),
                             "deviceName", safeText(device.getDeviceName()),
@@ -244,6 +259,7 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 .toList();
         for (RiskPointDevice binding : missingPolicyBindings) {
             Long productId = productIdOfBinding(binding, reportedDeviceMap, catalogProductByRiskMetricId, catalogProductByIdentifier);
+            Product product = productId == null ? null : productMap.get(productId);
             commands.add(new GovernanceWorkItemCommand(
                     "PENDING_THRESHOLD_POLICY",
                     "RISK_POINT_DEVICE",
@@ -253,9 +269,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                     null,
                     null,
                     null,
+                    deviceCodeOfBinding(binding, reportedDeviceMap),
+                    product == null ? null : trimToNull(product.getProductKey()),
+                    null,
                     "RULE_DEFINITION",
                     "风险点已绑定，待补阈值策略",
-                    snapshotOf(Map.of(
+                    snapshotOf(snapshotMap(
                             "riskPointDeviceId", subjectIdOfBinding(binding),
                             "riskPointId", binding.getRiskPointId(),
                             "deviceId", binding.getDeviceId(),
@@ -270,6 +289,7 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
 
         for (MetricBindingDimension dimension : boundMetricDimensions) {
             if (!linkageCoveredKeys.contains(dimension.dimensionKey())) {
+                Product product = dimension.productId() == null ? null : productMap.get(dimension.productId());
                 commands.add(new GovernanceWorkItemCommand(
                         "PENDING_LINKAGE_PLAN",
                         "LINKAGE_DIMENSION",
@@ -279,9 +299,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         null,
                         null,
                         null,
+                        null,
+                        product == null ? null : trimToNull(product.getProductKey()),
+                        null,
                         "LINKAGE_RULE",
                         "已纳管指标待补联动规则",
-                        snapshotOf(Map.of(
+                        snapshotOf(snapshotMap(
                                 "coverageType", "LINKAGE",
                                 "dimensionKey", dimension.dimensionKey(),
                                 "metricIdentifier", safeText(dimension.metricIdentifier()),
@@ -292,6 +315,7 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 ));
             }
             if (!emergencyCoveredKeys.contains(dimension.dimensionKey())) {
+                Product product = dimension.productId() == null ? null : productMap.get(dimension.productId());
                 commands.add(new GovernanceWorkItemCommand(
                         "PENDING_LINKAGE_PLAN",
                         "EMERGENCY_DIMENSION",
@@ -301,9 +325,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         null,
                         null,
                         null,
+                        null,
+                        product == null ? null : trimToNull(product.getProductKey()),
+                        null,
                         "EMERGENCY_PLAN",
                         "已纳管指标待补应急预案",
-                        snapshotOf(Map.of(
+                        snapshotOf(snapshotMap(
                                 "coverageType", "EMERGENCY_PLAN",
                                 "dimensionKey", dimension.dimensionKey(),
                                 "metricIdentifier", safeText(dimension.metricIdentifier()),
@@ -315,7 +342,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
             }
         }
 
-        List<MissingPolicySignal> replaySignals = buildMissingPolicySignals(missingPolicyBindings);
+        List<MissingPolicySignal> replaySignals = buildMissingPolicySignals(
+                missingPolicyBindings,
+                reportedDeviceMap,
+                catalogProductByRiskMetricId,
+                catalogProductByIdentifier
+        );
         for (MissingPolicySignal signal : replaySignals) {
             Long productId = signal.productId() != null
                     ? signal.productId()
@@ -323,20 +355,29 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
             if (productId == null && StringUtils.hasText(signal.metricIdentifier())) {
                 productId = catalogProductByIdentifier.get(normalizeLower(signal.metricIdentifier()));
             }
+            Product product = productId == null ? null : productMap.get(productId);
+            ProductContractReleaseBatch replayBatch = productId == null ? null : latestReleaseBatchByProductId.get(productId);
             commands.add(new GovernanceWorkItemCommand(
                     "PENDING_REPLAY",
                     "REPLAY_CASE",
                     stableSubjectId("REPLAY:" + signal.dimensionKey()),
                     productId,
                     signal.riskMetricId(),
+                    replayBatch == null ? null : replayBatch.getId(),
                     null,
                     null,
+                    signal.deviceCode(),
+                    product == null ? null : trimToNull(product.getProductKey()),
                     null,
                     "REPLAY",
                     "风险指标缺阈值策略，待运营复盘",
-                    snapshotOf(Map.of(
+                    snapshotOf(snapshotMap(
                             "dimensionKey", signal.dimensionKey(),
                             "dimensionLabel", signal.dimensionLabel(),
+                            "productId", productId,
+                            "productKey", product == null ? null : trimToNull(product.getProductKey()),
+                            "deviceCode", signal.deviceCode(),
+                            "releaseBatchId", replayBatch == null ? null : replayBatch.getId(),
                             "riskMetricId", signal.riskMetricId(),
                             "metricIdentifier", safeText(signal.metricIdentifier()),
                             "metricName", safeText(signal.metricName()),
@@ -441,10 +482,14 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private List<MissingPolicySignal> buildMissingPolicySignals(List<RiskPointDevice> bindings) {
+    private List<MissingPolicySignal> buildMissingPolicySignals(List<RiskPointDevice> bindings,
+                                                                Map<Long, Device> deviceMap,
+                                                                Map<Long, Long> catalogProductByRiskMetricId,
+                                                                Map<String, Long> catalogProductByIdentifier) {
         Map<String, MissingPolicySignalAccumulator> accumulators = new LinkedHashMap<>();
         for (RiskPointDevice binding : bindings) {
-            String dimensionKey = toMissingPolicyDimensionKey(binding);
+            Long productId = productIdOfBinding(binding, deviceMap, catalogProductByRiskMetricId, catalogProductByIdentifier);
+            String dimensionKey = toMissingPolicyDimensionKey(binding, productId);
             if (!StringUtils.hasText(dimensionKey)) {
                 continue;
             }
@@ -452,13 +497,13 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                     dimensionKey,
                     key -> new MissingPolicySignalAccumulator(
                             key,
-                            toMissingPolicyDimensionLabel(binding),
+                            toMissingPolicyDimensionLabel(binding, productId),
                             binding.getRiskMetricId(),
                             safeText(binding.getMetricIdentifier()),
                             safeText(binding.getMetricName())
                     )
             );
-            accumulator.add(binding);
+            accumulator.add(binding, productId, deviceCodeOfBinding(binding, deviceMap));
         }
         return accumulators.values().stream()
                 .map(MissingPolicySignalAccumulator::toSignal)
@@ -466,7 +511,7 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 .toList();
     }
 
-    private String toMissingPolicyDimensionKey(RiskPointDevice binding) {
+    private String toMissingPolicyDimensionKey(RiskPointDevice binding, Long productId) {
         if (binding == null) {
             return null;
         }
@@ -474,12 +519,15 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
             return "risk_metric_id:" + binding.getRiskMetricId();
         }
         if (StringUtils.hasText(binding.getMetricIdentifier())) {
+            if (productId != null) {
+                return "product_metric_identifier:" + productId + ":" + normalizeLower(binding.getMetricIdentifier());
+            }
             return "metric_identifier:" + normalizeLower(binding.getMetricIdentifier());
         }
         return null;
     }
 
-    private String toMissingPolicyDimensionLabel(RiskPointDevice binding) {
+    private String toMissingPolicyDimensionLabel(RiskPointDevice binding, Long productId) {
         if (binding == null) {
             return "unknown";
         }
@@ -487,6 +535,9 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
             return "riskMetricId=" + binding.getRiskMetricId();
         }
         if (StringUtils.hasText(binding.getMetricIdentifier())) {
+            if (productId != null) {
+                return "productId=" + productId + ", metricIdentifier=" + binding.getMetricIdentifier().trim();
+            }
             return "metricIdentifier=" + binding.getMetricIdentifier().trim();
         }
         return "unknown";
@@ -544,6 +595,20 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
         return null;
     }
 
+    private String deviceCodeOfBinding(RiskPointDevice binding, Map<Long, Device> deviceMap) {
+        if (binding == null) {
+            return null;
+        }
+        if (StringUtils.hasText(binding.getDeviceCode())) {
+            return binding.getDeviceCode().trim();
+        }
+        if (binding.getDeviceId() == null) {
+            return null;
+        }
+        Device device = deviceMap.get(binding.getDeviceId());
+        return device == null ? null : trimToNull(device.getDeviceCode());
+    }
+
     private Long subjectIdOfBinding(RiskPointDevice binding) {
         if (binding == null) {
             return null;
@@ -573,6 +638,51 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
         return value == null ? "" : value;
     }
 
+    private String trimToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private ProductContractReleaseBatch chooseLatestReleaseBatch(ProductContractReleaseBatch left,
+                                                                 ProductContractReleaseBatch right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        LocalDateTime leftTime = left.getCreateTime();
+        LocalDateTime rightTime = right.getCreateTime();
+        if (leftTime == null && rightTime != null) {
+            return right;
+        }
+        if (leftTime != null && rightTime == null) {
+            return left;
+        }
+        if (leftTime != null && rightTime != null) {
+            int timeCompare = leftTime.compareTo(rightTime);
+            if (timeCompare != 0) {
+                return timeCompare >= 0 ? left : right;
+            }
+        }
+        Long leftId = left.getId();
+        Long rightId = right.getId();
+        if (leftId == null) {
+            return right;
+        }
+        if (rightId == null) {
+            return left;
+        }
+        return leftId >= rightId ? left : right;
+    }
+
+    private Map<String, Object> snapshotMap(Object... keyValues) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        for (int index = 0; index + 1 < keyValues.length; index += 2) {
+            snapshot.put(String.valueOf(keyValues[index]), keyValues[index + 1]);
+        }
+        return snapshot;
+    }
+
     private String snapshotOf(Map<String, ?> snapshot) {
         try {
             return objectMapper.writeValueAsString(snapshot);
@@ -595,7 +705,8 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                                        String metricName,
                                        long bindingCount,
                                        long riskPointCount,
-                                       Long productId) {
+                                       Long productId,
+                                       String deviceCode) {
     }
 
     private static final class MissingPolicySignalAccumulator {
@@ -608,6 +719,7 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
         private long bindingCount;
         private final Set<Long> riskPointIds = new LinkedHashSet<>();
         private final Set<Long> productIds = new LinkedHashSet<>();
+        private final Set<String> deviceCodes = new LinkedHashSet<>();
 
         private MissingPolicySignalAccumulator(String dimensionKey,
                                                String dimensionLabel,
@@ -621,15 +733,22 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
             this.metricName = metricName;
         }
 
-        private void add(RiskPointDevice binding) {
+        private void add(RiskPointDevice binding, Long productId, String deviceCode) {
             bindingCount++;
             if (binding != null && binding.getRiskPointId() != null) {
                 riskPointIds.add(binding.getRiskPointId());
             }
+            if (productId != null) {
+                productIds.add(productId);
+            }
+            if (StringUtils.hasText(deviceCode)) {
+                deviceCodes.add(deviceCode.trim());
+            }
         }
 
         private MissingPolicySignal toSignal() {
-            Long productId = productIds.stream().findFirst().orElse(null);
+            Long productId = productIds.size() == 1 ? productIds.iterator().next() : null;
+            String deviceCode = deviceCodes.size() == 1 ? deviceCodes.iterator().next() : null;
             return new MissingPolicySignal(
                     dimensionKey,
                     dimensionLabel,
@@ -638,7 +757,8 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                     metricName,
                     bindingCount,
                     riskPointIds.size(),
-                    productId
+                    productId,
+                    deviceCode
             );
         }
     }
