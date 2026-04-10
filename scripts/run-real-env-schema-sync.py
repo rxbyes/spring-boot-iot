@@ -865,6 +865,33 @@ EXPECTED_INDEX_SHAPES: IndexShapeMap = {
     ),
 }
 
+BINDING_INDEX_EXPECTED_SHAPES: Dict[Tuple[str, str], Tuple[bool, Tuple[str, ...]]] = {
+    ("risk_metric_linkage_binding", "uk_risk_metric_linkage_active"): (
+        True,
+        ("tenant_id", "risk_metric_id", "linkage_rule_id", "deleted"),
+    ),
+    ("risk_metric_linkage_binding", "idx_risk_metric_linkage_rule"): (
+        False,
+        ("linkage_rule_id", "binding_status", "deleted"),
+    ),
+    ("risk_metric_linkage_binding", "idx_risk_metric_linkage_metric"): (
+        False,
+        ("risk_metric_id", "binding_status", "deleted"),
+    ),
+    ("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active"): (
+        True,
+        ("tenant_id", "risk_metric_id", "emergency_plan_id", "deleted"),
+    ),
+    ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_rule"): (
+        False,
+        ("emergency_plan_id", "binding_status", "deleted"),
+    ),
+    ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric"): (
+        False,
+        ("risk_metric_id", "binding_status", "deleted"),
+    ),
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run rm_iot schema sync for real environment.")
@@ -1639,6 +1666,12 @@ def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
             continue
         for index_name, ddl in specs:
             if index_exists(cur, db, table, index_name):
+                expected_shape = BINDING_INDEX_EXPECTED_SHAPES.get((table, index_name))
+                if expected_shape and binding_index_shape_drifts(cur, db, table, index_name, expected_shape):
+                    raise RuntimeError(
+                        f"Existing index {table}.{index_name} drifts from expected shape and must be "
+                        "corrected before schema sync can continue."
+                    )
                 ensure_existing_index_shape(cur, db, table, index_name)
                 continue
             unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index_name))
@@ -1665,6 +1698,39 @@ def has_duplicate_unique_key_rows(
         """
     )
     return cur.fetchone() is not None
+
+
+def binding_index_shape_drifts(
+    cur: pymysql.cursors.Cursor,
+    db: str,
+    table: str,
+    index: str,
+    expected_shape: Tuple[bool, Tuple[str, ...]],
+) -> bool:
+    existing_shape = load_index_shape(cur, db, table, index)
+    if existing_shape is None:
+        return True
+    return existing_shape != expected_shape
+
+
+def load_index_shape(
+    cur: pymysql.cursors.Cursor, db: str, table: str, index: str
+) -> Tuple[bool, Tuple[str, ...]] | None:
+    cur.execute(
+        """
+        SELECT NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME=%s
+        ORDER BY SEQ_IN_INDEX ASC
+        """,
+        (db, table, index),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return None
+    is_unique = int(rows[0][0]) == 0
+    columns = tuple(str(row[1]) for row in rows)
+    return is_unique, columns
 
 
 def find_multi_risk_point_conflicts(cur: pymysql.cursors.Cursor, db: str) -> List[Tuple[int, str, str, str]]:
