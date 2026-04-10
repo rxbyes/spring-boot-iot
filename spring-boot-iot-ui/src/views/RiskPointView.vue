@@ -536,6 +536,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
@@ -655,6 +656,7 @@ const appliedFilters = reactive({
   status: '' as '' | number
 });
 
+const route = useRoute();
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
 const formRef = ref();
@@ -1394,6 +1396,26 @@ const handleClearAppliedFilters = () => {
   handleReset();
 };
 
+function applyRouteQueryToFilters() {
+  filters.keyword = parseRouteStringQuery(route.query.keyword);
+  filters.riskPointLevel = parseRouteStringQuery(route.query.riskPointLevel);
+  filters.status = parseRouteNumberQuery(route.query.status) ?? '';
+}
+
+function parseRouteStringQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function parseRouteNumberQuery(value: unknown) {
+  const text = parseRouteStringQuery(value);
+  if (!text) {
+    return undefined;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 const resetRiskPointForm = () => {
   form.id = undefined;
   form.riskPointCode = '';
@@ -1763,6 +1785,7 @@ watch(
 );
 
 onMounted(() => {
+  applyRouteQueryToFilters();
   syncAppliedFilters();
   void loadOrganizationOptions();
   void loadRiskPointLevelOptions();

@@ -18,7 +18,8 @@ const {
   mockRollbackProductContractReleaseBatch,
   mockGetGovernanceApprovalOrderDetail,
   mockResubmitGovernanceApprovalOrder,
-  mockListDeviceRelations
+  mockListDeviceRelations,
+  mockRouter
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
   mockPageProductContractReleaseBatches: vi.fn(),
@@ -31,7 +32,10 @@ const {
   mockRollbackProductContractReleaseBatch: vi.fn(),
   mockGetGovernanceApprovalOrderDetail: vi.fn(),
   mockResubmitGovernanceApprovalOrder: vi.fn(),
-  mockListDeviceRelations: vi.fn()
+  mockListDeviceRelations: vi.fn(),
+  mockRouter: {
+    push: vi.fn()
+  }
 }))
 
 vi.mock('@/api/product', () => ({
@@ -60,6 +64,10 @@ vi.mock('@/api/governanceApproval', () => ({
     getOrderDetail: mockGetGovernanceApprovalOrderDetail,
     resubmitOrder: mockResubmitGovernanceApprovalOrder
   }
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => mockRouter
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -191,6 +199,7 @@ describe('ProductModelDesignerWorkspace', () => {
     mockGetGovernanceApprovalOrderDetail.mockReset()
     mockResubmitGovernanceApprovalOrder.mockReset()
     mockListDeviceRelations.mockReset()
+    mockRouter.push.mockReset()
     vi.mocked(ElMessage.success).mockReset()
     vi.mocked(ElMessage.error).mockReset()
     vi.mocked(ElMessage.warning).mockReset()
@@ -260,7 +269,60 @@ describe('ProductModelDesignerWorkspace', () => {
           affectedRiskPointBindingCount: 3,
           affectedRuleCount: 1,
           affectedLinkageBindingCount: 1,
-          affectedEmergencyPlanBindingCount: 0
+          affectedEmergencyPlanBindingCount: 1,
+          affectedRiskMetrics: [
+            {
+              riskMetricId: 6101,
+              contractIdentifier: 'value',
+              normativeIdentifier: 'value',
+              riskMetricCode: 'metric.value',
+              riskMetricName: '裂缝值',
+              metricRole: 'MEASURE',
+              lifecycleStatus: 'ACTIVE'
+            }
+          ],
+          affectedRiskPointBindings: [
+            {
+              bindingId: 7101,
+              riskPointId: 5101,
+              riskPointName: '北坡风险点',
+              deviceId: 3101,
+              deviceCode: 'DEVICE-3101',
+              deviceName: '北坡设备',
+              riskMetricId: 6101,
+              metricIdentifier: 'value',
+              metricName: '裂缝值'
+            }
+          ],
+          affectedRules: [
+            {
+              ruleId: 8101,
+              ruleName: '裂缝值红色阈值',
+              riskMetricId: 6101,
+              metricIdentifier: 'value',
+              metricName: '裂缝值',
+              alarmLevel: 'red'
+            }
+          ],
+          affectedLinkageBindings: [
+            {
+              bindingId: 8201,
+              linkageRuleId: 8301,
+              linkageRuleName: '裂缝值联动',
+              riskMetricId: 6101,
+              bindingStatus: 'ACTIVE'
+            }
+          ],
+          affectedEmergencyPlanBindings: [
+            {
+              bindingId: 8401,
+              emergencyPlanId: 8501,
+              emergencyPlanName: '裂缝值应急预案',
+              riskMetricId: 6101,
+              bindingStatus: 'ACTIVE',
+              alarmLevel: 'red'
+            }
+          ]
         },
         impactItems: [
           {
@@ -570,7 +632,7 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(mockUpdateProduct).toHaveBeenCalledWith(
       1001,
       expect.objectContaining({
-        metadataJson: expect.stringContaining('"group":"statusEvent"')
+        metadataJson: expect.stringContaining('"group":"status"')
       })
     )
   })
@@ -1075,6 +1137,18 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('受影响阈值规则 1')
     expect(wrapper.text()).toContain('value')
     expect(wrapper.text()).toContain('sensor_state')
+  })
+
+  it('renders object-level dependency detail groups in rollback preview', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('裂缝值')
+    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).toContain('裂缝值红色阈值')
+    expect(wrapper.text()).toContain('裂缝值联动')
+    expect(wrapper.text()).toContain('裂缝值应急预案')
   })
 
   it('disables confirm apply after a successful activation to prevent duplicate submissions', async () => {

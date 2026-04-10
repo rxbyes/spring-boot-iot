@@ -247,6 +247,96 @@
               </div>
             </div>
 
+            <div v-if="detailImpact.dependencySummary?.affectedRiskMetrics?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响风险指标目录</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedRiskMetrics.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedRiskMetrics"
+                  :key="`${item.riskMetricId || item.contractIdentifier || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.riskMetricName || item.contractIdentifier || '--' }}</strong>
+                  <span>{{ item.contractIdentifier || '--' }} · {{ item.riskMetricCode || '--' }}</span>
+                  <span>{{ item.metricRole || '--' }} · {{ item.lifecycleStatus || '--' }}</span>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedRiskPointBindings?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响风险点绑定</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedRiskPointBindings.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedRiskPointBindings"
+                  :key="`${item.bindingId || item.riskPointId || item.deviceCode || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.riskPointName || item.deviceCode || '--' }}</strong>
+                  <span>{{ item.deviceCode || '--' }} · {{ item.metricIdentifier || '--' }}</span>
+                  <StandardButton action="query" link @click="openRiskPointContext(item)">查看风险对象</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedRules?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响阈值策略</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedRules.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedRules"
+                  :key="`${item.ruleId || item.ruleName || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.ruleName || '--' }}</strong>
+                  <span>{{ item.metricIdentifier || '--' }} · {{ item.alarmLevel || '--' }}</span>
+                  <StandardButton action="query" link @click="openRuleContext(item)">查看阈值策略</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedLinkageBindings?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响联动编排</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedLinkageBindings.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedLinkageBindings"
+                  :key="`${item.bindingId || item.linkageRuleId || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.linkageRuleName || '--' }}</strong>
+                  <span>{{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openLinkageContext(item)">查看联动编排</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedEmergencyPlanBindings?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响应急预案</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedEmergencyPlanBindings.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedEmergencyPlanBindings"
+                  :key="`${item.bindingId || item.emergencyPlanId || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.emergencyPlanName || '--' }}</strong>
+                  <span>{{ item.alarmLevel || '--' }} · {{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openEmergencyPlanContext(item)">查看应急预案</StandardButton>
+                </article>
+              </div>
+            </div>
+
             <div v-if="detailImpact.impactItems?.length" class="governance-approval-impact-list">
               <article
                 v-for="(item, index) in detailImpact.impactItems"
@@ -320,9 +410,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 import { governanceApprovalApi } from '@/api/governanceApproval'
-import { productApi, type ProductContractReleaseImpact } from '@/api/product'
+import {
+  productApi,
+  type ProductContractReleaseEmergencyPlanBindingDetail,
+  type ProductContractReleaseImpact,
+  type ProductContractReleaseLinkageBindingDetail,
+  type ProductContractReleaseRiskPointBindingDetail,
+  type ProductContractReleaseRuleDetail
+} from '@/api/product'
 import { resolveRequestErrorMessage } from '@/api/request'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
@@ -340,6 +438,12 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
+import {
+  buildEmergencyPlanContextLocation,
+  buildLinkageContextLocation,
+  buildRiskPointContextLocation,
+  buildRuleContextLocation
+} from '@/utils/governanceImpact'
 import type {
   GovernanceApprovalOrder,
   GovernanceApprovalOrderDetail,
@@ -352,6 +456,7 @@ import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 
 type ActionMode = 'approve' | 'reject' | 'cancel' | 'resubmit' | null
 
+const router = useRouter()
 const permissionStore = usePermissionStore()
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination()
 
@@ -850,6 +955,22 @@ function impactModelTypeLabel(modelType: string | null | undefined) {
       return modelType || '--'
   }
 }
+
+function openRiskPointContext(detail: ProductContractReleaseRiskPointBindingDetail) {
+  void router.push(buildRiskPointContextLocation(detail))
+}
+
+function openRuleContext(detail: ProductContractReleaseRuleDetail) {
+  void router.push(buildRuleContextLocation(detail))
+}
+
+function openLinkageContext(detail: ProductContractReleaseLinkageBindingDetail) {
+  void router.push(buildLinkageContextLocation(detail))
+}
+
+function openEmergencyPlanContext(detail: ProductContractReleaseEmergencyPlanBindingDetail) {
+  void router.push(buildEmergencyPlanContextLocation(detail))
+}
 </script>
 
 <style scoped>
@@ -948,6 +1069,27 @@ function impactModelTypeLabel(modelType: string | null | undefined) {
 .governance-approval-impact-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.governance-approval-impact-dependency-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.governance-approval-impact-dependency-group__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.governance-approval-impact-dependency-group__head strong {
+  color: var(--text-heading);
+}
+
+.governance-approval-impact-dependency-group__head span {
+  color: var(--text-caption);
+  font-size: 13px;
 }
 
 .governance-approval-detail-field {

@@ -113,7 +113,7 @@ export function buildProductMetadataJson(
     .map((item) => ({
       identifier: normalizeText(item.identifier),
       displayName: normalizeText(item.displayName),
-      group: item.group,
+      group: serializeProductObjectInsightMetricGroup(item.group),
       includeInTrend: item.includeInTrend ?? true,
       includeInExtension: item.includeInExtension ?? true,
       analysisTitle: normalizeText(item.analysisTitle) || undefined,
@@ -205,6 +205,10 @@ function parseProductMetadata(metadataJson?: string | null): ProductMetadata | n
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function serializeProductObjectInsightMetricGroup(group: ProductObjectInsightMetricGroup) {
+  return group === 'statusEvent' ? 'status' : group
 }
 
 function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): ProductObjectInsightCustomMetricConfig {

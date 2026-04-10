@@ -29,7 +29,8 @@ const {
   mockElMessageSuccess,
   mockElMessageError,
   mockElMessageWarning,
-  mockPermissionStore
+  mockPermissionStore,
+  mockRoute
 } = vi.hoisted(() => ({
   mockPageRiskPointList: vi.fn(),
   mockGetRiskPointById: vi.fn(),
@@ -65,6 +66,9 @@ const {
       orgId: 7101,
       orgName: '平台运维中心'
     }
+  },
+  mockRoute: {
+    query: {}
   }
 }))
 
@@ -126,6 +130,10 @@ vi.mock('@/utils/message', () => ({
 
 vi.mock('@/stores/permission', () => ({
   usePermissionStore: () => mockPermissionStore
+}))
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute
 }))
 
 const StandardPageShellStub = defineComponent({
@@ -550,6 +558,7 @@ describe('RiskPointView', () => {
     mockElMessageSuccess.mockReset()
     mockElMessageError.mockReset()
     mockElMessageWarning.mockReset()
+    mockRoute.query = {}
     mockPermissionStore.userInfo = {
       id: 9001,
       username: 'editor',
@@ -1106,6 +1115,31 @@ describe('RiskPointView', () => {
       pageNum: 1,
       pageSize: 3
     })
+  })
+
+  it('hydrates keyword and status filters from route query before loading the list', async () => {
+    mockRoute.query = {
+      keyword: '北坡风险点',
+      status: '0'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    mountView()
+    await flushPromises()
+
+    expect(mockPageRiskPointList).toHaveBeenCalledWith(expect.objectContaining({
+      keyword: '北坡风险点',
+      status: 0
+    }))
   })
 
   it('hides the code field in create mode and shows audit fields in edit mode', async () => {

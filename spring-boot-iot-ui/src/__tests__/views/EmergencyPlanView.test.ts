@@ -10,14 +10,18 @@ const {
   mockUpdatePlan,
   mockDeletePlan,
   mockFetchRiskLevelOptions,
-  mockFetchAlarmLevelOptions
+  mockFetchAlarmLevelOptions,
+  mockRoute
 } = vi.hoisted(() => ({
   mockPagePlanList: vi.fn(),
   mockAddPlan: vi.fn(),
   mockUpdatePlan: vi.fn(),
   mockDeletePlan: vi.fn(),
   mockFetchRiskLevelOptions: vi.fn(),
-  mockFetchAlarmLevelOptions: vi.fn()
+  mockFetchAlarmLevelOptions: vi.fn(),
+  mockRoute: {
+    query: {}
+  }
 }));
 
 vi.mock('@/api/emergencyPlan', () => ({
@@ -54,6 +58,10 @@ vi.mock('@/utils/message', () => ({
     error: vi.fn(),
     warning: vi.fn()
   }
+}));
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute
 }));
 
 const StandardPageShellStub = defineComponent({
@@ -138,6 +146,7 @@ describe('EmergencyPlanView', () => {
     mockDeletePlan.mockReset();
     mockFetchRiskLevelOptions.mockReset();
     mockFetchAlarmLevelOptions.mockReset();
+    mockRoute.query = {};
     mockFetchRiskLevelOptions.mockResolvedValue([
       { label: '红色', value: 'red', sortNo: 1 },
       { label: '橙色', value: 'orange', sortNo: 2 },
@@ -171,5 +180,32 @@ describe('EmergencyPlanView', () => {
 
     expect(wrapper.text()).toContain('红色 1 项');
     expect(wrapper.text()).toContain('橙色 1 项');
+  });
+
+  it('hydrates route query filters before loading emergency plans', async () => {
+    mockRoute.query = {
+      planName: '裂缝值应急预案',
+      alarmLevel: 'red',
+      status: '0'
+    };
+    mockPagePlanList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 1, planName: '裂缝值应急预案', alarmLevel: 'red', status: 0 }]
+      }
+    });
+
+    mountView();
+    await flushPromises();
+
+    expect(mockPagePlanList).toHaveBeenCalledWith(expect.objectContaining({
+      planName: '裂缝值应急预案',
+      alarmLevel: 'red',
+      status: 0
+    }));
   });
 });

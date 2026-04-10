@@ -121,6 +121,96 @@
               </article>
             </div>
 
+            <div v-if="rollbackPreview.dependencySummary?.affectedRiskMetrics?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响风险指标目录</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedRiskMetrics.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedRiskMetrics"
+                  :key="`${item.riskMetricId || item.contractIdentifier || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.riskMetricName || item.contractIdentifier || '--' }}</strong>
+                  <span>{{ item.contractIdentifier || '--' }} · {{ item.riskMetricCode || '--' }}</span>
+                  <span>{{ item.metricRole || '--' }} · {{ item.lifecycleStatus || '--' }}</span>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedRiskPointBindings?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响风险点绑定</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedRiskPointBindings.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedRiskPointBindings"
+                  :key="`${item.bindingId || item.riskPointId || item.deviceCode || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.riskPointName || item.deviceCode || '--' }}</strong>
+                  <span>{{ item.deviceCode || '--' }} · {{ item.metricIdentifier || '--' }}</span>
+                  <StandardButton action="query" link @click="openRiskPointContext(item)">查看风险对象</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedRules?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响阈值策略</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedRules.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedRules"
+                  :key="`${item.ruleId || item.ruleName || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.ruleName || '--' }}</strong>
+                  <span>{{ item.metricIdentifier || '--' }} · {{ item.alarmLevel || '--' }}</span>
+                  <StandardButton action="query" link @click="openRuleContext(item)">查看阈值策略</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedLinkageBindings?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响联动编排</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedLinkageBindings.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedLinkageBindings"
+                  :key="`${item.bindingId || item.linkageRuleId || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.linkageRuleName || '--' }}</strong>
+                  <span>{{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openLinkageContext(item)">查看联动编排</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedEmergencyPlanBindings?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响应急预案</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedEmergencyPlanBindings.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedEmergencyPlanBindings"
+                  :key="`${item.bindingId || item.emergencyPlanId || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.emergencyPlanName || '--' }}</strong>
+                  <span>{{ item.alarmLevel || '--' }} · {{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openEmergencyPlanContext(item)">查看应急预案</StandardButton>
+                </article>
+              </div>
+            </div>
+
             <div v-if="rollbackPreview.impactItems?.length" class="product-model-designer__rollback-preview-list">
               <article
                 v-for="(item, index) in rollbackPreview.impactItems"
@@ -652,6 +742,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import StandardButton from '@/components/StandardButton.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
@@ -660,9 +751,19 @@ import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'
 import {
   productApi,
+  type ProductContractReleaseEmergencyPlanBindingDetail,
   type ProductContractReleaseImpact,
-  type ProductContractReleaseRollbackResult
+  type ProductContractReleaseLinkageBindingDetail,
+  type ProductContractReleaseRiskPointBindingDetail,
+  type ProductContractReleaseRollbackResult,
+  type ProductContractReleaseRuleDetail
 } from '@/api/product'
+import {
+  buildEmergencyPlanContextLocation,
+  buildLinkageContextLocation,
+  buildRiskPointContextLocation,
+  buildRuleContextLocation
+} from '@/utils/governanceImpact'
 import type {
   GovernanceApprovalOrderDetail,
   GovernanceApprovalStatus,
@@ -678,6 +779,8 @@ import type {
   ProductModelType,
   ProductObjectInsightMetricGroup
 } from '@/types/api'
+
+const router = useRouter()
 import { ElMessage } from '@/utils/message'
 import { getObjectInsightMetricGroupLabel } from '@/utils/objectInsightMetricGroup'
 import {
@@ -1779,6 +1882,22 @@ function rollbackPreviewModelTypeLabel(modelType?: string | null) {
     default:
       return modelType || '--'
   }
+}
+
+function openRiskPointContext(detail: ProductContractReleaseRiskPointBindingDetail) {
+  void router.push(buildRiskPointContextLocation(detail))
+}
+
+function openRuleContext(detail: ProductContractReleaseRuleDetail) {
+  void router.push(buildRuleContextLocation(detail))
+}
+
+function openLinkageContext(detail: ProductContractReleaseLinkageBindingDetail) {
+  void router.push(buildLinkageContextLocation(detail))
+}
+
+function openEmergencyPlanContext(detail: ProductContractReleaseEmergencyPlanBindingDetail) {
+  void router.push(buildEmergencyPlanContextLocation(detail))
 }
 
 function inferRelationStrategies(

@@ -66,6 +66,59 @@ export interface ProductContractReleaseDependencySummary {
   affectedRuleCount?: number | null
   affectedLinkageBindingCount?: number | null
   affectedEmergencyPlanBindingCount?: number | null
+  affectedRiskMetrics?: ProductContractReleaseRiskMetricDetail[] | null
+  affectedRiskPointBindings?: ProductContractReleaseRiskPointBindingDetail[] | null
+  affectedRules?: ProductContractReleaseRuleDetail[] | null
+  affectedLinkageBindings?: ProductContractReleaseLinkageBindingDetail[] | null
+  affectedEmergencyPlanBindings?: ProductContractReleaseEmergencyPlanBindingDetail[] | null
+}
+
+export interface ProductContractReleaseRiskMetricDetail {
+  riskMetricId?: IdType | null
+  contractIdentifier?: string | null
+  normativeIdentifier?: string | null
+  riskMetricCode?: string | null
+  riskMetricName?: string | null
+  metricRole?: string | null
+  lifecycleStatus?: string | null
+}
+
+export interface ProductContractReleaseRiskPointBindingDetail {
+  bindingId?: IdType | null
+  riskPointId?: IdType | null
+  riskPointName?: string | null
+  deviceId?: IdType | null
+  deviceCode?: string | null
+  deviceName?: string | null
+  riskMetricId?: IdType | null
+  metricIdentifier?: string | null
+  metricName?: string | null
+}
+
+export interface ProductContractReleaseRuleDetail {
+  ruleId?: IdType | null
+  ruleName?: string | null
+  riskMetricId?: IdType | null
+  metricIdentifier?: string | null
+  metricName?: string | null
+  alarmLevel?: string | null
+}
+
+export interface ProductContractReleaseLinkageBindingDetail {
+  bindingId?: IdType | null
+  linkageRuleId?: IdType | null
+  linkageRuleName?: string | null
+  riskMetricId?: IdType | null
+  bindingStatus?: string | null
+}
+
+export interface ProductContractReleaseEmergencyPlanBindingDetail {
+  bindingId?: IdType | null
+  emergencyPlanId?: IdType | null
+  emergencyPlanName?: string | null
+  riskMetricId?: IdType | null
+  bindingStatus?: string | null
+  alarmLevel?: string | null
 }
 
 export interface ProductContractReleaseImpact {

@@ -241,6 +241,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
@@ -293,6 +294,7 @@ const appliedFilters = reactive({
   status: '' as '' | number
 });
 
+const route = useRoute();
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
 const formRef = ref();
@@ -469,6 +471,26 @@ const handleClearAppliedFilters = () => {
   handleReset();
 };
 
+function applyRouteQueryToFilters() {
+  filters.planName = parseRouteStringQuery(route.query.planName);
+  filters.alarmLevel = parseRouteStringQuery(route.query.alarmLevel);
+  filters.status = parseRouteNumberQuery(route.query.status) ?? '';
+}
+
+function parseRouteStringQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function parseRouteNumberQuery(value: unknown) {
+  const text = parseRouteStringQuery(value);
+  if (!text) {
+    return undefined;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 const resetPlanForm = () => {
   form.id = undefined;
   form.planName = '';
@@ -535,6 +557,7 @@ const handleFormClose = () => {
 };
 
 onMounted(() => {
+  applyRouteQueryToFilters();
   syncAppliedFilters();
   void loadAlarmLevelOptions();
   void loadPlanList();

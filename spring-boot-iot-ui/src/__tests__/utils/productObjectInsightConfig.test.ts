@@ -52,6 +52,21 @@ describe('productObjectInsightConfig', () => {
     expect(metadataJson).toContain('S1_ZT_1.signal_4g')
   })
 
+  it('serializes status-event rows back into the backend status group contract', () => {
+    const metadataJson = buildProductMetadataJson([
+      {
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'S1_ZT_1.sensor_state',
+        displayName: '设备状态',
+        group: 'statusEvent',
+        sortNo: 12
+      }
+    ])
+
+    expect(metadataJson).toContain('"group":"status"')
+    expect(metadataJson).not.toContain('"group":"statusEvent"')
+  })
+
   it('rejects duplicate identifiers before submit', () => {
     const message = validateProductObjectInsightMetrics([
       {

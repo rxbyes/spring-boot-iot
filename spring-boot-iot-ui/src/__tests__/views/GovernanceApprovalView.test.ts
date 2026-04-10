@@ -13,7 +13,9 @@ const {
   mockResubmitOrder,
   mockGetProductContractReleaseBatchImpact,
   mockConfirmAction,
-  mockPermissionStore
+  mockPermissionStore,
+  mockRouter,
+  mockRoute
 } = vi.hoisted(() => ({
   mockPageOrders: vi.fn(),
   mockGetOrderDetail: vi.fn(),
@@ -27,6 +29,12 @@ const {
     userInfo: {
       id: 2002
     }
+  },
+  mockRouter: {
+    push: vi.fn()
+  },
+  mockRoute: {
+    query: {}
   }
 }))
 
@@ -49,6 +57,11 @@ vi.mock('@/api/product', () => ({
 
 vi.mock('@/stores/permission', () => ({
   usePermissionStore: () => mockPermissionStore
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => mockRouter,
+  useRoute: () => mockRoute
 }))
 
 vi.mock('@/utils/confirm', () => ({
@@ -328,6 +341,8 @@ describe('GovernanceApprovalView', () => {
     mockResubmitOrder.mockReset()
     mockGetProductContractReleaseBatchImpact.mockReset()
     mockConfirmAction.mockReset()
+    mockRouter.push.mockReset()
+    mockRoute.query = {}
     mockConfirmAction.mockResolvedValue(undefined)
     mockPermissionStore.userInfo.id = 2002
 
@@ -387,7 +402,60 @@ describe('GovernanceApprovalView', () => {
           affectedRiskPointBindingCount: 4,
           affectedRuleCount: 1,
           affectedLinkageBindingCount: 1,
-          affectedEmergencyPlanBindingCount: 0
+          affectedEmergencyPlanBindingCount: 1,
+          affectedRiskMetrics: [
+            {
+              riskMetricId: 6101,
+              contractIdentifier: 'value',
+              normativeIdentifier: 'value',
+              riskMetricCode: 'metric.value',
+              riskMetricName: '裂缝值',
+              metricRole: 'MEASURE',
+              lifecycleStatus: 'ACTIVE'
+            }
+          ],
+          affectedRiskPointBindings: [
+            {
+              bindingId: 7101,
+              riskPointId: 5101,
+              riskPointName: '北坡风险点',
+              deviceId: 3101,
+              deviceCode: 'DEVICE-3101',
+              deviceName: '北坡设备',
+              riskMetricId: 6101,
+              metricIdentifier: 'value',
+              metricName: '裂缝值'
+            }
+          ],
+          affectedRules: [
+            {
+              ruleId: 8101,
+              ruleName: '裂缝值红色阈值',
+              riskMetricId: 6101,
+              metricIdentifier: 'value',
+              metricName: '裂缝值',
+              alarmLevel: 'red'
+            }
+          ],
+          affectedLinkageBindings: [
+            {
+              bindingId: 8201,
+              linkageRuleId: 8301,
+              linkageRuleName: '裂缝值联动',
+              riskMetricId: 6101,
+              bindingStatus: 'ACTIVE'
+            }
+          ],
+          affectedEmergencyPlanBindings: [
+            {
+              bindingId: 8401,
+              emergencyPlanId: 8501,
+              emergencyPlanName: '裂缝值应急预案',
+              riskMetricId: 6101,
+              bindingStatus: 'ACTIVE',
+              alarmLevel: 'red'
+            }
+          ]
         },
         impactItems: [
           {
@@ -442,8 +510,31 @@ describe('GovernanceApprovalView', () => {
     expect(wrapper.text()).toContain('受影响风险指标 2')
     expect(wrapper.text()).toContain('受影响风险点绑定 4')
     expect(wrapper.text()).toContain('受影响阈值规则 1')
+    expect(wrapper.text()).toContain('裂缝值')
+    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).toContain('裂缝值红色阈值')
+    expect(wrapper.text()).toContain('裂缝值联动')
+    expect(wrapper.text()).toContain('裂缝值应急预案')
     expect(wrapper.text()).toContain('value')
     expect(wrapper.text()).toContain('modelName')
+  })
+
+  it('navigates to downstream context when dependency detail jump is clicked', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('查看阈值策略'))?.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/rule-definition',
+      query: {
+        ruleName: '裂缝值红色阈值',
+        metricIdentifier: 'value'
+      }
+    })
   })
 
   it('does not load release impact when approval detail has no release batch context', async () => {
