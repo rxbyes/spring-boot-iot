@@ -486,6 +486,26 @@ CREATE TABLE sys_governance_approval_transition (
     KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition';
 
+CREATE TABLE sys_governance_approval_policy (
+    id BIGINT NOT NULL COMMENT 'approval policy id',
+    tenant_id BIGINT NOT NULL DEFAULT 0 COMMENT 'tenant id, 0 means global',
+    scope_type VARCHAR(16) NOT NULL COMMENT 'GLOBAL/TENANT',
+    action_code VARCHAR(64) NOT NULL COMMENT 'approval action code',
+    approver_mode VARCHAR(32) NOT NULL COMMENT 'FIXED_USER',
+    approver_user_id BIGINT NOT NULL COMMENT 'fixed approver user id',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT 'enabled',
+    remark VARCHAR(255) DEFAULT NULL COMMENT 'remark',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_governance_approval_policy_scope_action (scope_type, tenant_id, action_code, deleted),
+    KEY idx_governance_approval_policy_enabled (enabled, scope_type, tenant_id, action_code, deleted),
+    KEY idx_governance_approval_policy_approver (approver_user_id, enabled, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval policy';
+
 CREATE TABLE iot_governance_work_item (
     id BIGINT NOT NULL COMMENT '主键',
     tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',

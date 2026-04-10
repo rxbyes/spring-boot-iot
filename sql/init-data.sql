@@ -59,7 +59,10 @@ INSERT INTO sys_user (
      '运维人员演示账号，默认进入接入智维工作台。', 1, NOW(), 1, NOW(), 0),
     (5, 1, 7101, 'dev_demo', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
      '平台开发工程师', '开发演示账号', '13800000004', 'dev_demo@ghlzm.com', 1, 0,
-     '开发人员演示账号，默认进入接入智维并开放质量工场。', 1, NOW(), 1, NOW(), 0)
+     '开发人员演示账号，默认进入接入智维并开放质量工场。', 1, NOW(), 1, NOW(), 0),
+    (99000001, 1, 7101, 'governance_reviewer', '$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq',
+     '治理复核专员', '治理复核专员', '13800009900', 'governance-reviewer@ghlzm.com', 1, 1,
+     '系统级固定治理复核人账号，负责产品契约发布与回滚审批。', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     org_id = VALUES(org_id),
     nickname = VALUES(nickname),
@@ -78,6 +81,7 @@ SET @user_business_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND us
 SET @user_management_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'manager_demo' AND deleted = 0 ORDER BY id LIMIT 1);
 SET @user_ops_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'ops_demo' AND deleted = 0 ORDER BY id LIMIT 1);
 SET @user_developer_demo_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'dev_demo' AND deleted = 0 ORDER BY id LIMIT 1);
+SET @user_governance_reviewer_id = (SELECT id FROM sys_user WHERE tenant_id = 1 AND username = 'governance_reviewer' AND deleted = 0 ORDER BY id LIMIT 1);
 
 SET @role_business_id = (SELECT id FROM sys_role WHERE role_code = 'BUSINESS_STAFF' AND deleted = 0 ORDER BY id LIMIT 1);
 SET @role_management_id = (SELECT id FROM sys_role WHERE role_code = 'MANAGEMENT_STAFF' AND deleted = 0 ORDER BY id LIMIT 1);
@@ -87,7 +91,7 @@ SET @role_super_admin_id = (SELECT id FROM sys_role WHERE role_code = 'SUPER_ADM
 
 DELETE FROM sys_user_role
 WHERE tenant_id = 1
-  AND user_id IN (@user_admin_id, @user_business_demo_id, @user_management_demo_id, @user_ops_demo_id, @user_developer_demo_id);
+  AND user_id IN (@user_admin_id, @user_business_demo_id, @user_management_demo_id, @user_ops_demo_id, @user_developer_demo_id, @user_governance_reviewer_id);
 
 SET @user_role_seed := COALESCE((SELECT MAX(id) FROM sys_user_role), 0);
 
@@ -114,10 +118,26 @@ FROM (
     SELECT 4, @user_ops_demo_id, @role_ops_id
     UNION ALL
     SELECT 5, @user_developer_demo_id, @role_developer_id
+    UNION ALL
+    SELECT 6, @user_governance_reviewer_id, @role_super_admin_id
 ) t
 WHERE t.user_id IS NOT NULL
   AND t.role_id IS NOT NULL
 ORDER BY t.sort_no;
+
+INSERT INTO sys_governance_approval_policy (
+    id, tenant_id, scope_type, action_code, approver_mode, approver_user_id, enabled, remark, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (99001001, 0, 'GLOBAL', 'PRODUCT_CONTRACT_RELEASE_APPLY', 'FIXED_USER', 99000001, 1, '产品契约发布固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001002, 0, 'GLOBAL', 'PRODUCT_CONTRACT_ROLLBACK', 'FIXED_USER', 99000001, 1, '产品契约回滚固定复核人', 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    approver_mode = VALUES(approver_mode),
+    approver_user_id = VALUES(approver_user_id),
+    enabled = VALUES(enabled),
+    remark = VALUES(remark),
+    update_by = VALUES(update_by),
+    update_time = NOW(),
+    deleted = 0;
 
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
