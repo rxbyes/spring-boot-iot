@@ -238,6 +238,99 @@ describe('RiskInsightTrendPanel', () => {
     expect(tooltipText).not.toContain('-2');
   });
 
+  it('uses a dedicated missing sentinel for filled status-event buckets and removes fill-copy from tooltip', async () => {
+    mountTrend([
+      {
+        key: 'status-event',
+        title: '状态事件',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '设备状态',
+            seriesType: 'event',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: false },
+              { time: '2026-04-09 01:00:00', value: 0, filled: true },
+              { time: '2026-04-09 02:00:00', value: -1, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      yAxis?: { axisLabel?: { formatter?: (value: number) => string } };
+      series?: Array<{ data?: Array<{ value?: number; statusText?: string }> }>;
+      tooltip?: { formatter?: (params: Array<Record<string, unknown>>) => string };
+    } | undefined;
+
+    expect(latestOption?.series?.[0]?.data?.[1]?.value).toBe(-4);
+    expect(latestOption?.series?.[0]?.data?.[1]?.statusText).toBe('未上报');
+    expect(latestOption?.yAxis?.axisLabel?.formatter?.(-4)).toBe('未上报');
+
+    const tooltipText = latestOption?.tooltip?.formatter?.([
+      {
+        axisValue: '2026-04-09 01:00:00',
+        marker: '',
+        seriesName: '设备状态',
+        data: {
+          value: -4,
+          filled: true,
+          statusText: '未上报'
+        }
+      }
+    ]);
+
+    expect(tooltipText).toContain('设备状态：未上报');
+    expect(tooltipText).not.toContain('补零补齐');
+  });
+
+  it('treats status-event zero as normal instead of offline for sensor state series', async () => {
+    mountTrend([
+      {
+        key: 'status-event',
+        title: '状态事件',
+        series: [
+          {
+            identifier: 'S1_ZT_1.sensor_state',
+            displayName: '传感器状态',
+            seriesType: 'event',
+            buckets: [
+              { time: '2026-04-09 00:00:00', value: 0, filled: false },
+              { time: '2026-04-09 01:00:00', value: 1, filled: false }
+            ]
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const latestOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      tooltip?: { formatter?: (params: Array<Record<string, unknown>>) => string };
+      yAxis?: { axisLabel?: { formatter?: (value: number) => string } };
+    } | undefined;
+
+    const tooltipText = latestOption?.tooltip?.formatter?.([
+      {
+        axisValue: '2026-04-09 00:00:00',
+        marker: '',
+        seriesName: '传感器状态',
+        data: {
+          value: 0,
+          filled: false,
+          statusText: '正常'
+        }
+      }
+    ]);
+
+    expect(latestOption?.yAxis?.axisLabel?.formatter?.(0)).toBe('正常');
+    expect(tooltipText).toContain('传感器状态：正常');
+    expect(tooltipText).not.toContain('离线');
+  });
+
   it('hides trend summary cards and chart footer notes in the simplified insight layout', () => {
     const wrapper = mountTrend([
       {

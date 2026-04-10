@@ -237,10 +237,12 @@ export interface Product {
   maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
 }
 
+export type ProductObjectInsightMetricGroup = 'measure' | 'statusEvent' | 'runtime';
+
 export interface ProductObjectInsightCustomMetricConfig {
   identifier: string;
   displayName: string;
-  group: 'measure' | 'status';
+  group: ProductObjectInsightMetricGroup;
   includeInTrend?: boolean | null;
   includeInExtension?: boolean | null;
   analysisTitle?: string | null;
@@ -445,6 +447,8 @@ export type ProductModelGovernanceDeviceStructure = 'single' | 'composite';
 export interface ProductModelGovernanceRelationMappingPayload {
   logicalChannelCode: string;
   childDeviceCode: string;
+  canonicalizationStrategy?: string | null;
+  statusMirrorStrategy?: string | null;
 }
 
 export interface ProductModelGovernanceComparePayload {

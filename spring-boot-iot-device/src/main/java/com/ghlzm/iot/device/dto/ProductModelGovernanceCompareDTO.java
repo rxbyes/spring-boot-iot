@@ -31,5 +31,9 @@ public class ProductModelGovernanceCompareDTO {
         private String logicalChannelCode;
 
         private String childDeviceCode;
+
+        private String canonicalizationStrategy;
+
+        private String statusMirrorStrategy;
     }
 }

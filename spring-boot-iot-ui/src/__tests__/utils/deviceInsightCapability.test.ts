@@ -19,7 +19,7 @@ describe('deviceInsightCapability', () => {
       '传感器在线状态',
       '剩余电量'
     ]);
-    expect(profile.trendGroups.map((item) => item.title)).toEqual(['监测数据', '状态数据']);
+    expect(profile.trendGroups.map((item) => item.title)).toEqual(['监测数据', '状态事件', '运行参数']);
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('相对湿度');
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('4G 信号强度');
   });
@@ -135,7 +135,8 @@ describe('deviceInsightCapability', () => {
       '4G 信号强度'
     ]);
     expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([]);
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).toEqual([]);
+    expect(profile.trendGroups.find((item) => item.key === 'statusEvent')?.identifiers).toEqual([]);
+    expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers).toEqual([]);
     expect(profile.historyIdentifiers).toEqual([]);
   });
 
@@ -392,8 +393,8 @@ describe('deviceInsightCapability', () => {
     });
 
     expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers[0]).toBe('YL_1');
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers[0]).toBe('S1_ZT_1.signal_4g');
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).not.toContain('S1_ZT_1.humidity');
+    expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers[0]).toBe('S1_ZT_1.signal_4g');
+    expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers).not.toContain('S1_ZT_1.humidity');
     expect(profile.historyIdentifiers).not.toContain('S1_ZT_1.humidity');
   });
 });

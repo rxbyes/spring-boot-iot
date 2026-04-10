@@ -127,7 +127,7 @@
           <div class="product-model-designer__relation-head">
             <div>
               <strong>复合设备关系映射</strong>
-              <p>当前页只暴露父设备编码、逻辑通道编码和子设备编码，其他归一策略按内部固定口径处理。</p>
+              <p>当前页只暴露父设备编码、逻辑通道编码和子设备编码；归一策略优先沿用已登记设备关系，未登记时按逻辑通道类型兼容推断。</p>
             </div>
             <StandardButton action="query" :loading="relationLoading" @click="handleLoadRelations">
               读取已有关系
@@ -474,15 +474,30 @@
                 <strong>{{ model.modelName }}</strong>
                 <span>{{ model.identifier }}</span>
               </div>
-              <StandardButton
+              <div
                 v-if="model.id !== undefined && model.id !== null && !isRenamingModel(model)"
-                :data-testid="`formal-model-rename-${model.id}`"
-                action="query"
-                link
-                @click="startRenameModel(model)"
+                class="product-model-designer__formal-card-head-actions"
               >
-                改名
-              </StandardButton>
+                <StandardButton
+                  :data-testid="`formal-model-rename-${model.id}`"
+                  action="query"
+                  link
+                  :disabled="isDeletingModel(model.id)"
+                  @click="startRenameModel(model)"
+                >
+                  改名
+                </StandardButton>
+                <StandardButton
+                  :data-testid="`formal-model-delete-${model.id}`"
+                  action="delete"
+                  link
+                  :loading="isDeletingModel(model.id)"
+                  :disabled="isDeletingModel(model.id)"
+                  @click="handleDeleteModel(model)"
+                >
+                  删除
+                </StandardButton>
+              </div>
             </div>
             <div class="product-model-designer__formal-card-meta">
               <span>{{ model.modelType }}</span>
@@ -499,21 +514,32 @@
                 action="query"
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'measure')"
-                :disabled="trendMetricSubmitting"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
                 @click="handleSetTrendMetric(model, 'measure')"
               >
-                设为监测趋势
+                设为监测数据
               </StandardButton>
               <StandardButton
                 v-if="model.id !== undefined && model.id !== null"
-                :data-testid="`formal-model-trend-status-${model.id}`"
+                :data-testid="`formal-model-trend-status-event-${model.id}`"
                 action="query"
                 link
-                :loading="isTrendMetricSubmitting(model.id, 'status')"
-                :disabled="trendMetricSubmitting"
-                @click="handleSetTrendMetric(model, 'status')"
+                :loading="isTrendMetricSubmitting(model.id, 'statusEvent')"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                @click="handleSetTrendMetric(model, 'statusEvent')"
               >
-                设为状态趋势
+                设为状态事件
+              </StandardButton>
+              <StandardButton
+                v-if="model.id !== undefined && model.id !== null"
+                :data-testid="`formal-model-trend-runtime-${model.id}`"
+                action="query"
+                link
+                :loading="isTrendMetricSubmitting(model.id, 'runtime')"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                @click="handleSetTrendMetric(model, 'runtime')"
+              >
+                设为运行参数
               </StandardButton>
               <StandardButton
                 v-if="model.id !== undefined && model.id !== null && resolveTrendMetricConfig(model)"
@@ -521,7 +547,7 @@
                 action="delete"
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'remove')"
-                :disabled="trendMetricSubmitting"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
                 @click="handleRemoveTrendMetric(model)"
               >
                 取消趋势展示
@@ -560,9 +586,11 @@ import type {
   ProductModelGovernanceCompareResult,
   ProductModelGovernanceCompareRow,
   ProductModelGovernanceDecision,
-  ProductModelType
+  ProductModelType,
+  ProductObjectInsightMetricGroup
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
+import { getObjectInsightMetricGroupLabel } from '@/utils/objectInsightMetricGroup'
 import {
   buildProductMetadataJson,
   createProductObjectInsightMetricFromModel,
@@ -580,6 +608,8 @@ interface RelationMappingRow {
   key: string
   logicalChannelCode: string
   childDeviceCode: string
+  canonicalizationStrategy: string
+  statusMirrorStrategy: string
 }
 
 interface GovernanceApprovalPayloadExecution<TResult> {
@@ -656,6 +686,7 @@ const renameSubmitting = ref(false)
 const productSnapshot = ref<Product | null>(null)
 const trendMetricSubmitting = ref(false)
 const trendMetricSubmittingKey = ref('')
+const deletingModelId = ref<IdType | null>(null)
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
@@ -822,10 +853,13 @@ watch(
 )
 
 function createRelationRow(): RelationMappingRow {
+  const fallbackStrategy = inferRelationStrategies()
   return {
     key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     logicalChannelCode: '',
-    childDeviceCode: ''
+    childDeviceCode: '',
+    canonicalizationStrategy: fallbackStrategy.canonicalizationStrategy,
+    statusMirrorStrategy: fallbackStrategy.statusMirrorStrategy
   }
 }
 
@@ -859,11 +893,15 @@ function resolveTrendMetricStateLabel(model: ProductModel) {
   if (!metric || metric.includeInTrend === false || metric.enabled === false) {
     return '当前未加入对象洞察趋势'
   }
-  return metric.group === 'measure' ? '当前为监测趋势重点' : '当前为状态趋势重点'
+  return `当前为${getObjectInsightMetricGroupLabel(metric.group)}重点`
 }
 
-function isTrendMetricSubmitting(modelId: IdType, group: 'measure' | 'status' | 'remove') {
+function isTrendMetricSubmitting(modelId: IdType, group: ProductObjectInsightMetricGroup | 'remove') {
   return trendMetricSubmittingKey.value === `${String(modelId)}:${group}`
+}
+
+function isDeletingModel(modelId: IdType) {
+  return deletingModelId.value !== null && String(deletingModelId.value) === String(modelId)
 }
 
 async function loadModels(productId: string | number) {
@@ -974,7 +1012,7 @@ async function handleRenameModel(model: ProductModel) {
   }
 }
 
-async function handleSetTrendMetric(model: ProductModel, group: 'measure' | 'status') {
+async function handleSetTrendMetric(model: ProductModel, group: ProductObjectInsightMetricGroup) {
   const product = productSnapshot.value ?? props.product
   if (!product?.id) {
     return
@@ -1007,6 +1045,39 @@ async function handleRemoveTrendMetric(model: ProductModel) {
   )
 }
 
+async function handleDeleteModel(model: ProductModel) {
+  const product = productSnapshot.value ?? props.product
+  if (!product?.id || model.id === undefined || model.id === null) {
+    return
+  }
+
+  deletingModelId.value = model.id
+  try {
+    await productApi.deleteProductModel(product.id, model.id)
+    models.value = models.value.filter((item) => String(item.id) !== String(model.id))
+    cancelRenameModel()
+
+    if (resolveTrendMetricConfig(model)) {
+      try {
+        const updatedProduct = await updateProductObjectInsightMetrics(
+          product,
+          removeProductObjectInsightMetric(trendMetricRows.value, model.identifier)
+        )
+        productSnapshot.value = updatedProduct
+        emit('product-updated', updatedProduct)
+      } catch (error) {
+        ElMessage.warning(error instanceof Error ? error.message : '正式字段已删除，但对象洞察配置清理失败')
+      }
+    }
+
+    ElMessage.success('正式字段已删除')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '删除正式字段失败')
+  } finally {
+    deletingModelId.value = null
+  }
+}
+
 async function persistTrendMetricConfig(
   product: Product,
   rows: ReturnType<typeof parseProductObjectInsightMetrics>,
@@ -1016,12 +1087,7 @@ async function persistTrendMetricConfig(
   trendMetricSubmitting.value = true
   trendMetricSubmittingKey.value = submittingKey
   try {
-    const metadataJson = buildProductMetadataJson(rows, product.metadataJson)
-    const response = await productApi.updateProduct(product.id, buildProductUpdatePayload(product, metadataJson))
-    const updatedProduct: Product = response.data ?? {
-      ...product,
-      metadataJson: metadataJson ?? null
-    }
+    const updatedProduct = await updateProductObjectInsightMetrics(product, rows)
     productSnapshot.value = updatedProduct
     emit('product-updated', updatedProduct)
     ElMessage.success(successMessage)
@@ -1030,6 +1096,18 @@ async function persistTrendMetricConfig(
   } finally {
     trendMetricSubmitting.value = false
     trendMetricSubmittingKey.value = ''
+  }
+}
+
+async function updateProductObjectInsightMetrics(
+  product: Product,
+  rows: ReturnType<typeof parseProductObjectInsightMetrics>
+) {
+  const metadataJson = buildProductMetadataJson(rows, product.metadataJson)
+  const response = await productApi.updateProduct(product.id, buildProductUpdatePayload(product, metadataJson))
+  return response.data ?? {
+    ...product,
+    metadataJson: metadataJson ?? null
   }
 }
 
@@ -1136,10 +1214,21 @@ function removeRelationRow(key: string) {
 
 function normalizeRelationMappings() {
   return relationMappings.value
-    .map((item) => ({
-      logicalChannelCode: item.logicalChannelCode.trim(),
-      childDeviceCode: item.childDeviceCode.trim()
-    }))
+    .map((item) => {
+      const logicalChannelCode = item.logicalChannelCode.trim()
+      const childDeviceCode = item.childDeviceCode.trim()
+      const strategy = inferRelationStrategies(
+        logicalChannelCode,
+        item.canonicalizationStrategy,
+        item.statusMirrorStrategy
+      )
+      return {
+        logicalChannelCode,
+        childDeviceCode,
+        canonicalizationStrategy: strategy.canonicalizationStrategy,
+        statusMirrorStrategy: strategy.statusMirrorStrategy
+      }
+    })
     .filter((item) => item.logicalChannelCode && item.childDeviceCode)
 }
 
@@ -1156,7 +1245,9 @@ async function handleLoadRelations() {
     const items = (response.data ?? []).map((item) => ({
       key: `${item.logicalChannelCode}-${item.childDeviceCode}`,
       logicalChannelCode: item.logicalChannelCode,
-      childDeviceCode: item.childDeviceCode
+      childDeviceCode: item.childDeviceCode,
+      canonicalizationStrategy: item.canonicalizationStrategy || inferRelationStrategies(item.logicalChannelCode).canonicalizationStrategy,
+      statusMirrorStrategy: item.statusMirrorStrategy || inferRelationStrategies(item.logicalChannelCode).statusMirrorStrategy
     }))
     relationMappings.value = items.length ? items : [createRelationRow()]
   } catch (error) {
@@ -1467,6 +1558,34 @@ function resetSession() {
   samplePayloadError.value = ''
   cancelRenameModel()
 }
+
+function inferRelationStrategies(
+  logicalChannelCode?: string,
+  canonicalizationStrategy?: string,
+  statusMirrorStrategy?: string
+) {
+  const normalizedLogicalChannelCode = logicalChannelCode?.trim().toUpperCase() ?? ''
+  const inferredStrategy = /LF/.test(normalizedLogicalChannelCode)
+    ? {
+        canonicalizationStrategy: 'LF_VALUE',
+        statusMirrorStrategy: 'SENSOR_STATE'
+      }
+    : {
+        canonicalizationStrategy: 'LEGACY',
+        statusMirrorStrategy: 'NONE'
+      }
+
+  const normalizedCanonicalizationStrategy = canonicalizationStrategy?.trim().toUpperCase()
+  const normalizedStatusMirrorStrategy = statusMirrorStrategy?.trim().toUpperCase()
+  if (normalizedCanonicalizationStrategy || normalizedStatusMirrorStrategy) {
+    return {
+      canonicalizationStrategy: normalizedCanonicalizationStrategy || inferredStrategy.canonicalizationStrategy,
+      statusMirrorStrategy: normalizedStatusMirrorStrategy || inferredStrategy.statusMirrorStrategy
+    }
+  }
+
+  return inferredStrategy
+}
 </script>
 
 <style scoped>
@@ -1731,6 +1850,14 @@ function resetSession() {
 
 .product-model-designer__formal-rename {
   flex: 1;
+}
+
+.product-model-designer__formal-card-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.56rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .product-model-designer__formal-rename-actions {

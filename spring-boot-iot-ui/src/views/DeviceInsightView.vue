@@ -523,11 +523,9 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
   const pointMap = new Map((data.points ?? []).map((item) => [item.identifier, item]));
   const resolvedGroups = profile.trendGroups
     .map((group) => ({
-      key: group.key,
+      key: resolveTrendGroupViewKey(group.key),
       title: group.title,
-      description: group.key === 'measure'
-        ? '展示设备本体的监测值折线变化。'
-        : '展示在线状态、电量等状态值折线变化。',
+      description: resolveTrendGroupDescription(group.key),
       series: group.identifiers
         .map((identifier) => {
           const point = pointMap.get(identifier);
@@ -540,7 +538,7 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
               identifier,
               point.displayName || propertyMap.value.get(identifier)?.propertyName || resolveDisplayName(profile, identifier)
             ),
-            seriesType: point.seriesType || group.key,
+            seriesType: resolveTrendSeriesType(point.seriesType, group.key),
             buckets: point.buckets ?? []
           };
         })
@@ -584,6 +582,42 @@ function splitTrendGroup(group: InsightTrendGroup) {
   }
 
   return nextGroups.length ? nextGroups : [group];
+}
+
+function resolveTrendGroupViewKey(groupKey: string) {
+  if (groupKey === 'statusEvent') {
+    return 'status-event';
+  }
+  if (groupKey === 'runtime') {
+    return 'status-runtime';
+  }
+  return groupKey;
+}
+
+function resolveTrendGroupDescription(groupKey: string) {
+  if (groupKey === 'measure') {
+    return '展示设备本体的监测值折线变化。';
+  }
+  if (groupKey === 'statusEvent') {
+    return '展示设备状态码与离散状态变化。';
+  }
+  if (groupKey === 'runtime') {
+    return '展示电量、信号等连续运行参数变化。';
+  }
+  return '展示设备趋势变化。';
+}
+
+function resolveTrendSeriesType(seriesType: string | null | undefined, groupKey: string) {
+  if (seriesType?.trim()) {
+    return seriesType;
+  }
+  if (groupKey === 'statusEvent') {
+    return 'event';
+  }
+  if (groupKey === 'runtime') {
+    return 'status';
+  }
+  return groupKey;
 }
 
 function isStatusEventSeries(series: InsightTrendSeries) {

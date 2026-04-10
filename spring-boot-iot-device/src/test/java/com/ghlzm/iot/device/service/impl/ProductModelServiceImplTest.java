@@ -294,6 +294,60 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldPreserveDeepDisplacementLegacyChildFieldsForCompositeBusinessSample() {
+        when(productMapper.selectById(4004L)).thenReturn(product(4004L, "nf-monitor-deep-displacement-v1", "南方测绘 深部位移"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00FB0D1310195");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701", "LEGACY", "NONE")));
+        manualExtract.setSamplePayload("""
+                {"SK00FB0D1310195":{"L1_SW_1":{"2026-04-09T13:53:10.000Z":{"dispsX":-0.0166,"dispsY":-0.0368}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(4004L, dto);
+
+        assertEquals(
+                List.of("dispsX", "dispsY"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .toList()
+        );
+    }
+
+    @Test
+    void compareGovernanceShouldInferDeepDisplacementLegacyStrategyFromLogicalChannelCode() {
+        when(productMapper.selectById(4004L)).thenReturn(product(4004L, "nf-monitor-deep-displacement-v1", "南方测绘 深部位移"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00FB0D1310195");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701")));
+        manualExtract.setSamplePayload("""
+                {"SK00FB0D1310195":{"L1_SW_1":{"2026-04-09T13:53:10.000Z":{"dispsX":-0.0166,"dispsY":-0.0368}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(4004L, dto);
+
+        assertEquals(
+                List.of("dispsX", "dispsY"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .toList()
+        );
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -350,6 +404,28 @@ class ProductModelServiceImplTest {
                         .toList()
         );
         assertTrue(result.getCompareRows().stream().noneMatch(row -> "temp".equals(row.getIdentifier())));
+    }
+
+    @Test
+    void compareGovernanceShouldNotMirrorCompositeSensorStateWhenStatusStrategyIsNone() {
+        when(productMapper.selectById(4004L)).thenReturn(product(4004L, "nf-monitor-deep-displacement-v1", "南方测绘 深部位移"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00FB0D1310195");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701", "LEGACY", "NONE")));
+        manualExtract.setSamplePayload("""
+                {"SK00FB0D1310195":{"S1_ZT_1":{"2026-04-09T13:53:10.000Z":{"temp":19.0,"sensor_state":{"L1_SW_1":0}}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(4004L, dto);
+
+        assertTrue(result.getCompareRows().isEmpty());
     }
 
     @Test
@@ -637,10 +713,19 @@ class ProductModelServiceImplTest {
 
     private ProductModelGovernanceCompareDTO.RelationMappingInput relationMapping(String logicalChannelCode,
                                                                                   String childDeviceCode) {
+        return relationMapping(logicalChannelCode, childDeviceCode, null, null);
+    }
+
+    private ProductModelGovernanceCompareDTO.RelationMappingInput relationMapping(String logicalChannelCode,
+                                                                                  String childDeviceCode,
+                                                                                  String canonicalizationStrategy,
+                                                                                  String statusMirrorStrategy) {
         ProductModelGovernanceCompareDTO.RelationMappingInput item =
                 new ProductModelGovernanceCompareDTO.RelationMappingInput();
         item.setLogicalChannelCode(logicalChannelCode);
         item.setChildDeviceCode(childDeviceCode);
+        item.setCanonicalizationStrategy(canonicalizationStrategy);
+        item.setStatusMirrorStrategy(statusMirrorStrategy);
         return item;
     }
 

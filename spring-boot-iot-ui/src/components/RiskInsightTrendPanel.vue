@@ -71,18 +71,20 @@ const TREND_SERIES_COLORS = [
 ];
 
 const STATUS_EVENT_TEXT_MAP: Record<number, string> = {
+  [-4]: '未上报',
   0: '正常',
   [-1]: '供电异常',
   [-2]: '传感器数据异常',
   [-3]: '采样间隔内未采集到数据'
 };
+const STATUS_EVENT_MISSING_SENTINEL = -4;
 
 const props = withDefaults(defineProps<{
   rangeCode?: InsightRangeCode;
   groups?: TrendGroup[];
   emptyMessage?: string;
 }>(), {
-  rangeCode: '7d',
+  rangeCode: '1d',
   groups: () => [],
   emptyMessage: '暂无趋势数据'
 });
@@ -246,11 +248,11 @@ function renderGroupChart(group: TrendGroup, colorOffset: number) {
         },
         data: axisLabels.map((time) => {
           const bucket = series.buckets.find((item) => item.time === time);
-          const rawValue = bucket?.value ?? 0;
+          const rawValue = resolveTrendPointValue(series, group, bucket);
           return {
             value: rawValue,
             filled: bucket?.filled ?? true,
-            statusText: useStepLine ? resolveStatusText(series, group, rawValue) : undefined
+            statusText: useStepLine ? resolveStatusText(series, group, rawValue, bucket?.filled ?? true) : undefined
           };
         })
       };
@@ -304,8 +306,7 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
     const data = item.data as { value?: number; filled?: boolean; statusText?: string } | undefined;
     const value = data?.value ?? 0;
     const labelValue = data?.statusText || resolveBinaryStatusTextFromSemanticSource(seriesName, Number(value)) || value;
-    const suffix = data?.filled ? '（补零补齐）' : '';
-    return `${marker}${seriesName}：${labelValue}${suffix}`;
+    return `${marker}${seriesName}：${labelValue}`;
   });
   return [axisValue, ...lines].join('<br/>');
 }
@@ -324,21 +325,21 @@ function shouldUseStepLine(series: TrendSeries, group: TrendGroup) {
     return false;
   }
 
-  if (series.seriesType === 'event' || group.key === 'status-event') {
-    return actualValues.every((value) => Number.isInteger(value) && value >= -3 && value <= 1);
+  if (isStatusEventGroup(group, series)) {
+    return actualValues.every((value) => Number.isInteger(value));
   }
 
-  const isStatusSeries = series.seriesType === 'status' || group.key === 'status';
+  const isStatusSeries = series.seriesType === 'status' || isRuntimeStatusGroup(group);
   if (!isStatusSeries) {
     return false;
   }
   return actualValues.every((value) => value === 0 || value === 1);
 }
 
-function resolveStatusText(series: TrendSeries, group: TrendGroup, value: number) {
+function resolveStatusText(series: TrendSeries, group: TrendGroup, value: number, filled: boolean) {
   const numericValue = Number(value);
-  if (series.seriesType === 'event' || group.key === 'status-event') {
-    const eventText = resolveStatusEventText(series, numericValue);
+  if (isStatusEventGroup(group, series)) {
+    const eventText = resolveStatusEventText(numericValue, filled);
     if (eventText) {
       return eventText;
     }
@@ -353,20 +354,23 @@ function resolveStatusText(series: TrendSeries, group: TrendGroup, value: number
   );
 }
 
-function resolveStatusEventText(series: TrendSeries, numericValue: number) {
+function resolveStatusEventText(numericValue: number, filled: boolean) {
+  if (filled || numericValue === STATUS_EVENT_MISSING_SENTINEL) {
+    return STATUS_EVENT_TEXT_MAP[STATUS_EVENT_MISSING_SENTINEL];
+  }
   if (!Number.isFinite(numericValue)) {
     return '';
   }
-  if (isMappedStatusCodeSeries(series)) {
-    return STATUS_EVENT_TEXT_MAP[numericValue] ?? (numericValue === 0 ? '正常' : '异常');
+  if (STATUS_EVENT_TEXT_MAP[numericValue]) {
+    return STATUS_EVENT_TEXT_MAP[numericValue];
   }
-  if (numericValue === 0 || numericValue === 1) {
-    return resolveBinaryStatusTextFromSemanticSource(
-      `${series.identifier ?? ''} ${series.displayName}`,
-      numericValue
-    );
+  if (numericValue === 0) {
+    return '正常';
   }
-  return STATUS_EVENT_TEXT_MAP[numericValue] ?? (numericValue === 0 ? '正常' : '异常');
+  if (numericValue === 1) {
+    return '异常';
+  }
+  return `异常(${numericValue})`;
 }
 
 function resolveBinaryStatusTextFromSemanticSource(semanticSource: string, numericValue: number) {
@@ -406,47 +410,26 @@ function buildYAxisConfig(group: TrendGroup) {
     }
   };
 
-  if (group.key === 'status-event') {
-    const actualValues = group.series.flatMap((series) => extractActualValues(series));
-    if (!actualValues.length) {
+  if (isStatusEventGroup(group)) {
+    const visualValues = group.series
+      .flatMap((series) =>
+        series.buckets.map((bucket) => bucket.filled ? STATUS_EVENT_MISSING_SENTINEL : Number(bucket.value))
+      )
+      .filter((value) => Number.isFinite(value));
+    if (!visualValues.length) {
       return baseConfig;
-    }
-
-    if (actualValues.every((value) => value === 0 || value === -1 || value === -2 || value === -3)) {
-      return {
-        ...baseConfig,
-        min: -3,
-        max: 0,
-        interval: 1,
-        splitNumber: 3,
-        axisLabel: {
-          ...baseConfig.axisLabel,
-          formatter: (value: number) => STATUS_EVENT_TEXT_MAP[Number(value)] ?? ''
-        }
-      };
-    }
-
-    if (actualValues.every((value) => value === 0 || value === 1) && group.series.length === 1) {
-      const semanticSource = `${group.series[0]?.identifier ?? ''} ${group.series[0]?.displayName ?? ''}`;
-      return {
-        ...baseConfig,
-        min: 0,
-        max: 1,
-        interval: 1,
-        splitNumber: 1,
-        axisLabel: {
-          ...baseConfig.axisLabel,
-          formatter: (value: number) =>
-            resolveBinaryStatusTextFromSemanticSource(semanticSource, Number(value)) || String(value)
-        }
-      };
     }
 
     return {
       ...baseConfig,
-      min: Math.floor(Math.min(...actualValues)),
-      max: Math.ceil(Math.max(...actualValues)),
-      interval: 1
+      min: Math.floor(Math.min(...visualValues)),
+      max: Math.ceil(Math.max(...visualValues)),
+      interval: 1,
+      splitNumber: Math.min(4, Math.max(1, Math.ceil(Math.max(...visualValues) - Math.min(...visualValues)))),
+      axisLabel: {
+        ...baseConfig.axisLabel,
+        formatter: (value: number) => resolveStatusEventText(Number(value), Number(value) === STATUS_EVENT_MISSING_SENTINEL)
+      }
     };
   }
 
@@ -484,11 +467,23 @@ function extractActualValues(series: TrendSeries) {
     .filter((value) => Number.isFinite(value));
 }
 
-function isMappedStatusCodeSeries(series: TrendSeries) {
-  const actualValues = extractActualValues(series);
-  return actualValues.length > 0
-    && actualValues.every((value) => value === 0 || value === -1 || value === -2 || value === -3)
-    && actualValues.some((value) => value < 0);
+function resolveTrendPointValue(series: TrendSeries, group: TrendGroup, bucket?: TrendBucketPoint) {
+  if (isStatusEventGroup(group, series) && bucket?.filled) {
+    return STATUS_EVENT_MISSING_SENTINEL;
+  }
+  return bucket?.value ?? 0;
+}
+
+function isStatusEventGroup(group: TrendGroup, series?: TrendSeries) {
+  return group.key === 'status-event'
+    || group.key === 'statusEvent'
+    || series?.seriesType === 'event';
+}
+
+function isRuntimeStatusGroup(group: TrendGroup) {
+  return group.key === 'status'
+    || group.key === 'status-runtime'
+    || group.key === 'runtime';
 }
 
 </script>

@@ -33,7 +33,7 @@ describe('productObjectInsightConfig', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0].displayName).toBe('相对湿度')
-    expect(rows[0].group).toBe('status')
+    expect(rows[0].group).toBe('runtime')
   })
 
   it('serializes editable rows back into metadataJson.objectInsight.customMetrics', () => {
@@ -42,7 +42,7 @@ describe('productObjectInsightConfig', () => {
         ...createEmptyProductObjectInsightMetric(),
         identifier: 'S1_ZT_1.signal_4g',
         displayName: '4G 信号强度',
-        group: 'status',
+        group: 'runtime',
         analysisTemplate: '{{label}}当前为{{value}}',
         sortNo: 20
       }
@@ -58,13 +58,13 @@ describe('productObjectInsightConfig', () => {
         ...createEmptyProductObjectInsightMetric(),
         identifier: 'S1_ZT_1.humidity',
         displayName: '相对湿度',
-        group: 'status'
+        group: 'runtime'
       },
       {
         ...createEmptyProductObjectInsightMetric(),
         identifier: 'S1_ZT_1.humidity',
         displayName: '重复湿度',
-        group: 'status'
+        group: 'runtime'
       }
     ])
 
@@ -76,7 +76,7 @@ describe('productObjectInsightConfig', () => {
       ...createEmptyProductObjectInsightMetric(),
       identifier: `S1_ZT_1.metric_${index + 1}`,
       displayName: `指标${index + 1}`,
-      group: 'status' as const
+      group: 'runtime' as const
     }))
 
     const message = validateProductObjectInsightMetrics(rows)
@@ -110,7 +110,7 @@ describe('productObjectInsightConfig', () => {
       [
         {
           ...created,
-          group: 'status',
+          group: 'runtime',
           analysisTemplate: '{{label}}来自旧配置'
         }
       ],

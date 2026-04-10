@@ -11,6 +11,7 @@ const {
   mockApplyProductModelGovernance,
   mockUpdateProduct,
   mockUpdateProductModel,
+  mockDeleteProductModel,
   mockRollbackProductContractReleaseBatch,
   mockGetGovernanceApprovalOrderDetail,
   mockResubmitGovernanceApprovalOrder,
@@ -22,6 +23,7 @@ const {
   mockApplyProductModelGovernance: vi.fn(),
   mockUpdateProduct: vi.fn(),
   mockUpdateProductModel: vi.fn(),
+  mockDeleteProductModel: vi.fn(),
   mockRollbackProductContractReleaseBatch: vi.fn(),
   mockGetGovernanceApprovalOrderDetail: vi.fn(),
   mockResubmitGovernanceApprovalOrder: vi.fn(),
@@ -38,7 +40,7 @@ vi.mock('@/api/product', () => ({
     updateProduct: mockUpdateProduct,
     addProductModel: vi.fn(),
     updateProductModel: mockUpdateProductModel,
-    deleteProductModel: vi.fn()
+    deleteProductModel: mockDeleteProductModel
   }
 }))
 
@@ -179,6 +181,7 @@ describe('ProductModelDesignerWorkspace', () => {
     mockUpdateProduct.mockReset()
     mockUpdateProductModel.mockReset()
     mockRollbackProductContractReleaseBatch.mockReset()
+    mockDeleteProductModel.mockReset()
     mockGetGovernanceApprovalOrderDetail.mockReset()
     mockResubmitGovernanceApprovalOrder.mockReset()
     mockListDeviceRelations.mockReset()
@@ -292,6 +295,11 @@ describe('ProductModelDesignerWorkspace', () => {
         executionPending: true
       }
     })
+    mockDeleteProductModel.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: null
+    })
     mockGetGovernanceApprovalOrderDetail.mockImplementation(async (orderId: number) => ({
       code: 200,
       msg: 'success',
@@ -391,6 +399,79 @@ describe('ProductModelDesignerWorkspace', () => {
     expect((childInput.element as HTMLInputElement).value).toBe('202018143')
   })
 
+  it('submits loaded relation strategies in composite compare payload', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="device-structure-composite"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="composite-parent-device-code"]').setValue('SK00EA0D1307986')
+    await wrapper.findAll('button').find((button) => button.text().includes('读取已有关系'))?.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue(
+      '{"SK00EA0D1307986":{"L1_LF_1":{"2026-04-05T20:34:06.000Z":10.86}}}'
+    )
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockCompareProductModelGovernance).toHaveBeenCalledWith(1001, {
+      manualExtract: {
+        sampleType: 'business',
+        deviceStructure: 'composite',
+        samplePayload: '{\n  "SK00EA0D1307986": {\n    "L1_LF_1": {\n      "2026-04-05T20:34:06.000Z": 10.86\n    }\n  }\n}',
+        parentDeviceCode: 'SK00EA0D1307986',
+        relationMappings: [
+          {
+            logicalChannelCode: 'L1_LF_1',
+            childDeviceCode: '202018143',
+            canonicalizationStrategy: 'LF_VALUE',
+            statusMirrorStrategy: 'SENSOR_STATE'
+          }
+        ]
+      }
+    })
+  })
+
+  it('infers deep displacement relation strategies for manual composite rows', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="device-structure-composite"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="composite-parent-device-code"]').setValue('SK00FB0D1310195')
+    await wrapper.findAll('input').find((input) => input.attributes('placeholder') === '逻辑通道编码')?.setValue('L1_SW_1')
+    await wrapper.findAll('input').find((input) => input.attributes('placeholder') === '子设备编码')?.setValue('84330701')
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue(
+      '{"SK00FB0D1310195":{"L1_SW_1":{"2026-04-09T13:53:10.000Z":{"dispsX":-0.0166,"dispsY":-0.0368}}}}'
+    )
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockCompareProductModelGovernance).toHaveBeenCalledWith(1001, {
+      manualExtract: {
+        sampleType: 'business',
+        deviceStructure: 'composite',
+        samplePayload:
+          '{\n  "SK00FB0D1310195": {\n    "L1_SW_1": {\n      "2026-04-09T13:53:10.000Z": {\n        "dispsX": -0.0166,\n        "dispsY": -0.0368\n      }\n    }\n  }\n}',
+        parentDeviceCode: 'SK00FB0D1310195',
+        relationMappings: [
+          {
+            logicalChannelCode: 'L1_SW_1',
+            childDeviceCode: '84330701',
+            canonicalizationStrategy: 'LEGACY',
+            statusMirrorStrategy: 'NONE'
+          }
+        ]
+      }
+    })
+  })
+
   it('can mark a formal property as a measure trend focus metric from the contract-field workspace', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
@@ -417,6 +498,46 @@ describe('ProductModelDesignerWorkspace', () => {
         metadataJson: expect.stringContaining('"identifier":"value"')
       })
     )
+  })
+
+  it('uses aligned object-insight action names for measure status-event and runtime groups', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('设为监测数据')
+    expect(wrapper.text()).toContain('设为状态事件')
+    expect(wrapper.text()).toContain('设为运行参数')
+    expect(wrapper.text()).not.toContain('设为状态趋势')
+  })
+
+  it('can mark a formal property as a status-event focus metric from the contract-field workspace', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-trend-status-event-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProduct).toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"group":"statusEvent"')
+      })
+    )
+  })
+
+  it('can delete a formal model from the contract-field workspace', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-delete-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockDeleteProductModel).toHaveBeenCalledWith(1001, 2001)
   })
 
   it('submits the new manual compare payload and keeps apply on the same page', async () => {

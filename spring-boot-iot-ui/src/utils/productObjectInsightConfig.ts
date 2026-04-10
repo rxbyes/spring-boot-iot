@@ -1,4 +1,13 @@
-import type { ProductMetadata, ProductModel, ProductObjectInsightCustomMetricConfig } from '@/types/api'
+import type {
+  ProductMetadata,
+  ProductModel,
+  ProductObjectInsightCustomMetricConfig,
+  ProductObjectInsightMetricGroup
+} from '@/types/api'
+import {
+  inferObjectInsightStatusGroup,
+  normalizeObjectInsightMetricGroup
+} from '@/utils/objectInsightMetricGroup'
 
 export const MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS = 20
 
@@ -6,7 +15,7 @@ export function createEmptyProductObjectInsightMetric(): ProductObjectInsightCus
   return {
     identifier: '',
     displayName: '',
-    group: 'status',
+    group: 'runtime',
     includeInTrend: true,
     includeInExtension: true,
     analysisTitle: '',
@@ -19,7 +28,7 @@ export function createEmptyProductObjectInsightMetric(): ProductObjectInsightCus
 
 export function createProductObjectInsightMetricFromModel(
   model: Pick<ProductModel, 'identifier' | 'modelName' | 'sortNo'>,
-  group: 'measure' | 'status'
+  group: ProductObjectInsightMetricGroup
 ): ProductObjectInsightCustomMetricConfig {
   const identifier = normalizeText(model.identifier)
   const displayName = normalizeText(model.modelName) || identifier
@@ -53,7 +62,11 @@ export function parseProductObjectInsightMetrics(metadataJson?: string | null): 
         ...createEmptyProductObjectInsightMetric(),
         identifier: normalizeText(row.identifier),
         displayName: normalizeText(row.displayName),
-        group: row.group === 'measure' ? 'measure' : 'status',
+        group: normalizeObjectInsightMetricGroup(
+          row.group,
+          normalizeText(row.identifier),
+          normalizeText(row.displayName)
+        ),
         includeInTrend: typeof row.includeInTrend === 'boolean' ? row.includeInTrend : true,
         includeInExtension: typeof row.includeInExtension === 'boolean' ? row.includeInExtension : true,
         analysisTitle: normalizeText(row.analysisTitle),
@@ -203,7 +216,7 @@ function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): Produc
     analysisTitle: normalizeText(metric.analysisTitle),
     analysisTag: normalizeText(metric.analysisTag),
     analysisTemplate: normalizeText(metric.analysisTemplate),
-    group: metric.group === 'measure' ? 'measure' : 'status',
+    group: normalizeObjectInsightMetricGroup(metric.group, metric.identifier, metric.displayName),
     includeInTrend: metric.includeInTrend ?? true,
     includeInExtension: metric.includeInExtension ?? true,
     enabled: metric.enabled ?? true,
@@ -214,4 +227,8 @@ function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): Produc
 function normalizeSortNo(value: unknown) {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 10
+}
+
+export function inferProductObjectInsightMetricGroup(identifier?: string | null, displayName?: string | null) {
+  return inferObjectInsightStatusGroup(identifier, displayName)
 }

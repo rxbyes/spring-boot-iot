@@ -999,3 +999,30 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 25. 浏览器自动化巡检记录（2026-04-09）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-09 23:30:14（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery`  
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260409233014.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260409233014.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260409233014.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260409233014/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

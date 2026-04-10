@@ -7,7 +7,7 @@
           <el-tag type="info" effect="plain">{{ countLabel }}</el-tag>
         </div>
         <p>
-          产品级正式配置会在设备没有独立对象洞察配置时生效，用于维护单设备分析最关心的监测值、状态值和扩展分析文案。
+          产品级正式配置会在设备没有独立对象洞察配置时生效，用于维护单设备分析最关心的监测数据、状态事件、运行参数和扩展分析文案。
         </p>
       </div>
       <StandardButton
@@ -21,7 +21,7 @@
     </div>
 
     <el-alert type="info" :closable="false" show-icon class="product-object-insight-config-editor__notice">
-      仅面向单设备对象洞察配置使用；趋势图会按“监测数据 / 状态数据”分组展示，后续可继续扩展湿度、4G 信号、电量等状态参数。
+      仅面向单设备对象洞察配置使用；趋势图会按“监测数据 / 状态事件 / 运行参数”分组展示，旧版双分组配置会自动归并到对应分组。
     </el-alert>
 
     <section v-if="availablePropertyModels.length" class="product-object-insight-config-editor__candidate-section">
@@ -53,16 +53,25 @@
               :disabled="isQuickAddDisabled(model.identifier)"
               @click="handleQuickAdd(model, 'measure')"
             >
-              设为监测趋势
+              设为监测数据
             </StandardButton>
             <StandardButton
-              :data-testid="`product-object-insight-add-status-${model.identifier}`"
+              :data-testid="`product-object-insight-add-status-event-${model.identifier}`"
               action="query"
               link
               :disabled="isQuickAddDisabled(model.identifier)"
-              @click="handleQuickAdd(model, 'status')"
+              @click="handleQuickAdd(model, 'statusEvent')"
             >
-              设为状态趋势
+              设为状态事件
+            </StandardButton>
+            <StandardButton
+              :data-testid="`product-object-insight-add-runtime-${model.identifier}`"
+              action="query"
+              link
+              :disabled="isQuickAddDisabled(model.identifier)"
+              @click="handleQuickAdd(model, 'runtime')"
+            >
+              设为运行参数
             </StandardButton>
             <StandardButton
               v-if="hasMetric(model.identifier)"
@@ -120,10 +129,14 @@
             <el-select
               :model-value="metric.group"
               placeholder="请选择指标分组"
-              @update:model-value="(value) => updateMetric(index, { group: value === 'measure' ? 'measure' : 'status' })"
+              @update:model-value="(value) => updateMetric(index, { group: normalizeMetricGroup(value) })"
             >
-              <el-option label="监测数据" value="measure" />
-              <el-option label="状态数据" value="status" />
+              <el-option
+                v-for="option in metricGroupOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
             </el-select>
           </el-form-item>
 
@@ -198,7 +211,16 @@
 import { computed } from 'vue'
 
 import StandardButton from '@/components/StandardButton.vue'
-import type { ProductModel, ProductObjectInsightCustomMetricConfig } from '@/types/api'
+import type {
+  ProductModel,
+  ProductObjectInsightCustomMetricConfig,
+  ProductObjectInsightMetricGroup
+} from '@/types/api'
+import {
+  OBJECT_INSIGHT_METRIC_GROUP_OPTIONS,
+  getObjectInsightMetricGroupLabel,
+  normalizeObjectInsightMetricGroup
+} from '@/utils/objectInsightMetricGroup'
 import {
   MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS,
   createEmptyProductObjectInsightMetric,
@@ -236,6 +258,7 @@ const availablePropertyModels = computed(() =>
 const countLabel = computed(
   () => `已配置 ${props.modelValue.length}/${MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS} 项`
 )
+const metricGroupOptions = OBJECT_INSIGHT_METRIC_GROUP_OPTIONS
 
 function handleAdd() {
   if (props.modelValue.length >= MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS) {
@@ -251,7 +274,7 @@ function handleRemove(index: number) {
   )
 }
 
-function handleQuickAdd(model: ProductModel, group: 'measure' | 'status') {
+function handleQuickAdd(model: ProductModel, group: ProductObjectInsightMetricGroup) {
   const existingCount = normalizedMetrics.value.length
   const identifierExists = hasMetric(model.identifier)
   if (!identifierExists && existingCount >= MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS) {
@@ -291,6 +314,10 @@ function normalizeSortNo(value: unknown) {
   return Number.isFinite(numeric) ? numeric : 10
 }
 
+function normalizeMetricGroup(value: unknown) {
+  return normalizeObjectInsightMetricGroup(value)
+}
+
 function hasMetric(identifier: string) {
   return normalizedMetrics.value.some((item) => item.identifier === normalizeText(identifier))
 }
@@ -304,7 +331,7 @@ function resolveMetricStateLabel(identifier: string) {
   if (!metric) {
     return '当前未加入趋势'
   }
-  return metric.group === 'measure' ? '当前为监测趋势' : '当前为状态趋势'
+  return `当前为${getObjectInsightMetricGroupLabel(metric.group)}`
 }
 </script>
 

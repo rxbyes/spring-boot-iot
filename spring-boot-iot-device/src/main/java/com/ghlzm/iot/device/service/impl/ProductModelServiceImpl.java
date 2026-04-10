@@ -74,6 +74,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
     private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
     private static final String SNAPSHOT_STAGE_AFTER_APPLY = "AFTER_APPLY";
+    private static final Set<String> SUPPORTED_COMPOSITE_CANONICALIZATION_STRATEGIES = Set.of("LEGACY", "LF_VALUE");
+    private static final Set<String> SUPPORTED_COMPOSITE_STATUS_MIRROR_STRATEGIES = Set.of("NONE", "SENSOR_STATE");
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of(
             "properties",
             "property",
@@ -126,6 +128,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("gpssinglex", "GNSS 单期位移 X"),
             Map.entry("gpssingley", "GNSS 单期位移 Y"),
             Map.entry("gpssinglez", "GNSS 单期位移 Z"),
+            Map.entry("dispsx", "顺滑动方向累计变形量"),
+            Map.entry("dispsy", "垂直坡面方向累计变形量"),
             Map.entry("lat", "纬度"),
             Map.entry("lon", "经度"),
             Map.entry("longitude", "经度"),
@@ -158,7 +162,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             "gpstotalz",
             "gpssinglex",
             "gpssingley",
-            "gpssinglez"
+            "gpssinglez",
+            "dispsx",
+            "dispsy"
     );
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -843,7 +849,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (!parentDeviceCode.equals(rawSnapshot.deviceCode())) {
             throw new BizException("父设备编码与样本根设备不一致");
         }
-        List<ProductModelGovernanceCompareDTO.RelationMappingInput> relationMappings = normalizeRelationMappings(input);
+        List<NormalizedRelationMapping> relationMappings = normalizeRelationMappings(input);
         List<ManualLeafEvidence> canonicalLeaves = new ArrayList<>();
         for (ManualLeafEvidence leaf : rawSnapshot.leaves()) {
             String canonicalIdentifier = canonicalizeCompositeIdentifier(leaf.identifier(), rawSnapshot.sampleType(), relationMappings);
@@ -865,21 +871,31 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         );
     }
 
-    private List<ProductModelGovernanceCompareDTO.RelationMappingInput> normalizeRelationMappings(
+    private List<NormalizedRelationMapping> normalizeRelationMappings(
             ProductModelGovernanceCompareDTO.ManualExtractInput input) {
         List<ProductModelGovernanceCompareDTO.RelationMappingInput> sourceItems =
                 input == null || input.getRelationMappings() == null ? List.of() : input.getRelationMappings();
-        Map<String, ProductModelGovernanceCompareDTO.RelationMappingInput> normalized = new LinkedHashMap<>();
+        Map<String, NormalizedRelationMapping> normalized = new LinkedHashMap<>();
         for (ProductModelGovernanceCompareDTO.RelationMappingInput item : sourceItems) {
             String logicalChannelCode = normalizeOptional(item == null ? null : item.getLogicalChannelCode());
             String childDeviceCode = normalizeOptional(item == null ? null : item.getChildDeviceCode());
             if (logicalChannelCode == null || childDeviceCode == null) {
                 continue;
             }
-            ProductModelGovernanceCompareDTO.RelationMappingInput normalizedItem =
-                    new ProductModelGovernanceCompareDTO.RelationMappingInput();
-            normalizedItem.setLogicalChannelCode(logicalChannelCode);
-            normalizedItem.setChildDeviceCode(childDeviceCode);
+            String canonicalizationStrategy = normalizeCompositeCanonicalizationStrategy(
+                    item == null ? null : item.getCanonicalizationStrategy(),
+                    logicalChannelCode
+            );
+            String statusMirrorStrategy = normalizeCompositeStatusMirrorStrategy(
+                    item == null ? null : item.getStatusMirrorStrategy(),
+                    logicalChannelCode
+            );
+            NormalizedRelationMapping normalizedItem = new NormalizedRelationMapping(
+                    logicalChannelCode,
+                    childDeviceCode,
+                    canonicalizationStrategy,
+                    statusMirrorStrategy
+            );
             normalized.put(logicalChannelCode, normalizedItem);
         }
         if (normalized.isEmpty()) {
@@ -890,28 +906,79 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private String canonicalizeCompositeIdentifier(String identifier,
                                                    String sampleType,
-                                                   List<ProductModelGovernanceCompareDTO.RelationMappingInput> relationMappings) {
+                                                   List<NormalizedRelationMapping> relationMappings) {
         String normalizedIdentifier = normalizeOptional(identifier);
         if (normalizedIdentifier == null || relationMappings == null || relationMappings.isEmpty()) {
             return null;
         }
-        for (ProductModelGovernanceCompareDTO.RelationMappingInput item : relationMappings) {
-            String logicalChannelCode = normalizeOptional(item == null ? null : item.getLogicalChannelCode());
+        for (NormalizedRelationMapping item : relationMappings) {
+            String logicalChannelCode = item == null ? null : item.logicalChannelCode();
             if (logicalChannelCode == null) {
                 continue;
             }
             if (SAMPLE_TYPE_STATUS.equals(sampleType)) {
-                if (normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)) {
+                if ("SENSOR_STATE".equals(item.statusMirrorStrategy())
+                        && normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)) {
                     return "sensor_state";
                 }
                 continue;
             }
-            if (normalizedIdentifier.equals(logicalChannelCode)
-                    || normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
+            if (normalizedIdentifier.equals(logicalChannelCode)) {
+                return "value";
+            }
+            if (!normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
+                continue;
+            }
+            if ("LEGACY".equals(item.canonicalizationStrategy())) {
+                return normalizeOptional(normalizedIdentifier.substring(logicalChannelCode.length() + 1));
+            }
+            if ("LF_VALUE".equals(item.canonicalizationStrategy())) {
                 return "value";
             }
         }
         return null;
+    }
+
+    private String normalizeCompositeCanonicalizationStrategy(String strategy, String logicalChannelCode) {
+        String normalized = normalizeOptional(strategy);
+        if (normalized == null) {
+            return inferCompositeCanonicalizationStrategy(logicalChannelCode);
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_COMPOSITE_CANONICALIZATION_STRATEGIES.contains(upper)) {
+            throw new BizException("复合设备归一化策略不支持: " + strategy);
+        }
+        return upper;
+    }
+
+    private String normalizeCompositeStatusMirrorStrategy(String strategy, String logicalChannelCode) {
+        String normalized = normalizeOptional(strategy);
+        if (normalized == null) {
+            return inferCompositeStatusMirrorStrategy(logicalChannelCode);
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_COMPOSITE_STATUS_MIRROR_STRATEGIES.contains(upper)) {
+            throw new BizException("复合设备状态镜像策略不支持: " + strategy);
+        }
+        return upper;
+    }
+
+    private String inferCompositeCanonicalizationStrategy(String logicalChannelCode) {
+        String normalizedLogicalChannelCode = normalizeOptional(logicalChannelCode);
+        if (normalizedLogicalChannelCode != null
+                && normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_SW_")) {
+            return "LEGACY";
+        }
+        return "LF_VALUE";
+    }
+
+    private String inferCompositeStatusMirrorStrategy(String logicalChannelCode) {
+        String normalizedLogicalChannelCode = normalizeOptional(logicalChannelCode);
+        if (normalizedLogicalChannelCode != null
+                && normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_LF_")) {
+            return "SENSOR_STATE";
+        }
+        return "NONE";
     }
 
     private void collectManualLeafValues(JsonNode node,
@@ -1176,9 +1243,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if ("value".equals(lastSegment)) {
             return "telemetry";
         }
-        if (normalized.startsWith("l")
-                && (TELEMETRY_LAST_SEGMENTS.contains(lastSegment)
-                || normalized.contains("disps"))) {
+        if (TELEMETRY_LAST_SEGMENTS.contains(lastSegment)
+                || lastSegment.startsWith("disps")) {
             return "telemetry";
         }
         return "unknown";
@@ -1462,6 +1528,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (matcher.matches()) {
             return normalized;
         }
+        int firstSeparatorIndex = normalized.indexOf('.');
+        if (firstSeparatorIndex > 0) {
+            String pointIdentifier = normalized.substring(0, firstSeparatorIndex);
+            Matcher pointMatcher = POINT_IDENTIFIER_PATTERN.matcher(pointIdentifier);
+            if (pointMatcher.matches()) {
+                return pointIdentifier;
+            }
+        }
         return null;
     }
 
@@ -1529,6 +1603,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                       String sampleValue,
                                       String valueType,
                                       List<String> rawIdentifiers) {
+    }
+
+    private record NormalizedRelationMapping(String logicalChannelCode,
+                                             String childDeviceCode,
+                                             String canonicalizationStrategy,
+                                             String statusMirrorStrategy) {
     }
 
     private static final class ManualLeafCollector {

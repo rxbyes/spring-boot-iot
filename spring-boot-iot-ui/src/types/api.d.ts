@@ -34,10 +34,12 @@ export interface Product {
   updatedAt: string;
 }
 
+export type ProductObjectInsightMetricGroup = 'measure' | 'statusEvent' | 'runtime';
+
 export interface ProductObjectInsightCustomMetricConfig {
   identifier: string;
   displayName: string;
-  group: 'measure' | 'status';
+  group: ProductObjectInsightMetricGroup;
   includeInTrend?: boolean | null;
   includeInExtension?: boolean | null;
   analysisTitle?: string | null;

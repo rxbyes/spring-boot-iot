@@ -123,7 +123,7 @@ describe('ProductObjectInsightConfigEditor', () => {
       expect.objectContaining({
         identifier: '',
         displayName: '',
-        group: 'status',
+        group: 'runtime',
         analysisTag: '系统自定义参数'
       })
     ])
@@ -135,7 +135,7 @@ describe('ProductObjectInsightConfigEditor', () => {
           {
             identifier: 'S1_ZT_1.humidity',
             displayName: '相对湿度',
-            group: 'status',
+            group: 'runtime',
             includeInTrend: true,
             includeInExtension: true,
             analysisTitle: '现场环境补充',
@@ -215,5 +215,42 @@ describe('ProductObjectInsightConfigEditor', () => {
         sortNo: 6
       })
     ])
+  })
+
+  it('shows three aligned object-insight groups for formal property models', () => {
+    const wrapper = mount(ProductObjectInsightConfigEditor, {
+      props: {
+        modelValue: [],
+        availableModels: [
+          {
+            id: 11,
+            productId: 1001,
+            modelType: 'property',
+            identifier: 'S1_ZT_1.sensor_state',
+            modelName: '设备状态',
+            dataType: 'int',
+            sortNo: 2
+          }
+        ]
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          ElInput: ElInputStub,
+          ElInputNumber: ElInputNumberStub,
+          ElSelect: ElSelectStub,
+          ElOption: ElOptionStub,
+          ElSwitch: ElSwitchStub,
+          ElAlert: ElAlertStub,
+          ElTag: ElTagStub,
+          ElFormItem: ElFormItemStub
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('监测数据')
+    expect(wrapper.text()).toContain('状态事件')
+    expect(wrapper.text()).toContain('运行参数')
+    expect(wrapper.text()).not.toContain('状态趋势')
   })
 })
