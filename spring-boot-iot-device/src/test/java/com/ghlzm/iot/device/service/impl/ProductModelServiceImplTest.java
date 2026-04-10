@@ -407,6 +407,76 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldDecorateLaserRowsWithLaserFacingNormativeMetadata() {
+        when(productMapper.selectById(5005L)).thenReturn(product(
+                5005L,
+                "nf-monitor-laser-rangefinder-v1",
+                "南方测绘 监测型 激光测距仪"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+                normativeDefinition("phase1-crack", "value", "裂缝监测值", 1),
+                normativeDefinition("phase1-crack", "sensor_state", "传感器状态", 0)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00EA0D1307988");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_LF_1", "202018108")));
+        manualExtract.setSamplePayload("""
+                {"SK00EA0D1307988":{"L1_LF_1":{"2026-04-09T13:47:28.000Z":10.86}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(5005L, dto);
+
+        ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
+        assertEquals("value", row.getIdentifier());
+        assertEquals("value", row.getNormativeIdentifier());
+        assertEquals("激光测距值", row.getNormativeName());
+        assertTrue(row.getRiskReady());
+        assertEquals(List.of("L1_LF_1"), row.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(5005L), eq("phase1-crack"), any());
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateLaserSensorStateRowsWithoutLeakingParentCollectorStatus() {
+        when(productMapper.selectById(5005L)).thenReturn(product(
+                5005L,
+                "nf-monitor-laser-rangefinder-v1",
+                "南方测绘 监测型 激光测距仪"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+                normativeDefinition("phase1-crack", "value", "裂缝监测值", 1),
+                normativeDefinition("phase1-crack", "sensor_state", "传感器状态", 0)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00EA0D1307988");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_LF_1", "202018108")));
+        manualExtract.setSamplePayload("""
+                {"SK00EA0D1307988":{"S1_ZT_1":{"2026-04-09T13:47:28.000Z":{"temp":20.31,"humidity":89.04,"sensor_state":{"L1_LF_1":0}}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(5005L, dto);
+
+        ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
+        assertEquals("sensor_state", row.getIdentifier());
+        assertEquals("sensor_state", row.getNormativeIdentifier());
+        assertEquals("传感器状态", row.getNormativeName());
+        assertTrue(result.getCompareRows().stream().noneMatch(item -> "temp".equals(item.getIdentifier())));
+    }
+
+    @Test
     void compareGovernanceShouldOnlyMirrorCompositeSensorStateWithoutLeakingParentTerminalStatus() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -669,6 +739,34 @@ class ProductModelServiceImplTest {
         ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(3003L, dto, 10001L);
 
         assertEquals(22345L, result.getReleaseBatchId());
+        assertEquals(1, result.getCreatedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldReturnLaserReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(5005L)).thenReturn(product(
+                5005L,
+                "nf-monitor-laser-rangefinder-v1",
+                "南方测绘 监测型 激光测距仪"
+        ));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        when(productContractReleaseService.createBatch(
+                eq(5005L),
+                eq("phase1-crack"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(55667L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "value", "激光测距值")));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(5005L, dto, 10001L);
+
+        assertEquals(55667L, result.getReleaseBatchId());
         assertEquals(1, result.getCreatedCount());
     }
 

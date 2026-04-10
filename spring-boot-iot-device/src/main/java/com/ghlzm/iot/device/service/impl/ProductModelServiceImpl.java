@@ -70,6 +70,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String DEVICE_STRUCTURE_SINGLE = "single";
     private static final String DEVICE_STRUCTURE_COMPOSITE = "composite";
     private static final String RELEASE_SOURCE_MANUAL_COMPARE_APPLY = "manual_compare_apply";
+    private static final String LASER_RANGEFINDER_PRODUCT_KEY = "nf-monitor-laser-rangefinder-v1";
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
     private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
@@ -408,6 +409,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (definitions.isEmpty()) {
             return;
         }
+        Map<String, String> displayAliases = resolveNormativeDisplayAliases(product);
         for (ProductModelGovernanceCompareRowVO row : compareResult.getCompareRows()) {
             if (row == null || !MODEL_TYPE_PROPERTY.equals(normalizeOptional(row.getModelType()))) {
                 continue;
@@ -425,7 +427,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 continue;
             }
             row.setNormativeIdentifier(match.normativeIdentifier());
-            row.setNormativeName(match.normativeName());
+            row.setNormativeName(displayAliases.getOrDefault(match.normativeIdentifier(), match.normativeName()));
             row.setRiskReady(match.riskReady());
             row.setRawIdentifiers(match.rawIdentifiers());
             if (match.riskReady() && !row.getRiskFlags().contains("risk_ready")) {
@@ -434,8 +436,19 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
     }
 
+    private Map<String, String> resolveNormativeDisplayAliases(Product product) {
+        String productKey = normalizeOptional(product == null ? null : product.getProductKey());
+        if (productKey == null || !LASER_RANGEFINDER_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return Map.of();
+        }
+        return Map.of(
+                "value", "激光测距值",
+                "sensor_state", "传感器状态"
+        );
+    }
+
     private void persistManualMetricEvidence(Product product,
-                                             ProductModelCandidateResultVO manualResult) {
+                                            ProductModelCandidateResultVO manualResult) {
         if (product == null || manualResult == null || manualResult.getPropertyCandidates() == null) {
             return;
         }

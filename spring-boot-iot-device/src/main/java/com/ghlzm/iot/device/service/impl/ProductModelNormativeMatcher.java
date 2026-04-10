@@ -25,6 +25,12 @@ final class ProductModelNormativeMatcher {
                 || matchesGnss(product.getDescription())) {
             return SCENARIO_PHASE2_GNSS;
         }
+        if (matchesLaser(product.getProductKey())
+                || matchesLaser(product.getProductName())
+                || matchesLaser(product.getManufacturer())
+                || matchesLaser(product.getDescription())) {
+            return SCENARIO_PHASE1_CRACK;
+        }
         if (matchesCrack(product.getProductKey())
                 || matchesCrack(product.getProductName())
                 || matchesCrack(product.getManufacturer())
@@ -73,6 +79,18 @@ final class ProductModelNormativeMatcher {
         return normalized.contains("gnss")
                 || value.contains("北斗")
                 || value.contains("卫星");
+    }
+
+    private boolean matchesLaser(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("laser-rangefinder")
+                || normalized.contains("laser_rangefinder")
+                || normalized.contains("south_laser_rangefinder")
+                || value.contains("激光")
+                || value.contains("测距");
     }
 
     record NormativeMatchResult(
