@@ -54,6 +54,7 @@ public class ProductModelGovernanceComparator {
                 .map(key -> buildRow(key, manualMap.get(key), runtimeMap.get(key), formalMap.get(key), suspectedMatches.get(key)))
                 .sorted(Comparator
                         .comparing((ProductModelGovernanceCompareRowVO row) -> MODEL_TYPE_ORDER.getOrDefault(row.getModelType(), 99))
+                        .thenComparing(this::resolveSortNo, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(ProductModelGovernanceCompareRowVO::getIdentifier, Comparator.nullsLast(String::compareTo)))
                 .toList();
 
@@ -105,6 +106,27 @@ public class ProductModelGovernanceComparator {
             return STATUS_RUNTIME_ONLY;
         }
         return STATUS_EVIDENCE_INSUFFICIENT;
+    }
+
+    private Integer resolveSortNo(ProductModelGovernanceCompareRowVO row) {
+        if (row == null) {
+            return null;
+        }
+        Integer resolved = null;
+        ProductModelGovernanceEvidenceVO[] evidences = {
+                row.getManualCandidate(),
+                row.getRuntimeCandidate(),
+                row.getFormalModel()
+        };
+        for (ProductModelGovernanceEvidenceVO evidence : evidences) {
+            if (evidence == null || evidence.getSortNo() == null) {
+                continue;
+            }
+            if (resolved == null || evidence.getSortNo() < resolved) {
+                resolved = evidence.getSortNo();
+            }
+        }
+        return resolved;
     }
 
     private boolean definitionMismatch(ProductModelGovernanceEvidenceVO manual,

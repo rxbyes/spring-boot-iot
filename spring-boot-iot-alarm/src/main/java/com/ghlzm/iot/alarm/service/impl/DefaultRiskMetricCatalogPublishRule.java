@@ -24,7 +24,8 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
     private static final Map<String, List<String>> SCENARIO_PUBLISHABLE_IDENTIFIERS = Map.of(
             "phase1-crack", List.of("value"),
             "phase2-gnss", List.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"),
-            "phase3-deep-displacement", List.of("dispsX", "dispsY")
+            "phase3-deep-displacement", List.of("dispsX", "dispsY"),
+            "phase4-rain-gauge", List.of("value")
     );
 
     @Override

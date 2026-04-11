@@ -16,6 +16,7 @@ import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
+import com.ghlzm.iot.device.vo.ProductModelGovernanceAppliedItemVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareRowVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
@@ -500,6 +501,7 @@ class ProductModelServiceImplTest {
 
         ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
         assertEquals("value", row.getIdentifier());
+        assertEquals("激光测距值", row.getManualCandidate().getModelName());
         assertEquals("value", row.getNormativeIdentifier());
         assertEquals("激光测距值", row.getNormativeName());
         assertTrue(row.getRiskReady());
@@ -615,10 +617,12 @@ class ProductModelServiceImplTest {
         );
         ProductModelGovernanceCompareRowVO valueRow = compareRow(result, "property", "value");
         ProductModelGovernanceCompareRowVO totalValueRow = compareRow(result, "property", "totalValue");
+        assertEquals("当前雨量", valueRow.getManualCandidate().getModelName());
         assertEquals("value", valueRow.getNormativeIdentifier());
         assertEquals("当前雨量", valueRow.getNormativeName());
         assertTrue(valueRow.getRiskReady());
         assertEquals(List.of("L3_YL_1.value"), valueRow.getRawIdentifiers());
+        assertEquals("累计雨量", totalValueRow.getManualCandidate().getModelName());
         assertEquals("totalValue", totalValueRow.getNormativeIdentifier());
         assertEquals("累计雨量", totalValueRow.getNormativeName());
         assertEquals(Boolean.FALSE, totalValueRow.getRiskReady());

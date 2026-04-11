@@ -15,6 +15,7 @@ final class ProductModelNormativeMatcher {
     static final String SCENARIO_PHASE1_CRACK = "phase1-crack";
     static final String SCENARIO_PHASE2_GNSS = "phase2-gnss";
     static final String SCENARIO_PHASE3_DEEP_DISPLACEMENT = "phase3-deep-displacement";
+    static final String SCENARIO_PHASE4_RAIN_GAUGE = "phase4-rain-gauge";
 
     String resolveScenarioCode(Product product) {
         if (product == null) {
@@ -25,6 +26,12 @@ final class ProductModelNormativeMatcher {
                 || matchesDeepDisplacement(product.getManufacturer())
                 || matchesDeepDisplacement(product.getDescription())) {
             return SCENARIO_PHASE3_DEEP_DISPLACEMENT;
+        }
+        if (matchesRainGauge(product.getProductKey())
+                || matchesRainGauge(product.getProductName())
+                || matchesRainGauge(product.getManufacturer())
+                || matchesRainGauge(product.getDescription())) {
+            return SCENARIO_PHASE4_RAIN_GAUGE;
         }
         if (matchesGnss(product.getProductKey())
                 || matchesGnss(product.getProductName())
@@ -109,6 +116,20 @@ final class ProductModelNormativeMatcher {
                 || normalized.contains("deep_displacement")
                 || normalized.contains("south_deep_displacement")
                 || value.contains("深部位移");
+    }
+
+    private boolean matchesRainGauge(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("rain-gauge")
+                || normalized.contains("rain_gauge")
+                || normalized.contains("tipping-bucket")
+                || normalized.contains("tipping_bucket")
+                || normalized.contains("south_rain_gauge")
+                || value.contains("翻斗")
+                || value.contains("雨量");
     }
 
     record NormativeMatchResult(

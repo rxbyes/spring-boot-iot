@@ -71,6 +71,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String DEVICE_STRUCTURE_COMPOSITE = "composite";
     private static final String RELEASE_SOURCE_MANUAL_COMPARE_APPLY = "manual_compare_apply";
     private static final String LASER_RANGEFINDER_PRODUCT_KEY = "nf-monitor-laser-rangefinder-v1";
+    private static final String RAIN_GAUGE_PRODUCT_KEY = "nf-monitor-tipping-bucket-rain-gauge-v1";
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
     private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
@@ -129,6 +130,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("gpssinglex", "GNSS 单期位移 X"),
             Map.entry("gpssingley", "GNSS 单期位移 Y"),
             Map.entry("gpssinglez", "GNSS 单期位移 Z"),
+            Map.entry("totalvalue", "累计雨量"),
             Map.entry("dispsx", "顺滑动方向累计变形量"),
             Map.entry("dispsy", "垂直坡面方向累计变形量"),
             Map.entry("lat", "纬度"),
@@ -164,6 +166,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             "gpssinglex",
             "gpssingley",
             "gpssinglez",
+            "totalvalue",
             "dispsx",
             "dispsy"
     );
@@ -441,13 +444,22 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private Map<String, String> resolveNormativeDisplayAliases(Product product) {
         String productKey = normalizeOptional(product == null ? null : product.getProductKey());
-        if (productKey == null || !LASER_RANGEFINDER_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+        if (productKey == null) {
             return Map.of();
         }
-        return Map.of(
-                "value", "激光测距值",
-                "sensor_state", "传感器状态"
-        );
+        if (LASER_RANGEFINDER_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return Map.of(
+                    "value", "激光测距值",
+                    "sensor_state", "传感器状态"
+            );
+        }
+        if (RAIN_GAUGE_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return Map.of(
+                    "value", "当前雨量",
+                    "totalValue", "累计雨量"
+            );
+        }
+        return Map.of();
     }
 
     private void persistManualMetricEvidence(Product product,
@@ -811,10 +823,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
 
         List<ProductModelCandidateVO> candidates = accumulators.values().stream()
-                .map(this::toPropertyCandidate)
+                .map(accumulator -> toPropertyCandidate(product, accumulator))
                 .sorted(Comparator
                         .comparing(ProductModelCandidateVO::getNeedsReview)
                         .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getSortNo, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(ProductModelCandidateVO::getIdentifier))
                 .toList();
         return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
@@ -1131,11 +1144,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return null;
     }
 
-    private ProductModelCandidateVO toPropertyCandidate(PropertyAccumulator accumulator) {
+    private ProductModelCandidateVO toPropertyCandidate(Product product, PropertyAccumulator accumulator) {
         String groupKey = classifyPropertyGroup(accumulator.identifier);
         boolean needsReview = isSuspiciousIdentifier(accumulator.identifier)
                 || "unknown".equals(groupKey);
-        String modelName = suggestPropertyModelName(accumulator.identifier, accumulator.propertyName, groupKey);
+        String modelName = suggestPropertyModelName(product, accumulator.identifier, accumulator.propertyName, groupKey);
         String description = buildPropertyDescription(
                 accumulator.identifier,
                 modelName,
@@ -1149,7 +1162,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setIdentifier(accumulator.identifier);
         candidate.setModelName(modelName);
         candidate.setDataType(resolvePropertyDataType(accumulator.valueType, accumulator.sampleValue, accumulator.identifier));
-        candidate.setSortNo(defaultSortNo(groupKey));
+        candidate.setSortNo(resolvePropertySortNo(product, accumulator.identifier, groupKey));
         candidate.setRequiredFlag(0);
         candidate.setDescription(description);
         candidate.setGroupKey(groupKey);
@@ -1326,7 +1339,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return normalized.startsWith("codex_verify_") || normalized.contains("singal_");
     }
 
-    private String suggestPropertyModelName(String identifier, String propertyName, String groupKey) {
+    private String suggestPropertyModelName(Product product, String identifier, String propertyName, String groupKey) {
+        String productSpecificLabel = resolveProductSpecificPropertyLabel(product, identifier);
+        if (productSpecificLabel != null) {
+            String pointLabel = resolvePointLabel(identifier);
+            if (pointLabel != null && "telemetry".equals(groupKey) && !productSpecificLabel.contains(pointLabel)) {
+                return pointLabel + productSpecificLabel;
+            }
+            return productSpecificLabel;
+        }
         String normalizedPropertyName = normalizeOptional(propertyName);
         if (normalizedPropertyName != null && !looksLikeIdentifierLabel(identifier, normalizedPropertyName)) {
             if ("telemetry".equals(groupKey)) {
@@ -1352,6 +1373,49 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             return pointLabel + baseLabel;
         }
         return baseLabel;
+    }
+
+    private String resolveProductSpecificPropertyLabel(Product product, String identifier) {
+        String productKey = normalizeOptional(product == null ? null : product.getProductKey());
+        if (productKey == null) {
+            return null;
+        }
+        String lastSegment = lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT);
+        if (LASER_RANGEFINDER_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return switch (lastSegment) {
+                case "value" -> "激光测距值";
+                case "sensor_state" -> "传感器状态";
+                default -> null;
+            };
+        }
+        if (RAIN_GAUGE_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return switch (lastSegment) {
+                case "value" -> "当前雨量";
+                case "totalvalue" -> "累计雨量";
+                default -> null;
+            };
+        }
+        return null;
+    }
+
+    private Integer resolvePropertySortNo(Product product, String identifier, String groupKey) {
+        int base = defaultSortNo(groupKey);
+        String productKey = normalizeOptional(product == null ? null : product.getProductKey());
+        String lastSegment = lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT);
+        if (RAIN_GAUGE_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return switch (lastSegment) {
+                case "value" -> base;
+                case "totalvalue" -> base + 10;
+                default -> base;
+            };
+        }
+        return switch (lastSegment) {
+            case "value", "dispsx", "gpstotalx", "temp" -> base;
+            case "dispsy", "gpstotaly", "humidity" -> base + 10;
+            case "gpstotalz", "signal_4g" -> base + 20;
+            case "gpsinitial" -> base + 30;
+            default -> base;
+        };
     }
 
     private String resolvePointLabel(String identifier) {

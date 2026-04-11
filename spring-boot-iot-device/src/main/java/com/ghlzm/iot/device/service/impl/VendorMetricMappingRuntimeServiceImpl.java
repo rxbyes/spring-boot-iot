@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -76,9 +77,9 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
             return null;
         }
         String scenarioCode = normalizeLower(normativeMatcher.resolveScenarioCode(product));
-        String deviceFamily = normalizeLower(product == null ? null : product.getManufacturer());
         String normalizedProtocolCode = normalizeLower(protocolCode);
         String normalizedLogicalChannelCode = normalizeUpper(logicalChannelCode);
+        Set<String> scenarioDeviceFamilies = resolveScenarioDeviceFamilies(scenarioCode);
         List<ResolvedRuleCandidate> candidates = mapper.selectList(new LambdaQueryWrapper<VendorMetricMappingRule>()
                         .eq(VendorMetricMappingRule::getDeleted, 0)
                         .eq(VendorMetricMappingRule::getProductId, productId)
@@ -89,7 +90,7 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 .filter(rule -> matchesOptional(rule.getScenarioCode(), scenarioCode))
                 .filter(rule -> matchesOptional(rule.getProtocolCode(), normalizedProtocolCode))
                 .filter(rule -> matchesOptionalUpper(rule.getLogicalChannelCode(), normalizedLogicalChannelCode))
-                .filter(rule -> matchesOptional(rule.getDeviceFamily(), deviceFamily))
+                .filter(rule -> matchesOptional(rule.getDeviceFamily(), scenarioDeviceFamilies))
                 .map(rule -> new ResolvedRuleCandidate(
                         rule,
                         canonicalizeTargetIdentifier(product, rule.getTargetNormativeIdentifier()),
@@ -155,6 +156,14 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         return normalizedExpectedValue.equals(normalizeUpper(actualValue));
     }
 
+    private boolean matchesOptional(String expectedValue, Set<String> actualValues) {
+        String normalizedExpectedValue = normalizeLower(expectedValue);
+        if (normalizedExpectedValue == null) {
+            return true;
+        }
+        return actualValues != null && actualValues.contains(normalizedExpectedValue);
+    }
+
     private int specificity(VendorMetricMappingRule rule) {
         int score = 0;
         if (StringUtils.hasText(rule.getScenarioCode())) {
@@ -195,6 +204,21 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
 
     private String resolveProtocolCode(Product product) {
         return normalizeLower(product == null ? null : product.getProtocolCode());
+    }
+
+    private Set<String> resolveScenarioDeviceFamilies(String scenarioCode) {
+        if (!StringUtils.hasText(scenarioCode) || normativeMetricDefinitionService == null) {
+            return Set.of();
+        }
+        List<NormativeMetricDefinition> definitions = normativeMetricDefinitionService.listByScenario(scenarioCode);
+        if (definitions == null || definitions.isEmpty()) {
+            return Set.of();
+        }
+        return definitions.stream()
+                .map(NormativeMetricDefinition::getDeviceFamily)
+                .map(this::normalizeLower)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private String normalizeText(String value) {

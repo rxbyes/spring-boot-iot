@@ -1,9 +1,11 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import java.util.List;
@@ -23,6 +25,9 @@ class VendorMetricMappingRuntimeServiceImplTest {
 
     @Mock
     private VendorMetricMappingRuleMapper mapper;
+
+    @Mock
+    private NormativeMetricDefinitionService normativeMetricDefinitionService;
 
     @Test
     void resolveForGovernanceShouldPreferLogicalChannelSpecificRule() {
@@ -72,11 +77,38 @@ class VendorMetricMappingRuntimeServiceImplTest {
         assertNull(resolution);
     }
 
+    @Test
+    void resolveForGovernanceShouldMatchDeviceFamilyFromNormativeDefinitions() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                mappingRule(8801L, 7007L, "L3_YL_1.value", "L3_YL_1", "value", "ACTIVE", "phase4-rain-gauge", "RAIN_GAUGE")
+        ));
+        when(normativeMetricDefinitionService.listByScenario("phase4-rain-gauge"))
+                .thenReturn(List.of(normativeDefinition("phase4-rain-gauge", "value", "RAIN_GAUGE")));
+
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                service.resolveForGovernance(rainGaugeProduct(7007L), "L3_YL_1.value", "L3_YL_1");
+
+        assertEquals(8801L, resolution.ruleId());
+        assertEquals("value", resolution.targetNormativeIdentifier());
+    }
+
     private Product crackProduct(Long productId) {
         Product product = new Product();
         product.setId(productId);
         product.setProductKey("phase1-crack-product");
         product.setProductName("crack-monitor");
+        product.setProtocolCode("mqtt-json");
+        return product;
+    }
+
+    private Product rainGaugeProduct(Long productId) {
+        Product product = new Product();
+        product.setId(productId);
+        product.setProductKey("nf-monitor-tipping-bucket-rain-gauge-v1");
+        product.setProductName("南方测绘 监测型 翻斗式雨量计");
+        product.setManufacturer("南方测绘");
         product.setProtocolCode("mqtt-json");
         return product;
     }
@@ -87,6 +119,17 @@ class VendorMetricMappingRuntimeServiceImplTest {
                                                 String logicalChannelCode,
                                                 String targetNormativeIdentifier,
                                                 String status) {
+        return mappingRule(id, productId, rawIdentifier, logicalChannelCode, targetNormativeIdentifier, status, "phase1-crack", null);
+    }
+
+    private VendorMetricMappingRule mappingRule(Long id,
+                                                Long productId,
+                                                String rawIdentifier,
+                                                String logicalChannelCode,
+                                                String targetNormativeIdentifier,
+                                                String status,
+                                                String scenarioCode,
+                                                String deviceFamily) {
         VendorMetricMappingRule rule = new VendorMetricMappingRule();
         rule.setId(id);
         rule.setProductId(productId);
@@ -94,10 +137,19 @@ class VendorMetricMappingRuntimeServiceImplTest {
         rule.setRawIdentifier(rawIdentifier);
         rule.setLogicalChannelCode(logicalChannelCode);
         rule.setTargetNormativeIdentifier(targetNormativeIdentifier);
-        rule.setScenarioCode("phase1-crack");
+        rule.setScenarioCode(scenarioCode);
         rule.setProtocolCode("mqtt-json");
+        rule.setDeviceFamily(deviceFamily);
         rule.setStatus(status);
         rule.setDeleted(0);
         return rule;
+    }
+
+    private NormativeMetricDefinition normativeDefinition(String scenarioCode, String identifier, String deviceFamily) {
+        NormativeMetricDefinition definition = new NormativeMetricDefinition();
+        definition.setScenarioCode(scenarioCode);
+        definition.setIdentifier(identifier);
+        definition.setDeviceFamily(deviceFamily);
+        return definition;
     }
 }

@@ -581,7 +581,13 @@ INSERT INTO iot_normative_metric_definition (
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'DEEP_DISPLACEMENT', 'metricRole', 'PRIMARY')),
     (920023, 1, 'phase3-deep-displacement', 'DEEP_DISPLACEMENT', 'sensor_state', '传感器状态', NULL, 0, 'S1', 'ZT', 0, 0,
      'health_state', 'enum', 'STATE_IS_RISK', 0, 1, 0, 'ACTIVE', 1,
-     JSON_OBJECT('usage', 'health_state', 'riskCategory', 'DEVICE_HEALTH', 'metricRole', 'STATE'))
+     JSON_OBJECT('usage', 'health_state', 'riskCategory', 'DEVICE_HEALTH', 'metricRole', 'STATE')),
+    (920031, 1, 'phase4-rain-gauge', 'RAIN_GAUGE', 'value', '当前雨量', 'mm', 2, 'L3', 'YL', 1, 1,
+     'rainfall', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'PRIMARY')),
+    (920032, 1, 'phase4-rain-gauge', 'RAIN_GAUGE', 'totalValue', '累计雨量', 'mm', 2, 'L3', 'YL', 0, 1,
+     'rainfall', 'cumulative', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'cumulative', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'CONTEXT'))
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),
     unit = VALUES(unit),
@@ -1466,7 +1472,9 @@ INSERT INTO iot_product_model (
     (202604110200012, 1, 202603192100560258, 'property', 'sensor_state', '传感器状态', 'int', JSON_OBJECT('category', 'state'), 2, 0, '激光测距传感器状态', NOW(), NOW(), 0),
     (202604110200021, 1, 202603192100560250, 'property', 'dispsX', '顺滑动方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '深部位移顺滑动方向累计变形量', NOW(), NOW(), 0),
     (202604110200022, 1, 202603192100560250, 'property', 'dispsY', '垂直坡面方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 2, 0, '深部位移垂直坡面方向累计变形量', NOW(), NOW(), 0),
-    (202604110200023, 1, 202603192100560250, 'property', 'sensor_state', '传感器状态', 'int', JSON_OBJECT('category', 'state'), 3, 0, '深部位移传感器状态', NOW(), NOW(), 0)
+    (202604110200023, 1, 202603192100560250, 'property', 'sensor_state', '传感器状态', 'int', JSON_OBJECT('category', 'state'), 3, 0, '深部位移传感器状态', NOW(), NOW(), 0),
+    (202604110200031, 1, 202603192100560253, 'property', 'value', '当前雨量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 2), 1, 0, '翻斗式雨量计当前雨量', NOW(), NOW(), 0),
+    (202604110200032, 1, 202603192100560253, 'property', 'totalValue', '累计雨量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 2), 2, 0, '翻斗式雨量计累计雨量', NOW(), NOW(), 0)
 ON DUPLICATE KEY UPDATE
     model_name = VALUES(model_name),
     data_type = VALUES(data_type),
@@ -1532,6 +1540,51 @@ SET metadata_json = JSON_SET(
     deleted = 0
 WHERE tenant_id = 1
   AND product_key = 'nf-monitor-deep-displacement-v1';
+
+UPDATE iot_product
+SET metadata_json = JSON_SET(
+        COALESCE(metadata_json, JSON_OBJECT()),
+        '$.objectInsight',
+        JSON_OBJECT(
+            'customMetrics',
+            JSON_ARRAY(
+                JSON_OBJECT('identifier', 'value', 'displayName', '当前雨量', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
+                JSON_OBJECT('identifier', 'totalValue', 'displayName', '累计雨量', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20)
+            )
+        )
+    ),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0
+WHERE tenant_id = 1
+  AND product_key = 'nf-monitor-tipping-bucket-rain-gauge-v1';
+
+INSERT INTO iot_vendor_metric_mapping_rule (
+    id, tenant_id, scope_type, product_id, protocol_code, scenario_code, device_family,
+    raw_identifier, logical_channel_code, relation_condition_json, normalization_rule_json,
+    target_normative_identifier, status, version_no, approval_order_id,
+    create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (202604110800001, 1, 'PRODUCT', 202603192100560253, 'mqtt-json', 'phase4-rain-gauge', 'RAIN_GAUGE',
+     'L3_YL_1.value', 'L3_YL_1', NULL, NULL, 'value', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800002, 1, 'PRODUCT', 202603192100560253, 'mqtt-json', 'phase4-rain-gauge', 'RAIN_GAUGE',
+     'L3_YL_1.totalValue', 'L3_YL_1', NULL, NULL, 'totalValue', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    product_id = VALUES(product_id),
+    protocol_code = VALUES(protocol_code),
+    scenario_code = VALUES(scenario_code),
+    device_family = VALUES(device_family),
+    raw_identifier = VALUES(raw_identifier),
+    logical_channel_code = VALUES(logical_channel_code),
+    relation_condition_json = VALUES(relation_condition_json),
+    normalization_rule_json = VALUES(normalization_rule_json),
+    target_normative_identifier = VALUES(target_normative_identifier),
+    status = VALUES(status),
+    version_no = VALUES(version_no),
+    approval_order_id = VALUES(approval_order_id),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0;
 
 INSERT INTO iot_device (
     id, tenant_id, org_id, org_name, product_id, device_name, device_code, device_secret, client_id, username, password,

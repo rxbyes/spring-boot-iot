@@ -73,6 +73,14 @@ COLLECTOR_CHILD_BASELINE_PRODUCTS = (
         "description": "监测型深部位移监测设备，协议 mqtt-json，直连接入",
         "remark": "shared dev collector-child baseline",
     },
+    {
+        "id": 202603192100560253,
+        "product_key": "nf-monitor-tipping-bucket-rain-gauge-v1",
+        "product_name": "南方测绘 监测型 翻斗式雨量计",
+        "manufacturer": "南方测绘",
+        "description": "监测型翻斗式雨量监测设备，协议 mqtt-json，直连接入",
+        "remark": "shared dev rain-gauge governance baseline",
+    },
 )
 
 COLLECTOR_CHILD_BASELINE_PRODUCT_MODELS = (
@@ -156,6 +164,26 @@ COLLECTOR_CHILD_BASELINE_PRODUCT_MODELS = (
         "sort_no": 3,
         "description": "deep displacement sensor state",
     },
+    {
+        "id": 202604110200031,
+        "product_id": 202603192100560253,
+        "identifier": "value",
+        "model_name": "当前雨量",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 2},
+        "sort_no": 1,
+        "description": "rain gauge current rainfall",
+    },
+    {
+        "id": 202604110200032,
+        "product_id": 202603192100560253,
+        "identifier": "totalValue",
+        "model_name": "累计雨量",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 2},
+        "sort_no": 2,
+        "description": "rain gauge cumulative rainfall",
+    },
 )
 
 COLLECTOR_CHILD_BASELINE_METADATA = {
@@ -177,6 +205,12 @@ COLLECTOR_CHILD_BASELINE_METADATA = {
             {"identifier": "dispsX", "displayName": "顺滑动方向累计变形量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
             {"identifier": "dispsY", "displayName": "垂直坡面方向累计变形量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
             {"identifier": "sensor_state", "displayName": "传感器状态", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 30},
+        ]
+    },
+    "nf-monitor-tipping-bucket-rain-gauge-v1": {
+        "customMetrics": [
+            {"identifier": "value", "displayName": "当前雨量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
+            {"identifier": "totalValue", "displayName": "累计雨量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
         ]
     },
 }
@@ -247,6 +281,73 @@ COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS = (
         "status": "ACTIVE",
         "version_no": 1,
         "metadata_json": {"usage": "health_state", "riskCategory": "DEVICE_HEALTH", "metricRole": "STATE"},
+    },
+    {
+        "id": 920031,
+        "scenario_code": "phase4-rain-gauge",
+        "device_family": "RAIN_GAUGE",
+        "identifier": "value",
+        "display_name": "当前雨量",
+        "unit": "mm",
+        "precision_digits": 2,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "YL",
+        "risk_enabled": 1,
+        "trend_enabled": 1,
+        "metric_dimension": "rainfall",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "RAIN_GAUGE", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920032,
+        "scenario_code": "phase4-rain-gauge",
+        "device_family": "RAIN_GAUGE",
+        "identifier": "totalValue",
+        "display_name": "累计雨量",
+        "unit": "mm",
+        "precision_digits": 2,
+        "monitor_content_code": "L3",
+        "monitor_type_code": "YL",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "rainfall",
+        "threshold_type": "cumulative",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "cumulative", "riskCategory": "RAIN_GAUGE", "metricRole": "CONTEXT"},
+    },
+)
+
+COLLECTOR_CHILD_BASELINE_MAPPING_RULES = (
+    {
+        "id": 202604110800001,
+        "product_id": 202603192100560253,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase4-rain-gauge",
+        "device_family": "RAIN_GAUGE",
+        "raw_identifier": "L3_YL_1.value",
+        "logical_channel_code": "L3_YL_1",
+        "target_normative_identifier": "value",
+    },
+    {
+        "id": 202604110800002,
+        "product_id": 202603192100560253,
+        "protocol_code": "mqtt-json",
+        "scenario_code": "phase4-rain-gauge",
+        "device_family": "RAIN_GAUGE",
+        "raw_identifier": "L3_YL_1.totalValue",
+        "logical_channel_code": "L3_YL_1",
+        "target_normative_identifier": "totalValue",
     },
 )
 
@@ -2633,6 +2734,7 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
         "iot_product",
         "iot_product_model",
         "iot_normative_metric_definition",
+        "iot_vendor_metric_mapping_rule",
         "iot_device",
         "iot_device_relation",
         "iot_device_property",
@@ -2770,6 +2872,49 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
                 str(seed["status"]),
                 int(seed["version_no"]),
                 json.dumps(seed["metadata_json"], ensure_ascii=False),
+            ),
+        )
+
+    for seed in COLLECTOR_CHILD_BASELINE_MAPPING_RULES:
+        cur.execute(
+            """
+            INSERT INTO iot_vendor_metric_mapping_rule (
+                id, tenant_id, scope_type, product_id, protocol_code, scenario_code, device_family,
+                raw_identifier, logical_channel_code, relation_condition_json, normalization_rule_json,
+                target_normative_identifier, status, version_no, approval_order_id,
+                create_by, create_time, update_by, update_time, deleted
+            ) VALUES (
+                %s, 1, 'PRODUCT', %s, %s, %s, %s,
+                %s, %s, NULL, NULL,
+                %s, 'ACTIVE', 1, NULL,
+                1, NOW(), 1, NOW(), 0
+            )
+            ON DUPLICATE KEY UPDATE
+                product_id = VALUES(product_id),
+                protocol_code = VALUES(protocol_code),
+                scenario_code = VALUES(scenario_code),
+                device_family = VALUES(device_family),
+                raw_identifier = VALUES(raw_identifier),
+                logical_channel_code = VALUES(logical_channel_code),
+                relation_condition_json = VALUES(relation_condition_json),
+                normalization_rule_json = VALUES(normalization_rule_json),
+                target_normative_identifier = VALUES(target_normative_identifier),
+                status = VALUES(status),
+                version_no = VALUES(version_no),
+                approval_order_id = VALUES(approval_order_id),
+                update_by = 1,
+                update_time = NOW(),
+                deleted = 0
+            """,
+            (
+                int(seed["id"]),
+                int(seed["product_id"]),
+                str(seed["protocol_code"]),
+                str(seed["scenario_code"]),
+                str(seed["device_family"]),
+                str(seed["raw_identifier"]),
+                str(seed["logical_channel_code"]),
+                str(seed["target_normative_identifier"]),
             ),
         )
 
