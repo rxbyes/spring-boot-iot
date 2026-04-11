@@ -8,10 +8,10 @@ import com.ghlzm.iot.alarm.service.RiskPointPendingPromotionService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingBindingItemVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
-import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -98,16 +98,19 @@ class RiskPointPendingControllerTest {
         RiskPointPendingPromotionService promotionService = mock(RiskPointPendingPromotionService.class);
         RiskPointPendingController controller = new RiskPointPendingController(bindingService, recommendationService, promotionService);
         RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
-        RiskPointPendingPromotionResultVO result = new RiskPointPendingPromotionResultVO();
-        result.setPendingId(77L);
-        result.setPendingStatus("PROMOTED");
+        GovernanceSubmissionResultVO result = new GovernanceSubmissionResultVO();
+        result.setWorkItemId(8801L);
+        result.setApprovalOrderId(9901L);
+        result.setApprovalStatus("PENDING");
+        result.setExecutionStatus("PENDING_APPROVAL");
         Authentication authentication = authentication(1001L);
-        when(promotionService.promote(77L, request, 1001L)).thenReturn(result);
+        when(promotionService.submitPromotion(77L, request, 1001L)).thenReturn(result);
 
-        R<RiskPointPendingPromotionResultVO> response = controller.promote(77L, request, authentication);
+        R<GovernanceSubmissionResultVO> response = controller.promote(77L, request, authentication);
 
-        assertEquals("PROMOTED", response.getData().getPendingStatus());
-        verify(promotionService).promote(77L, request, 1001L);
+        assertEquals("PENDING_APPROVAL", response.getData().getExecutionStatus());
+        assertEquals(9901L, response.getData().getApprovalOrderId());
+        verify(promotionService).submitPromotion(77L, request, 1001L);
     }
 
     @Test

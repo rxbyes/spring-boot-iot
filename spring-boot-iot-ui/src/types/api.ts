@@ -500,6 +500,13 @@ export interface ProductModelGovernanceAppliedItem {
 
 export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
+export interface GovernanceSubmissionResult {
+  workItemId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  approvalStatus?: GovernanceApprovalStatus | null;
+  executionStatus?: 'DIRECT_APPLIED' | 'PENDING_APPROVAL' | 'REJECTED' | 'CANCELLED' | null;
+}
+
 export interface GovernanceApprovalOrder {
   id: IdType;
   actionCode?: string | null;

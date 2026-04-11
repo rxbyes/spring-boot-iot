@@ -9,6 +9,8 @@ public interface GovernanceWorkItemService {
 
     void openOrRefresh(GovernanceWorkItemCommand command);
 
+    Long openOrRefreshAndGetId(GovernanceWorkItemCommand command);
+
     void resolve(String workItemCode, String subjectType, Long subjectId, Long operatorUserId, String comment);
 
     PageResult<GovernanceWorkItemVO> pageWorkItems(GovernanceWorkItemPageQuery query, Long currentUserId);

@@ -13,6 +13,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
@@ -125,22 +126,20 @@ public class RiskPointController {
             return R.ok(page);
       }
 
-      /**
+     /**
        * 绑定风险点与设备
        */
-      @PostMapping("/bind-device")
-      public R<Void> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
-            riskPointService.bindDevice(riskPointDevice, requireCurrentUserId(authentication));
-            return R.ok();
+     @PostMapping("/bind-device")
+      public R<GovernanceSubmissionResultVO> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
+            return R.ok(bindingMaintenanceService.submitBindDevice(riskPointDevice, requireCurrentUserId(authentication)));
       }
 
       /**
        * 解绑风险点与设备
        */
       @PostMapping("/unbind-device")
-      public R<Void> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId, Authentication authentication) {
-            riskPointService.unbindDevice(riskPointId, deviceId, requireCurrentUserId(authentication));
-            return R.ok();
+      public R<GovernanceSubmissionResultVO> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId, Authentication authentication) {
+            return R.ok(bindingMaintenanceService.submitUnbindDevice(riskPointId, deviceId, requireCurrentUserId(authentication)));
       }
 
       /**

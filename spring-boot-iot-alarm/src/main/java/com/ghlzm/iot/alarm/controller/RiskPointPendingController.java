@@ -8,11 +8,11 @@ import com.ghlzm.iot.alarm.service.RiskPointPendingPromotionService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingBindingItemVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
-import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,10 +66,10 @@ public class RiskPointPendingController {
     }
 
     @PostMapping("/pending-bindings/{pendingId}/promote")
-    public R<RiskPointPendingPromotionResultVO> promote(@PathVariable Long pendingId,
-                                                        @RequestBody RiskPointPendingPromotionRequest request,
-                                                        Authentication authentication) {
-        return R.ok(pendingPromotionService.promote(pendingId, request, requireCurrentUserId(authentication)));
+    public R<GovernanceSubmissionResultVO> promote(@PathVariable Long pendingId,
+                                                   @RequestBody RiskPointPendingPromotionRequest request,
+                                                   Authentication authentication) {
+        return R.ok(pendingPromotionService.submitPromotion(pendingId, request, requireCurrentUserId(authentication)));
     }
 
     @PostMapping("/pending-bindings/{pendingId}/ignore")

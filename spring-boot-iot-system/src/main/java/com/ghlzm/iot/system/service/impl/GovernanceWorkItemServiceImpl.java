@@ -82,6 +82,11 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     @Override
     public void openOrRefresh(GovernanceWorkItemCommand command) {
+        openOrRefreshAndGetId(command);
+    }
+
+    @Override
+    public Long openOrRefreshAndGetId(GovernanceWorkItemCommand command) {
         GovernanceWorkItemCommand normalized = requireCommand(command);
         GovernanceWorkItem existing = workItemMapper.selectOne(new LambdaQueryWrapper<GovernanceWorkItem>()
                 .eq(GovernanceWorkItem::getDeleted, 0)
@@ -112,7 +117,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setUpdateBy(normalized.operatorUserId());
             item.setDeleted(0);
             workItemMapper.insert(item);
-            return;
+            return item.getId();
         }
 
         GovernanceWorkItem refreshed = new GovernanceWorkItem();
@@ -139,6 +144,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             refreshed.setAssigneeUserId(existing.getAssigneeUserId());
         }
         workItemMapper.updateById(refreshed);
+        return existing.getId();
     }
 
     @Override
