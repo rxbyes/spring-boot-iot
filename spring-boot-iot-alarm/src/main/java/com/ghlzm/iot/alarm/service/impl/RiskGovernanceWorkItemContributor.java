@@ -148,12 +148,28 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 .map(RiskPointDevice::getDeviceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, Long> reportedDeviceCountByProductId = reportedDevices.stream()
+                .filter(device -> device.getProductId() != null)
+                .collect(Collectors.groupingBy(Device::getProductId, LinkedHashMap::new, Collectors.counting()));
+        Map<Long, Long> unboundReportedDeviceCountByProductId = reportedDevices.stream()
+                .filter(device -> device.getId() != null)
+                .filter(device -> device.getProductId() != null)
+                .filter(device -> !boundDeviceIds.contains(device.getId()))
+                .collect(Collectors.groupingBy(Device::getProductId, LinkedHashMap::new, Collectors.counting()));
         Set<String> boundMetricKeys = bindings.stream()
                 .map(this::toBindingMetricKey)
                 .filter(StringUtils::hasText)
                 .filter(key -> matchesCatalogKey(key, catalogIds, catalogIdentifiers))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         List<MetricBindingDimension> boundMetricDimensions = buildBoundMetricDimensions(bindings, reportedDeviceMap, catalogIds, catalogIdentifiers);
+        Map<Long, Long> catalogCountByProductId = enabledCatalogs.stream()
+                .filter(catalog -> catalog.getProductId() != null)
+                .collect(Collectors.groupingBy(RiskMetricCatalog::getProductId, LinkedHashMap::new, Collectors.counting()));
+        Map<Long, Long> bindingCountByProductId = bindings.stream()
+                .map(binding -> binding.getDeviceId() == null ? null : reportedDeviceMap.get(binding.getDeviceId()))
+                .filter(Objects::nonNull)
+                .filter(device -> device.getProductId() != null)
+                .collect(Collectors.groupingBy(Device::getProductId, LinkedHashMap::new, Collectors.counting()));
 
         List<RuleDefinition> enabledRules = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
                 .eq(RuleDefinition::getDeleted, 0)
@@ -164,6 +180,15 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
         Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
                 .filter(rule -> rule.getRiskMetricId() != null)
                 .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
+        List<RiskPointDevice> missingPolicyBindings = bindings.stream()
+                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
+                .sorted(Comparator.comparing(RiskPointDevice::getId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+        Map<Long, Long> missingPolicyCountByProductId = missingPolicyBindings.stream()
+                .map(binding -> binding.getDeviceId() == null ? null : reportedDeviceMap.get(binding.getDeviceId()))
+                .filter(Objects::nonNull)
+                .filter(device -> device.getProductId() != null)
+                .collect(Collectors.groupingBy(Device::getProductId, LinkedHashMap::new, Collectors.counting()));
 
         Set<String> linkageCoveredKeys = toLinkageDimensionKeys(selectActiveLinkageBindings());
         Set<String> emergencyCoveredKeys = toEmergencyPlanDimensionKeys(selectActiveEmergencyPlanBindings());
@@ -198,6 +223,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                 ));
             }
             if (!releasedProductIds.contains(product.getId())) {
+                long catalogCount = catalogCountByProductId.getOrDefault(product.getId(), 0L);
+                long reportedDeviceCount = reportedDeviceCountByProductId.getOrDefault(product.getId(), 0L);
+                long missingBindingCount = unboundReportedDeviceCountByProductId.getOrDefault(product.getId(), 0L);
+                long missingPolicyCount = missingPolicyCountByProductId.getOrDefault(product.getId(), 0L);
+                long bindingCount = bindingCountByProductId.getOrDefault(product.getId(), 0L);
+                long affectedCount = Math.max(catalogCount + missingBindingCount + missingPolicyCount, Math.max(bindingCount, reportedDeviceCount));
                 commands.add(new GovernanceWorkItemCommand(
                         "PENDING_CONTRACT_RELEASE",
                         "PRODUCT",
@@ -215,7 +246,13 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         snapshotOf(snapshotMap(
                                 "productId", product.getId(),
                                 "productKey", safeText(product.getProductKey()),
-                                "productName", safeText(product.getProductName())
+                                "productName", safeText(product.getProductName()),
+                                "catalogCount", catalogCount,
+                                "reportedDeviceCount", reportedDeviceCount,
+                                "bindingCount", bindingCount,
+                                "missingBindingCount", missingBindingCount,
+                                "missingPolicyCount", missingPolicyCount,
+                                "affectedCount", affectedCount
                         )),
                         "P1",
                         SYSTEM_OPERATOR_ID
@@ -246,20 +283,19 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                             "deviceId", device.getId(),
                             "deviceCode", safeText(device.getDeviceCode()),
                             "deviceName", safeText(device.getDeviceName()),
-                            "productId", device.getProductId()
+                            "productId", device.getProductId(),
+                            "missingBindingCount", 1,
+                            "affectedCount", 1
                     )),
                     "P1",
                     SYSTEM_OPERATOR_ID
             ));
         }
 
-        List<RiskPointDevice> missingPolicyBindings = bindings.stream()
-                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
-                .sorted(Comparator.comparing(RiskPointDevice::getId, Comparator.nullsLast(Long::compareTo)))
-                .toList();
         for (RiskPointDevice binding : missingPolicyBindings) {
             Long productId = productIdOfBinding(binding, reportedDeviceMap, catalogProductByRiskMetricId, catalogProductByIdentifier);
             Product product = productId == null ? null : productMap.get(productId);
+            long missingPolicyCount = productId == null ? 1L : missingPolicyCountByProductId.getOrDefault(productId, 1L);
             commands.add(new GovernanceWorkItemCommand(
                     "PENDING_THRESHOLD_POLICY",
                     "RISK_POINT_DEVICE",
@@ -280,7 +316,9 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                             "deviceId", binding.getDeviceId(),
                             "deviceCode", safeText(binding.getDeviceCode()),
                             "metricIdentifier", safeText(binding.getMetricIdentifier()),
-                            "metricName", safeText(binding.getMetricName())
+                            "metricName", safeText(binding.getMetricName()),
+                            "missingPolicyCount", missingPolicyCount,
+                            "affectedCount", missingPolicyCount
                     )),
                     "P1",
                     SYSTEM_OPERATOR_ID
@@ -382,7 +420,9 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                             "metricIdentifier", safeText(signal.metricIdentifier()),
                             "metricName", safeText(signal.metricName()),
                             "bindingCount", signal.bindingCount(),
-                            "riskPointCount", signal.riskPointCount()
+                            "riskPointCount", signal.riskPointCount(),
+                            "missingPolicyCount", signal.bindingCount(),
+                            "affectedCount", Math.max(signal.bindingCount(), signal.riskPointCount())
                     )),
                     "P2",
                     SYSTEM_OPERATOR_ID

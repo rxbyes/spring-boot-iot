@@ -7,10 +7,13 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
+import com.ghlzm.iot.system.service.GovernancePriorityScorer;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -26,11 +29,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService {
 
     private static final Logger log = LoggerFactory.getLogger(GovernanceWorkItemServiceImpl.class);
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
 
     private static final String STATUS_OPEN = "OPEN";
     private static final String STATUS_ACKED = "ACKED";
@@ -49,6 +55,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     private final GovernanceWorkItemMapper workItemMapper;
     private final List<GovernanceWorkItemContributor> contributors;
+    private final GovernancePriorityScorer governancePriorityScorer;
     private final Executor contributorSyncExecutor;
     private final LongSupplier currentTimeSupplier;
     private final long contributorSyncIntervalMs;
@@ -59,13 +66,14 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     @Autowired
     public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
                                          List<GovernanceWorkItemContributor> contributors,
+                                         GovernancePriorityScorer governancePriorityScorer,
                                          @Qualifier("applicationTaskExecutor") Executor contributorSyncExecutor) {
-        this(workItemMapper, contributors, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+        this(workItemMapper, contributors, governancePriorityScorer, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
                                   List<GovernanceWorkItemContributor> contributors) {
-        this(workItemMapper, contributors, Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+        this(workItemMapper, contributors, new GovernancePriorityScorerImpl(), Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
@@ -73,8 +81,18 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                                   Executor contributorSyncExecutor,
                                   LongSupplier currentTimeSupplier,
                                   long contributorSyncIntervalMs) {
+        this(workItemMapper, contributors, new GovernancePriorityScorerImpl(), contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  GovernancePriorityScorer governancePriorityScorer,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
         this.workItemMapper = workItemMapper;
         this.contributors = contributors == null ? List.of() : List.copyOf(contributors);
+        this.governancePriorityScorer = governancePriorityScorer == null ? new GovernancePriorityScorerImpl() : governancePriorityScorer;
         this.contributorSyncExecutor = contributorSyncExecutor == null ? Runnable::run : contributorSyncExecutor;
         this.currentTimeSupplier = currentTimeSupplier == null ? System::currentTimeMillis : currentTimeSupplier;
         this.contributorSyncIntervalMs = Math.max(0L, contributorSyncIntervalMs);
@@ -111,8 +129,9 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setBlockingReason(normalize(normalized.blockingReason()));
             item.setSnapshotJson(normalize(normalized.snapshotJson()));
             applyLifecycleHubFields(item, normalized);
-            item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
             item.setWorkStatus(STATUS_OPEN);
+            item.setPriorityLevel(normalize(normalized.priorityLevel()));
+            applyPriorityDecisionContext(item);
             item.setCreateBy(normalized.operatorUserId());
             item.setUpdateBy(normalized.operatorUserId());
             item.setDeleted(0);
@@ -134,11 +153,13 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
         applyLifecycleHubFields(refreshed, normalized);
-        refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
         refreshed.setWorkStatus(resolveWorkStatus(existing));
         refreshed.setExecutionStatus(resolveExecutionStatus(existing, normalized));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
         refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
+        refreshed.setDueTime(existing.getDueTime());
+        refreshed.setPriorityLevel(normalize(normalized.priorityLevel()));
+        applyPriorityDecisionContext(refreshed);
         refreshed.setUpdateBy(normalized.operatorUserId());
         if (!shouldReopen(existing) && existing.getAssigneeUserId() != null && normalized.assigneeUserId() == null) {
             refreshed.setAssigneeUserId(existing.getAssigneeUserId());
@@ -167,6 +188,16 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         Page<GovernanceWorkItem> result = workItemMapper.selectPage(page, buildPageWrapper(query));
         List<GovernanceWorkItemVO> rows = result.getRecords().stream().map(this::toVO).toList();
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), rows);
+    }
+
+    @Override
+    public GovernanceDecisionContextVO getDecisionContext(Long workItemId, Long currentUserId) {
+        GovernanceWorkItem item = requireById(workItemId);
+        GovernanceDecisionContextVO context = governancePriorityScorer.buildDecisionContext(item);
+        if (context.getWorkItemId() == null) {
+            context.setWorkItemId(item.getId());
+        }
+        return context;
     }
 
     @Override
@@ -309,8 +340,9 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setBlockingReason(normalize(normalized.blockingReason()));
             item.setSnapshotJson(normalize(normalized.snapshotJson()));
             applyLifecycleHubFields(item, normalized);
-            item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
             item.setWorkStatus(STATUS_OPEN);
+            item.setPriorityLevel(normalize(normalized.priorityLevel()));
+            applyPriorityDecisionContext(item);
             item.setCreateBy(normalized.operatorUserId());
             item.setUpdateBy(normalized.operatorUserId());
             item.setDeleted(0);
@@ -332,11 +364,13 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
         applyLifecycleHubFields(refreshed, normalized);
-        refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
         refreshed.setWorkStatus(resolveWorkStatus(existing));
         refreshed.setExecutionStatus(resolveExecutionStatus(existing, normalized));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
         refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
+        refreshed.setDueTime(existing.getDueTime());
+        refreshed.setPriorityLevel(normalize(normalized.priorityLevel()));
+        applyPriorityDecisionContext(refreshed);
         refreshed.setUpdateBy(normalized.operatorUserId());
         if (!shouldReopen(existing) && existing.getAssigneeUserId() != null && normalized.assigneeUserId() == null) {
             refreshed.setAssigneeUserId(existing.getAssigneeUserId());
@@ -484,6 +518,47 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private String defaultPriority(String priorityLevel) {
         String normalized = normalize(priorityLevel);
         return StringUtils.hasText(normalized) ? normalized : DEFAULT_PRIORITY;
+    }
+
+    private void applyPriorityDecisionContext(GovernanceWorkItem item) {
+        if (item == null) {
+            return;
+        }
+        GovernanceDecisionContextVO context = governancePriorityScorer.buildDecisionContext(item);
+        item.setPriorityLevel(defaultPriority(context == null ? item.getPriorityLevel() : context.getPriorityLevel()));
+        String mergedRecommendationSnapshot = mergeRecommendationSnapshot(item, context);
+        if (StringUtils.hasText(mergedRecommendationSnapshot)) {
+            item.setRecommendationSnapshotJson(mergedRecommendationSnapshot);
+        }
+    }
+
+    private String mergeRecommendationSnapshot(GovernanceWorkItem item, GovernanceDecisionContextVO context) {
+        GovernanceRecommendationSnapshot existing = GovernanceSnapshotResolver.resolveRecommendation(
+                item == null ? null : item.getRecommendationSnapshotJson(),
+                item == null ? null : item.getEvidenceSnapshotJson(),
+                item == null ? null : item.getSnapshotJson(),
+                defaultRecommendationType(item),
+                item == null ? null : defaultSuggestedAction(item.getBlockingReason(), item.getActionCode())
+        );
+        GovernanceRecommendationSnapshot snapshot = new GovernanceRecommendationSnapshot();
+        snapshot.setRecommendationType(existing == null ? defaultRecommendationType(item) : existing.getRecommendationType());
+        snapshot.setConfidence(existing == null ? null : existing.getConfidence());
+        snapshot.setReasonCodes(context == null ? (existing == null ? null : existing.getReasonCodes()) : context.getReasonCodes());
+        snapshot.setSuggestedAction(context == null ? null : context.getRecommendedAction());
+        snapshot.setEvidenceItems(existing == null ? null : existing.getEvidenceItems());
+        if (!StringUtils.hasText(snapshot.getRecommendationType())
+                && snapshot.getConfidence() == null
+                && !StringUtils.hasText(snapshot.getSuggestedAction())
+                && (snapshot.getReasonCodes() == null || snapshot.getReasonCodes().isEmpty())
+                && (snapshot.getEvidenceItems() == null || snapshot.getEvidenceItems().isEmpty())) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(snapshot);
+        } catch (Exception ex) {
+            log.warn("failed to serialize governance recommendation snapshot for work item {}", item == null ? null : item.getId(), ex);
+            return item == null ? null : normalize(item.getRecommendationSnapshotJson());
+        }
     }
 
     private String normalize(String value) {

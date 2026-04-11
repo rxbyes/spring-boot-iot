@@ -7,6 +7,7 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.GovernanceWorkItemTransitionDTO;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,12 @@ public class GovernanceWorkItemController {
     public R<PageResult<GovernanceWorkItemVO>> pageWorkItems(GovernanceWorkItemPageQuery query,
                                                              Authentication authentication) {
         return R.ok(governanceWorkItemService.pageWorkItems(query, requireCurrentUserId(authentication)));
+    }
+
+    @GetMapping("/{id:[0-9]+}/decision-context")
+    public R<GovernanceDecisionContextVO> getDecisionContext(@PathVariable Long id,
+                                                             Authentication authentication) {
+        return R.ok(governanceWorkItemService.getDecisionContext(id, requireCurrentUserId(authentication)));
     }
 
     @PostMapping("/{id:[0-9]+}/ack")

@@ -6,6 +6,7 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.GovernanceWorkItemTransitionDTO;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -81,6 +82,21 @@ class GovernanceWorkItemControllerTest {
 
         assertEquals(200, response.getCode());
         verify(governanceWorkItemService).block(99L, 10001L, "等待外部确认");
+    }
+
+    @Test
+    void decisionContextShouldDelegateToService() {
+        GovernanceDecisionContextVO context = new GovernanceDecisionContextVO();
+        context.setWorkItemId(77L);
+        context.setPriorityLevel("P1");
+        context.setRecommendedAction("Publish contract release");
+        when(governanceWorkItemService.getDecisionContext(77L, 10001L)).thenReturn(context);
+
+        R<GovernanceDecisionContextVO> response = controller.getDecisionContext(77L, authentication(10001L));
+
+        assertEquals("P1", response.getData().getPriorityLevel());
+        assertEquals("Publish contract release", response.getData().getRecommendedAction());
+        verify(governanceWorkItemService).getDecisionContext(77L, 10001L);
     }
 
     private Authentication authentication(Long userId) {

@@ -7,6 +7,7 @@ import GovernanceOpsWorkbenchView from '@/views/GovernanceOpsWorkbenchView.vue'
 
 const {
   mockPageWorkItems,
+  mockGetWorkItemDecisionContext,
   mockAckWorkItem,
   mockBlockWorkItem,
   mockCloseWorkItem,
@@ -23,6 +24,7 @@ const {
   mockRouter
 } = vi.hoisted(() => ({
   mockPageWorkItems: vi.fn(),
+  mockGetWorkItemDecisionContext: vi.fn(),
   mockAckWorkItem: vi.fn(),
   mockBlockWorkItem: vi.fn(),
   mockCloseWorkItem: vi.fn(),
@@ -45,6 +47,7 @@ const {
 
 vi.mock('@/api/governanceWorkItem', () => ({
   pageGovernanceWorkItems: mockPageWorkItems,
+  getGovernanceWorkItemDecisionContext: mockGetWorkItemDecisionContext,
   ackGovernanceWorkItem: mockAckWorkItem,
   blockGovernanceWorkItem: mockBlockWorkItem,
   closeGovernanceWorkItem: mockCloseWorkItem
@@ -171,6 +174,7 @@ function mountWithStubs(component: Parameters<typeof mount>[0]) {
 describe('governance control plane views', () => {
   beforeEach(() => {
     mockPageWorkItems.mockReset()
+    mockGetWorkItemDecisionContext.mockReset()
     mockAckWorkItem.mockReset()
     mockBlockWorkItem.mockReset()
     mockCloseWorkItem.mockReset()
@@ -595,6 +599,61 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('APPROVAL_TRACE')
     expect(wrapper.text()).not.toContain('SHOULD_NOT_RENDER')
     expect(wrapper.text()).toContain('Can revert pending promotion')
+  })
+
+  it('loads governance decision context and renders deterministic priority explanations', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 18,
+            workItemCode: 'PENDING_CONTRACT_RELEASE',
+            workStatus: 'OPEN',
+            priorityLevel: 'P1',
+            blockingReason: '待发布合同影响多个下游模块'
+          }
+        ]
+      }
+    })
+    mockGetWorkItemDecisionContext.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        workItemId: 18,
+        priorityLevel: 'P1',
+        problemSummary: '待发布合同影响多个下游模块',
+        reasonCodes: ['LOW_BINDING_COVERAGE', 'HIGH_IMPACT_RELEASE'],
+        affectedModules: ['PRODUCT', 'RISK_POINT', 'RULE'],
+        recommendedAction: 'Publish contract release',
+        affectedCount: 5,
+        rollbackable: true,
+        rollbackPlanSummary: 'Can rollback contract release'
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('P1')
+
+    const decisionButton = wrapper.findAll('button').find((button) => button.text() === '决策说明')
+    expect(decisionButton).toBeTruthy()
+
+    await decisionButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockGetWorkItemDecisionContext).toHaveBeenCalledWith(18)
+    expect(wrapper.text()).toContain('LOW_BINDING_COVERAGE')
+    expect(wrapper.text()).toContain('HIGH_IMPACT_RELEASE')
+    expect(wrapper.text()).toContain('PRODUCT')
+    expect(wrapper.text()).toContain('RISK_POINT')
+    expect(wrapper.text()).toContain('RULE')
+    expect(wrapper.text()).toContain('Publish contract release')
   })
 
   it('renders governance ops rows from backend alerts', async () => {

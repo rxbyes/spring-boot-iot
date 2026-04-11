@@ -49,7 +49,10 @@
                 <strong>{{ workItemCodeLabel(item.workItemCode, item.snapshotJson) }}</strong>
                 <span>{{ workItemAnchor(item) }}</span>
               </div>
-              <span class="governance-task-card__status">{{ workStatusLabel(item.workStatus) }}</span>
+              <div class="governance-task-card__status-group">
+                <span v-if="item.priorityLevel" class="governance-task-card__priority">{{ item.priorityLevel }}</span>
+                <span class="governance-task-card__status">{{ workStatusLabel(item.workStatus) }}</span>
+              </div>
             </header>
             <p class="governance-task-card__reason">{{ item.blockingReason || '暂无阻塞说明，建议优先查看对象上下文。' }}</p>
             <section v-if="hasRecommendation(item) || hasImpact(item)" class="governance-task-card__decision">
@@ -99,7 +102,8 @@
                 <dd>{{ item.updateTime || item.createTime || '--' }}</dd>
               </div>
             </dl>
-            <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item) || canDispatchWorkItem(item)" class="governance-task-card__actions">
+            <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item) || canDispatchWorkItem(item) || canExplainDecision(item)" class="governance-task-card__actions">
+              <StandardButton v-if="canExplainDecision(item)" @click="handleOpenDecisionContext(item)">决策说明</StandardButton>
               <StandardButton v-if="canDispatchWorkItem(item)" @click="handleDispatchWorkItem(item)">去处理</StandardButton>
               <StandardButton v-if="canReplayWorkItem(item)" @click="handleOpenReplay(item)">复盘</StandardButton>
               <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('ack', item)">确认</StandardButton>
@@ -126,6 +130,79 @@
         />
       </template>
     </StandardWorkbenchPanel>
+
+    <StandardDetailDrawer
+      v-model="decisionContextVisible"
+      title="决策说明"
+      subtitle="解释这条治理任务为何排在这里，以及建议先处理什么。"
+      :loading="decisionContextLoading"
+      :error-message="decisionContextErrorMessage"
+      :empty="!decisionContextData"
+    >
+      <div class="governance-task-detail-stack">
+        <section class="governance-task-detail-section">
+          <h3>优先级与问题</h3>
+          <div class="governance-task-detail-grid">
+            <div class="governance-task-detail-field">
+              <span>优先级</span>
+              <strong>{{ decisionContextData?.priorityLevel || '--' }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>影响范围</span>
+              <strong>{{ decisionContextData?.affectedCount != null ? decisionContextData.affectedCount : '--' }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>问题摘要</span>
+              <strong>{{ decisionContextData?.problemSummary || '--' }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>推荐动作</span>
+              <strong>{{ decisionContextData?.recommendedAction || '--' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="decisionReasonCodes.length" class="governance-task-detail-section">
+          <h3>排序依据</h3>
+          <div class="governance-task-decision-chip-list">
+            <span
+              v-for="reasonCode in decisionReasonCodes"
+              :key="reasonCode"
+              class="governance-task-decision-chip"
+            >
+              {{ reasonCode }}
+            </span>
+          </div>
+        </section>
+
+        <section v-if="decisionAffectedModules.length" class="governance-task-detail-section">
+          <h3>影响模块</h3>
+          <div class="governance-task-decision-chip-list">
+            <span
+              v-for="module in decisionAffectedModules"
+              :key="module"
+              class="governance-task-decision-chip"
+            >
+              {{ module }}
+            </span>
+          </div>
+        </section>
+
+        <section v-if="decisionContextData?.rollbackable != null || decisionContextData?.rollbackPlanSummary" class="governance-task-detail-section">
+          <h3>回滚说明</h3>
+          <div class="governance-task-detail-grid">
+            <div class="governance-task-detail-field">
+              <span>可回滚</span>
+              <strong>{{ decisionContextData?.rollbackable == null ? '--' : (decisionContextData.rollbackable ? '是' : '否') }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>回滚摘要</span>
+              <strong>{{ decisionContextData?.rollbackPlanSummary || '--' }}</strong>
+            </div>
+          </div>
+        </section>
+      </div>
+    </StandardDetailDrawer>
 
     <StandardDetailDrawer
       v-model="replayVisible"
@@ -242,7 +319,13 @@ import { ElMessage } from '@/utils/message'
 import { productApi } from '@/api/product'
 import { resolveRequestErrorMessage } from '@/api/request'
 import { getRiskGovernanceReplay, type RiskGovernanceReplay, type RiskGovernanceReplayQuery } from '@/api/riskGovernance'
-import { ackGovernanceWorkItem, blockGovernanceWorkItem, closeGovernanceWorkItem, pageGovernanceWorkItems } from '@/api/governanceWorkItem'
+import {
+  ackGovernanceWorkItem,
+  blockGovernanceWorkItem,
+  closeGovernanceWorkItem,
+  getGovernanceWorkItemDecisionContext,
+  pageGovernanceWorkItems
+} from '@/api/governanceWorkItem'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
@@ -253,6 +336,7 @@ import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import type {
+  GovernanceDecisionContext,
   GovernanceImpactSnapshot,
   GovernanceRecommendationSnapshot,
   GovernanceRollbackSnapshot,
@@ -266,6 +350,10 @@ const router = useRouter()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
 
 const taskList = ref<GovernanceWorkItem[]>([])
+const decisionContextVisible = ref(false)
+const decisionContextLoading = ref(false)
+const decisionContextErrorMessage = ref('')
+const decisionContextData = ref<GovernanceDecisionContext | null>(null)
 const replayVisible = ref(false)
 const replayLoading = ref(false)
 const replayErrorMessage = ref('')
@@ -282,6 +370,8 @@ if (initialPageNum != null) {
 
 const queryState = computed(() => buildQueryFromRoute())
 const openCount = computed(() => taskList.value.filter((item) => item.workStatus === 'OPEN').length)
+const decisionReasonCodes = computed(() => decisionContextData.value?.reasonCodes ?? [])
+const decisionAffectedModules = computed(() => decisionContextData.value?.affectedModules ?? [])
 const activeScopeLabel = computed(() => {
   const query = queryState.value
   if (query.productId != null) {
@@ -468,6 +558,10 @@ function canReplayWorkItem(item: GovernanceWorkItem) {
     )
 }
 
+function canExplainDecision(item: GovernanceWorkItem) {
+  return item.id != null
+}
+
 function canDispatchWorkItem(item: GovernanceWorkItem) {
   return buildGovernanceTaskDispatchLocation(item) != null
 }
@@ -499,6 +593,24 @@ async function handleOpenReplay(item: GovernanceWorkItem) {
     replayErrorMessage.value = resolveRequestErrorMessage(error, '治理链路复盘加载失败')
   } finally {
     replayLoading.value = false
+  }
+}
+
+async function handleOpenDecisionContext(item: GovernanceWorkItem) {
+  if (item.id == null) {
+    return
+  }
+  decisionContextVisible.value = true
+  decisionContextLoading.value = true
+  decisionContextErrorMessage.value = ''
+  decisionContextData.value = null
+  try {
+    const response = await getGovernanceWorkItemDecisionContext(item.id)
+    decisionContextData.value = response.data ?? null
+  } catch (error) {
+    decisionContextErrorMessage.value = resolveRequestErrorMessage(error, '治理任务决策说明加载失败')
+  } finally {
+    decisionContextLoading.value = false
   }
 }
 
@@ -809,17 +921,47 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
   align-items: flex-start;
 }
 
+.governance-task-card__status-group,
+.governance-task-decision-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .governance-task-card__heading {
   display: grid;
   gap: 0.25rem;
 }
 
+.governance-task-card__status-group {
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.governance-task-card__priority,
 .governance-task-card__status {
   border-radius: var(--radius-pill);
   background: var(--info-bg);
   color: var(--accent-deep);
   padding: 0.2rem 0.55rem;
   font-size: 0.78rem;
+}
+
+.governance-task-card__priority {
+  background: rgba(153, 103, 8, 0.12);
+  color: #8c5a00;
+}
+
+.governance-task-decision-chip-list {
+  gap: 0.55rem;
+}
+
+.governance-task-decision-chip {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text-heading);
+  padding: 0.28rem 0.7rem;
+  font-size: 0.82rem;
 }
 
 .governance-task-card__reason {

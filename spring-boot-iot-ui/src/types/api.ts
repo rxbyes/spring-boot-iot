@@ -649,6 +649,19 @@ export interface GovernanceWorkItemTransitionPayload {
   comment?: string | null;
 }
 
+export interface GovernanceDecisionContext {
+  workItemId?: IdType | null;
+  priorityLevel?: string | null;
+  priorityScore?: number | null;
+  problemSummary?: string | null;
+  reasonCodes?: string[] | null;
+  affectedModules?: string[] | null;
+  affectedCount?: number | null;
+  recommendedAction?: string | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
+
 export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'RESOLVED' | 'CLOSED';
 
 export interface GovernanceOpsAlert {

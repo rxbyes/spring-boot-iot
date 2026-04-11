@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
+import com.ghlzm.iot.system.service.GovernancePriorityScorer;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -42,6 +44,7 @@ class GovernanceWorkItemServiceImplTest {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.registerBean(GovernanceWorkItemMapper.class, () -> workItemMapper);
             context.registerBean(GovernanceWorkItemContributor.class, () -> contributor);
+            context.registerBean(GovernancePriorityScorer.class, GovernancePriorityScorerImpl::new);
             context.registerBean("applicationTaskExecutor", Executor.class, () -> Runnable::run);
             context.register(GovernanceWorkItemServiceImpl.class);
 
@@ -512,6 +515,73 @@ class GovernanceWorkItemServiceImplTest {
         assertEquals("0.92", String.valueOf(readFieldValue(recommendation, "confidence")));
         assertEquals("RUNTIME_PAYLOAD", String.valueOf(readFieldValue(evidenceItems.get(0), "evidenceType")));
         assertEquals("true", String.valueOf(readFieldValue(impact, "rollbackable")));
+    }
+
+    @Test
+    void openOrRefreshShouldApplyDeterministicPriorityAndPersistReasonCodes() {
+        when(workItemMapper.selectOne(any())).thenReturn(null);
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.openOrRefresh(new GovernanceWorkItemCommand(
+                "PENDING_CONTRACT_RELEASE",
+                "PRODUCT",
+                1001L,
+                1001L,
+                9102L,
+                7001L,
+                null,
+                null,
+                null,
+                "phase2-gnss",
+                null,
+                "CONTRACT_RELEASE",
+                "待发布合同影响多个下游模块",
+                "{\"missingBindingCount\":2,\"missingPolicyCount\":1}",
+                "CONTRACT_RELEASE",
+                "DEVICE",
+                "PRODUCT_CONTRACT_RELEASE_APPLY",
+                "PENDING_APPROVAL",
+                null,
+                null,
+                "{\"affectedCount\":5,\"affectedTypes\":[\"PRODUCT\",\"RISK_POINT\",\"RULE\"],\"rollbackable\":true,\"rollbackPlanSummary\":\"Can rollback contract release\"}",
+                "{\"rollbackable\":true,\"rollbackPlanSummary\":\"Can rollback contract release\"}",
+                null,
+                10001L
+        ));
+
+        verify(workItemMapper).insert(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                "P1".equals(item.getPriorityLevel())
+                        && readString(item, "recommendationSnapshotJson").contains("LOW_BINDING_COVERAGE")
+                        && readString(item, "recommendationSnapshotJson").contains("HIGH_IMPACT_RELEASE")
+        ));
+    }
+
+    @Test
+    void getDecisionContextShouldExplainPriorityReasonsAndAffectedModules() {
+        GovernanceWorkItem row = new GovernanceWorkItem();
+        row.setId(9401L);
+        row.setWorkItemCode("PENDING_CONTRACT_RELEASE");
+        row.setPriorityLevel("P1");
+        row.setProductId(1001L);
+        row.setRiskMetricId(9102L);
+        row.setBlockingReason("待发布合同影响多个下游模块");
+        writeField(row, "recommendationSnapshotJson",
+                "{\"recommendationType\":\"PUBLISH\",\"reasonCodes\":[\"LOW_BINDING_COVERAGE\",\"HIGH_IMPACT_RELEASE\"],\"suggestedAction\":\"Publish contract release\"}");
+        writeField(row, "impactSnapshotJson",
+                "{\"affectedCount\":5,\"affectedTypes\":[\"PRODUCT\",\"RISK_POINT\",\"RULE\"],\"rollbackable\":true,\"rollbackPlanSummary\":\"Can rollback contract release\"}");
+        when(workItemMapper.selectById(9401L)).thenReturn(row);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        GovernanceDecisionContextVO context = service.getDecisionContext(9401L, 10001L);
+
+        assertEquals("P1", context.getPriorityLevel());
+        assertTrue(context.getReasonCodes().contains("LOW_BINDING_COVERAGE"));
+        assertTrue(context.getReasonCodes().contains("HIGH_IMPACT_RELEASE"));
+        assertTrue(context.getAffectedModules().contains("PRODUCT"));
+        assertTrue(context.getAffectedModules().contains("RISK_POINT"));
+        assertTrue(context.getAffectedModules().contains("RULE"));
+        assertEquals("Publish contract release", context.getRecommendedAction());
     }
 
     private static void writeField(Object target, String fieldName, String value) {
