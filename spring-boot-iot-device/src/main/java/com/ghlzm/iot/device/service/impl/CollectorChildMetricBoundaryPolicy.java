@@ -3,6 +3,7 @@ package com.ghlzm.iot.device.service.impl;
 import com.ghlzm.iot.device.entity.Product;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * 采集器父产品治理边界策略。
@@ -14,11 +15,38 @@ final class CollectorChildMetricBoundaryPolicy {
     private static final String SAMPLE_TYPE_STATUS = "status";
     private static final String STATUS_PREFIX = "S1_ZT_1.";
     private static final String PARENT_SENSOR_STATE_PREFIX = "S1_ZT_1.sensor_state.";
+    private static final Set<String> CHILD_OWNED_TELEMETRY_SEGMENTS = Set.of(
+            "angle",
+            "value",
+            "gx",
+            "gy",
+            "gz",
+            "x",
+            "y",
+            "z",
+            "azi",
+            "gpsinitial",
+            "gpstotalx",
+            "gpstotaly",
+            "gpstotalz",
+            "gpssinglex",
+            "gpssingley",
+            "gpssinglez",
+            "dispsx",
+            "dispsy",
+            "lat",
+            "lon",
+            "latitude",
+            "longitude"
+    );
 
     boolean applies(Product product, String deviceStructure) {
-        return product != null
-                && Integer.valueOf(COLLECTOR_NODE_TYPE).equals(product.getNodeType())
+        return appliesToProduct(product)
                 && DEVICE_STRUCTURE_COMPOSITE.equals(normalizeKeyword(deviceStructure));
+    }
+
+    boolean appliesToProduct(Product product) {
+        return product != null && Integer.valueOf(COLLECTOR_NODE_TYPE).equals(product.getNodeType());
     }
 
     boolean shouldKeepLeaf(String sampleType, String rawIdentifier, List<String> logicalChannelCodes) {
@@ -41,6 +69,21 @@ final class CollectorChildMetricBoundaryPolicy {
             return normalizeText(normalizedIdentifier.substring(STATUS_PREFIX.length()));
         }
         return normalizedIdentifier;
+    }
+
+    boolean isChildOwnedFormalIdentifier(String identifier) {
+        String normalizedIdentifier = normalizeText(identifier);
+        if (normalizedIdentifier == null) {
+            return false;
+        }
+        String normalizedKeyword = normalizedIdentifier.toLowerCase(Locale.ROOT);
+        String lastSegment = lastIdentifierSegment(normalizedKeyword);
+        if ("sensor_state".equals(lastSegment) || normalizedKeyword.contains("sensor_state")) {
+            return true;
+        }
+        return CHILD_OWNED_TELEMETRY_SEGMENTS.contains(lastSegment)
+                || lastSegment.startsWith("gps")
+                || lastSegment.startsWith("disp");
     }
 
     private boolean isChildBusinessIdentifier(String rawIdentifier, List<String> logicalChannelCodes) {
@@ -88,5 +131,13 @@ final class CollectorChildMetricBoundaryPolicy {
     private String normalizeKeyword(String value) {
         String normalized = normalizeText(value);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private String lastIdentifierSegment(String identifier) {
+        int separatorIndex = identifier.lastIndexOf('.');
+        if (separatorIndex < 0 || separatorIndex == identifier.length() - 1) {
+            return identifier;
+        }
+        return identifier.substring(separatorIndex + 1);
     }
 }

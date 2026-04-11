@@ -60,6 +60,22 @@ class TelemetryPersistStageHandlerTest {
         verifyNoInteractions(telemetryWriteCoordinator);
     }
 
+    @Test
+    void persistShouldDecorateChildTargetRuntimeBoundary() {
+        DeviceProcessingTarget target = buildTarget("property", Map.of("dispsX", -0.0446D, "dispsY", 0.0293D, "sensor_state", 0), false);
+        target.getDevice().setDeviceCode("84330701");
+        target.getMessage().setDeviceCode("84330701");
+        target.setChildTarget(Boolean.TRUE);
+        when(telemetryWriteCoordinator.persist(target)).thenReturn(TelemetryPersistResult.persisted(3));
+
+        TelemetryPersistResult result = telemetryPersistStageHandler.persist(target);
+
+        assertEquals("84330701", result.getTargetDeviceCode());
+        assertEquals(Boolean.TRUE, result.getChildTarget());
+        assertEquals("CHILD", result.getTargetRole());
+        assertEquals(3, result.getPointCount());
+    }
+
     private DeviceProcessingTarget buildTarget(String messageType, Map<String, Object> properties, boolean filePayload) {
         Device device = new Device();
         device.setId(2001L);

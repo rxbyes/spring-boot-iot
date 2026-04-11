@@ -836,6 +836,69 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void applyGovernanceShouldRejectCollectorPayloadContainingChildMetricValue() {
+        Product collector = collectorProduct(6006L);
+        when(productMapper.selectById(6006L)).thenReturn(collector);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "value", "激光测距值")));
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(6006L, dto, 10001L));
+
+        assertEquals("采集器产品不能发布子设备正式字段: value", ex.getMessage());
+        verify(productModelMapper, never()).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldRejectCollectorPayloadContainingChildSensorState() {
+        Product collector = collectorProduct(6006L);
+        when(productMapper.selectById(6006L)).thenReturn(collector);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "sensor_state", "传感器状态")));
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(6006L, dto, 10001L));
+
+        assertEquals("采集器产品不能发布子设备正式字段: sensor_state", ex.getMessage());
+        verify(productModelMapper, never()).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldRejectCollectorPayloadContainingDeepDisplacementMetric() {
+        Product collector = collectorProduct(6006L);
+        when(productMapper.selectById(6006L)).thenReturn(collector);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "dispsX", "顺滑动方向累计变形量")));
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(6006L, dto, 10001L));
+
+        assertEquals("采集器产品不能发布子设备正式字段: dispsX", ex.getMessage());
+        verify(productModelMapper, never()).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldAllowCollectorOwnedRuntimeStatusFields() {
+        Product collector = collectorProduct(6006L);
+        when(productMapper.selectById(6006L)).thenReturn(collector);
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "temp", "设备温度"),
+                applyItem("create", null, "property", "humidity", "设备湿度"),
+                applyItem("create", null, "property", "signal_4g", "4G 信号强度")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6006L, dto, 10001L);
+
+        assertEquals(3, result.getCreatedCount());
+        assertEquals(0, result.getUpdatedCount());
+        assertEquals(0, result.getSkippedCount());
+        verify(productModelMapper, times(3)).insert(any(ProductModel.class));
+    }
+
+    @Test
     void applyGovernanceShouldRejectUpdateWithoutTargetModelId() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
 
@@ -859,6 +922,12 @@ class ProductModelServiceImplTest {
         product.setProductName(productName);
         product.setProtocolCode("mqtt-json");
         product.setNodeType(1);
+        return product;
+    }
+
+    private Product collectorProduct(Long id) {
+        Product product = product(id, "nf-monitor-collector-v1", "南方测绘 监测型 采集器");
+        product.setNodeType(2);
         return product;
     }
 

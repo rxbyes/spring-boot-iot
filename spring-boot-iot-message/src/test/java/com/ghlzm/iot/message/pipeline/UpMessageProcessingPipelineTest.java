@@ -463,6 +463,58 @@ class UpMessageProcessingPipelineTest {
     }
 
     @Test
+    void processShouldSummarizePrimaryAndChildOwnershipAcrossRuntimeStages() {
+        UpMessageProcessingRequest request = buildHttpRequest();
+        DeviceUpMessage parentMessage = buildUpMessage("gateway-device", "demo-product", "property", "/message/http/report");
+        parentMessage.setProperties(Map.of("temp", 22.5D, "humidity", 63.0D));
+
+        DeviceUpMessage childMessage1 = new DeviceUpMessage();
+        childMessage1.setDeviceCode("child-01");
+        childMessage1.setProperties(Map.of("value", 10.86D, "sensor_state", 0));
+        DeviceUpMessage childMessage2 = new DeviceUpMessage();
+        childMessage2.setDeviceCode("child-02");
+        childMessage2.setProperties(Map.of("dispsX", -0.0446D, "dispsY", 0.0293D, "sensor_state", 0));
+        parentMessage.setChildMessages(List.of(childMessage1, childMessage2));
+
+        DeviceProcessingTarget parentTarget = buildTarget("gateway-device", parentMessage);
+        DeviceProcessingTarget childTarget1 = buildTarget("child-01", childMessage1);
+        childTarget1.setChildTarget(Boolean.TRUE);
+        DeviceProcessingTarget childTarget2 = buildTarget("child-02", childMessage2);
+        childTarget2.setChildTarget(Boolean.TRUE);
+
+        when(protocolAdapterRegistry.getAdapter("mqtt-json")).thenReturn(protocolAdapter);
+        when(protocolAdapter.decode(any(), any())).thenReturn(parentMessage);
+        when(deviceContractStageHandler.resolve(any())).thenReturn(parentTarget, childTarget1, childTarget2);
+        when(devicePayloadApplyStageHandler.apply(any()))
+                .thenReturn(
+                        buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 2, "latestPropertyCount", 2)),
+                        buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 2, "latestPropertyCount", 2)),
+                        buildPayloadApplyResult("PROPERTY", Map.of("propertyCount", 3, "latestPropertyCount", 3))
+                );
+        when(telemetryPersistStageHandler.persist(parentTarget)).thenReturn(TelemetryPersistResult.persisted(2));
+        when(telemetryPersistStageHandler.persist(childTarget1)).thenReturn(TelemetryPersistResult.persisted(2));
+        when(telemetryPersistStageHandler.persist(childTarget2)).thenReturn(TelemetryPersistResult.persisted(3));
+
+        MessageFlowExecutionResult result = pipeline.process(request);
+
+        MessageFlowStep payloadStep = findStep(result.getTimeline(), MessageFlowStages.PAYLOAD_APPLY);
+        assertEquals(2, payloadStep.getSummary().get("primaryLatestPropertyCount"));
+        assertEquals(5, payloadStep.getSummary().get("childLatestPropertyCount"));
+        assertEquals(2, payloadStep.getSummary().get("childLatestWriteTargetCount"));
+
+        MessageFlowStep telemetryStep = findStep(result.getTimeline(), MessageFlowStages.TELEMETRY_PERSIST);
+        assertEquals(1, telemetryStep.getSummary().get("primaryPersistedTargetCount"));
+        assertEquals(2, telemetryStep.getSummary().get("childPersistedTargetCount"));
+        assertEquals(2, telemetryStep.getSummary().get("primaryPersistedPointCount"));
+        assertEquals(5, telemetryStep.getSummary().get("childPersistedPointCount"));
+
+        MessageFlowStep stateStep = findStep(result.getTimeline(), MessageFlowStages.DEVICE_STATE);
+        assertEquals(1, stateStep.getSummary().get("primaryLinkStateRefreshCount"));
+        assertEquals(2, stateStep.getSummary().get("childLinkStateRefreshCount"));
+        assertEquals(0, stateStep.getSummary().get("sensorStateTouchedCount"));
+    }
+
+    @Test
     void processShouldExecuteMutatingStagesWithinTwoShortTransactions() {
         UpMessageProcessingRequest request = buildHttpRequest();
         DeviceUpMessage upMessage = buildUpMessage("demo-device-01", "demo-product", "property", "/message/http/report");

@@ -537,7 +537,7 @@ describe('ProductModelDesignerWorkspace', () => {
     await nextTick()
 
     expect(wrapper.get('[data-testid="collector-boundary-note"]').text()).toContain('采集器产品只治理自身状态字段')
-    expect(wrapper.get('[data-testid="collector-boundary-note"]').text()).toContain('子设备监测值和 sensor_state 请在对应子产品治理')
+    expect(wrapper.get('[data-testid="collector-boundary-note"]').text()).toContain('子设备字段请到子产品治理')
   })
 
   it('renders collector empty guidance when compare result is empty in composite collector mode', async () => {
@@ -573,7 +573,9 @@ describe('ProductModelDesignerWorkspace', () => {
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.get('[data-testid="collector-boundary-empty"]').text()).toContain('请在对应子产品中治理子设备正式字段')
+    expect(wrapper.get('[data-testid="collector-boundary-empty"]').text()).toContain('子设备字段请到子产品治理')
+    expect(wrapper.text()).toContain('采集器页只治理自身字段；子设备字段请到子产品治理后再确认并提交审批')
+    expect(findApplyButton(wrapper)?.attributes('disabled')).toBeDefined()
   })
 
   it('loads release history and shows risk metric catalog rows for the selected release batch', async () => {

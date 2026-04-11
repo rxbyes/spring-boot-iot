@@ -459,7 +459,7 @@
             data-testid="collector-boundary-note"
           >
             <strong>采集器产品只治理自身状态字段</strong>
-            <p>子设备监测值和 sensor_state 请在对应子产品治理。</p>
+            <p>子设备字段请到子产品治理，监测值和 sensor_state 不在采集器页发布。</p>
           </div>
 
           <div class="product-model-designer__relation-grid">
@@ -544,7 +544,7 @@
           data-testid="collector-boundary-empty"
         >
           <strong>当前采集器没有可治理的子设备正式字段</strong>
-          <p>请在对应子产品中治理子设备正式字段；采集器页只展示子设备总览，不回写采集器契约。</p>
+          <p>子设备字段请到子产品治理；采集器页只展示子设备总览，不回写采集器契约。</p>
         </div>
 
         <div v-else class="product-model-designer__empty">
@@ -582,7 +582,7 @@
 
         <div v-else-if="showCollectorBoundaryEmpty" class="product-model-designer__empty">
           <strong>当前采集器没有待生效字段</strong>
-          <p>采集器总览可以查看子设备最新值和状态，但正式字段请在对应子产品中治理。</p>
+          <p>采集器总览可以查看子设备最新值和状态，但子设备字段请到子产品治理。</p>
         </div>
 
         <div v-else class="product-model-designer__empty">
@@ -1103,7 +1103,7 @@ const canRollbackCurrentBatch = computed(() =>
 const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
 const footerSummaryText = computed(() => {
   if (showCollectorBoundaryEmpty.value) {
-    return '采集器页只治理自身字段；子设备正式字段请在对应子产品确认并提交审批'
+    return '采集器页只治理自身字段；子设备字段请到子产品治理后再确认并提交审批'
   }
   if (selectedApplyItems.value.length) {
     return `已选 ${selectedApplyItems.value.length} 项，确认后将提交审批`

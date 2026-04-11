@@ -5,6 +5,7 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.DeviceSessionService;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
+import com.ghlzm.iot.device.service.model.DeviceStateRefreshResult;
 import com.ghlzm.iot.framework.config.IotProperties;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +32,7 @@ public class DeviceStateStageHandler {
         this.iotProperties = iotProperties;
     }
 
-    public void refresh(DeviceProcessingTarget target) {
+    public DeviceStateRefreshResult refresh(DeviceProcessingTarget target) {
         LocalDateTime reportTime = target.getMessage().getTimestamp() == null ? LocalDateTime.now() : target.getMessage().getTimestamp();
         deviceOnlineSessionService.recordOnlineHeartbeat(target.getDevice(), reportTime);
 
@@ -51,6 +52,16 @@ public class DeviceStateStageHandler {
                 ? target.getMessage().getDeviceCode()
                 : target.getDevice().getDeviceCode();
         deviceSessionService.refreshLastSeen(target.getDevice().getDeviceCode(), clientId, target.getMessage().getTopic(), reportTime);
+
+        DeviceStateRefreshResult result = new DeviceStateRefreshResult();
+        boolean childTarget = Boolean.TRUE.equals(target.getChildTarget());
+        result.setBranch("LINK_STATE");
+        result.getSummary().put("targetDeviceCode", target.getDevice().getDeviceCode());
+        result.getSummary().put("childTarget", childTarget);
+        result.getSummary().put("targetRole", childTarget ? "CHILD" : "PRIMARY");
+        result.getSummary().put("linkStateRefreshed", true);
+        result.getSummary().put("sensorStateTouched", false);
+        return result;
     }
 
     private boolean hasText(String value) {

@@ -531,5 +531,48 @@ class EnsureIndexesBehaviorTest(unittest.TestCase):
         )
 
 
+class CollectorChildBaselineSeedCursor:
+    def __init__(self):
+        self.executed = []
+
+    def execute(self, sql, params=None):
+        self.executed.append((sql, params))
+
+
+class CollectorChildBaselineSeedTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_collector_child_products_devices_relations_and_latest_properties(
+        self, _mock_table_exists, _mock_column_exists
+    ):
+        cursor = CollectorChildBaselineSeedCursor()
+
+        schema_sync.ensure_collector_child_dev_baseline(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO iot_product", combined_sql)
+        self.assertIn("INSERT INTO iot_product_model", combined_sql)
+        self.assertIn("INSERT INTO iot_device", combined_sql)
+        self.assertIn("INSERT INTO iot_device_relation", combined_sql)
+        self.assertIn("INSERT INTO iot_device_property", combined_sql)
+        self.assertIn("UPDATE iot_product", combined_sql)
+
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("nf-collect-rtu-v1", params_text)
+        self.assertIn("nf-monitor-laser-rangefinder-v1", params_text)
+        self.assertIn("nf-monitor-deep-displacement-v1", params_text)
+        self.assertIn("SK00EA0D1307986", params_text)
+        self.assertIn("SK00FB0D1310195", params_text)
+        self.assertIn("202018143", params_text)
+        self.assertIn("84330701", params_text)
+        self.assertIn("collector_child", combined_sql)
+        self.assertIn("LF_VALUE", params_text)
+        self.assertIn("LEGACY", params_text)
+        self.assertIn("SENSOR_STATE", params_text)
+        self.assertIn("dispsX", params_text)
+        self.assertIn("sensor_state", params_text)
+
+
 if __name__ == "__main__":
     unittest.main()

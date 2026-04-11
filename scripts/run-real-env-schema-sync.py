@@ -7,6 +7,7 @@ This script aligns known schema gaps in rm_iot without dropping tables.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from typing import Dict, List, Tuple
@@ -46,6 +47,403 @@ GOVERNANCE_APPROVAL_POLICY_SEEDS = (
         "remark": "产品契约回滚固定复核人",
     },
 )
+
+COLLECTOR_CHILD_BASELINE_PRODUCTS = (
+    {
+        "id": 202603192100560259,
+        "product_key": "nf-collect-rtu-v1",
+        "product_name": "南方测绘 采集型 遥测终端",
+        "manufacturer": "南方测绘",
+        "description": "采集型遥测终端设备，协议 mqtt-json，直连接入",
+        "remark": "shared dev collector-child baseline",
+    },
+    {
+        "id": 202603192100560258,
+        "product_key": "nf-monitor-laser-rangefinder-v1",
+        "product_name": "南方测绘 监测型 激光测距仪",
+        "manufacturer": "南方测绘",
+        "description": "监测型激光测距设备，协议 mqtt-json，直连接入",
+        "remark": "shared dev collector-child baseline",
+    },
+    {
+        "id": 202603192100560250,
+        "product_key": "nf-monitor-deep-displacement-v1",
+        "product_name": "南方测绘 监测型 深部位移监测仪",
+        "manufacturer": "南方测绘",
+        "description": "监测型深部位移监测设备，协议 mqtt-json，直连接入",
+        "remark": "shared dev collector-child baseline",
+    },
+)
+
+COLLECTOR_CHILD_BASELINE_PRODUCT_MODELS = (
+    {
+        "id": 202604110200001,
+        "product_id": 202603192100560259,
+        "identifier": "temp",
+        "model_name": "温度",
+        "data_type": "double",
+        "specs_json": {"unit": "℃", "category": "collector_status"},
+        "sort_no": 1,
+        "description": "collector runtime temperature",
+    },
+    {
+        "id": 202604110200002,
+        "product_id": 202603192100560259,
+        "identifier": "humidity",
+        "model_name": "湿度",
+        "data_type": "double",
+        "specs_json": {"unit": "%", "category": "collector_status"},
+        "sort_no": 2,
+        "description": "collector runtime humidity",
+    },
+    {
+        "id": 202604110200003,
+        "product_id": 202603192100560259,
+        "identifier": "signal_4g",
+        "model_name": "4G信号强度",
+        "data_type": "int",
+        "specs_json": {"unit": "dBm", "category": "collector_status"},
+        "sort_no": 3,
+        "description": "collector runtime 4g signal",
+    },
+    {
+        "id": 202604110200011,
+        "product_id": 202603192100560258,
+        "identifier": "value",
+        "model_name": "激光测距值",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 4},
+        "sort_no": 1,
+        "description": "laser rangefinder measurement",
+    },
+    {
+        "id": 202604110200012,
+        "product_id": 202603192100560258,
+        "identifier": "sensor_state",
+        "model_name": "传感器状态",
+        "data_type": "int",
+        "specs_json": {"category": "state"},
+        "sort_no": 2,
+        "description": "laser sensor state",
+    },
+    {
+        "id": 202604110200021,
+        "product_id": 202603192100560250,
+        "identifier": "dispsX",
+        "model_name": "顺滑动方向累计变形量",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 4},
+        "sort_no": 1,
+        "description": "deep displacement along slope",
+    },
+    {
+        "id": 202604110200022,
+        "product_id": 202603192100560250,
+        "identifier": "dispsY",
+        "model_name": "垂直坡面方向累计变形量",
+        "data_type": "double",
+        "specs_json": {"unit": "mm", "precision": 4},
+        "sort_no": 2,
+        "description": "deep displacement perpendicular to slope",
+    },
+    {
+        "id": 202604110200023,
+        "product_id": 202603192100560250,
+        "identifier": "sensor_state",
+        "model_name": "传感器状态",
+        "data_type": "int",
+        "specs_json": {"category": "state"},
+        "sort_no": 3,
+        "description": "deep displacement sensor state",
+    },
+)
+
+COLLECTOR_CHILD_BASELINE_METADATA = {
+    "nf-collect-rtu-v1": {
+        "customMetrics": [
+            {"identifier": "temp", "displayName": "温度", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
+            {"identifier": "humidity", "displayName": "湿度", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
+            {"identifier": "signal_4g", "displayName": "4G信号强度", "enabled": True, "includeInTrend": False, "includeInExtension": True, "sortNo": 30},
+        ]
+    },
+    "nf-monitor-laser-rangefinder-v1": {
+        "customMetrics": [
+            {"identifier": "value", "displayName": "激光测距值", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
+            {"identifier": "sensor_state", "displayName": "传感器状态", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
+        ]
+    },
+    "nf-monitor-deep-displacement-v1": {
+        "customMetrics": [
+            {"identifier": "dispsX", "displayName": "顺滑动方向累计变形量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 10},
+            {"identifier": "dispsY", "displayName": "垂直坡面方向累计变形量", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 20},
+            {"identifier": "sensor_state", "displayName": "传感器状态", "enabled": True, "includeInTrend": True, "includeInExtension": True, "sortNo": 30},
+        ]
+    },
+}
+
+LASER_COLLECTOR_DEVICE_IDS = {
+    "SK00EA0D1307988": 202604110300001,
+    "SK00EA0D1307967": 202604110300002,
+    "SK00EA0D1307986": 202604110300003,
+    "SK00EA0D1307987": 202604110300004,
+    "SK00EA0D1308009": 202604110300005,
+    "SK00EA0D1307984": 202604110300006,
+    "SK00EA0D1308006": 202604110300007,
+    "SK00EA0D1307968": 202604110300008,
+    "SK00E90D1307874": 202604110300009,
+    "SK00EA0D1307992": 202604110300010,
+}
+
+DEEP_COLLECTOR_DEVICE_IDS = {
+    "SK00FB0D1310195": 202604110300101,
+    "SK00FB0D1310216": 202604110300102,
+    "SK00FB0D1310215": 202604110300103,
+    "SK00FB0D1310000": 202604110300104,
+}
+
+SINGLE_DEEP_DEVICE_ID = 202604110300201
+
+LASER_RELATION_MAPPINGS = {
+    "SK00EA0D1307988": {
+        "L1_LF_1": "202018108",
+        "L1_LF_2": "202018109",
+        "L1_LF_3": "202018110",
+        "L1_LF_4": "202018111",
+        "L1_LF_5": "202018112",
+        "L1_LF_6": "202018113",
+        "L1_LF_7": "202018114",
+        "L1_LF_8": "202018115",
+        "L1_LF_9": "202018116",
+    },
+    "SK00EA0D1307967": {
+        "L1_LF_1": "202018134",
+        "L1_LF_2": "202018123",
+        "L1_LF_3": "202018129",
+        "L1_LF_4": "202018122",
+        "L1_LF_5": "202018120",
+        "L1_LF_6": "202018138",
+        "L1_LF_7": "202018140",
+        "L1_LF_8": "202018125",
+        "L1_LF_9": "202018132",
+    },
+    "SK00EA0D1307986": {
+        "L1_LF_1": "202018143",
+        "L1_LF_2": "202018135",
+        "L1_LF_3": "202018121",
+        "L1_LF_4": "202018137",
+        "L1_LF_5": "202018142",
+        "L1_LF_6": "202018130",
+        "L1_LF_7": "202018127",
+        "L1_LF_8": "202018118",
+        "L1_LF_9": "202018139",
+    },
+    "SK00EA0D1307987": {
+        "L1_LF_1": "202018124",
+        "L1_LF_2": "202018131",
+        "L1_LF_3": "202018128",
+        "L1_LF_4": "202018117",
+        "L1_LF_5": "202018141",
+        "L1_LF_6": "202018133",
+        "L1_LF_7": "202018119",
+        "L1_LF_8": "202018126",
+        "L1_LF_9": "202018136",
+    },
+    "SK00EA0D1308009": {
+        "L1_LF_1": "202018189",
+        "L1_LF_2": "202018144",
+        "L1_LF_3": "202018145",
+    },
+    "SK00EA0D1307984": {
+        "L1_LF_1": "202018197",
+        "L1_LF_2": "202018193",
+        "L1_LF_3": "202018198",
+    },
+    "SK00EA0D1308006": {
+        "L1_LF_1": "202018186",
+        "L1_LF_2": "202018196",
+        "L1_LF_3": "202018194",
+    },
+    "SK00EA0D1307968": {
+        "L1_LF_1": "202018195",
+        "L1_LF_2": "202018192",
+        "L1_LF_3": "202018190",
+    },
+    "SK00E90D1307874": {
+        "L1_LF_1": "202018188",
+        "L1_LF_2": "202018200",
+        "L1_LF_3": "202018191",
+    },
+    "SK00EA0D1307992": {
+        "L1_LF_1": "202018187",
+        "L1_LF_2": "202018203",
+        "L1_LF_3": "202018201",
+    },
+}
+
+DEEP_RELATION_MAPPINGS = {
+    "SK00FB0D1310195": {
+        "L1_SW_1": "84330701",
+        "L1_SW_2": "84330695",
+        "L1_SW_3": "84330697",
+        "L1_SW_4": "84330699",
+        "L1_SW_5": "84330686",
+        "L1_SW_6": "84330687",
+        "L1_SW_7": "84330691",
+        "L1_SW_8": "84330696",
+    },
+    "SK00FB0D1310216": {
+        "L1_SW_1": "84330643",
+        "L1_SW_2": "84330640",
+        "L1_SW_3": "84330637",
+        "L1_SW_4": "84330673",
+        "L1_SW_5": "84330674",
+        "L1_SW_6": "84330675",
+        "L1_SW_7": "84330672",
+        "L1_SW_8": "84330677",
+    },
+    "SK00FB0D1310215": {
+        "L1_SW_1": "84330671",
+        "L1_SW_2": "84330641",
+        "L1_SW_3": "84330635",
+        "L1_SW_4": "84330630",
+        "L1_SW_5": "84330627",
+        "L1_SW_6": "84330619",
+        "L1_SW_7": "84330676",
+        "L1_SW_8": "84330634",
+    },
+    "SK00FB0D1310000": {
+        "L1_SW_1": "84330693",
+        "L1_SW_2": "84330707",
+        "L1_SW_3": "84330705",
+        "L1_SW_4": "84330708",
+        "L1_SW_5": "84330706",
+        "L1_SW_6": "84330702",
+        "L1_SW_7": "84330709",
+        "L1_SW_8": "89908808",
+    },
+}
+
+LASER_SAMPLE_LATEST = {
+    "202018143": 10.86,
+    "202018135": 6.95,
+    "202018121": 2473.72,
+    "202018137": 2473.72,
+    "202018142": 6.73,
+    "202018130": 2473.72,
+    "202018127": 2473.72,
+    "202018118": 6.82,
+    "202018139": 10.80,
+}
+
+DEEP_SAMPLE_LATEST = {
+    "84330701": (-0.0446, 0.0293),
+    "84330695": (-0.0295, 0.0328),
+    "84330697": (-0.0255, 0.0403),
+    "84330699": (-0.0173, 0.0422),
+    "84330686": (-0.0249, 0.0272),
+    "84330687": (-0.0235, 0.0108),
+    "84330691": (-0.0365, 0.0009),
+    "84330696": (-0.0453, -0.0164),
+}
+
+
+def collector_child_device_seeds() -> List[Tuple[int, int, str, str, str, str]]:
+    seeds: List[Tuple[int, int, str, str, str, str]] = []
+    for device_code, device_id in LASER_COLLECTOR_DEVICE_IDS.items():
+        seeds.append((device_id, 202603192100560259, device_code, f"NF-COLLECTOR-{device_code}", "shared-dev-laser", "laser-collector"))
+    for device_code, device_id in DEEP_COLLECTOR_DEVICE_IDS.items():
+        seeds.append((device_id, 202603192100560259, device_code, f"NF-COLLECTOR-{device_code}", "shared-dev-deep", "deep-collector"))
+    seeds.append(
+        (
+            SINGLE_DEEP_DEVICE_ID,
+            202603192100560250,
+            "SK00EB0D1308310",
+            "NF-DEEP-SINGLE-SK00EB0D1308310",
+            "shared-dev-deep-single",
+            "deep-single",
+        )
+    )
+    for mappings in LASER_RELATION_MAPPINGS.values():
+        for child_code in mappings.values():
+            seeds.append((int(child_code), 202603192100560258, child_code, f"NF-LASER-{child_code}", "shared-dev-laser-child", "laser-child"))
+    for mappings in DEEP_RELATION_MAPPINGS.values():
+        for child_code in mappings.values():
+            seeds.append((int(child_code), 202603192100560250, child_code, f"NF-DEEP-{child_code}", "shared-dev-deep-child", "deep-child"))
+    unique_by_id: Dict[int, Tuple[int, int, str, str, str, str]] = {}
+    for seed in seeds:
+        unique_by_id.setdefault(seed[0], seed)
+    return list(unique_by_id.values())
+
+
+def collector_child_relation_seeds() -> List[Tuple[int, int, str, str, int, str, int, str, str, str]]:
+    seeds: List[Tuple[int, int, str, str, int, str, int, str, str, str]] = []
+    relation_id = 202604110500001
+    for parent_code, mappings in LASER_RELATION_MAPPINGS.items():
+        for logical_code, child_code in mappings.items():
+            seeds.append(
+                (
+                    relation_id,
+                    LASER_COLLECTOR_DEVICE_IDS[parent_code],
+                    parent_code,
+                    logical_code,
+                    int(child_code),
+                    child_code,
+                    202603192100560258,
+                    "nf-monitor-laser-rangefinder-v1",
+                    "LF_VALUE",
+                    "SENSOR_STATE",
+                )
+            )
+            relation_id += 1
+    for parent_code, mappings in DEEP_RELATION_MAPPINGS.items():
+        for logical_code, child_code in mappings.items():
+            seeds.append(
+                (
+                    relation_id,
+                    DEEP_COLLECTOR_DEVICE_IDS[parent_code],
+                    parent_code,
+                    logical_code,
+                    int(child_code),
+                    child_code,
+                    202603192100560250,
+                    "nf-monitor-deep-displacement-v1",
+                    "LEGACY",
+                    "SENSOR_STATE",
+                )
+            )
+            relation_id += 1
+    return seeds
+
+
+def collector_child_property_seeds() -> List[Tuple[int, int, str, str, str, str]]:
+    seeds: List[Tuple[int, int, str, str, str, str]] = []
+    property_id = 202604110700001
+    for device_id, identifier, property_name, property_value, value_type in (
+        (LASER_COLLECTOR_DEVICE_IDS["SK00EA0D1307986"], "temp", "温度", "20.31", "double"),
+        (LASER_COLLECTOR_DEVICE_IDS["SK00EA0D1307986"], "humidity", "湿度", "89.04", "double"),
+        (LASER_COLLECTOR_DEVICE_IDS["SK00EA0D1307986"], "signal_4g", "4G信号强度", "-71", "int"),
+        (DEEP_COLLECTOR_DEVICE_IDS["SK00FB0D1310195"], "temp", "温度", "19.82", "double"),
+        (DEEP_COLLECTOR_DEVICE_IDS["SK00FB0D1310195"], "humidity", "湿度", "71.55", "double"),
+        (DEEP_COLLECTOR_DEVICE_IDS["SK00FB0D1310195"], "signal_4g", "4G信号强度", "-69", "int"),
+        (SINGLE_DEEP_DEVICE_ID, "dispsX", "顺滑动方向累计变形量", "-0.0166", "double"),
+        (SINGLE_DEEP_DEVICE_ID, "dispsY", "垂直坡面方向累计变形量", "-0.0368", "double"),
+        (SINGLE_DEEP_DEVICE_ID, "sensor_state", "传感器状态", "0", "int"),
+    ):
+        seeds.append((property_id, device_id, identifier, property_name, property_value, value_type))
+        property_id += 1
+    for child_code, value in LASER_SAMPLE_LATEST.items():
+        seeds.append((property_id, int(child_code), "value", "激光测距值", str(value), "double"))
+        property_id += 1
+        seeds.append((property_id, int(child_code), "sensor_state", "传感器状态", "0", "int"))
+        property_id += 1
+    for child_code, (disps_x, disps_y) in DEEP_SAMPLE_LATEST.items():
+        seeds.append((property_id, int(child_code), "dispsX", "顺滑动方向累计变形量", str(disps_x), "double"))
+        property_id += 1
+        seeds.append((property_id, int(child_code), "dispsY", "垂直坡面方向累计变形量", str(disps_y), "double"))
+        property_id += 1
+        seeds.append((property_id, int(child_code), "sensor_state", "传感器状态", "0", "int"))
+        property_id += 1
+    return seeds
 
 
 CREATE_TABLE_SQL: CreateSqlMap = {
@@ -2161,6 +2559,194 @@ def ensure_device_org_backfill(cur: pymysql.cursors.Cursor, db: str) -> None:
     print(f"[backfill] iot_device org fields updated from risk points: {cur.rowcount}")
 
 
+def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) -> None:
+    required_tables = ("iot_product", "iot_product_model", "iot_device", "iot_device_relation", "iot_device_property")
+    for table in required_tables:
+        if not table_exists(cur, db, table):
+            print(f"[skip] collector-child baseline: table missing {table}")
+            return
+
+    for seed in COLLECTOR_CHILD_BASELINE_PRODUCTS:
+        cur.execute(
+            """
+            INSERT INTO iot_product (
+                id, tenant_id, product_key, product_name, protocol_code, node_type, data_format,
+                manufacturer, description, status, remark, create_by, create_time, update_by, update_time, deleted
+            ) VALUES (%s, 1, %s, %s, 'mqtt-json', 1, 'JSON', %s, %s, 1, %s, 1, NOW(), 1, NOW(), 0)
+            ON DUPLICATE KEY UPDATE
+                product_name = VALUES(product_name),
+                protocol_code = VALUES(protocol_code),
+                node_type = VALUES(node_type),
+                data_format = VALUES(data_format),
+                manufacturer = VALUES(manufacturer),
+                description = VALUES(description),
+                status = VALUES(status),
+                remark = VALUES(remark),
+                update_by = 1,
+                update_time = NOW(),
+                deleted = 0
+            """,
+            (
+                int(seed["id"]),
+                str(seed["product_key"]),
+                str(seed["product_name"]),
+                str(seed["manufacturer"]),
+                str(seed["description"]),
+                str(seed["remark"]),
+            ),
+        )
+
+    if column_exists(cur, db, "iot_product", "metadata_json"):
+        for product_key, object_insight in COLLECTOR_CHILD_BASELINE_METADATA.items():
+            cur.execute(
+                """
+                UPDATE iot_product
+                SET metadata_json = JSON_SET(COALESCE(metadata_json, JSON_OBJECT()), '$.objectInsight', CAST(%s AS JSON)),
+                    update_by = 1,
+                    update_time = NOW(),
+                    deleted = 0
+                WHERE tenant_id = 1
+                  AND product_key = %s
+                """,
+                (json.dumps(object_insight, ensure_ascii=False), product_key),
+            )
+
+    for seed in COLLECTOR_CHILD_BASELINE_PRODUCT_MODELS:
+        cur.execute(
+            """
+            INSERT INTO iot_product_model (
+                id, tenant_id, product_id, model_type, identifier, model_name, data_type, specs_json,
+                sort_no, required_flag, description, create_time, update_time, deleted
+            ) VALUES (%s, 1, %s, 'property', %s, %s, %s, CAST(%s AS JSON), %s, 0, %s, NOW(), NOW(), 0)
+            ON DUPLICATE KEY UPDATE
+                model_name = VALUES(model_name),
+                data_type = VALUES(data_type),
+                specs_json = VALUES(specs_json),
+                sort_no = VALUES(sort_no),
+                required_flag = VALUES(required_flag),
+                description = VALUES(description),
+                update_time = NOW(),
+                deleted = 0
+            """,
+            (
+                int(seed["id"]),
+                int(seed["product_id"]),
+                str(seed["identifier"]),
+                str(seed["model_name"]),
+                str(seed["data_type"]),
+                json.dumps(seed["specs_json"], ensure_ascii=False),
+                int(seed["sort_no"]),
+                str(seed["description"]),
+            ),
+        )
+
+    for device_id, product_id, device_code, device_name, address, seed_family in collector_child_device_seeds():
+        cur.execute(
+            """
+            INSERT INTO iot_device (
+                id, tenant_id, org_id, org_name, product_id, device_name, device_code, device_secret, client_id,
+                username, password, protocol_code, node_type, online_status, activate_status, device_status,
+                firmware_version, ip_address, last_online_time, last_report_time, longitude, latitude, address,
+                metadata_json, remark, create_by, create_time, update_by, update_time, deleted
+            ) VALUES (
+                %s, 1, 7101, '平台运维中心', %s, %s, %s, '123456', %s, %s, '123456',
+                'mqtt-json', 1, 1, 1, 1, '1.0.0', NULL, DATE_SUB(NOW(), INTERVAL 15 MINUTE),
+                DATE_SUB(NOW(), INTERVAL 2 MINUTE), NULL, NULL, %s, CAST(%s AS JSON),
+                'collector child shared dev baseline', 1, NOW(), 1, NOW(), 0
+            )
+            ON DUPLICATE KEY UPDATE
+                org_id = VALUES(org_id),
+                org_name = VALUES(org_name),
+                product_id = VALUES(product_id),
+                device_name = VALUES(device_name),
+                protocol_code = VALUES(protocol_code),
+                online_status = VALUES(online_status),
+                activate_status = VALUES(activate_status),
+                device_status = VALUES(device_status),
+                firmware_version = VALUES(firmware_version),
+                ip_address = VALUES(ip_address),
+                last_online_time = VALUES(last_online_time),
+                last_report_time = VALUES(last_report_time),
+                longitude = VALUES(longitude),
+                latitude = VALUES(latitude),
+                address = VALUES(address),
+                metadata_json = VALUES(metadata_json),
+                remark = VALUES(remark),
+                update_by = 1,
+                update_time = NOW(),
+                deleted = 0
+            """,
+            (
+                int(device_id),
+                int(product_id),
+                device_name,
+                device_code,
+                device_code,
+                device_code,
+                address,
+                json.dumps({"seedFamily": seed_family}, ensure_ascii=False),
+            ),
+        )
+
+    for relation_id, parent_device_id, parent_device_code, logical_code, child_device_id, child_device_code, child_product_id, child_product_key, canonicalization_strategy, status_mirror_strategy in collector_child_relation_seeds():
+        cur.execute(
+            """
+            INSERT INTO iot_device_relation (
+                id, tenant_id, parent_device_id, parent_device_code, logical_channel_code, child_device_id,
+                child_device_code, child_product_id, child_product_key, relation_type,
+                canonicalization_strategy, status_mirror_strategy, enabled, remark, create_by, create_time,
+                update_by, update_time, deleted
+            ) VALUES (
+                %s, 1, %s, %s, %s, %s, %s, %s, %s, 'collector_child', %s, %s,
+                1, 'shared dev collector child baseline', 1, NOW(), 1, NOW(), 0
+            )
+            ON DUPLICATE KEY UPDATE
+                parent_device_id = VALUES(parent_device_id),
+                parent_device_code = VALUES(parent_device_code),
+                child_device_id = VALUES(child_device_id),
+                child_device_code = VALUES(child_device_code),
+                child_product_id = VALUES(child_product_id),
+                child_product_key = VALUES(child_product_key),
+                relation_type = VALUES(relation_type),
+                canonicalization_strategy = VALUES(canonicalization_strategy),
+                status_mirror_strategy = VALUES(status_mirror_strategy),
+                enabled = VALUES(enabled),
+                remark = VALUES(remark),
+                update_by = 1,
+                update_time = NOW(),
+                deleted = 0
+            """,
+            (
+                int(relation_id),
+                int(parent_device_id),
+                parent_device_code,
+                logical_code,
+                int(child_device_id),
+                child_device_code,
+                int(child_product_id),
+                child_product_key,
+                canonicalization_strategy,
+                status_mirror_strategy,
+            ),
+        )
+
+    for property_id, device_id, identifier, property_name, property_value, value_type in collector_child_property_seeds():
+        cur.execute(
+            """
+            INSERT INTO iot_device_property (
+                id, tenant_id, device_id, identifier, property_name, property_value, value_type, report_time, create_time, update_time
+            ) VALUES (%s, 1, %s, %s, %s, %s, %s, DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                property_name = VALUES(property_name),
+                property_value = VALUES(property_value),
+                value_type = VALUES(value_type),
+                report_time = VALUES(report_time),
+                update_time = NOW()
+            """,
+            (int(property_id), int(device_id), identifier, property_name, property_value, value_type),
+        )
+
+
 def main() -> int:
     args = parse_args()
 
@@ -2228,6 +2814,8 @@ def main() -> int:
                 print("[menu] governance fine-grained permission seeds aligned")
                 ensure_governance_approval_policy_defaults(cur, args.db)
                 print("[governance] fixed reviewer and approval policy seeds aligned")
+                ensure_collector_child_dev_baseline(cur, args.db)
+                print("[seed] collector-child shared dev baseline aligned")
 
                 for view_name, ddl in VIEW_SQL.items():
                     cur.execute(ddl)

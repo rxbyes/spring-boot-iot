@@ -61,6 +61,7 @@ public class DevicePayloadApplyStageHandler {
     public DevicePayloadApplyResult apply(DeviceProcessingTarget target) {
         DeviceUpMessage upMessage = target.getMessage();
         DevicePayloadApplyResult result = new DevicePayloadApplyResult();
+        appendRuntimeBoundarySummary(target, result, 0);
         if (isCommandReply(upMessage)) {
             handleCommandReply(target, upMessage);
             result.setBranch("COMMAND_REPLY");
@@ -85,6 +86,7 @@ public class DevicePayloadApplyStageHandler {
         result.setBranch("PROPERTY");
         result.getSummary().put("propertyCount", propertyCount(upMessage));
         result.getSummary().put("childMessageCount", childMessageCount(upMessage));
+        appendRuntimeBoundarySummary(target, result, propertyCount(upMessage));
         return result;
     }
 
@@ -365,6 +367,20 @@ public class DevicePayloadApplyStageHandler {
 
     private int childMessageCount(DeviceUpMessage upMessage) {
         return upMessage == null || upMessage.getChildMessages() == null ? 0 : upMessage.getChildMessages().size();
+    }
+
+    private void appendRuntimeBoundarySummary(DeviceProcessingTarget target,
+                                              DevicePayloadApplyResult result,
+                                              int latestPropertyCount) {
+        if (result == null || result.getSummary() == null) {
+            return;
+        }
+        boolean childTarget = target != null && Boolean.TRUE.equals(target.getChildTarget());
+        String targetDeviceCode = target == null || target.getDevice() == null ? null : target.getDevice().getDeviceCode();
+        result.getSummary().put("targetDeviceCode", targetDeviceCode);
+        result.getSummary().put("childTarget", childTarget);
+        result.getSummary().put("targetRole", childTarget ? "CHILD" : "PRIMARY");
+        result.getSummary().put("latestPropertyCount", latestPropertyCount);
     }
 
     private boolean hasText(String value) {

@@ -262,6 +262,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         int updatedCount = 0;
         int skippedCount = 0;
         List<ProductModelGovernanceApplyDTO.ApplyItem> normalizedItems = normalizeApplyItems(product, safeApplyItems(dto));
+        validateCollectorOwnedIdentifiers(product, normalizedItems);
         for (ProductModelGovernanceApplyDTO.ApplyItem item : normalizedItems) {
             String decision = normalizeRequired(item.getDecision(), "治理决策").toLowerCase(Locale.ROOT);
             switch (decision) {
@@ -708,6 +709,23 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 .stream()
                 .map(item -> normalizeApplyItem(product, item))
                 .toList();
+    }
+
+    private void validateCollectorOwnedIdentifiers(Product product,
+                                                   List<ProductModelGovernanceApplyDTO.ApplyItem> items) {
+        if (!collectorChildMetricBoundaryPolicy.appliesToProduct(product) || items == null || items.isEmpty()) {
+            return;
+        }
+        List<String> invalidIdentifiers = items.stream()
+                .filter(item -> item != null && !"skip".equalsIgnoreCase(normalizeOptional(item.getDecision())))
+                .map(ProductModelGovernanceApplyDTO.ApplyItem::getIdentifier)
+                .map(this::normalizeOptional)
+                .filter(collectorChildMetricBoundaryPolicy::isChildOwnedFormalIdentifier)
+                .distinct()
+                .toList();
+        if (!invalidIdentifiers.isEmpty()) {
+            throw new BizException("采集器产品不能发布子设备正式字段: " + String.join(",", invalidIdentifiers));
+        }
     }
 
     private ProductModelGovernanceApplyDTO.ApplyItem normalizeApplyItem(Product product,

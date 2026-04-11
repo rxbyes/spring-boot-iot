@@ -8,6 +8,7 @@ import com.ghlzm.iot.device.service.handler.DeviceRiskDispatchStageHandler;
 import com.ghlzm.iot.device.service.handler.DeviceStateStageHandler;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
+import com.ghlzm.iot.device.service.model.DeviceStateRefreshResult;
 import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowFingerprintSupport;
@@ -347,10 +348,18 @@ public class UpMessageProcessingPipeline {
         result.setBranch(parentResult.getBranch());
         result.getSummary().putAll(parentResult.getSummary());
         result.getSummary().put("targetCount", context.targets.size());
+        int primaryLatestPropertyCount = latestPropertyCount(parentResult);
+        int childLatestPropertyCount = 0;
+        int childLatestWriteTargetCount = 0;
 
         for (int index = 1; index < context.targets.size(); index++) {
             DeviceProcessingTarget childTarget = context.targets.get(index);
             DevicePayloadApplyResult childResult = devicePayloadApplyStageHandler.apply(childTarget);
+            int latestPropertyCount = latestPropertyCount(childResult);
+            childLatestPropertyCount += latestPropertyCount;
+            if (latestPropertyCount > 0) {
+                childLatestWriteTargetCount++;
+            }
             MessageFlowStep childStep = new MessageFlowStep();
             childStep.setStage(MessageFlowStages.PAYLOAD_APPLY);
             childStep.setHandlerClass(DevicePayloadApplyStageHandler.class.getSimpleName());
@@ -367,15 +376,34 @@ public class UpMessageProcessingPipeline {
             childStep.getSummary().putAll(childResult.getSummary());
             result.getAdditionalSteps().add(childStep);
         }
+        result.getSummary().put("primaryLatestPropertyCount", primaryLatestPropertyCount);
+        result.getSummary().put("childLatestPropertyCount", childLatestPropertyCount);
+        result.getSummary().put("childLatestWriteTargetCount", childLatestWriteTargetCount);
         return result;
     }
 
     private MessageFlowStageResult deviceState(ProcessingContext context) {
+        int primaryLinkStateRefreshCount = 0;
+        int childLinkStateRefreshCount = 0;
+        int sensorStateTouchedCount = 0;
         for (DeviceProcessingTarget target : context.targets) {
-            deviceStateStageHandler.refresh(target);
+            DeviceStateRefreshResult refreshResult = deviceStateStageHandler.refresh(target);
+            if (Boolean.TRUE.equals(target.getChildTarget())) {
+                childLinkStateRefreshCount++;
+            } else {
+                primaryLinkStateRefreshCount++;
+            }
+            if (refreshResult != null
+                    && refreshResult.getSummary() != null
+                    && isTrue(refreshResult.getSummary().get("sensorStateTouched"))) {
+                sensorStateTouchedCount++;
+            }
         }
         MessageFlowStageResult result = new MessageFlowStageResult();
         result.getSummary().put("refreshedTargetCount", context.targets.size());
+        result.getSummary().put("primaryLinkStateRefreshCount", primaryLinkStateRefreshCount);
+        result.getSummary().put("childLinkStateRefreshCount", childLinkStateRefreshCount);
+        result.getSummary().put("sensorStateTouchedCount", sensorStateTouchedCount);
         return result;
     }
 
@@ -395,6 +423,10 @@ public class UpMessageProcessingPipeline {
         int persistedPointCount = 0;
         int skippedTargetCount = 0;
         int failedTargetCount = 0;
+        int primaryPersistedTargetCount = 0;
+        int childPersistedTargetCount = 0;
+        int primaryPersistedPointCount = 0;
+        int childPersistedPointCount = 0;
         int legacyStableCount = 0;
         int legacyColumnCount = 0;
         int normalizedFallbackCount = 0;
@@ -409,6 +441,7 @@ public class UpMessageProcessingPipeline {
         String errorMessage = null;
 
         for (DeviceProcessingTarget target : context.targets) {
+            boolean childTarget = Boolean.TRUE.equals(target.getChildTarget());
             try {
                 TelemetryPersistResult persistResult = telemetryPersistStageHandler.persist(target);
                 if (persistResult == null || persistResult.isSkipped()) {
@@ -429,7 +462,15 @@ public class UpMessageProcessingPipeline {
                     continue;
                 }
                 persistedTargetCount++;
-                persistedPointCount += persistResult.getPointCount() == null ? 0 : persistResult.getPointCount();
+                int pointCount = nullSafeInt(persistResult.getPointCount());
+                persistedPointCount += pointCount;
+                if (childTarget) {
+                    childPersistedTargetCount++;
+                    childPersistedPointCount += pointCount;
+                } else {
+                    primaryPersistedTargetCount++;
+                    primaryPersistedPointCount += pointCount;
+                }
                 legacyStableCount += nullSafeInt(persistResult.getLegacyStableCount());
                 legacyColumnCount += nullSafeInt(persistResult.getLegacyColumnCount());
                 normalizedFallbackCount += nullSafeInt(persistResult.getNormalizedFallbackCount());
@@ -470,6 +511,10 @@ public class UpMessageProcessingPipeline {
         result.getSummary().put("persistedPointCount", persistedPointCount);
         result.getSummary().put("skippedTargetCount", skippedTargetCount);
         result.getSummary().put("failedTargetCount", failedTargetCount);
+        result.getSummary().put("primaryPersistedTargetCount", primaryPersistedTargetCount);
+        result.getSummary().put("childPersistedTargetCount", childPersistedTargetCount);
+        result.getSummary().put("primaryPersistedPointCount", primaryPersistedPointCount);
+        result.getSummary().put("childPersistedPointCount", childPersistedPointCount);
         result.getSummary().put("legacyStableCount", legacyStableCount);
         result.getSummary().put("legacyColumnCount", legacyColumnCount);
         result.getSummary().put("normalizedFallbackCount", normalizedFallbackCount);
@@ -498,8 +543,45 @@ public class UpMessageProcessingPipeline {
         }
     }
 
-    private int nullSafeInt(Integer value) {
-        return value == null ? 0 : value;
+    private int latestPropertyCount(DevicePayloadApplyResult result) {
+        if (result == null || result.getSummary() == null) {
+            return 0;
+        }
+        Object latestPropertyCount = result.getSummary().get("latestPropertyCount");
+        if (latestPropertyCount != null) {
+            return nullSafeInt(latestPropertyCount);
+        }
+        return nullSafeInt(result.getSummary().get("propertyCount"));
+    }
+
+    private int nullSafeInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && hasText(text)) {
+            try {
+                return Integer.parseInt(text.trim());
+            } catch (NumberFormatException ignored) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private boolean isTrue(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        if (value instanceof String text) {
+            return "true".equalsIgnoreCase(text.trim()) || "1".equals(text.trim());
+        }
+        if (value instanceof Number number) {
+            return number.intValue() != 0;
+        }
+        return false;
     }
 
     private MessageFlowStageResult riskDispatch(ProcessingContext context) {
