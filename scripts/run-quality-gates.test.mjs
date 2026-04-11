@@ -97,6 +97,22 @@ test('powershell quality gate uses exact py/py.exe detection', () => {
   assert.doesNotMatch(psScript, /StartsWith\('py'\)/);
 });
 
+test('quality gate scripts invoke governance contract gates before docs topology check', () => {
+  const psScript = fs.readFileSync(path.join(scriptDir, 'run-quality-gates.ps1'), 'utf8');
+  const shScript = fs.readFileSync(path.join(scriptDir, 'run-quality-gates.sh'), 'utf8');
+
+  assert.match(psScript, /governance contract gates/);
+  assert.match(shScript, /governance contract gates/);
+  assert.ok(
+    psScript.indexOf('governance contract gates') < psScript.indexOf('docs topology check'),
+    'powershell runner should execute governance contract gates before docs topology check'
+  );
+  assert.ok(
+    shScript.indexOf('governance contract gates') < shScript.indexOf('docs topology check'),
+    'shell runner should execute governance contract gates before docs topology check'
+  );
+});
+
 test('shell runner exits non-zero and stops before docs check when style guard fails', { skip: process.platform === 'win32' }, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-gates-'));
   const fakeBin = path.join(tempRoot, 'bin');
@@ -147,4 +163,55 @@ test('shell runner exits non-zero and stops before docs check when style guard f
 
   assert.equal(result.status, 23);
   assert.ok(!fs.existsSync(docsMarker), 'docs topology check should not run after a failed gate');
+});
+
+test('shell runner exits non-zero and stops before docs check when governance contract gates fail', { skip: process.platform === 'win32' }, () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-gates-governance-'));
+  const fakeBin = path.join(tempRoot, 'bin');
+  const docsMarker = path.join(tempRoot, 'docs-check.marker');
+  const shellScript = path.join(scriptDir, 'run-quality-gates.sh');
+
+  fs.mkdirSync(fakeBin, { recursive: true });
+  fs.writeFileSync(
+    path.join(fakeBin, 'mvn'),
+    '#!/usr/bin/env sh\nexit 0\n',
+    { mode: 0o755 }
+  );
+  fs.writeFileSync(
+    path.join(fakeBin, 'npm'),
+    '#!/usr/bin/env sh\nexit 0\n',
+    { mode: 0o755 }
+  );
+  fs.writeFileSync(
+    path.join(fakeBin, 'python3'),
+    '#!/usr/bin/env sh\nexit 0\n',
+    { mode: 0o755 }
+  );
+  fs.writeFileSync(
+    path.join(fakeBin, 'node'),
+    [
+      '#!/usr/bin/env sh',
+      'case "$1" in',
+      '  *run-governance-contract-gates.mjs) exit 19 ;;',
+      `  *check-topology.mjs) echo docs-check >> "${docsMarker}"; exit 0 ;;`,
+      '  *) exit 0 ;;',
+      'esac',
+      ''
+    ].join('\n'),
+    { mode: 0o755 }
+  );
+
+  const result = spawnSync('sh', [shellScript], {
+    cwd: path.resolve(scriptDir, '..'),
+    env: {
+      ...process.env,
+      PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ''}`
+    },
+    encoding: 'utf8'
+  });
+
+  fs.rmSync(tempRoot, { recursive: true, force: true });
+
+  assert.equal(result.status, 19);
+  assert.ok(!fs.existsSync(docsMarker), 'docs topology check should not run after governance gate failure');
 });
