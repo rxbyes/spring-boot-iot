@@ -477,6 +477,7 @@ export interface ProductModelGovernanceApplyPayload {
 }
 
 export interface ProductModelGovernanceApplyResult {
+  submittedItemCount?: number | null;
   createdCount?: number | null;
   updatedCount?: number | null;
   skippedCount?: number | null;

@@ -157,6 +157,7 @@ class ProductModelControllerTest {
 
         R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, 2002L, authentication);
 
+        assertEquals(1, response.getData().getSubmittedItemCount());
         assertEquals(1, response.getData().getCreatedCount());
         assertEquals(0, response.getData().getUpdatedCount());
         assertEquals(0, response.getData().getSkippedCount());
