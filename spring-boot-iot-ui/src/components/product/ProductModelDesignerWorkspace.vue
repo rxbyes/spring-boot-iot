@@ -729,7 +729,7 @@
         >
           <div class="product-model-designer__approval-head">
             <div>
-              <strong>审批跟踪</strong>
+              <strong>{{ applyApprovalStageTitle }}</strong>
               <p>{{ applyApprovalSummaryText }}</p>
             </div>
             <div class="product-model-designer__approval-actions">
@@ -1222,6 +1222,7 @@ const canResubmitRollbackApproval = computed(() =>
   rollbackReceiptStatus.value === 'REJECTED' && Boolean(rollbackApprovalOrderId.value) && !rollbackResubmitLoading.value
 )
 const applyExecutionTimeText = computed(() => applyApprovalPayload.value?.execution?.executedAt ?? null)
+const applyApprovalStageTitle = computed(() => (applyExecutionCompleted.value ? '正式发布结果' : '审批提交回执'))
 const rollbackExecutionTimeText = computed(() =>
   rollbackApprovalPayload.value?.execution?.executedAt ?? rollbackExecutedResult.value?.rollbackTime ?? null
 )

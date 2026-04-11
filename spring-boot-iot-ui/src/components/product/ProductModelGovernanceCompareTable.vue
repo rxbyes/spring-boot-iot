@@ -39,7 +39,7 @@
       >
         <header class="product-model-governance-compare-table__row-header">
           <div class="product-model-governance-compare-table__row-heading">
-            <span class="product-model-governance-compare-table__row-kicker">识别结果</span>
+            <span class="product-model-governance-compare-table__row-kicker">治理候选快照</span>
             <strong>{{ rowDisplayName(row) }}</strong>
             <div class="product-model-governance-compare-table__row-meta">
               <span>identifier: {{ row.identifier }}</span>
@@ -72,7 +72,7 @@
         </div>
 
         <p v-if="rowStatusSummary(row)" class="product-model-governance-compare-table__row-reason">
-          {{ rowStatusSummary(row) }}
+          {{ `当前建议：${rowStatusSummary(row)}` }}
         </p>
 
         <div v-if="templateSummaryParts(row).length" class="product-model-governance-compare-table__template-summary">

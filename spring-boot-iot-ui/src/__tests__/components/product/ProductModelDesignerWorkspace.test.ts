@@ -956,6 +956,7 @@ describe('ProductModelDesignerWorkspace', () => {
     await nextTick()
 
     expect(mockGetGovernanceApprovalOrderDetail).toHaveBeenCalledWith(88001)
+    expect(wrapper.text()).toContain('审批提交回执')
     expect(wrapper.text()).toContain('审批状态')
     expect(wrapper.text()).toContain('待审批')
   })
