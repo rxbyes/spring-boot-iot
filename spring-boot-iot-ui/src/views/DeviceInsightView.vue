@@ -228,6 +228,7 @@ const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const capabilityProfile = ref<InsightCapabilityProfile>(getInsightCapabilityProfile({}));
 const trendGroups = ref<InsightTrendGroup[]>([]);
 const productModelDisplayNameMap = ref<Map<string, string>>(new Map());
+const productModelDataTypeMap = ref<Map<string, string>>(new Map());
 const productModelUnitMap = ref<Map<string, string>>(new Map());
 const lastFetchTime = ref<string | null>(null);
 const requestVersion = ref(0);
@@ -274,6 +275,23 @@ const trendSeriesMap = computed(() => {
       map.set(series.identifier, series);
     });
   });
+  return map;
+});
+
+const configuredSnapshotMetricMap = computed(() => {
+  const map = new Map<string, InsightCapabilityProfile['customMetrics'][number]>();
+  capabilityProfile.value.customMetrics
+    .filter((metric) => metric.enabled !== false && metric.includeInTrend !== false)
+    .sort((left, right) => {
+      const sortDiff = (left.sortNo ?? Number.MAX_SAFE_INTEGER) - (right.sortNo ?? Number.MAX_SAFE_INTEGER);
+      if (sortDiff !== 0) {
+        return sortDiff;
+      }
+      return left.identifier.localeCompare(right.identifier);
+    })
+    .forEach((metric) => {
+      map.set(metric.identifier, metric);
+    });
   return map;
 });
 
@@ -354,18 +372,35 @@ const analysisParagraphs = computed<NarrativeBlock[]>(() => {
   return blocks;
 });
 
-const propertyTableRows = computed(() =>
-  properties.value.map((item) => ({
-    ...item,
-    displayName: resolveMetricBaseName(
-      item.identifier,
-      productModelDisplayNameMap.value.get(item.identifier),
-      item.propertyName
-    ),
-    displayUnit: resolvePropertyUnit(item),
-    displayTime: formatDateTime(item.updateTime || item.reportTime)
-  }))
-);
+const propertyTableRows = computed(() => {
+  const orderedIdentifiers = uniqueIdentifiers([
+    ...Array.from(configuredSnapshotMetricMap.value.keys()),
+    ...properties.value.map((item) => item.identifier)
+  ]);
+
+  return orderedIdentifiers.map((identifier) => {
+    const property = propertyMap.value.get(identifier);
+    const series = trendSeriesMap.value.get(identifier);
+    const configuredMetric = configuredSnapshotMetricMap.value.get(identifier);
+    const latestActualBucket = resolveLatestActualTrendBucket(series);
+
+    return {
+      ...(property ?? {}),
+      identifier,
+      propertyValue: normalizeText(property?.propertyValue) || (latestActualBucket ? String(latestActualBucket.value) : '--'),
+      valueType: normalizeText(property?.valueType) || productModelDataTypeMap.value.get(identifier) || '--',
+      displayName: resolveMetricBaseName(
+        identifier,
+        productModelDisplayNameMap.value.get(identifier),
+        configuredMetric?.displayName,
+        property?.propertyName,
+        series?.displayName
+      ),
+      displayUnit: resolveMetricUnit(identifier, property) || '--',
+      displayTime: formatDateTime(property?.updateTime || property?.reportTime || latestActualBucket?.time)
+    };
+  });
+});
 
 watch(
   () => [route.query.deviceCode, route.query.rangeCode],
@@ -457,6 +492,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     properties.value = propertyResponse.data ?? [];
     riskBindings.value = bindingResponse.data.records ?? [];
     productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
+    productModelDataTypeMap.value = productInsightSupplement.modelDataTypeMap;
     productModelUnitMap.value = productInsightSupplement.modelUnitMap;
 
     const primaryBinding = pickPrimaryBinding(riskBindings.value);
@@ -522,6 +558,7 @@ function resetInsightState() {
   riskDetail.value = null;
   trendGroups.value = [];
   productModelDisplayNameMap.value = new Map();
+  productModelDataTypeMap.value = new Map();
   productModelUnitMap.value = new Map();
   lastFetchTime.value = null;
 }
@@ -693,6 +730,12 @@ function resolveLatestTrendValue(series?: InsightTrendSeries) {
   return String(latestBucket.value);
 }
 
+function resolveLatestActualTrendBucket(series?: InsightTrendSeries) {
+  return [...(series?.buckets ?? [])]
+    .reverse()
+    .find((bucket) => bucket.filled !== true && bucket.value !== null && bucket.value !== undefined);
+}
+
 function resolvePropertyUnit(item: DeviceProperty) {
   return resolveMetricUnit(item.identifier, item) || '--';
 }
@@ -701,6 +744,7 @@ async function loadProductInsightSupplement(productId?: string | number | null) 
   const emptySupplement = {
     metadataJson: null as string | null,
     modelDisplayNameMap: new Map<string, string>(),
+    modelDataTypeMap: new Map<string, string>(),
     modelUnitMap: new Map<string, string>()
   };
   if (productId === undefined || productId === null || productId === '') {
@@ -716,6 +760,11 @@ async function loadProductInsightSupplement(productId?: string | number | null) 
         ? productResult.value.data?.metadataJson ?? null
         : null,
       modelDisplayNameMap: buildProductModelDisplayNameMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      ),
+      modelDataTypeMap: buildProductModelDataTypeMap(
         modelResult.status === 'fulfilled' && modelResult.value.code === 200
           ? modelResult.value.data ?? []
           : []
@@ -738,6 +787,17 @@ function buildProductModelDisplayNameMap(models: ProductModel[]) {
     const displayName = normalizeText(model.modelName);
     if (displayName) {
       map.set(model.identifier, displayName);
+    }
+  });
+  return map;
+}
+
+function buildProductModelDataTypeMap(models: ProductModel[]) {
+  const map = new Map<string, string>();
+  models.forEach((model) => {
+    const dataType = normalizeText(model.dataType);
+    if (dataType) {
+      map.set(model.identifier, dataType);
     }
   });
   return map;
@@ -801,6 +861,10 @@ function parseSpecsJson(specsJson?: string | null) {
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function uniqueIdentifiers(values: string[]) {
+  return values.filter((value, index) => Boolean(value) && values.indexOf(value) === index);
 }
 
 function getRangeLabel(rangeCode: InsightRangeCode) {

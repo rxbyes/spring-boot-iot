@@ -19,6 +19,34 @@ ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
 IndexSpecMap = Dict[str, List[Tuple[str, str]]]
 IndexShapeMap = Dict[Tuple[str, str], Tuple[bool, Tuple[str, ...]]]
 
+GOVERNANCE_REVIEWER_USERNAME = "governance_reviewer"
+GOVERNANCE_REVIEWER_ROLE_CODE = "SUPER_ADMIN"
+GOVERNANCE_REVIEWER_PREFERRED_ID = 99000001
+GOVERNANCE_REVIEWER_PASSWORD_HASH = "$2a$10$9Qvnnv2KdrBYP974N3bIGOkmbGCpIXHCXhuKvwBRJxdOEwv01R3eq"
+GOVERNANCE_REVIEWER_NICKNAME = "治理复核专员"
+GOVERNANCE_REVIEWER_REAL_NAME = "治理复核专员"
+GOVERNANCE_REVIEWER_PHONE = "13800009900"
+GOVERNANCE_REVIEWER_EMAIL = "governance-reviewer@ghlzm.com"
+GOVERNANCE_REVIEWER_REMARK = "系统级固定治理复核人账号，负责产品契约发布与回滚审批。"
+GOVERNANCE_APPROVAL_POLICY_SEEDS = (
+    {
+        "preferred_id": 99001001,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "PRODUCT_CONTRACT_RELEASE_APPLY",
+        "approver_mode": "FIXED_USER",
+        "remark": "产品契约发布固定复核人",
+    },
+    {
+        "preferred_id": 99001002,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "PRODUCT_CONTRACT_ROLLBACK",
+        "approver_mode": "FIXED_USER",
+        "remark": "产品契约回滚固定复核人",
+    },
+)
+
 
 CREATE_TABLE_SQL: CreateSqlMap = {
     "iot_device_relation": """
@@ -492,6 +520,27 @@ CREATE TABLE IF NOT EXISTS sys_governance_approval_transition (
     KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
     KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition'
+""",
+    "sys_governance_approval_policy": """
+CREATE TABLE IF NOT EXISTS sys_governance_approval_policy (
+    id BIGINT NOT NULL COMMENT 'approval policy id',
+    tenant_id BIGINT NOT NULL DEFAULT 0 COMMENT 'tenant id, 0 means global',
+    scope_type VARCHAR(16) NOT NULL COMMENT 'GLOBAL/TENANT',
+    action_code VARCHAR(64) NOT NULL COMMENT 'approval action code',
+    approver_mode VARCHAR(32) NOT NULL COMMENT 'FIXED_USER',
+    approver_user_id BIGINT NOT NULL COMMENT 'fixed approver user id',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT 'enabled',
+    remark VARCHAR(255) DEFAULT NULL COMMENT 'remark',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    update_by BIGINT DEFAULT NULL COMMENT 'updater',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_governance_approval_policy_scope_action (scope_type, tenant_id, action_code, deleted),
+    KEY idx_governance_approval_policy_enabled (enabled, scope_type, tenant_id, action_code, deleted),
+    KEY idx_governance_approval_policy_approver (approver_user_id, enabled, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval policy'
 """,
     "iot_governance_work_item": """
 CREATE TABLE IF NOT EXISTS iot_governance_work_item (
@@ -1659,6 +1708,301 @@ def ensure_governance_fine_grained_permissions(cur: pymysql.cursors.Cursor, db: 
                 )
 
 
+def ensure_governance_approval_policy_defaults(cur: pymysql.cursors.Cursor, db: str) -> None:
+    required_tables = (
+        "sys_user",
+        "sys_role",
+        "sys_user_role",
+        "sys_governance_approval_policy",
+    )
+    if any(not table_exists(cur, db, table) for table in required_tables):
+        print("[skip] governance approval policy seeds: required tables missing")
+        return
+
+    required_user_columns = (
+        "id",
+        "tenant_id",
+        "username",
+        "password",
+        "nickname",
+        "real_name",
+        "phone",
+        "email",
+        "status",
+        "is_admin",
+        "remark",
+        "create_by",
+        "create_time",
+        "update_by",
+        "update_time",
+        "deleted",
+    )
+    required_role_columns = ("id", "tenant_id", "role_code", "deleted")
+    required_user_role_columns = (
+        "id",
+        "tenant_id",
+        "user_id",
+        "role_id",
+        "create_by",
+        "create_time",
+        "update_by",
+        "update_time",
+        "deleted",
+    )
+    required_policy_columns = (
+        "id",
+        "tenant_id",
+        "scope_type",
+        "action_code",
+        "approver_mode",
+        "approver_user_id",
+        "enabled",
+        "remark",
+        "create_by",
+        "create_time",
+        "update_by",
+        "update_time",
+        "deleted",
+    )
+    if not all(column_exists(cur, db, "sys_user", column) for column in required_user_columns):
+        print("[skip] governance approval policy seeds: sys_user columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_role", column) for column in required_role_columns):
+        print("[skip] governance approval policy seeds: sys_role columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_user_role", column) for column in required_user_role_columns):
+        print("[skip] governance approval policy seeds: sys_user_role columns missing")
+        return
+    if not all(column_exists(cur, db, "sys_governance_approval_policy", column) for column in required_policy_columns):
+        print("[skip] governance approval policy seeds: sys_governance_approval_policy columns missing")
+        return
+
+    reviewer_org_id = None
+    if table_exists(cur, db, "sys_organization") and all(
+        column_exists(cur, db, "sys_organization", column) for column in ("id", "tenant_id", "deleted")
+    ):
+        cur.execute(
+            """
+            SELECT id
+            FROM sys_organization
+            WHERE tenant_id = 1
+              AND deleted = 0
+            ORDER BY id ASC
+            LIMIT 1
+            """
+        )
+        org_row = cur.fetchone()
+        reviewer_org_id = int(org_row[0]) if org_row else None
+
+    cur.execute(
+        """
+        SELECT id
+        FROM sys_user
+        WHERE tenant_id = 1
+          AND username = %s
+        ORDER BY deleted ASC, id ASC
+        LIMIT 1
+        """,
+        (GOVERNANCE_REVIEWER_USERNAME,),
+    )
+    existing_user = cur.fetchone()
+    reviewer_user_id = (
+        int(existing_user[0])
+        if existing_user
+        else next_preferred_id(cur, "sys_user", GOVERNANCE_REVIEWER_PREFERRED_ID)
+    )
+    if existing_user:
+        if reviewer_org_id is not None:
+            cur.execute(
+                """
+                UPDATE sys_user
+                SET org_id = %s,
+                    nickname = %s,
+                    real_name = %s,
+                    phone = %s,
+                    email = %s,
+                    status = 1,
+                    is_admin = 1,
+                    remark = %s,
+                    update_by = 1,
+                    update_time = NOW(),
+                    deleted = 0
+                WHERE id = %s
+                """,
+                (
+                    reviewer_org_id,
+                    GOVERNANCE_REVIEWER_NICKNAME,
+                    GOVERNANCE_REVIEWER_REAL_NAME,
+                    GOVERNANCE_REVIEWER_PHONE,
+                    GOVERNANCE_REVIEWER_EMAIL,
+                    GOVERNANCE_REVIEWER_REMARK,
+                    reviewer_user_id,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE sys_user
+                SET nickname = %s,
+                    real_name = %s,
+                    phone = %s,
+                    email = %s,
+                    status = 1,
+                    is_admin = 1,
+                    remark = %s,
+                    update_by = 1,
+                    update_time = NOW(),
+                    deleted = 0
+                WHERE id = %s
+                """,
+                (
+                    GOVERNANCE_REVIEWER_NICKNAME,
+                    GOVERNANCE_REVIEWER_REAL_NAME,
+                    GOVERNANCE_REVIEWER_PHONE,
+                    GOVERNANCE_REVIEWER_EMAIL,
+                    GOVERNANCE_REVIEWER_REMARK,
+                    reviewer_user_id,
+                ),
+            )
+    else:
+        cur.execute(
+            """
+            INSERT INTO sys_user (
+                id, tenant_id, org_id, username, password, nickname, real_name, phone, email,
+                status, is_admin, remark, create_by, create_time, update_by, update_time, deleted
+            ) VALUES (
+                %s, 1, %s, %s, %s, %s, %s, %s, %s,
+                1, 1, %s, 1, NOW(), 1, NOW(), 0
+            )
+            """,
+            (
+                reviewer_user_id,
+                reviewer_org_id,
+                GOVERNANCE_REVIEWER_USERNAME,
+                GOVERNANCE_REVIEWER_PASSWORD_HASH,
+                GOVERNANCE_REVIEWER_NICKNAME,
+                GOVERNANCE_REVIEWER_REAL_NAME,
+                GOVERNANCE_REVIEWER_PHONE,
+                GOVERNANCE_REVIEWER_EMAIL,
+                GOVERNANCE_REVIEWER_REMARK,
+            ),
+        )
+
+    cur.execute(
+        """
+        SELECT id
+        FROM sys_role
+        WHERE tenant_id = 1
+          AND role_code = %s
+          AND deleted = 0
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        (GOVERNANCE_REVIEWER_ROLE_CODE,),
+    )
+    role_row = cur.fetchone()
+    if role_row is None:
+        print("[skip] governance approval policy seeds: SUPER_ADMIN role missing")
+        return
+    reviewer_role_id = int(role_row[0])
+
+    cur.execute(
+        """
+        SELECT id
+        FROM sys_user_role
+        WHERE tenant_id = 1
+          AND user_id = %s
+          AND role_id = %s
+        ORDER BY deleted ASC, id ASC
+        LIMIT 1
+        """,
+        (reviewer_user_id, reviewer_role_id),
+    )
+    existing_binding = cur.fetchone()
+    if existing_binding:
+        cur.execute(
+            """
+            UPDATE sys_user_role
+            SET deleted = 0,
+                update_by = 1,
+                update_time = NOW()
+            WHERE id = %s
+            """,
+            (int(existing_binding[0]),),
+        )
+    else:
+        binding_id = next_table_id(cur, "sys_user_role")
+        cur.execute(
+            """
+            INSERT INTO sys_user_role (
+                id, tenant_id, user_id, role_id, create_by, create_time, update_by, update_time, deleted
+            ) VALUES (%s, 1, %s, %s, 1, NOW(), 1, NOW(), 0)
+            """,
+            (binding_id, reviewer_user_id, reviewer_role_id),
+        )
+
+    for seed in GOVERNANCE_APPROVAL_POLICY_SEEDS:
+        cur.execute(
+            """
+            SELECT id
+            FROM sys_governance_approval_policy
+            WHERE scope_type = %s
+              AND tenant_id = %s
+              AND action_code = %s
+            ORDER BY deleted ASC, id ASC
+            LIMIT 1
+            """,
+            (seed["scope_type"], int(seed["tenant_id"]), seed["action_code"]),
+        )
+        existing_policy = cur.fetchone()
+        policy_id = (
+            int(existing_policy[0])
+            if existing_policy
+            else next_preferred_id(cur, "sys_governance_approval_policy", int(seed["preferred_id"]))
+        )
+        if existing_policy:
+            cur.execute(
+                """
+                UPDATE sys_governance_approval_policy
+                SET approver_mode = %s,
+                    approver_user_id = %s,
+                    enabled = 1,
+                    remark = %s,
+                    update_by = 1,
+                    update_time = NOW(),
+                    deleted = 0
+                WHERE id = %s
+                """,
+                (
+                    seed["approver_mode"],
+                    reviewer_user_id,
+                    seed["remark"],
+                    policy_id,
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO sys_governance_approval_policy (
+                    id, tenant_id, scope_type, action_code, approver_mode, approver_user_id, enabled, remark,
+                    create_by, create_time, update_by, update_time, deleted
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, 1, %s,
+                    1, NOW(), 1, NOW(), 0
+                )
+                """,
+                (
+                    policy_id,
+                    int(seed["tenant_id"]),
+                    seed["scope_type"],
+                    seed["action_code"],
+                    seed["approver_mode"],
+                    reviewer_user_id,
+                    seed["remark"],
+                ),
+            )
+
+
 def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
     for table, specs in INDEXES_TO_ADD.items():
         if not table_exists(cur, db, table):
@@ -1882,6 +2226,8 @@ def main() -> int:
                 print("[menu] legacy governance write permissions cleaned")
                 ensure_governance_fine_grained_permissions(cur, args.db)
                 print("[menu] governance fine-grained permission seeds aligned")
+                ensure_governance_approval_policy_defaults(cur, args.db)
+                print("[governance] fixed reviewer and approval policy seeds aligned")
 
                 for view_name, ddl in VIEW_SQL.items():
                     cur.execute(ddl)

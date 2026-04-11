@@ -12,6 +12,7 @@ import ProductWorkbenchView from '@/views/ProductWorkbenchView.vue'
 const {
   mockRoute,
   mockRouter,
+  mockRecordActivity,
   mockPageProducts,
   mockPageProductContractReleaseBatches,
   mockListProductModels,
@@ -29,6 +30,7 @@ const {
     replace: vi.fn(),
     push: vi.fn()
   },
+  mockRecordActivity: vi.fn(),
   mockPageProducts: vi.fn(),
   mockPageProductContractReleaseBatches: vi.fn(),
   mockListProductModels: vi.fn(),
@@ -79,6 +81,10 @@ vi.mock('@/stores/permission', () => ({
   usePermissionStore: () => ({
     hasPermission: () => true
   })
+}))
+
+vi.mock('@/stores/activity', () => ({
+  recordActivity: mockRecordActivity
 }))
 
 vi.mock('@/utils/confirm', () => ({
@@ -399,6 +405,7 @@ describe('ProductWorkbenchView', () => {
     mockRouter.push.mockReset()
     mockRouter.replace.mockResolvedValue(undefined)
     mockRouter.push.mockResolvedValue(undefined)
+    mockRecordActivity.mockReset()
     mockPageProducts.mockReset()
     mockPageProductContractReleaseBatches.mockReset()
     mockListProductModels.mockReset()
@@ -568,6 +575,61 @@ describe('ProductWorkbenchView', () => {
         })
       ])
     )
+  })
+
+  it('records governance-task navigation before routing from the product notice panel', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'demo-product',
+            productName: '演示产品',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 1,
+        records: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    const task = ((wrapper.vm as any).governanceTaskItems as Array<{ key: string; path: string }>).find(
+      (item) => item.key === 'pending-contract-release'
+    )
+
+    expect(task).toBeTruthy()
+
+    ;(wrapper.vm as any).openGovernanceTask(task!.path)
+    await flushPromises()
+
+    expect(mockRecordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: `产品治理待办跳转 · ${task!.path}`,
+        detail: expect.stringContaining('demo-product'),
+        tag: 'product-governance-task'
+      })
+    )
+    expect(mockRouter.push).toHaveBeenCalledWith(task!.path)
   })
 
   it('keeps the product toolbar focused by collapsing low-frequency actions into a more-actions menu', async () => {

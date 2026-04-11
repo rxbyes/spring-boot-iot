@@ -1049,6 +1049,40 @@ describe('ProductModelDesignerWorkspace', () => {
     }))
   })
 
+  it('sends specsJson as null when clearing the formal property unit', async () => {
+    mockUpdateProductModel.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 2001,
+        modelType: 'property',
+        identifier: 'value',
+        modelName: '裂缝值',
+        dataType: 'double',
+        specsJson: null,
+        description: '正式字段'
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-rename-2001"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="formal-model-unit-input-2001"]').setValue('')
+    await wrapper.get('[data-testid="formal-model-name-save-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProductModel).toHaveBeenCalledWith(1001, 2001, expect.objectContaining({
+      modelType: 'property',
+      identifier: 'value',
+      modelName: '裂缝值',
+      specsJson: null
+    }))
+  })
+
   it('syncs renamed formal field names into existing object-insight trend config', async () => {
     mockUpdateProduct.mockResolvedValueOnce({
       code: 200,

@@ -66,6 +66,20 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['modelValue', 'title', 'subtitle'],
+  template: `
+    <section class="standard-form-drawer-stub" :data-model-value="modelValue">
+      <header class="standard-form-drawer-stub__header">
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+      </header>
+      <slot />
+    </section>
+  `
+});
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -84,7 +98,7 @@ function mountView() {
         StandardPagination: true,
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
-        StandardFormDrawer: true,
+        StandardFormDrawer: StandardFormDrawerStub,
         StandardTableTextColumn: true,
         StandardWorkbenchRowActions: true,
         StandardButton: true,
@@ -137,5 +151,35 @@ describe('LinkageRuleView', () => {
       ruleName: '裂缝值联动',
       status: 0
     }));
+  });
+
+  it('auto-opens create drawer from governance-task dispatch context and prefills rule name', async () => {
+    mockRoute.query = {
+      governanceAction: 'create',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_LINKAGE_PLAN',
+      coverageType: 'LINKAGE',
+      dimensionKey: 'LINKAGE:6102',
+      riskMetricId: '6102',
+      metricIdentifier: 'displacementX',
+      metricName: '位移 X'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).formVisible).toBe(true);
+    expect((wrapper.vm as any).form.ruleName).toBe('位移 X联动规则');
+    expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');
   });
 });

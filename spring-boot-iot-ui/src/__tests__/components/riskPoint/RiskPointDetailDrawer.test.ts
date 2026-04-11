@@ -240,16 +240,14 @@ describe('RiskPointDetailDrawer', () => {
     expect(wrapper.text()).not.toContain('旧风险点')
   })
 
-  it('emits edit, maintain-binding, and pending-promotion actions from the footer', async () => {
+  it('emits edit and binding-workbench actions from the footer', async () => {
     const wrapper = mountDrawer()
     await flushPromises()
 
     await wrapper.get('[data-testid="detail-edit-action"]').trigger('click')
-    await wrapper.get('[data-testid="detail-maintain-binding-action"]').trigger('click')
-    await wrapper.get('[data-testid="detail-pending-promotion-action"]').trigger('click')
+    await wrapper.get('[data-testid="detail-binding-workbench-action"]').trigger('click')
 
     expect(wrapper.emitted('edit')).toHaveLength(1)
-    expect(wrapper.emitted('maintain-binding')).toHaveLength(1)
-    expect(wrapper.emitted('pending-promotion')).toHaveLength(1)
+    expect(wrapper.emitted('binding-workbench')).toHaveLength(1)
   })
 })

@@ -55,6 +55,12 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIn("idx_relation_parent_code", create_sql)
         self.assertIn("idx_relation_child_code", create_sql)
 
+    def test_create_table_sql_covers_governance_approval_policy_table(self):
+        policy_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_policy")
+        self.assertIsNotNone(policy_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_policy", policy_sql)
+        self.assertIn("uk_governance_approval_policy_scope_action", policy_sql)
+
     def test_create_table_sql_covers_governance_approval_tables(self):
         order_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_order")
         transition_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_transition")
@@ -136,6 +142,14 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertEqual(
             ops_alert_index_sql["uk_governance_ops_alert_code"],
             "ALTER TABLE `iot_governance_ops_alert` ADD UNIQUE INDEX `uk_governance_ops_alert_code` (`tenant_id`, `alert_type`, `alert_code`, `deleted`)",
+        )
+
+    def test_governance_approval_policy_seeds_cover_fixed_reviewer_defaults(self):
+        self.assertEqual(schema_sync.GOVERNANCE_REVIEWER_USERNAME, "governance_reviewer")
+        self.assertEqual(schema_sync.GOVERNANCE_REVIEWER_ROLE_CODE, "SUPER_ADMIN")
+        self.assertEqual(
+            [seed["action_code"] for seed in schema_sync.GOVERNANCE_APPROVAL_POLICY_SEEDS],
+            ["PRODUCT_CONTRACT_RELEASE_APPLY", "PRODUCT_CONTRACT_ROLLBACK"],
         )
 
 
@@ -328,6 +342,66 @@ class GovernanceFineGrainedPermissionSeedTest(unittest.TestCase):
         self.assertIn("risk:metric-catalog:approve", params_text)
         self.assertIn("MANAGEMENT_STAFF", params_text)
         self.assertIn("OPS_STAFF", params_text)
+
+
+class GovernanceApprovalPolicySeedCursor:
+    def __init__(self):
+        self.executed = []
+        self._last_sql = ""
+        self._last_params = None
+        self.next_user_role_id = 98000000
+
+    def execute(self, sql, params=None):
+        self._last_sql = sql
+        self._last_params = params
+        self.executed.append((sql, params))
+
+    def fetchone(self):
+        if "FROM sys_organization" in self._last_sql:
+            return (7101,)
+        if "SELECT id" in self._last_sql and "FROM sys_user" in self._last_sql and "username = %s" in self._last_sql:
+            return None
+        if "SELECT COUNT(1) FROM `sys_user` WHERE id = %s" in self._last_sql:
+            return (0,)
+        if "SELECT id" in self._last_sql and "FROM sys_role" in self._last_sql and "role_code = %s" in self._last_sql:
+            return (92000001,)
+        if "SELECT id" in self._last_sql and "FROM sys_user_role" in self._last_sql:
+            return None
+        if "SELECT COALESCE(MAX(id), 0) + 1 FROM `sys_user_role`" in self._last_sql:
+            self.next_user_role_id += 1
+            return (self.next_user_role_id,)
+        if (
+            "SELECT id" in self._last_sql
+            and "FROM sys_governance_approval_policy" in self._last_sql
+            and "action_code = %s" in self._last_sql
+        ):
+            return None
+        if "SELECT COUNT(1) FROM `sys_governance_approval_policy` WHERE id = %s" in self._last_sql:
+            return (0,)
+        raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+    def fetchall(self):
+        raise AssertionError(f"Unexpected fetchall for SQL: {self._last_sql}")
+
+
+class GovernanceApprovalPolicySeedTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_fixed_reviewer_user_role_and_policies(self, _mock_table_exists, _mock_column_exists):
+        cursor = GovernanceApprovalPolicySeedCursor()
+
+        schema_sync.ensure_governance_approval_policy_defaults(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO sys_user", combined_sql)
+        self.assertIn("INSERT INTO sys_user_role", combined_sql)
+        self.assertIn("INSERT INTO sys_governance_approval_policy", combined_sql)
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("governance_reviewer", params_text)
+        self.assertIn("PRODUCT_CONTRACT_RELEASE_APPLY", params_text)
+        self.assertIn("PRODUCT_CONTRACT_ROLLBACK", params_text)
+        self.assertIn("SUPER_ADMIN", params_text)
 
 
 class EnsureIndexesCursor:

@@ -1,5 +1,7 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
@@ -222,6 +224,14 @@ class ProductModelServiceImplTest {
         verify(productModelMapper).insert(captor.capture());
         assertEquals("json", captor.getValue().getDataType());
         assertNull(result.getDataType());
+    }
+
+    @Test
+    void productModelSpecsJsonShouldAllowNullUpdate() throws NoSuchFieldException {
+        TableField tableField = ProductModel.class.getDeclaredField("specsJson").getAnnotation(TableField.class);
+
+        assertNotNull(tableField);
+        assertEquals(FieldStrategy.ALWAYS, tableField.updateStrategy());
     }
 
     @Test

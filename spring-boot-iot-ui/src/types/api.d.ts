@@ -92,7 +92,7 @@ export interface ProductModelUpsertPayload {
   identifier: string;
   modelName: string;
   dataType?: string;
-  specsJson?: string;
+  specsJson?: string | null;
   eventType?: string;
   serviceInputJson?: string;
   serviceOutputJson?: string;

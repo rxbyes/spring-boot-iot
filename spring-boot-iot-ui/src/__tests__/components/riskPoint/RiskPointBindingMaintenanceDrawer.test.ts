@@ -327,6 +327,16 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.text()).toContain('待治理 2 条')
   })
 
+  it('renders the maintenance content without an outer drawer wrapper when embedded mode is enabled', async () => {
+    const wrapper = mountDrawer({ embedded: true })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.standard-form-drawer-stub').exists()).toBe(false)
+    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).toContain('当前正式绑定')
+  })
+
   it('adds a formal metric binding through the drawer add form', async () => {
     const wrapper = mountDrawer()
     await flushPromises()

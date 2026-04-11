@@ -46,7 +46,7 @@
     <section v-if="summaryPendingCount > 0" class="detail-panel">
       <div class="detail-notice">
         <span class="detail-notice__label">治理提醒</span>
-        <strong class="detail-notice__value">当前仍有 {{ summaryPendingCount }} 条待治理记录，维护正式绑定后可继续进入“待治理转正”完成收口。</strong>
+        <strong class="detail-notice__value">当前仍有 {{ summaryPendingCount }} 条待治理记录，可继续进入“风险绑定工作台”并切换到“待治理转正”完成收口。</strong>
       </div>
     </section>
 
@@ -161,20 +161,12 @@
           编辑风险点
         </StandardButton>
         <StandardButton
-          data-testid="detail-maintain-binding-action"
+          data-testid="detail-binding-workbench-action"
           action="confirm"
           :disabled="!displayRiskPoint"
-          @click="emit('maintain-binding')"
+          @click="emit('binding-workbench')"
         >
-          维护绑定
-        </StandardButton>
-        <StandardButton
-          data-testid="detail-pending-promotion-action"
-          action="reset"
-          :disabled="!displayRiskPoint"
-          @click="emit('pending-promotion')"
-        >
-          待治理转正
+          风险绑定工作台
         </StandardButton>
       </div>
     </template>
@@ -211,8 +203,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   close: []
   edit: []
-  'maintain-binding': []
-  'pending-promotion': []
+  'binding-workbench': []
 }>()
 
 const loading = ref(false)
@@ -266,9 +257,9 @@ const bindingStateHint = computed(() => {
 })
 const pendingGovernanceHint = computed(() => {
   if (summaryPendingCount.value > 0) {
-    return '待治理转正与正式绑定维护保持独立流程，建议在这里统一查看后再决定下一步。'
+    return '待治理与正式绑定在工作台内分域执行，可统一进入后再决定下一步。'
   }
-  return '当前没有待治理残留，后续仅需关注正式绑定维护。'
+  return '当前没有待治理残留，后续可直接在风险绑定工作台维护正式绑定。'
 })
 const drawerTitle = computed(() => displayRiskPoint.value?.riskPointName || '风险对象详情')
 const drawerSubtitle = computed(() =>

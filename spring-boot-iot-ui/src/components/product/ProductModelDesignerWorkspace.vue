@@ -1942,7 +1942,7 @@ function buildUpdatedModelSpecsJson(model: ProductModel, unit: string) {
   } else {
     delete specs.unit
   }
-  return Object.keys(specs).length ? JSON.stringify(specs) : undefined
+  return Object.keys(specs).length ? JSON.stringify(specs) : null
 }
 
 function parseSpecsJsonObject(specsJson?: string | null) {

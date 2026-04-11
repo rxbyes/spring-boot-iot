@@ -87,6 +87,20 @@ const StandardWorkbenchPanelStub = defineComponent({
   `
 });
 
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['modelValue', 'title', 'subtitle'],
+  template: `
+    <section class="standard-form-drawer-stub" :data-model-value="modelValue">
+      <header class="standard-form-drawer-stub__header">
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+      </header>
+      <slot />
+    </section>
+  `
+});
+
 const StandardTableToolbarStub = defineComponent({
   name: 'StandardTableToolbar',
   props: ['metaItems'],
@@ -117,7 +131,7 @@ function mountView() {
         StandardPagination: true,
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
-        StandardFormDrawer: true,
+        StandardFormDrawer: StandardFormDrawerStub,
         StandardTableTextColumn: true,
         StandardWorkbenchRowActions: true,
         StandardButton: true,
@@ -207,5 +221,35 @@ describe('EmergencyPlanView', () => {
       alarmLevel: 'red',
       status: 0
     }));
+  });
+
+  it('auto-opens create drawer from governance-task dispatch context and prefills plan name', async () => {
+    mockRoute.query = {
+      governanceAction: 'create',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_LINKAGE_PLAN',
+      coverageType: 'EMERGENCY_PLAN',
+      dimensionKey: 'EMERGENCY:6203',
+      riskMetricId: '6203',
+      metricIdentifier: 'value',
+      metricName: '裂缝值'
+    };
+    mockPagePlanList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).formVisible).toBe(true);
+    expect((wrapper.vm as any).form.planName).toBe('裂缝值应急预案');
+    expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');
   });
 });

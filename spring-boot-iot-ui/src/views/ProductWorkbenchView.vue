@@ -542,6 +542,7 @@ import { productApi, type ProductContractReleaseBatch } from '@/api/product'
 import { deviceApi } from '@/api/device'
 import { getRiskGovernanceCoverageOverview, type RiskGovernanceCoverageOverview } from '@/api/riskGovernance'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { recordActivity } from '@/stores/activity'
 import { usePermissionStore } from '@/stores/permission'
 import type {
   Device,

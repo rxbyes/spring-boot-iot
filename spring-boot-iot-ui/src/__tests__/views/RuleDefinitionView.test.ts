@@ -383,4 +383,34 @@ describe('RuleDefinitionView', () => {
       status: 0
     }));
   });
+
+  it('auto-opens create drawer from governance-task dispatch context and prefills metric fields', async () => {
+    mockRoute.query = {
+      governanceAction: 'create',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_THRESHOLD_POLICY',
+      riskMetricId: '6102',
+      metricIdentifier: 'displacementX',
+      metricName: '位移 X'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).formVisible).toBe(true);
+    expect((wrapper.vm as any).form.riskMetricId).toBe(6102);
+    expect((wrapper.vm as any).form.metricIdentifier).toBe('displacementX');
+    expect((wrapper.vm as any).form.metricName).toBe('位移 X');
+    expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');
+  });
 });

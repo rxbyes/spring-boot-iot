@@ -35,6 +35,22 @@ function snapshotNumber(snapshotJson: string | null | undefined, key: string) {
   return value
 }
 
+function directNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return /^-?\d+$/.test(trimmed) ? trimmed : undefined
+  }
+  return undefined
+}
+
+function normalizeCoverageType(value?: string) {
+  const normalized = normalizeText(value)?.toUpperCase()
+  return normalized === 'LINKAGE' || normalized === 'EMERGENCY_PLAN' ? normalized : undefined
+}
+
 export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): RouteLocationRaw | null {
   switch (item.workItemCode) {
     case 'PENDING_CONTRACT_RELEASE': {
@@ -68,6 +84,48 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
           bindingAction: 'pending-promotion',
           governanceSource: 'task',
           workItemCode: 'PENDING_RISK_BINDING'
+        }
+      }
+    }
+    case 'PENDING_THRESHOLD_POLICY': {
+      const riskMetricId = directNumber(item.riskMetricId) || snapshotNumber(item.snapshotJson, 'riskMetricId')
+      const metricIdentifier = snapshotText(item.snapshotJson, 'metricIdentifier')
+      const metricName = snapshotText(item.snapshotJson, 'metricName')
+      if (!riskMetricId && !metricIdentifier && !metricName) {
+        return null
+      }
+      return {
+        path: '/rule-definition',
+        query: {
+          governanceAction: 'create',
+          governanceSource: 'task',
+          workItemCode: 'PENDING_THRESHOLD_POLICY',
+          ...(riskMetricId ? { riskMetricId } : {}),
+          ...(metricIdentifier ? { metricIdentifier } : {}),
+          ...(metricName ? { metricName } : {})
+        }
+      }
+    }
+    case 'PENDING_LINKAGE_PLAN': {
+      const coverageType = normalizeCoverageType(snapshotText(item.snapshotJson, 'coverageType'))
+      if (!coverageType) {
+        return null
+      }
+      const dimensionKey = snapshotText(item.snapshotJson, 'dimensionKey')
+      const riskMetricId = directNumber(item.riskMetricId) || snapshotNumber(item.snapshotJson, 'riskMetricId')
+      const metricIdentifier = snapshotText(item.snapshotJson, 'metricIdentifier')
+      const metricName = snapshotText(item.snapshotJson, 'metricName')
+      return {
+        path: coverageType === 'LINKAGE' ? '/linkage-rule' : '/emergency-plan',
+        query: {
+          governanceAction: 'create',
+          governanceSource: 'task',
+          workItemCode: 'PENDING_LINKAGE_PLAN',
+          coverageType,
+          ...(dimensionKey ? { dimensionKey } : {}),
+          ...(riskMetricId ? { riskMetricId } : {}),
+          ...(metricIdentifier ? { metricIdentifier } : {}),
+          ...(metricName ? { metricName } : {})
         }
       }
     }

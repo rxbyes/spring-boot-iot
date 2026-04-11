@@ -1053,6 +1053,147 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).not.toContain('状态数据');
   });
 
+  it('keeps configured laser sensor status in the property snapshot even when latest property only has value', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: '1927706037675085825',
+        productId: '202603192100560258',
+        deviceCode: '202018190',
+        deviceName: '激光测距传感器12',
+        productName: '南方测绘 监测型 激光测距仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-10 21:07:36',
+        lastReportTime: '2026-04-10 21:07:36',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'value',
+          propertyName: '激光测距值',
+          propertyValue: '2473.72',
+          valueType: 'double',
+          updateTime: '2026-04-11 00:16:33'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: '202603192100560258',
+        productKey: 'nf-monitor-laser-rangefinder-v1',
+        productName: '南方测绘 监测型 激光测距仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'value',
+                displayName: '激光测距值',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              },
+              {
+                identifier: 'sensor_state',
+                displayName: '激光测距状态',
+                group: 'status',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 110
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          productId: '202603192100560258',
+          modelType: 'property',
+          identifier: 'value',
+          modelName: '激光测距值',
+          dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: 'mm'
+          })
+        },
+        {
+          id: 2,
+          productId: '202603192100560258',
+          modelType: 'property',
+          identifier: 'sensor_state',
+          modelName: '激光测距状态',
+          dataType: 'integer',
+          specsJson: null
+        }
+      ]
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '1927706037675085825',
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'value',
+            displayName: '激光测距值',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-10 21:00:00', value: 2473.72, filled: false }]
+          },
+          {
+            identifier: 'sensor_state',
+            displayName: '激光测距状态',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-10 21:00:00', value: 0, filled: true }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: '202018190'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const displayNameColumn = wrapper.find('[data-label="属性名称"]');
+
+    expect(displayNameColumn.exists()).toBe(true);
+    expect(displayNameColumn.text()).toContain('激光测距值');
+    expect(displayNameColumn.text()).toContain('激光测距状态');
+  });
+
   it('keeps trend preview empty when no manual trend metric is configured', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,

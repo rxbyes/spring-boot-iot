@@ -1,11 +1,8 @@
 <template>
-  <StandardFormDrawer
-    :model-value="modelValue"
-    title="维护绑定"
-    subtitle="查看正式绑定摘要，并继续维护设备与测点关系。"
-    size="42rem"
-    @update:model-value="handleModelValueChange"
-    @close="handleClose"
+  <component
+    :is="wrapperComponent"
+    v-bind="wrapperProps"
+    v-on="wrapperListeners"
   >
     <div class="risk-point-binding-maintenance-drawer">
       <div class="ops-drawer-note">
@@ -203,7 +200,7 @@
         </section>
       </template>
     </div>
-  </StandardFormDrawer>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -228,6 +225,7 @@ import { ElMessage } from '@/utils/message'
 const props = withDefaults(
   defineProps<{
     modelValue: boolean
+    embedded?: boolean
     riskPointId?: IdType | null
     riskPointName?: string
     riskPointCode?: string
@@ -236,6 +234,7 @@ const props = withDefaults(
   }>(),
   {
     riskPointId: undefined,
+    embedded: false,
     riskPointName: '',
     riskPointCode: '',
     orgName: '',
@@ -269,6 +268,25 @@ const addForm = reactive({
 
 const totalBoundMetricCount = computed(() =>
   bindingGroups.value.reduce((sum, group) => sum + Number(group.metricCount || group.metrics?.length || 0), 0)
+)
+const wrapperComponent = computed(() => (props.embedded ? 'div' : StandardFormDrawer))
+const wrapperProps = computed(() =>
+  props.embedded
+    ? {}
+    : {
+        modelValue: props.modelValue,
+        title: '维护绑定',
+        subtitle: '查看正式绑定摘要，并继续维护设备与测点关系。',
+        size: '42rem'
+      }
+)
+const wrapperListeners = computed(() =>
+  props.embedded
+    ? {}
+    : {
+        'update:modelValue': handleModelValueChange,
+        close: handleClose
+      }
 )
 
 const bindingSourceLabelMap: Record<RiskPointBindingMetric['bindingSource'], string> = {

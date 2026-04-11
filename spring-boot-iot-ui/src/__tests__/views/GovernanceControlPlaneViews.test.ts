@@ -327,6 +327,153 @@ describe('governance control plane views', () => {
     })
   })
 
+  it('dispatches pending threshold policy work items into the rule-definition create workspace', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 13,
+            workItemCode: 'PENDING_THRESHOLD_POLICY',
+            workStatus: 'OPEN',
+            riskMetricId: 6102,
+            blockingReason: '风险点已绑定，待补阈值策略',
+            snapshotJson: JSON.stringify({
+              riskPointDeviceId: 8801,
+              riskPointId: 3001,
+              deviceId: 5001,
+              deviceCode: 'DEVICE-5001',
+              metricIdentifier: 'displacementX',
+              metricName: '位移 X'
+            })
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const dispatchButton = wrapper.findAll('button').find((button) => button.text() === '去处理')
+    expect(dispatchButton).toBeTruthy()
+
+    await dispatchButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/rule-definition',
+      query: {
+        governanceAction: 'create',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_THRESHOLD_POLICY',
+        riskMetricId: '6102',
+        metricIdentifier: 'displacementX',
+        metricName: '位移 X'
+      }
+    })
+  })
+
+  it('dispatches pending linkage-plan work items into the linkage-rule create workspace', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 14,
+            workItemCode: 'PENDING_LINKAGE_PLAN',
+            workStatus: 'OPEN',
+            riskMetricId: 6102,
+            blockingReason: '已纳管指标待补联动规则',
+            snapshotJson: JSON.stringify({
+              coverageType: 'LINKAGE',
+              dimensionKey: 'LINKAGE:6102',
+              metricIdentifier: 'displacementX',
+              metricName: '位移 X'
+            })
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const dispatchButton = wrapper.findAll('button').find((button) => button.text() === '去处理')
+    expect(dispatchButton).toBeTruthy()
+
+    await dispatchButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/linkage-rule',
+      query: {
+        governanceAction: 'create',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_LINKAGE_PLAN',
+        coverageType: 'LINKAGE',
+        dimensionKey: 'LINKAGE:6102',
+        riskMetricId: '6102',
+        metricIdentifier: 'displacementX',
+        metricName: '位移 X'
+      }
+    })
+  })
+
+  it('dispatches pending emergency-plan work items into the emergency-plan create workspace', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 15,
+            workItemCode: 'PENDING_LINKAGE_PLAN',
+            workStatus: 'OPEN',
+            riskMetricId: 6203,
+            blockingReason: '已纳管指标待补应急预案',
+            snapshotJson: JSON.stringify({
+              coverageType: 'EMERGENCY_PLAN',
+              dimensionKey: 'EMERGENCY:6203',
+              metricIdentifier: 'value',
+              metricName: '裂缝值'
+            })
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const dispatchButton = wrapper.findAll('button').find((button) => button.text() === '去处理')
+    expect(dispatchButton).toBeTruthy()
+
+    await dispatchButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/emergency-plan',
+      query: {
+        governanceAction: 'create',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_LINKAGE_PLAN',
+        coverageType: 'EMERGENCY_PLAN',
+        dimensionKey: 'EMERGENCY:6203',
+        riskMetricId: '6203',
+        metricIdentifier: 'value',
+        metricName: '裂缝值'
+      }
+    })
+  })
+
   it('loads governance replay from pending replay work items by resolving product key', async () => {
     mockPageWorkItems.mockResolvedValue({
       code: 200,

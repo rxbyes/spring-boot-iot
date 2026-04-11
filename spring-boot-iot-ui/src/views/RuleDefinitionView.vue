@@ -386,6 +386,7 @@ const rules = {
 const submitLoading = ref(false);
 const missingPolicyTotal = ref(0);
 let latestListRequestId = 0;
+let governanceCreateHandled = false;
 
 const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
 const convertToEventCount = computed(() => ruleList.value.filter((item) => item.convertToEvent === 1).length);
@@ -580,6 +581,23 @@ function parseRouteNumberQuery(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseGovernanceCreateContext() {
+  if (parseRouteStringQuery(route.query.governanceAction) !== 'create') {
+    return null;
+  }
+  if (parseRouteStringQuery(route.query.governanceSource) !== 'task') {
+    return null;
+  }
+  if (parseRouteStringQuery(route.query.workItemCode) !== 'PENDING_THRESHOLD_POLICY') {
+    return null;
+  }
+  return {
+    riskMetricId: parseRouteNumberQuery(route.query.riskMetricId),
+    metricIdentifier: parseRouteStringQuery(route.query.metricIdentifier),
+    metricName: parseRouteStringQuery(route.query.metricName)
+  };
+}
+
 const loadAlarmLevelOptionList = async () => {
   try {
     alarmLevelOptions.value = await fetchAlarmLevelOptions();
@@ -611,6 +629,21 @@ const handleAdd = () => {
   resetRuleForm();
   formVisible.value = true;
 };
+
+function applyGovernanceCreateContext() {
+  if (governanceCreateHandled) {
+    return;
+  }
+  const context = parseGovernanceCreateContext();
+  if (!context) {
+    return;
+  }
+  governanceCreateHandled = true;
+  handleAdd();
+  form.riskMetricId = context.riskMetricId;
+  form.metricIdentifier = context.metricIdentifier;
+  form.metricName = context.metricName;
+}
 
 const handleEdit = (row: RuleDefinition) => {
   form.id = row.id;
@@ -674,6 +707,7 @@ const handleFormClose = () => {
 onMounted(() => {
   applyRouteQueryToFilters();
   syncAppliedFilters();
+  applyGovernanceCreateContext();
   void loadAlarmLevelOptionList();
   void loadRuleList();
 });
