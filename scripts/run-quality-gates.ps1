@@ -49,15 +49,34 @@ function Invoke-LoggedCommand {
     )
 
     Write-Log "START $Step"
-    Push-Location $WorkingDirectory
+    $stdoutFile = [System.IO.Path]::GetTempFileName()
+    $stderrFile = [System.IO.Path]::GetTempFileName()
     try {
-        & $Executable @Arguments 2>&1 |
-            Tee-Object -FilePath $logFile -Append
-        if ($LASTEXITCODE -ne 0) {
-            throw "$Step failed with exit code $LASTEXITCODE"
+        $process = Start-Process -FilePath $Executable `
+            -ArgumentList $Arguments `
+            -WorkingDirectory $WorkingDirectory `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdoutFile `
+            -RedirectStandardError $stderrFile
+
+        foreach ($streamFile in @($stdoutFile, $stderrFile)) {
+            if ((Test-Path $streamFile) -and (Get-Item $streamFile).Length -gt 0) {
+                Get-Content -Path $streamFile -Encoding UTF8 |
+                    Tee-Object -FilePath $logFile -Append
+            }
+        }
+
+        if ($process.ExitCode -ne 0) {
+            throw "$Step failed with exit code $($process.ExitCode)"
         }
     } finally {
-        Pop-Location
+        foreach ($streamFile in @($stdoutFile, $stderrFile)) {
+            if (Test-Path $streamFile) {
+                Remove-Item -LiteralPath $streamFile -Force
+            }
+        }
     }
     Write-Log "PASS $Step"
 }

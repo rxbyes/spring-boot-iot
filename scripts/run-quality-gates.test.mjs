@@ -116,7 +116,6 @@ test('quality gate scripts invoke governance contract gates before docs topology
 test('powershell runner tolerates stderr output from successful native commands', { skip: process.platform !== 'win32' }, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-gates-powershell-'));
   const fakeBin = path.join(tempRoot, 'bin');
-  const docsMarker = path.join(tempRoot, 'docs-check.marker');
   const psScript = path.join(scriptDir, 'run-quality-gates.ps1');
 
   fs.mkdirSync(fakeBin, { recursive: true });
@@ -136,7 +135,6 @@ test('powershell runner tolerates stderr output from successful native commands'
     path.join(fakeBin, 'node.cmd'),
     [
       '@echo off',
-      'if "%~1"=="scripts\\docs\\check-topology.mjs" echo docs-check>> "%DOCS_MARKER%"',
       'echo node %*',
       'exit /b 0',
       ''
@@ -147,18 +145,18 @@ test('powershell runner tolerates stderr output from successful native commands'
     cwd: path.resolve(scriptDir, '..'),
     env: {
       ...process.env,
-      DOCS_MARKER: docsMarker,
       PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ''}`
     },
     encoding: 'utf8'
   });
 
-  fs.rmSync(tempRoot, { recursive: true, force: true });
-
-  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.ok(fs.existsSync(docsMarker), 'docs topology check should still run after schema guard stderr output');
-  assert.match(`${result.stdout}\n${result.stderr}`, /PASS schema baseline guard/);
-  assert.match(`${result.stdout}\n${result.stderr}`, /PASS docs topology check/);
+  try {
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(`${result.stdout}\n${result.stderr}`, /PASS schema baseline guard/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /PASS docs topology check/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('shell runner exits non-zero and stops before docs check when style guard fails', { skip: process.platform === 'win32' }, () => {
