@@ -282,6 +282,54 @@ describe('governance control plane views', () => {
     })
   })
 
+  it('dispatches pending product governance work items into the product workspace with collector-child context', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 10,
+            workItemCode: 'PENDING_PRODUCT_GOVERNANCE',
+            workStatus: 'OPEN',
+            productId: 6006,
+            blockingReason: '采集器产品尚未进入治理主链路',
+            snapshotJson: JSON.stringify({
+              governanceBoundary: 'collector-child',
+              subjectOwnership: 'collector',
+              governanceFocus: 'collector-runtime',
+              dispatchPath: '/products'
+            })
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const dispatchButton = wrapper.findAll('button').find((button) => button.text() === '去处理')
+    expect(dispatchButton).toBeTruthy()
+
+    await dispatchButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products',
+      query: {
+        openProductId: '6006',
+        workbenchView: 'models',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_PRODUCT_GOVERNANCE',
+        governanceBoundary: 'collector-child',
+        subjectOwnership: 'collector',
+        governanceFocus: 'collector-runtime'
+      }
+    })
+  })
+
   it('dispatches pending risk binding work items into the risk-point pending promotion workspace', async () => {
     mockPageWorkItems.mockResolvedValue({
       code: 200,
@@ -300,7 +348,9 @@ describe('governance control plane views', () => {
             blockingReason: '风险点绑定缺口待收口',
             snapshotJson: JSON.stringify({
               riskPointId: 3001,
-              riskPointName: '北坡GNSS-01'
+              riskPointName: '北坡GNSS-01',
+              governanceBoundary: 'collector-child',
+              subjectOwnership: 'child'
             })
           }
         ]
@@ -322,7 +372,9 @@ describe('governance control plane views', () => {
         bindingAction: 'pending-promotion',
         keyword: '北坡GNSS-01',
         governanceSource: 'task',
-        workItemCode: 'PENDING_RISK_BINDING'
+        workItemCode: 'PENDING_RISK_BINDING',
+        governanceBoundary: 'collector-child',
+        subjectOwnership: 'child'
       }
     })
   })
@@ -348,7 +400,9 @@ describe('governance control plane views', () => {
               deviceId: 5001,
               deviceCode: 'DEVICE-5001',
               metricIdentifier: 'displacementX',
-              metricName: '位移 X'
+              metricName: '位移 X',
+              governanceBoundary: 'collector-child',
+              subjectOwnership: 'child'
             })
           }
         ]
@@ -371,7 +425,9 @@ describe('governance control plane views', () => {
         workItemCode: 'PENDING_THRESHOLD_POLICY',
         riskMetricId: '6102',
         metricIdentifier: 'displacementX',
-        metricName: '位移 X'
+        metricName: '位移 X',
+        governanceBoundary: 'collector-child',
+        subjectOwnership: 'child'
       }
     })
   })

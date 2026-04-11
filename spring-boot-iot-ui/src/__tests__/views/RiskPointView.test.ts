@@ -1289,6 +1289,70 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('X轴位移')
   })
 
+  it('shows collector-child governance note when pending promotion comes from child-owned task context', async () => {
+    mockRoute.query = {
+      openRiskPointId: '1',
+      bindingAction: 'pending-promotion',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_RISK_BINDING',
+      governanceBoundary: 'collector-child',
+      subjectOwnership: 'child'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetRiskPointById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createRiskPointRow()
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            metricIdentifier: 'dispsX',
+            metricName: 'X轴位移',
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('风险绑定工作台')
+    expect(wrapper.text()).toContain('当前为采集器-子设备边界场景')
+    expect(wrapper.text()).toContain('不要把采集器当作监测主体')
+  })
+
   it('auto-opens the unified binding workbench on the formal-binding view when governance route requests maintain-binding', async () => {
     mockRoute.query = {
       openRiskPointId: '1',

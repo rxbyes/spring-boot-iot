@@ -410,6 +410,10 @@
           <strong>工作台说明</strong>
           <span>统一在此查看正式绑定与待治理转正；正式绑定仍只维护 `risk_point_device`，待治理仍只处理 pending 台账与转正留痕。</span>
         </div>
+        <div v-if="bindingWorkbenchGovernanceNote" class="ops-drawer-note">
+          <strong>边界提示</strong>
+          <span>{{ bindingWorkbenchGovernanceNote }}</span>
+        </div>
 
         <section v-if="bindingWorkbenchRiskPoint" class="ops-drawer-section">
           <div class="ops-drawer-section__header">
@@ -781,6 +785,15 @@ const bindingWorkbenchSubtitle = computed(() =>
     ? '查看系统推荐候选并提交一个或多个测点转正式绑定。'
     : '查看正式绑定摘要，并可在同一工作台切换到待治理转正。'
 );
+const bindingWorkbenchGovernanceNote = computed(() => {
+  if (parseRouteStringQuery(route.query.governanceBoundary) !== 'collector-child') {
+    return '';
+  }
+  if (parseRouteStringQuery(route.query.subjectOwnership) !== 'child') {
+    return '';
+  }
+  return '当前为采集器-子设备边界场景，风险绑定对象应保持为子设备正式测点，不要把采集器当作监测主体。';
+});
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的风险点' : '还没有风险对象'));
 const emptyStateDescription = computed(() =>
   hasAppliedFilters.value

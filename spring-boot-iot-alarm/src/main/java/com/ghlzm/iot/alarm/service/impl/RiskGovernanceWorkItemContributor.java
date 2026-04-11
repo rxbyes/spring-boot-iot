@@ -188,11 +188,11 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         null,
                         "MODEL_GOVERNANCE",
                         "产品尚未进入治理主链路",
-                        snapshotOf(snapshotMap(
+                        snapshotOf(withGovernanceContext(product, "/products", governanceFocusForProductWorkbench(product), snapshotMap(
                                 "productId", product.getId(),
                                 "productKey", safeText(product.getProductKey()),
                                 "productName", safeText(product.getProductName())
-                        )),
+                        ))),
                         "P2",
                         SYSTEM_OPERATOR_ID
                 ));
@@ -212,11 +212,11 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                         null,
                         "CONTRACT_RELEASE",
                         "产品尚未形成正式合同发布批次",
-                        snapshotOf(snapshotMap(
+                        snapshotOf(withGovernanceContext(product, "/products", governanceFocusForProductWorkbench(product), snapshotMap(
                                 "productId", product.getId(),
                                 "productKey", safeText(product.getProductKey()),
                                 "productName", safeText(product.getProductName())
-                        )),
+                        ))),
                         "P1",
                         SYSTEM_OPERATOR_ID
                 ));
@@ -242,12 +242,12 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                     null,
                     "RISK_BINDING",
                     "设备已上报，待绑定风险点",
-                    snapshotOf(snapshotMap(
+                    snapshotOf(withGovernanceContext(product, "/risk-point", null, snapshotMap(
                             "deviceId", device.getId(),
                             "deviceCode", safeText(device.getDeviceCode()),
                             "deviceName", safeText(device.getDeviceName()),
                             "productId", device.getProductId()
-                    )),
+                    ))),
                     "P1",
                     SYSTEM_OPERATOR_ID
             ));
@@ -274,14 +274,14 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                     null,
                     "RULE_DEFINITION",
                     "风险点已绑定，待补阈值策略",
-                    snapshotOf(snapshotMap(
+                    snapshotOf(withGovernanceContext(product, "/rule-definition", null, snapshotMap(
                             "riskPointDeviceId", subjectIdOfBinding(binding),
                             "riskPointId", binding.getRiskPointId(),
                             "deviceId", binding.getDeviceId(),
                             "deviceCode", safeText(binding.getDeviceCode()),
                             "metricIdentifier", safeText(binding.getMetricIdentifier()),
                             "metricName", safeText(binding.getMetricName())
-                    )),
+                    ))),
                     "P1",
                     SYSTEM_OPERATOR_ID
             ));
@@ -675,6 +675,99 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
         return leftId >= rightId ? left : right;
     }
 
+    private Map<String, Object> withGovernanceContext(Product product,
+                                                      String dispatchPath,
+                                                      String governanceFocus,
+                                                      Map<String, Object> snapshot) {
+        Map<String, Object> enriched = new LinkedHashMap<>(snapshot == null ? Map.of() : snapshot);
+        GovernanceBoundaryContext context = resolveBoundaryContext(product);
+        if (StringUtils.hasText(context.governanceBoundary())) {
+            enriched.put("governanceBoundary", context.governanceBoundary());
+        }
+        if (StringUtils.hasText(context.subjectOwnership())) {
+            enriched.put("subjectOwnership", context.subjectOwnership());
+        }
+        if (StringUtils.hasText(context.subjectScenario())) {
+            enriched.put("subjectScenario", context.subjectScenario());
+        }
+        if (StringUtils.hasText(dispatchPath)) {
+            enriched.put("dispatchPath", dispatchPath);
+        }
+        if (StringUtils.hasText(governanceFocus)) {
+            enriched.put("governanceFocus", governanceFocus);
+        }
+        return enriched;
+    }
+
+    private GovernanceBoundaryContext resolveBoundaryContext(Product product) {
+        if (product == null) {
+            return new GovernanceBoundaryContext(null, null, null);
+        }
+        if (matchesCollector(product.getProductKey())
+                || matchesCollector(product.getProductName())
+                || matchesCollector(product.getManufacturer())
+                || matchesCollector(product.getDescription())) {
+            return new GovernanceBoundaryContext("collector-child", "collector", "collector");
+        }
+        if (matchesDeepDisplacement(product.getProductKey())
+                || matchesDeepDisplacement(product.getProductName())
+                || matchesDeepDisplacement(product.getManufacturer())
+                || matchesDeepDisplacement(product.getDescription())) {
+            return new GovernanceBoundaryContext("collector-child", "child", "deep-displacement");
+        }
+        if (matchesLaser(product.getProductKey())
+                || matchesLaser(product.getProductName())
+                || matchesLaser(product.getManufacturer())
+                || matchesLaser(product.getDescription())) {
+            return new GovernanceBoundaryContext("collector-child", "child", "laser-rangefinder");
+        }
+        return new GovernanceBoundaryContext(null, null, null);
+    }
+
+    private String governanceFocusForProductWorkbench(Product product) {
+        GovernanceBoundaryContext context = resolveBoundaryContext(product);
+        if ("collector".equals(context.subjectOwnership())) {
+            return "collector-runtime";
+        }
+        if ("child".equals(context.subjectOwnership())) {
+            return "child-formal";
+        }
+        return null;
+    }
+
+    private boolean matchesCollector(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("collector")
+                || normalized.contains("collect-rtu")
+                || value.contains("采集型")
+                || value.contains("采集器")
+                || value.contains("遥测终端");
+    }
+
+    private boolean matchesLaser(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("laser-rangefinder")
+                || normalized.contains("laser_rangefinder")
+                || value.contains("激光")
+                || value.contains("测距");
+    }
+
+    private boolean matchesDeepDisplacement(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("deep-displacement")
+                || normalized.contains("deep_displacement")
+                || value.contains("深部位移");
+    }
+
     private Map<String, Object> snapshotMap(Object... keyValues) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         for (int index = 0; index + 1 < keyValues.length; index += 2) {
@@ -707,6 +800,11 @@ public class RiskGovernanceWorkItemContributor implements GovernanceWorkItemCont
                                        long riskPointCount,
                                        Long productId,
                                        String deviceCode) {
+    }
+
+    private record GovernanceBoundaryContext(String governanceBoundary,
+                                             String subjectOwnership,
+                                             String subjectScenario) {
     }
 
     private static final class MissingPolicySignalAccumulator {

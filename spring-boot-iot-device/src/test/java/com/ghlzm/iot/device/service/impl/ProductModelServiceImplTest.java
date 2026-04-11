@@ -542,6 +542,43 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldDecorateDeepDisplacementRowsWithNormativeMetadata() {
+        when(productMapper.selectById(4004L)).thenReturn(product(
+                4004L,
+                "nf-monitor-deep-displacement-v1",
+                "南方测绘 监测型 深部位移监测仪"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase3-deep-displacement")).thenReturn(List.of(
+                normativeDefinition("phase3-deep-displacement", "dispsX", "顺滑动方向累计变形量", 1),
+                normativeDefinition("phase3-deep-displacement", "dispsY", "垂直坡面方向累计变形量", 1),
+                normativeDefinition("phase3-deep-displacement", "sensor_state", "传感器状态", 0)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00FB0D1310195");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_SW_1", "84330701", "LEGACY", "SENSOR_STATE")));
+        manualExtract.setSamplePayload("""
+                {"SK00FB0D1310195":{"L1_SW_1":{"2026-04-09T13:53:10.000Z":{"dispsX":-0.0166,"dispsY":-0.0368}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(4004L, dto);
+
+        ProductModelGovernanceCompareRowVO row = result.getCompareRows().get(0);
+        assertEquals("dispsX", row.getIdentifier());
+        assertEquals("dispsX", row.getNormativeIdentifier());
+        assertEquals("顺滑动方向累计变形量", row.getNormativeName());
+        assertTrue(row.getRiskReady());
+        assertEquals(List.of("L1_SW_1.dispsX"), row.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(4004L), eq("phase3-deep-displacement"), any());
+    }
+
+    @Test
     void compareGovernanceShouldOnlyMirrorCompositeSensorStateWithoutLeakingParentTerminalStatus() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -832,6 +869,34 @@ class ProductModelServiceImplTest {
         ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(5005L, dto, 10001L);
 
         assertEquals(55667L, result.getReleaseBatchId());
+        assertEquals(1, result.getCreatedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldReturnDeepDisplacementReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(4004L)).thenReturn(product(
+                4004L,
+                "nf-monitor-deep-displacement-v1",
+                "南方测绘 监测型 深部位移监测仪"
+        ));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        when(productContractReleaseService.createBatch(
+                eq(4004L),
+                eq("phase3-deep-displacement"),
+                eq("manual_compare_apply"),
+                eq(1),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(44678L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "dispsX", "顺滑动方向累计变形量")));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(4004L, dto, 10001L);
+
+        assertEquals(44678L, result.getReleaseBatchId());
         assertEquals(1, result.getCreatedCount());
     }
 

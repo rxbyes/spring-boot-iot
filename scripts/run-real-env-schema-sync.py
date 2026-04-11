@@ -181,6 +181,75 @@ COLLECTOR_CHILD_BASELINE_METADATA = {
     },
 }
 
+COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS = (
+    {
+        "id": 920021,
+        "scenario_code": "phase3-deep-displacement",
+        "device_family": "DEEP_DISPLACEMENT",
+        "identifier": "dispsX",
+        "display_name": "顺滑动方向累计变形量",
+        "unit": "mm",
+        "precision_digits": 4,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "SW",
+        "risk_enabled": 1,
+        "trend_enabled": 1,
+        "metric_dimension": "displacement",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 1,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "DEEP_DISPLACEMENT", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920022,
+        "scenario_code": "phase3-deep-displacement",
+        "device_family": "DEEP_DISPLACEMENT",
+        "identifier": "dispsY",
+        "display_name": "垂直坡面方向累计变形量",
+        "unit": "mm",
+        "precision_digits": 4,
+        "monitor_content_code": "L1",
+        "monitor_type_code": "SW",
+        "risk_enabled": 1,
+        "trend_enabled": 1,
+        "metric_dimension": "displacement",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 1,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "DEEP_DISPLACEMENT", "metricRole": "PRIMARY"},
+    },
+    {
+        "id": 920023,
+        "scenario_code": "phase3-deep-displacement",
+        "device_family": "DEEP_DISPLACEMENT",
+        "identifier": "sensor_state",
+        "display_name": "传感器状态",
+        "unit": None,
+        "precision_digits": 0,
+        "monitor_content_code": "S1",
+        "monitor_type_code": "ZT",
+        "risk_enabled": 0,
+        "trend_enabled": 0,
+        "metric_dimension": "health_state",
+        "threshold_type": "enum",
+        "semantic_direction": "STATE_IS_RISK",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 0,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"usage": "health_state", "riskCategory": "DEVICE_HEALTH", "metricRole": "STATE"},
+    },
+)
+
 LASER_COLLECTOR_DEVICE_IDS = {
     "SK00EA0D1307988": 202604110300001,
     "SK00EA0D1307967": 202604110300002,
@@ -2560,7 +2629,14 @@ def ensure_device_org_backfill(cur: pymysql.cursors.Cursor, db: str) -> None:
 
 
 def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) -> None:
-    required_tables = ("iot_product", "iot_product_model", "iot_device", "iot_device_relation", "iot_device_property")
+    required_tables = (
+        "iot_product",
+        "iot_product_model",
+        "iot_normative_metric_definition",
+        "iot_device",
+        "iot_device_relation",
+        "iot_device_property",
+    )
     for table in required_tables:
         if not table_exists(cur, db, table):
             print(f"[skip] collector-child baseline: table missing {table}")
@@ -2637,6 +2713,63 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
                 json.dumps(seed["specs_json"], ensure_ascii=False),
                 int(seed["sort_no"]),
                 str(seed["description"]),
+            ),
+        )
+
+    for seed in COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS:
+        cur.execute(
+            """
+            INSERT INTO iot_normative_metric_definition (
+                id, tenant_id, scenario_code, device_family, identifier, display_name, unit,
+                precision_digits, monitor_content_code, monitor_type_code, risk_enabled, trend_enabled,
+                metric_dimension, threshold_type, semantic_direction, gis_enabled, insight_enabled, analytics_enabled,
+                status, version_no, metadata_json
+            ) VALUES (
+                %s, 1, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, CAST(%s AS JSON)
+            )
+            ON DUPLICATE KEY UPDATE
+                display_name = VALUES(display_name),
+                unit = VALUES(unit),
+                precision_digits = VALUES(precision_digits),
+                monitor_content_code = VALUES(monitor_content_code),
+                monitor_type_code = VALUES(monitor_type_code),
+                risk_enabled = VALUES(risk_enabled),
+                trend_enabled = VALUES(trend_enabled),
+                metric_dimension = VALUES(metric_dimension),
+                threshold_type = VALUES(threshold_type),
+                semantic_direction = VALUES(semantic_direction),
+                gis_enabled = VALUES(gis_enabled),
+                insight_enabled = VALUES(insight_enabled),
+                analytics_enabled = VALUES(analytics_enabled),
+                status = VALUES(status),
+                version_no = VALUES(version_no),
+                metadata_json = VALUES(metadata_json),
+                deleted = 0
+            """,
+            (
+                int(seed["id"]),
+                str(seed["scenario_code"]),
+                str(seed["device_family"]),
+                str(seed["identifier"]),
+                str(seed["display_name"]),
+                seed["unit"],
+                int(seed["precision_digits"]),
+                str(seed["monitor_content_code"]),
+                str(seed["monitor_type_code"]),
+                int(seed["risk_enabled"]),
+                int(seed["trend_enabled"]),
+                str(seed["metric_dimension"]),
+                str(seed["threshold_type"]),
+                str(seed["semantic_direction"]),
+                int(seed["gis_enabled"]),
+                int(seed["insight_enabled"]),
+                int(seed["analytics_enabled"]),
+                str(seed["status"]),
+                int(seed["version_no"]),
+                json.dumps(seed["metadata_json"], ensure_ascii=False),
             ),
         )
 

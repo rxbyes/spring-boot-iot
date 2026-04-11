@@ -413,4 +413,33 @@ describe('RuleDefinitionView', () => {
     expect((wrapper.vm as any).form.metricName).toBe('位移 X');
     expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');
   });
+
+  it('shows collector-child governance note when threshold drawer is opened for child-owned metric context', async () => {
+    mockRoute.query = {
+      governanceAction: 'create',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_THRESHOLD_POLICY',
+      riskMetricId: '6102',
+      metricIdentifier: 'dispsX',
+      metricName: 'X轴位移',
+      governanceBoundary: 'collector-child',
+      subjectOwnership: 'child'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('当前规则针对子设备正式测点');
+    expect(wrapper.text()).toContain('采集器仅承担状态采集');
+  });
 });

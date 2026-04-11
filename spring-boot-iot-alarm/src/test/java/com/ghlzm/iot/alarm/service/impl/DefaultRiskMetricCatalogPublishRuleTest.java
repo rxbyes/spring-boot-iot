@@ -37,6 +37,20 @@ class DefaultRiskMetricCatalogPublishRuleTest {
         assertEquals(Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"), identifiers);
     }
 
+    @Test
+    void resolveRiskEnabledIdentifiersShouldPublishOnlyDeepDisplacementMetrics() {
+        ProductModel dispsX = productModel("dispsX");
+        ProductModel dispsY = productModel("dispsY");
+        ProductModel sensorState = productModel("sensor_state");
+
+        Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                null,
+                List.of(dispsX, dispsY, sensorState)
+        );
+
+        assertEquals(Set.of("dispsX", "dispsY"), identifiers);
+    }
+
     private ProductModel productModel(String identifier) {
         ProductModel productModel = new ProductModel();
         productModel.setIdentifier(identifier);

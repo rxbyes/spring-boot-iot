@@ -80,6 +80,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final NotificationChannelDispatcher notificationChannelDispatcher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final DefaultRiskMetricCatalogPublishRule riskMetricCatalogPublishRule = new DefaultRiskMetricCatalogPublishRule();
 
     public RiskGovernanceOpsServiceImpl(VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                         ProductModelMapper productModelMapper,
@@ -126,6 +127,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         Map<Long, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, value -> value, (left, right) -> left));
         Map<Long, Set<String>> contractIdentifiersByProduct = buildContractIdentifierMap(productIds);
+        Map<Long, Set<String>> riskPublishableContractIdentifiersByProduct = buildRiskPublishableContractIdentifierMap(productIds);
         Map<Long, Set<String>> riskMetricIdentifiersByProduct = buildRiskMetricIdentifierMap(productIds);
         List<VendorMetricEvidence> evidences = vendorMetricEvidenceMapper.selectList(new LambdaQueryWrapper<VendorMetricEvidence>()
                 .eq(VendorMetricEvidence::getDeleted, 0)
@@ -133,6 +135,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         List<RiskGovernanceOpsAlertItemVO> alerts = collectOpsAlerts(
                 productMap,
                 contractIdentifiersByProduct,
+                riskPublishableContractIdentifiersByProduct,
                 riskMetricIdentifiersByProduct,
                 evidences
         );
@@ -441,6 +444,34 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         return map;
     }
 
+    private Map<Long, Set<String>> buildRiskPublishableContractIdentifierMap(Set<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ProductModel> models = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
+                .eq(ProductModel::getDeleted, 0)
+                .eq(ProductModel::getModelType, "property")
+                .in(ProductModel::getProductId, productIds));
+        Map<Long, List<ProductModel>> modelsByProduct = new LinkedHashMap<>();
+        for (ProductModel model : models) {
+            if (model == null || model.getProductId() == null) {
+                continue;
+            }
+            modelsByProduct.computeIfAbsent(model.getProductId(), key -> new ArrayList<>()).add(model);
+        }
+        Map<Long, Set<String>> map = new LinkedHashMap<>();
+        for (Long productId : productIds) {
+            Set<String> publishableIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(
+                    null,
+                    modelsByProduct.getOrDefault(productId, List.of())
+            );
+            if (!publishableIdentifiers.isEmpty()) {
+                map.put(productId, publishableIdentifiers);
+            }
+        }
+        return map;
+    }
+
     private Map<Long, Set<String>> buildRiskMetricIdentifierMap(Set<Long> productIds) {
         if (productIds == null || productIds.isEmpty()) {
             return Map.of();
@@ -551,6 +582,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
 
     private List<RiskGovernanceOpsAlertItemVO> collectOpsAlerts(Map<Long, Product> productMap,
                                                                 Map<Long, Set<String>> contractIdentifiersByProduct,
+                                                                Map<Long, Set<String>> riskPublishableContractIdentifiersByProduct,
                                                                 Map<Long, Set<String>> riskMetricIdentifiersByProduct,
                                                                 List<VendorMetricEvidence> evidences) {
         Map<String, OpsAlertAccumulator> accumulators = new LinkedHashMap<>();
@@ -591,7 +623,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         for (Map.Entry<Long, Product> entry : productMap.entrySet()) {
             Long productId = entry.getKey();
             Product product = entry.getValue();
-            Set<String> contractIdentifiers = contractIdentifiersByProduct.getOrDefault(productId, Set.of());
+            Set<String> contractIdentifiers = riskPublishableContractIdentifiersByProduct.getOrDefault(productId, Set.of());
             if (contractIdentifiers.isEmpty()) {
                 continue;
             }
@@ -608,7 +640,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
                     "风险指标缺失告警",
                     product,
                     missingIdentifiers.iterator().next(),
-                    "missing=" + missingIdentifiers.size()
+                    buildMissingRiskMetricDetail(product, missingIdentifiers.size())
             ).add(missingIdentifiers.size() - 1L);
         }
         return accumulators.values().stream().map(OpsAlertAccumulator::toVO).toList();
@@ -688,7 +720,11 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
             return null;
         }
         String sampleIdentifier = normalize(alert.getSampleIdentifier());
+        String ownership = resolveSubjectOwnership(alert.getProductKey());
         if (StringUtils.hasText(sampleIdentifier)) {
+            if (StringUtils.hasText(ownership)) {
+                return "product:" + alert.getProductId() + ":" + ownership + ":" + sampleIdentifier;
+            }
             return "product:" + alert.getProductId() + ":" + sampleIdentifier;
         }
         return "product:" + alert.getProductId();
@@ -700,6 +736,10 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         }
         String sampleIdentifier = normalize(alert.getSampleIdentifier());
         String productName = firstNonBlank(alert.getProductName(), alert.getProductKey(), "product-" + alert.getProductId());
+        String ownership = resolveSubjectOwnership(alert.getProductKey());
+        if (StringUtils.hasText(sampleIdentifier) && StringUtils.hasText(ownership)) {
+            return productName + "/" + ownership + "/" + sampleIdentifier;
+        }
         return StringUtils.hasText(sampleIdentifier) ? productName + "/" + sampleIdentifier : productName;
     }
 
@@ -718,6 +758,14 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         if (StringUtils.hasText(alert.getProductKey())) {
             snapshot.put("productKey", alert.getProductKey());
         }
+        String governanceBoundary = resolveGovernanceBoundary(alert.getProductKey());
+        String subjectOwnership = resolveSubjectOwnership(alert.getProductKey());
+        if (StringUtils.hasText(governanceBoundary)) {
+            snapshot.put("governanceBoundary", governanceBoundary);
+        }
+        if (StringUtils.hasText(subjectOwnership)) {
+            snapshot.put("subjectOwnership", subjectOwnership);
+        }
         try {
             return objectMapper.writeValueAsString(snapshot);
         } catch (Exception ex) {
@@ -725,12 +773,72 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         }
     }
 
+    private String buildMissingRiskMetricDetail(Product product, int missingCount) {
+        String governanceBoundary = resolveGovernanceBoundary(product == null ? null : product.getProductKey());
+        String subjectOwnership = resolveSubjectOwnership(product == null ? null : product.getProductKey());
+        if (StringUtils.hasText(governanceBoundary) && StringUtils.hasText(subjectOwnership)) {
+            return subjectOwnership + "-owned formal metric, boundary=" + governanceBoundary + ", missing=" + missingCount;
+        }
+        return "missing=" + missingCount;
+    }
+
+    private String resolveGovernanceBoundary(String productKey) {
+        return isCollectorChildProduct(productKey) ? "collector-child" : null;
+    }
+
+    private String resolveSubjectOwnership(String productKey) {
+        if (matchesDeepDisplacement(productKey) || matchesLaser(productKey)) {
+            return "child";
+        }
+        if (matchesCollector(productKey)) {
+            return "collector";
+        }
+        return null;
+    }
+
+    private boolean isCollectorChildProduct(String productKey) {
+        return matchesCollector(productKey) || matchesLaser(productKey) || matchesDeepDisplacement(productKey);
+    }
+
+    private boolean matchesCollector(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("collector")
+                || normalized.contains("collect-rtu")
+                || value.contains("采集型")
+                || value.contains("采集器")
+                || value.contains("遥测终端");
+    }
+
+    private boolean matchesLaser(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("laser-rangefinder")
+                || normalized.contains("laser_rangefinder")
+                || value.contains("激光")
+                || value.contains("测距");
+    }
+
+    private boolean matchesDeepDisplacement(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("deep-displacement")
+                || normalized.contains("deep_displacement")
+                || value.contains("深部位移");
+    }
+
     private Long resolveMissingRiskMetricCount(Long productId) {
         if (productId == null) {
             return 0L;
         }
         Set<Long> productIds = Set.of(productId);
-        Set<String> contractIdentifiers = buildContractIdentifierMap(productIds).getOrDefault(productId, Set.of());
+        Set<String> contractIdentifiers = buildRiskPublishableContractIdentifierMap(productIds).getOrDefault(productId, Set.of());
         Set<String> riskIdentifiers = buildRiskMetricIdentifierMap(productIds).getOrDefault(productId, Set.of());
         return contractIdentifiers.stream().filter(identifier -> !riskIdentifiers.contains(identifier)).count();
     }

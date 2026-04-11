@@ -51,8 +51,20 @@ function normalizeCoverageType(value?: string) {
   return normalized === 'LINKAGE' || normalized === 'EMERGENCY_PLAN' ? normalized : undefined
 }
 
+function governanceContextQuery(item: GovernanceWorkItem) {
+  const governanceBoundary = snapshotText(item.snapshotJson, 'governanceBoundary')
+  const subjectOwnership = snapshotText(item.snapshotJson, 'subjectOwnership')
+  const governanceFocus = snapshotText(item.snapshotJson, 'governanceFocus')
+  return {
+    ...(governanceBoundary ? { governanceBoundary } : {}),
+    ...(subjectOwnership ? { subjectOwnership } : {}),
+    ...(governanceFocus ? { governanceFocus } : {})
+  }
+}
+
 export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): RouteLocationRaw | null {
   switch (item.workItemCode) {
+    case 'PENDING_PRODUCT_GOVERNANCE':
     case 'PENDING_CONTRACT_RELEASE': {
       if (item.productId == null || String(item.productId).trim() === '') {
         return null
@@ -63,7 +75,8 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
           openProductId: String(item.productId),
           workbenchView: 'models',
           governanceSource: 'task',
-          workItemCode: 'PENDING_CONTRACT_RELEASE'
+          workItemCode: item.workItemCode,
+          ...governanceContextQuery(item)
         }
       }
     }
@@ -83,7 +96,8 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
           ...(keyword ? { keyword } : {}),
           bindingAction: 'pending-promotion',
           governanceSource: 'task',
-          workItemCode: 'PENDING_RISK_BINDING'
+          workItemCode: 'PENDING_RISK_BINDING',
+          ...governanceContextQuery(item)
         }
       }
     }
@@ -102,7 +116,8 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
           workItemCode: 'PENDING_THRESHOLD_POLICY',
           ...(riskMetricId ? { riskMetricId } : {}),
           ...(metricIdentifier ? { metricIdentifier } : {}),
-          ...(metricName ? { metricName } : {})
+          ...(metricName ? { metricName } : {}),
+          ...governanceContextQuery(item)
         }
       }
     }

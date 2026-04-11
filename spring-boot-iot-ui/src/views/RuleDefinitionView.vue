@@ -204,6 +204,10 @@
           <strong>配置提示</strong>
           <span>建议先确认测点标识、阈值表达式和持续时间，再决定是否转事件，以保持告警触发和处置链路的一致性。</span>
         </div>
+        <div v-if="governanceContextNote" class="ops-drawer-note">
+          <strong>边界提示</strong>
+          <span>{{ governanceContextNote }}</span>
+        </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
@@ -399,6 +403,18 @@ const emptyStateDescription = computed(() =>
     ? '已生效筛选暂时没有匹配结果，可以调整条件，或者直接清空当前筛选。'
     : '当前还没有阈值策略，先新增规则，再继续告警触发和事件转化治理。'
 );
+const governanceContextNote = computed(() => {
+  if (!formVisible.value) {
+    return '';
+  }
+  if (parseRouteStringQuery(route.query.governanceBoundary) !== 'collector-child') {
+    return '';
+  }
+  if (parseRouteStringQuery(route.query.subjectOwnership) !== 'child') {
+    return '';
+  }
+  return '当前规则针对子设备正式测点，采集器仅承担状态采集，不应作为阈值策略主体。';
+});
 
 const getAlarmLevelType = (level: string) => getAlarmLevelTagType(level);
 

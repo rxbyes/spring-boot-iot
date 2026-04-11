@@ -192,6 +192,42 @@ class RiskGovernanceWorkItemContributorTest {
         ));
     }
 
+    @Test
+    void collectWorkItemsShouldExposeCollectorChildBoundarySnapshotForCollectorGovernanceGap() {
+        Product collector = product(6006L, "nf-collect-rtu-v1", "南方测绘 采集型 遥测终端", LocalDateTime.of(2026, 4, 9, 9, 0));
+        when(productMapper.selectList(any())).thenReturn(List.of(collector));
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of());
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+
+        RiskGovernanceWorkItemContributor contributor = new RiskGovernanceWorkItemContributor(
+                productMapper,
+                productContractReleaseBatchMapper,
+                riskMetricCatalogMapper,
+                deviceMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        List<GovernanceWorkItemCommand> commands = contributor.collectWorkItems();
+
+        assertTrue(commands.stream().anyMatch(command ->
+                "PENDING_PRODUCT_GOVERNANCE".equals(command.workItemCode())
+                        && Long.valueOf(6006L).equals(command.productId())
+                        && command.snapshotJson() != null
+                        && command.snapshotJson().contains("\"governanceBoundary\":\"collector-child\"")
+                        && command.snapshotJson().contains("\"subjectOwnership\":\"collector\"")
+                        && command.snapshotJson().contains("\"dispatchPath\":\"/products\"")
+        ));
+    }
+
     private Product product(Long id, String productKey, String productName, LocalDateTime createTime) {
         Product product = new Product();
         product.setId(id);

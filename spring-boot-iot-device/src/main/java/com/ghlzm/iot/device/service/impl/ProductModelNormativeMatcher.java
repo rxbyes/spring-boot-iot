@@ -14,10 +14,17 @@ final class ProductModelNormativeMatcher {
 
     static final String SCENARIO_PHASE1_CRACK = "phase1-crack";
     static final String SCENARIO_PHASE2_GNSS = "phase2-gnss";
+    static final String SCENARIO_PHASE3_DEEP_DISPLACEMENT = "phase3-deep-displacement";
 
     String resolveScenarioCode(Product product) {
         if (product == null) {
             return null;
+        }
+        if (matchesDeepDisplacement(product.getProductKey())
+                || matchesDeepDisplacement(product.getProductName())
+                || matchesDeepDisplacement(product.getManufacturer())
+                || matchesDeepDisplacement(product.getDescription())) {
+            return SCENARIO_PHASE3_DEEP_DISPLACEMENT;
         }
         if (matchesGnss(product.getProductKey())
                 || matchesGnss(product.getProductName())
@@ -91,6 +98,17 @@ final class ProductModelNormativeMatcher {
                 || normalized.contains("south_laser_rangefinder")
                 || value.contains("激光")
                 || value.contains("测距");
+    }
+
+    private boolean matchesDeepDisplacement(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("deep-displacement")
+                || normalized.contains("deep_displacement")
+                || normalized.contains("south_deep_displacement")
+                || value.contains("深部位移");
     }
 
     record NormativeMatchResult(
