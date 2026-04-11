@@ -38,6 +38,9 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private static final String STATUS_RESOLVED = "RESOLVED";
     private static final String STATUS_CLOSED = "CLOSED";
     private static final String DEFAULT_PRIORITY = "P2";
+    private static final String DEFAULT_DOMAIN = "PRODUCT";
+    private static final String DOMAIN_ALARM = "ALARM";
+    private static final String DEFAULT_EXECUTION_STATUS = "PENDING_APPROVAL";
     private static final long DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS = 300_000L;
 
     private final GovernanceWorkItemMapper workItemMapper;
@@ -98,6 +101,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setSourceStage(normalize(normalized.sourceStage()));
             item.setBlockingReason(normalize(normalized.blockingReason()));
             item.setSnapshotJson(normalize(normalized.snapshotJson()));
+            applyLifecycleHubFields(item, normalized);
             item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
             item.setWorkStatus(STATUS_OPEN);
             item.setCreateBy(normalized.operatorUserId());
@@ -120,6 +124,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
+        applyLifecycleHubFields(refreshed, normalized);
         refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
         refreshed.setWorkStatus(resolveWorkStatus(existing));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
@@ -287,6 +292,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setSourceStage(normalize(normalized.sourceStage()));
             item.setBlockingReason(normalize(normalized.blockingReason()));
             item.setSnapshotJson(normalize(normalized.snapshotJson()));
+            applyLifecycleHubFields(item, normalized);
             item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
             item.setWorkStatus(STATUS_OPEN);
             item.setCreateBy(normalized.operatorUserId());
@@ -309,6 +315,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
+        applyLifecycleHubFields(refreshed, normalized);
         refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
         refreshed.setWorkStatus(resolveWorkStatus(existing));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
@@ -422,6 +429,14 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         vo.setSourceStage(item.getSourceStage());
         vo.setBlockingReason(item.getBlockingReason());
         vo.setSnapshotJson(item.getSnapshotJson());
+        vo.setTaskCategory(item.getTaskCategory());
+        vo.setDomainCode(item.getDomainCode());
+        vo.setActionCode(item.getActionCode());
+        vo.setExecutionStatus(item.getExecutionStatus());
+        vo.setRecommendationSnapshotJson(item.getRecommendationSnapshotJson());
+        vo.setEvidenceSnapshotJson(item.getEvidenceSnapshotJson());
+        vo.setImpactSnapshotJson(item.getImpactSnapshotJson());
+        vo.setRollbackSnapshotJson(item.getRollbackSnapshotJson());
         vo.setDueTime(item.getDueTime());
         vo.setResolvedTime(item.getResolvedTime());
         vo.setClosedTime(item.getClosedTime());
@@ -437,5 +452,92 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private void applyLifecycleHubFields(GovernanceWorkItem item, GovernanceWorkItemCommand command) {
+        String normalizedSnapshot = normalize(command.snapshotJson());
+        item.setTaskCategory(resolveTaskCategory(command));
+        item.setDomainCode(resolveDomainCode(command));
+        item.setActionCode(resolveActionCode(command));
+        item.setExecutionStatus(resolveExecutionStatus(command));
+        item.setRecommendationSnapshotJson(resolveLifecycleSnapshot(command.recommendationSnapshotJson(), normalizedSnapshot, "confidence"));
+        item.setEvidenceSnapshotJson(resolveLifecycleSnapshot(command.evidenceSnapshotJson(), normalizedSnapshot, "evidenceItems"));
+        item.setImpactSnapshotJson(resolveLifecycleSnapshot(command.impactSnapshotJson(), normalizedSnapshot, "affectedRiskPointCount"));
+        item.setRollbackSnapshotJson(resolveLifecycleSnapshot(command.rollbackSnapshotJson(), normalizedSnapshot, "rollbackable"));
+    }
+
+    private String resolveTaskCategory(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.taskCategory());
+        if (StringUtils.hasText(explicit)) {
+            return explicit;
+        }
+        String workItemCode = normalize(command.workItemCode());
+        if ("PENDING_CONTRACT_RELEASE".equals(workItemCode)) {
+            return "CONTRACT_RELEASE";
+        }
+        if ("PENDING_RISK_BINDING".equals(workItemCode)) {
+            return "RISK_BINDING";
+        }
+        if ("PENDING_THRESHOLD_POLICY".equals(workItemCode)) {
+            return "THRESHOLD_POLICY";
+        }
+        if ("PENDING_LINKAGE_PLAN".equals(workItemCode)) {
+            return "LINKAGE_PLAN";
+        }
+        if ("PENDING_REPLAY".equals(workItemCode)) {
+            return "REPLAY";
+        }
+        return "PRODUCT_GOVERNANCE";
+    }
+
+    private String resolveDomainCode(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.domainCode());
+        if (StringUtils.hasText(explicit)) {
+            return explicit;
+        }
+        if ("PENDING_RISK_BINDING".equals(normalize(command.workItemCode()))) {
+            return DOMAIN_ALARM;
+        }
+        return DEFAULT_DOMAIN;
+    }
+
+    private String resolveActionCode(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.actionCode());
+        if (StringUtils.hasText(explicit)) {
+            return explicit;
+        }
+        String workItemCode = normalize(command.workItemCode());
+        if ("PENDING_CONTRACT_RELEASE".equals(workItemCode)) {
+            return "PRODUCT_CONTRACT_RELEASE_APPLY";
+        }
+        if ("PENDING_RISK_BINDING".equals(workItemCode)) {
+            return "RISK_POINT_PENDING_PROMOTION";
+        }
+        if ("PENDING_THRESHOLD_POLICY".equals(workItemCode)) {
+            return "RISK_THRESHOLD_POLICY_REVIEW";
+        }
+        if ("PENDING_LINKAGE_PLAN".equals(workItemCode)) {
+            return "RISK_LINKAGE_PLAN_REVIEW";
+        }
+        if ("PENDING_REPLAY".equals(workItemCode)) {
+            return "RISK_REPLAY_REVIEW";
+        }
+        return "PRODUCT_GOVERNANCE_REVIEW";
+    }
+
+    private String resolveExecutionStatus(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.executionStatus());
+        return StringUtils.hasText(explicit) ? explicit : DEFAULT_EXECUTION_STATUS;
+    }
+
+    private String resolveLifecycleSnapshot(String explicitSnapshot, String fallbackSnapshot, String marker) {
+        String normalized = normalize(explicitSnapshot);
+        if (StringUtils.hasText(normalized)) {
+            return normalized;
+        }
+        if (StringUtils.hasText(fallbackSnapshot) && fallbackSnapshot.contains(marker)) {
+            return fallbackSnapshot;
+        }
+        return null;
     }
 }

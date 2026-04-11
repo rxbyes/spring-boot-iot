@@ -1,14 +1,17 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.lang.reflect.Field;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -17,6 +20,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
@@ -303,5 +307,104 @@ class GovernanceWorkItemServiceImplTest {
                         && "phase2-gnss".equals(item.getProductKey())
                         && Long.valueOf(7001L).equals(item.getReleaseBatchId())
         ));
+    }
+
+    @Test
+    void openOrRefreshShouldBackfillLifecycleHubFieldsForPendingRiskBinding() {
+        when(workItemMapper.selectOne(any())).thenReturn(null);
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.openOrRefresh(new GovernanceWorkItemCommand(
+                "PENDING_RISK_BINDING",
+                "RISK_POINT_DEVICE",
+                5102L,
+                1001L,
+                9102L,
+                7001L,
+                null,
+                null,
+                "device-001",
+                "phase1-crack",
+                null,
+                "RISK_GOVERNANCE",
+                "待处理风险点治理任务",
+                "{\"confidence\":0.97,\"evidenceItems\":[{\"source\":\"catalog\"}],\"affectedRiskPointCount\":3,\"rollbackable\":true}",
+                "P1",
+                10001L
+        ));
+
+        verify(workItemMapper).insert(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                "RISK_BINDING".equals(readString(item, "taskCategory"))
+                        && "ALARM".equals(readString(item, "domainCode"))
+                        && "RISK_POINT_PENDING_PROMOTION".equals(readString(item, "actionCode"))
+                        && "PENDING_APPROVAL".equals(readString(item, "executionStatus"))
+                        && readString(item, "recommendationSnapshotJson").contains("confidence")
+                        && readString(item, "evidenceSnapshotJson").contains("evidenceItems")
+                        && readString(item, "impactSnapshotJson").contains("affectedRiskPointCount")
+                        && readString(item, "rollbackSnapshotJson").contains("rollbackable")
+        ));
+    }
+
+    @Test
+    void pageWorkItemsShouldReturnLifecycleHubFields() {
+        GovernanceWorkItem row = new GovernanceWorkItem();
+        row.setId(9301L);
+        row.setWorkItemCode("PENDING_RISK_BINDING");
+        writeField(row, "taskCategory", "RISK_BINDING");
+        writeField(row, "domainCode", "ALARM");
+        writeField(row, "actionCode", "RISK_POINT_PENDING_PROMOTION");
+        writeField(row, "executionStatus", "PENDING_APPROVAL");
+        writeField(row, "recommendationSnapshotJson", "{\"confidence\":0.97}");
+        writeField(row, "evidenceSnapshotJson", "{\"evidenceItems\":[{\"source\":\"catalog\"}]}");
+        writeField(row, "impactSnapshotJson", "{\"affectedRiskPointCount\":3}");
+        writeField(row, "rollbackSnapshotJson", "{\"rollbackable\":true}");
+
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of(row));
+            page.setTotal(1L);
+            return page;
+        });
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        PageResult<GovernanceWorkItemVO> result = service.pageWorkItems(new GovernanceWorkItemPageQuery(), 10001L);
+
+        GovernanceWorkItemVO record = result.getRecords().get(0);
+        assertEquals("RISK_BINDING", readString(record, "taskCategory"));
+        assertEquals("ALARM", readString(record, "domainCode"));
+        assertEquals("RISK_POINT_PENDING_PROMOTION", readString(record, "actionCode"));
+        assertEquals("PENDING_APPROVAL", readString(record, "executionStatus"));
+        assertTrue(readString(record, "recommendationSnapshotJson").contains("confidence"));
+        assertTrue(readString(record, "evidenceSnapshotJson").contains("evidenceItems"));
+        assertTrue(readString(record, "impactSnapshotJson").contains("affectedRiskPointCount"));
+        assertTrue(readString(record, "rollbackSnapshotJson").contains("rollbackable"));
+    }
+
+    private static void writeField(Object target, String fieldName, String value) {
+        if (target == null) {
+            return;
+        }
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            // compatibility for pre-hub classes
+        }
+    }
+
+    private static String readString(Object target, String fieldName) {
+        if (target == null) {
+            return "";
+        }
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            Object value = field.get(target);
+            return value == null ? "" : String.valueOf(value);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            return "";
+        }
     }
 }

@@ -551,6 +551,12 @@ export interface GovernanceApprovalResubmitPayload {
 }
 
 export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'RESOLVED' | 'CLOSED';
+export type GovernanceWorkItemExecutionStatus =
+  | 'PENDING_APPROVAL'
+  | 'IN_PROGRESS'
+  | 'REPLAY_REQUIRED'
+  | 'RESOLVED'
+  | 'CLOSED';
 
 export interface GovernanceWorkItem {
   id: IdType;
@@ -570,6 +576,14 @@ export interface GovernanceWorkItem {
   sourceStage?: string | null;
   blockingReason?: string | null;
   snapshotJson?: string | null;
+  taskCategory?: string | null;
+  domainCode?: string | null;
+  actionCode?: string | null;
+  executionStatus?: GovernanceWorkItemExecutionStatus | string | null;
+  recommendationSnapshotJson?: string | null;
+  evidenceSnapshotJson?: string | null;
+  impactSnapshotJson?: string | null;
+  rollbackSnapshotJson?: string | null;
   dueTime?: string | null;
   resolvedTime?: string | null;
   closedTime?: string | null;

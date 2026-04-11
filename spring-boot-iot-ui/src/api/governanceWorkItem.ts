@@ -9,14 +9,16 @@ import type {
   PageResult
 } from '@/types/api'
 
+export type GovernanceWorkItemPageResult = PageResult<GovernanceWorkItem>
+
 export function pageGovernanceWorkItems(
   params: GovernanceWorkItemPageQuery = {}
-): Promise<ApiEnvelope<PageResult<GovernanceWorkItem>>> {
+): Promise<ApiEnvelope<GovernanceWorkItemPageResult>> {
   const queryString = buildQueryString(params)
   const path = queryString
     ? `/api/governance/work-items?${queryString}`
     : '/api/governance/work-items'
-  return request<PageResult<GovernanceWorkItem>>(path, {
+  return request<GovernanceWorkItemPageResult>(path, {
     method: 'GET'
   })
 }

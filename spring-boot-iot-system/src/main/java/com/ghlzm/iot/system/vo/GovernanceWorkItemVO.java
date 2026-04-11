@@ -23,6 +23,14 @@ public class GovernanceWorkItemVO {
     private String sourceStage;
     private String blockingReason;
     private String snapshotJson;
+    private String taskCategory;
+    private String domainCode;
+    private String actionCode;
+    private String executionStatus;
+    private String recommendationSnapshotJson;
+    private String evidenceSnapshotJson;
+    private String impactSnapshotJson;
+    private String rollbackSnapshotJson;
     private Date dueTime;
     private Date resolvedTime;
     private Date closedTime;
