@@ -26,6 +26,8 @@ import com.ghlzm.iot.system.service.GovernanceWorkItemService;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -89,13 +91,14 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
         );
     }
 
+    @Autowired
     public RiskPointPendingPromotionServiceImpl(RiskPointDevicePendingBindingMapper pendingBindingMapper,
                                                 RiskPointDevicePendingPromotionMapper promotionMapper,
                                                 RiskPointDeviceMapper riskPointDeviceMapper,
                                                 RiskPointPendingRecommendationService recommendationService,
                                                 RiskPointService riskPointService,
                                                 GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
-                                                GovernanceApprovalService governanceApprovalService,
+                                                @Lazy GovernanceApprovalService governanceApprovalService,
                                                 GovernanceWorkItemService governanceWorkItemService) {
         this.pendingBindingMapper = pendingBindingMapper;
         this.promotionMapper = promotionMapper;

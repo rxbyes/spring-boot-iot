@@ -23,6 +23,8 @@ import com.ghlzm.iot.system.service.GovernanceWorkItemService;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -82,12 +84,13 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         );
     }
 
+    @Autowired
     public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
                                                   RiskPointDeviceMapper riskPointDeviceMapper,
                                                   RiskPointDevicePendingBindingMapper pendingBindingMapper,
                                                   RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
                                                   GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
-                                                  GovernanceApprovalService governanceApprovalService,
+                                                  @Lazy GovernanceApprovalService governanceApprovalService,
                                                   GovernanceWorkItemService governanceWorkItemService) {
         this.riskPointService = riskPointService;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
