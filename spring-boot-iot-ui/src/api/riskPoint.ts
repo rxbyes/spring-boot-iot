@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope, DeviceOption, IdType ,PageResult} from '../types/api';
+import type { ApiEnvelope, DeviceOption, GovernanceSubmissionResult, IdType, PageResult } from '../types/api';
 
 /**
  * 风险点管理 API
@@ -228,13 +228,13 @@ export const deleteRiskPoint = (id: IdType): Promise<ApiEnvelope<void>> => {
 };
 
 // 绑定风险点与设备
-export const bindDevice = (data: Partial<RiskPointDevice>): Promise<ApiEnvelope<void>> => {
-      return request<void>('/api/risk-point/bind-device', { method: 'POST', body: data });
+export const bindDevice = (data: Partial<RiskPointDevice>): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
+      return request<GovernanceSubmissionResult>('/api/risk-point/bind-device', { method: 'POST', body: data });
 };
 
 // 解绑风险点与设备
-export const unbindDevice = (riskPointId: IdType, deviceId: IdType): Promise<ApiEnvelope<void>> => {
-      return request<void>(`/api/risk-point/unbind-device?riskPointId=${riskPointId}&deviceId=${deviceId}`, { method: 'POST' });
+export const unbindDevice = (riskPointId: IdType, deviceId: IdType): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
+      return request<GovernanceSubmissionResult>(`/api/risk-point/unbind-device?riskPointId=${riskPointId}&deviceId=${deviceId}`, { method: 'POST' });
 };
 
 // 获取风险点绑定的设备列表
@@ -285,8 +285,8 @@ export const getPendingBindingCandidates = (pendingId: IdType): Promise<ApiEnvel
       return request<RiskPointPendingCandidateBundle>(`/api/risk-point/pending-bindings/${pendingId}/candidates`, { method: 'GET' });
 };
 
-export const promotePendingBinding = (pendingId: IdType, body: RiskPointPendingPromotionRequest): Promise<ApiEnvelope<RiskPointPendingPromotionResult>> => {
-      return request<RiskPointPendingPromotionResult>(`/api/risk-point/pending-bindings/${pendingId}/promote`, { method: 'POST', body });
+export const promotePendingBinding = (pendingId: IdType, body: RiskPointPendingPromotionRequest): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
+      return request<GovernanceSubmissionResult>(`/api/risk-point/pending-bindings/${pendingId}/promote`, { method: 'POST', body });
 };
 
 export const ignorePendingBinding = (pendingId: IdType, body: { ignoreNote?: string }): Promise<ApiEnvelope<void>> => {

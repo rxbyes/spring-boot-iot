@@ -1055,6 +1055,7 @@ CREATE TABLE IF NOT EXISTS sys_governance_approval_order (
     action_name VARCHAR(128) DEFAULT NULL COMMENT 'approval action name',
     subject_type VARCHAR(64) DEFAULT NULL COMMENT 'approval subject type',
     subject_id BIGINT DEFAULT NULL COMMENT 'approval subject id',
+    work_item_id BIGINT DEFAULT NULL COMMENT 'governance work item id',
     status VARCHAR(32) NOT NULL COMMENT 'approval status',
     operator_user_id BIGINT NOT NULL COMMENT 'operator user id',
     approver_user_id BIGINT NOT NULL COMMENT 'approver user id',
@@ -1088,6 +1089,25 @@ CREATE TABLE IF NOT EXISTS sys_governance_approval_transition (
     KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
     KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance approval transition'
+""",
+    "sys_governance_replay_feedback": """
+CREATE TABLE IF NOT EXISTS sys_governance_replay_feedback (
+    id BIGINT NOT NULL COMMENT 'replay feedback id',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'tenant id',
+    work_item_id BIGINT NOT NULL COMMENT 'governance work item id',
+    approval_order_id BIGINT DEFAULT NULL COMMENT 'approval order id',
+    release_batch_id BIGINT DEFAULT NULL COMMENT 'release batch id',
+    adopted_decision VARCHAR(64) DEFAULT NULL COMMENT 'final adopted decision',
+    execution_outcome VARCHAR(64) DEFAULT NULL COMMENT 'execution outcome',
+    root_cause_code VARCHAR(64) DEFAULT NULL COMMENT 'root cause code',
+    feedback_json LONGTEXT DEFAULT NULL COMMENT 'replay feedback payload',
+    create_by BIGINT DEFAULT NULL COMMENT 'creator',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT 'deleted',
+    PRIMARY KEY (id),
+    KEY idx_governance_replay_feedback_work_item (work_item_id, create_time, deleted),
+    KEY idx_governance_replay_feedback_release_batch (release_batch_id, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='governance replay feedback'
 """,
     "sys_governance_approval_policy": """
 CREATE TABLE IF NOT EXISTS sys_governance_approval_policy (
@@ -1130,6 +1150,14 @@ CREATE TABLE IF NOT EXISTS iot_governance_work_item (
     source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',
     blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',
     snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',
+    task_category VARCHAR(64) NOT NULL DEFAULT 'PRODUCT_GOVERNANCE' COMMENT '任务分类',
+    domain_code VARCHAR(64) NOT NULL DEFAULT 'PRODUCT' COMMENT '领域编码',
+    action_code VARCHAR(64) NOT NULL DEFAULT 'PRODUCT_GOVERNANCE_REVIEW' COMMENT '动作编码',
+    execution_status VARCHAR(32) NOT NULL DEFAULT 'PENDING_APPROVAL' COMMENT '执行状态',
+    recommendation_snapshot_json JSON DEFAULT NULL COMMENT '建议快照',
+    evidence_snapshot_json JSON DEFAULT NULL COMMENT '证据快照',
+    impact_snapshot_json JSON DEFAULT NULL COMMENT '影响快照',
+    rollback_snapshot_json JSON DEFAULT NULL COMMENT '回滚快照',
     due_time DATETIME DEFAULT NULL COMMENT '截止时间',
     resolved_time DATETIME DEFAULT NULL COMMENT '解决时间',
     closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',
@@ -1249,6 +1277,19 @@ COLUMNS_TO_ADD: ColumnSpecMap = {
         ("release_status", "VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT 'RELEASED/ROLLED_BACK'"),
         ("rollback_by", "BIGINT DEFAULT NULL COMMENT 'rollback operator user id'"),
         ("rollback_time", "DATETIME DEFAULT NULL COMMENT 'rollback time'"),
+    ],
+    "sys_governance_approval_order": [
+        ("work_item_id", "BIGINT DEFAULT NULL COMMENT 'governance work item id'"),
+    ],
+    "iot_governance_work_item": [
+        ("task_category", "VARCHAR(64) NOT NULL DEFAULT 'PRODUCT_GOVERNANCE' COMMENT 'task category'"),
+        ("domain_code", "VARCHAR(64) NOT NULL DEFAULT 'PRODUCT' COMMENT 'domain code'"),
+        ("action_code", "VARCHAR(64) NOT NULL DEFAULT 'PRODUCT_GOVERNANCE_REVIEW' COMMENT 'action code'"),
+        ("execution_status", "VARCHAR(32) NOT NULL DEFAULT 'PENDING_APPROVAL' COMMENT 'execution status'"),
+        ("recommendation_snapshot_json", "JSON DEFAULT NULL COMMENT 'recommendation snapshot json'"),
+        ("evidence_snapshot_json", "JSON DEFAULT NULL COMMENT 'evidence snapshot json'"),
+        ("impact_snapshot_json", "JSON DEFAULT NULL COMMENT 'impact snapshot json'"),
+        ("rollback_snapshot_json", "JSON DEFAULT NULL COMMENT 'rollback snapshot json'"),
     ],
     "iot_command_record": [
         ("device_code", "VARCHAR(64) DEFAULT NULL COMMENT 'device code'"),

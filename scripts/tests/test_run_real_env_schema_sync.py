@@ -64,12 +64,25 @@ class SchemaSyncCoverageTest(unittest.TestCase):
     def test_create_table_sql_covers_governance_approval_tables(self):
         order_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_order")
         transition_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_transition")
+        replay_feedback_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_replay_feedback")
         self.assertIsNotNone(order_sql)
         self.assertIsNotNone(transition_sql)
+        self.assertIsNotNone(replay_feedback_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_order", order_sql)
+        self.assertIn("work_item_id", order_sql)
         self.assertIn("idx_governance_approval_order_subject", order_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
         self.assertIn("idx_governance_approval_transition_order", transition_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_replay_feedback", replay_feedback_sql)
+        self.assertIn("idx_governance_replay_feedback_work_item", replay_feedback_sql)
+        self.assertIn("idx_governance_replay_feedback_release_batch", replay_feedback_sql)
+
+    def test_columns_to_add_cover_governance_approval_order_work_item_link(self):
+        self.assertIn("sys_governance_approval_order", schema_sync.COLUMNS_TO_ADD)
+        self.assertEqual(
+            dict(schema_sync.COLUMNS_TO_ADD["sys_governance_approval_order"])["work_item_id"],
+            "BIGINT DEFAULT NULL COMMENT 'governance work item id'",
+        )
 
     def test_product_metadata_json_column_is_declared_for_schema_sync(self):
         self.assertIn("iot_product", schema_sync.COLUMNS_TO_ADD)
@@ -127,8 +140,28 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIsNotNone(ops_alert_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_work_item", work_item_sql)
         self.assertIn("work_status", work_item_sql)
+        self.assertIn("task_category", work_item_sql)
+        self.assertIn("execution_status", work_item_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_ops_alert", ops_alert_sql)
         self.assertIn("alert_status", ops_alert_sql)
+
+    def test_columns_to_add_covers_governance_work_item_lifecycle_hub_fields(self):
+        self.assertIn("iot_governance_work_item", schema_sync.COLUMNS_TO_ADD)
+        work_item_columns = dict(schema_sync.COLUMNS_TO_ADD["iot_governance_work_item"])
+        self.assertEqual(
+            set(work_item_columns.keys()),
+            {
+                "task_category",
+                "domain_code",
+                "action_code",
+                "execution_status",
+                "recommendation_snapshot_json",
+                "evidence_snapshot_json",
+                "impact_snapshot_json",
+                "rollback_snapshot_json",
+            },
+        )
+        self.assertIn("DEFAULT 'PENDING_APPROVAL'", work_item_columns["execution_status"])
 
     def test_indexes_to_add_covers_governance_control_plane_tables(self):
         self.assertIn("iot_governance_work_item", schema_sync.INDEXES_TO_ADD)

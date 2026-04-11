@@ -19,6 +19,8 @@ public class GovernanceApprovalOrderVO {
 
     private Long subjectId;
 
+    private Long workItemId;
+
     private String status;
 
     private Long operatorUserId;

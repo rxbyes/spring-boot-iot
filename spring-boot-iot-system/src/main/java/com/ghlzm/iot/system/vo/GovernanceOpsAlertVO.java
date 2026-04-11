@@ -1,5 +1,8 @@
 package com.ghlzm.iot.system.vo;
 
+import com.ghlzm.iot.system.service.model.GovernanceImpactSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRollbackSnapshot;
 import java.util.Date;
 import lombok.Data;
 
@@ -27,6 +30,9 @@ public class GovernanceOpsAlertVO {
     private String sourceStage;
     private String snapshotJson;
     private Long assigneeUserId;
+    private GovernanceRecommendationSnapshot recommendation;
+    private GovernanceImpactSnapshot impact;
+    private GovernanceRollbackSnapshot rollback;
     private Date firstSeenTime;
     private Date lastSeenTime;
     private Date resolvedTime;

@@ -500,12 +500,20 @@ export interface ProductModelGovernanceAppliedItem {
 
 export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
+export interface GovernanceSubmissionResult {
+  workItemId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  approvalStatus?: GovernanceApprovalStatus | null;
+  executionStatus?: 'DIRECT_APPLIED' | 'PENDING_APPROVAL' | 'REJECTED' | 'CANCELLED' | null;
+}
+
 export interface GovernanceApprovalOrder {
   id: IdType;
   actionCode?: string | null;
   actionName?: string | null;
   subjectType?: string | null;
   subjectId?: IdType | null;
+  workItemId?: IdType | null;
   status?: GovernanceApprovalStatus | null;
   operatorUserId?: IdType | null;
   approverUserId?: IdType | null;
@@ -530,6 +538,22 @@ export interface GovernanceApprovalOrderDetail {
   transitions?: GovernanceApprovalTransition[] | null;
 }
 
+export interface GovernanceSimulationResult {
+  orderId?: IdType | null;
+  workItemId?: IdType | null;
+  actionCode?: string | null;
+  executable?: boolean | null;
+  affectedCount?: number | null;
+  affectedTypes?: string[] | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
+  autoDraftEligible?: boolean | null;
+  autoDraftComment?: string | null;
+}
+
 export interface GovernanceApprovalPageQuery {
   actionCode?: string | null;
   subjectType?: string | null;
@@ -551,6 +575,43 @@ export interface GovernanceApprovalResubmitPayload {
 }
 
 export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'RESOLVED' | 'CLOSED';
+export type GovernanceWorkItemExecutionStatus =
+  | 'PENDING_APPROVAL'
+  | 'EXECUTED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'IN_PROGRESS'
+  | 'REPLAY_REQUIRED'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export interface GovernanceEvidenceItem {
+  evidenceType?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+}
+
+export interface GovernanceRecommendationSnapshot {
+  recommendationType?: 'PROMOTE' | 'PUBLISH' | 'CREATE_POLICY' | 'REPLAY' | 'IGNORE' | string | null;
+  confidence?: number | null;
+  reasonCodes?: string[] | null;
+  suggestedAction?: string | null;
+  evidenceItems?: GovernanceEvidenceItem[] | null;
+}
+
+export interface GovernanceImpactSnapshot {
+  affectedCount?: number | null;
+  affectedTypes?: string[] | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
+
+export interface GovernanceRollbackSnapshot {
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
 
 export interface GovernanceWorkItem {
   id: IdType;
@@ -570,6 +631,17 @@ export interface GovernanceWorkItem {
   sourceStage?: string | null;
   blockingReason?: string | null;
   snapshotJson?: string | null;
+  taskCategory?: string | null;
+  domainCode?: string | null;
+  actionCode?: string | null;
+  executionStatus?: GovernanceWorkItemExecutionStatus | string | null;
+  recommendationSnapshotJson?: string | null;
+  evidenceSnapshotJson?: string | null;
+  impactSnapshotJson?: string | null;
+  rollbackSnapshotJson?: string | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
   dueTime?: string | null;
   resolvedTime?: string | null;
   closedTime?: string | null;
@@ -591,6 +663,33 @@ export interface GovernanceWorkItemPageQuery {
 
 export interface GovernanceWorkItemTransitionPayload {
   comment?: string | null;
+}
+
+export interface GovernanceReplayFeedbackPayload {
+  workItemId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  recommendedDecision?: string | null;
+  adoptedDecision: string;
+  executionOutcome: string;
+  rootCauseCode: string;
+  operatorSummary?: string | null;
+}
+
+export interface GovernanceDecisionContext {
+  workItemId?: IdType | null;
+  priorityLevel?: string | null;
+  priorityScore?: number | null;
+  problemSummary?: string | null;
+  reasonCodes?: string[] | null;
+  affectedModules?: string[] | null;
+  affectedCount?: number | null;
+  recommendedAction?: string | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
 }
 
 export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'RESOLVED' | 'CLOSED';
@@ -617,6 +716,9 @@ export interface GovernanceOpsAlert {
   sourceStage?: string | null;
   snapshotJson?: string | null;
   assigneeUserId?: IdType | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
   firstSeenTime?: string | null;
   lastSeenTime?: string | null;
   resolvedTime?: string | null;

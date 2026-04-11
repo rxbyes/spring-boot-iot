@@ -49,9 +49,41 @@
                 <strong>{{ workItemCodeLabel(item.workItemCode, item.snapshotJson) }}</strong>
                 <span>{{ workItemAnchor(item) }}</span>
               </div>
-              <span class="governance-task-card__status">{{ workStatusLabel(item.workStatus) }}</span>
+              <div class="governance-task-card__status-group">
+                <span v-if="item.priorityLevel" class="governance-task-card__priority">{{ item.priorityLevel }}</span>
+                <span class="governance-task-card__status">{{ workStatusLabel(item.workStatus) }}</span>
+              </div>
             </header>
             <p class="governance-task-card__reason">{{ item.blockingReason || '暂无阻塞说明，建议优先查看对象上下文。' }}</p>
+            <section v-if="hasRecommendation(item) || hasImpact(item)" class="governance-task-card__decision">
+              <div v-if="hasRecommendation(item)" class="governance-task-card__decision-block">
+                <div class="governance-task-card__decision-header">
+                  <strong>{{ item.recommendation?.suggestedAction || item.recommendation?.recommendationType || 'Recommendation' }}</strong>
+                  <span v-if="recommendationConfidenceText(item.recommendation)" class="governance-task-card__decision-tag">
+                    {{ recommendationConfidenceText(item.recommendation) }}
+                  </span>
+                </div>
+                <div v-if="recommendationEvidenceItems(item).length" class="governance-task-card__evidence-list">
+                  <article
+                    v-for="(evidence, index) in recommendationEvidenceItems(item)"
+                    :key="`${String(item.id)}-evidence-${index}`"
+                    class="governance-task-card__evidence-item"
+                  >
+                    <strong>{{ evidence.evidenceType || evidence.sourceType || 'EVIDENCE' }}</strong>
+                    <span>{{ evidence.title || evidence.summary || evidence.sourceId || '--' }}</span>
+                  </article>
+                </div>
+              </div>
+              <div v-if="hasImpact(item)" class="governance-task-card__decision-block">
+                <div class="governance-task-card__decision-header">
+                  <strong>{{ impactSummaryText(item.impact) }}</strong>
+                  <span class="governance-task-card__decision-tag">{{ rollbackabilityText(item.impact, item.rollback) }}</span>
+                </div>
+                <p v-if="impactPlanSummary(item.impact, item.rollback)" class="governance-task-card__decision-copy">
+                  {{ impactPlanSummary(item.impact, item.rollback) }}
+                </p>
+              </div>
+            </section>
             <dl class="governance-task-card__meta">
               <div>
                 <dt>主题</dt>
@@ -70,7 +102,8 @@
                 <dd>{{ item.updateTime || item.createTime || '--' }}</dd>
               </div>
             </dl>
-            <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item) || canDispatchWorkItem(item)" class="governance-task-card__actions">
+            <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item) || canDispatchWorkItem(item) || canExplainDecision(item)" class="governance-task-card__actions">
+              <StandardButton v-if="canExplainDecision(item)" @click="handleOpenDecisionContext(item)">决策说明</StandardButton>
               <StandardButton v-if="canDispatchWorkItem(item)" @click="handleDispatchWorkItem(item)">去处理</StandardButton>
               <StandardButton v-if="canReplayWorkItem(item)" @click="handleOpenReplay(item)">复盘</StandardButton>
               <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('ack', item)">确认</StandardButton>
@@ -97,6 +130,79 @@
         />
       </template>
     </StandardWorkbenchPanel>
+
+    <StandardDetailDrawer
+      v-model="decisionContextVisible"
+      title="决策说明"
+      subtitle="解释这条治理任务为何排在这里，以及建议先处理什么。"
+      :loading="decisionContextLoading"
+      :error-message="decisionContextErrorMessage"
+      :empty="!decisionContextData"
+    >
+      <div class="governance-task-detail-stack">
+        <section class="governance-task-detail-section">
+          <h3>优先级与问题</h3>
+          <div class="governance-task-detail-grid">
+            <div class="governance-task-detail-field">
+              <span>优先级</span>
+              <strong>{{ decisionContextData?.priorityLevel || '--' }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>影响范围</span>
+              <strong>{{ decisionContextData?.affectedCount != null ? decisionContextData.affectedCount : '--' }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>问题摘要</span>
+              <strong>{{ decisionContextData?.problemSummary || '--' }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>推荐动作</span>
+              <strong>{{ decisionContextData?.recommendedAction || '--' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="decisionReasonCodes.length" class="governance-task-detail-section">
+          <h3>排序依据</h3>
+          <div class="governance-task-decision-chip-list">
+            <span
+              v-for="reasonCode in decisionReasonCodes"
+              :key="reasonCode"
+              class="governance-task-decision-chip"
+            >
+              {{ reasonCode }}
+            </span>
+          </div>
+        </section>
+
+        <section v-if="decisionAffectedModules.length" class="governance-task-detail-section">
+          <h3>影响模块</h3>
+          <div class="governance-task-decision-chip-list">
+            <span
+              v-for="module in decisionAffectedModules"
+              :key="module"
+              class="governance-task-decision-chip"
+            >
+              {{ module }}
+            </span>
+          </div>
+        </section>
+
+        <section v-if="decisionContextData?.rollbackable != null || decisionContextData?.rollbackPlanSummary" class="governance-task-detail-section">
+          <h3>回滚说明</h3>
+          <div class="governance-task-detail-grid">
+            <div class="governance-task-detail-field">
+              <span>可回滚</span>
+              <strong>{{ decisionContextData?.rollbackable == null ? '--' : (decisionContextData.rollbackable ? '是' : '否') }}</strong>
+            </div>
+            <div class="governance-task-detail-field">
+              <span>回滚摘要</span>
+              <strong>{{ decisionContextData?.rollbackPlanSummary || '--' }}</strong>
+            </div>
+          </div>
+        </section>
+      </div>
+    </StandardDetailDrawer>
 
     <StandardDetailDrawer
       v-model="replayVisible"
@@ -200,6 +306,76 @@
             </article>
           </div>
         </section>
+
+        <section class="governance-task-detail-section">
+          <h3>复盘结论回写</h3>
+          <div class="governance-task-feedback-form">
+            <label class="governance-task-feedback-field">
+              <span>推荐结论</span>
+              <strong>{{ replayRecommendedDecision }}</strong>
+            </label>
+            <label class="governance-task-feedback-field">
+              <span>采纳结论</span>
+              <select
+                data-testid="task-replay-adopted-decision"
+                v-model="replayFeedback.adoptedDecision"
+                class="governance-task-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="PROMOTE">PROMOTE</option>
+                <option value="PUBLISH">PUBLISH</option>
+                <option value="CREATE_POLICY">CREATE_POLICY</option>
+                <option value="REPLAY">REPLAY</option>
+                <option value="IGNORE">IGNORE</option>
+              </select>
+            </label>
+            <label class="governance-task-feedback-field">
+              <span>执行结果</span>
+              <select
+                data-testid="task-replay-execution-outcome"
+                v-model="replayFeedback.executionOutcome"
+                class="governance-task-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="SUCCESS">SUCCESS</option>
+                <option value="PARTIAL_SUCCESS">PARTIAL_SUCCESS</option>
+                <option value="FAILED">FAILED</option>
+                <option value="IGNORED">IGNORED</option>
+              </select>
+            </label>
+            <label class="governance-task-feedback-field">
+              <span>根因分类</span>
+              <select
+                data-testid="task-replay-root-cause"
+                v-model="replayFeedback.rootCauseCode"
+                class="governance-task-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="MISSING_POLICY">MISSING_POLICY</option>
+                <option value="MISSING_BINDING">MISSING_BINDING</option>
+                <option value="MISSING_RISK_METRIC">MISSING_RISK_METRIC</option>
+                <option value="APPROVAL_BLOCKED">APPROVAL_BLOCKED</option>
+                <option value="DATA_QUALITY">DATA_QUALITY</option>
+                <option value="OTHER">OTHER</option>
+              </select>
+            </label>
+            <label class="governance-task-feedback-field governance-task-feedback-field--full">
+              <span>操作结论</span>
+              <textarea
+                data-testid="task-replay-operator-summary"
+                v-model="replayFeedback.operatorSummary"
+                class="governance-task-feedback-input governance-task-feedback-textarea"
+                rows="3"
+                placeholder="请说明本次复盘最终采纳了什么结论、为何这样处理。"
+              />
+            </label>
+          </div>
+          <div class="governance-task-feedback-actions">
+            <StandardButton @click="handleSubmitReplayFeedback">
+              {{ replaySubmitting ? '提交中...' : '提交复盘结论' }}
+            </StandardButton>
+          </div>
+        </section>
       </div>
     </StandardDetailDrawer>
   </StandardPageShell>
@@ -212,8 +388,19 @@ import { ElMessage } from '@/utils/message'
 
 import { productApi } from '@/api/product'
 import { resolveRequestErrorMessage } from '@/api/request'
-import { getRiskGovernanceReplay, type RiskGovernanceReplay, type RiskGovernanceReplayQuery } from '@/api/riskGovernance'
-import { ackGovernanceWorkItem, blockGovernanceWorkItem, closeGovernanceWorkItem, pageGovernanceWorkItems } from '@/api/governanceWorkItem'
+import {
+  getRiskGovernanceReplay,
+  submitGovernanceReplayFeedback,
+  type RiskGovernanceReplay,
+  type RiskGovernanceReplayQuery
+} from '@/api/riskGovernance'
+import {
+  ackGovernanceWorkItem,
+  blockGovernanceWorkItem,
+  closeGovernanceWorkItem,
+  getGovernanceWorkItemDecisionContext,
+  pageGovernanceWorkItems
+} from '@/api/governanceWorkItem'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
@@ -223,7 +410,15 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
-import type { GovernanceWorkItem, GovernanceWorkItemPageQuery } from '@/types/api'
+import type {
+  GovernanceDecisionContext,
+  GovernanceReplayFeedbackPayload,
+  GovernanceImpactSnapshot,
+  GovernanceRecommendationSnapshot,
+  GovernanceRollbackSnapshot,
+  GovernanceWorkItem,
+  GovernanceWorkItemPageQuery
+} from '@/types/api'
 import { buildGovernanceTaskDispatchLocation } from '@/utils/governanceTaskDispatch'
 
 const route = useRoute()
@@ -231,10 +426,22 @@ const router = useRouter()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
 
 const taskList = ref<GovernanceWorkItem[]>([])
+const decisionContextVisible = ref(false)
+const decisionContextLoading = ref(false)
+const decisionContextErrorMessage = ref('')
+const decisionContextData = ref<GovernanceDecisionContext | null>(null)
 const replayVisible = ref(false)
 const replayLoading = ref(false)
 const replayErrorMessage = ref('')
 const replayData = ref<RiskGovernanceReplay | null>(null)
+const replaySourceItem = ref<GovernanceWorkItem | null>(null)
+const replaySubmitting = ref(false)
+const replayFeedback = ref<GovernanceReplayFeedbackPayload>({
+  adoptedDecision: '',
+  executionOutcome: '',
+  rootCauseCode: '',
+  operatorSummary: ''
+})
 const initialPageNum = parseNumberQuery(route.query.pageNum)
 const initialPageSize = parseNumberQuery(route.query.pageSize)
 
@@ -247,6 +454,16 @@ if (initialPageNum != null) {
 
 const queryState = computed(() => buildQueryFromRoute())
 const openCount = computed(() => taskList.value.filter((item) => item.workStatus === 'OPEN').length)
+const decisionReasonCodes = computed(() => decisionContextData.value?.reasonCodes ?? [])
+const decisionAffectedModules = computed(() => decisionContextData.value?.affectedModules ?? [])
+const replayRecommendedDecision = computed(() => normalizeText(replayFeedback.value.recommendedDecision) || '--')
+const replayCanSubmit = computed(() =>
+  Boolean(normalizeText(replayFeedback.value.adoptedDecision))
+  && Boolean(normalizeText(replayFeedback.value.executionOutcome))
+  && Boolean(normalizeText(replayFeedback.value.rootCauseCode))
+  && Boolean(normalizeText(replayFeedback.value.operatorSummary))
+  && !replaySubmitting.value
+)
 const activeScopeLabel = computed(() => {
   const query = queryState.value
   if (query.productId != null) {
@@ -369,6 +586,51 @@ function parseSnapshot(snapshotJson: string | null | undefined) {
   }
 }
 
+function hasRecommendation(item: GovernanceWorkItem) {
+  return Boolean(normalizeText(item.recommendation?.suggestedAction))
+    || Boolean(normalizeText(item.recommendation?.recommendationType))
+    || recommendationConfidenceText(item.recommendation) != null
+    || recommendationEvidenceItems(item).length > 0
+}
+
+function hasImpact(item: GovernanceWorkItem) {
+  return impactSummaryText(item.impact) !== '--'
+    || rollbackabilityText(item.impact, item.rollback) !== '--'
+    || Boolean(impactPlanSummary(item.impact, item.rollback))
+}
+
+function recommendationConfidenceText(recommendation?: GovernanceRecommendationSnapshot | null) {
+  const confidence = recommendation?.confidence
+  return typeof confidence === 'number' && Number.isFinite(confidence) ? confidence.toFixed(2) : undefined
+}
+
+function recommendationEvidenceItems(item: GovernanceWorkItem) {
+  return (item.recommendation?.evidenceItems ?? []).slice(0, 3)
+}
+
+function impactSummaryText(impact?: GovernanceImpactSnapshot | null) {
+  if (!impact) {
+    return '--'
+  }
+  const count = typeof impact.affectedCount === 'number' && Number.isFinite(impact.affectedCount)
+    ? String(impact.affectedCount)
+    : '--'
+  const types = (impact.affectedTypes ?? []).filter((value): value is string => Boolean(normalizeText(value)))
+  return types.length ? `${count} · ${types.join(', ')}` : count
+}
+
+function rollbackabilityText(impact?: GovernanceImpactSnapshot | null, rollback?: GovernanceRollbackSnapshot | null) {
+  const rollbackable = impact?.rollbackable ?? rollback?.rollbackable
+  if (rollbackable == null) {
+    return '--'
+  }
+  return rollbackable ? 'Rollbackable' : 'Manual rollback'
+}
+
+function impactPlanSummary(impact?: GovernanceImpactSnapshot | null, rollback?: GovernanceRollbackSnapshot | null) {
+  return normalizeText(impact?.rollbackPlanSummary) || normalizeText(rollback?.rollbackPlanSummary)
+}
+
 function canOperateWorkItem(item: GovernanceWorkItem) {
   return item.id != null && item.workStatus !== 'CLOSED' && item.workStatus !== 'RESOLVED'
 }
@@ -388,6 +650,10 @@ function canReplayWorkItem(item: GovernanceWorkItem) {
     )
 }
 
+function canExplainDecision(item: GovernanceWorkItem) {
+  return item.id != null
+}
+
 function canDispatchWorkItem(item: GovernanceWorkItem) {
   return buildGovernanceTaskDispatchLocation(item) != null
 }
@@ -404,6 +670,8 @@ async function handleOpenReplay(item: GovernanceWorkItem) {
   if (!canReplayWorkItem(item)) {
     return
   }
+  replaySourceItem.value = item
+  resetReplayFeedback(item)
   replayVisible.value = true
   replayLoading.value = true
   replayErrorMessage.value = ''
@@ -415,10 +683,67 @@ async function handleOpenReplay(item: GovernanceWorkItem) {
     }
     const response = await getRiskGovernanceReplay(replayQuery)
     replayData.value = response.data ?? null
+    if (!normalizeText(replayFeedback.value.rootCauseCode)) {
+      replayFeedback.value.rootCauseCode = defaultReplayRootCause(response.data ?? null)
+    }
   } catch (error) {
     replayErrorMessage.value = resolveRequestErrorMessage(error, '治理链路复盘加载失败')
   } finally {
     replayLoading.value = false
+  }
+}
+
+async function handleSubmitReplayFeedback() {
+  if (!replayCanSubmit.value) {
+    ElMessage.error('请先补全复盘结论后再提交')
+    return
+  }
+  const sourceItem = replaySourceItem.value
+  if (!sourceItem) {
+    ElMessage.error('当前复盘上下文不存在')
+    return
+  }
+  replaySubmitting.value = true
+  try {
+    await submitGovernanceReplayFeedback(compactReplayFeedbackPayload({
+      workItemId: sourceItem.id,
+      approvalOrderId: sourceItem.approvalOrderId ?? null,
+      releaseBatchId: replayData.value?.releaseBatchId ?? sourceItem.releaseBatchId ?? null,
+      traceId: replayData.value?.traceId ?? normalizeText(sourceItem.traceId) ?? null,
+      deviceCode: replayData.value?.deviceCode ?? normalizeText(sourceItem.deviceCode) ?? null,
+      productKey: replayData.value?.productKey ?? normalizeText(sourceItem.productKey) ?? null,
+      recommendedDecision: normalizeText(replayFeedback.value.recommendedDecision) ?? null,
+      adoptedDecision: replayFeedback.value.adoptedDecision,
+      executionOutcome: replayFeedback.value.executionOutcome,
+      rootCauseCode: replayFeedback.value.rootCauseCode,
+      operatorSummary: normalizeText(replayFeedback.value.operatorSummary) ?? null
+    }))
+    ElMessage.success('复盘结论已回写')
+    replayVisible.value = false
+    replaySourceItem.value = null
+    await loadWorkItems()
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '复盘结论回写失败'))
+  } finally {
+    replaySubmitting.value = false
+  }
+}
+
+async function handleOpenDecisionContext(item: GovernanceWorkItem) {
+  if (item.id == null) {
+    return
+  }
+  decisionContextVisible.value = true
+  decisionContextLoading.value = true
+  decisionContextErrorMessage.value = ''
+  decisionContextData.value = null
+  try {
+    const response = await getGovernanceWorkItemDecisionContext(item.id)
+    decisionContextData.value = response.data ?? null
+  } catch (error) {
+    decisionContextErrorMessage.value = resolveRequestErrorMessage(error, '治理任务决策说明加载失败')
+  } finally {
+    decisionContextLoading.value = false
   }
 }
 
@@ -558,6 +883,42 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
   }
   return value ? trueLabel : falseLabel
 }
+
+function resetReplayFeedback(item: GovernanceWorkItem) {
+  const recommendedDecision = normalizeText(item.recommendation?.recommendationType) || 'REPLAY'
+  replayFeedback.value = {
+    workItemId: item.id,
+    approvalOrderId: item.approvalOrderId ?? null,
+    releaseBatchId: item.releaseBatchId ?? null,
+    traceId: normalizeText(item.traceId) ?? null,
+    deviceCode: normalizeText(item.deviceCode) ?? null,
+    productKey: normalizeText(item.productKey) ?? null,
+    recommendedDecision,
+    adoptedDecision: recommendedDecision,
+    executionOutcome: '',
+    rootCauseCode: '',
+    operatorSummary: ''
+  }
+}
+
+function defaultReplayRootCause(data?: RiskGovernanceReplay | null) {
+  if ((data?.gapSummary?.missingPolicyCount ?? 0) > 0) {
+    return 'MISSING_POLICY'
+  }
+  if ((data?.gapSummary?.missingBindingCount ?? 0) > 0) {
+    return 'MISSING_BINDING'
+  }
+  if ((data?.gapSummary?.missingRiskMetricCount ?? 0) > 0) {
+    return 'MISSING_RISK_METRIC'
+  }
+  return ''
+}
+
+function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  ) as GovernanceReplayFeedbackPayload
+}
 </script>
 
 <style scoped>
@@ -574,7 +935,9 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 
 .governance-task-detail-stack,
 .governance-task-detail-section,
-.governance-task-chain-list {
+.governance-task-chain-list,
+.governance-task-feedback-form,
+.governance-task-feedback-actions {
   display: grid;
 }
 
@@ -593,7 +956,8 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 }
 
 .governance-task-detail-grid,
-.governance-task-gap-grid {
+.governance-task-gap-grid,
+.governance-task-feedback-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.75rem;
@@ -601,7 +965,8 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 
 .governance-task-detail-field,
 .governance-task-gap-card,
-.governance-task-chain-item {
+.governance-task-chain-item,
+.governance-task-feedback-field {
   display: grid;
   gap: 0.35rem;
   border: 1px solid var(--panel-border);
@@ -612,15 +977,40 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 
 .governance-task-detail-field span,
 .governance-task-gap-card span,
-.governance-task-chain-item span {
+.governance-task-chain-item span,
+.governance-task-feedback-field span {
   color: var(--text-caption);
   font-size: 13px;
 }
 
 .governance-task-detail-field strong,
 .governance-task-gap-card strong,
-.governance-task-chain-item strong {
+.governance-task-chain-item strong,
+.governance-task-feedback-field strong {
   color: var(--text-heading);
+}
+
+.governance-task-feedback-field--full {
+  grid-column: 1 / -1;
+}
+
+.governance-task-feedback-input {
+  width: 100%;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-heading);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+
+.governance-task-feedback-textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+.governance-task-feedback-actions {
+  justify-content: flex-end;
 }
 
 .governance-task-summary {
@@ -667,6 +1057,55 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
   gap: 0.8rem;
 }
 
+.governance-task-card__decision,
+.governance-task-card__decision-block,
+.governance-task-card__evidence-list,
+.governance-task-card__evidence-item {
+  display: grid;
+}
+
+.governance-task-card__decision {
+  gap: 0.6rem;
+}
+
+.governance-task-card__decision-block {
+  gap: 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(250, 250, 245, 0.92);
+  padding: 0.8rem 0.9rem;
+}
+
+.governance-task-card__decision-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.governance-task-card__decision-tag {
+  border-radius: var(--radius-pill);
+  background: rgba(26, 77, 46, 0.08);
+  color: var(--accent-deep);
+  padding: 0.18rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.governance-task-card__evidence-list {
+  gap: 0.4rem;
+}
+
+.governance-task-card__evidence-item {
+  gap: 0.2rem;
+}
+
+.governance-task-card__evidence-item span,
+.governance-task-card__decision-copy {
+  color: var(--text-caption);
+  margin: 0;
+  line-height: 1.5;
+}
+
 .governance-task-card__actions {
   display: flex;
   flex-wrap: wrap;
@@ -680,17 +1119,47 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
   align-items: flex-start;
 }
 
+.governance-task-card__status-group,
+.governance-task-decision-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .governance-task-card__heading {
   display: grid;
   gap: 0.25rem;
 }
 
+.governance-task-card__status-group {
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.governance-task-card__priority,
 .governance-task-card__status {
   border-radius: var(--radius-pill);
   background: var(--info-bg);
   color: var(--accent-deep);
   padding: 0.2rem 0.55rem;
   font-size: 0.78rem;
+}
+
+.governance-task-card__priority {
+  background: rgba(153, 103, 8, 0.12);
+  color: #8c5a00;
+}
+
+.governance-task-decision-chip-list {
+  gap: 0.55rem;
+}
+
+.governance-task-decision-chip {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text-heading);
+  padding: 0.28rem 0.7rem;
+  font-size: 0.82rem;
 }
 
 .governance-task-card__reason {

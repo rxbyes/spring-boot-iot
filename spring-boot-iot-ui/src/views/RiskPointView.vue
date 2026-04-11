@@ -349,6 +349,14 @@
           <strong>绑定提示</strong>
           <span>绑定完成后，风险对象会直接联动实时监测台、阈值策略和告警运营台，请确认设备与测点归属关系准确。</span>
         </div>
+        <el-alert
+          v-if="bindDeviceVisible && bindApprovalNotice"
+          :title="bindApprovalNotice"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
         <el-form :model="bindForm" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
@@ -463,6 +471,14 @@
         />
 
         <template v-else>
+          <el-alert
+            v-if="bindingWorkbenchVisible && pendingPromotionApprovalNotice"
+            :title="pendingPromotionApprovalNotice"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
           <section class="ops-drawer-section">
           <div class="ops-drawer-section__header">
             <div>
@@ -605,7 +621,7 @@ import type { Region } from '@/api/region';
 import { getUser } from '@/api/user';
 import type { User } from '@/api/user';
 import { getDeviceMetricOptions } from '@/api/iot';
-import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api';
+import type { DeviceMetricOption, DeviceOption, GovernanceSubmissionResult, IdType } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, normalizeRiskLevel } from '@/utils/riskLevel';
@@ -674,6 +690,8 @@ const pendingBindings = ref<RiskPointPendingBindingItem[]>([]);
 const pendingCandidates = ref<RiskPointPendingMetricCandidate[]>([]);
 const pendingHistory = ref<RiskPointPendingPromotionHistory[]>([]);
 const pendingLoading = ref(false);
+const bindSubmissionResult = ref<GovernanceSubmissionResult | null>(null);
+const pendingPromotionSubmissionResult = ref<GovernanceSubmissionResult | null>(null);
 const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
@@ -767,6 +785,16 @@ const isSameId = (left?: IdType | null, right?: IdType | null) => {
   return leftKey === getIdKey(right);
 };
 
+const formatPendingApprovalNotice = (result?: GovernanceSubmissionResult | null) => {
+  if (!result || result.executionStatus !== 'PENDING_APPROVAL') {
+    return '';
+  }
+  if (result.approvalOrderId !== undefined && result.approvalOrderId !== null && result.approvalOrderId !== '') {
+    return `审批单 ${result.approvalOrderId} 已提交，当前状态：待审批`;
+  }
+  return '审批申请已提交，当前状态：待审批';
+};
+
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
 const redCount = computed(() =>
   riskPointList.value.filter((item) => normalizeRiskLevel(item.currentRiskLevel || item.riskLevel) === 'red').length
@@ -794,6 +822,14 @@ const bindingWorkbenchGovernanceNote = computed(() => {
   }
   return '当前为采集器-子设备边界场景，风险绑定对象应保持为子设备正式测点，不要把采集器当作监测主体。';
 });
+const bindApprovalNotice = computed(() =>
+  bindDeviceVisible.value ? formatPendingApprovalNotice(bindSubmissionResult.value) : ''
+);
+const pendingPromotionApprovalNotice = computed(() =>
+  bindingWorkbenchVisible.value && bindingWorkbenchMode.value === 'pending'
+    ? formatPendingApprovalNotice(pendingPromotionSubmissionResult.value)
+    : ''
+);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的风险点' : '还没有风险对象'));
 const emptyStateDescription = computed(() =>
   hasAppliedFilters.value
@@ -1516,6 +1552,7 @@ const resetBindForm = () => {
   bindForm.metricIdentifier = '';
   bindForm.metricName = '';
   metricList.value = [];
+  bindSubmissionResult.value = null;
 };
 
 const resetPendingPromotionState = () => {
@@ -1528,6 +1565,7 @@ const resetPendingPromotionState = () => {
   pendingPromotionForm.selectedMetrics = [];
   pendingPromotionForm.completePending = true;
   pendingPromotionForm.promotionNote = '';
+  pendingPromotionSubmissionResult.value = null;
 };
 
 const handleAdd = () => {
@@ -1683,6 +1721,7 @@ const loadPendingBindings = async () => {
 const handleSelectPendingRow = async (pending: RiskPointPendingBindingItem) => {
   pendingPromotionForm.pendingId = pending.id;
   pendingPromotionForm.selectedMetrics = [];
+  pendingPromotionSubmissionResult.value = null;
   if (!isPromotablePending(pending)) {
     pendingCandidates.value = [];
     pendingHistory.value = [];
@@ -1733,12 +1772,18 @@ const handlePendingPromotionSubmit = async () => {
   }
   try {
     submitLoading.value = true;
+    pendingPromotionSubmissionResult.value = null;
     const res = await promotePendingBinding(pendingPromotionForm.pendingId, {
       metrics: pendingPromotionForm.selectedMetrics,
       completePending: pendingPromotionForm.completePending,
       promotionNote: pendingPromotionForm.promotionNote
     });
     if (res.code === 200) {
+      pendingPromotionSubmissionResult.value = res.data || null;
+      if (res.data?.executionStatus === 'PENDING_APPROVAL') {
+        ElMessage.success('待治理转正申请已提交审批');
+        return;
+      }
       ElMessage.success('待治理转正成功');
       await loadPendingBindings();
       void loadRiskPointList();
@@ -1758,6 +1803,7 @@ const handleBindSubmit = async () => {
   }
   try {
     submitLoading.value = true;
+    bindSubmissionResult.value = null;
     const selectedDevice = deviceList.value.find((device) => String(device.id) === String(bindForm.deviceId));
     const selectedMetric = metricList.value.find((metric) => metric.identifier === bindForm.metricIdentifier);
     if (!selectedDevice || !selectedMetric) {
@@ -1774,7 +1820,13 @@ const handleBindSubmit = async () => {
       metricName: selectedMetric.name
     });
     if (res.code === 200) {
+      bindSubmissionResult.value = res.data || null;
+      if (res.data?.executionStatus === 'PENDING_APPROVAL') {
+        ElMessage.success('绑定申请已提交审批');
+        return;
+      }
       ElMessage.success('绑定成功');
+      resetBindForm();
       bindDeviceVisible.value = false;
       void loadRiskPointList();
     }

@@ -10,11 +10,11 @@ import java.util.Date;
 import lombok.Data;
 
 /**
- * Governance approval order entity.
+ * Governance replay feedback entity.
  */
 @Data
-@TableName("sys_governance_approval_order")
-public class GovernanceApprovalOrder implements Serializable {
+@TableName("sys_governance_replay_feedback")
+public class GovernanceReplayFeedback implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -24,35 +24,23 @@ public class GovernanceApprovalOrder implements Serializable {
 
     private Long tenantId;
 
-    private String actionCode;
-
-    private String actionName;
-
-    private String subjectType;
-
-    private Long subjectId;
-
     private Long workItemId;
 
-    private String status;
+    private Long approvalOrderId;
 
-    private Long operatorUserId;
+    private Long releaseBatchId;
 
-    private Long approverUserId;
+    private String adoptedDecision;
 
-    private String payloadJson;
+    private String executionOutcome;
 
-    private String approvalComment;
+    private String rootCauseCode;
 
-    private Date approvedTime;
+    private String feedbackJson;
 
     private Long createBy;
 
     private Date createTime;
-
-    private Long updateBy;
-
-    private Date updateTime;
 
     @TableLogic
     private Integer deleted;

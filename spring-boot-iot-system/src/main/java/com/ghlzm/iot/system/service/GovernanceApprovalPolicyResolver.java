@@ -5,5 +5,7 @@ package com.ghlzm.iot.system.service;
  */
 public interface GovernanceApprovalPolicyResolver {
 
+    Long resolveOptionalApproverUserId(String actionCode, Long operatorUserId);
+
     Long resolveApproverUserId(String actionCode, Long operatorUserId);
 }

@@ -3,13 +3,19 @@ package com.ghlzm.iot.system.service.impl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.entity.GovernanceApprovalTransition;
+import com.ghlzm.iot.system.entity.GovernanceWorkItem;
 import com.ghlzm.iot.system.mapper.GovernanceApprovalOrderMapper;
 import com.ghlzm.iot.system.mapper.GovernanceApprovalTransitionMapper;
+import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceApprovalActionExecutor;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResult;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -44,12 +51,15 @@ class GovernanceApprovalServiceImplTest {
     @Mock
     private GovernanceApprovalActionExecutor executor;
 
+    @Mock
+    private GovernanceWorkItemMapper workItemMapper;
+
     private GovernanceApprovalServiceImpl service;
 
     @BeforeEach
     void setUp() {
         lenient().when(executor.supports(anyString())).thenReturn(false);
-        service = new GovernanceApprovalServiceImpl(orderMapper, transitionMapper, permissionGuard, List.of(executor));
+        service = new GovernanceApprovalServiceImpl(orderMapper, transitionMapper, workItemMapper, permissionGuard, List.of(executor));
     }
 
     @Test
@@ -138,6 +148,7 @@ class GovernanceApprovalServiceImplTest {
     void approveOrderShouldMovePendingToApproved() {
         GovernanceApprovalOrder order = mockOrder(88001L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_RELEASE_APPLY");
         order.setPayloadJson("{\"request\":true}");
+        writeField(order, "workItemId", 73001L);
         when(orderMapper.selectById(88001L)).thenReturn(order);
         when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
         when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
@@ -167,11 +178,18 @@ class GovernanceApprovalServiceImplTest {
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
         verify(executor).execute(order);
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(73001L).equals(item.getId())
+                        && Long.valueOf(88001L).equals(item.getApprovalOrderId())
+                        && "EXECUTED".equals(readString(item, "executionStatus"))
+                        && readString(item, "impactSnapshotJson").contains("releaseBatchId")
+        ));
     }
 
     @Test
     void rejectOrderShouldMovePendingToRejected() {
         GovernanceApprovalOrder order = mockOrder(88002L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_RELEASE_APPLY");
+        writeField(order, "workItemId", 73002L);
         when(orderMapper.selectById(88002L)).thenReturn(order);
         when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
         when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
@@ -196,11 +214,17 @@ class GovernanceApprovalServiceImplTest {
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
         verify(executor, never()).execute(any(GovernanceApprovalOrder.class));
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(73002L).equals(item.getId())
+                        && Long.valueOf(88002L).equals(item.getApprovalOrderId())
+                        && "REJECTED".equals(readString(item, "executionStatus"))
+        ));
     }
 
     @Test
     void cancelOrderShouldMovePendingToCancelled() {
         GovernanceApprovalOrder order = mockOrder(88003L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_RELEASE_APPLY");
+        writeField(order, "workItemId", 73003L);
         when(orderMapper.selectById(88003L)).thenReturn(order);
         when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
         when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
@@ -229,6 +253,11 @@ class GovernanceApprovalServiceImplTest {
                 GovernancePermissionCodes.RISK_METRIC_CATALOG_TAG
         );
         verify(executor, never()).execute(any(GovernanceApprovalOrder.class));
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(73003L).equals(item.getId())
+                        && Long.valueOf(88003L).equals(item.getApprovalOrderId())
+                        && "CANCELLED".equals(readString(item, "executionStatus"))
+        ));
     }
 
     @Test
@@ -279,6 +308,7 @@ class GovernanceApprovalServiceImplTest {
     @Test
     void approveOrderShouldUseRollbackApproverPermissionForRollbackAction() {
         GovernanceApprovalOrder order = mockOrder(88006L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_ROLLBACK");
+        writeField(order, "workItemId", 73006L);
         when(orderMapper.selectById(88006L)).thenReturn(order);
         when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
         when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
@@ -293,6 +323,11 @@ class GovernanceApprovalServiceImplTest {
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
         );
         verify(executor).execute(order);
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(73006L).equals(item.getId())
+                        && "EXECUTED".equals(readString(item, "executionStatus"))
+                        && readString(item, "rollbackSnapshotJson").contains("rolledBackBatchId")
+        ));
     }
 
     @Test
@@ -311,6 +346,80 @@ class GovernanceApprovalServiceImplTest {
         );
     }
 
+    @Test
+    void submitActionShouldPersistLinkedWorkItemIdAndMarkWorkItemPendingApproval() {
+        GovernanceApprovalActionCommand command = buildCommand(
+                "PRODUCT_CONTRACT_RELEASE_APPLY",
+                "contract release apply",
+                "PRODUCT",
+                1001L,
+                73010L,
+                10001L,
+                20002L,
+                "{\"productId\":1001}",
+                null
+        );
+        when(orderMapper.insert(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+        when(workItemMapper.updateById(any(GovernanceWorkItem.class))).thenReturn(1);
+
+        Long approvalOrderId = service.submitAction(command);
+
+        ArgumentCaptor<GovernanceApprovalOrder> orderCaptor = ArgumentCaptor.forClass(GovernanceApprovalOrder.class);
+        verify(orderMapper).insert(orderCaptor.capture());
+        GovernanceApprovalOrder savedOrder = orderCaptor.getValue();
+        assertEquals(73010L, readLong(savedOrder, "workItemId"));
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(73010L).equals(item.getId())
+                        && approvalOrderId.equals(item.getApprovalOrderId())
+                        && "PENDING_APPROVAL".equals(readString(item, "executionStatus"))
+        ));
+    }
+
+    @Test
+    void simulateOrderShouldReturnDryRunSummaryAndAutoDraftSuggestion() {
+        GovernanceApprovalOrder order = mockOrder(88011L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_RELEASE_APPLY");
+        order.setPayloadJson("{\"request\":{\"productId\":1001}}");
+        writeField(order, "workItemId", 73011L);
+        when(orderMapper.selectById(88011L)).thenReturn(order);
+        when(executor.supports("PRODUCT_CONTRACT_RELEASE_APPLY")).thenReturn(true);
+        when(executor.simulate(order)).thenReturn(new GovernanceSimulationResult(
+                88011L,
+                73011L,
+                "PRODUCT_CONTRACT_RELEASE_APPLY",
+                true,
+                1L,
+                List.of("RISK_METRIC", "RISK_POINT", "RULE"),
+                true,
+                "可通过合同回滚恢复正式批次",
+                null,
+                null,
+                null,
+                false,
+                null
+        ));
+        GovernanceWorkItem workItem = new GovernanceWorkItem();
+        workItem.setId(73011L);
+        workItem.setRecommendationSnapshotJson("{\"recommendationType\":\"PUBLISH\",\"confidence\":0.96,\"reasonCodes\":[\"HIGH_CONFIDENCE\"],\"suggestedAction\":\"建议生成审批意见草稿\"}");
+        when(workItemMapper.selectById(73011L)).thenReturn(workItem);
+
+        GovernanceSimulationResult result = service.simulateOrder(88011L);
+
+        assertNotNull(result);
+        assertTrue(result.executable());
+        assertEquals(1L, result.affectedCount());
+        assertTrue(result.rollbackable());
+        assertEquals(List.of("RISK_METRIC", "RISK_POINT", "RULE"), result.affectedTypes());
+        assertTrue(result.autoDraftEligible());
+        assertNotNull(result.recommendation());
+        assertEquals("PUBLISH", result.recommendation().getRecommendationType());
+        assertEquals(0.96D, result.recommendation().getConfidence());
+        assertTrue(result.autoDraftComment().contains("审批意见草稿"));
+        verify(executor).simulate(order);
+        verify(orderMapper, never()).updateById(any(GovernanceApprovalOrder.class));
+        verify(transitionMapper, never()).insert(any(GovernanceApprovalTransition.class));
+    }
+
     private GovernanceApprovalOrder mockOrder(Long orderId,
                                               String status,
                                               Long operatorUserId,
@@ -323,5 +432,84 @@ class GovernanceApprovalServiceImplTest {
         order.setApproverUserId(approverUserId);
         order.setActionCode(actionCode);
         return order;
+    }
+
+    private GovernanceApprovalActionCommand buildCommand(String actionCode,
+                                                         String actionName,
+                                                         String subjectType,
+                                                         Long subjectId,
+                                                         Long workItemId,
+                                                         Long operatorUserId,
+                                                         Long approverUserId,
+                                                         String payloadJson,
+                                                         String approvalComment) {
+        try {
+            for (Constructor<?> constructor : GovernanceApprovalActionCommand.class.getDeclaredConstructors()) {
+                if (constructor.getParameterCount() == 9) {
+                    return (GovernanceApprovalActionCommand) constructor.newInstance(
+                            actionCode,
+                            actionName,
+                            subjectType,
+                            subjectId,
+                            workItemId,
+                            operatorUserId,
+                            approverUserId,
+                            payloadJson,
+                            approvalComment
+                    );
+                }
+            }
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException(ex);
+        }
+        return new GovernanceApprovalActionCommand(
+                actionCode,
+                actionName,
+                subjectType,
+                subjectId,
+                operatorUserId,
+                approverUserId,
+                payloadJson,
+                approvalComment
+        );
+    }
+
+    private void writeField(Object target, String fieldName, Object value) {
+        if (target == null) {
+            return;
+        }
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            // compatibility for pre-bridge classes
+        }
+    }
+
+    private Long readLong(Object target, String fieldName) {
+        Object value = readField(target, fieldName);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
+    }
+
+    private String readString(Object target, String fieldName) {
+        Object value = readField(target, fieldName);
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private Object readField(Object target, String fieldName) {
+        if (target == null) {
+            return null;
+        }
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            return null;
+        }
     }
 }

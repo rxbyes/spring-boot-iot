@@ -5,12 +5,18 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.entity.GovernanceReplayFeedback;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
+import com.ghlzm.iot.system.mapper.GovernanceReplayFeedbackMapper;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
+import com.ghlzm.iot.system.service.GovernancePriorityScorer;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.service.model.GovernanceReplayFeedbackCommand;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -26,11 +32,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService {
 
     private static final Logger log = LoggerFactory.getLogger(GovernanceWorkItemServiceImpl.class);
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
 
     private static final String STATUS_OPEN = "OPEN";
     private static final String STATUS_ACKED = "ACKED";
@@ -38,10 +47,19 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private static final String STATUS_RESOLVED = "RESOLVED";
     private static final String STATUS_CLOSED = "CLOSED";
     private static final String DEFAULT_PRIORITY = "P2";
+    private static final String DEFAULT_DOMAIN = "PRODUCT";
+    private static final String DOMAIN_ALARM = "ALARM";
+    private static final String DEFAULT_EXECUTION_STATUS = "PENDING_APPROVAL";
+    private static final String EXECUTION_STATUS_IN_PROGRESS = "IN_PROGRESS";
+    private static final String EXECUTION_STATUS_REPLAY_REQUIRED = "REPLAY_REQUIRED";
+    private static final String EXECUTION_STATUS_RESOLVED = "RESOLVED";
+    private static final String EXECUTION_STATUS_CLOSED = "CLOSED";
     private static final long DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS = 300_000L;
 
     private final GovernanceWorkItemMapper workItemMapper;
+    private GovernanceReplayFeedbackMapper replayFeedbackMapper;
     private final List<GovernanceWorkItemContributor> contributors;
+    private final GovernancePriorityScorer governancePriorityScorer;
     private final Executor contributorSyncExecutor;
     private final LongSupplier currentTimeSupplier;
     private final long contributorSyncIntervalMs;
@@ -51,14 +69,22 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     @Autowired
     public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                         GovernanceReplayFeedbackMapper replayFeedbackMapper,
                                          List<GovernanceWorkItemContributor> contributors,
+                                         GovernancePriorityScorer governancePriorityScorer,
                                          @Qualifier("applicationTaskExecutor") Executor contributorSyncExecutor) {
-        this(workItemMapper, contributors, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+        this(workItemMapper, replayFeedbackMapper, contributors, governancePriorityScorer, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
                                   List<GovernanceWorkItemContributor> contributors) {
-        this(workItemMapper, contributors, Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+        this(workItemMapper, null, contributors, new GovernancePriorityScorerImpl(), Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  GovernanceReplayFeedbackMapper replayFeedbackMapper,
+                                  List<GovernanceWorkItemContributor> contributors) {
+        this(workItemMapper, replayFeedbackMapper, contributors, new GovernancePriorityScorerImpl(), Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
@@ -66,8 +92,38 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                                   Executor contributorSyncExecutor,
                                   LongSupplier currentTimeSupplier,
                                   long contributorSyncIntervalMs) {
+        this(workItemMapper, null, contributors, new GovernancePriorityScorerImpl(), contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  GovernanceReplayFeedbackMapper replayFeedbackMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
+        this(workItemMapper, replayFeedbackMapper, contributors, new GovernancePriorityScorerImpl(), contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  GovernancePriorityScorer governancePriorityScorer,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
+        this(workItemMapper, null, contributors, governancePriorityScorer, contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  GovernanceReplayFeedbackMapper replayFeedbackMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  GovernancePriorityScorer governancePriorityScorer,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
         this.workItemMapper = workItemMapper;
+        this.replayFeedbackMapper = replayFeedbackMapper;
         this.contributors = contributors == null ? List.of() : List.copyOf(contributors);
+        this.governancePriorityScorer = governancePriorityScorer == null ? new GovernancePriorityScorerImpl() : governancePriorityScorer;
         this.contributorSyncExecutor = contributorSyncExecutor == null ? Runnable::run : contributorSyncExecutor;
         this.currentTimeSupplier = currentTimeSupplier == null ? System::currentTimeMillis : currentTimeSupplier;
         this.contributorSyncIntervalMs = Math.max(0L, contributorSyncIntervalMs);
@@ -75,6 +131,11 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     @Override
     public void openOrRefresh(GovernanceWorkItemCommand command) {
+        openOrRefreshAndGetId(command);
+    }
+
+    @Override
+    public Long openOrRefreshAndGetId(GovernanceWorkItemCommand command) {
         GovernanceWorkItemCommand normalized = requireCommand(command);
         GovernanceWorkItem existing = workItemMapper.selectOne(new LambdaQueryWrapper<GovernanceWorkItem>()
                 .eq(GovernanceWorkItem::getDeleted, 0)
@@ -98,13 +159,15 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setSourceStage(normalize(normalized.sourceStage()));
             item.setBlockingReason(normalize(normalized.blockingReason()));
             item.setSnapshotJson(normalize(normalized.snapshotJson()));
-            item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
+            applyLifecycleHubFields(item, normalized);
             item.setWorkStatus(STATUS_OPEN);
+            item.setPriorityLevel(normalize(normalized.priorityLevel()));
+            applyPriorityDecisionContext(item);
             item.setCreateBy(normalized.operatorUserId());
             item.setUpdateBy(normalized.operatorUserId());
             item.setDeleted(0);
             workItemMapper.insert(item);
-            return;
+            return item.getId();
         }
 
         GovernanceWorkItem refreshed = new GovernanceWorkItem();
@@ -120,15 +183,20 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
-        refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
+        applyLifecycleHubFields(refreshed, normalized);
         refreshed.setWorkStatus(resolveWorkStatus(existing));
+        refreshed.setExecutionStatus(resolveExecutionStatus(existing, normalized));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
         refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
+        refreshed.setDueTime(existing.getDueTime());
+        refreshed.setPriorityLevel(normalize(normalized.priorityLevel()));
+        applyPriorityDecisionContext(refreshed);
         refreshed.setUpdateBy(normalized.operatorUserId());
         if (!shouldReopen(existing) && existing.getAssigneeUserId() != null && normalized.assigneeUserId() == null) {
             refreshed.setAssigneeUserId(existing.getAssigneeUserId());
         }
         workItemMapper.updateById(refreshed);
+        return existing.getId();
     }
 
     @Override
@@ -137,6 +205,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_RESOLVED);
+        update.setExecutionStatus(EXECUTION_STATUS_RESOLVED);
         update.setResolvedTime(new Date());
         update.setBlockingReason(normalize(comment));
         update.setUpdateBy(operatorUserId);
@@ -153,11 +222,22 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     }
 
     @Override
+    public GovernanceDecisionContextVO getDecisionContext(Long workItemId, Long currentUserId) {
+        GovernanceWorkItem item = requireById(workItemId);
+        GovernanceDecisionContextVO context = governancePriorityScorer.buildDecisionContext(item);
+        if (context.getWorkItemId() == null) {
+            context.setWorkItemId(item.getId());
+        }
+        return context;
+    }
+
+    @Override
     public void ack(Long workItemId, Long currentUserId, String comment) {
         GovernanceWorkItem item = requireById(workItemId);
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_ACKED);
+        update.setExecutionStatus(EXECUTION_STATUS_IN_PROGRESS);
         update.setAssigneeUserId(currentUserId);
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
@@ -170,6 +250,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_BLOCKED);
+        update.setExecutionStatus(EXECUTION_STATUS_REPLAY_REQUIRED);
         update.setAssigneeUserId(currentUserId);
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
@@ -182,8 +263,24 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_CLOSED);
+        update.setExecutionStatus(EXECUTION_STATUS_CLOSED);
         update.setClosedTime(new Date());
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
+        update.setUpdateBy(currentUserId);
+        workItemMapper.updateById(update);
+    }
+
+    @Override
+    public void closeReplayWithFeedback(GovernanceReplayFeedbackCommand command, Long currentUserId) {
+        GovernanceReplayFeedbackCommand normalized = requireReplayFeedbackCommand(command);
+        GovernanceWorkItem item = resolveReplayWorkItem(normalized);
+        insertReplayFeedback(item, normalized, currentUserId);
+        GovernanceWorkItem update = new GovernanceWorkItem();
+        update.setId(item.getId());
+        update.setWorkStatus(STATUS_CLOSED);
+        update.setExecutionStatus(EXECUTION_STATUS_CLOSED);
+        update.setClosedTime(new Date());
+        update.setBlockingReason(resolveManualComment(item.getBlockingReason(), normalized.operatorSummary()));
         update.setUpdateBy(currentUserId);
         workItemMapper.updateById(update);
     }
@@ -262,6 +359,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                 GovernanceWorkItem update = new GovernanceWorkItem();
                 update.setId(existing.getId());
                 update.setWorkStatus(STATUS_RESOLVED);
+                update.setExecutionStatus(EXECUTION_STATUS_RESOLVED);
                 update.setResolvedTime(new Date());
                 update.setUpdateBy(1L);
                 workItemMapper.updateById(update);
@@ -287,8 +385,10 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             item.setSourceStage(normalize(normalized.sourceStage()));
             item.setBlockingReason(normalize(normalized.blockingReason()));
             item.setSnapshotJson(normalize(normalized.snapshotJson()));
-            item.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
+            applyLifecycleHubFields(item, normalized);
             item.setWorkStatus(STATUS_OPEN);
+            item.setPriorityLevel(normalize(normalized.priorityLevel()));
+            applyPriorityDecisionContext(item);
             item.setCreateBy(normalized.operatorUserId());
             item.setUpdateBy(normalized.operatorUserId());
             item.setDeleted(0);
@@ -309,10 +409,14 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setBlockingReason(resolveBlockingReason(existing, normalized));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
-        refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
+        applyLifecycleHubFields(refreshed, normalized);
         refreshed.setWorkStatus(resolveWorkStatus(existing));
+        refreshed.setExecutionStatus(resolveExecutionStatus(existing, normalized));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
         refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
+        refreshed.setDueTime(existing.getDueTime());
+        refreshed.setPriorityLevel(normalize(normalized.priorityLevel()));
+        applyPriorityDecisionContext(refreshed);
         refreshed.setUpdateBy(normalized.operatorUserId());
         if (!shouldReopen(existing) && existing.getAssigneeUserId() != null && normalized.assigneeUserId() == null) {
             refreshed.setAssigneeUserId(existing.getAssigneeUserId());
@@ -342,6 +446,111 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             throw new BizException("治理工作项不存在");
         }
         return item;
+    }
+
+    private GovernanceReplayFeedbackCommand requireReplayFeedbackCommand(GovernanceReplayFeedbackCommand command) {
+        if (command == null) {
+            throw new BizException("治理复盘反馈不能为空");
+        }
+        if (!StringUtils.hasText(command.adoptedDecision())
+                || !StringUtils.hasText(command.executionOutcome())
+                || !StringUtils.hasText(command.rootCauseCode())) {
+            throw new BizException("治理复盘反馈缺少关键结论");
+        }
+        return command;
+    }
+
+    private GovernanceWorkItem resolveReplayWorkItem(GovernanceReplayFeedbackCommand command) {
+        if (command.workItemId() != null && command.workItemId() > 0) {
+            GovernanceWorkItem item = requireById(command.workItemId());
+            if (!"PENDING_REPLAY".equals(normalize(item.getWorkItemCode()))) {
+                throw new BizException("治理复盘任务不存在");
+            }
+            return item;
+        }
+        LambdaQueryWrapper<GovernanceWorkItem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(GovernanceWorkItem::getDeleted, 0)
+                .eq(GovernanceWorkItem::getWorkItemCode, "PENDING_REPLAY");
+        boolean hasReplayContext = false;
+        if (command.releaseBatchId() != null && command.releaseBatchId() > 0) {
+            wrapper.eq(GovernanceWorkItem::getReleaseBatchId, command.releaseBatchId());
+            hasReplayContext = true;
+        }
+        String normalizedTraceId = normalize(command.traceId());
+        if (StringUtils.hasText(normalizedTraceId)) {
+            wrapper.eq(GovernanceWorkItem::getTraceId, normalizedTraceId);
+            hasReplayContext = true;
+        }
+        String normalizedDeviceCode = normalize(command.deviceCode());
+        if (StringUtils.hasText(normalizedDeviceCode)) {
+            wrapper.eq(GovernanceWorkItem::getDeviceCode, normalizedDeviceCode);
+            hasReplayContext = true;
+        }
+        String normalizedProductKey = normalize(command.productKey());
+        if (StringUtils.hasText(normalizedProductKey)) {
+            wrapper.eq(GovernanceWorkItem::getProductKey, normalizedProductKey);
+            hasReplayContext = true;
+        }
+        if (!hasReplayContext) {
+            throw new BizException("治理复盘缺少上下文");
+        }
+        wrapper.orderByDesc(GovernanceWorkItem::getId).last("limit 1");
+        GovernanceWorkItem item = workItemMapper.selectOne(wrapper);
+        if (item == null) {
+            throw new BizException("治理复盘任务不存在");
+        }
+        return item;
+    }
+
+    private void insertReplayFeedback(GovernanceWorkItem item, GovernanceReplayFeedbackCommand command, Long currentUserId) {
+        if (replayFeedbackMapper == null) {
+            throw new BizException("治理复盘反馈通道未初始化");
+        }
+        GovernanceReplayFeedback feedback = new GovernanceReplayFeedback();
+        feedback.setTenantId(item.getTenantId() == null ? 1L : item.getTenantId());
+        feedback.setWorkItemId(item.getId());
+        feedback.setApprovalOrderId(command.approvalOrderId() != null ? command.approvalOrderId() : item.getApprovalOrderId());
+        feedback.setReleaseBatchId(command.releaseBatchId() != null ? command.releaseBatchId() : item.getReleaseBatchId());
+        feedback.setAdoptedDecision(normalize(command.adoptedDecision()));
+        feedback.setExecutionOutcome(normalize(command.executionOutcome()));
+        feedback.setRootCauseCode(normalize(command.rootCauseCode()));
+        feedback.setFeedbackJson(buildReplayFeedbackJson(item, command));
+        feedback.setCreateBy(currentUserId);
+        feedback.setDeleted(0);
+        replayFeedbackMapper.insert(feedback);
+    }
+
+    private String buildReplayFeedbackJson(GovernanceWorkItem item, GovernanceReplayFeedbackCommand command) {
+        Map<String, Object> feedback = new LinkedHashMap<>();
+        String recommendedDecision = normalize(command.recommendedDecision());
+        if (!StringUtils.hasText(recommendedDecision)) {
+            recommendedDecision = resolveReplayRecommendedDecision(item);
+        }
+        feedback.put("recommendedDecision", recommendedDecision);
+        feedback.put("operatorSummary", normalize(command.operatorSummary()));
+        feedback.put("traceId", normalize(command.traceId()) != null ? normalize(command.traceId()) : normalize(item.getTraceId()));
+        feedback.put("deviceCode", normalize(command.deviceCode()) != null ? normalize(command.deviceCode()) : normalize(item.getDeviceCode()));
+        feedback.put("productKey", normalize(command.productKey()) != null ? normalize(command.productKey()) : normalize(item.getProductKey()));
+        feedback.put("overrideRecommendation",
+                StringUtils.hasText(recommendedDecision)
+                        && !recommendedDecision.equalsIgnoreCase(normalize(command.adoptedDecision())));
+        try {
+            return OBJECT_MAPPER.writeValueAsString(feedback);
+        } catch (Exception ex) {
+            log.warn("failed to serialize governance replay feedback for work item {}", item == null ? null : item.getId(), ex);
+            return null;
+        }
+    }
+
+    private String resolveReplayRecommendedDecision(GovernanceWorkItem item) {
+        GovernanceRecommendationSnapshot recommendation = GovernanceSnapshotResolver.resolveRecommendation(
+                item == null ? null : item.getRecommendationSnapshotJson(),
+                item == null ? null : item.getEvidenceSnapshotJson(),
+                item == null ? null : item.getSnapshotJson(),
+                defaultRecommendationType(item),
+                item == null ? null : defaultSuggestedAction(item.getBlockingReason(), item.getActionCode())
+        );
+        return recommendation == null ? null : normalize(recommendation.getRecommendationType());
     }
 
     private String resolveManualComment(String existingReason, String comment) {
@@ -422,6 +631,33 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         vo.setSourceStage(item.getSourceStage());
         vo.setBlockingReason(item.getBlockingReason());
         vo.setSnapshotJson(item.getSnapshotJson());
+        vo.setTaskCategory(item.getTaskCategory());
+        vo.setDomainCode(item.getDomainCode());
+        vo.setActionCode(item.getActionCode());
+        vo.setExecutionStatus(item.getExecutionStatus());
+        vo.setRecommendationSnapshotJson(item.getRecommendationSnapshotJson());
+        vo.setEvidenceSnapshotJson(item.getEvidenceSnapshotJson());
+        vo.setImpactSnapshotJson(item.getImpactSnapshotJson());
+        vo.setRollbackSnapshotJson(item.getRollbackSnapshotJson());
+        vo.setRecommendation(GovernanceSnapshotResolver.resolveRecommendation(
+                item.getRecommendationSnapshotJson(),
+                item.getEvidenceSnapshotJson(),
+                item.getSnapshotJson(),
+                defaultRecommendationType(item),
+                defaultSuggestedAction(item.getBlockingReason(), item.getActionCode())
+        ));
+        vo.setImpact(GovernanceSnapshotResolver.resolveImpact(
+                item.getImpactSnapshotJson(),
+                item.getRollbackSnapshotJson(),
+                item.getSnapshotJson(),
+                null,
+                defaultAffectedType(item.getSubjectType(), item.getTaskCategory())
+        ));
+        vo.setRollback(GovernanceSnapshotResolver.resolveRollback(
+                item.getRollbackSnapshotJson(),
+                item.getImpactSnapshotJson(),
+                item.getSnapshotJson()
+        ));
         vo.setDueTime(item.getDueTime());
         vo.setResolvedTime(item.getResolvedTime());
         vo.setClosedTime(item.getClosedTime());
@@ -435,7 +671,183 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         return StringUtils.hasText(normalized) ? normalized : DEFAULT_PRIORITY;
     }
 
+    private void applyPriorityDecisionContext(GovernanceWorkItem item) {
+        if (item == null) {
+            return;
+        }
+        GovernanceDecisionContextVO context = governancePriorityScorer.buildDecisionContext(item);
+        item.setPriorityLevel(defaultPriority(context == null ? item.getPriorityLevel() : context.getPriorityLevel()));
+        String mergedRecommendationSnapshot = mergeRecommendationSnapshot(item, context);
+        if (StringUtils.hasText(mergedRecommendationSnapshot)) {
+            item.setRecommendationSnapshotJson(mergedRecommendationSnapshot);
+        }
+    }
+
+    private String mergeRecommendationSnapshot(GovernanceWorkItem item, GovernanceDecisionContextVO context) {
+        GovernanceRecommendationSnapshot existing = GovernanceSnapshotResolver.resolveRecommendation(
+                item == null ? null : item.getRecommendationSnapshotJson(),
+                item == null ? null : item.getEvidenceSnapshotJson(),
+                item == null ? null : item.getSnapshotJson(),
+                defaultRecommendationType(item),
+                item == null ? null : defaultSuggestedAction(item.getBlockingReason(), item.getActionCode())
+        );
+        GovernanceRecommendationSnapshot snapshot = new GovernanceRecommendationSnapshot();
+        snapshot.setRecommendationType(existing == null ? defaultRecommendationType(item) : existing.getRecommendationType());
+        snapshot.setConfidence(existing == null ? null : existing.getConfidence());
+        snapshot.setReasonCodes(context == null ? (existing == null ? null : existing.getReasonCodes()) : context.getReasonCodes());
+        snapshot.setSuggestedAction(context == null ? null : context.getRecommendedAction());
+        snapshot.setEvidenceItems(existing == null ? null : existing.getEvidenceItems());
+        if (!StringUtils.hasText(snapshot.getRecommendationType())
+                && snapshot.getConfidence() == null
+                && !StringUtils.hasText(snapshot.getSuggestedAction())
+                && (snapshot.getReasonCodes() == null || snapshot.getReasonCodes().isEmpty())
+                && (snapshot.getEvidenceItems() == null || snapshot.getEvidenceItems().isEmpty())) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(snapshot);
+        } catch (Exception ex) {
+            log.warn("failed to serialize governance recommendation snapshot for work item {}", item == null ? null : item.getId(), ex);
+            return item == null ? null : normalize(item.getRecommendationSnapshotJson());
+        }
+    }
+
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private void applyLifecycleHubFields(GovernanceWorkItem item, GovernanceWorkItemCommand command) {
+        String normalizedSnapshot = normalize(command.snapshotJson());
+        item.setTaskCategory(resolveTaskCategory(command));
+        item.setDomainCode(resolveDomainCode(command));
+        item.setActionCode(resolveActionCode(command));
+        item.setExecutionStatus(resolveExecutionStatus(command));
+        item.setRecommendationSnapshotJson(resolveLifecycleSnapshot(command.recommendationSnapshotJson(), normalizedSnapshot, "confidence"));
+        item.setEvidenceSnapshotJson(resolveLifecycleSnapshot(command.evidenceSnapshotJson(), normalizedSnapshot, "evidenceItems"));
+        item.setImpactSnapshotJson(resolveLifecycleSnapshot(command.impactSnapshotJson(), normalizedSnapshot, "affectedRiskPointCount"));
+        item.setRollbackSnapshotJson(resolveLifecycleSnapshot(command.rollbackSnapshotJson(), normalizedSnapshot, "rollbackable"));
+    }
+
+    private String resolveTaskCategory(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.taskCategory());
+        if (StringUtils.hasText(explicit)) {
+            return explicit;
+        }
+        String workItemCode = normalize(command.workItemCode());
+        if ("PENDING_CONTRACT_RELEASE".equals(workItemCode)) {
+            return "CONTRACT_RELEASE";
+        }
+        if ("PENDING_RISK_BINDING".equals(workItemCode)) {
+            return "RISK_BINDING";
+        }
+        if ("PENDING_THRESHOLD_POLICY".equals(workItemCode)) {
+            return "THRESHOLD_POLICY";
+        }
+        if ("PENDING_LINKAGE_PLAN".equals(workItemCode)) {
+            return "LINKAGE_PLAN";
+        }
+        if ("PENDING_REPLAY".equals(workItemCode)) {
+            return "REPLAY";
+        }
+        return "PRODUCT_GOVERNANCE";
+    }
+
+    private String resolveDomainCode(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.domainCode());
+        if (StringUtils.hasText(explicit)) {
+            return explicit;
+        }
+        if ("PENDING_RISK_BINDING".equals(normalize(command.workItemCode()))) {
+            return DOMAIN_ALARM;
+        }
+        return DEFAULT_DOMAIN;
+    }
+
+    private String resolveActionCode(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.actionCode());
+        if (StringUtils.hasText(explicit)) {
+            return explicit;
+        }
+        String workItemCode = normalize(command.workItemCode());
+        if ("PENDING_CONTRACT_RELEASE".equals(workItemCode)) {
+            return "PRODUCT_CONTRACT_RELEASE_APPLY";
+        }
+        if ("PENDING_RISK_BINDING".equals(workItemCode)) {
+            return "RISK_POINT_PENDING_PROMOTION";
+        }
+        if ("PENDING_THRESHOLD_POLICY".equals(workItemCode)) {
+            return "RISK_THRESHOLD_POLICY_REVIEW";
+        }
+        if ("PENDING_LINKAGE_PLAN".equals(workItemCode)) {
+            return "RISK_LINKAGE_PLAN_REVIEW";
+        }
+        if ("PENDING_REPLAY".equals(workItemCode)) {
+            return "RISK_REPLAY_REVIEW";
+        }
+        return "PRODUCT_GOVERNANCE_REVIEW";
+    }
+
+    private String resolveExecutionStatus(GovernanceWorkItemCommand command) {
+        String explicit = normalize(command.executionStatus());
+        return StringUtils.hasText(explicit) ? explicit : DEFAULT_EXECUTION_STATUS;
+    }
+
+    private String resolveExecutionStatus(GovernanceWorkItem existing, GovernanceWorkItemCommand command) {
+        if (existing == null || shouldReopen(existing)) {
+            return resolveExecutionStatus(command);
+        }
+        String existingExecutionStatus = normalize(existing.getExecutionStatus());
+        if (StringUtils.hasText(existingExecutionStatus)) {
+            return existingExecutionStatus;
+        }
+        return resolveExecutionStatus(command);
+    }
+
+    private String resolveLifecycleSnapshot(String explicitSnapshot, String fallbackSnapshot, String marker) {
+        String normalized = normalize(explicitSnapshot);
+        if (StringUtils.hasText(normalized)) {
+            return normalized;
+        }
+        if (StringUtils.hasText(fallbackSnapshot) && fallbackSnapshot.contains(marker)) {
+            return fallbackSnapshot;
+        }
+        return null;
+    }
+
+    private String defaultRecommendationType(GovernanceWorkItem item) {
+        if (item == null) {
+            return null;
+        }
+        String workItemCode = normalize(item.getWorkItemCode());
+        if ("PENDING_RISK_BINDING".equals(workItemCode)) {
+            return "PROMOTE";
+        }
+        if ("PENDING_CONTRACT_RELEASE".equals(workItemCode)) {
+            return "PUBLISH";
+        }
+        if ("PENDING_REPLAY".equals(workItemCode)) {
+            return "REPLAY";
+        }
+        if ("PENDING_THRESHOLD_POLICY".equals(workItemCode)
+                || "PENDING_LINKAGE_PLAN".equals(workItemCode)) {
+            return "CREATE_POLICY";
+        }
+        return "IGNORE";
+    }
+
+    private String defaultSuggestedAction(String blockingReason, String actionCode) {
+        String normalizedReason = normalize(blockingReason);
+        if (StringUtils.hasText(normalizedReason)) {
+            return normalizedReason;
+        }
+        return normalize(actionCode);
+    }
+
+    private String defaultAffectedType(String subjectType, String taskCategory) {
+        String normalizedSubjectType = normalize(subjectType);
+        if (StringUtils.hasText(normalizedSubjectType)) {
+            return normalizedSubjectType;
+        }
+        return normalize(taskCategory);
     }
 }

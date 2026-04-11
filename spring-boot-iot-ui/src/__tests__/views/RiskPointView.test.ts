@@ -1755,9 +1755,8 @@ describe('RiskPointView', () => {
       code: 200,
       msg: 'success',
       data: {
-        pendingId: 77,
-        pendingStatus: 'PROMOTED',
-        items: [{ metricIdentifier: 'dispsX', promotionStatus: 'SUCCESS', bindingId: 9001 }]
+        workItemId: 7001,
+        executionStatus: 'DIRECT_APPLIED'
       }
     })
 
@@ -1780,6 +1779,93 @@ describe('RiskPointView', () => {
       completePending: true,
       promotionNote: ''
     })
+  })
+
+  it('renders inline approval feedback when pending promotion is submitted for approval', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockPromotePendingBinding.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        workItemId: 7002,
+        approvalOrderId: 9901,
+        approvalStatus: 'PENDING',
+        executionStatus: 'PENDING_APPROVAL'
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    ;(wrapper.vm as any).bindingWorkbenchVisible = true
+    ;(wrapper.vm as any).bindingWorkbenchMode = 'pending'
+    ;(wrapper.vm as any).bindingWorkbenchRiskPoint = createRiskPointRow()
+    ;(wrapper.vm as any).pendingPromotionForm.pendingId = 77
+    ;(wrapper.vm as any).pendingPromotionForm.riskPointId = 1
+    ;(wrapper.vm as any).pendingPromotionForm.selectedMetrics = [
+      { riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X轴位移' }
+    ]
+
+    await (wrapper.vm as any).handlePendingPromotionSubmit()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('待审批')
+    expect(wrapper.text()).toContain('审批单 9901')
+  })
+
+  it('keeps the bind drawer open and renders approval feedback when bind-device requires approval', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockBindDevice.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        workItemId: 7003,
+        approvalOrderId: 9902,
+        approvalStatus: 'PENDING',
+        executionStatus: 'PENDING_APPROVAL'
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    ;(wrapper.vm as any).bindDeviceVisible = true
+    ;(wrapper.vm as any).deviceList = [
+      { id: 2001, deviceCode: 'DEV-2001', deviceName: '北侧监测终端', orgId: 7101, orgName: '平台运维中心' }
+    ]
+    ;(wrapper.vm as any).metricList = [
+      { identifier: 'dispsX', name: 'X轴位移', riskMetricId: 6102 }
+    ]
+    ;(wrapper.vm as any).bindForm.riskPointId = 1
+    ;(wrapper.vm as any).bindForm.riskPointName = '示例风险点'
+    ;(wrapper.vm as any).bindForm.deviceId = 2001
+    ;(wrapper.vm as any).bindForm.deviceCode = 'DEV-2001'
+    ;(wrapper.vm as any).bindForm.deviceName = '北侧监测终端'
+    ;(wrapper.vm as any).bindForm.metricIdentifier = 'dispsX'
+    ;(wrapper.vm as any).bindForm.metricName = 'X轴位移'
+
+    await (wrapper.vm as any).handleBindSubmit()
+    await flushPromises()
+
+    expect((wrapper.vm as any).bindDeviceVisible).toBe(true)
+    expect(wrapper.text()).toContain('待审批')
+    expect(wrapper.text()).toContain('审批单 9902')
   })
 
   it('loads bindable devices from the dedicated risk-point endpoint before opening the bind drawer', async () => {

@@ -1,9 +1,13 @@
 package com.ghlzm.iot.system.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.ghlzm.iot.system.service.model.GovernanceImpactSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRollbackSnapshot;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
@@ -50,6 +54,12 @@ public class GovernanceOpsAlert implements Serializable {
     private Date createTime;
     private Long updateBy;
     private Date updateTime;
+    @TableField(exist = false)
+    private GovernanceRecommendationSnapshot recommendation;
+    @TableField(exist = false)
+    private GovernanceImpactSnapshot impact;
+    @TableField(exist = false)
+    private GovernanceRollbackSnapshot rollback;
 
     @TableLogic
     private Integer deleted;

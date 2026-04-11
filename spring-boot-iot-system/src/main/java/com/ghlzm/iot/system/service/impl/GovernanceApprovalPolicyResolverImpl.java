@@ -41,10 +41,13 @@ public class GovernanceApprovalPolicyResolverImpl implements GovernanceApprovalP
     }
 
     @Override
-    public Long resolveApproverUserId(String actionCode, Long operatorUserId) {
+    public Long resolveOptionalApproverUserId(String actionCode, Long operatorUserId) {
         String normalizedActionCode = normalizeRequired(actionCode, "审批动作编码不能为空");
         User operator = requireActiveUser(operatorUserId, "审批执行人无效");
-        GovernanceApprovalPolicy policy = loadPolicy(normalizedActionCode, operator.getTenantId());
+        GovernanceApprovalPolicy policy = loadPolicyOrNull(normalizedActionCode, operator.getTenantId());
+        if (policy == null) {
+            return null;
+        }
         if (!APPROVER_MODE_FIXED_USER.equalsIgnoreCase(normalizeRequired(policy.getApproverMode(), "固定复核策略无效"))) {
             throw new BizException("当前动作未配置固定复核策略");
         }
@@ -56,7 +59,16 @@ public class GovernanceApprovalPolicyResolverImpl implements GovernanceApprovalP
         return approver.getId();
     }
 
-    private GovernanceApprovalPolicy loadPolicy(String actionCode, Long tenantId) {
+    @Override
+    public Long resolveApproverUserId(String actionCode, Long operatorUserId) {
+        Long approverUserId = resolveOptionalApproverUserId(actionCode, operatorUserId);
+        if (approverUserId == null) {
+            throw new BizException("当前动作未配置固定复核策略");
+        }
+        return approverUserId;
+    }
+
+    private GovernanceApprovalPolicy loadPolicyOrNull(String actionCode, Long tenantId) {
         List<GovernanceApprovalPolicy> policies = policyMapper.selectList(new LambdaQueryWrapper<GovernanceApprovalPolicy>()
                 .eq(GovernanceApprovalPolicy::getEnabled, 1)
                 .eq(GovernanceApprovalPolicy::getDeleted, 0)
@@ -82,7 +94,7 @@ public class GovernanceApprovalPolicyResolverImpl implements GovernanceApprovalP
         if (globalPolicy != null) {
             return globalPolicy;
         }
-        throw new BizException("当前动作未配置固定复核策略");
+        return null;
     }
 
     private User requireActiveUser(Long userId, String message) {

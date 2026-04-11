@@ -5,6 +5,7 @@ import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
+import com.ghlzm.iot.alarm.governance.RiskPointGovernanceApprovalExecutor;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
@@ -13,6 +14,10 @@ import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -23,6 +28,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +37,127 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RiskPointBindingMaintenanceServiceImplTest {
+
+    @Test
+    void submitBindDeviceShouldDirectlyApplyWhenApprovalPolicyMissing() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        GovernanceApprovalPolicyResolver approvalPolicyResolver = mock(GovernanceApprovalPolicyResolver.class);
+        GovernanceApprovalService approvalService = mock(GovernanceApprovalService.class);
+        GovernanceWorkItemService workItemService = mock(GovernanceWorkItemService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                approvalPolicyResolver,
+                approvalService,
+                workItemService
+        );
+        RiskPointDevice request = binding(
+                null,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "pitch",
+                "倾角",
+                null
+        );
+        RiskPointDevice saved = binding(
+                9001L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "pitch",
+                "倾角",
+                new Date(1000L)
+        );
+        when(approvalPolicyResolver.resolveOptionalApproverUserId(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                1001L
+        )).thenReturn(null);
+        when(workItemService.openOrRefreshAndGetId(any())).thenReturn(7001L);
+        when(riskPointService.bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L))).thenReturn(saved);
+
+        GovernanceSubmissionResultVO result = service.submitBindDevice(request, 1001L);
+
+        assertEquals(7001L, result.getWorkItemId());
+        assertEquals("DIRECT_APPLIED", result.getExecutionStatus());
+        verify(riskPointService).bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L));
+        verify(approvalService, never()).submitAction(any());
+        verify(workItemService).openOrRefreshAndGetId(argThat(command ->
+                command != null
+                        && "PENDING_RISK_BINDING".equals(command.workItemCode())
+                        && RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE.equals(command.actionCode())
+                        && command.snapshotJson() != null
+                        && command.snapshotJson().contains("\"riskPointId\":11")
+                        && command.snapshotJson().contains("\"metricIdentifier\":\"pitch\"")
+        ));
+        verify(workItemService).resolve(
+                eq("PENDING_RISK_BINDING"),
+                eq(RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE),
+                any(Long.class),
+                eq(1001L),
+                eq("DIRECT_APPLIED")
+        );
+    }
+
+    @Test
+    void submitBindDeviceShouldCreateApprovalOrderInsteadOfWritingWhenApprovalPolicyExists() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        GovernanceApprovalPolicyResolver approvalPolicyResolver = mock(GovernanceApprovalPolicyResolver.class);
+        GovernanceApprovalService approvalService = mock(GovernanceApprovalService.class);
+        GovernanceWorkItemService workItemService = mock(GovernanceWorkItemService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                approvalPolicyResolver,
+                approvalService,
+                workItemService
+        );
+        RiskPointDevice request = binding(
+                null,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "pitch",
+                "倾角",
+                null
+        );
+        when(approvalPolicyResolver.resolveOptionalApproverUserId(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                1001L
+        )).thenReturn(2002L);
+        when(workItemService.openOrRefreshAndGetId(any())).thenReturn(7002L);
+        when(approvalService.submitAction(any())).thenReturn(9901L);
+
+        GovernanceSubmissionResultVO result = service.submitBindDevice(request, 1001L);
+
+        assertEquals(7002L, result.getWorkItemId());
+        assertEquals(9901L, result.getApprovalOrderId());
+        assertEquals("PENDING", result.getApprovalStatus());
+        assertEquals("PENDING_APPROVAL", result.getExecutionStatus());
+        verify(riskPointService, never()).bindDeviceAndReturn(any(RiskPointDevice.class), any());
+        verify(approvalService).submitAction(argThat(command ->
+                command != null
+                        && RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE.equals(command.actionCode())
+                        && Long.valueOf(7002L).equals(command.workItemId())
+                        && Long.valueOf(1001L).equals(command.operatorUserId())
+                        && Long.valueOf(2002L).equals(command.approverUserId())
+                        && command.payloadJson() != null
+                        && command.payloadJson().contains("\"metricIdentifier\":\"pitch\"")
+        ));
+    }
 
     @Test
     void listBindingSummariesShouldAggregateFormalBindingsAndPendingCounts() {

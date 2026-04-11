@@ -7,6 +7,7 @@ import type {
   GovernanceApprovalOrderDetail,
   GovernanceApprovalPageQuery,
   GovernanceApprovalResubmitPayload,
+  GovernanceSimulationResult,
   IdType,
   PageResult
 } from '../types/api'
@@ -23,6 +24,12 @@ export const governanceApprovalApi = {
   getOrderDetail(orderId: IdType): Promise<ApiEnvelope<GovernanceApprovalOrderDetail>> {
     return request<GovernanceApprovalOrderDetail>(`/api/system/governance-approval/${orderId}`, {
       method: 'GET'
+    })
+  },
+
+  simulateOrder(orderId: IdType): Promise<ApiEnvelope<GovernanceSimulationResult>> {
+    return request<GovernanceSimulationResult>(`/api/system/governance-simulation/approval/${orderId}`, {
+      method: 'POST'
     })
   },
 

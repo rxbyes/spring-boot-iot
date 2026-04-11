@@ -7,6 +7,7 @@ import GovernanceApprovalView from '@/views/GovernanceApprovalView.vue'
 const {
   mockPageOrders,
   mockGetOrderDetail,
+  mockSimulateOrder,
   mockApproveOrder,
   mockRejectOrder,
   mockCancelOrder,
@@ -19,6 +20,7 @@ const {
 } = vi.hoisted(() => ({
   mockPageOrders: vi.fn(),
   mockGetOrderDetail: vi.fn(),
+  mockSimulateOrder: vi.fn(),
   mockApproveOrder: vi.fn(),
   mockRejectOrder: vi.fn(),
   mockCancelOrder: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock('@/api/governanceApproval', () => ({
   governanceApprovalApi: {
     pageOrders: mockPageOrders,
     getOrderDetail: mockGetOrderDetail,
+    simulateOrder: mockSimulateOrder,
     approveOrder: mockApproveOrder,
     rejectOrder: mockRejectOrder,
     cancelOrder: mockCancelOrder,
@@ -305,6 +308,7 @@ function mountView() {
 function createPendingOrder() {
   return {
     id: 88001,
+    workItemId: 73001,
     actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
     actionName: '合同发布',
     subjectType: 'PRODUCT',
@@ -319,6 +323,7 @@ function createPendingOrder() {
 function createRejectedOrder() {
   return {
     id: 88002,
+    workItemId: 73002,
     actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
     actionName: '合同发布',
     subjectType: 'PRODUCT',
@@ -335,6 +340,7 @@ describe('GovernanceApprovalView', () => {
   beforeEach(() => {
     mockPageOrders.mockReset()
     mockGetOrderDetail.mockReset()
+    mockSimulateOrder.mockReset()
     mockApproveOrder.mockReset()
     mockRejectOrder.mockReset()
     mockCancelOrder.mockReset()
@@ -467,6 +473,47 @@ describe('GovernanceApprovalView', () => {
         ]
       }
     })
+    mockSimulateOrder.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        orderId: 88001,
+        workItemId: 73001,
+        actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+        executable: true,
+        affectedCount: 1,
+        affectedTypes: ['RISK_METRIC', 'RISK_POINT', 'RULE'],
+        rollbackable: true,
+        rollbackPlanSummary: '可通过合同回滚恢复正式批次',
+        autoDraftEligible: true,
+        autoDraftComment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。',
+        recommendation: {
+          recommendationType: 'PUBLISH',
+          confidence: 0.96,
+          reasonCodes: ['HIGH_CONFIDENCE'],
+          suggestedAction: '建议生成审批意见草稿',
+          evidenceItems: [
+            {
+              evidenceType: 'RUNTIME_PAYLOAD',
+              title: '厂商字段证据',
+              summary: '当前样本已稳定命中正式契约字段',
+              sourceType: 'WORK_ITEM',
+              sourceId: '73001'
+            }
+          ]
+        },
+        impact: {
+          affectedCount: 1,
+          affectedTypes: ['RISK_METRIC', 'RISK_POINT', 'RULE'],
+          rollbackable: true,
+          rollbackPlanSummary: '可通过合同回滚恢复正式批次'
+        },
+        rollback: {
+          rollbackable: true,
+          rollbackPlanSummary: '可通过合同回滚恢复正式批次'
+        }
+      }
+    })
   })
 
   it('loads approval orders and renders pending status', async () => {
@@ -490,9 +537,26 @@ describe('GovernanceApprovalView', () => {
     await flushPromises()
 
     expect(mockGetOrderDetail).toHaveBeenCalledWith(88001)
+    expect(mockSimulateOrder).toHaveBeenCalledWith(88001)
     expect(wrapper.text()).toContain('审批概览')
     expect(wrapper.text()).toContain('99001')
+    expect(wrapper.text()).toContain('73001')
     expect(wrapper.text()).toContain('submit')
+  })
+
+  it('loads and renders dry-run simulation summary for pending orders', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockSimulateOrder).toHaveBeenCalledWith(88001)
+    expect(wrapper.text()).toContain('审批预演')
+    expect(wrapper.text()).toContain('预计影响 1 项')
+    expect(wrapper.text()).toContain('RISK_METRIC / RISK_POINT / RULE')
+    expect(wrapper.text()).toContain('可通过合同回滚恢复正式批次')
+    expect(wrapper.text()).toContain('系统已生成审批意见草稿')
   })
 
   it('loads and renders release batch impact when approval detail exposes releaseBatchId', async () => {
@@ -576,13 +640,13 @@ describe('GovernanceApprovalView', () => {
 
     const actionDrawer = wrapper.get('.governance-approval-form-drawer-stub')
     const commentInput = actionDrawer.get('textarea.el-input-stub')
-    await commentInput.setValue('审批通过')
+    expect((commentInput.element as HTMLTextAreaElement).value).toContain('系统已生成审批意见草稿')
     await actionDrawer.findAll('button').find((button) => button.text().includes('确认通过'))?.trigger('click')
     await flushPromises()
 
     expect(mockConfirmAction).toHaveBeenCalled()
     expect(mockApproveOrder).toHaveBeenCalledWith(88001, {
-      comment: '审批通过'
+      comment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。'
     })
   })
 
