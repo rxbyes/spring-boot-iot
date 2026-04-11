@@ -133,8 +133,10 @@ npm run acceptance:dev
 node scripts/run-quality-gates.mjs
 ```
 
+  - 当前已串联 Maven 打包、前端 `build`、`component:guard`、`list:guard`、`style:guard`、治理契约专项门禁、schema baseline guard 与 docs topology check
   - Windows 底层脚本：`powershell -ExecutionPolicy Bypass -File scripts/run-quality-gates.ps1`
   - macOS / Linux 底层脚本：`sh scripts/run-quality-gates.sh`
+  - 若只需验证产品物模型治理主链路，可单独执行：`node scripts/run-governance-contract-gates.mjs`
 
 - 后端验收脚本：
 
