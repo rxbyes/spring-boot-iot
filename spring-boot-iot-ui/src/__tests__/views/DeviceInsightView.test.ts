@@ -3,7 +3,7 @@ import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTelemetryHistoryBatch } from '@/api/telemetry';
-import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties } from '@/api/iot';
 import { productApi } from '@/api/product';
 import { getRiskMonitoringDetail, getRiskMonitoringList } from '@/api/riskMonitoring';
 import DeviceInsightView from '@/views/DeviceInsightView.vue';
@@ -24,6 +24,11 @@ vi.mock('vue-router', () => ({
 }));
 
 vi.mock('@/api/iot', () => ({
+  getCollectorChildInsightOverview: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: null
+  }),
   getDeviceByCode: vi.fn().mockResolvedValue({
     code: 200,
     msg: 'success',
@@ -339,6 +344,37 @@ const ElSegmentedStub = defineComponent({
   `
 });
 
+const CollectorChildInsightPanelStub = defineComponent({
+  name: 'CollectorChildInsightPanel',
+  props: ['overview'],
+  methods: {
+    linkStateLabel(value?: string) {
+      if (value === 'reachable') {
+        return '链路可达';
+      }
+      if (value === 'unreachable') {
+        return '链路不可达';
+      }
+      return '链路待确认';
+    }
+  },
+  template: `
+    <section v-if="overview?.children?.length" class="collector-child-insight-panel-stub">
+      <div>子设备总览</div>
+      <div>{{ overview.childCount }}</div>
+      <article v-for="child in overview.children" :key="child.logicalChannelCode">
+        <div>{{ child.logicalChannelCode }}</div>
+        <div>{{ child.childDeviceCode }}</div>
+        <div>{{ linkStateLabel(child.collectorLinkState) }}</div>
+        <div>{{ child.sensorStateValue }}</div>
+        <div v-for="metric in child.metrics" :key="metric.identifier">
+          {{ metric.displayName || metric.identifier }}
+        </div>
+      </article>
+    </section>
+  `
+});
+
 const ElTableStub = defineComponent({
   name: 'ElTable',
   props: {
@@ -398,6 +434,7 @@ function mountView() {
         StandardButton: true,
         MetricCard: MetricCardStub,
         PanelCard: PanelCardStub,
+        CollectorChildInsightPanel: CollectorChildInsightPanelStub,
         RiskInsightTrendPanel: TrendPanelStub,
         StandardTableTextColumn: StandardTableTextColumnStub,
         'el-form-item': true,
@@ -459,6 +496,112 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).not.toContain('L4_NW_1');
     expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
+  });
+
+  it('renders collector child aggregate panel without merging child metrics into collector snapshot', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 6201,
+        productId: 801,
+        deviceCode: 'SK00EA0D1307988',
+        deviceName: '激光采集器',
+        productName: '南方测绘 监测型 采集器',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        nodeType: 2,
+        lastOnlineTime: '2026-04-09 21:47:28',
+        lastReportTime: '2026-04-09 21:47:28',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-71',
+          valueType: 'int',
+          updateTime: '2026-04-09 21:47:28'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 801,
+        productKey: 'nf-monitor-collector-v1',
+        productName: '南方测绘 监测型 采集器',
+        protocolCode: 'mqtt-json',
+        nodeType: 2,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getCollectorChildInsightOverview).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        parentDeviceCode: 'SK00EA0D1307988',
+        parentOnlineStatus: 1,
+        childCount: 1,
+        reachableChildCount: 1,
+        sensorStateReportedCount: 1,
+        children: [
+          {
+            logicalChannelCode: 'L1_LF_1',
+            childDeviceCode: '202018108',
+            childDeviceName: '1# 激光测点',
+            childProductKey: 'nf-monitor-laser-rangefinder-v1',
+            collectorLinkState: 'reachable',
+            sensorStateValue: '0',
+            lastReportTime: '2026-04-09 21:47:28',
+            metrics: [
+              {
+                identifier: 'value',
+                displayName: '激光测距值',
+                propertyValue: '10.86',
+                unit: 'mm',
+                reportTime: '2026-04-09 21:47:28'
+              }
+            ]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'SK00EA0D1307988'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getCollectorChildInsightOverview).toHaveBeenCalledWith('SK00EA0D1307988');
+    expect(wrapper.text()).toContain('子设备总览');
+    expect(wrapper.text()).toContain('L1_LF_1');
+    expect(wrapper.text()).toContain('激光测距值');
+    expect(wrapper.text()).toContain('链路可达');
   });
 
   it('shows property snapshot units from snapshot first and product model fallback', async () => {

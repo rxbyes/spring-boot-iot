@@ -180,6 +180,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ProductModelGovernanceReceiptStore governanceReceiptStore;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
+    private final CollectorChildMetricBoundaryPolicy collectorChildMetricBoundaryPolicy =
+            new CollectorChildMetricBoundaryPolicy();
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
@@ -614,7 +616,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Product product,
                                                                             int existingModelCount,
                                                                             ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract) {
-        ManualSampleSnapshot snapshot = parseManualSample(product == null ? null : product.getId(), manualExtract);
+        ManualSampleSnapshot snapshot = parseManualSample(product, manualExtract);
         PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(product, snapshot, Set.of());
         EventEvidenceBundle eventBundle = new EventEvidenceBundle(
                 List.of(),
@@ -819,14 +821,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return normalizeOptional(defaultIdentifier);
     }
 
-    private ManualSampleSnapshot parseManualSample(Long productId,
+    private ManualSampleSnapshot parseManualSample(Product product,
                                                    ProductModelGovernanceCompareDTO.ManualExtractInput input) {
         String deviceStructure = normalizeDeviceStructure(input == null ? null : input.getDeviceStructure());
         ManualSampleSnapshot rawSnapshot = parseManualSampleRaw(input);
         if (DEVICE_STRUCTURE_SINGLE.equals(deviceStructure)) {
             return rawSnapshot;
         }
-        return applyCompositeManualSnapshot(input, rawSnapshot);
+        return applyCompositeManualSnapshot(product, input, rawSnapshot);
     }
 
     private ManualSampleSnapshot parseManualSampleRaw(ProductModelGovernanceCompareDTO.ManualExtractInput input) {
@@ -856,13 +858,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
     }
 
-    private ManualSampleSnapshot applyCompositeManualSnapshot(ProductModelGovernanceCompareDTO.ManualExtractInput input,
+    private ManualSampleSnapshot applyCompositeManualSnapshot(Product product,
+                                                             ProductModelGovernanceCompareDTO.ManualExtractInput input,
                                                              ManualSampleSnapshot rawSnapshot) {
         String parentDeviceCode = normalizeRequired(input == null ? null : input.getParentDeviceCode(), "父设备编码");
         if (!parentDeviceCode.equals(rawSnapshot.deviceCode())) {
             throw new BizException("父设备编码与样本根设备不一致");
         }
         List<NormalizedRelationMapping> relationMappings = normalizeRelationMappings(input);
+        if (collectorChildMetricBoundaryPolicy.applies(product, input == null ? null : input.getDeviceStructure())) {
+            return applyCollectorCompositeManualSnapshot(parentDeviceCode, rawSnapshot, relationMappings);
+        }
         List<ManualLeafEvidence> canonicalLeaves = new ArrayList<>();
         for (ManualLeafEvidence leaf : rawSnapshot.leaves()) {
             String canonicalIdentifier = canonicalizeCompositeIdentifier(leaf.identifier(), rawSnapshot.sampleType(), relationMappings);
@@ -881,6 +887,39 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 rawSnapshot.sampleType(),
                 canonicalLeaves,
                 rawSnapshot.ignoredFieldCount() + Math.max(0, rawSnapshot.leaves().size() - canonicalLeaves.size())
+        );
+    }
+
+    private ManualSampleSnapshot applyCollectorCompositeManualSnapshot(String parentDeviceCode,
+                                                                      ManualSampleSnapshot rawSnapshot,
+                                                                      List<NormalizedRelationMapping> relationMappings) {
+        List<String> logicalChannelCodes = relationMappings == null
+                ? List.of()
+                : relationMappings.stream()
+                .map(NormalizedRelationMapping::logicalChannelCode)
+                .toList();
+        List<ManualLeafEvidence> collectorLeaves = new ArrayList<>();
+        for (ManualLeafEvidence leaf : rawSnapshot.leaves()) {
+            if (!collectorChildMetricBoundaryPolicy.shouldKeepLeaf(rawSnapshot.sampleType(), leaf.identifier(), logicalChannelCodes)) {
+                continue;
+            }
+            String collectorIdentifier =
+                    collectorChildMetricBoundaryPolicy.toCollectorIdentifier(rawSnapshot.sampleType(), leaf.identifier());
+            if (collectorIdentifier == null) {
+                continue;
+            }
+            collectorLeaves.add(new ManualLeafEvidence(
+                    collectorIdentifier,
+                    leaf.sampleValue(),
+                    leaf.valueType(),
+                    mergeRawIdentifiers(leaf.rawIdentifiers(), List.of(leaf.identifier()))
+            ));
+        }
+        return new ManualSampleSnapshot(
+                parentDeviceCode,
+                rawSnapshot.sampleType(),
+                collectorLeaves,
+                rawSnapshot.ignoredFieldCount() + Math.max(0, rawSnapshot.leaves().size() - collectorLeaves.size())
         );
     }
 

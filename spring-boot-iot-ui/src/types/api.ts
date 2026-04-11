@@ -739,6 +739,34 @@ export interface DeviceProperty {
   updateTime?: string | null;
 }
 
+export interface CollectorChildInsightMetric {
+  identifier: string;
+  displayName?: string | null;
+  propertyValue?: string | null;
+  unit?: string | null;
+  reportTime?: string | null;
+}
+
+export interface CollectorChildInsightChild {
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  childDeviceName?: string | null;
+  childProductKey?: string | null;
+  collectorLinkState: string;
+  sensorStateValue?: string | null;
+  lastReportTime?: string | null;
+  metrics: CollectorChildInsightMetric[];
+}
+
+export interface CollectorChildInsightOverview {
+  parentDeviceCode: string;
+  parentOnlineStatus?: number | null;
+  childCount: number;
+  reachableChildCount: number;
+  sensorStateReportedCount: number;
+  children: CollectorChildInsightChild[];
+}
+
 export interface DeviceMessageLog {
   id: IdType;
   deviceId?: number | null;

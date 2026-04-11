@@ -114,6 +114,11 @@
             </PanelCard>
           </section>
 
+          <CollectorChildInsightPanel
+            v-if="collectorOverview?.children?.length"
+            :overview="collectorOverview"
+          />
+
           <RiskInsightTrendPanel
             :range-code="selectedRange"
             :groups="trendGroups"
@@ -154,8 +159,9 @@ import { ElMessage } from 'element-plus';
 
 import { getTelemetryHistoryBatch, type InsightRangeCode, type TelemetryHistoryBatchResponse } from '@/api/telemetry';
 import { getRiskMonitoringDetail, getRiskMonitoringList, type RiskMonitoringDetail, type RiskMonitoringListItem } from '@/api/riskMonitoring';
-import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties } from '@/api/iot';
 import { productApi } from '@/api/product';
+import CollectorChildInsightPanel from '@/components/device/CollectorChildInsightPanel.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import RiskInsightTrendPanel from '@/components/RiskInsightTrendPanel.vue';
 import StandardInlineState from '@/components/StandardInlineState.vue';
@@ -163,7 +169,7 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import type { Device, DeviceProperty, ProductModel } from '@/types/api';
+import type { CollectorChildInsightOverview, Device, DeviceProperty, ProductModel } from '@/types/api';
 import { formatDateTime } from '@/utils/format';
 import {
   DEFAULT_INSIGHT_RANGE,
@@ -223,6 +229,7 @@ const errorMessage = ref('');
 const trendErrorMessage = ref('');
 const device = ref<Device | null>(null);
 const properties = ref<DeviceProperty[]>([]);
+const collectorOverview = ref<CollectorChildInsightOverview | null>(null);
 const riskBindings = ref<RiskMonitoringListItem[]>([]);
 const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const capabilityProfile = ref<InsightCapabilityProfile>(getInsightCapabilityProfile({}));
@@ -236,7 +243,7 @@ let syncingRoute = false;
 
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
 const hasInsightContent = computed(() =>
-  Boolean(device.value || properties.value.length || riskDetail.value || trendGroups.value.length)
+  Boolean(device.value || properties.value.length || riskDetail.value || trendGroups.value.length || collectorOverview.value?.children?.length)
 );
 const objectTypeLabel = computed(() => getInsightObjectTypeLabel(capabilityProfile.value.objectType));
 const onlineStatusLabel = computed(() => (device.value?.onlineStatus === 1 ? '在线' : device.value ? '离线' : '--'));
@@ -467,6 +474,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
   isLoading.value = true;
   errorMessage.value = '';
   trendErrorMessage.value = '';
+  collectorOverview.value = null;
 
   try {
     const deviceResponse = await getDeviceByCode(code);
@@ -476,14 +484,22 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     device.value = deviceResponse.data;
 
-    const [propertyResponse, bindingResponse, productInsightSupplement] = await Promise.all([
+    const collectorOverviewRequest = Number(deviceResponse.data?.nodeType) === 2
+      ? getCollectorChildInsightOverview(code).catch((error) => {
+        console.warn('采集器子设备总览加载失败', error);
+        return null;
+      })
+      : Promise.resolve(null);
+
+    const [propertyResponse, bindingResponse, productInsightSupplement, collectorOverviewResponse] = await Promise.all([
       getDeviceProperties(code),
       getRiskMonitoringList({
         deviceCode: code,
         pageNum: 1,
         pageSize: 50
       }),
-      loadProductInsightSupplement(deviceResponse.data?.productId)
+      loadProductInsightSupplement(deviceResponse.data?.productId),
+      collectorOverviewRequest
     ]);
     if (version !== requestVersion.value) {
       return;
@@ -494,6 +510,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
     productModelDataTypeMap.value = productInsightSupplement.modelDataTypeMap;
     productModelUnitMap.value = productInsightSupplement.modelUnitMap;
+    collectorOverview.value = collectorOverviewResponse?.data ?? null;
 
     const primaryBinding = pickPrimaryBinding(riskBindings.value);
     if (primaryBinding) {
@@ -554,6 +571,7 @@ function resetInsightState() {
   trendErrorMessage.value = '';
   device.value = null;
   properties.value = [];
+  collectorOverview.value = null;
   riskBindings.value = [];
   riskDetail.value = null;
   trendGroups.value = [];

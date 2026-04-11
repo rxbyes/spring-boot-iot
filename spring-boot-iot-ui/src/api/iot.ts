@@ -1,5 +1,6 @@
 import { request } from './request';
 import type {
+  CollectorChildInsightOverview,
   Device,
   DeviceAddPayload,
   DeviceMetricOption,
@@ -70,6 +71,10 @@ export function reportByMqtt(payload: MqttReportPublishPayload) {
 
 export function getDeviceProperties(deviceCode: string) {
   return request<DeviceProperty[]>(`/api/device/${deviceCode}/properties`);
+}
+
+export function getCollectorChildInsightOverview(deviceCode: string) {
+  return request<CollectorChildInsightOverview | null>(`/api/device/${deviceCode}/collector-children/overview`);
 }
 
 export function getDeviceMessageLogs(deviceCode: string) {

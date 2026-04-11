@@ -453,6 +453,15 @@
             </StandardButton>
           </div>
 
+          <div
+            v-if="isCollectorCompositeMode"
+            class="product-model-designer__governance-note"
+            data-testid="collector-boundary-note"
+          >
+            <strong>采集器产品只治理自身状态字段</strong>
+            <p>子设备监测值和 sensor_state 请在对应子产品治理。</p>
+          </div>
+
           <div class="product-model-designer__relation-grid">
             <label class="product-model-designer__input-field">
               <span>父设备编码</span>
@@ -529,6 +538,15 @@
           @change-decision="handleDecisionChange"
         />
 
+        <div
+          v-else-if="showCollectorBoundaryEmpty"
+          class="product-model-designer__empty"
+          data-testid="collector-boundary-empty"
+        >
+          <strong>当前采集器没有可治理的子设备正式字段</strong>
+          <p>请在对应子产品中治理子设备正式字段；采集器页只展示子设备总览，不回写采集器契约。</p>
+        </div>
+
         <div v-else class="product-model-designer__empty">
           <strong>暂无识别结果</strong>
           <p>贴上报数据并完成提取后，这里会展示本次识别出的字段。</p>
@@ -560,6 +578,11 @@
             </div>
             <p>{{ applyEvidenceSummary(entry.row) }}</p>
           </article>
+        </div>
+
+        <div v-else-if="showCollectorBoundaryEmpty" class="product-model-designer__empty">
+          <strong>当前采集器没有待生效字段</strong>
+          <p>采集器总览可以查看子设备最新值和状态，但正式字段请在对应子产品中治理。</p>
         </div>
 
         <div v-else class="product-model-designer__empty">
@@ -1054,6 +1077,12 @@ const activeModels = computed(() => models.value.filter((model) => model.modelTy
 const comparisonLedgerRows = computed(() =>
   releaseLedgerRows.value.filter((batch) => !isSameId(batch.id ?? null, selectedLedgerBatchId.value))
 )
+const isCollectorCompositeMode = computed(() =>
+  Number(props.product?.nodeType) === 2 && deviceStructure.value === 'composite'
+)
+const showCollectorBoundaryEmpty = computed(() =>
+  isCollectorCompositeMode.value && Boolean(compareResult.value) && compareRows.value.length === 0
+)
 const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
@@ -1073,6 +1102,9 @@ const canRollbackCurrentBatch = computed(() =>
 )
 const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
 const footerSummaryText = computed(() => {
+  if (showCollectorBoundaryEmpty.value) {
+    return '采集器页只治理自身字段；子设备正式字段请在对应子产品确认并提交审批'
+  }
   if (selectedApplyItems.value.length) {
     return `已选 ${selectedApplyItems.value.length} 项，确认后将提交审批`
   }
@@ -2618,6 +2650,12 @@ function inferRelationStrategies(
   color: var(--text-heading);
   font-size: 0.96rem;
   line-height: 1.42;
+}
+
+.product-model-designer__governance-note p {
+  margin: 0.18rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.56;
 }
 
 .product-model-designer__formal-tabs {

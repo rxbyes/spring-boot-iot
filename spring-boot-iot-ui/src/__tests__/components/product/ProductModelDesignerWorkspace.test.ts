@@ -522,6 +522,60 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).not.toContain('父设备样本归一到子产品')
   })
 
+  it('shows collector boundary note in composite collector mode', async () => {
+    const wrapper = mountWorkspace({
+      id: 6006,
+      productKey: 'nf-monitor-collector-v1',
+      productName: '南方测绘 监测型 采集器',
+      protocolCode: 'mqtt-json',
+      nodeType: 2
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="device-structure-composite"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="collector-boundary-note"]').text()).toContain('采集器产品只治理自身状态字段')
+    expect(wrapper.get('[data-testid="collector-boundary-note"]').text()).toContain('子设备监测值和 sensor_state 请在对应子产品治理')
+  })
+
+  it('renders collector empty guidance when compare result is empty in composite collector mode', async () => {
+    mockCompareProductModelGovernance.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 6006,
+        summary: {},
+        compareRows: []
+      }
+    })
+
+    const wrapper = mountWorkspace({
+      id: 6006,
+      productKey: 'nf-monitor-collector-v1',
+      productName: '南方测绘 监测型 采集器',
+      protocolCode: 'mqtt-json',
+      nodeType: 2
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="device-structure-composite"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="composite-parent-device-code"]').setValue('SK00EA0D1307988')
+    await wrapper.get('input[data-testid^="relation-logical-"]').setValue('L1_LF_1')
+    await wrapper.get('input[data-testid^="relation-child-"]').setValue('202018108')
+    await wrapper
+      .get('[data-testid="contract-field-sample-input"]')
+      .setValue('{"SK00EA0D1307988":{"L1_LF_1":{"2026-04-09T13:47:28.000Z":10.86}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="collector-boundary-empty"]').text()).toContain('请在对应子产品中治理子设备正式字段')
+  })
+
   it('loads release history and shows risk metric catalog rows for the selected release batch', async () => {
     mockPageProductContractReleaseBatches.mockResolvedValueOnce({
       code: 200,

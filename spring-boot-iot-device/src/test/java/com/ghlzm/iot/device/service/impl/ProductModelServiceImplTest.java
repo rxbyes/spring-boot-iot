@@ -386,6 +386,61 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldIgnoreCompositeChildMetricsForCollectorProduct() {
+        Product collector = product(6006L, "nf-monitor-collector-v1", "南方测绘 监测型 采集器");
+        collector.setNodeType(2);
+        when(productMapper.selectById(6006L)).thenReturn(collector);
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00EA0D1307988");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_LF_1", "202018108")));
+        manualExtract.setSamplePayload("""
+                {"SK00EA0D1307988":{"L1_LF_1":{"2026-04-09T13:47:28.000Z":10.86}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6006L, dto);
+
+        assertTrue(result.getCompareRows().isEmpty());
+    }
+
+    @Test
+    void compareGovernanceShouldKeepCollectorRuntimeStatusButDropChildSensorState() {
+        Product collector = product(6006L, "nf-monitor-collector-v1", "南方测绘 监测型 采集器");
+        collector.setNodeType(2);
+        when(productMapper.selectById(6006L)).thenReturn(collector);
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00EA0D1307988");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_LF_1", "202018108")));
+        manualExtract.setSamplePayload("""
+                {"SK00EA0D1307988":{"S1_ZT_1":{"2026-04-09T13:47:28.000Z":{"temp":20.31,"humidity":89.04,"signal_4g":-71,"sensor_state":{"L1_LF_1":0}}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6006L, dto);
+
+        assertEquals(
+                List.of("humidity", "signal_4g", "temp"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .sorted()
+                        .toList()
+        );
+        assertTrue(result.getCompareRows().stream().noneMatch(item -> "sensor_state".equals(item.getIdentifier())));
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
