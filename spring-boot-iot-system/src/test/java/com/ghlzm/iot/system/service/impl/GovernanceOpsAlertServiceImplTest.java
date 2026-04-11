@@ -3,11 +3,19 @@ package com.ghlzm.iot.system.service.impl;
 import com.ghlzm.iot.system.entity.GovernanceOpsAlert;
 import com.ghlzm.iot.system.mapper.GovernanceOpsAlertMapper;
 import com.ghlzm.iot.system.service.model.GovernanceOpsAlertCommand;
+import com.ghlzm.iot.system.service.model.GovernanceOpsAlertPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceOpsAlertVO;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.response.PageResult;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
@@ -118,5 +126,53 @@ class GovernanceOpsAlertServiceImplTest {
                         && "CLOSED".equals(alert.getAlertStatus())
                         && "value 已偏离正式合同".equals(alert.getAlertMessage())
         ));
+    }
+
+    @Test
+    void pageAlertsShouldReturnUnifiedRecommendationContract() {
+        GovernanceOpsAlert row = new GovernanceOpsAlert();
+        row.setId(9902L);
+        row.setAlertType("FIELD_DRIFT");
+        row.setAffectedCount(3L);
+        row.setSnapshotJson("{\"recommendation\":{\"recommendationType\":\"PUBLISH\",\"confidence\":0.92,\"reasonCodes\":[\"FIELD_DRIFT\"],\"suggestedAction\":\"Publish contract update\",\"evidenceItems\":[{\"evidenceType\":\"RUNTIME_PAYLOAD\",\"title\":\"Latest payload\",\"summary\":\"value drift detected\"}]},\"impact\":{\"affectedCount\":3,\"affectedTypes\":[\"PRODUCT\",\"RISK_POINT\"],\"rollbackable\":true,\"rollbackPlanSummary\":\"Can re-publish previous contract\"},\"rollback\":{\"rollbackable\":true,\"rollbackPlanSummary\":\"Can re-publish previous contract\"}}");
+
+        when(alertMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceOpsAlert> page = invocation.getArgument(0);
+            page.setRecords(List.of(row));
+            page.setTotal(1L);
+            return page;
+        });
+
+        GovernanceOpsAlertServiceImpl service = new GovernanceOpsAlertServiceImpl(alertMapper);
+
+        PageResult<GovernanceOpsAlertVO> result = service.pageAlerts(new GovernanceOpsAlertPageQuery(), 10001L);
+
+        GovernanceOpsAlertVO record = result.getRecords().get(0);
+        Object recommendation = readFieldValue(record, "recommendation");
+        Object impact = readFieldValue(record, "impact");
+        List<?> evidenceItems = readListField(recommendation, "evidenceItems");
+
+        assertEquals("0.92", String.valueOf(readFieldValue(recommendation, "confidence")));
+        assertEquals("RUNTIME_PAYLOAD", String.valueOf(readFieldValue(evidenceItems.get(0), "evidenceType")));
+        assertEquals("true", String.valueOf(readFieldValue(impact, "rollbackable")));
+    }
+
+    private static Object readFieldValue(Object target, String fieldName) {
+        if (target == null) {
+            return null;
+        }
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<?> readListField(Object target, String fieldName) {
+        Object value = readFieldValue(target, fieldName);
+        return value instanceof List<?> list ? list : Collections.emptyList();
     }
 }

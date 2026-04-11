@@ -549,6 +549,54 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('继续补齐阈值策略')
   })
 
+  it('renders unified recommendation evidence and impact on governance task cards', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 16,
+            workItemCode: 'PENDING_RISK_BINDING',
+            workStatus: 'OPEN',
+            blockingReason: 'Pending promotion evidence ready',
+            recommendation: {
+              recommendationType: 'PROMOTE',
+              confidence: 0.92,
+              reasonCodes: ['LOW_BINDING_COVERAGE'],
+              suggestedAction: 'Promote pending binding',
+              evidenceItems: [
+                { evidenceType: 'RUNTIME_PAYLOAD', title: 'Payload 1', summary: 'gpsTotalX pending' },
+                { evidenceType: 'CATALOG_DIFF', title: 'Catalog 2', summary: 'metric missing' },
+                { evidenceType: 'APPROVAL_TRACE', title: 'Trace 3', summary: 'approval linked' },
+                { evidenceType: 'SHOULD_NOT_RENDER', title: 'Hidden 4', summary: 'should stay hidden' }
+              ]
+            },
+            impact: {
+              affectedCount: 3,
+              affectedTypes: ['RISK_POINT', 'DEVICE'],
+              rollbackable: true,
+              rollbackPlanSummary: 'Can revert pending promotion'
+            }
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('0.92')
+    expect(wrapper.text()).toContain('RUNTIME_PAYLOAD')
+    expect(wrapper.text()).toContain('CATALOG_DIFF')
+    expect(wrapper.text()).toContain('APPROVAL_TRACE')
+    expect(wrapper.text()).not.toContain('SHOULD_NOT_RENDER')
+    expect(wrapper.text()).toContain('Can revert pending promotion')
+  })
+
   it('renders governance ops rows from backend alerts', async () => {
     mockPageOpsAlerts.mockResolvedValue({
       code: 200,
@@ -573,6 +621,54 @@ describe('governance control plane views', () => {
 
     expect(wrapper.text()).toContain('字段漂移告警')
     expect(wrapper.text()).toContain('value 已偏离正式合同')
+  })
+
+  it('renders unified recommendation evidence and impact on governance ops cards', async () => {
+    mockPageOpsAlerts.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 17,
+            alertType: 'FIELD_DRIFT',
+            alertTitle: 'Field drift alert',
+            alertMessage: 'value drift detected',
+            recommendation: {
+              recommendationType: 'PUBLISH',
+              confidence: 0.92,
+              reasonCodes: ['FIELD_DRIFT'],
+              suggestedAction: 'Publish contract update',
+              evidenceItems: [
+                { evidenceType: 'RUNTIME_PAYLOAD', title: 'Payload 1', summary: 'value drift detected' },
+                { evidenceType: 'CONTRACT_DIFF', title: 'Contract 2', summary: 'formal contract mismatch' },
+                { evidenceType: 'TRACE_LINK', title: 'Trace 3', summary: 'trace evidence ready' },
+                { evidenceType: 'SHOULD_NOT_RENDER', title: 'Hidden 4', summary: 'should stay hidden' }
+              ]
+            },
+            impact: {
+              affectedCount: 2,
+              affectedTypes: ['PRODUCT', 'RISK_POINT'],
+              rollbackable: true,
+              rollbackPlanSummary: 'Can re-publish previous contract'
+            }
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceOpsWorkbenchView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('0.92')
+    expect(wrapper.text()).toContain('RUNTIME_PAYLOAD')
+    expect(wrapper.text()).toContain('CONTRACT_DIFF')
+    expect(wrapper.text()).toContain('TRACE_LINK')
+    expect(wrapper.text()).not.toContain('SHOULD_NOT_RENDER')
+    expect(wrapper.text()).toContain('Can re-publish previous contract')
   })
 
   it('loads governance replay from ops alerts with replay context', async () => {

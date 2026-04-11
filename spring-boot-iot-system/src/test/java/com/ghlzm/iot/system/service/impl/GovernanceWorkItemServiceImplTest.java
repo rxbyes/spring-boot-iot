@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.lang.reflect.Field;
+import java.util.Collections;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -478,6 +479,41 @@ class GovernanceWorkItemServiceImplTest {
         assertTrue(readString(record, "rollbackSnapshotJson").contains("rollbackable"));
     }
 
+    @Test
+    void pageWorkItemsShouldReturnUnifiedRecommendationContract() {
+        GovernanceWorkItem row = new GovernanceWorkItem();
+        row.setId(9302L);
+        row.setWorkItemCode("PENDING_RISK_BINDING");
+        writeField(row, "recommendationSnapshotJson",
+                "{\"recommendationType\":\"PROMOTE\",\"confidence\":0.92,\"reasonCodes\":[\"LOW_BINDING_COVERAGE\"],\"suggestedAction\":\"Promote pending binding\"}");
+        writeField(row, "evidenceSnapshotJson",
+                "{\"evidenceItems\":[{\"evidenceType\":\"RUNTIME_PAYLOAD\",\"title\":\"Latest payload\",\"summary\":\"gpsTotalX still pending\"}]}");
+        writeField(row, "impactSnapshotJson",
+                "{\"affectedCount\":3,\"affectedTypes\":[\"RISK_POINT\",\"DEVICE\"],\"rollbackable\":true,\"rollbackPlanSummary\":\"Can revert pending promotion\"}");
+        writeField(row, "rollbackSnapshotJson",
+                "{\"rollbackable\":true,\"rollbackPlanSummary\":\"Can revert pending promotion\"}");
+
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of(row));
+            page.setTotal(1L);
+            return page;
+        });
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        PageResult<GovernanceWorkItemVO> result = service.pageWorkItems(new GovernanceWorkItemPageQuery(), 10001L);
+
+        GovernanceWorkItemVO record = result.getRecords().get(0);
+        Object recommendation = readFieldValue(record, "recommendation");
+        Object impact = readFieldValue(record, "impact");
+        List<?> evidenceItems = readListField(recommendation, "evidenceItems");
+
+        assertEquals("0.92", String.valueOf(readFieldValue(recommendation, "confidence")));
+        assertEquals("RUNTIME_PAYLOAD", String.valueOf(readFieldValue(evidenceItems.get(0), "evidenceType")));
+        assertEquals("true", String.valueOf(readFieldValue(impact, "rollbackable")));
+    }
+
     private static void writeField(Object target, String fieldName, String value) {
         if (target == null) {
             return;
@@ -503,5 +539,24 @@ class GovernanceWorkItemServiceImplTest {
         } catch (NoSuchFieldException | IllegalAccessException ignored) {
             return "";
         }
+    }
+
+    private static Object readFieldValue(Object target, String fieldName) {
+        if (target == null) {
+            return null;
+        }
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<?> readListField(Object target, String fieldName) {
+        Object value = readFieldValue(target, fieldName);
+        return value instanceof List<?> list ? list : Collections.emptyList();
     }
 }

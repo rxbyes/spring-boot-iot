@@ -569,6 +569,34 @@ export type GovernanceWorkItemExecutionStatus =
   | 'RESOLVED'
   | 'CLOSED';
 
+export interface GovernanceEvidenceItem {
+  evidenceType?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+}
+
+export interface GovernanceRecommendationSnapshot {
+  recommendationType?: 'PROMOTE' | 'PUBLISH' | 'CREATE_POLICY' | 'REPLAY' | 'IGNORE' | string | null;
+  confidence?: number | null;
+  reasonCodes?: string[] | null;
+  suggestedAction?: string | null;
+  evidenceItems?: GovernanceEvidenceItem[] | null;
+}
+
+export interface GovernanceImpactSnapshot {
+  affectedCount?: number | null;
+  affectedTypes?: string[] | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
+
+export interface GovernanceRollbackSnapshot {
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
+
 export interface GovernanceWorkItem {
   id: IdType;
   workItemCode?: string | null;
@@ -595,6 +623,9 @@ export interface GovernanceWorkItem {
   evidenceSnapshotJson?: string | null;
   impactSnapshotJson?: string | null;
   rollbackSnapshotJson?: string | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
   dueTime?: string | null;
   resolvedTime?: string | null;
   closedTime?: string | null;
@@ -642,6 +673,9 @@ export interface GovernanceOpsAlert {
   sourceStage?: string | null;
   snapshotJson?: string | null;
   assigneeUserId?: IdType | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
   firstSeenTime?: string | null;
   lastSeenTime?: string | null;
   resolvedTime?: string | null;

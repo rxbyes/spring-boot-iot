@@ -116,6 +116,7 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
     public PageResult<GovernanceOpsAlertVO> pageAlerts(GovernanceOpsAlertPageQuery query, Long currentUserId) {
         Page<GovernanceOpsAlert> page = PageQueryUtils.buildPage(query == null ? null : query.getPageNum(), query == null ? null : query.getPageSize());
         Page<GovernanceOpsAlert> result = alertMapper.selectPage(page, buildPageWrapper(query));
+        result.getRecords().forEach(this::hydrateStructuredSnapshots);
         List<GovernanceOpsAlertVO> rows = result.getRecords().stream().map(this::toVO).toList();
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), rows);
     }
@@ -258,6 +259,9 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         vo.setSourceStage(item.getSourceStage());
         vo.setSnapshotJson(item.getSnapshotJson());
         vo.setAssigneeUserId(item.getAssigneeUserId());
+        vo.setRecommendation(item.getRecommendation());
+        vo.setImpact(item.getImpact());
+        vo.setRollback(item.getRollback());
         vo.setFirstSeenTime(item.getFirstSeenTime());
         vo.setLastSeenTime(item.getLastSeenTime());
         vo.setResolvedTime(item.getResolvedTime());
@@ -274,6 +278,58 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
 
     private Long defaultAffectedCount(Long affectedCount) {
         return affectedCount == null || affectedCount < 0 ? 0L : affectedCount;
+    }
+
+    private void hydrateStructuredSnapshots(GovernanceOpsAlert item) {
+        if (item == null) {
+            return;
+        }
+        item.setRecommendation(GovernanceSnapshotResolver.resolveRecommendation(
+                null,
+                null,
+                item.getSnapshotJson(),
+                defaultRecommendationType(item.getAlertType()),
+                defaultSuggestedAction(item.getAlertMessage(), item.getAlertTitle())
+        ));
+        item.setImpact(GovernanceSnapshotResolver.resolveImpact(
+                null,
+                null,
+                item.getSnapshotJson(),
+                item.getAffectedCount(),
+                defaultAffectedType(item.getSubjectType(), item.getAlertType())
+        ));
+        item.setRollback(GovernanceSnapshotResolver.resolveRollback(
+                null,
+                null,
+                item.getSnapshotJson()
+        ));
+    }
+
+    private String defaultRecommendationType(String alertType) {
+        String normalized = normalize(alertType);
+        if ("FIELD_DRIFT".equals(normalized) || "CONTRACT_DIFF".equals(normalized)) {
+            return "PUBLISH";
+        }
+        if ("MISSING_RISK_METRIC".equals(normalized)) {
+            return "CREATE_POLICY";
+        }
+        return "IGNORE";
+    }
+
+    private String defaultSuggestedAction(String alertMessage, String alertTitle) {
+        String normalizedMessage = normalize(alertMessage);
+        if (StringUtils.hasText(normalizedMessage)) {
+            return normalizedMessage;
+        }
+        return normalize(alertTitle);
+    }
+
+    private String defaultAffectedType(String subjectType, String alertType) {
+        String normalizedSubjectType = normalize(subjectType);
+        if (StringUtils.hasText(normalizedSubjectType)) {
+            return normalizedSubjectType;
+        }
+        return normalize(alertType);
     }
 
     private String normalize(String value) {

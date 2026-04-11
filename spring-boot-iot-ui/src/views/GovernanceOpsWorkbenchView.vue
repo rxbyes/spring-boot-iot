@@ -52,6 +52,35 @@
               <span class="governance-ops-card__status">{{ alertStatusLabel(item.alertStatus) }}</span>
             </header>
             <p class="governance-ops-card__message">{{ item.alertMessage || '暂无告警说明。' }}</p>
+            <section v-if="hasRecommendation(item) || hasImpact(item)" class="governance-ops-card__decision">
+              <div v-if="hasRecommendation(item)" class="governance-ops-card__decision-block">
+                <div class="governance-ops-card__decision-header">
+                  <strong>{{ item.recommendation?.suggestedAction || item.recommendation?.recommendationType || 'Recommendation' }}</strong>
+                  <span v-if="recommendationConfidenceText(item.recommendation)" class="governance-ops-card__decision-tag">
+                    {{ recommendationConfidenceText(item.recommendation) }}
+                  </span>
+                </div>
+                <div v-if="recommendationEvidenceItems(item).length" class="governance-ops-card__evidence-list">
+                  <article
+                    v-for="(evidence, index) in recommendationEvidenceItems(item)"
+                    :key="`${String(item.id)}-evidence-${index}`"
+                    class="governance-ops-card__evidence-item"
+                  >
+                    <strong>{{ evidence.evidenceType || evidence.sourceType || 'EVIDENCE' }}</strong>
+                    <span>{{ evidence.title || evidence.summary || evidence.sourceId || '--' }}</span>
+                  </article>
+                </div>
+              </div>
+              <div v-if="hasImpact(item)" class="governance-ops-card__decision-block">
+                <div class="governance-ops-card__decision-header">
+                  <strong>{{ impactSummaryText(item.impact) }}</strong>
+                  <span class="governance-ops-card__decision-tag">{{ rollbackabilityText(item.impact, item.rollback) }}</span>
+                </div>
+                <p v-if="impactPlanSummary(item.impact, item.rollback)" class="governance-ops-card__decision-copy">
+                  {{ impactPlanSummary(item.impact, item.rollback) }}
+                </p>
+              </div>
+            </section>
             <dl class="governance-ops-card__meta">
               <div>
                 <dt>严重级别</dt>
@@ -221,7 +250,13 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
-import type { GovernanceOpsAlert, GovernanceOpsAlertPageQuery } from '@/types/api'
+import type {
+  GovernanceImpactSnapshot,
+  GovernanceOpsAlert,
+  GovernanceOpsAlertPageQuery,
+  GovernanceRecommendationSnapshot,
+  GovernanceRollbackSnapshot
+} from '@/types/api'
 
 const route = useRoute()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
@@ -339,6 +374,51 @@ function hasReplayContext(item: GovernanceOpsAlert) {
     || Boolean(normalizeText(item.traceId))
     || Boolean(normalizeText(item.deviceCode))
     || Boolean(normalizeText(item.productKey))
+}
+
+function hasRecommendation(item: GovernanceOpsAlert) {
+  return Boolean(normalizeText(item.recommendation?.suggestedAction))
+    || Boolean(normalizeText(item.recommendation?.recommendationType))
+    || recommendationConfidenceText(item.recommendation) != null
+    || recommendationEvidenceItems(item).length > 0
+}
+
+function hasImpact(item: GovernanceOpsAlert) {
+  return impactSummaryText(item.impact) !== '--'
+    || rollbackabilityText(item.impact, item.rollback) !== '--'
+    || Boolean(impactPlanSummary(item.impact, item.rollback))
+}
+
+function recommendationConfidenceText(recommendation?: GovernanceRecommendationSnapshot | null) {
+  const confidence = recommendation?.confidence
+  return typeof confidence === 'number' && Number.isFinite(confidence) ? confidence.toFixed(2) : undefined
+}
+
+function recommendationEvidenceItems(item: GovernanceOpsAlert) {
+  return (item.recommendation?.evidenceItems ?? []).slice(0, 3)
+}
+
+function impactSummaryText(impact?: GovernanceImpactSnapshot | null) {
+  if (!impact) {
+    return '--'
+  }
+  const count = typeof impact.affectedCount === 'number' && Number.isFinite(impact.affectedCount)
+    ? String(impact.affectedCount)
+    : '--'
+  const types = (impact.affectedTypes ?? []).filter((value): value is string => Boolean(normalizeText(value)))
+  return types.length ? `${count} · ${types.join(', ')}` : count
+}
+
+function rollbackabilityText(impact?: GovernanceImpactSnapshot | null, rollback?: GovernanceRollbackSnapshot | null) {
+  const rollbackable = impact?.rollbackable ?? rollback?.rollbackable
+  if (rollbackable == null) {
+    return '--'
+  }
+  return rollbackable ? 'Rollbackable' : 'Manual rollback'
+}
+
+function impactPlanSummary(impact?: GovernanceImpactSnapshot | null, rollback?: GovernanceRollbackSnapshot | null) {
+  return normalizeText(impact?.rollbackPlanSummary) || normalizeText(rollback?.rollbackPlanSummary)
 }
 
 async function handleOpenReplay(item: GovernanceOpsAlert) {
@@ -574,6 +654,55 @@ function parseNumberQuery(value: unknown) {
 .governance-ops-card {
   display: grid;
   gap: 0.8rem;
+}
+
+.governance-ops-card__decision,
+.governance-ops-card__decision-block,
+.governance-ops-card__evidence-list,
+.governance-ops-card__evidence-item {
+  display: grid;
+}
+
+.governance-ops-card__decision {
+  gap: 0.6rem;
+}
+
+.governance-ops-card__decision-block {
+  gap: 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(250, 248, 240, 0.92);
+  padding: 0.8rem 0.9rem;
+}
+
+.governance-ops-card__decision-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.governance-ops-card__decision-tag {
+  border-radius: var(--radius-pill);
+  background: rgba(138, 90, 34, 0.12);
+  color: var(--warning);
+  padding: 0.18rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.governance-ops-card__evidence-list {
+  gap: 0.4rem;
+}
+
+.governance-ops-card__evidence-item {
+  gap: 0.2rem;
+}
+
+.governance-ops-card__evidence-item span,
+.governance-ops-card__decision-copy {
+  color: var(--text-caption);
+  margin: 0;
+  line-height: 1.5;
 }
 
 .governance-ops-card__actions {

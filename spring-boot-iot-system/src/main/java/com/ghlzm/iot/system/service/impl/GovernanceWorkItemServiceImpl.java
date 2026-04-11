@@ -454,6 +454,25 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         vo.setEvidenceSnapshotJson(item.getEvidenceSnapshotJson());
         vo.setImpactSnapshotJson(item.getImpactSnapshotJson());
         vo.setRollbackSnapshotJson(item.getRollbackSnapshotJson());
+        vo.setRecommendation(GovernanceSnapshotResolver.resolveRecommendation(
+                item.getRecommendationSnapshotJson(),
+                item.getEvidenceSnapshotJson(),
+                item.getSnapshotJson(),
+                defaultRecommendationType(item),
+                defaultSuggestedAction(item.getBlockingReason(), item.getActionCode())
+        ));
+        vo.setImpact(GovernanceSnapshotResolver.resolveImpact(
+                item.getImpactSnapshotJson(),
+                item.getRollbackSnapshotJson(),
+                item.getSnapshotJson(),
+                null,
+                defaultAffectedType(item.getSubjectType(), item.getTaskCategory())
+        ));
+        vo.setRollback(GovernanceSnapshotResolver.resolveRollback(
+                item.getRollbackSnapshotJson(),
+                item.getImpactSnapshotJson(),
+                item.getSnapshotJson()
+        ));
         vo.setDueTime(item.getDueTime());
         vo.setResolvedTime(item.getResolvedTime());
         vo.setClosedTime(item.getClosedTime());
@@ -567,5 +586,42 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             return fallbackSnapshot;
         }
         return null;
+    }
+
+    private String defaultRecommendationType(GovernanceWorkItem item) {
+        if (item == null) {
+            return null;
+        }
+        String workItemCode = normalize(item.getWorkItemCode());
+        if ("PENDING_RISK_BINDING".equals(workItemCode)) {
+            return "PROMOTE";
+        }
+        if ("PENDING_CONTRACT_RELEASE".equals(workItemCode)) {
+            return "PUBLISH";
+        }
+        if ("PENDING_REPLAY".equals(workItemCode)) {
+            return "REPLAY";
+        }
+        if ("PENDING_THRESHOLD_POLICY".equals(workItemCode)
+                || "PENDING_LINKAGE_PLAN".equals(workItemCode)) {
+            return "CREATE_POLICY";
+        }
+        return "IGNORE";
+    }
+
+    private String defaultSuggestedAction(String blockingReason, String actionCode) {
+        String normalizedReason = normalize(blockingReason);
+        if (StringUtils.hasText(normalizedReason)) {
+            return normalizedReason;
+        }
+        return normalize(actionCode);
+    }
+
+    private String defaultAffectedType(String subjectType, String taskCategory) {
+        String normalizedSubjectType = normalize(subjectType);
+        if (StringUtils.hasText(normalizedSubjectType)) {
+            return normalizedSubjectType;
+        }
+        return normalize(taskCategory);
     }
 }

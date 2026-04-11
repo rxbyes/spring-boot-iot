@@ -52,6 +52,35 @@
               <span class="governance-task-card__status">{{ workStatusLabel(item.workStatus) }}</span>
             </header>
             <p class="governance-task-card__reason">{{ item.blockingReason || '暂无阻塞说明，建议优先查看对象上下文。' }}</p>
+            <section v-if="hasRecommendation(item) || hasImpact(item)" class="governance-task-card__decision">
+              <div v-if="hasRecommendation(item)" class="governance-task-card__decision-block">
+                <div class="governance-task-card__decision-header">
+                  <strong>{{ item.recommendation?.suggestedAction || item.recommendation?.recommendationType || 'Recommendation' }}</strong>
+                  <span v-if="recommendationConfidenceText(item.recommendation)" class="governance-task-card__decision-tag">
+                    {{ recommendationConfidenceText(item.recommendation) }}
+                  </span>
+                </div>
+                <div v-if="recommendationEvidenceItems(item).length" class="governance-task-card__evidence-list">
+                  <article
+                    v-for="(evidence, index) in recommendationEvidenceItems(item)"
+                    :key="`${String(item.id)}-evidence-${index}`"
+                    class="governance-task-card__evidence-item"
+                  >
+                    <strong>{{ evidence.evidenceType || evidence.sourceType || 'EVIDENCE' }}</strong>
+                    <span>{{ evidence.title || evidence.summary || evidence.sourceId || '--' }}</span>
+                  </article>
+                </div>
+              </div>
+              <div v-if="hasImpact(item)" class="governance-task-card__decision-block">
+                <div class="governance-task-card__decision-header">
+                  <strong>{{ impactSummaryText(item.impact) }}</strong>
+                  <span class="governance-task-card__decision-tag">{{ rollbackabilityText(item.impact, item.rollback) }}</span>
+                </div>
+                <p v-if="impactPlanSummary(item.impact, item.rollback)" class="governance-task-card__decision-copy">
+                  {{ impactPlanSummary(item.impact, item.rollback) }}
+                </p>
+              </div>
+            </section>
             <dl class="governance-task-card__meta">
               <div>
                 <dt>主题</dt>
@@ -223,7 +252,13 @@ import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
-import type { GovernanceWorkItem, GovernanceWorkItemPageQuery } from '@/types/api'
+import type {
+  GovernanceImpactSnapshot,
+  GovernanceRecommendationSnapshot,
+  GovernanceRollbackSnapshot,
+  GovernanceWorkItem,
+  GovernanceWorkItemPageQuery
+} from '@/types/api'
 import { buildGovernanceTaskDispatchLocation } from '@/utils/governanceTaskDispatch'
 
 const route = useRoute()
@@ -367,6 +402,51 @@ function parseSnapshot(snapshotJson: string | null | undefined) {
   } catch {
     return undefined
   }
+}
+
+function hasRecommendation(item: GovernanceWorkItem) {
+  return Boolean(normalizeText(item.recommendation?.suggestedAction))
+    || Boolean(normalizeText(item.recommendation?.recommendationType))
+    || recommendationConfidenceText(item.recommendation) != null
+    || recommendationEvidenceItems(item).length > 0
+}
+
+function hasImpact(item: GovernanceWorkItem) {
+  return impactSummaryText(item.impact) !== '--'
+    || rollbackabilityText(item.impact, item.rollback) !== '--'
+    || Boolean(impactPlanSummary(item.impact, item.rollback))
+}
+
+function recommendationConfidenceText(recommendation?: GovernanceRecommendationSnapshot | null) {
+  const confidence = recommendation?.confidence
+  return typeof confidence === 'number' && Number.isFinite(confidence) ? confidence.toFixed(2) : undefined
+}
+
+function recommendationEvidenceItems(item: GovernanceWorkItem) {
+  return (item.recommendation?.evidenceItems ?? []).slice(0, 3)
+}
+
+function impactSummaryText(impact?: GovernanceImpactSnapshot | null) {
+  if (!impact) {
+    return '--'
+  }
+  const count = typeof impact.affectedCount === 'number' && Number.isFinite(impact.affectedCount)
+    ? String(impact.affectedCount)
+    : '--'
+  const types = (impact.affectedTypes ?? []).filter((value): value is string => Boolean(normalizeText(value)))
+  return types.length ? `${count} · ${types.join(', ')}` : count
+}
+
+function rollbackabilityText(impact?: GovernanceImpactSnapshot | null, rollback?: GovernanceRollbackSnapshot | null) {
+  const rollbackable = impact?.rollbackable ?? rollback?.rollbackable
+  if (rollbackable == null) {
+    return '--'
+  }
+  return rollbackable ? 'Rollbackable' : 'Manual rollback'
+}
+
+function impactPlanSummary(impact?: GovernanceImpactSnapshot | null, rollback?: GovernanceRollbackSnapshot | null) {
+  return normalizeText(impact?.rollbackPlanSummary) || normalizeText(rollback?.rollbackPlanSummary)
 }
 
 function canOperateWorkItem(item: GovernanceWorkItem) {
@@ -665,6 +745,55 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 .governance-task-card {
   display: grid;
   gap: 0.8rem;
+}
+
+.governance-task-card__decision,
+.governance-task-card__decision-block,
+.governance-task-card__evidence-list,
+.governance-task-card__evidence-item {
+  display: grid;
+}
+
+.governance-task-card__decision {
+  gap: 0.6rem;
+}
+
+.governance-task-card__decision-block {
+  gap: 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(250, 250, 245, 0.92);
+  padding: 0.8rem 0.9rem;
+}
+
+.governance-task-card__decision-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.governance-task-card__decision-tag {
+  border-radius: var(--radius-pill);
+  background: rgba(26, 77, 46, 0.08);
+  color: var(--accent-deep);
+  padding: 0.18rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.governance-task-card__evidence-list {
+  gap: 0.4rem;
+}
+
+.governance-task-card__evidence-item {
+  gap: 0.2rem;
+}
+
+.governance-task-card__evidence-item span,
+.governance-task-card__decision-copy {
+  color: var(--text-caption);
+  margin: 0;
+  line-height: 1.5;
 }
 
 .governance-task-card__actions {
