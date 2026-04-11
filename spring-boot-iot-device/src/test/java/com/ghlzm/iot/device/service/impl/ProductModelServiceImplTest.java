@@ -579,6 +579,54 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldNormalizeRainGaugeRowsIntoNormativeIdentifiers() {
+        when(productMapper.selectById(7007L)).thenReturn(product(
+                7007L,
+                "nf-monitor-tipping-bucket-rain-gauge-v1",
+                "南方测绘 监测型 翻斗式雨量计"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase4-rain-gauge")).thenReturn(List.of(
+                normativeDefinition("phase4-rain-gauge", "value", "当前雨量", 1),
+                normativeDefinition("phase4-rain-gauge", "totalValue", "累计雨量", 0)
+        ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L3_YL_1.value"), eq("L3_YL_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(9907001L, "value", "L3_YL_1.value", "L3_YL_1"));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L3_YL_1.totalValue"), eq("L3_YL_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(9907002L, "totalValue", "L3_YL_1.totalValue", "L3_YL_1"));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00D50D1305080":{"L3_YL_1":{"2026-04-10T11:48:55.000Z":{"value":0,"totalValue":0}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(7007L, dto);
+
+        assertEquals(
+                List.of("value", "totalValue"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .toList()
+        );
+        ProductModelGovernanceCompareRowVO valueRow = compareRow(result, "property", "value");
+        ProductModelGovernanceCompareRowVO totalValueRow = compareRow(result, "property", "totalValue");
+        assertEquals("value", valueRow.getNormativeIdentifier());
+        assertEquals("当前雨量", valueRow.getNormativeName());
+        assertTrue(valueRow.getRiskReady());
+        assertEquals(List.of("L3_YL_1.value"), valueRow.getRawIdentifiers());
+        assertEquals("totalValue", totalValueRow.getNormativeIdentifier());
+        assertEquals("累计雨量", totalValueRow.getNormativeName());
+        assertEquals(Boolean.FALSE, totalValueRow.getRiskReady());
+        assertEquals(List.of("L3_YL_1.totalValue"), totalValueRow.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(7007L), eq("phase4-rain-gauge"), any());
+    }
+
+    @Test
     void compareGovernanceShouldOnlyMirrorCompositeSensorStateWithoutLeakingParentTerminalStatus() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -898,6 +946,47 @@ class ProductModelServiceImplTest {
 
         assertEquals(44678L, result.getReleaseBatchId());
         assertEquals(1, result.getCreatedCount());
+    }
+
+    @Test
+    void applyGovernanceShouldNormalizeRainGaugeIdentifiersAndCreateReleaseBatch() {
+        when(productMapper.selectById(7007L)).thenReturn(product(
+                7007L,
+                "nf-monitor-tipping-bucket-rain-gauge-v1",
+                "南方测绘 监测型 翻斗式雨量计"
+        ));
+        when(productModelMapper.selectOne(any())).thenReturn(null);
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_YL_1.value")))
+                .thenReturn("value");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_YL_1.totalValue")))
+                .thenReturn("totalValue");
+        when(productContractReleaseService.createBatch(
+                eq(7007L),
+                eq("phase4-rain-gauge"),
+                eq("manual_compare_apply"),
+                eq(2),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(77007L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "L3_YL_1.value", "当前雨量"),
+                applyItem("create", null, "property", "L3_YL_1.totalValue", "累计雨量")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(7007L, dto, 10001L);
+
+        assertEquals(77007L, result.getReleaseBatchId());
+        assertEquals(
+                List.of("value", "totalValue"),
+                result.getAppliedItems().stream()
+                        .map(ProductModelGovernanceAppliedItemVO::getIdentifier)
+                        .toList()
+        );
+        verify(productModelMapper, times(2)).insert(any(ProductModel.class));
     }
 
     @Test

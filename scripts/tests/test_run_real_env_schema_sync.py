@@ -595,6 +595,29 @@ class CollectorChildBaselineSeedTest(unittest.TestCase):
         self.assertIn("HIGHER_IS_RISKIER", params_text)
         self.assertIn("STATE_IS_RISK", params_text)
 
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_rain_gauge_contract_baseline_and_mapping_rules(
+        self, _mock_table_exists, _mock_column_exists
+    ):
+        cursor = CollectorChildBaselineSeedCursor()
+
+        schema_sync.ensure_collector_child_dev_baseline(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO iot_vendor_metric_mapping_rule", combined_sql)
+
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("nf-monitor-tipping-bucket-rain-gauge-v1", params_text)
+        self.assertIn("phase4-rain-gauge", params_text)
+        self.assertIn("RAIN_GAUGE", params_text)
+        self.assertIn("totalValue", params_text)
+        self.assertIn("L3_YL_1.value", params_text)
+        self.assertIn("L3_YL_1.totalValue", params_text)
+        self.assertIn("当前雨量", params_text)
+        self.assertIn("累计雨量", params_text)
+
 
 if __name__ == "__main__":
     unittest.main()
