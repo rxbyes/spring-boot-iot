@@ -41,6 +41,10 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private static final String DEFAULT_DOMAIN = "PRODUCT";
     private static final String DOMAIN_ALARM = "ALARM";
     private static final String DEFAULT_EXECUTION_STATUS = "PENDING_APPROVAL";
+    private static final String EXECUTION_STATUS_IN_PROGRESS = "IN_PROGRESS";
+    private static final String EXECUTION_STATUS_REPLAY_REQUIRED = "REPLAY_REQUIRED";
+    private static final String EXECUTION_STATUS_RESOLVED = "RESOLVED";
+    private static final String EXECUTION_STATUS_CLOSED = "CLOSED";
     private static final long DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS = 300_000L;
 
     private final GovernanceWorkItemMapper workItemMapper;
@@ -127,6 +131,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         applyLifecycleHubFields(refreshed, normalized);
         refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
         refreshed.setWorkStatus(resolveWorkStatus(existing));
+        refreshed.setExecutionStatus(resolveExecutionStatus(existing, normalized));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
         refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
         refreshed.setUpdateBy(normalized.operatorUserId());
@@ -142,6 +147,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_RESOLVED);
+        update.setExecutionStatus(EXECUTION_STATUS_RESOLVED);
         update.setResolvedTime(new Date());
         update.setBlockingReason(normalize(comment));
         update.setUpdateBy(operatorUserId);
@@ -163,6 +169,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_ACKED);
+        update.setExecutionStatus(EXECUTION_STATUS_IN_PROGRESS);
         update.setAssigneeUserId(currentUserId);
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
@@ -175,6 +182,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_BLOCKED);
+        update.setExecutionStatus(EXECUTION_STATUS_REPLAY_REQUIRED);
         update.setAssigneeUserId(currentUserId);
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
@@ -187,6 +195,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         GovernanceWorkItem update = new GovernanceWorkItem();
         update.setId(item.getId());
         update.setWorkStatus(STATUS_CLOSED);
+        update.setExecutionStatus(EXECUTION_STATUS_CLOSED);
         update.setClosedTime(new Date());
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
         update.setUpdateBy(currentUserId);
@@ -267,6 +276,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                 GovernanceWorkItem update = new GovernanceWorkItem();
                 update.setId(existing.getId());
                 update.setWorkStatus(STATUS_RESOLVED);
+                update.setExecutionStatus(EXECUTION_STATUS_RESOLVED);
                 update.setResolvedTime(new Date());
                 update.setUpdateBy(1L);
                 workItemMapper.updateById(update);
@@ -318,6 +328,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         applyLifecycleHubFields(refreshed, normalized);
         refreshed.setPriorityLevel(defaultPriority(normalized.priorityLevel()));
         refreshed.setWorkStatus(resolveWorkStatus(existing));
+        refreshed.setExecutionStatus(resolveExecutionStatus(existing, normalized));
         refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
         refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
         refreshed.setUpdateBy(normalized.operatorUserId());
@@ -528,6 +539,17 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private String resolveExecutionStatus(GovernanceWorkItemCommand command) {
         String explicit = normalize(command.executionStatus());
         return StringUtils.hasText(explicit) ? explicit : DEFAULT_EXECUTION_STATUS;
+    }
+
+    private String resolveExecutionStatus(GovernanceWorkItem existing, GovernanceWorkItemCommand command) {
+        if (existing == null || shouldReopen(existing)) {
+            return resolveExecutionStatus(command);
+        }
+        String existingExecutionStatus = normalize(existing.getExecutionStatus());
+        if (StringUtils.hasText(existingExecutionStatus)) {
+            return existingExecutionStatus;
+        }
+        return resolveExecutionStatus(command);
     }
 
     private String resolveLifecycleSnapshot(String explicitSnapshot, String fallbackSnapshot, String marker) {

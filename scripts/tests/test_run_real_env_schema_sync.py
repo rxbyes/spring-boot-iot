@@ -127,8 +127,28 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIsNotNone(ops_alert_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_work_item", work_item_sql)
         self.assertIn("work_status", work_item_sql)
+        self.assertIn("task_category", work_item_sql)
+        self.assertIn("execution_status", work_item_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_ops_alert", ops_alert_sql)
         self.assertIn("alert_status", ops_alert_sql)
+
+    def test_columns_to_add_covers_governance_work_item_lifecycle_hub_fields(self):
+        self.assertIn("iot_governance_work_item", schema_sync.COLUMNS_TO_ADD)
+        work_item_columns = dict(schema_sync.COLUMNS_TO_ADD["iot_governance_work_item"])
+        self.assertEqual(
+            set(work_item_columns.keys()),
+            {
+                "task_category",
+                "domain_code",
+                "action_code",
+                "execution_status",
+                "recommendation_snapshot_json",
+                "evidence_snapshot_json",
+                "impact_snapshot_json",
+                "rollback_snapshot_json",
+            },
+        )
+        self.assertIn("DEFAULT 'PENDING_APPROVAL'", work_item_columns["execution_status"])
 
     def test_indexes_to_add_covers_governance_control_plane_tables(self):
         self.assertIn("iot_governance_work_item", schema_sync.INDEXES_TO_ADD)

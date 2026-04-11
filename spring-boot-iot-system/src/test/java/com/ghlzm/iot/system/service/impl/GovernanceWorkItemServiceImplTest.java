@@ -91,6 +91,7 @@ class GovernanceWorkItemServiceImplTest {
         GovernanceWorkItem existing = new GovernanceWorkItem();
         existing.setId(9001L);
         existing.setWorkStatus("ACKED");
+        writeField(existing, "executionStatus", "IN_PROGRESS");
         existing.setAssigneeUserId(20001L);
         existing.setBlockingReason("已人工确认");
         when(workItemMapper.selectOne(any())).thenReturn(existing);
@@ -119,6 +120,7 @@ class GovernanceWorkItemServiceImplTest {
         verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
                 Long.valueOf(9001L).equals(item.getId())
                         && "ACKED".equals(item.getWorkStatus())
+                        && "IN_PROGRESS".equals(readString(item, "executionStatus"))
                         && Long.valueOf(20001L).equals(item.getAssigneeUserId())
                         && "已人工确认".equals(item.getBlockingReason())
                         && Long.valueOf(9102L).equals(item.getRiskMetricId())
@@ -174,6 +176,7 @@ class GovernanceWorkItemServiceImplTest {
         verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
                 Long.valueOf(9101L).equals(item.getId())
                         && "RESOLVED".equals(item.getWorkStatus())
+                        && "RESOLVED".equals(readString(item, "executionStatus"))
         ));
     }
 
@@ -271,8 +274,102 @@ class GovernanceWorkItemServiceImplTest {
         verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
                 Long.valueOf(9201L).equals(item.getId())
                         && "ACKED".equals(item.getWorkStatus())
+                        && "IN_PROGRESS".equals(readString(item, "executionStatus"))
                         && "待补联动预案".equals(item.getBlockingReason())
                         && Long.valueOf(10001L).equals(item.getAssigneeUserId())
+        ));
+    }
+
+    @Test
+    void blockShouldUpdateExecutionStatusToReplayRequired() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9202L);
+        when(workItemMapper.selectById(9202L)).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.block(9202L, 10001L, "waiting replay");
+
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9202L).equals(item.getId())
+                        && "BLOCKED".equals(item.getWorkStatus())
+                        && "REPLAY_REQUIRED".equals(readString(item, "executionStatus"))
+                        && "waiting replay".equals(item.getBlockingReason())
+                        && Long.valueOf(10001L).equals(item.getAssigneeUserId())
+        ));
+    }
+
+    @Test
+    void resolveShouldUpdateExecutionStatusToResolved() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9203L);
+        when(workItemMapper.selectOne(any())).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.resolve("PENDING_LINKAGE_PLAN", "RISK_METRIC", 501L, 10001L, "done");
+
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9203L).equals(item.getId())
+                        && "RESOLVED".equals(item.getWorkStatus())
+                        && "RESOLVED".equals(readString(item, "executionStatus"))
+                        && "done".equals(item.getBlockingReason())
+                        && item.getResolvedTime() != null
+        ));
+    }
+
+    @Test
+    void closeShouldUpdateExecutionStatusToClosed() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9204L);
+        when(workItemMapper.selectById(9204L)).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.close(9204L, 10001L, "closed");
+
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9204L).equals(item.getId())
+                        && "CLOSED".equals(item.getWorkStatus())
+                        && "CLOSED".equals(readString(item, "executionStatus"))
+                        && "closed".equals(item.getBlockingReason())
+                        && item.getClosedTime() != null
+        ));
+    }
+
+    @Test
+    void openOrRefreshShouldKeepExecutionStatusWhenExistingItemNotReopened() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9205L);
+        existing.setWorkStatus("ACKED");
+        writeField(existing, "executionStatus", "IN_PROGRESS");
+        when(workItemMapper.selectOne(any())).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.openOrRefresh(new GovernanceWorkItemCommand(
+                "PENDING_THRESHOLD_POLICY",
+                "RISK_POINT_DEVICE",
+                5201L,
+                1001L,
+                9102L,
+                7001L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "RULE_DEFINITION",
+                "pending policy",
+                "{\"riskPointDeviceId\":5201}",
+                "P1",
+                10001L
+        ));
+
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9205L).equals(item.getId())
+                        && "ACKED".equals(item.getWorkStatus())
+                        && "IN_PROGRESS".equals(readString(item, "executionStatus"))
         ));
     }
 
