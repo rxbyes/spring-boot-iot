@@ -1366,6 +1366,22 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('样本输入')
   })
 
+  it('renders workflow stage rail and separates live governance flow from history panes', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="contract-governance-workflow"]').text()).toContain('待输入样本')
+    expect(wrapper.get('[data-testid="contract-governance-workflow"]').text()).toContain('待确认识别结果')
+    expect(wrapper.get('[data-testid="contract-governance-workflow"]').text()).toContain('待提交审批')
+    expect(wrapper.get('[data-testid="contract-governance-workflow"]').text()).toContain('审批中')
+    expect(wrapper.get('[data-testid="contract-governance-workflow"]').text()).toContain('已发布 / 可回滚')
+    expect(wrapper.get('[data-testid="contract-governance-primary"]').text()).toContain('样本输入')
+    expect(wrapper.get('[data-testid="contract-governance-primary"]').text()).toContain('识别结果')
+    expect(wrapper.get('[data-testid="contract-governance-history"]').text()).toContain('发布批次与风险联动')
+    expect(wrapper.get('[data-testid="contract-governance-history"]').text()).toContain('当前已生效字段')
+  })
+
   it('submits apply without rendering a manual governance approver input', async () => {
     const wrapper = mountWorkspace()
     await flushPromises()
