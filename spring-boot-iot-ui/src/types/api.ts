@@ -538,6 +538,22 @@ export interface GovernanceApprovalOrderDetail {
   transitions?: GovernanceApprovalTransition[] | null;
 }
 
+export interface GovernanceSimulationResult {
+  orderId?: IdType | null;
+  workItemId?: IdType | null;
+  actionCode?: string | null;
+  executable?: boolean | null;
+  affectedCount?: number | null;
+  affectedTypes?: string[] | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
+  autoDraftEligible?: boolean | null;
+  autoDraftComment?: string | null;
+}
+
 export interface GovernanceApprovalPageQuery {
   actionCode?: string | null;
   subjectType?: string | null;
@@ -647,6 +663,20 @@ export interface GovernanceWorkItemPageQuery {
 
 export interface GovernanceWorkItemTransitionPayload {
   comment?: string | null;
+}
+
+export interface GovernanceReplayFeedbackPayload {
+  workItemId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  recommendedDecision?: string | null;
+  adoptedDecision: string;
+  executionOutcome: string;
+  rootCauseCode: string;
+  operatorSummary?: string | null;
 }
 
 export interface GovernanceDecisionContext {

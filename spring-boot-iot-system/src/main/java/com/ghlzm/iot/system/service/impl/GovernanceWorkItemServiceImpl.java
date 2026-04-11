@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.entity.GovernanceReplayFeedback;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
+import com.ghlzm.iot.system.mapper.GovernanceReplayFeedbackMapper;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
 import com.ghlzm.iot.system.service.GovernancePriorityScorer;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.service.model.GovernanceReplayFeedbackCommand;
 import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
@@ -54,6 +57,7 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
     private static final long DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS = 300_000L;
 
     private final GovernanceWorkItemMapper workItemMapper;
+    private GovernanceReplayFeedbackMapper replayFeedbackMapper;
     private final List<GovernanceWorkItemContributor> contributors;
     private final GovernancePriorityScorer governancePriorityScorer;
     private final Executor contributorSyncExecutor;
@@ -65,15 +69,22 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
 
     @Autowired
     public GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                         GovernanceReplayFeedbackMapper replayFeedbackMapper,
                                          List<GovernanceWorkItemContributor> contributors,
                                          GovernancePriorityScorer governancePriorityScorer,
                                          @Qualifier("applicationTaskExecutor") Executor contributorSyncExecutor) {
-        this(workItemMapper, contributors, governancePriorityScorer, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+        this(workItemMapper, replayFeedbackMapper, contributors, governancePriorityScorer, contributorSyncExecutor, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
                                   List<GovernanceWorkItemContributor> contributors) {
-        this(workItemMapper, contributors, new GovernancePriorityScorerImpl(), Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+        this(workItemMapper, null, contributors, new GovernancePriorityScorerImpl(), Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  GovernanceReplayFeedbackMapper replayFeedbackMapper,
+                                  List<GovernanceWorkItemContributor> contributors) {
+        this(workItemMapper, replayFeedbackMapper, contributors, new GovernancePriorityScorerImpl(), Runnable::run, System::currentTimeMillis, DEFAULT_CONTRIBUTOR_SYNC_INTERVAL_MS);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
@@ -81,7 +92,16 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                                   Executor contributorSyncExecutor,
                                   LongSupplier currentTimeSupplier,
                                   long contributorSyncIntervalMs) {
-        this(workItemMapper, contributors, new GovernancePriorityScorerImpl(), contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+        this(workItemMapper, null, contributors, new GovernancePriorityScorerImpl(), contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  GovernanceReplayFeedbackMapper replayFeedbackMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
+        this(workItemMapper, replayFeedbackMapper, contributors, new GovernancePriorityScorerImpl(), contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
     }
 
     GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
@@ -90,7 +110,18 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
                                   Executor contributorSyncExecutor,
                                   LongSupplier currentTimeSupplier,
                                   long contributorSyncIntervalMs) {
+        this(workItemMapper, null, contributors, governancePriorityScorer, contributorSyncExecutor, currentTimeSupplier, contributorSyncIntervalMs);
+    }
+
+    GovernanceWorkItemServiceImpl(GovernanceWorkItemMapper workItemMapper,
+                                  GovernanceReplayFeedbackMapper replayFeedbackMapper,
+                                  List<GovernanceWorkItemContributor> contributors,
+                                  GovernancePriorityScorer governancePriorityScorer,
+                                  Executor contributorSyncExecutor,
+                                  LongSupplier currentTimeSupplier,
+                                  long contributorSyncIntervalMs) {
         this.workItemMapper = workItemMapper;
+        this.replayFeedbackMapper = replayFeedbackMapper;
         this.contributors = contributors == null ? List.of() : List.copyOf(contributors);
         this.governancePriorityScorer = governancePriorityScorer == null ? new GovernancePriorityScorerImpl() : governancePriorityScorer;
         this.contributorSyncExecutor = contributorSyncExecutor == null ? Runnable::run : contributorSyncExecutor;
@@ -235,6 +266,21 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         update.setExecutionStatus(EXECUTION_STATUS_CLOSED);
         update.setClosedTime(new Date());
         update.setBlockingReason(resolveManualComment(item.getBlockingReason(), comment));
+        update.setUpdateBy(currentUserId);
+        workItemMapper.updateById(update);
+    }
+
+    @Override
+    public void closeReplayWithFeedback(GovernanceReplayFeedbackCommand command, Long currentUserId) {
+        GovernanceReplayFeedbackCommand normalized = requireReplayFeedbackCommand(command);
+        GovernanceWorkItem item = resolveReplayWorkItem(normalized);
+        insertReplayFeedback(item, normalized, currentUserId);
+        GovernanceWorkItem update = new GovernanceWorkItem();
+        update.setId(item.getId());
+        update.setWorkStatus(STATUS_CLOSED);
+        update.setExecutionStatus(EXECUTION_STATUS_CLOSED);
+        update.setClosedTime(new Date());
+        update.setBlockingReason(resolveManualComment(item.getBlockingReason(), normalized.operatorSummary()));
         update.setUpdateBy(currentUserId);
         workItemMapper.updateById(update);
     }
@@ -400,6 +446,111 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
             throw new BizException("治理工作项不存在");
         }
         return item;
+    }
+
+    private GovernanceReplayFeedbackCommand requireReplayFeedbackCommand(GovernanceReplayFeedbackCommand command) {
+        if (command == null) {
+            throw new BizException("治理复盘反馈不能为空");
+        }
+        if (!StringUtils.hasText(command.adoptedDecision())
+                || !StringUtils.hasText(command.executionOutcome())
+                || !StringUtils.hasText(command.rootCauseCode())) {
+            throw new BizException("治理复盘反馈缺少关键结论");
+        }
+        return command;
+    }
+
+    private GovernanceWorkItem resolveReplayWorkItem(GovernanceReplayFeedbackCommand command) {
+        if (command.workItemId() != null && command.workItemId() > 0) {
+            GovernanceWorkItem item = requireById(command.workItemId());
+            if (!"PENDING_REPLAY".equals(normalize(item.getWorkItemCode()))) {
+                throw new BizException("治理复盘任务不存在");
+            }
+            return item;
+        }
+        LambdaQueryWrapper<GovernanceWorkItem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(GovernanceWorkItem::getDeleted, 0)
+                .eq(GovernanceWorkItem::getWorkItemCode, "PENDING_REPLAY");
+        boolean hasReplayContext = false;
+        if (command.releaseBatchId() != null && command.releaseBatchId() > 0) {
+            wrapper.eq(GovernanceWorkItem::getReleaseBatchId, command.releaseBatchId());
+            hasReplayContext = true;
+        }
+        String normalizedTraceId = normalize(command.traceId());
+        if (StringUtils.hasText(normalizedTraceId)) {
+            wrapper.eq(GovernanceWorkItem::getTraceId, normalizedTraceId);
+            hasReplayContext = true;
+        }
+        String normalizedDeviceCode = normalize(command.deviceCode());
+        if (StringUtils.hasText(normalizedDeviceCode)) {
+            wrapper.eq(GovernanceWorkItem::getDeviceCode, normalizedDeviceCode);
+            hasReplayContext = true;
+        }
+        String normalizedProductKey = normalize(command.productKey());
+        if (StringUtils.hasText(normalizedProductKey)) {
+            wrapper.eq(GovernanceWorkItem::getProductKey, normalizedProductKey);
+            hasReplayContext = true;
+        }
+        if (!hasReplayContext) {
+            throw new BizException("治理复盘缺少上下文");
+        }
+        wrapper.orderByDesc(GovernanceWorkItem::getId).last("limit 1");
+        GovernanceWorkItem item = workItemMapper.selectOne(wrapper);
+        if (item == null) {
+            throw new BizException("治理复盘任务不存在");
+        }
+        return item;
+    }
+
+    private void insertReplayFeedback(GovernanceWorkItem item, GovernanceReplayFeedbackCommand command, Long currentUserId) {
+        if (replayFeedbackMapper == null) {
+            throw new BizException("治理复盘反馈通道未初始化");
+        }
+        GovernanceReplayFeedback feedback = new GovernanceReplayFeedback();
+        feedback.setTenantId(item.getTenantId() == null ? 1L : item.getTenantId());
+        feedback.setWorkItemId(item.getId());
+        feedback.setApprovalOrderId(command.approvalOrderId() != null ? command.approvalOrderId() : item.getApprovalOrderId());
+        feedback.setReleaseBatchId(command.releaseBatchId() != null ? command.releaseBatchId() : item.getReleaseBatchId());
+        feedback.setAdoptedDecision(normalize(command.adoptedDecision()));
+        feedback.setExecutionOutcome(normalize(command.executionOutcome()));
+        feedback.setRootCauseCode(normalize(command.rootCauseCode()));
+        feedback.setFeedbackJson(buildReplayFeedbackJson(item, command));
+        feedback.setCreateBy(currentUserId);
+        feedback.setDeleted(0);
+        replayFeedbackMapper.insert(feedback);
+    }
+
+    private String buildReplayFeedbackJson(GovernanceWorkItem item, GovernanceReplayFeedbackCommand command) {
+        Map<String, Object> feedback = new LinkedHashMap<>();
+        String recommendedDecision = normalize(command.recommendedDecision());
+        if (!StringUtils.hasText(recommendedDecision)) {
+            recommendedDecision = resolveReplayRecommendedDecision(item);
+        }
+        feedback.put("recommendedDecision", recommendedDecision);
+        feedback.put("operatorSummary", normalize(command.operatorSummary()));
+        feedback.put("traceId", normalize(command.traceId()) != null ? normalize(command.traceId()) : normalize(item.getTraceId()));
+        feedback.put("deviceCode", normalize(command.deviceCode()) != null ? normalize(command.deviceCode()) : normalize(item.getDeviceCode()));
+        feedback.put("productKey", normalize(command.productKey()) != null ? normalize(command.productKey()) : normalize(item.getProductKey()));
+        feedback.put("overrideRecommendation",
+                StringUtils.hasText(recommendedDecision)
+                        && !recommendedDecision.equalsIgnoreCase(normalize(command.adoptedDecision())));
+        try {
+            return OBJECT_MAPPER.writeValueAsString(feedback);
+        } catch (Exception ex) {
+            log.warn("failed to serialize governance replay feedback for work item {}", item == null ? null : item.getId(), ex);
+            return null;
+        }
+    }
+
+    private String resolveReplayRecommendedDecision(GovernanceWorkItem item) {
+        GovernanceRecommendationSnapshot recommendation = GovernanceSnapshotResolver.resolveRecommendation(
+                item == null ? null : item.getRecommendationSnapshotJson(),
+                item == null ? null : item.getEvidenceSnapshotJson(),
+                item == null ? null : item.getSnapshotJson(),
+                defaultRecommendationType(item),
+                item == null ? null : defaultSuggestedAction(item.getBlockingReason(), item.getActionCode())
+        );
+        return recommendation == null ? null : normalize(recommendation.getRecommendationType());
     }
 
     private String resolveManualComment(String existingReason, String comment) {

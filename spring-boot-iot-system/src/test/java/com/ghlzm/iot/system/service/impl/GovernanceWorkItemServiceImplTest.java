@@ -2,10 +2,13 @@ package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.entity.GovernanceReplayFeedback;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
+import com.ghlzm.iot.system.mapper.GovernanceReplayFeedbackMapper;
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
 import com.ghlzm.iot.system.service.GovernancePriorityScorer;
 import com.ghlzm.iot.system.service.GovernanceWorkItemContributor;
+import com.ghlzm.iot.system.service.model.GovernanceReplayFeedbackCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
@@ -39,10 +42,14 @@ class GovernanceWorkItemServiceImplTest {
     @Mock
     private GovernanceWorkItemContributor contributor;
 
+    @Mock
+    private GovernanceReplayFeedbackMapper replayFeedbackMapper;
+
     @Test
     void springContextShouldInstantiateServiceWhenContributorBeanExists() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.registerBean(GovernanceWorkItemMapper.class, () -> workItemMapper);
+            context.registerBean(GovernanceReplayFeedbackMapper.class, () -> replayFeedbackMapper);
             context.registerBean(GovernanceWorkItemContributor.class, () -> contributor);
             context.registerBean(GovernancePriorityScorer.class, GovernancePriorityScorerImpl::new);
             context.registerBean("applicationTaskExecutor", Executor.class, () -> Runnable::run);
@@ -584,7 +591,99 @@ class GovernanceWorkItemServiceImplTest {
         assertEquals("Publish contract release", context.getRecommendedAction());
     }
 
+    @Test
+    void closeReplayWithFeedbackShouldPersistStructuredReplayFeedbackAndCloseWorkItem() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9501L);
+        existing.setTenantId(1L);
+        existing.setWorkItemCode("PENDING_REPLAY");
+        existing.setApprovalOrderId(8101L);
+        existing.setReleaseBatchId(7001L);
+        existing.setTraceId("trace-001");
+        existing.setDeviceCode("device-001");
+        existing.setProductKey("phase2-gnss");
+        when(workItemMapper.selectById(9501L)).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+        writeFieldValue(service, "replayFeedbackMapper", replayFeedbackMapper);
+
+        service.closeReplayWithFeedback(new GovernanceReplayFeedbackCommand(
+                9501L,
+                8101L,
+                7001L,
+                "trace-001",
+                "device-001",
+                "phase2-gnss",
+                "PROMOTE",
+                "PROMOTE",
+                "SUCCESS",
+                "MISSING_POLICY",
+                "复盘确认缺少阈值策略"
+        ), 10001L);
+
+        verify(replayFeedbackMapper).insert(org.mockito.ArgumentMatchers.<GovernanceReplayFeedback>argThat(feedback ->
+                Long.valueOf(9501L).equals(feedback.getWorkItemId())
+                        && Long.valueOf(8101L).equals(feedback.getApprovalOrderId())
+                        && Long.valueOf(7001L).equals(feedback.getReleaseBatchId())
+                        && "PROMOTE".equals(feedback.getAdoptedDecision())
+                        && "SUCCESS".equals(feedback.getExecutionOutcome())
+                        && "MISSING_POLICY".equals(feedback.getRootCauseCode())
+                        && feedback.getFeedbackJson() != null
+                        && feedback.getFeedbackJson().contains("recommendedDecision")
+                        && feedback.getFeedbackJson().contains("operatorSummary")
+        ));
+        verify(workItemMapper).updateById(org.mockito.ArgumentMatchers.<GovernanceWorkItem>argThat(item ->
+                Long.valueOf(9501L).equals(item.getId())
+                        && "CLOSED".equals(item.getWorkStatus())
+                        && "CLOSED".equals(readString(item, "executionStatus"))
+                        && "复盘确认缺少阈值策略".equals(item.getBlockingReason())
+                        && item.getClosedTime() != null
+        ));
+    }
+
+    @Test
+    void closeReplayWithFeedbackShouldResolveReplayWorkItemFromReplayContext() {
+        GovernanceWorkItem existing = new GovernanceWorkItem();
+        existing.setId(9502L);
+        existing.setTenantId(1L);
+        existing.setWorkItemCode("PENDING_REPLAY");
+        existing.setReleaseBatchId(7002L);
+        existing.setTraceId("trace-002");
+        existing.setDeviceCode("device-002");
+        existing.setProductKey("phase1-crack");
+        when(workItemMapper.selectOne(any())).thenReturn(existing);
+
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+        writeFieldValue(service, "replayFeedbackMapper", replayFeedbackMapper);
+
+        service.closeReplayWithFeedback(new GovernanceReplayFeedbackCommand(
+                null,
+                null,
+                7002L,
+                "trace-002",
+                "device-002",
+                "phase1-crack",
+                "IGNORE",
+                "CREATE_POLICY",
+                "SUCCESS",
+                "MISSING_POLICY",
+                "运维台复盘确认需要补齐阈值策略"
+        ), 10001L);
+
+        verify(replayFeedbackMapper).insert(org.mockito.ArgumentMatchers.<GovernanceReplayFeedback>argThat(feedback ->
+                Long.valueOf(9502L).equals(feedback.getWorkItemId())
+                        && Long.valueOf(7002L).equals(feedback.getReleaseBatchId())
+                        && "CREATE_POLICY".equals(feedback.getAdoptedDecision())
+                        && feedback.getFeedbackJson() != null
+                        && feedback.getFeedbackJson().contains("overrideRecommendation")
+        ));
+    }
+
     private static void writeField(Object target, String fieldName, String value) {
+        writeFieldValue(target, fieldName, value);
+    }
+
+    private static void writeFieldValue(Object target, String fieldName, Object value) {
         if (target == null) {
             return;
         }

@@ -7,6 +7,7 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResult;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,9 +18,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,5 +97,33 @@ class ProductContractGovernanceApprovalExecutorTest {
         assertEquals(7001L, payload.request().batchId());
         assertEquals(7001L, payload.execution().result().getRolledBackBatchId());
         verify(productContractReleaseService).rollbackLatestBatch(7001L, 10001L);
+    }
+
+    @Test
+    void simulateShouldReturnDryRunSummaryForApply() {
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        ProductModelGovernanceApplyDTO.ApplyItem item = new ProductModelGovernanceApplyDTO.ApplyItem();
+        item.setDecision("create");
+        item.setModelType("property");
+        item.setIdentifier("value");
+        item.setModelName("crack value");
+        dto.setItems(List.of(item));
+
+        GovernanceApprovalOrder order = new GovernanceApprovalOrder();
+        order.setId(88008L);
+        order.setWorkItemId(73008L);
+        order.setActionCode(ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_RELEASE_APPLY);
+        order.setPayloadJson(ProductContractGovernanceApprovalPayloads.writeApplyPayload(1001L, dto));
+
+        GovernanceSimulationResult result = executor.simulate(order);
+
+        assertNotNull(result);
+        assertTrue(result.executable());
+        assertEquals(1L, result.affectedCount());
+        assertTrue(result.rollbackable());
+        assertTrue(result.affectedTypes().contains("RISK_METRIC"));
+        assertTrue(result.affectedTypes().contains("RISK_POINT"));
+        assertTrue(result.affectedTypes().contains("RULE"));
+        verifyNoInteractions(productModelService, productContractReleaseService);
     }
 }

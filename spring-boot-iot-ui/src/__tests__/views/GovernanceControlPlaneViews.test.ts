@@ -14,6 +14,7 @@ const {
   mockGetProductById,
   mockPageOpsAlerts,
   mockGetRiskGovernanceReplay,
+  mockSubmitGovernanceReplayFeedback,
   mockAckOpsAlert,
   mockSuppressOpsAlert,
   mockCloseOpsAlert,
@@ -31,6 +32,7 @@ const {
   mockGetProductById: vi.fn(),
   mockPageOpsAlerts: vi.fn(),
   mockGetRiskGovernanceReplay: vi.fn(),
+  mockSubmitGovernanceReplayFeedback: vi.fn(),
   mockAckOpsAlert: vi.fn(),
   mockSuppressOpsAlert: vi.fn(),
   mockCloseOpsAlert: vi.fn(),
@@ -67,7 +69,8 @@ vi.mock('@/api/governanceOpsAlert', () => ({
 }))
 
 vi.mock('@/api/riskGovernance', () => ({
-  getRiskGovernanceReplay: mockGetRiskGovernanceReplay
+  getRiskGovernanceReplay: mockGetRiskGovernanceReplay,
+  submitGovernanceReplayFeedback: mockSubmitGovernanceReplayFeedback
 }))
 
 vi.mock('vue-router', () => ({
@@ -181,6 +184,7 @@ describe('governance control plane views', () => {
     mockGetProductById.mockReset()
     mockPageOpsAlerts.mockReset()
     mockGetRiskGovernanceReplay.mockReset()
+    mockSubmitGovernanceReplayFeedback.mockReset()
     mockAckOpsAlert.mockReset()
     mockSuppressOpsAlert.mockReset()
     mockCloseOpsAlert.mockReset()
@@ -196,6 +200,7 @@ describe('governance control plane views', () => {
     mockAckOpsAlert.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockSuppressOpsAlert.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockCloseOpsAlert.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockSubmitGovernanceReplayFeedback.mockResolvedValue({ code: 200, msg: 'success', data: null })
   })
 
   it('renders governance task rows from backend work items', async () => {
@@ -553,6 +558,81 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('继续补齐阈值策略')
   })
 
+  it('submits replay closeout explicitly from governance task replay drawer', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 19,
+            workItemCode: 'PENDING_REPLAY',
+            workStatus: 'OPEN',
+            approvalOrderId: 8201,
+            releaseBatchId: 7001,
+            productKey: 'phase2-gnss',
+            blockingReason: '待运营复盘',
+            recommendation: {
+              recommendationType: 'PROMOTE',
+              suggestedAction: 'Promote pending binding'
+            }
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceReplay.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        productKey: 'phase2-gnss',
+        releaseBatchId: 7001,
+        matchedMessageCount: 2,
+        gapSummary: {
+          missingBindingCount: 0,
+          missingPolicyCount: 1,
+          missingRiskMetricCount: 0
+        }
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const replayButton = wrapper.findAll('button').find((button) => button.text() === '复盘')
+    expect(replayButton).toBeTruthy()
+
+    await replayButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockSubmitGovernanceReplayFeedback).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid=\"task-replay-adopted-decision\"]').setValue('PROMOTE')
+    await wrapper.get('[data-testid=\"task-replay-execution-outcome\"]').setValue('SUCCESS')
+    await wrapper.get('[data-testid=\"task-replay-root-cause\"]').setValue('MISSING_POLICY')
+    await wrapper.get('[data-testid=\"task-replay-operator-summary\"]').setValue('复盘确认缺少阈值策略')
+
+    const submitButton = wrapper.findAll('button').find((button) => button.text() === '提交复盘结论')
+    expect(submitButton).toBeTruthy()
+
+    await submitButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockSubmitGovernanceReplayFeedback).toHaveBeenCalledWith({
+      workItemId: 19,
+      approvalOrderId: 8201,
+      releaseBatchId: 7001,
+      productKey: 'phase2-gnss',
+      recommendedDecision: 'PROMOTE',
+      adoptedDecision: 'PROMOTE',
+      executionOutcome: 'SUCCESS',
+      rootCauseCode: 'MISSING_POLICY',
+      operatorSummary: '复盘确认缺少阈值策略'
+    })
+  })
+
   it('renders unified recommendation evidence and impact on governance task cards', async () => {
     mockPageWorkItems.mockResolvedValue({
       code: 200,
@@ -804,6 +884,84 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('待补绑定 2')
     expect(wrapper.text()).toContain('MESSAGE_TRACE')
     expect(wrapper.text()).toContain('继续核对最近消息')
+  })
+
+  it('submits replay closeout explicitly from governance ops replay drawer', async () => {
+    mockPageOpsAlerts.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 22,
+            alertType: 'CONTRACT_DIFF',
+            alertTitle: '合同差异告警',
+            alertMessage: 'gpsTotalX 与正式合同存在差异',
+            releaseBatchId: 7002,
+            traceId: 'trace-ops-2',
+            deviceCode: 'device-ops-2',
+            productKey: 'phase1-crack',
+            recommendation: {
+              recommendationType: 'IGNORE',
+              suggestedAction: 'Ignore current recommendation'
+            }
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceReplay.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-ops-2',
+        deviceCode: 'device-ops-2',
+        productKey: 'phase1-crack',
+        releaseBatchId: 7002,
+        matchedMessageCount: 1,
+        gapSummary: {
+          missingBindingCount: 0,
+          missingPolicyCount: 1,
+          missingRiskMetricCount: 0
+        }
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceOpsWorkbenchView)
+    await flushPromises()
+
+    const replayButton = wrapper.findAll('button').find((button) => button.text() === '复盘')
+    expect(replayButton).toBeTruthy()
+
+    await replayButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockSubmitGovernanceReplayFeedback).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid=\"ops-replay-adopted-decision\"]').setValue('CREATE_POLICY')
+    await wrapper.get('[data-testid=\"ops-replay-execution-outcome\"]').setValue('SUCCESS')
+    await wrapper.get('[data-testid=\"ops-replay-root-cause\"]').setValue('MISSING_POLICY')
+    await wrapper.get('[data-testid=\"ops-replay-operator-summary\"]').setValue('运维复盘确认需要补齐阈值策略')
+
+    const submitButton = wrapper.findAll('button').find((button) => button.text() === '提交复盘结论')
+    expect(submitButton).toBeTruthy()
+
+    await submitButton!.trigger('click')
+    await flushPromises()
+
+    expect(mockSubmitGovernanceReplayFeedback).toHaveBeenCalledWith({
+      releaseBatchId: 7002,
+      traceId: 'trace-ops-2',
+      deviceCode: 'device-ops-2',
+      productKey: 'phase1-crack',
+      recommendedDecision: 'IGNORE',
+      adoptedDecision: 'CREATE_POLICY',
+      executionOutcome: 'SUCCESS',
+      rootCauseCode: 'MISSING_POLICY',
+      operatorSummary: '运维复盘确认需要补齐阈值策略'
+    })
   })
 
   it('executes governance task actions from card buttons', async () => {

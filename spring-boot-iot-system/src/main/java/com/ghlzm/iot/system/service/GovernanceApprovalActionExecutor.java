@@ -2,6 +2,7 @@ package com.ghlzm.iot.system.service;
 
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResult;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
 
 /**
  * Executes business side effects for a governance approval action.
@@ -23,4 +24,12 @@ public interface GovernanceApprovalActionExecutor {
      * @return execution result
      */
     GovernanceApprovalActionExecutionResult execute(GovernanceApprovalOrder order);
+
+    /**
+     * Simulate the approval action without writing domain truth.
+     *
+     * @param order approval order
+     * @return simulation result
+     */
+    GovernanceSimulationResult simulate(GovernanceApprovalOrder order);
 }

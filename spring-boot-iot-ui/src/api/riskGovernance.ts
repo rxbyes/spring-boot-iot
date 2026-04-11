@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope, PageResult, IdType } from '@/types/api';
+import type { ApiEnvelope, GovernanceReplayFeedbackPayload, IdType, PageResult } from '@/types/api';
 
 export interface RiskGovernanceGapQuery {
   deviceCode?: string;
@@ -261,4 +261,13 @@ export function getRiskGovernanceReplay(
     ? `/api/risk-governance/replay?${queryString}`
     : '/api/risk-governance/replay'
   return request<RiskGovernanceReplay>(path, { method: 'GET' })
+}
+
+export function submitGovernanceReplayFeedback(
+  payload: GovernanceReplayFeedbackPayload
+): Promise<ApiEnvelope<void>> {
+  return request<void>('/api/governance/work-items/replay-feedback', {
+    method: 'POST',
+    body: payload
+  })
 }

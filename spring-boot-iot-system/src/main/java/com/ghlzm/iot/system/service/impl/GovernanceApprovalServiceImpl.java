@@ -14,6 +14,10 @@ import com.ghlzm.iot.system.service.GovernanceApprovalActionExecutor;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResult;
+import com.ghlzm.iot.system.service.model.GovernanceImpactSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRollbackSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
 import java.util.Date;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -36,6 +40,8 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     private static final String WORK_ITEM_EXECUTION_EXECUTED = "EXECUTED";
     private static final String WORK_ITEM_EXECUTION_REJECTED = "REJECTED";
     private static final String WORK_ITEM_EXECUTION_CANCELLED = "CANCELLED";
+    private static final double AUTO_DRAFT_CONFIDENCE_THRESHOLD = 0.90D;
+    private static final long AUTO_DRAFT_MAX_AFFECTED_COUNT = 5L;
 
     private final GovernanceApprovalOrderMapper orderMapper;
     private final GovernanceApprovalTransitionMapper transitionMapper;
@@ -291,6 +297,49 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
         return orderId;
     }
 
+    @Override
+    public GovernanceSimulationResult simulateOrder(Long orderId) {
+        GovernanceApprovalOrder order = requireOrder(orderId);
+        GovernanceApprovalActionExecutor executor = resolveExecutor(order.getActionCode());
+        GovernanceSimulationResult baseResult = executor.simulate(order);
+        GovernanceWorkItem workItem = resolveLinkedWorkItem(order.getWorkItemId());
+        GovernanceRecommendationSnapshot recommendation = resolveRecommendation(workItem, baseResult);
+        GovernanceImpactSnapshot impact = resolveImpact(workItem, baseResult);
+        GovernanceRollbackSnapshot rollback = resolveRollback(workItem, baseResult);
+        Long affectedCount = firstNonNull(
+                baseResult == null ? null : baseResult.affectedCount(),
+                impact == null ? null : impact.getAffectedCount()
+        );
+        List<String> affectedTypes = resolveAffectedTypes(baseResult, impact);
+        boolean rollbackable = resolveRollbackable(baseResult, impact, rollback);
+        String rollbackPlanSummary = firstNonBlank(
+                baseResult == null ? null : baseResult.rollbackPlanSummary(),
+                impact == null ? null : impact.getRollbackPlanSummary(),
+                rollback == null ? null : rollback.getRollbackPlanSummary()
+        );
+        GovernanceImpactSnapshot normalizedImpact = normalizeImpactSnapshot(impact, affectedCount, affectedTypes, rollbackable, rollbackPlanSummary);
+        GovernanceRollbackSnapshot normalizedRollback = normalizeRollbackSnapshot(rollback, rollbackable, rollbackPlanSummary);
+        boolean autoDraftEligible = isAutoDraftEligible(order, affectedCount, rollbackable, recommendation);
+        String autoDraftComment = autoDraftEligible
+                ? buildAutoDraftComment(order, recommendation, affectedCount, affectedTypes, rollbackPlanSummary)
+                : null;
+        return new GovernanceSimulationResult(
+                order.getId(),
+                order.getWorkItemId(),
+                normalizeText(order.getActionCode()),
+                baseResult != null && baseResult.executable(),
+                affectedCount,
+                affectedTypes,
+                rollbackable,
+                rollbackPlanSummary,
+                recommendation,
+                normalizedImpact,
+                normalizedRollback,
+                autoDraftEligible,
+                autoDraftComment
+        );
+    }
+
     private GovernanceApprovalTransition buildTransition(Long orderId,
                                                          String fromStatus,
                                                          String toStatus,
@@ -353,6 +402,152 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
                 .filter(executor -> executor != null && executor.supports(normalizedActionCode))
                 .findFirst()
                 .orElseThrow(() -> new BizException("审批动作未配置执行器: " + normalizedActionCode));
+    }
+
+    private GovernanceWorkItem resolveLinkedWorkItem(Long workItemId) {
+        if (workItemMapper == null || workItemId == null || workItemId <= 0) {
+            return null;
+        }
+        return workItemMapper.selectById(workItemId);
+    }
+
+    private GovernanceRecommendationSnapshot resolveRecommendation(GovernanceWorkItem workItem,
+                                                                  GovernanceSimulationResult baseResult) {
+        if (baseResult != null && baseResult.recommendation() != null) {
+            return baseResult.recommendation();
+        }
+        if (workItem == null) {
+            return null;
+        }
+        return GovernanceSnapshotResolver.resolveRecommendation(
+                workItem.getRecommendationSnapshotJson(),
+                workItem.getEvidenceSnapshotJson(),
+                workItem.getSnapshotJson(),
+                workItem.getActionCode(),
+                null
+        );
+    }
+
+    private GovernanceImpactSnapshot resolveImpact(GovernanceWorkItem workItem,
+                                                   GovernanceSimulationResult baseResult) {
+        if (baseResult != null && baseResult.impact() != null) {
+            return baseResult.impact();
+        }
+        if (workItem == null) {
+            return null;
+        }
+        return GovernanceSnapshotResolver.resolveImpact(
+                workItem.getImpactSnapshotJson(),
+                workItem.getRollbackSnapshotJson(),
+                workItem.getSnapshotJson(),
+                null,
+                workItem.getTaskCategory()
+        );
+    }
+
+    private GovernanceRollbackSnapshot resolveRollback(GovernanceWorkItem workItem,
+                                                       GovernanceSimulationResult baseResult) {
+        if (baseResult != null && baseResult.rollback() != null) {
+            return baseResult.rollback();
+        }
+        if (workItem == null) {
+            return null;
+        }
+        return GovernanceSnapshotResolver.resolveRollback(
+                workItem.getRollbackSnapshotJson(),
+                workItem.getImpactSnapshotJson(),
+                workItem.getSnapshotJson()
+        );
+    }
+
+    private List<String> resolveAffectedTypes(GovernanceSimulationResult baseResult,
+                                              GovernanceImpactSnapshot impact) {
+        if (baseResult != null && baseResult.affectedTypes() != null && !baseResult.affectedTypes().isEmpty()) {
+            return List.copyOf(baseResult.affectedTypes());
+        }
+        if (impact != null && impact.getAffectedTypes() != null && !impact.getAffectedTypes().isEmpty()) {
+            return List.copyOf(impact.getAffectedTypes());
+        }
+        return List.of();
+    }
+
+    private boolean resolveRollbackable(GovernanceSimulationResult baseResult,
+                                        GovernanceImpactSnapshot impact,
+                                        GovernanceRollbackSnapshot rollback) {
+        if (baseResult != null && baseResult.rollbackable()) {
+            return true;
+        }
+        if (impact != null && Boolean.TRUE.equals(impact.getRollbackable())) {
+            return true;
+        }
+        return rollback != null && Boolean.TRUE.equals(rollback.getRollbackable());
+    }
+
+    private GovernanceImpactSnapshot normalizeImpactSnapshot(GovernanceImpactSnapshot impact,
+                                                             Long affectedCount,
+                                                             List<String> affectedTypes,
+                                                             boolean rollbackable,
+                                                             String rollbackPlanSummary) {
+        GovernanceImpactSnapshot normalized = impact == null ? new GovernanceImpactSnapshot() : impact;
+        normalized.setAffectedCount(affectedCount);
+        normalized.setAffectedTypes(affectedTypes == null ? List.of() : List.copyOf(affectedTypes));
+        normalized.setRollbackable(rollbackable);
+        normalized.setRollbackPlanSummary(rollbackPlanSummary);
+        return normalized;
+    }
+
+    private GovernanceRollbackSnapshot normalizeRollbackSnapshot(GovernanceRollbackSnapshot rollback,
+                                                                 boolean rollbackable,
+                                                                 String rollbackPlanSummary) {
+        GovernanceRollbackSnapshot normalized = rollback == null ? new GovernanceRollbackSnapshot() : rollback;
+        normalized.setRollbackable(rollbackable);
+        normalized.setRollbackPlanSummary(rollbackPlanSummary);
+        return normalized;
+    }
+
+    private boolean isAutoDraftEligible(GovernanceApprovalOrder order,
+                                        Long affectedCount,
+                                        boolean rollbackable,
+                                        GovernanceRecommendationSnapshot recommendation) {
+        if (order == null || !STATUS_PENDING.equals(normalizeText(order.getStatus()))) {
+            return false;
+        }
+        if (!rollbackable) {
+            return false;
+        }
+        if (affectedCount != null && affectedCount > AUTO_DRAFT_MAX_AFFECTED_COUNT) {
+            return false;
+        }
+        if (recommendation == null || recommendation.getConfidence() == null) {
+            return false;
+        }
+        return recommendation.getConfidence() >= AUTO_DRAFT_CONFIDENCE_THRESHOLD;
+    }
+
+    private String buildAutoDraftComment(GovernanceApprovalOrder order,
+                                         GovernanceRecommendationSnapshot recommendation,
+                                         Long affectedCount,
+                                         List<String> affectedTypes,
+                                         String rollbackPlanSummary) {
+        String suggestedAction = normalizeText(recommendation == null ? null : recommendation.getSuggestedAction());
+        String actionLabel = firstNonBlank(
+                suggestedAction,
+                order == null ? null : order.getActionName(),
+                order == null ? null : order.getActionCode()
+        );
+        StringBuilder builder = new StringBuilder("系统已生成审批意见草稿：");
+        builder.append(StringUtils.hasText(actionLabel) ? actionLabel : "建议按当前治理动作执行");
+        if (affectedCount != null && affectedCount > 0) {
+            builder.append("，预计影响 ").append(affectedCount).append(" 项");
+        }
+        if (affectedTypes != null && !affectedTypes.isEmpty()) {
+            builder.append("（").append(String.join("/", affectedTypes)).append("）");
+        }
+        if (StringUtils.hasText(rollbackPlanSummary)) {
+            builder.append("，").append(rollbackPlanSummary.trim());
+        }
+        builder.append("。请人工复核后决定是否通过。");
+        return builder.toString();
     }
 
     private void validatePositiveUserId(Long userId, String message) {
@@ -437,6 +632,30 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
 
     private String normalizeText(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private Long firstNonNull(Long... values) {
+        if (values == null) {
+            return null;
+        }
+        for (Long value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     private String resolveUpdatedPayloadJson(GovernanceApprovalOrder order,

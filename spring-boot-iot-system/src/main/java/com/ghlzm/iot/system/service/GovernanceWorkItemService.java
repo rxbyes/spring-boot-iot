@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service;
 
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.system.service.model.GovernanceReplayFeedbackCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
@@ -23,4 +24,6 @@ public interface GovernanceWorkItemService {
     void block(Long workItemId, Long currentUserId, String comment);
 
     void close(Long workItemId, Long currentUserId, String comment);
+
+    void closeReplayWithFeedback(GovernanceReplayFeedbackCommand command, Long currentUserId);
 }

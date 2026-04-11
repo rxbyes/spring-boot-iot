@@ -306,6 +306,76 @@
             </article>
           </div>
         </section>
+
+        <section class="governance-task-detail-section">
+          <h3>复盘结论回写</h3>
+          <div class="governance-task-feedback-form">
+            <label class="governance-task-feedback-field">
+              <span>推荐结论</span>
+              <strong>{{ replayRecommendedDecision }}</strong>
+            </label>
+            <label class="governance-task-feedback-field">
+              <span>采纳结论</span>
+              <select
+                data-testid="task-replay-adopted-decision"
+                v-model="replayFeedback.adoptedDecision"
+                class="governance-task-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="PROMOTE">PROMOTE</option>
+                <option value="PUBLISH">PUBLISH</option>
+                <option value="CREATE_POLICY">CREATE_POLICY</option>
+                <option value="REPLAY">REPLAY</option>
+                <option value="IGNORE">IGNORE</option>
+              </select>
+            </label>
+            <label class="governance-task-feedback-field">
+              <span>执行结果</span>
+              <select
+                data-testid="task-replay-execution-outcome"
+                v-model="replayFeedback.executionOutcome"
+                class="governance-task-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="SUCCESS">SUCCESS</option>
+                <option value="PARTIAL_SUCCESS">PARTIAL_SUCCESS</option>
+                <option value="FAILED">FAILED</option>
+                <option value="IGNORED">IGNORED</option>
+              </select>
+            </label>
+            <label class="governance-task-feedback-field">
+              <span>根因分类</span>
+              <select
+                data-testid="task-replay-root-cause"
+                v-model="replayFeedback.rootCauseCode"
+                class="governance-task-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="MISSING_POLICY">MISSING_POLICY</option>
+                <option value="MISSING_BINDING">MISSING_BINDING</option>
+                <option value="MISSING_RISK_METRIC">MISSING_RISK_METRIC</option>
+                <option value="APPROVAL_BLOCKED">APPROVAL_BLOCKED</option>
+                <option value="DATA_QUALITY">DATA_QUALITY</option>
+                <option value="OTHER">OTHER</option>
+              </select>
+            </label>
+            <label class="governance-task-feedback-field governance-task-feedback-field--full">
+              <span>操作结论</span>
+              <textarea
+                data-testid="task-replay-operator-summary"
+                v-model="replayFeedback.operatorSummary"
+                class="governance-task-feedback-input governance-task-feedback-textarea"
+                rows="3"
+                placeholder="请说明本次复盘最终采纳了什么结论、为何这样处理。"
+              />
+            </label>
+          </div>
+          <div class="governance-task-feedback-actions">
+            <StandardButton @click="handleSubmitReplayFeedback">
+              {{ replaySubmitting ? '提交中...' : '提交复盘结论' }}
+            </StandardButton>
+          </div>
+        </section>
       </div>
     </StandardDetailDrawer>
   </StandardPageShell>
@@ -318,7 +388,12 @@ import { ElMessage } from '@/utils/message'
 
 import { productApi } from '@/api/product'
 import { resolveRequestErrorMessage } from '@/api/request'
-import { getRiskGovernanceReplay, type RiskGovernanceReplay, type RiskGovernanceReplayQuery } from '@/api/riskGovernance'
+import {
+  getRiskGovernanceReplay,
+  submitGovernanceReplayFeedback,
+  type RiskGovernanceReplay,
+  type RiskGovernanceReplayQuery
+} from '@/api/riskGovernance'
 import {
   ackGovernanceWorkItem,
   blockGovernanceWorkItem,
@@ -337,6 +412,7 @@ import { useServerPagination } from '@/composables/useServerPagination'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import type {
   GovernanceDecisionContext,
+  GovernanceReplayFeedbackPayload,
   GovernanceImpactSnapshot,
   GovernanceRecommendationSnapshot,
   GovernanceRollbackSnapshot,
@@ -358,6 +434,14 @@ const replayVisible = ref(false)
 const replayLoading = ref(false)
 const replayErrorMessage = ref('')
 const replayData = ref<RiskGovernanceReplay | null>(null)
+const replaySourceItem = ref<GovernanceWorkItem | null>(null)
+const replaySubmitting = ref(false)
+const replayFeedback = ref<GovernanceReplayFeedbackPayload>({
+  adoptedDecision: '',
+  executionOutcome: '',
+  rootCauseCode: '',
+  operatorSummary: ''
+})
 const initialPageNum = parseNumberQuery(route.query.pageNum)
 const initialPageSize = parseNumberQuery(route.query.pageSize)
 
@@ -372,6 +456,14 @@ const queryState = computed(() => buildQueryFromRoute())
 const openCount = computed(() => taskList.value.filter((item) => item.workStatus === 'OPEN').length)
 const decisionReasonCodes = computed(() => decisionContextData.value?.reasonCodes ?? [])
 const decisionAffectedModules = computed(() => decisionContextData.value?.affectedModules ?? [])
+const replayRecommendedDecision = computed(() => normalizeText(replayFeedback.value.recommendedDecision) || '--')
+const replayCanSubmit = computed(() =>
+  Boolean(normalizeText(replayFeedback.value.adoptedDecision))
+  && Boolean(normalizeText(replayFeedback.value.executionOutcome))
+  && Boolean(normalizeText(replayFeedback.value.rootCauseCode))
+  && Boolean(normalizeText(replayFeedback.value.operatorSummary))
+  && !replaySubmitting.value
+)
 const activeScopeLabel = computed(() => {
   const query = queryState.value
   if (query.productId != null) {
@@ -578,6 +670,8 @@ async function handleOpenReplay(item: GovernanceWorkItem) {
   if (!canReplayWorkItem(item)) {
     return
   }
+  replaySourceItem.value = item
+  resetReplayFeedback(item)
   replayVisible.value = true
   replayLoading.value = true
   replayErrorMessage.value = ''
@@ -589,10 +683,49 @@ async function handleOpenReplay(item: GovernanceWorkItem) {
     }
     const response = await getRiskGovernanceReplay(replayQuery)
     replayData.value = response.data ?? null
+    if (!normalizeText(replayFeedback.value.rootCauseCode)) {
+      replayFeedback.value.rootCauseCode = defaultReplayRootCause(response.data ?? null)
+    }
   } catch (error) {
     replayErrorMessage.value = resolveRequestErrorMessage(error, '治理链路复盘加载失败')
   } finally {
     replayLoading.value = false
+  }
+}
+
+async function handleSubmitReplayFeedback() {
+  if (!replayCanSubmit.value) {
+    ElMessage.error('请先补全复盘结论后再提交')
+    return
+  }
+  const sourceItem = replaySourceItem.value
+  if (!sourceItem) {
+    ElMessage.error('当前复盘上下文不存在')
+    return
+  }
+  replaySubmitting.value = true
+  try {
+    await submitGovernanceReplayFeedback(compactReplayFeedbackPayload({
+      workItemId: sourceItem.id,
+      approvalOrderId: sourceItem.approvalOrderId ?? null,
+      releaseBatchId: replayData.value?.releaseBatchId ?? sourceItem.releaseBatchId ?? null,
+      traceId: replayData.value?.traceId ?? normalizeText(sourceItem.traceId) ?? null,
+      deviceCode: replayData.value?.deviceCode ?? normalizeText(sourceItem.deviceCode) ?? null,
+      productKey: replayData.value?.productKey ?? normalizeText(sourceItem.productKey) ?? null,
+      recommendedDecision: normalizeText(replayFeedback.value.recommendedDecision) ?? null,
+      adoptedDecision: replayFeedback.value.adoptedDecision,
+      executionOutcome: replayFeedback.value.executionOutcome,
+      rootCauseCode: replayFeedback.value.rootCauseCode,
+      operatorSummary: normalizeText(replayFeedback.value.operatorSummary) ?? null
+    }))
+    ElMessage.success('复盘结论已回写')
+    replayVisible.value = false
+    replaySourceItem.value = null
+    await loadWorkItems()
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '复盘结论回写失败'))
+  } finally {
+    replaySubmitting.value = false
   }
 }
 
@@ -750,6 +883,42 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
   }
   return value ? trueLabel : falseLabel
 }
+
+function resetReplayFeedback(item: GovernanceWorkItem) {
+  const recommendedDecision = normalizeText(item.recommendation?.recommendationType) || 'REPLAY'
+  replayFeedback.value = {
+    workItemId: item.id,
+    approvalOrderId: item.approvalOrderId ?? null,
+    releaseBatchId: item.releaseBatchId ?? null,
+    traceId: normalizeText(item.traceId) ?? null,
+    deviceCode: normalizeText(item.deviceCode) ?? null,
+    productKey: normalizeText(item.productKey) ?? null,
+    recommendedDecision,
+    adoptedDecision: recommendedDecision,
+    executionOutcome: '',
+    rootCauseCode: '',
+    operatorSummary: ''
+  }
+}
+
+function defaultReplayRootCause(data?: RiskGovernanceReplay | null) {
+  if ((data?.gapSummary?.missingPolicyCount ?? 0) > 0) {
+    return 'MISSING_POLICY'
+  }
+  if ((data?.gapSummary?.missingBindingCount ?? 0) > 0) {
+    return 'MISSING_BINDING'
+  }
+  if ((data?.gapSummary?.missingRiskMetricCount ?? 0) > 0) {
+    return 'MISSING_RISK_METRIC'
+  }
+  return ''
+}
+
+function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  ) as GovernanceReplayFeedbackPayload
+}
 </script>
 
 <style scoped>
@@ -766,7 +935,9 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 
 .governance-task-detail-stack,
 .governance-task-detail-section,
-.governance-task-chain-list {
+.governance-task-chain-list,
+.governance-task-feedback-form,
+.governance-task-feedback-actions {
   display: grid;
 }
 
@@ -785,7 +956,8 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 }
 
 .governance-task-detail-grid,
-.governance-task-gap-grid {
+.governance-task-gap-grid,
+.governance-task-feedback-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.75rem;
@@ -793,7 +965,8 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 
 .governance-task-detail-field,
 .governance-task-gap-card,
-.governance-task-chain-item {
+.governance-task-chain-item,
+.governance-task-feedback-field {
   display: grid;
   gap: 0.35rem;
   border: 1px solid var(--panel-border);
@@ -804,15 +977,40 @@ function booleanLabel(value?: boolean | null, trueLabel = '是', falseLabel = '�
 
 .governance-task-detail-field span,
 .governance-task-gap-card span,
-.governance-task-chain-item span {
+.governance-task-chain-item span,
+.governance-task-feedback-field span {
   color: var(--text-caption);
   font-size: 13px;
 }
 
 .governance-task-detail-field strong,
 .governance-task-gap-card strong,
-.governance-task-chain-item strong {
+.governance-task-chain-item strong,
+.governance-task-feedback-field strong {
   color: var(--text-heading);
+}
+
+.governance-task-feedback-field--full {
+  grid-column: 1 / -1;
+}
+
+.governance-task-feedback-input {
+  width: 100%;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-heading);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+
+.governance-task-feedback-textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+.governance-task-feedback-actions {
+  justify-content: flex-end;
 }
 
 .governance-task-summary {

@@ -12,6 +12,8 @@ import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceApprovalActionExecutor;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResult;
+import com.ghlzm.iot.system.service.model.GovernanceRecommendationSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -25,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -371,6 +374,50 @@ class GovernanceApprovalServiceImplTest {
                         && approvalOrderId.equals(item.getApprovalOrderId())
                         && "PENDING_APPROVAL".equals(readString(item, "executionStatus"))
         ));
+    }
+
+    @Test
+    void simulateOrderShouldReturnDryRunSummaryAndAutoDraftSuggestion() {
+        GovernanceApprovalOrder order = mockOrder(88011L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_RELEASE_APPLY");
+        order.setPayloadJson("{\"request\":{\"productId\":1001}}");
+        writeField(order, "workItemId", 73011L);
+        when(orderMapper.selectById(88011L)).thenReturn(order);
+        when(executor.supports("PRODUCT_CONTRACT_RELEASE_APPLY")).thenReturn(true);
+        when(executor.simulate(order)).thenReturn(new GovernanceSimulationResult(
+                88011L,
+                73011L,
+                "PRODUCT_CONTRACT_RELEASE_APPLY",
+                true,
+                1L,
+                List.of("RISK_METRIC", "RISK_POINT", "RULE"),
+                true,
+                "可通过合同回滚恢复正式批次",
+                null,
+                null,
+                null,
+                false,
+                null
+        ));
+        GovernanceWorkItem workItem = new GovernanceWorkItem();
+        workItem.setId(73011L);
+        workItem.setRecommendationSnapshotJson("{\"recommendationType\":\"PUBLISH\",\"confidence\":0.96,\"reasonCodes\":[\"HIGH_CONFIDENCE\"],\"suggestedAction\":\"建议生成审批意见草稿\"}");
+        when(workItemMapper.selectById(73011L)).thenReturn(workItem);
+
+        GovernanceSimulationResult result = service.simulateOrder(88011L);
+
+        assertNotNull(result);
+        assertTrue(result.executable());
+        assertEquals(1L, result.affectedCount());
+        assertTrue(result.rollbackable());
+        assertEquals(List.of("RISK_METRIC", "RISK_POINT", "RULE"), result.affectedTypes());
+        assertTrue(result.autoDraftEligible());
+        assertNotNull(result.recommendation());
+        assertEquals("PUBLISH", result.recommendation().getRecommendationType());
+        assertEquals(0.96D, result.recommendation().getConfidence());
+        assertTrue(result.autoDraftComment().contains("审批意见草稿"));
+        verify(executor).simulate(order);
+        verify(orderMapper, never()).updateById(any(GovernanceApprovalOrder.class));
+        verify(transitionMapper, never()).insert(any(GovernanceApprovalTransition.class));
     }
 
     private GovernanceApprovalOrder mockOrder(Long orderId,

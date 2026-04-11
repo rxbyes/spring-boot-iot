@@ -228,6 +228,76 @@
             </article>
           </div>
         </section>
+
+        <section class="governance-ops-detail-section">
+          <h3>复盘结论回写</h3>
+          <div class="governance-ops-feedback-form">
+            <label class="governance-ops-feedback-field">
+              <span>推荐结论</span>
+              <strong>{{ replayRecommendedDecision }}</strong>
+            </label>
+            <label class="governance-ops-feedback-field">
+              <span>采纳结论</span>
+              <select
+                data-testid="ops-replay-adopted-decision"
+                v-model="replayFeedback.adoptedDecision"
+                class="governance-ops-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="PROMOTE">PROMOTE</option>
+                <option value="PUBLISH">PUBLISH</option>
+                <option value="CREATE_POLICY">CREATE_POLICY</option>
+                <option value="REPLAY">REPLAY</option>
+                <option value="IGNORE">IGNORE</option>
+              </select>
+            </label>
+            <label class="governance-ops-feedback-field">
+              <span>执行结果</span>
+              <select
+                data-testid="ops-replay-execution-outcome"
+                v-model="replayFeedback.executionOutcome"
+                class="governance-ops-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="SUCCESS">SUCCESS</option>
+                <option value="PARTIAL_SUCCESS">PARTIAL_SUCCESS</option>
+                <option value="FAILED">FAILED</option>
+                <option value="IGNORED">IGNORED</option>
+              </select>
+            </label>
+            <label class="governance-ops-feedback-field">
+              <span>根因分类</span>
+              <select
+                data-testid="ops-replay-root-cause"
+                v-model="replayFeedback.rootCauseCode"
+                class="governance-ops-feedback-input"
+              >
+                <option value="">请选择</option>
+                <option value="MISSING_POLICY">MISSING_POLICY</option>
+                <option value="MISSING_BINDING">MISSING_BINDING</option>
+                <option value="MISSING_RISK_METRIC">MISSING_RISK_METRIC</option>
+                <option value="APPROVAL_BLOCKED">APPROVAL_BLOCKED</option>
+                <option value="DATA_QUALITY">DATA_QUALITY</option>
+                <option value="OTHER">OTHER</option>
+              </select>
+            </label>
+            <label class="governance-ops-feedback-field governance-ops-feedback-field--full">
+              <span>操作结论</span>
+              <textarea
+                data-testid="ops-replay-operator-summary"
+                v-model="replayFeedback.operatorSummary"
+                class="governance-ops-feedback-input governance-ops-feedback-textarea"
+                rows="3"
+                placeholder="请说明本次复盘最终采纳了什么结论、为何这样处理。"
+              />
+            </label>
+          </div>
+          <div class="governance-ops-feedback-actions">
+            <StandardButton @click="handleSubmitReplayFeedback">
+              {{ replaySubmitting ? '提交中...' : '提交复盘结论' }}
+            </StandardButton>
+          </div>
+        </section>
       </div>
     </StandardDetailDrawer>
   </StandardPageShell>
@@ -240,7 +310,12 @@ import { ElMessage } from '@/utils/message'
 
 import { resolveRequestErrorMessage } from '@/api/request'
 import { ackGovernanceOpsAlert, closeGovernanceOpsAlert, pageGovernanceOpsAlerts, suppressGovernanceOpsAlert } from '@/api/governanceOpsAlert'
-import { getRiskGovernanceReplay, type RiskGovernanceReplay, type RiskGovernanceReplayQuery } from '@/api/riskGovernance'
+import {
+  getRiskGovernanceReplay,
+  submitGovernanceReplayFeedback,
+  type RiskGovernanceReplay,
+  type RiskGovernanceReplayQuery
+} from '@/api/riskGovernance'
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
@@ -254,6 +329,7 @@ import type {
   GovernanceImpactSnapshot,
   GovernanceOpsAlert,
   GovernanceOpsAlertPageQuery,
+  GovernanceReplayFeedbackPayload,
   GovernanceRecommendationSnapshot,
   GovernanceRollbackSnapshot
 } from '@/types/api'
@@ -266,6 +342,14 @@ const replayVisible = ref(false)
 const replayLoading = ref(false)
 const replayErrorMessage = ref('')
 const replayData = ref<RiskGovernanceReplay | null>(null)
+const replaySourceAlert = ref<GovernanceOpsAlert | null>(null)
+const replaySubmitting = ref(false)
+const replayFeedback = ref<GovernanceReplayFeedbackPayload>({
+  adoptedDecision: '',
+  executionOutcome: '',
+  rootCauseCode: '',
+  operatorSummary: ''
+})
 const initialPageNum = parseNumberQuery(route.query.pageNum)
 const initialPageSize = parseNumberQuery(route.query.pageSize)
 
@@ -278,6 +362,14 @@ if (initialPageNum != null) {
 
 const queryState = computed(() => buildQueryFromRoute())
 const openCount = computed(() => alertList.value.filter((item) => item.alertStatus === 'OPEN').length)
+const replayRecommendedDecision = computed(() => normalizeText(replayFeedback.value.recommendedDecision) || '--')
+const replayCanSubmit = computed(() =>
+  Boolean(normalizeText(replayFeedback.value.adoptedDecision))
+  && Boolean(normalizeText(replayFeedback.value.executionOutcome))
+  && Boolean(normalizeText(replayFeedback.value.rootCauseCode))
+  && Boolean(normalizeText(replayFeedback.value.operatorSummary))
+  && !replaySubmitting.value
+)
 const activeScopeLabel = computed(() => {
   const query = queryState.value
   if (query.productId != null) {
@@ -425,6 +517,8 @@ async function handleOpenReplay(item: GovernanceOpsAlert) {
   if (!hasReplayContext(item)) {
     return
   }
+  replaySourceAlert.value = item
+  resetReplayFeedback(item)
   replayVisible.value = true
   replayLoading.value = true
   replayErrorMessage.value = ''
@@ -432,10 +526,47 @@ async function handleOpenReplay(item: GovernanceOpsAlert) {
   try {
     const response = await getRiskGovernanceReplay(buildReplayQuery(item))
     replayData.value = response.data ?? null
+    if (!normalizeText(replayFeedback.value.rootCauseCode)) {
+      replayFeedback.value.rootCauseCode = defaultReplayRootCause(response.data ?? null)
+    }
   } catch (error) {
     replayErrorMessage.value = resolveRequestErrorMessage(error, '治理链路复盘加载失败')
   } finally {
     replayLoading.value = false
+  }
+}
+
+async function handleSubmitReplayFeedback() {
+  if (!replayCanSubmit.value) {
+    ElMessage.error('请先补全复盘结论后再提交')
+    return
+  }
+  const sourceAlert = replaySourceAlert.value
+  if (!sourceAlert) {
+    ElMessage.error('当前复盘上下文不存在')
+    return
+  }
+  replaySubmitting.value = true
+  try {
+    await submitGovernanceReplayFeedback(compactReplayFeedbackPayload({
+      releaseBatchId: replayData.value?.releaseBatchId ?? sourceAlert.releaseBatchId ?? null,
+      traceId: replayData.value?.traceId ?? normalizeText(sourceAlert.traceId) ?? null,
+      deviceCode: replayData.value?.deviceCode ?? normalizeText(sourceAlert.deviceCode) ?? null,
+      productKey: replayData.value?.productKey ?? normalizeText(sourceAlert.productKey) ?? null,
+      recommendedDecision: normalizeText(replayFeedback.value.recommendedDecision) ?? null,
+      adoptedDecision: replayFeedback.value.adoptedDecision,
+      executionOutcome: replayFeedback.value.executionOutcome,
+      rootCauseCode: replayFeedback.value.rootCauseCode,
+      operatorSummary: normalizeText(replayFeedback.value.operatorSummary) ?? null
+    }))
+    ElMessage.success('复盘结论已回写')
+    replayVisible.value = false
+    replaySourceAlert.value = null
+    await loadAlerts()
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '复盘结论回写失败'))
+  } finally {
+    replaySubmitting.value = false
   }
 }
 
@@ -547,6 +678,40 @@ function parseNumberQuery(value: unknown) {
   }
   return Number(text)
 }
+
+function resetReplayFeedback(item: GovernanceOpsAlert) {
+  const recommendedDecision = normalizeText(item.recommendation?.recommendationType) || 'REPLAY'
+  replayFeedback.value = {
+    releaseBatchId: item.releaseBatchId ?? null,
+    traceId: normalizeText(item.traceId) ?? null,
+    deviceCode: normalizeText(item.deviceCode) ?? null,
+    productKey: normalizeText(item.productKey) ?? null,
+    recommendedDecision,
+    adoptedDecision: recommendedDecision,
+    executionOutcome: '',
+    rootCauseCode: '',
+    operatorSummary: ''
+  }
+}
+
+function defaultReplayRootCause(data?: RiskGovernanceReplay | null) {
+  if ((data?.gapSummary?.missingPolicyCount ?? 0) > 0) {
+    return 'MISSING_POLICY'
+  }
+  if ((data?.gapSummary?.missingBindingCount ?? 0) > 0) {
+    return 'MISSING_BINDING'
+  }
+  if ((data?.gapSummary?.missingRiskMetricCount ?? 0) > 0) {
+    return 'MISSING_RISK_METRIC'
+  }
+  return ''
+}
+
+function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  ) as GovernanceReplayFeedbackPayload
+}
 </script>
 
 <style scoped>
@@ -563,7 +728,9 @@ function parseNumberQuery(value: unknown) {
 
 .governance-ops-detail-stack,
 .governance-ops-detail-section,
-.governance-ops-chain-list {
+.governance-ops-chain-list,
+.governance-ops-feedback-form,
+.governance-ops-feedback-actions {
   display: grid;
 }
 
@@ -582,7 +749,8 @@ function parseNumberQuery(value: unknown) {
 }
 
 .governance-ops-detail-grid,
-.governance-ops-gap-grid {
+.governance-ops-gap-grid,
+.governance-ops-feedback-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.75rem;
@@ -590,7 +758,8 @@ function parseNumberQuery(value: unknown) {
 
 .governance-ops-detail-field,
 .governance-ops-gap-card,
-.governance-ops-chain-item {
+.governance-ops-chain-item,
+.governance-ops-feedback-field {
   display: grid;
   gap: 0.35rem;
   border: 1px solid var(--panel-border);
@@ -601,15 +770,40 @@ function parseNumberQuery(value: unknown) {
 
 .governance-ops-detail-field span,
 .governance-ops-gap-card span,
-.governance-ops-chain-item span {
+.governance-ops-chain-item span,
+.governance-ops-feedback-field span {
   color: var(--text-caption);
   font-size: 13px;
 }
 
 .governance-ops-detail-field strong,
 .governance-ops-gap-card strong,
-.governance-ops-chain-item strong {
+.governance-ops-chain-item strong,
+.governance-ops-feedback-field strong {
   color: var(--text-heading);
+}
+
+.governance-ops-feedback-field--full {
+  grid-column: 1 / -1;
+}
+
+.governance-ops-feedback-input {
+  width: 100%;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-heading);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+
+.governance-ops-feedback-textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+.governance-ops-feedback-actions {
+  justify-content: flex-end;
 }
 
 .governance-ops-summary {

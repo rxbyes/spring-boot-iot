@@ -11,6 +11,10 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.service.GovernanceApprovalActionExecutor;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResult;
+import com.ghlzm.iot.system.service.model.GovernanceImpactSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceRollbackSnapshot;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.JsonNode;
@@ -30,6 +34,8 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
     public static final String ACTION_RISK_POINT_PENDING_PROMOTION = "RISK_POINT_PENDING_PROMOTION";
 
     private static final String STATUS_SUCCESS = "SUCCESS";
+    private static final List<String> RISK_BINDING_AFFECTED_TYPES = List.of("RISK_POINT", "DEVICE", "RISK_BINDING");
+    private static final List<String> RISK_PROMOTION_AFFECTED_TYPES = List.of("RISK_POINT", "RISK_METRIC", "RISK_BINDING");
 
     private final RiskPointBindingMaintenanceService bindingMaintenanceService;
     private final RiskPointPendingPromotionService pendingPromotionService;
@@ -63,6 +69,20 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
             case ACTION_RISK_POINT_UNBIND_DEVICE -> executeUnbind(order);
             case ACTION_RISK_POINT_PENDING_PROMOTION -> executePendingPromotion(order);
             default -> throw new BizException("审批动作不支持执行: " + actionCode);
+        };
+    }
+
+    @Override
+    public GovernanceSimulationResult simulate(GovernanceApprovalOrder order) {
+        if (order == null || !StringUtils.hasText(order.getActionCode())) {
+            throw new BizException("审批动作不存在");
+        }
+        String actionCode = order.getActionCode().trim();
+        return switch (actionCode) {
+            case ACTION_RISK_POINT_BIND_DEVICE -> simulateBind(order);
+            case ACTION_RISK_POINT_UNBIND_DEVICE -> simulateUnbind(order);
+            case ACTION_RISK_POINT_PENDING_PROMOTION -> simulatePendingPromotion(order);
+            default -> throw new BizException("审批动作不支持预演: " + actionCode);
         };
     }
 
@@ -214,6 +234,39 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         return new GovernanceApprovalActionExecutionResult(payloadJson, impactSnapshotJson, rollbackSnapshotJson);
     }
 
+    private GovernanceSimulationResult simulateBind(GovernanceApprovalOrder order) {
+        JsonNode requestNode = readRequiredRequestNode(order.getPayloadJson(), "风险点绑定审批载荷缺少请求体");
+        readRequiredLong(requestNode, "riskPointId", "风险点绑定审批载荷缺少风险点 ID");
+        readRequiredLong(requestNode, "deviceId", "风险点绑定审批载荷缺少设备 ID");
+        readRequiredText(requestNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识");
+        GovernanceImpactSnapshot impact = buildImpactSnapshotObject(1L, RISK_BINDING_AFFECTED_TYPES, true, "可通过风险点解绑撤回本次正式绑定");
+        GovernanceRollbackSnapshot rollback = buildRollbackSnapshotObject(true, "可通过风险点解绑撤回本次正式绑定");
+        return buildSimulationResult(order, impact, rollback);
+    }
+
+    private GovernanceSimulationResult simulateUnbind(GovernanceApprovalOrder order) {
+        JsonNode requestNode = readRequiredRequestNode(order.getPayloadJson(), "风险点解绑审批载荷缺少请求体");
+        readRequiredLong(requestNode, "riskPointId", "风险点解绑审批载荷缺少风险点 ID");
+        readRequiredLong(requestNode, "deviceId", "风险点解绑审批载荷缺少设备 ID");
+        GovernanceImpactSnapshot impact = buildImpactSnapshotObject(1L, RISK_BINDING_AFFECTED_TYPES, false, "解绑执行后需人工重新绑定恢复");
+        GovernanceRollbackSnapshot rollback = buildRollbackSnapshotObject(false, "解绑执行后需人工重新绑定恢复");
+        return buildSimulationResult(order, impact, rollback);
+    }
+
+    private GovernanceSimulationResult simulatePendingPromotion(GovernanceApprovalOrder order) {
+        JsonNode requestNode = readRequiredRequestNode(order.getPayloadJson(), "待治理转正审批载荷缺少请求体");
+        readRequiredLong(requestNode, "pendingId", "待治理转正审批载荷缺少 pending ID");
+        long affectedCount = resolvePromotionAffectedCount(requestNode);
+        GovernanceImpactSnapshot impact = buildImpactSnapshotObject(
+                affectedCount,
+                RISK_PROMOTION_AFFECTED_TYPES,
+                true,
+                "可通过正式绑定维护撤回本次转正测点"
+        );
+        GovernanceRollbackSnapshot rollback = buildRollbackSnapshotObject(true, "可通过正式绑定维护撤回本次转正测点");
+        return buildSimulationResult(order, impact, rollback);
+    }
+
     private JsonNode readRequiredRequestNode(String payloadJson, String message) {
         try {
             JsonNode root = objectMapper.readTree(payloadJson);
@@ -279,6 +332,50 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         return node;
     }
 
+    private GovernanceSimulationResult buildSimulationResult(GovernanceApprovalOrder order,
+                                                             GovernanceImpactSnapshot impact,
+                                                             GovernanceRollbackSnapshot rollback) {
+        boolean rollbackable = rollback != null && Boolean.TRUE.equals(rollback.getRollbackable());
+        String rollbackPlanSummary = impact != null && StringUtils.hasText(impact.getRollbackPlanSummary())
+                ? impact.getRollbackPlanSummary()
+                : rollback == null ? null : rollback.getRollbackPlanSummary();
+        return new GovernanceSimulationResult(
+                order == null ? null : order.getId(),
+                order == null ? null : order.getWorkItemId(),
+                order == null ? null : order.getActionCode(),
+                true,
+                impact == null ? null : impact.getAffectedCount(),
+                impact == null || impact.getAffectedTypes() == null ? List.of() : impact.getAffectedTypes(),
+                rollbackable,
+                rollbackPlanSummary,
+                null,
+                impact,
+                rollback,
+                false,
+                null
+        );
+    }
+
+    private GovernanceImpactSnapshot buildImpactSnapshotObject(Long affectedCount,
+                                                               List<String> affectedTypes,
+                                                               boolean rollbackable,
+                                                               String rollbackPlanSummary) {
+        GovernanceImpactSnapshot snapshot = new GovernanceImpactSnapshot();
+        snapshot.setAffectedCount(affectedCount);
+        snapshot.setAffectedTypes(affectedTypes);
+        snapshot.setRollbackable(rollbackable);
+        snapshot.setRollbackPlanSummary(rollbackPlanSummary);
+        return snapshot;
+    }
+
+    private GovernanceRollbackSnapshot buildRollbackSnapshotObject(boolean rollbackable,
+                                                                   String rollbackPlanSummary) {
+        GovernanceRollbackSnapshot snapshot = new GovernanceRollbackSnapshot();
+        snapshot.setRollbackable(rollbackable);
+        snapshot.setRollbackPlanSummary(rollbackPlanSummary);
+        return snapshot;
+    }
+
     private String buildImpactSnapshot(Long riskPointId,
                                        Long deviceId,
                                        String metricIdentifier,
@@ -332,6 +429,19 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
             }
         }
         return null;
+    }
+
+    private long resolvePromotionAffectedCount(JsonNode requestNode) {
+        if (requestNode == null || !requestNode.has("metrics") || !requestNode.path("metrics").isArray()) {
+            return 0L;
+        }
+        long count = 0L;
+        for (JsonNode metricNode : requestNode.path("metrics")) {
+            if (metricNode != null && !metricNode.isNull()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private String readRequiredText(JsonNode node, String fieldName, String message) {

@@ -64,13 +64,18 @@ class SchemaSyncCoverageTest(unittest.TestCase):
     def test_create_table_sql_covers_governance_approval_tables(self):
         order_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_order")
         transition_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_transition")
+        replay_feedback_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_replay_feedback")
         self.assertIsNotNone(order_sql)
         self.assertIsNotNone(transition_sql)
+        self.assertIsNotNone(replay_feedback_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_order", order_sql)
         self.assertIn("work_item_id", order_sql)
         self.assertIn("idx_governance_approval_order_subject", order_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
         self.assertIn("idx_governance_approval_transition_order", transition_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_replay_feedback", replay_feedback_sql)
+        self.assertIn("idx_governance_replay_feedback_work_item", replay_feedback_sql)
+        self.assertIn("idx_governance_replay_feedback_release_batch", replay_feedback_sql)
 
     def test_columns_to_add_cover_governance_approval_order_work_item_link(self):
         self.assertIn("sys_governance_approval_order", schema_sync.COLUMNS_TO_ADD)
