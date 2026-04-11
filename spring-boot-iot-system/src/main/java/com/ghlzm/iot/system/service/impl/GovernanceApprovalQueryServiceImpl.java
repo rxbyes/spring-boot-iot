@@ -97,6 +97,7 @@ public class GovernanceApprovalQueryServiceImpl implements GovernanceApprovalQue
         vo.setActionName(order.getActionName());
         vo.setSubjectType(order.getSubjectType());
         vo.setSubjectId(order.getSubjectId());
+        vo.setWorkItemId(order.getWorkItemId());
         vo.setStatus(order.getStatus());
         vo.setOperatorUserId(order.getOperatorUserId());
         vo.setApproverUserId(order.getApproverUserId());

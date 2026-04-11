@@ -186,6 +186,10 @@
               <strong>{{ detailOrder?.subjectType || '--' }} · {{ detailOrder?.subjectId ?? '--' }}</strong>
             </div>
             <div class="governance-approval-detail-field">
+              <span>治理任务 ID</span>
+              <strong>{{ detailOrder?.workItemId ?? '--' }}</strong>
+            </div>
+            <div class="governance-approval-detail-field">
               <span>审批意见</span>
               <strong>{{ detailOrder?.approvalComment || '--' }}</strong>
             </div>

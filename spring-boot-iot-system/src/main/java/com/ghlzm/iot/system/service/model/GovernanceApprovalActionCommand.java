@@ -8,9 +8,33 @@ public record GovernanceApprovalActionCommand(
         String actionName,
         String subjectType,
         Long subjectId,
+        Long workItemId,
         Long operatorUserId,
         Long approverUserId,
         String payloadJson,
         String approvalComment
 ) {
+
+    public GovernanceApprovalActionCommand(
+            String actionCode,
+            String actionName,
+            String subjectType,
+            Long subjectId,
+            Long operatorUserId,
+            Long approverUserId,
+            String payloadJson,
+            String approvalComment
+    ) {
+        this(
+                actionCode,
+                actionName,
+                subjectType,
+                subjectId,
+                null,
+                operatorUserId,
+                approverUserId,
+                payloadJson,
+                approvalComment
+        );
+    }
 }

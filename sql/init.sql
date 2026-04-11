@@ -453,6 +453,7 @@ CREATE TABLE sys_governance_approval_order (
     action_name VARCHAR(128) DEFAULT NULL COMMENT 'approval action name',
     subject_type VARCHAR(64) DEFAULT NULL COMMENT 'approval subject type',
     subject_id BIGINT DEFAULT NULL COMMENT 'approval subject id',
+    work_item_id BIGINT DEFAULT NULL COMMENT 'governance work item id',
     status VARCHAR(32) NOT NULL COMMENT 'approval status',
     operator_user_id BIGINT NOT NULL COMMENT 'operator user id',
     approver_user_id BIGINT NOT NULL COMMENT 'approver user id',

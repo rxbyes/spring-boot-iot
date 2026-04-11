@@ -67,9 +67,17 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIsNotNone(order_sql)
         self.assertIsNotNone(transition_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_order", order_sql)
+        self.assertIn("work_item_id", order_sql)
         self.assertIn("idx_governance_approval_order_subject", order_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
         self.assertIn("idx_governance_approval_transition_order", transition_sql)
+
+    def test_columns_to_add_cover_governance_approval_order_work_item_link(self):
+        self.assertIn("sys_governance_approval_order", schema_sync.COLUMNS_TO_ADD)
+        self.assertEqual(
+            dict(schema_sync.COLUMNS_TO_ADD["sys_governance_approval_order"])["work_item_id"],
+            "BIGINT DEFAULT NULL COMMENT 'governance work item id'",
+        )
 
     def test_product_metadata_json_column_is_declared_for_schema_sync(self):
         self.assertIn("iot_product", schema_sync.COLUMNS_TO_ADD)

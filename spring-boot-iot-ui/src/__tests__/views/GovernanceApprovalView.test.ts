@@ -305,6 +305,7 @@ function mountView() {
 function createPendingOrder() {
   return {
     id: 88001,
+    workItemId: 73001,
     actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
     actionName: '合同发布',
     subjectType: 'PRODUCT',
@@ -319,6 +320,7 @@ function createPendingOrder() {
 function createRejectedOrder() {
   return {
     id: 88002,
+    workItemId: 73002,
     actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
     actionName: '合同发布',
     subjectType: 'PRODUCT',
@@ -492,6 +494,7 @@ describe('GovernanceApprovalView', () => {
     expect(mockGetOrderDetail).toHaveBeenCalledWith(88001)
     expect(wrapper.text()).toContain('审批概览')
     expect(wrapper.text()).toContain('99001')
+    expect(wrapper.text()).toContain('73001')
     expect(wrapper.text()).toContain('submit')
   })
 

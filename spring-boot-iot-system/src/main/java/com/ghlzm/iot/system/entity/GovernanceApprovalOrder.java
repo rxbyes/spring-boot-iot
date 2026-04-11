@@ -32,6 +32,8 @@ public class GovernanceApprovalOrder implements Serializable {
 
     private Long subjectId;
 
+    private Long workItemId;
+
     private String status;
 
     private Long operatorUserId;

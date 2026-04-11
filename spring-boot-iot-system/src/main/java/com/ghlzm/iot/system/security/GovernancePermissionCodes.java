@@ -26,6 +26,10 @@ public final class GovernancePermissionCodes {
     // 风险指标标注（执行/复核）
     public static final String RISK_METRIC_CATALOG_TAG = "risk:metric-catalog:tag";
     public static final String RISK_METRIC_CATALOG_APPROVE = "risk:metric-catalog:approve";
+    public static final String RISK_POINT_BIND_APPROVE = "risk:risk-point-binding:approve";
+    public static final String RISK_POINT_BIND_EXECUTE = "risk:risk-point-binding:execute";
+    public static final String RISK_POINT_PENDING_PROMOTION_APPROVE = "risk:risk-point-pending-promotion:approve";
+    public static final String RISK_POINT_PENDING_PROMOTION_EXECUTE = "risk:risk-point-pending-promotion:execute";
 
     // 阈值策略：执行/复核
     public static final String RULE_DEFINITION_EDIT = "risk:rule-definition:edit";
@@ -34,6 +38,7 @@ public final class GovernancePermissionCodes {
     // 联动编排：执行/复核
     public static final String LINKAGE_RULE_EDIT = "risk:linkage-rule:edit";
     public static final String LINKAGE_RULE_APPROVE = "risk:linkage-rule:approve";
+    public static final String LINKAGE_PLAN_APPROVE = "risk:linkage-plan:approve";
 
     // 应急预案：执行/复核
     public static final String EMERGENCY_PLAN_EDIT = "risk:emergency-plan:edit";

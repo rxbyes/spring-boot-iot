@@ -506,6 +506,7 @@ export interface GovernanceApprovalOrder {
   actionName?: string | null;
   subjectType?: string | null;
   subjectId?: IdType | null;
+  workItemId?: IdType | null;
   status?: GovernanceApprovalStatus | null;
   operatorUserId?: IdType | null;
   approverUserId?: IdType | null;
@@ -553,6 +554,9 @@ export interface GovernanceApprovalResubmitPayload {
 export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'RESOLVED' | 'CLOSED';
 export type GovernanceWorkItemExecutionStatus =
   | 'PENDING_APPROVAL'
+  | 'EXECUTED'
+  | 'REJECTED'
+  | 'CANCELLED'
   | 'IN_PROGRESS'
   | 'REPLAY_REQUIRED'
   | 'RESOLVED'
