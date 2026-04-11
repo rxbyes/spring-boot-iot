@@ -9,6 +9,20 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, '..');
 
+function shouldUseShellCommand(executable, platform = process.platform) {
+  return platform === 'win32' && /\.(cmd|bat)$/i.test(executable);
+}
+
+function quoteShellArg(value) {
+  if (!value) {
+    return '""';
+  }
+  if (/[\s"]/u.test(value)) {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
+  return value;
+}
+
 function appendLog(logFile, message) {
   fs.appendFileSync(logFile, message, 'utf8');
 }
@@ -28,12 +42,17 @@ function pipeChunk(logFile, chunk, writer) {
 async function runStep(step, logFile) {
   const [executable, ...args] = step.command;
   writeStepLog(logFile, `START ${step.step}`);
+  const useShellCommand = shouldUseShellCommand(executable);
+  const spawnCommand = useShellCommand
+    ? `${quoteShellArg(executable)} ${args.map((arg) => quoteShellArg(arg)).join(' ')}`.trim()
+    : executable;
+  const spawnArgs = useShellCommand ? [] : args;
 
   await new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
+    const child = spawn(spawnCommand, spawnArgs, {
       cwd: step.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: false
+      shell: useShellCommand
     });
 
     child.stdout.on('data', (chunk) => pipeChunk(logFile, chunk, process.stdout));
