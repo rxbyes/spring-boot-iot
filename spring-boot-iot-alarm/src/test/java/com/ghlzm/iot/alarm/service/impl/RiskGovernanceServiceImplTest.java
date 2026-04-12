@@ -426,6 +426,56 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void getCoverageOverviewShouldExposePublishableContractPropertyCount() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                vendorMetricEvidenceMapper,
+                backfillService
+        );
+
+        ProductModel value = new ProductModel();
+        value.setId(3001L);
+        value.setProductId(1001L);
+        value.setModelType("property");
+        value.setIdentifier("value");
+        ProductModel sensorState = new ProductModel();
+        sensorState.setId(3002L);
+        sensorState.setProductId(1001L);
+        sensorState.setModelType("property");
+        sensorState.setIdentifier("sensor_state");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+
+        RiskMetricCatalog metricValue = new RiskMetricCatalog();
+        metricValue.setId(9101L);
+        metricValue.setProductId(1001L);
+        metricValue.setContractIdentifier("value");
+        metricValue.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(metricValue));
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+
+        RiskGovernanceCoverageOverviewVO overview = service.getCoverageOverview(1001L);
+
+        BeanWrapperImpl wrapper = new BeanWrapperImpl(overview);
+        assertEquals(1L, wrapper.getPropertyValue("publishableContractPropertyCount"));
+        assertEquals(2L, overview.getContractPropertyCount());
+        assertEquals(1L, overview.getPublishedRiskMetricCount());
+    }
+
+    @Test
     void listMissingPolicyAlertSignalsShouldAggregateByRiskMetricIdOrIdentifierAndSkipCoveredMetrics() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,

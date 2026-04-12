@@ -736,16 +736,19 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('[data-testid="message-trace-detail-lead-sheet"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="message-trace-detail-chain-stage"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-summary-stage"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-lead-sheet"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="message-trace-detail-hero"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('属性上报');
-    expect(wrapper.text()).toContain('链路标识');
-    expect(wrapper.text()).toContain('接入上下文');
-    expect(wrapper.text()).toContain('消息概览');
-    expect(wrapper.text()).toContain('链路信息');
+    expect(wrapper.text()).toContain('消息态势与处理概况');
+    expect(wrapper.text()).toContain('链路与接入台账');
     expect(wrapper.text()).toContain('Payload 对照');
     expect(wrapper.text()).toContain('处理时间线');
+    expect(wrapper.text()).not.toContain('消息概览');
+    expect(wrapper.text()).not.toContain('链路信息');
+    expect(wrapper.text()).not.toContain('链路标识');
+    expect(wrapper.text()).not.toContain('接入上下文');
     expect(wrapper.text()).not.toContain('先从消息类型、上报时间与 Topic 拓扑建立判断');
     expect(wrapper.text()).not.toContain('继续完整保留链路章节');
     expect(wrapper.text()).not.toContain('固定并排查看原始报文');
@@ -801,7 +804,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    const chainStageText = wrapper.find('[data-testid="message-trace-detail-chain-stage"]').text();
+    const chainStageText = wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').text();
 
     expect(wrapper.text()).toContain('状态上报');
     expect(chainStageText).not.toContain('消息类型');
@@ -846,7 +849,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    const chainStageText = wrapper.find('[data-testid="message-trace-detail-chain-stage"]').text();
+    const chainStageText = wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').text();
 
     expect(wrapper.text()).toContain('2026/04/05 10:50:35');
     expect(wrapper.text()).toContain('创建时间');

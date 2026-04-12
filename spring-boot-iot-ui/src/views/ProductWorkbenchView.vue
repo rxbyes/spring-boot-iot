@@ -608,6 +608,15 @@ function formatPercentValue(value?: number | null, digits = 1) {
   return `${numeric.toFixed(digits)}%`
 }
 
+function resolvePublishableContractPropertyCount(coverage?: RiskGovernanceCoverageOverview | null) {
+  const publishableCount = Number(coverage?.publishableContractPropertyCount)
+  if (Number.isFinite(publishableCount) && publishableCount >= 0) {
+    return publishableCount
+  }
+  const fallbackContractCount = Number(coverage?.contractPropertyCount)
+  return Number.isFinite(fallbackContractCount) && fallbackContractCount >= 0 ? fallbackContractCount : 0
+}
+
 interface ProductSearchForm {
   productName: string
   nodeType: number | undefined
@@ -784,6 +793,15 @@ const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagno
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const governanceFocusProduct = computed(() => businessWorkbenchProduct.value || currentProduct.value || tableData.value[0] || null)
+const productWorkbenchRouteContextKeys = [
+  'openProductId',
+  'workbenchView',
+  'governanceSource',
+  'workItemCode',
+  'governanceBoundary',
+  'subjectOwnership',
+  'governanceFocus'
+] as const
 const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
   if (!governanceFocusProduct.value || governanceLoading.value || !governanceCoverageOverview.value) {
     return []
@@ -793,6 +811,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
   const coverage = governanceCoverageOverview.value
   const productId = governanceFocusProduct.value.id
   const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
 
   if (!hasReleaseBatch) {
     tasks.push({
@@ -803,12 +822,12 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
     })
   }
 
-  if (Number(coverage.contractMetricCoverageRate ?? 0) < 100) {
+  if (publishableContractPropertyCount > Number(coverage.publishedRiskMetricCount ?? 0)) {
     tasks.push({
       key: 'pending-metric-publish',
       title: '待发布风险指标目录',
-      detail: `合同字段 ${formatCount(coverage.contractPropertyCount)} 项中，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项。`,
-      path: '/products'
+      detail: `可入目录字段 ${formatCount(publishableContractPropertyCount)} 项中，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项。`,
+      path: buildProductWorkbenchPath(productId, 'models')
     })
   }
 
@@ -845,7 +864,18 @@ const governanceSummaryTitle = computed(() => {
   }
 
   const coverage = governanceCoverageOverview.value
-  return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项，风险点绑定 ${formatCount(coverage.boundRiskMetricCount)} 项，策略覆盖率 ${formatPercentValue(coverage.ruleCoverageRate)}。`
+  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
+  const summarySegments = [
+    `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}`,
+    `合同字段 ${formatCount(coverage.contractPropertyCount)} 项`,
+    publishableContractPropertyCount < Number(coverage.contractPropertyCount ?? 0)
+      ? `可入目录 ${formatCount(publishableContractPropertyCount)} 项`
+      : null,
+    `目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项`,
+    `风险点绑定 ${formatCount(coverage.boundRiskMetricCount)} 项`,
+    `策略覆盖率 ${formatPercentValue(coverage.ruleCoverageRate)}`
+  ].filter((segment): segment is string => Boolean(segment))
+  return `${summarySegments.join('，')}。`
 })
 const productRowActions = computed<ProductRowAction[]>(() => [])
 const productActionColumnWidth = computed(() =>
@@ -2014,6 +2044,40 @@ function buildGovernanceTaskPath(productId: number | string | null | undefined, 
   return `/governance-task?${query.toString()}`
 }
 
+function buildProductWorkbenchPath(
+  productId: number | string | null | undefined,
+  workbenchView: ProductBusinessWorkbenchView = 'models'
+) {
+  const query = new URLSearchParams()
+  if (productId != null && String(productId).trim()) {
+    query.set('openProductId', String(productId))
+  }
+  query.set('workbenchView', workbenchView)
+  return `/products?${query.toString()}`
+}
+
+async function clearProductWorkbenchRouteContext() {
+  if (!parseRouteStringQuery(route.query.openProductId)) {
+    return
+  }
+  const nextQuery: Record<string, unknown> = { ...route.query }
+  let changed = false
+  for (const key of productWorkbenchRouteContextKeys) {
+    if (key in nextQuery) {
+      delete nextQuery[key]
+      changed = true
+    }
+  }
+  if (!changed) {
+    return
+  }
+  handledGovernanceWorkbenchRouteKey.value = ''
+  await router.replace({
+    path: route.path,
+    query: nextQuery
+  })
+}
+
 async function loadGovernanceSnapshot(product: Product | null) {
   const requestId = ++latestGovernanceRequestId
   if (!product?.id) {
@@ -2393,6 +2457,7 @@ watch(businessWorkbenchVisible, (visible) => {
   if (visible) {
     return
   }
+  void clearProductWorkbenchRouteContext()
   latestDetailRequestId += 1
   abortDetailRequest()
   detailLoading.value = false

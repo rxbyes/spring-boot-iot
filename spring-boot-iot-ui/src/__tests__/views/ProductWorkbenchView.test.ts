@@ -527,6 +527,70 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('待补阈值策略')
   })
 
+  it('does not show a metric publish notice when all publishable fields are already in the catalog', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'nf-monitor-laser-rangefinder-v1',
+            productName: '南方测绘 监测型 激光测距仪',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 1,
+        records: [
+          {
+            id: 2604101739466672301,
+            productId: 1001,
+            scenarioCode: 'phase1-crack',
+            releasedFieldCount: 2,
+            createTime: '2026-04-10T12:00:00'
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceCoverageOverview.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        contractPropertyCount: 2,
+        publishableContractPropertyCount: 1,
+        publishedRiskMetricCount: 1,
+        boundRiskMetricCount: 0,
+        ruleCoveredRiskMetricCount: 0,
+        contractMetricCoverageRate: 50,
+        bindingCoverageRate: 0,
+        ruleCoverageRate: 0
+      } as any
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).not.toContain('待发布风险指标目录')
+    expect(wrapper.text()).toContain('待绑定风险点')
+    expect(wrapper.text()).toContain('待补阈值策略')
+  })
+
   it('routes supported governance todo items from /products into the governance task workbench', async () => {
     mockPageProducts.mockResolvedValueOnce({
       code: 200,
@@ -568,6 +632,10 @@ describe('ProductWorkbenchView', () => {
         expect.objectContaining({
           key: 'pending-contract-release',
           path: '/governance-task?productId=1001&workStatus=OPEN&workItemCode=PENDING_CONTRACT_RELEASE'
+        }),
+        expect.objectContaining({
+          key: 'pending-metric-publish',
+          path: '/products?openProductId=1001&workbenchView=models'
         }),
         expect.objectContaining({
           key: 'pending-risk-binding',
@@ -783,6 +851,59 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
     expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('models')
     expect(wrapper.text()).toContain('GNSS产品')
+  })
+
+  it('clears one-shot governance workbench route context after the product workbench closes', async () => {
+    mockRoute.query = {
+      openProductId: '1001',
+      workbenchView: 'models',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_CONTRACT_RELEASE',
+      governanceBoundary: 'collector-child',
+      subjectOwnership: 'child',
+      governanceFocus: 'laser-rangefinder',
+      pageNum: '2'
+    }
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 2,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetProductById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 1001,
+        productKey: 'phase2-gnss',
+        productName: 'GNSS产品',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        dataFormat: 'JSON',
+        status: 1
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect((wrapper.vm as any).businessWorkbenchVisible).toBe(true)
+
+    ;(wrapper.vm as any).businessWorkbenchVisible = false
+    await flushPromises()
+    await nextTick()
+
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      path: '/products',
+      query: {
+        pageNum: '2'
+      }
+    })
   })
 
   it('reuses the shared workbench row-actions component for both table and mobile product rows', async () => {

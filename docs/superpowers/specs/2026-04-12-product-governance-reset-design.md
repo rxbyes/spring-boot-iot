@@ -58,6 +58,8 @@
 - `risk_metric_linkage_binding`
 - `risk_metric_emergency_plan_binding`
 - `risk_point_device`
+- `risk_point_device_pending_binding`
+- `risk_point_device_pending_promotion`
 - `rule_definition`
 
 #### 5.2.3 治理证据与映射
@@ -76,7 +78,7 @@
 
 - `sys_governance_approval_order` 中 `PRODUCT_CONTRACT_RELEASE_APPLY`、`PRODUCT_CONTRACT_ROLLBACK` 相关记录
 - `sys_governance_approval_transition` 中对应审批流转记录
-- `iot_governance_work_item` 中由产品契约发布、批次、风险目录派生的治理任务
+- `iot_governance_work_item` 中由本轮契约治理、风险绑定、阈值治理、联动预案缺口和 replay 派生的全部治理任务
 - `sys_governance_replay_feedback` 中与上述审批单、发布批次相关的复盘记录
 
 ### 5.3 产品主档内需要重置的派生配置
@@ -89,19 +91,20 @@
 
 1. 查询并记录需保留的产品映射规则清单
 2. 清理 `risk_metric_linkage_binding`、`risk_metric_emergency_plan_binding`
-3. 清理 `risk_point_device`、`rule_definition`
-4. 清理 `risk_metric_catalog`
-5. 清理 `sys_governance_replay_feedback`
-6. 清理 `iot_governance_work_item`
-7. 清理 `sys_governance_approval_transition`
-8. 清理 `sys_governance_approval_order`
-9. 清理 `iot_product_contract_release_snapshot`
-10. 清理 `iot_product_contract_release_batch`
-11. 清理 `iot_vendor_metric_evidence`
-12. 条件清理 `iot_vendor_metric_mapping_rule`
-13. 清理 `iot_product_model`
-14. 重置 `iot_product.metadata_json` 中的 `objectInsight`
-15. 复核保留数据：`iot_product`、`iot_device`、`iot_device_relation`、保留的映射规则
+3. 清理 `risk_point_device_pending_promotion`、`risk_point_device_pending_binding`
+4. 清理 `risk_point_device`、`rule_definition`
+5. 清理 `risk_metric_catalog`
+6. 清理 `sys_governance_replay_feedback`
+7. 清理 `iot_governance_work_item`
+8. 清理 `sys_governance_approval_transition`
+9. 清理 `sys_governance_approval_order`
+10. 清理 `iot_product_contract_release_snapshot`
+11. 清理 `iot_product_contract_release_batch`
+12. 清理 `iot_vendor_metric_evidence`
+13. 条件清理 `iot_vendor_metric_mapping_rule`
+14. 清理 `iot_product_model`
+15. 重置 `iot_product.metadata_json` 中的 `objectInsight`
+16. 复核保留数据：`iot_product`、`iot_device`、`iot_device_relation`、保留的映射规则
 
 ## 7. 推荐实现方式
 
@@ -124,11 +127,14 @@
 - `iot_product_contract_release_batch` 为空
 - `iot_product_contract_release_snapshot` 为空
 - `risk_metric_catalog` 为空
+- `risk_point_device_pending_binding` 为空
+- `risk_point_device_pending_promotion` 为空
 - `risk_point_device` 为空
 - `rule_definition` 为空
 - `iot_vendor_metric_evidence` 为空
 - `iot_vendor_metric_mapping_rule` 只剩保留白名单
 - 契约发布/回滚相关审批单、流转、工作项、复盘记录已清空
+- `iot_governance_work_item` 不再残留 `PENDING_RISK_BINDING`、`PENDING_THRESHOLD_POLICY`、`PENDING_REPLAY`、`PENDING_CONTRACT_RELEASE`、`PENDING_PRODUCT_GOVERNANCE`、`PENDING_LINKAGE_PLAN` 等历史治理任务
 - `iot_product.metadata_json.objectInsight` 已清空
 
 ### 8.2 页面预期

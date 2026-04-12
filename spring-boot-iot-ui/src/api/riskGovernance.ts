@@ -105,6 +105,7 @@ export interface RiskGovernanceReleaseBatchDiff {
 export interface RiskGovernanceCoverageOverview {
   productId?: IdType | null;
   contractPropertyCount?: number | null;
+  publishableContractPropertyCount?: number | null;
   publishedRiskMetricCount?: number | null;
   boundRiskMetricCount?: number | null;
   ruleCoveredRiskMetricCount?: number | null;

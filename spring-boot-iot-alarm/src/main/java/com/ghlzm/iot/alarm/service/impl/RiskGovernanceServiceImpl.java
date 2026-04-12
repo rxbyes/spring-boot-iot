@@ -19,6 +19,7 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
@@ -81,6 +82,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
     private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final RiskMetricActionBindingBackfillService backfillService;
+    private final RiskMetricCatalogPublishRule riskMetricCatalogPublishRule = new DefaultRiskMetricCatalogPublishRule();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
@@ -374,6 +376,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        long publishableContractPropertyCount = riskMetricCatalogPublishRule
+                .resolveRiskEnabledIdentifiers(null, propertyModels)
+                .size();
 
         List<RiskMetricCatalog> catalogs = selectEnabledCatalogs(productId);
         Set<Long> catalogIds = catalogs.stream()
@@ -431,13 +436,18 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         RiskGovernanceCoverageOverviewVO overview = new RiskGovernanceCoverageOverviewVO();
         overview.setProductId(productId);
         overview.setContractPropertyCount(contractPropertyCount);
+        overview.setPublishableContractPropertyCount(publishableContractPropertyCount);
         overview.setPublishedRiskMetricCount(publishedRiskMetricCount);
         overview.setBoundRiskMetricCount(boundRiskMetricCount);
         overview.setRuleCoveredRiskMetricCount(ruleCoveredRiskMetricCount);
         overview.setLinkageCoveredRiskMetricCount(linkageCoveredRiskMetricCount);
         overview.setEmergencyPlanCoveredRiskMetricCount(emergencyPlanCoveredRiskMetricCount);
         overview.setLinkagePlanCoveredRiskMetricCount(linkagePlanCoveredRiskMetricCount);
-        overview.setContractMetricCoverageRate(calculateRate(publishedRiskMetricCount, contractPropertyCount));
+        overview.setContractMetricCoverageRate(
+                publishableContractPropertyCount <= 0L
+                        ? 100D
+                        : calculateRate(publishedRiskMetricCount, publishableContractPropertyCount)
+        );
         overview.setBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
         overview.setRuleCoverageRate(calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount));
         overview.setLinkageCoverageRate(calculateRate(linkageCoveredRiskMetricCount, boundMetricDimensionCount));

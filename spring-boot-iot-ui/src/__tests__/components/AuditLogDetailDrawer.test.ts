@@ -33,9 +33,15 @@ describe('AuditLogDetailDrawer', () => {
         detail: {
           operationType: 'system_error',
           operationResult: 0,
+          operationModule: '设备接入',
+          operationMethod: 'MqttMessageConsumer#messageArrived',
+          requestMethod: 'MQTT',
+          operationTime: '2026-03-29 14:30:00',
           traceId: 'trace-001',
           deviceCode: 'demo-device-01',
-          productKey: 'demo-product'
+          productKey: 'demo-product',
+          requestParams: '{"topic":"$dp"}',
+          responseResult: '{"code":500}'
         },
         showTraceAction: true,
         showAccessErrorAction: true
@@ -52,6 +58,16 @@ describe('AuditLogDetailDrawer', () => {
 
     expect(drawer.props('eyebrow')).toBeUndefined();
     expect(wrapper.text()).not.toContain('Audit Log Detail');
+    expect(wrapper.text()).toContain('异常态势与处理概况');
+    expect(wrapper.text()).toContain('链路与主体台账');
+    expect(wrapper.text()).toContain('异常诊断与回跳');
+    expect(wrapper.text()).toContain('请求与响应快照');
+    expect(wrapper.findAll('.audit-log-detail-workbench__fact-table')).toHaveLength(2);
+    expect(wrapper.find('.audit-log-detail-workbench__payload-stack').exists()).toBe(true);
+    expect(wrapper.find('.audit-log-detail-workbench__overview-pair').exists()).toBe(false);
+    expect(wrapper.text().match(/trace-001/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/设备接入/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/MqttMessageConsumer#messageArrived/g)?.length ?? 0).toBe(1);
     expect(wrapper.text()).toContain('返回链路追踪');
     expect(wrapper.text()).toContain('回看失败归档');
 
@@ -63,7 +79,7 @@ describe('AuditLogDetailDrawer', () => {
     expect(wrapper.emitted('jump-access-error')).toHaveLength(1);
   });
 
-  it('avoids repeating operation timing fields across the summary and detail sections', () => {
+  it('keeps operation timing fields in the ledger once without the legacy explanatory sections', () => {
     const wrapper = mount(AuditLogDetailDrawer, {
       props: {
         modelValue: true,
@@ -84,7 +100,9 @@ describe('AuditLogDetailDrawer', () => {
       }
     });
 
-    expect(wrapper.text().match(/操作时间/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text().match(/发生时间/g)?.length ?? 0).toBe(1);
     expect(wrapper.text().match(/操作用户/g)?.length ?? 0).toBe(1);
+    expect(wrapper.text()).not.toContain('聚合当前操作的执行状态');
+    expect(wrapper.text()).not.toContain('呈现日志归属、操作模块和目标资源');
   });
 });

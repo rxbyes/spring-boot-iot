@@ -104,6 +104,8 @@ const ElTableStub = defineComponent({
   template: '<section class="access-error-table-stub"><slot /></section>'
 });
 
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('AccessErrorArchivePanel', () => {
   beforeEach(() => {
     mockRouter.push.mockReset();
@@ -216,6 +218,60 @@ describe('AccessErrorArchivePanel', () => {
     }
   });
 
+  it('renders the failure detail as vertical ledgers without repeated helper copy', async () => {
+    const wrapper = mount(AccessErrorArchivePanel, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+          StandardActionLink: true,
+          StandardInlineState: true,
+          StandardDetailDrawer: defineComponent({
+            name: 'StandardDetailDrawer',
+            props: ['modelValue', 'title'],
+            template: '<section v-if="modelValue" class="access-error-detail-drawer-stub"><h2>{{ title }}</h2><slot /></section>'
+          }),
+          StandardChoiceGroup: true,
+          StandardButton: defineComponent({
+            name: 'StandardButton',
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+          }),
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+          ElInput: true,
+          ElFormItem: true,
+          ElTag: true,
+          ElAlert: true
+        }
+      }
+    });
+
+    await (wrapper.vm as any).handleDetail({
+      id: 1,
+      traceId: 'trace-001',
+      deviceCode: 'demo-device-01',
+      productKey: 'demo-product',
+      protocolCode: 'mqtt-json',
+      topic: '$dp',
+      errorCode: 'CONTRACT_MISMATCH',
+      errorMessage: 'contract mismatch'
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('失败态势与处理概况');
+    expect(wrapper.text()).toContain('链路与主体台账');
+    expect(wrapper.text()).toContain('异常诊断与回跳');
+    expect(wrapper.text()).toContain('契约与报文快照');
+    expect(wrapper.text()).not.toContain('先看失败阶段、归档时间、设备与协议编码');
+    expect(wrapper.text()).not.toContain('可回查异常观测台与链路追踪台');
+  });
+
   it('renders the archive workbench without the legacy eyebrow tier or top-right cross-page jump', () => {
     const wrapper = mount(AccessErrorArchivePanel, {
       global: {
@@ -291,15 +347,60 @@ describe('AccessErrorArchivePanel', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('136');
+    expect(actionColumn?.attributes('data-width')).toBe('160');
   });
 
-  it('collapses archive actions into direct actions plus menu and uses shared list surface', () => {
+  it('keeps observe as a direct archive action and removes the legacy more menu', async () => {
+    const wrapper = mount(AccessErrorArchivePanel, {
+      global: {
+        stubs: {
+          StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+          StandardListFilterHeader: true,
+          StandardAppliedFiltersBar: true,
+          StandardTableToolbar: StandardTableToolbarStub,
+          StandardPagination: true,
+          StandardTableTextColumn: true,
+          StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+          StandardActionLink: true,
+          StandardInlineState: true,
+          StandardDetailDrawer: true,
+          StandardChoiceGroup: true,
+          StandardButton: defineComponent({
+            name: 'StandardButton',
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
+          }),
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+          ElInput: true,
+          ElFormItem: true,
+          ElTag: true,
+          ElAlert: true
+        }
+      }
+    });
+
+    await flushPromises();
+
+    const rowActions = wrapper.findAll('.access-error-row-actions-stub');
+    expect(rowActions.length).toBeGreaterThan(0);
+
+    for (const actionGroup of rowActions) {
+      expect(actionGroup.text()).toContain('详情');
+      expect(actionGroup.text()).toContain('追踪');
+      expect(actionGroup.text()).toContain('观测');
+      expect(actionGroup.attributes('data-menu-label')).not.toBe('更多');
+      expect(actionGroup.find('.access-error-row-actions-stub__menu-count').text()).toBe('0');
+    }
+  });
+
+  it('uses shared list surface without the legacy archive more menu', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../components/AccessErrorArchivePanel.vue'), 'utf8');
 
     expect(source).toContain('class="access-error-table-wrap standard-list-surface"');
     expect(source).toContain('<StandardWorkbenchRowActions');
     expect(source).toContain('standard-mobile-record-grid');
-    expect(source).toContain('menu-label="更多"');
+    expect(source).not.toContain('menu-label="更多"');
+    expect(source).not.toContain('accessErrorMenuItems');
   });
 });
