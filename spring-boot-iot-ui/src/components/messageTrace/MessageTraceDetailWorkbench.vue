@@ -1,48 +1,40 @@
 <template>
   <div class="message-trace-detail-workbench">
-    <section class="message-trace-detail-workbench__lead-sheet" data-testid="message-trace-detail-lead-sheet">
-      <div class="message-trace-detail-workbench__lead-main">
-        <span class="message-trace-detail-workbench__section-kicker">消息概览</span>
-        <strong class="message-trace-detail-workbench__lead-value">{{ messageTypeLabel }}</strong>
+    <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-summary-stage">
+      <div class="message-trace-detail-workbench__stage-header">
+        <h3>消息态势与处理概况</h3>
       </div>
 
-      <section class="message-trace-detail-workbench__scale-ledger">
+      <div class="message-trace-detail-workbench__summary-grid">
         <article
-          v-for="metric in summaryMetrics"
-          :key="metric.key"
-          class="message-trace-detail-workbench__scale-note"
+          v-for="card in summaryCards"
+          :key="card.key"
+          class="message-trace-detail-workbench__summary-card"
         >
-          <span>{{ metric.label }}</span>
-          <strong
-            :class="[
-              'message-trace-detail-workbench__scale-note-value',
-              { 'message-trace-detail-workbench__scale-note-value--truncate': metric.truncate }
-            ]"
-            :title="metric.value"
-          >
-            {{ metric.value }}
-          </strong>
+          <span class="message-trace-detail-workbench__summary-label">{{ card.label }}</span>
+          <span class="message-trace-detail-workbench__summary-value">{{ card.value }}</span>
+          <span v-if="card.hint" class="message-trace-detail-workbench__summary-hint">{{ card.hint }}</span>
         </article>
-      </section>
+      </div>
     </section>
 
     <section
       class="message-trace-detail-workbench__stage message-trace-detail-workbench__stage--subtle"
-      data-testid="message-trace-detail-chain-stage"
+      data-testid="message-trace-detail-ledger-stage"
     >
       <div class="message-trace-detail-workbench__stage-header">
-        <h3>链路信息</h3>
+        <h3>链路与接入台账</h3>
       </div>
 
-      <div class="message-trace-detail-workbench__journal-grid">
-        <section class="message-trace-detail-workbench__sheet">
-          <header class="message-trace-detail-workbench__sheet-header">
-            <strong class="message-trace-detail-workbench__sheet-title">链路标识</strong>
-          </header>
+      <div class="message-trace-detail-workbench__ledger-stack">
+        <article class="message-trace-detail-workbench__overview-panel">
+          <div class="message-trace-detail-workbench__stage-header">
+            <h3>链路概览</h3>
+          </div>
 
           <div class="message-trace-detail-workbench__ledger-grid">
             <article
-              v-for="item in ledgerIdentityItems"
+              v-for="item in chainOverviewItems"
               :key="item.key"
               :class="[
                 'message-trace-detail-workbench__ledger-item',
@@ -53,24 +45,23 @@
               <span
                 :class="[
                   'message-trace-detail-workbench__ledger-value',
-                  { 'message-trace-detail-workbench__ledger-value--truncate': item.truncate }
+                  { 'message-trace-detail-workbench__ledger-value--multiline': item.multiline }
                 ]"
-                :title="item.value"
               >
                 {{ item.value }}
               </span>
             </article>
           </div>
-        </section>
+        </article>
 
-        <section class="message-trace-detail-workbench__sheet">
-          <header class="message-trace-detail-workbench__sheet-header">
-            <strong class="message-trace-detail-workbench__sheet-title">接入上下文</strong>
-          </header>
+        <article class="message-trace-detail-workbench__overview-panel">
+          <div class="message-trace-detail-workbench__stage-header">
+            <h3>接入概览</h3>
+          </div>
 
           <div class="message-trace-detail-workbench__ledger-grid">
             <article
-              v-for="item in ledgerContextItems"
+              v-for="item in accessOverviewItems"
               :key="item.key"
               :class="[
                 'message-trace-detail-workbench__ledger-item',
@@ -81,15 +72,14 @@
               <span
                 :class="[
                   'message-trace-detail-workbench__ledger-value',
-                  { 'message-trace-detail-workbench__ledger-value--truncate': item.truncate }
+                  { 'message-trace-detail-workbench__ledger-value--multiline': item.multiline }
                 ]"
-                :title="item.value"
               >
                 {{ item.value }}
               </span>
             </article>
           </div>
-        </section>
+        </article>
       </div>
     </section>
 
@@ -102,54 +92,56 @@
         <h3>协议模板证据</h3>
       </div>
 
-      <div class="message-trace-detail-workbench__journal-grid">
-        <section class="message-trace-detail-workbench__sheet">
-          <header class="message-trace-detail-workbench__sheet-header">
-            <strong class="message-trace-detail-workbench__sheet-title">模板摘要</strong>
-          </header>
+      <article v-if="templateSummaryItems.length > 0" class="message-trace-detail-workbench__subsection">
+        <header class="message-trace-detail-workbench__subsection-header">
+          <strong>模板摘要</strong>
+        </header>
 
-          <div class="message-trace-detail-workbench__ledger-grid">
-            <article
-              v-for="item in templateSummaryItems"
-              :key="item.key"
+        <div class="message-trace-detail-workbench__ledger-grid">
+          <article
+            v-for="item in templateSummaryItems"
+            :key="item.key"
+            :class="[
+              'message-trace-detail-workbench__ledger-item',
+              { 'message-trace-detail-workbench__ledger-item--wide': item.wide }
+            ]"
+          >
+            <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
+            <span
               :class="[
-                'message-trace-detail-workbench__ledger-item',
-                { 'message-trace-detail-workbench__ledger-item--wide': item.wide }
+                'message-trace-detail-workbench__ledger-value',
+                { 'message-trace-detail-workbench__ledger-value--multiline': item.multiline }
               ]"
             >
-              <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
-              <span
-                :class="[
-                  'message-trace-detail-workbench__ledger-value',
-                  { 'message-trace-detail-workbench__ledger-value--truncate': item.truncate }
-                ]"
-                :title="item.value"
-              >
-                {{ item.value }}
-              </span>
-            </article>
-          </div>
-        </section>
+              {{ item.value }}
+            </span>
+          </article>
+        </div>
+      </article>
 
-        <section class="message-trace-detail-workbench__sheet">
-          <header class="message-trace-detail-workbench__sheet-header">
-            <strong class="message-trace-detail-workbench__sheet-title">模板执行</strong>
-          </header>
+      <article v-if="templateExecutionItems.length > 0" class="message-trace-detail-workbench__subsection">
+        <header class="message-trace-detail-workbench__subsection-header">
+          <strong>模板执行</strong>
+        </header>
 
-          <div class="message-trace-detail-workbench__ledger-grid">
-            <article
-              v-for="item in templateExecutionItems"
-              :key="item.key"
-              class="message-trace-detail-workbench__ledger-item message-trace-detail-workbench__ledger-item--wide"
+        <div class="message-trace-detail-workbench__ledger-grid">
+          <article
+            v-for="item in templateExecutionItems"
+            :key="item.key"
+            class="message-trace-detail-workbench__ledger-item message-trace-detail-workbench__ledger-item--wide"
+          >
+            <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
+            <span
+              :class="[
+                'message-trace-detail-workbench__ledger-value',
+                { 'message-trace-detail-workbench__ledger-value--multiline': item.multiline }
+              ]"
             >
-              <span class="message-trace-detail-workbench__ledger-label">{{ item.label }}</span>
-              <span class="message-trace-detail-workbench__ledger-value" :title="item.value">
-                {{ item.value }}
-              </span>
-            </article>
-          </div>
-        </section>
-      </div>
+              {{ item.value }}
+            </span>
+          </article>
+        </div>
+      </article>
     </section>
 
     <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-payload-stage">
@@ -173,19 +165,31 @@
         </button>
       </div>
 
-      <div
-        class="message-trace-detail-workbench__timeline-summary"
-        :class="`message-trace-detail-workbench__timeline-summary--${timelineSummaryTone}`"
-      >
-        <span class="message-trace-detail-workbench__timeline-label">{{ timelineSummaryLabel }}</span>
-        <strong class="message-trace-detail-workbench__timeline-title">{{ timelineSummaryTitle }}</strong>
-        <p
-          v-if="timelineSummaryDescription"
-          class="message-trace-detail-workbench__timeline-description"
+      <div class="message-trace-detail-workbench__timeline-summary-grid">
+        <article
+          v-for="card in timelineSummaryCards"
+          :key="card.key"
+          :class="[
+            'message-trace-detail-workbench__timeline-card',
+            `message-trace-detail-workbench__timeline-card--${card.tone ?? 'plain'}`,
+            { 'message-trace-detail-workbench__timeline-card--wide': card.wide }
+          ]"
         >
-          {{ timelineSummaryDescription }}
-        </p>
+          <span class="message-trace-detail-workbench__timeline-card-label">{{ card.label }}</span>
+          <strong class="message-trace-detail-workbench__timeline-card-value">{{ card.value }}</strong>
+          <p v-if="card.hint" class="message-trace-detail-workbench__timeline-card-hint">
+            {{ card.hint }}
+          </p>
+        </article>
       </div>
+
+      <p
+        v-if="timelineSummaryDescription"
+        class="message-trace-detail-workbench__timeline-note"
+        :class="`message-trace-detail-workbench__timeline-note--${timelineSummaryTone}`"
+      >
+        {{ timelineSummaryDescription }}
+      </p>
 
       <div v-if="timelineExpanded" class="message-trace-detail-workbench__timeline-body">
         <StandardTraceTimeline
@@ -213,14 +217,23 @@ interface LedgerItem {
   label: string;
   value: string;
   wide?: boolean;
-  truncate?: boolean;
+  multiline?: boolean;
 }
 
-interface SummaryMetric {
+interface SummaryCard {
   key: string;
   label: string;
   value: string;
-  truncate?: boolean;
+  hint?: string;
+}
+
+interface TimelineSummaryCard {
+  key: string;
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'plain' | 'ready' | 'warning' | 'muted' | 'loading';
+  wide?: boolean;
 }
 
 const props = defineProps<{
@@ -252,43 +265,163 @@ const topicSegments = computed(() => {
   return String(props.detail.topic).split('/').filter(Boolean).length.toString();
 });
 const timelineStepCount = computed(() => props.timeline?.steps?.length ?? 0);
+const timelineStatusValue = computed(() => {
+  if (props.timelineLookupError) {
+    return '存储异常';
+  }
+  if (props.timelineExpired) {
+    return '已过期';
+  }
+  if (props.timelineLoading) {
+    return '读取中';
+  }
+  if (timelineStepCount.value > 0) {
+    return '可展开复盘';
+  }
+  if (props.detail.traceId) {
+    return '等待生成';
+  }
+  return '暂无 trace';
+});
+const timelineStatusHint = computed(() => {
+  if (props.timelineLookupError) {
+    return '优先排查 Redis / message-flow';
+  }
+  if (props.timelineExpired) {
+    return '时间线已过期，Payload 仍可继续复盘';
+  }
+  if (props.timelineLoading) {
+    return '后台正在补数';
+  }
+  if (timelineStepCount.value > 0) {
+    return '可继续展开完整时间线';
+  }
+  if (props.detail.traceId) {
+    return '当前 trace 还没有可用时间线';
+  }
+  return '当前记录未携带 traceId';
+});
+const timelineNodeValue = computed(() => {
+  if (props.timelineLookupError || props.timelineExpired || props.timelineLoading) {
+    return '--';
+  }
+  if (timelineStepCount.value > 0) {
+    return `${timelineStepCount.value} 个节点`;
+  }
+  if (props.detail.traceId) {
+    return '0 个节点';
+  }
+  return '--';
+});
+const timelineNodeHint = computed(() => {
+  if (props.timelineLookupError) {
+    return '当前无法读取节点数量';
+  }
+  if (props.timelineExpired) {
+    return '节点明细已过期';
+  }
+  if (props.timelineLoading) {
+    return '正在同步节点数量';
+  }
+  if (timelineStepCount.value > 0) {
+    return '展开后查看每个节点耗时';
+  }
+  if (props.detail.traceId) {
+    return '当前 trace 尚未归档节点';
+  }
+  return '暂无节点信息';
+});
+const timelineOwnerValue = computed(() => {
+  if (props.timeline?.sessionId) {
+    return props.timeline.sessionId;
+  }
+  if (props.timeline?.traceId) {
+    return props.timeline.traceId;
+  }
+  if (props.detail.traceId) {
+    return formatValue(props.detail.traceId);
+  }
+  return '--';
+});
+const timelineOwnerHint = computed(() => {
+  if (props.timeline?.sessionId) {
+    return '当前处理会话';
+  }
+  if (props.timeline?.traceId || props.detail.traceId) {
+    return '当前 Trace 标识';
+  }
+  return '暂无归属信息';
+});
+const timelineStorageValue = computed(() => {
+  if (props.timelineLookupError) {
+    return 'message-flow / Redis 读取异常';
+  }
+  if (props.timelineExpired) {
+    return '时间线已过期';
+  }
+  if (props.timelineLoading) {
+    return 'Redis 时间线补数中';
+  }
+  if (timelineStepCount.value > 0) {
+    return '完整时间线可用';
+  }
+  if (props.detail.traceId) {
+    return '等待时间线入库';
+  }
+  return '当前记录未携带 traceId';
+});
+const timelineStorageHint = computed(() => {
+  if (timelineStepCount.value > 0) {
+    return '展开后查看完整处理轨迹';
+  }
+  if (props.timelineLookupError || props.timelineExpired || props.timelineLoading || props.detail.traceId) {
+    return props.timelineEmptyDescription;
+  }
+  return '当前记录没有可复盘链路';
+});
 
-const summaryMetrics = computed<SummaryMetric[]>(() => [
+const summaryCards = computed<SummaryCard[]>(() => [
+  {
+    key: 'messageType',
+    label: '消息类型',
+    value: messageTypeLabel.value,
+    hint: '确认当前上报语义'
+  },
   {
     key: 'reportTime',
     label: '上报时间',
     value: formatMessageTraceReportTime(props.detail.reportTime, props.detail.createTime),
-    truncate: true
+    hint: '按中国时间口径展示'
   },
   {
     key: 'topicSegments',
     label: 'Topic 节点',
     value: topicSegments.value,
-    truncate: true
+    hint: '帮助判断接入路径深度'
   },
   {
-    key: 'productKey',
-    label: '产品标识',
-    value: formatValue(props.detail.productKey),
-    truncate: true
-  },
-  {
-    key: 'logId',
-    label: '日志 ID',
-    value: formatValue(props.detail.id),
-    truncate: true
+    key: 'timelineStatus',
+    label: '时间线状态',
+    value: timelineStatusValue.value,
+    hint: timelineStatusHint.value
   }
 ]);
 
-const ledgerIdentityItems = computed<LedgerItem[]>(() => [
+const chainOverviewItems = computed<LedgerItem[]>(() => [
+  { key: 'traceId', label: 'TraceId', value: formatValue(props.detail.traceId), wide: true },
   { key: 'id', label: '日志 ID', value: formatValue(props.detail.id) },
   { key: 'createTime', label: '创建时间', value: formatDateTime(props.detail.createTime) },
-  { key: 'traceId', label: 'TraceId', value: formatValue(props.detail.traceId), wide: true },
+  { key: 'reportTime', label: '上报时间', value: formatMessageTraceReportTime(props.detail.reportTime, props.detail.createTime), wide: true }
 ]);
 
-const ledgerContextItems = computed<LedgerItem[]>(() => [
+const accessOverviewItems = computed<LedgerItem[]>(() => [
   { key: 'deviceCode', label: '设备编码', value: formatValue(props.detail.deviceCode) },
-  { key: 'productKey', label: '产品标识', value: formatValue(props.detail.productKey), truncate: true },
+  {
+    key: 'routeType',
+    label: '路由类型',
+    value: formatValue(props.detail.protocolMetadata?.routeType)
+  },
+  { key: 'productKey', label: '产品标识', value: formatValue(props.detail.productKey), wide: true },
   { key: 'topic', label: 'Topic', value: formatValue(props.detail.topic), wide: true }
 ]);
 
@@ -304,8 +437,7 @@ const templateSummaryItems = computed<LedgerItem[]>(() => {
       key: 'templateCodes',
       label: '模板编码',
       value: templateCodes.value.join(' / '),
-      wide: true,
-      truncate: true
+      wide: true
     });
   }
   if (props.detail.protocolMetadata?.normalizationStrategy) {
@@ -335,7 +467,8 @@ const templateExecutionItems = computed<LedgerItem[]>(() =>
     key: `template-execution-${index}`,
     label: formatTemplateExecutionLabel(execution.logicalChannelCode, execution.childDeviceCode),
     value: formatTemplateExecutionValue(execution),
-    wide: true
+    wide: true,
+    multiline: true
   }))
 );
 
@@ -355,44 +488,45 @@ const timelineSummaryTone = computed(() => {
   return 'plain';
 });
 
-const timelineSummaryLabel = computed(() => {
-  if (props.timelineLookupError) {
-    return '存储状态';
-  }
-  if (props.timelineExpired) {
-    return '降级提示';
-  }
-  if (props.timelineLoading) {
-    return '处理中';
-  }
-  if (timelineStepCount.value > 0) {
-    return '处理摘要';
-  }
-  return '当前状态';
-});
-
-const timelineSummaryTitle = computed(() => {
-  if (props.timelineLookupError) {
-    return 'message-flow 存储异常/Redis 不可用';
-  }
-  if (props.timelineExpired) {
-    return '时间线已过期，但 payload 对照已从消息日志恢复。';
-  }
-  if (props.timelineLoading) {
-    return '正在读取处理时间线';
-  }
-  if (timelineStepCount.value > 0) {
-    return `已记录 ${timelineStepCount.value} 个处理节点`;
-  }
-  return props.timelineEmptyTitle;
-});
-
 const timelineSummaryDescription = computed(() => {
-  if (props.timelineLookupError || props.timelineExpired || timelineStepCount.value === 0) {
+  if (
+    props.timelineLookupError ||
+    props.timelineExpired ||
+    props.timelineLoading ||
+    (timelineStepCount.value === 0 && Boolean(props.detail.traceId))
+  ) {
     return props.timelineEmptyDescription;
   }
   return '';
 });
+const timelineSummaryCards = computed<TimelineSummaryCard[]>(() => [
+  {
+    key: 'status',
+    label: '当前状态',
+    value: timelineStatusValue.value,
+    hint: timelineStatusHint.value,
+    tone: timelineSummaryTone.value
+  },
+  {
+    key: 'steps',
+    label: '处理节点',
+    value: timelineNodeValue.value,
+    hint: timelineNodeHint.value
+  },
+  {
+    key: 'owner',
+    label: 'Trace 归属',
+    value: timelineOwnerValue.value,
+    hint: timelineOwnerHint.value,
+    wide: !props.timeline?.sessionId && timelineOwnerValue.value !== '--'
+  },
+  {
+    key: 'storage',
+    label: '存储提示',
+    value: timelineStorageValue.value,
+    hint: timelineStorageHint.value
+  }
+]);
 
 function toggleTimeline() {
   timelineExpanded.value = !timelineExpanded.value;
@@ -425,16 +559,16 @@ function formatTemplateExecutionValue(execution: {
   parentRemovalKeys?: string[] | null;
 }) {
   const segments = [
-    formatValue(execution.templateCode),
-    execution.canonicalizationStrategy ? `归一: ${execution.canonicalizationStrategy}` : '',
+    `模板编码：${formatValue(execution.templateCode)}`,
+    execution.canonicalizationStrategy ? `归一策略：${execution.canonicalizationStrategy}` : '',
     execution.statusMirrorApplied === null || execution.statusMirrorApplied === undefined
       ? ''
-      : `状态镜像: ${formatBoolean(execution.statusMirrorApplied)}`,
+      : `状态镜像：${formatBoolean(execution.statusMirrorApplied)}`,
     execution.parentRemovalKeys && execution.parentRemovalKeys.length > 0
-      ? `父字段清理: ${execution.parentRemovalKeys.join(' / ')}`
+      ? `父字段清理：${execution.parentRemovalKeys.join(' / ')}`
       : ''
   ].filter(Boolean);
-  return segments.join(' | ');
+  return segments.join('\n');
 }
 
 function getMessageTypeLabel(value?: string | null) {
@@ -462,101 +596,27 @@ function getMessageTypeLabel(value?: string | null) {
 </script>
 
 <style scoped>
-.message-trace-detail-workbench,
-.message-trace-detail-workbench__lead-main,
-.message-trace-detail-workbench__scale-ledger,
-.message-trace-detail-workbench__sheet {
-  display: grid;
-}
-
 .message-trace-detail-workbench {
-  gap: 1.2rem;
-}
-
-.message-trace-detail-workbench__lead-sheet {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1.1fr);
   gap: 1rem;
-  padding: 1.1rem 1.2rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 6px);
-  background: var(--ops-list-surface-bg-strong);
-  box-shadow: var(--shadow-card-soft);
 }
 
-.message-trace-detail-workbench__lead-main {
-  gap: 0.48rem;
-  align-content: center;
-}
-
-.message-trace-detail-workbench__section-kicker,
-.message-trace-detail-workbench__scale-note span,
-.message-trace-detail-workbench__ledger-label,
-.message-trace-detail-workbench__timeline-label {
-  color: var(--text-caption);
-  font-size: 12px;
-  line-height: 1.58;
-}
-
-.message-trace-detail-workbench__section-kicker {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.message-trace-detail-workbench__lead-value,
-.message-trace-detail-workbench__sheet-title {
-  color: var(--text-heading);
-  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-}
-
-.message-trace-detail-workbench__lead-value {
-  font-size: clamp(2.2rem, 4vw, 3rem);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.message-trace-detail-workbench__scale-ledger {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.78rem;
-}
-
-.message-trace-detail-workbench__scale-note {
+.message-trace-detail-workbench__stage,
+.message-trace-detail-workbench__subsection,
+.message-trace-detail-workbench__overview-panel {
   display: grid;
-  gap: 0.34rem;
-  min-width: 0;
-  min-height: 5rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 4px);
-  background: color-mix(in srgb, var(--surface-soft) 88%, white);
-}
-
-.message-trace-detail-workbench__scale-note-value {
-  display: block;
-  min-width: 0;
-  color: var(--text-heading);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.message-trace-detail-workbench__scale-note-value--truncate {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.message-trace-detail-workbench__stage {
-  display: grid;
-  gap: 0.95rem;
-  padding: 1rem 1.05rem;
+  gap: 0.9rem;
+  padding: 1rem;
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--radius-lg) + 4px);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card-soft);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-inset-highlight-78);
 }
 
-.message-trace-detail-workbench__stage--subtle {
-  background: var(--ops-list-surface-bg);
+.message-trace-detail-workbench__stage--subtle,
+.message-trace-detail-workbench__subsection,
+.message-trace-detail-workbench__overview-panel {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .message-trace-detail-workbench__stage-header,
@@ -574,34 +634,57 @@ function getMessageTypeLabel(value?: string | null) {
   gap: 12px;
 }
 
-.message-trace-detail-workbench__stage-header h3 {
+.message-trace-detail-workbench__stage-header h3,
+.message-trace-detail-workbench__subsection-header strong {
   margin: 0;
   color: var(--text-heading);
   font-size: 16px;
   line-height: 1.4;
 }
 
-.message-trace-detail-workbench__journal-grid {
+.message-trace-detail-workbench__summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
-.message-trace-detail-workbench__sheet {
-  gap: 0.8rem;
-  min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-md) + 4px);
-  background: var(--surface-soft);
-}
-
-.message-trace-detail-workbench__sheet-header {
+.message-trace-detail-workbench__summary-card {
   display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(203, 213, 225, 0.86);
+  border-radius: calc(var(--radius-md) + 2px);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(244, 248, 255, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
-.message-trace-detail-workbench__sheet-title {
-  font-size: 1rem;
+.message-trace-detail-workbench__summary-label,
+.message-trace-detail-workbench__ledger-label,
+.message-trace-detail-workbench__timeline-label {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.message-trace-detail-workbench__summary-value {
+  color: var(--text-heading);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.message-trace-detail-workbench__summary-hint {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.message-trace-detail-workbench__ledger-stack {
+  display: grid;
+  gap: 0.9rem;
 }
 
 .message-trace-detail-workbench__ledger-grid {
@@ -615,9 +698,9 @@ function getMessageTypeLabel(value?: string | null) {
   gap: 0.34rem;
   min-width: 0;
   padding: 0.92rem 1rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
   border-radius: calc(var(--radius-md) + 2px);
-  background: color-mix(in srgb, var(--bg-card) 92%, var(--surface-soft));
+  background: rgba(248, 251, 255, 0.92);
 }
 
 .message-trace-detail-workbench__ledger-item--wide {
@@ -627,15 +710,13 @@ function getMessageTypeLabel(value?: string | null) {
 .message-trace-detail-workbench__ledger-value {
   color: var(--text-heading);
   font-size: 14px;
+  font-weight: 400;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
-.message-trace-detail-workbench__ledger-value--truncate {
-  overflow: hidden;
-  overflow-wrap: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.message-trace-detail-workbench__ledger-value--multiline {
+  white-space: pre-wrap;
 }
 
 .message-trace-detail-workbench__toggle {
@@ -702,26 +783,30 @@ function getMessageTypeLabel(value?: string | null) {
   line-height: 1.7;
 }
 
-@media (max-width: 1024px) {
-  .message-trace-detail-workbench__lead-sheet,
-  .message-trace-detail-workbench__journal-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 960px) {
+  .message-trace-detail-workbench__summary-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
-}
 
-@media (max-width: 720px) {
-  .message-trace-detail-workbench__scale-ledger,
   .message-trace-detail-workbench__ledger-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .message-trace-detail-workbench__stage-header--between {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .message-trace-detail-workbench__ledger-item--wide {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .message-trace-detail-workbench__stage-header--between {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .message-trace-detail-workbench__summary-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

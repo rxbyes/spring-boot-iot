@@ -20,9 +20,6 @@
         <div class="product-model-designer__summary-copy">
           <span class="product-model-designer__summary-kicker">契约字段</span>
           <h3 class="product-model-designer__summary-title">基于现有上报手动提炼契约字段</h3>
-          <p class="product-model-designer__summary-description">
-            在同一页面完成样本录入、字段提取、结果确认和正式字段查看，不再打开二层抽屉。
-          </p>
         </div>
 
         <div class="product-model-designer__summary-actions">
@@ -379,32 +376,6 @@
         </section>
       </section>
 
-      <section class="product-model-designer__workflow" data-testid="contract-governance-workflow">
-        <article
-          v-for="stage in workflowStageItems"
-          :key="stage.key"
-          class="product-model-designer__workflow-stage"
-          :class="{ 'is-active': workflowStage === stage.key }"
-        >
-          <strong>{{ stage.label }}</strong>
-        </article>
-      </section>
-
-      <div class="product-model-designer__workspace-grid">
-        <div class="product-model-designer__workspace-primary" data-testid="contract-governance-primary">
-          <div class="product-model-designer__workspace-slot">
-            <strong>样本输入</strong>
-            <span>识别结果</span>
-          </div>
-        </div>
-        <aside class="product-model-designer__workspace-history" data-testid="contract-governance-history">
-          <div class="product-model-designer__workspace-slot">
-            <strong>发布批次与风险联动</strong>
-            <span>当前已生效字段</span>
-          </div>
-        </aside>
-      </div>
-
       <section
         ref="sampleStageRef"
         class="product-model-designer__stage"
@@ -413,7 +384,7 @@
         <header class="product-model-designer__stage-head">
           <div>
             <h3>样本输入</h3>
-            <p>只支持基于手动粘贴的上报 JSON 提取契约字段。</p>
+            <p>粘贴上报 JSON 后提取契约字段。</p>
           </div>
         </header>
 
@@ -553,7 +524,6 @@
         <header class="product-model-designer__stage-head">
           <div>
             <h3>识别结果</h3>
-            <p>当前只展示基于手动样本识别出的 compare 结果。</p>
           </div>
         </header>
 
@@ -583,7 +553,6 @@
         <header class="product-model-designer__stage-head">
           <div>
             <h3>本次生效</h3>
-            <p>确认后将把当前选中的字段写入正式字段。</p>
           </div>
         </header>
 
@@ -795,7 +764,6 @@
         <header class="product-model-designer__stage-head">
           <div>
             <h3>当前已生效字段</h3>
-            <p>这里只展示当前已经正式生效的字段。</p>
           </div>
         </header>
 
@@ -999,7 +967,6 @@ import {
 } from '@/utils/productObjectInsightConfig'
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
-type GovernanceWorkflowStage = 'pending_sample' | 'review_compare' | 'ready_submit' | 'approval_pending' | 'released'
 type SampleType = 'business' | 'status'
 type DeviceStructure = 'single' | 'composite'
 
@@ -1166,28 +1133,6 @@ const applyExecutionCompleted = computed(() =>
 const rollbackExecutionCompleted = computed(() =>
   rollbackReceiptStatus.value === 'APPROVED' && Boolean(rollbackExecutedResult.value)
 )
-const workflowStage = computed<GovernanceWorkflowStage>(() => {
-  if (applyReceiptStatus.value === 'PENDING' || rollbackReceiptStatus.value === 'PENDING') {
-    return 'approval_pending'
-  }
-  if (applyExecutionCompleted.value || rollbackExecutionCompleted.value || latestReleaseBatchId.value) {
-    return 'released'
-  }
-  if (selectedApplyItems.value.length) {
-    return 'ready_submit'
-  }
-  if (compareRows.value.length) {
-    return 'review_compare'
-  }
-  return 'pending_sample'
-})
-const workflowStageItems = computed<Array<{ key: GovernanceWorkflowStage; label: string }>>(() => [
-  { key: 'pending_sample', label: '待输入样本' },
-  { key: 'review_compare', label: '待确认识别结果' },
-  { key: 'ready_submit', label: '待提交审批' },
-  { key: 'approval_pending', label: '审批中' },
-  { key: 'released', label: '已发布 / 可回滚' }
-])
 const applyReceiptCounts = computed(() => ({
   created: applyExecutedResult.value?.createdCount ?? applyResult.value?.createdCount ?? 0,
   updated: applyExecutedResult.value?.updatedCount ?? applyResult.value?.updatedCount ?? 0,
@@ -2283,10 +2228,6 @@ function inferRelationStrategies(
 <style scoped>
 .product-model-designer-workspace,
 .product-model-designer__summary-sheet,
-.product-model-designer__workflow,
-.product-model-designer__workspace-grid,
-.product-model-designer__workspace-primary,
-.product-model-designer__workspace-history,
 .product-model-designer__summary-grid,
 .product-model-designer__version-ledger,
 .product-model-designer__version-diff,
@@ -2356,7 +2297,6 @@ function inferRelationStrategies(
   line-height: 1.2;
 }
 
-.product-model-designer__summary-description,
 .product-model-designer__stage-head p,
 .product-model-designer__relation-head p,
 .product-model-designer__apply-card p,
@@ -2378,50 +2318,6 @@ function inferRelationStrategies(
   grid-column: 1 / -1;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: 0.72rem;
-}
-
-.product-model-designer__workflow {
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.72rem;
-}
-
-.product-model-designer__workflow-stage {
-  display: grid;
-  gap: 0.24rem;
-  padding: 0.8rem 0.86rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
-  border-radius: 0.74rem;
-  background: white;
-  color: var(--text-secondary);
-}
-
-.product-model-designer__workflow-stage.is-active {
-  border-color: color-mix(in srgb, var(--brand) 30%, var(--panel-border));
-  background: color-mix(in srgb, var(--brand-light) 16%, white);
-  color: var(--text-heading);
-}
-
-.product-model-designer__workspace-grid {
-  grid-template-columns: minmax(0, 1.3fr) minmax(16rem, 0.9fr);
-  gap: 0.8rem;
-}
-
-.product-model-designer__workspace-slot {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.78rem 0.84rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
-  border-radius: 0.74rem;
-  background: color-mix(in srgb, var(--brand-light) 8%, white);
-}
-
-.product-model-designer__workspace-slot strong {
-  color: var(--text-heading);
-}
-
-.product-model-designer__workspace-slot span {
-  color: var(--text-secondary);
-  line-height: 1.56;
 }
 
 .product-model-designer__rollback-preview {
@@ -2777,8 +2673,6 @@ function inferRelationStrategies(
 
 @media (max-width: 960px) {
   .product-model-designer__summary-sheet,
-  .product-model-designer__workflow,
-  .product-model-designer__workspace-grid,
   .product-model-designer__sample-toolbar,
   .product-model-designer__summary-grid,
   .product-model-designer__receipt,

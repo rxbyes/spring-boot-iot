@@ -3,12 +3,17 @@
     <section
       v-for="panel in panels"
       :key="panel.key"
-      class="message-trace-payload-comparison__panel"
+      class="message-trace-payload-comparison__panel detail-card"
       :class="{ 'message-trace-payload-comparison__panel--expanded': isExpanded(panel.key) }"
     >
-      <header class="message-trace-payload-comparison__panel-header">
-        <strong class="message-trace-payload-comparison__panel-title">{{ panel.title }}</strong>
-
+      <header class="message-trace-payload-comparison__panel-header detail-card__header">
+        <div class="message-trace-payload-comparison__panel-heading">
+          <strong class="message-trace-payload-comparison__panel-title">{{ panel.title }}</strong>
+          <div class="message-trace-payload-comparison__panel-meta detail-card__meta">
+            <span>当前状态：{{ panel.available ? '已恢复' : '暂缺' }}</span>
+            <span>{{ panel.description }}</span>
+          </div>
+        </div>
         <div class="message-trace-payload-comparison__panel-actions">
           <button
             type="button"
@@ -133,10 +138,6 @@ function copyWithExecCommand(content: string) {
 }
 
 .message-trace-payload-comparison__panel {
-  border: 1px solid var(--panel-border);
-  border-radius: calc(var(--radius-lg) + 4px);
-  background: var(--ops-list-surface-bg-strong);
-  box-shadow: var(--shadow-card-soft);
   overflow: hidden;
 }
 
@@ -153,14 +154,28 @@ function copyWithExecCommand(content: string) {
 .message-trace-payload-comparison__panel-header {
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
+}
+
+.message-trace-payload-comparison__panel-heading {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .message-trace-payload-comparison__panel-title {
   color: var(--text-heading);
   font-size: 15px;
   line-height: 1.5;
+  font-weight: 700;
   min-width: 0;
+}
+
+.message-trace-payload-comparison__panel-meta {
+  margin-top: 0;
+}
+
+.message-trace-payload-comparison__panel-meta span:last-child {
+  white-space: normal;
 }
 
 .message-trace-payload-comparison__panel-actions {
@@ -203,13 +218,13 @@ function copyWithExecCommand(content: string) {
 }
 
 .message-trace-payload-comparison__panel-body {
-  padding: 0 18px 18px;
+  margin-top: 0.85rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--line-soft);
 }
 
 .message-trace-payload-comparison__code,
 .message-trace-payload-comparison__empty {
-  margin-top: 16px;
   border-radius: 16px;
 }
 
@@ -249,6 +264,7 @@ function copyWithExecCommand(content: string) {
     flex-direction: column;
   }
 
+  .message-trace-payload-comparison__panel-heading,
   .message-trace-payload-comparison__panel-actions {
     width: 100%;
   }

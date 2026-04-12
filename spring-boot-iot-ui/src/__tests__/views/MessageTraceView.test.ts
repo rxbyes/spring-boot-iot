@@ -736,13 +736,18 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub);
+
     expect(wrapper.find('[data-testid="message-trace-detail-summary-stage"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="message-trace-detail-lead-sheet"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="message-trace-detail-hero"]').exists()).toBe(false);
+    expect(detailDrawer.props('title')).toBe('链路追踪详情');
     expect(wrapper.text()).toContain('属性上报');
     expect(wrapper.text()).toContain('消息态势与处理概况');
     expect(wrapper.text()).toContain('链路与接入台账');
+    expect(wrapper.text()).toContain('链路概览');
+    expect(wrapper.text()).toContain('接入概览');
     expect(wrapper.text()).toContain('Payload 对照');
     expect(wrapper.text()).toContain('处理时间线');
     expect(wrapper.text()).not.toContain('消息概览');

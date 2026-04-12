@@ -232,7 +232,7 @@
       :title="detailTitle"
       :subtitle="detailSubtitle"
       tag-layout="title-inline"
-      size="56rem"
+      size="68rem"
       :tags="detailTags"
       :empty="!hasDetail"
     >
@@ -384,7 +384,7 @@ const detailTimelineEmptyDescription = computed(() => {
   }
   return '没有 traceId 时，只能查看消息日志本身，无法继续拉取处理时间线。';
 });
-const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
+const detailTitle = computed(() => '链路追踪详情');
 const detailSubtitle = computed(() => '');
 const detailPayloadComparison = computed(() =>
   resolveMessageTracePayloadComparison({
