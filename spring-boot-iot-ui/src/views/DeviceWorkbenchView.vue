@@ -1442,6 +1442,33 @@ function removeLocalTableRows(rows: Array<Partial<Device> | null | undefined>) {
   return removedCount
 }
 
+function finalizeArchiveCreate(created: Device, sourceRow?: Device | null) {
+  clearDeviceOptionCache()
+  cacheDeviceDetail(created)
+  clearSelection()
+
+  let nextTotal = pagination.total
+  const removedCount = sourceRow ? removeLocalTableRows([sourceRow]) : 0
+  if (removedCount > 0) {
+    nextTotal = Math.max(0, nextTotal - removedCount)
+    removeCachedDeviceDetail(sourceRow)
+  }
+
+  const shouldInsertCreated = appliedFilters.registrationStatus !== 0 && matchesCurrentFilters(created)
+  if (shouldInsertCreated) {
+    nextTotal += 1
+    if (pagination.pageNum === 1) {
+      prependLocalTableRow(created)
+    } else {
+      rebuildVisibleDevicePageCache()
+    }
+  } else {
+    rebuildVisibleDevicePageCache()
+  }
+
+  setTotal(nextTotal)
+}
+
 function handleSelectionChange(rows: Device[]) {
   selectedRows.value = rows.filter((row) => isSelectableDeviceRow(row))
 }
@@ -2880,10 +2907,10 @@ async function handleSubmit() {
     return
   }
 
+  const submitMode = formMode.value
   submitLoading.value = true
   try {
-    const isEditing = Boolean(editingDeviceId.value)
-    if (isEditing) {
+    if (submitMode === 'edit') {
       const res = await deviceApi.updateDevice(editingDeviceId.value as string | number, { ...formData })
       clearDeviceOptionCache()
       cacheDeviceDetail(res.data)
@@ -2898,30 +2925,48 @@ async function handleSubmit() {
       ElMessage.success('更新成功')
     } else {
       const res = await deviceApi.addDevice({ ...formData })
-      clearDeviceOptionCache()
-      cacheDeviceDetail(res.data)
-      clearSelection()
-      if (matchesCurrentFilters(res.data)) {
-        setTotal(pagination.total + 1)
-        if (pagination.pageNum === 1) {
-          prependLocalTableRow(res.data)
+      if (submitMode === 'register') {
+        finalizeArchiveCreate(res.data, registerSourceRow.value)
+        ElMessage.success('登记成功')
+      } else {
+        clearDeviceOptionCache()
+        cacheDeviceDetail(res.data)
+        clearSelection()
+        if (matchesCurrentFilters(res.data)) {
+          setTotal(pagination.total + 1)
+          if (pagination.pageNum === 1) {
+            prependLocalTableRow(res.data)
+          } else {
+            rebuildVisibleDevicePageCache()
+          }
         } else {
           rebuildVisibleDevicePageCache()
         }
-      } else {
-        rebuildVisibleDevicePageCache()
+        ElMessage.success('新增成功')
       }
-      ElMessage.success('新增成功')
     }
     formVisible.value = false
     void loadDevicePage({
       silent: true,
       force: true,
-      silentMessage: isEditing ? '已提交设备更新，正在后台刷新列表。' : '已新增设备，正在后台刷新列表。'
+      silentMessage:
+        submitMode === 'edit'
+          ? '已提交设备更新，正在后台刷新列表。'
+          : submitMode === 'register'
+            ? '已完成设备登记，正在后台刷新列表。'
+            : '已新增设备，正在后台刷新列表。'
     })
   } catch (error) {
     console.error('提交设备失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '提交设备失败')
+    ElMessage.error(
+      error instanceof Error
+        ? submitMode === 'register'
+          ? `登记失败：${error.message}`
+          : error.message
+        : submitMode === 'register'
+          ? '登记失败'
+          : '提交设备失败'
+    )
   } finally {
     submitLoading.value = false
   }
