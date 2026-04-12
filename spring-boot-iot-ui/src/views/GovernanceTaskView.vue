@@ -3,15 +3,56 @@
     <StandardWorkbenchPanel
       title="治理任务台"
       :description="`统一查看合同发布、风险绑定等治理待办，当前共 ${pagination.total} 项。`"
+      show-filters
       show-toolbar
       show-pagination
     >
+      <template #filters>
+        <StandardListFilterHeader :model="filters">
+          <template #primary>
+            <label class="governance-task-filter-field">
+              <span>快速搜索</span>
+              <input
+                v-model="filters.keyword"
+                class="governance-task-filter-input"
+                placeholder="快速搜索（审批单号、发布批次号、产品标识、设备编码、TraceId）"
+                @keyup.enter="handleSearch"
+              >
+            </label>
+            <label class="governance-task-filter-field">
+              <span>工作状态</span>
+              <select v-model="filters.workStatus" class="governance-task-filter-input">
+                <option value="OPEN">待处理</option>
+                <option value="ACKED">已确认</option>
+                <option value="BLOCKED">已阻塞</option>
+                <option value="RESOLVED">已解决</option>
+                <option value="CLOSED">已关闭</option>
+              </select>
+            </label>
+          </template>
+          <template #actions>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+          </template>
+        </StandardListFilterHeader>
+        <div class="governance-task-category-strip">
+          <StandardButton
+            v-for="preset in taskPresets"
+            :key="preset.key"
+            @click="handleSelectPreset(preset.key)"
+          >
+            {{ preset.label }}
+          </StandardButton>
+        </div>
+      </template>
+
       <template #toolbar>
         <StandardTableToolbar
           compact
           :meta-items="[
             `当前 ${pagination.total} 项`,
             `待处理 ${openCount} 项`,
+            `推荐 ${recommendedCount} 项`,
             activeScopeLabel
           ]"
         >
@@ -34,13 +75,17 @@
             <span>默认工作状态</span>
             <strong>{{ activeStatusLabel }}</strong>
           </div>
+          <div class="governance-task-summary__item">
+            <span>推荐先处理</span>
+            <strong>{{ `推荐先处理 ${recommendedCount} 项` }}</strong>
+          </div>
         </div>
       </PanelCard>
 
       <div class="governance-task-result">
-        <div v-if="taskList.length" class="governance-task-list">
+        <div v-if="displayTaskList.length" class="governance-task-list">
           <article
-            v-for="item in taskList"
+            v-for="item in displayTaskList"
             :key="String(item.id)"
             class="governance-task-card"
           >
@@ -382,7 +427,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from '@/utils/message'
 
@@ -404,6 +449,7 @@ import {
 import PanelCard from '@/components/PanelCard.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
+import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
@@ -424,8 +470,13 @@ import { buildGovernanceTaskDispatchLocation } from '@/utils/governanceTaskDispa
 const route = useRoute()
 const router = useRouter()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
+const filters = reactive({
+  keyword: '',
+  workStatus: 'OPEN'
+})
 
 const taskList = ref<GovernanceWorkItem[]>([])
+const activeView = ref('all')
 const decisionContextVisible = ref(false)
 const decisionContextLoading = ref(false)
 const decisionContextErrorMessage = ref('')
@@ -452,8 +503,28 @@ if (initialPageNum != null) {
   setPageNum(initialPageNum)
 }
 
+const taskPresets = [
+  { key: 'all', label: '全部' },
+  { key: 'recommended', label: '推荐优先处理' },
+  { key: 'pending-approval', label: '待审批' },
+  { key: 'contract-release', label: '待发布合同' },
+  { key: 'risk-binding', label: '待绑定风险点' },
+  { key: 'threshold-policy', label: '待补阈值' },
+  { key: 'linkage-plan', label: '待补联动/预案' },
+  { key: 'replay', label: '待运营复盘' }
+] as const
 const queryState = computed(() => buildQueryFromRoute())
 const openCount = computed(() => taskList.value.filter((item) => item.workStatus === 'OPEN').length)
+const recommendedCount = computed(() => taskList.value.filter((item) =>
+  item.workStatus === 'OPEN'
+  && ['P1', 'P2'].includes(item.priorityLevel || '')
+  && Boolean(normalizeText(item.recommendation?.suggestedAction))
+).length)
+const displayTaskList = computed(() =>
+  activeView.value === 'recommended'
+    ? [...taskList.value].sort(compareRecommendedWorkItems)
+    : taskList.value
+)
 const decisionReasonCodes = computed(() => decisionContextData.value?.reasonCodes ?? [])
 const decisionAffectedModules = computed(() => decisionContextData.value?.affectedModules ?? [])
 const replayRecommendedDecision = computed(() => normalizeText(replayFeedback.value.recommendedDecision) || '--')
@@ -466,6 +537,12 @@ const replayCanSubmit = computed(() =>
 )
 const activeScopeLabel = computed(() => {
   const query = queryState.value
+  if (activeView.value === 'recommended') {
+    return '推荐优先处理'
+  }
+  if (query.executionStatus === 'PENDING_APPROVAL') {
+    return '待审批'
+  }
   if (query.productId != null) {
     return `产品 ${query.productId}`
   }
@@ -479,22 +556,39 @@ const activeScopeLabel = computed(() => {
 })
 const activeStatusLabel = computed(() => workStatusLabel(queryState.value.workStatus))
 
+watch(
+  () => route.query,
+  () => {
+    syncFiltersFromRoute()
+    void loadWorkItems()
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
-  void loadWorkItems()
+  syncFiltersFromRoute()
 })
 
 function buildQueryFromRoute(): GovernanceWorkItemPageQuery {
   return {
     workItemCode: parseStringQuery(route.query.workItemCode),
     workStatus: parseStringQuery(route.query.workStatus) || 'OPEN',
+    executionStatus: parseStringQuery(route.query.executionStatus),
     subjectType: parseStringQuery(route.query.subjectType),
     subjectId: parseIdQuery(route.query.subjectId),
     productId: parseIdQuery(route.query.productId),
     riskMetricId: parseIdQuery(route.query.riskMetricId),
     assigneeUserId: parseIdQuery(route.query.assigneeUserId),
+    keyword: parseStringQuery(route.query.keyword),
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
+}
+
+function syncFiltersFromRoute() {
+  filters.keyword = parseStringQuery(route.query.keyword) || ''
+  filters.workStatus = parseStringQuery(route.query.workStatus) || 'OPEN'
+  activeView.value = parseStringQuery(route.query.view) || 'all'
 }
 
 async function loadWorkItems() {
@@ -512,12 +606,143 @@ function handleRefresh() {
 
 function handlePageChange(page: number) {
   setPageNum(page)
-  void loadWorkItems()
+  void replaceTaskRouteQuery({
+    ...persistentContextQuery(),
+    ...classificationQuery(),
+    keyword: normalizeText(filters.keyword),
+    workStatus: filters.workStatus || 'OPEN',
+    pageNum: String(page),
+    pageSize: String(pagination.pageSize)
+  })
 }
 
 function handleSizeChange(size: number) {
   setPageSize(size)
-  void loadWorkItems()
+  void replaceTaskRouteQuery({
+    ...persistentContextQuery(),
+    ...classificationQuery(),
+    keyword: normalizeText(filters.keyword),
+    workStatus: filters.workStatus || 'OPEN',
+    pageNum: '1',
+    pageSize: String(size)
+  })
+}
+
+function handleSearch() {
+  setPageNum(1)
+  void replaceTaskRouteQuery({
+    ...persistentContextQuery(),
+    ...classificationQuery(),
+    keyword: normalizeText(filters.keyword),
+    workStatus: filters.workStatus || 'OPEN',
+    pageNum: '1',
+    pageSize: String(pagination.pageSize)
+  })
+}
+
+function handleReset() {
+  filters.keyword = ''
+  filters.workStatus = 'OPEN'
+  activeView.value = 'all'
+  setPageNum(1)
+  void replaceTaskRouteQuery({
+    ...persistentContextQuery(),
+    workStatus: 'OPEN',
+    pageNum: '1',
+    pageSize: String(pagination.pageSize)
+  })
+}
+
+function handleSelectPreset(key: typeof taskPresets[number]['key']) {
+  activeView.value = key === 'recommended' ? 'recommended' : 'all'
+  setPageNum(1)
+  void replaceTaskRouteQuery({
+    ...persistentContextQuery(),
+    ...buildPresetQuery(key),
+    keyword: normalizeText(filters.keyword),
+    workStatus: filters.workStatus || 'OPEN',
+    pageNum: '1',
+    pageSize: String(pagination.pageSize)
+  })
+}
+
+function buildPresetQuery(key: typeof taskPresets[number]['key']) {
+  switch (key) {
+    case 'recommended':
+      return {
+        view: 'recommended',
+        workItemCode: undefined,
+        executionStatus: undefined
+      }
+    case 'pending-approval':
+      return {
+        view: undefined,
+        workItemCode: undefined,
+        executionStatus: 'PENDING_APPROVAL'
+      }
+    case 'contract-release':
+      return {
+        view: undefined,
+        workItemCode: 'PENDING_CONTRACT_RELEASE',
+        executionStatus: undefined
+      }
+    case 'risk-binding':
+      return {
+        view: undefined,
+        workItemCode: 'PENDING_RISK_BINDING',
+        executionStatus: undefined
+      }
+    case 'threshold-policy':
+      return {
+        view: undefined,
+        workItemCode: 'PENDING_THRESHOLD_POLICY',
+        executionStatus: undefined
+      }
+    case 'linkage-plan':
+      return {
+        view: undefined,
+        workItemCode: 'PENDING_LINKAGE_PLAN',
+        executionStatus: undefined
+      }
+    case 'replay':
+      return {
+        view: undefined,
+        workItemCode: 'PENDING_REPLAY',
+        executionStatus: undefined
+      }
+    default:
+      return {
+        view: undefined,
+        workItemCode: undefined,
+        executionStatus: undefined
+      }
+  }
+}
+
+function persistentContextQuery() {
+  return {
+    productId: parseStringQuery(route.query.productId),
+    subjectType: parseStringQuery(route.query.subjectType),
+    subjectId: parseStringQuery(route.query.subjectId),
+    riskMetricId: parseStringQuery(route.query.riskMetricId),
+    assigneeUserId: parseStringQuery(route.query.assigneeUserId)
+  }
+}
+
+function classificationQuery() {
+  return {
+    workItemCode: parseStringQuery(route.query.workItemCode),
+    executionStatus: parseStringQuery(route.query.executionStatus),
+    view: parseStringQuery(route.query.view)
+  }
+}
+
+async function replaceTaskRouteQuery(query: Record<string, string | undefined>) {
+  await router.replace({
+    query: Object.fromEntries(
+      Object.entries(query).filter(([, value]) => value !== undefined && value !== '')
+    )
+  })
 }
 
 function workItemCodeLabel(code?: string | null, snapshotJson?: string | null) {
@@ -558,7 +783,11 @@ function workStatusLabel(status?: string | null) {
 }
 
 function workItemAnchor(item: GovernanceWorkItem) {
-  return item.productKey
+  return item.approvalOrderId != null
+    ? String(item.approvalOrderId)
+    : item.releaseBatchId != null
+      ? String(item.releaseBatchId)
+      : item.productKey
     || item.deviceCode
     || item.traceId
     || snapshotValue(item.snapshotJson, 'productKey')
@@ -566,6 +795,24 @@ function workItemAnchor(item: GovernanceWorkItem) {
     || snapshotValue(item.snapshotJson, 'dimensionLabel')
     || snapshotValue(item.snapshotJson, 'metricIdentifier')
     || '--'
+}
+
+function compareRecommendedWorkItems(left: GovernanceWorkItem, right: GovernanceWorkItem) {
+  return recommendedPriorityScore(right) - recommendedPriorityScore(left)
+}
+
+function recommendedPriorityScore(item: GovernanceWorkItem) {
+  const openScore = item.workStatus === 'OPEN' ? 100 : 0
+  const priorityScore = item.priorityLevel === 'P1'
+    ? 30
+    : item.priorityLevel === 'P2'
+      ? 20
+      : item.priorityLevel === 'P3'
+        ? 10
+        : 0
+  const recommendationScore = normalizeText(item.recommendation?.suggestedAction) ? 5 : 0
+  const executionScore = item.executionStatus === 'PENDING_APPROVAL' || item.executionStatus === 'IN_PROGRESS' ? 3 : 0
+  return openScore + priorityScore + recommendationScore + executionScore
 }
 
 function snapshotValue(snapshotJson: string | null | undefined, key: string) {
@@ -941,6 +1188,37 @@ function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) 
   gap: 0.75rem;
 }
 
+.governance-task-category-strip,
+.governance-task-filter-field {
+  display: grid;
+}
+
+.governance-task-category-strip {
+  grid-template-columns: repeat(auto-fit, minmax(8rem, max-content));
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.governance-task-filter-field {
+  gap: 0.35rem;
+}
+
+.governance-task-filter-field span {
+  color: var(--text-caption);
+  font-size: 0.82rem;
+}
+
+.governance-task-filter-input {
+  width: 100%;
+  min-height: 2.45rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-heading);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+
 .governance-task-detail-stack,
 .governance-task-detail-section,
 .governance-task-chain-list,
@@ -1023,7 +1301,7 @@ function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) 
 
 .governance-task-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
 

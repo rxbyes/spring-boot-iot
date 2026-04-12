@@ -43,7 +43,8 @@ const {
     query: {} as Record<string, unknown>
   },
   mockRouter: {
-    push: vi.fn()
+    push: vi.fn(),
+    replace: vi.fn()
   }
 }))
 
@@ -104,6 +105,7 @@ const StandardWorkbenchPanelStub = defineComponent({
     <section class="governance-control-plane-workbench-stub">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
+      <div><slot name="filters" /></div>
       <div><slot name="toolbar" /></div>
       <div><slot /></div>
       <div><slot name="pagination" /></div>
@@ -132,6 +134,16 @@ const StandardButtonStub = defineComponent({
   name: 'StandardButton',
   emits: ['click'],
   template: '<button type="button" @click="$emit(`click`)"><slot /></button>'
+})
+
+const StandardListFilterHeaderStub = defineComponent({
+  name: 'StandardListFilterHeader',
+  template: `
+    <section class="governance-control-plane-filter-header-stub">
+      <slot name="primary" />
+      <slot name="actions" />
+    </section>
+  `
 })
 
 const PanelCardStub = defineComponent({
@@ -167,6 +179,7 @@ function mountWithStubs(component: Parameters<typeof mount>[0]) {
         StandardTableToolbar: StandardTableToolbarStub,
         StandardPagination: StandardPaginationStub,
         StandardButton: StandardButtonStub,
+        StandardListFilterHeader: StandardListFilterHeaderStub,
         PanelCard: PanelCardStub,
         StandardDetailDrawer: StandardDetailDrawerStub
       }
@@ -193,6 +206,7 @@ describe('governance control plane views', () => {
     mockMessageError.mockReset()
     mockRoute.query = {}
     mockRouter.push.mockReset()
+    mockRouter.replace.mockReset()
     mockConfirmAction.mockResolvedValue(undefined)
     mockAckWorkItem.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockBlockWorkItem.mockResolvedValue({ code: 200, msg: 'success', data: null })
@@ -278,6 +292,128 @@ describe('governance control plane views', () => {
         workStatus: 'OPEN'
       })
     )
+  })
+
+  it('loads governance task work items with keyword and executionStatus from route query', async () => {
+    mockRoute.query = {
+      keyword: '2043187508765708289',
+      executionStatus: 'PENDING_APPROVAL',
+      workStatus: 'OPEN'
+    }
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    expect(mockPageWorkItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        keyword: '2043187508765708289',
+        executionStatus: 'PENDING_APPROVAL',
+        workStatus: 'OPEN'
+      })
+    )
+  })
+
+  it('writes quick-search keywords back into the route query', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const input = wrapper.get('input[placeholder*="审批单号"]')
+    await input.setValue('2043187508765708289')
+    await input.trigger('keyup.enter')
+
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      query: expect.objectContaining({
+        keyword: '2043187508765708289',
+        workStatus: 'OPEN'
+      })
+    })
+  })
+
+  it('maps the pending approval preset to executionStatus=PENDING_APPROVAL', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const pendingApprovalButton = wrapper.findAll('button').find((button) => button.text() === '待审批')
+    expect(pendingApprovalButton).toBeTruthy()
+    await pendingApprovalButton!.trigger('click')
+
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      query: expect.objectContaining({
+        executionStatus: 'PENDING_APPROVAL',
+        workStatus: 'OPEN'
+      })
+    })
+  })
+
+  it('renders approvalOrderId ahead of productKey in the task anchor and shows recommended counts', async () => {
+    mockRoute.query = { view: 'recommended', workStatus: 'OPEN' }
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            workItemCode: 'PENDING_CONTRACT_RELEASE',
+            workStatus: 'OPEN',
+            priorityLevel: 'P1',
+            approvalOrderId: '2043187508765708289',
+            productKey: 'phase2-gnss',
+            recommendation: {
+              suggestedAction: '去审批'
+            }
+          },
+          {
+            id: 2,
+            workItemCode: 'PENDING_RISK_BINDING',
+            workStatus: 'OPEN',
+            priorityLevel: 'P3',
+            productKey: 'phase1-crack'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('2043187508765708289')
+    expect(wrapper.text()).toContain('推荐先处理 1 项')
   })
 
   it('dispatches pending contract release work items into the product contract workspace', async () => {

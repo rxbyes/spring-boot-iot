@@ -653,11 +653,13 @@ export interface GovernanceWorkItem {
 export interface GovernanceWorkItemPageQuery {
   workItemCode?: string | null;
   workStatus?: GovernanceWorkItemStatus | string | null;
+  executionStatus?: GovernanceWorkItemExecutionStatus | string | null;
   subjectType?: string | null;
   subjectId?: IdType | null;
   productId?: IdType | null;
   riskMetricId?: IdType | null;
   assigneeUserId?: IdType | null;
+  keyword?: string | null;
   pageNum?: number;
   pageSize?: number;
 }
