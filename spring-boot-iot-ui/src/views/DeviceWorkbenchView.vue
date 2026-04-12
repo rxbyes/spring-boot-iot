@@ -377,14 +377,20 @@
     <StandardFormDrawer
       v-model="formVisible"
       :title="formTitle"
-      subtitle="统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。"
+      :subtitle="formSubtitle"
       size="44rem"
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>维护提示</strong>
-          <span>设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。</span>
+          <span>
+            {{
+              formMode === 'register'
+                ? '当前记录来自未登记上报线索；请核对产品归属、设备编码、父子拓扑和认证字段，提交后会直接转成已登记设备。'
+                : '设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。'
+            }}
+          </span>
         </div>
 
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
@@ -532,7 +538,7 @@
       <template #footer>
         <StandardDrawerFooter
           :confirm-loading="submitLoading"
-          :confirm-text="editingDeviceId ? '保存设备变更' : '提交设备建档'"
+          :confirm-text="formSubmitText"
           @cancel="formVisible = false"
           @confirm="handleSubmit"
         >
@@ -546,7 +552,7 @@
             :loading="submitLoading"
             @click="handleSubmit"
           >
-            {{ editingDeviceId ? '保存设备变更' : '提交设备建档' }}
+            {{ formSubmitText }}
           </StandardButton>
         </StandardDrawerFooter>
       </template>
@@ -679,6 +685,8 @@ type DeviceFilterKey = keyof DeviceSearchForm
 
 interface DeviceFormState extends DeviceAddPayload {}
 
+type DeviceFormMode = 'create' | 'edit' | 'register'
+
 interface DevicePageLoadOptions {
   silent?: boolean
   force?: boolean
@@ -745,6 +753,7 @@ const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
+const registerSourceRow = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
 const registerSourceRow = ref<Device | null>(null)
@@ -1220,7 +1229,16 @@ function isSelectableDeviceRow(row?: Device) {
 }
 
 function canEditDeviceRow(row?: Device | null) {
-  return Boolean(row && isRegisteredDeviceRow(row))
+  return Boolean(row)
+}
+
+function hasEditPermissionForRow(row?: Device | null) {
+  if (!row) {
+    return false
+  }
+  return isRegisteredDeviceRow(row)
+    ? permissionStore.hasPermission('iot:devices:update')
+    : permissionStore.hasPermission('iot:devices:add')
 }
 
 function canReplaceDeviceRow(row?: Device | null) {
@@ -1238,7 +1256,7 @@ function canJumpToInsight(row?: Device | null) {
 function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
   const actions: DeviceDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
 
-  if (canEditDeviceRow(row) && permissionStore.hasPermission('iot:devices:update')) {
+  if (canEditDeviceRow(row) && hasEditPermissionForRow(row)) {
     actions.push({ key: 'edit', command: 'edit', label: '编辑' })
   }
 
@@ -1425,6 +1443,33 @@ function removeLocalTableRows(rows: Array<Partial<Device> | null | undefined>) {
   selectedRows.value = selectedRows.value.filter((item) => !deletingKeys.has(getDeviceRowKey(item)))
   void syncTableSelection()
   return removedCount
+}
+
+function finalizeArchiveCreate(created: Device, sourceRow?: Device | null) {
+  clearDeviceOptionCache()
+  cacheDeviceDetail(created)
+  clearSelection()
+
+  let nextTotal = pagination.total
+  const removedCount = sourceRow ? removeLocalTableRows([sourceRow]) : 0
+  if (removedCount > 0) {
+    nextTotal = Math.max(0, nextTotal - removedCount)
+    removeCachedDeviceDetail(sourceRow)
+  }
+
+  const shouldInsertCreated = appliedFilters.registrationStatus !== 0 && matchesCurrentFilters(created)
+  if (shouldInsertCreated) {
+    nextTotal += 1
+    if (pagination.pageNum === 1) {
+      prependLocalTableRow(created)
+    } else {
+      rebuildVisibleDevicePageCache()
+    }
+  } else {
+    rebuildVisibleDevicePageCache()
+  }
+
+  setTotal(nextTotal)
 }
 
 function handleSelectionChange(rows: Device[]) {
@@ -2487,6 +2532,8 @@ function handleOpenBatchImport() {
 function handleAdd() {
   activeEditSessionId += 1
   abortEditRequest()
+  formMode.value = 'create'
+  registerSourceRow.value = null
   editingDeviceId.value = null
   formDirtySinceOpen = false
   clearFormRefreshState()
@@ -2498,8 +2545,7 @@ function handleAdd() {
 }
 
 function handleEdit(row: Device) {
-  if (!canEditDeviceRow(row) || row.id === undefined || row.id === null || row.id === '') {
-    ElMessage.warning('未登记设备暂不支持编辑，请先完成建档。')
+  if (!canEditDeviceRow(row) || !hasEditPermissionForRow(row)) {
     return
   }
   const cachedDetail = getCachedDeviceDetail(row)
@@ -2516,7 +2562,18 @@ function handleEdit(row: Device) {
   formRef.value?.clearValidate()
   void loadProducts()
   void loadDeviceOptions()
-  void refreshEditableDetail(row, editSessionId, cachedDetail)
+
+  if (isRegisteredDeviceRow(row) && row.id !== undefined && row.id !== null && row.id !== '') {
+    formMode.value = 'edit'
+    registerSourceRow.value = null
+    editingDeviceId.value = row.id
+    void refreshEditableDetail(row, editSessionId, cachedDetail)
+    return
+  }
+
+  formMode.value = 'register'
+  registerSourceRow.value = { ...row }
+  editingDeviceId.value = null
 }
 
 function handleOpenDetail(row: Device) {
@@ -2853,10 +2910,10 @@ async function handleSubmit() {
     return
   }
 
+  const submitMode = formMode.value
   submitLoading.value = true
   try {
-    const isEditing = Boolean(editingDeviceId.value)
-    if (isEditing) {
+    if (submitMode === 'edit') {
       const res = await deviceApi.updateDevice(editingDeviceId.value as string | number, { ...formData })
       clearDeviceOptionCache()
       cacheDeviceDetail(res.data)
@@ -2871,30 +2928,48 @@ async function handleSubmit() {
       ElMessage.success('更新成功')
     } else {
       const res = await deviceApi.addDevice({ ...formData })
-      clearDeviceOptionCache()
-      cacheDeviceDetail(res.data)
-      clearSelection()
-      if (matchesCurrentFilters(res.data)) {
-        setTotal(pagination.total + 1)
-        if (pagination.pageNum === 1) {
-          prependLocalTableRow(res.data)
+      if (submitMode === 'register') {
+        finalizeArchiveCreate(res.data, registerSourceRow.value)
+        ElMessage.success('登记成功')
+      } else {
+        clearDeviceOptionCache()
+        cacheDeviceDetail(res.data)
+        clearSelection()
+        if (matchesCurrentFilters(res.data)) {
+          setTotal(pagination.total + 1)
+          if (pagination.pageNum === 1) {
+            prependLocalTableRow(res.data)
+          } else {
+            rebuildVisibleDevicePageCache()
+          }
         } else {
           rebuildVisibleDevicePageCache()
         }
-      } else {
-        rebuildVisibleDevicePageCache()
+        ElMessage.success('新增成功')
       }
-      ElMessage.success('新增成功')
     }
     formVisible.value = false
     void loadDevicePage({
       silent: true,
       force: true,
-      silentMessage: isEditing ? '已提交设备更新，正在后台刷新列表。' : '已新增设备，正在后台刷新列表。'
+      silentMessage:
+        submitMode === 'edit'
+          ? '已提交设备更新，正在后台刷新列表。'
+          : submitMode === 'register'
+            ? '已完成设备登记，正在后台刷新列表。'
+            : '已新增设备，正在后台刷新列表。'
     })
   } catch (error) {
     console.error('提交设备失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '提交设备失败')
+    ElMessage.error(
+      error instanceof Error
+        ? submitMode === 'register'
+          ? `登记失败：${error.message}`
+          : error.message
+        : submitMode === 'register'
+          ? '登记失败'
+          : '提交设备失败'
+    )
   } finally {
     submitLoading.value = false
   }
@@ -2907,6 +2982,8 @@ function handleFormClose() {
   clearFormRefreshState()
   formDirtySinceOpen = false
   applyFormDataWithoutDirty()
+  formMode.value = 'create'
+  registerSourceRow.value = null
   editingDeviceId.value = null
 }
 
@@ -2963,7 +3040,7 @@ watch(detailVisible, (visible) => {
 watch(
   formData,
   () => {
-    if (!formVisible.value || !editingDeviceId.value || suppressFormDirtyTracking) {
+    if (!formVisible.value || formMode.value === 'create' || suppressFormDirtyTracking) {
       return
     }
     formDirtySinceOpen = true
