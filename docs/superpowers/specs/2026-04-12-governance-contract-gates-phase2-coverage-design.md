@@ -9,7 +9,7 @@
 - 前端 `审批提交回执 / 正式发布结果` 区分
 - 后端 `submittedItemCount` 提交层回执语义
 
-现有本地专项门禁入口 [scripts/run-governance-contract-gates.mjs](../../../../scripts/run-governance-contract-gates.mjs) 已覆盖产品治理主线，但前端步骤当前只跑 `ProductModelDesignerWorkspace.test.ts`，后端显式测试清单也还没有把本轮新增的 `ProductContractGovernanceApprovalPayloadsTest` 写进固定门禁范围。这样会留下一个明显缺口：
+现有本地专项门禁入口 [scripts/run-governance-contract-gates.mjs](../../../scripts/run-governance-contract-gates.mjs) 已覆盖产品治理主线，但前端步骤当前只跑 `ProductModelDesignerWorkspace.test.ts`，后端显式测试清单也还没有把本轮新增的 `ProductContractGovernanceApprovalPayloadsTest` 写进固定门禁范围。这样会留下一个明显缺口：
 
 1. 二期主流程虽已落地，但“治理候选快照”和“审批提交回执”这些新语义还没有全部进入本地专项门禁。
 2. 后续如果有人回退 compare 文案、apply 回执或 `submittedItemCount` 语义，本地门禁不一定能第一时间拦住。
@@ -40,9 +40,9 @@
 
 做法：
 
-- 修改 [scripts/run-governance-contract-gates.mjs](../../../../scripts/run-governance-contract-gates.mjs)
-- 修改 [scripts/run-governance-contract-gates.test.mjs](../../../../scripts/run-governance-contract-gates.test.mjs)
-- 修改 [docs/05-自动化测试与质量保障.md](../../../05-%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95%E4%B8%8E%E8%B4%A8%E9%87%8F%E4%BF%9D%E9%9A%9C.md)
+- 修改 [scripts/run-governance-contract-gates.mjs](../../../scripts/run-governance-contract-gates.mjs)
+- 修改 [scripts/run-governance-contract-gates.test.mjs](../../../scripts/run-governance-contract-gates.test.mjs)
+- 修改 [docs/05-自动化测试与质量保障.md](../../05-自动化测试与质量保障.md)
 
 增强点固定为：
 
@@ -86,9 +86,9 @@
 
 ## 5. 受影响文件
 
-- 修改 [scripts/run-governance-contract-gates.mjs](../../../../scripts/run-governance-contract-gates.mjs)
-- 修改 [scripts/run-governance-contract-gates.test.mjs](../../../../scripts/run-governance-contract-gates.test.mjs)
-- 修改 [docs/05-自动化测试与质量保障.md](../../../05-%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95%E4%B8%8E%E8%B4%A8%E9%87%8F%E4%BF%9D%E9%9A%9C.md)
+- 修改 [scripts/run-governance-contract-gates.mjs](../../../scripts/run-governance-contract-gates.mjs)
+- 修改 [scripts/run-governance-contract-gates.test.mjs](../../../scripts/run-governance-contract-gates.test.mjs)
+- 修改 [docs/05-自动化测试与质量保障.md](../../05-自动化测试与质量保障.md)
 
 本轮不预计改动其他代码模块。
 
@@ -116,6 +116,6 @@
 
 本轮除脚本外，只同步更新：
 
-- [docs/05-自动化测试与质量保障.md](../../../05-%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95%E4%B8%8E%E8%B4%A8%E9%87%8F%E4%BF%9D%E9%9A%9C.md)
+- [docs/05-自动化测试与质量保障.md](../../05-自动化测试与质量保障.md)
 
 `README.md` 与 `AGENTS.md` 本轮预计不需要改动。
