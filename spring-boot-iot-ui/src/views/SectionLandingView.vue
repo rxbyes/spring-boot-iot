@@ -9,8 +9,8 @@
       <IotAccessTabWorkspace :items="landingTabs" default-key="asset" :sync-query="false">
         <template #default="{ activeKey }">
           <StandardWorkbenchPanel
-            title="页面入口"
-            description="按职责筛选入口，再进入对应业务页。"
+            :title="config?.title || '接入智维'"
+            :description="config?.description || '接入智维总览负责回答先去哪、再去哪、最后去哪修。'"
             show-filters
           >
             <template #filters>
@@ -27,6 +27,21 @@
                 </template>
               </StandardListFilterHeader>
             </template>
+
+            <section v-if="config?.hubJudgement" class="section-landing__decision-tree">
+              <span v-if="config?.hubLeadTitle" class="section-landing__decision-eyebrow">
+                {{ config.hubLeadTitle }}
+              </span>
+              <strong class="section-landing__decision-title">{{ config.hubJudgement }}</strong>
+              <p v-if="config?.hubLeadDescription" class="section-landing__decision-description">
+                {{ config.hubLeadDescription }}
+              </p>
+              <ol v-if="config?.steps?.length" class="section-landing__decision-steps">
+                <li v-for="step in config.steps" :key="step">
+                  {{ step }}
+                </li>
+              </ol>
+            </section>
 
             <div v-if="groupedCards[activeKey]?.length" class="section-landing__entry-list">
               <RouterLink
@@ -125,6 +140,47 @@ const groupedCards = computed<Record<string, typeof filteredCards.value>>(() => 
 .section-landing__entry-list {
   display: grid;
   gap: 0.82rem;
+}
+
+.section-landing__decision-tree {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.96rem;
+  padding: 0.96rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--bg-card) 90%, var(--brand-soft));
+  box-shadow: var(--shadow-card-soft);
+}
+
+.section-landing__decision-eyebrow {
+  color: var(--brand);
+  font-size: var(--type-overline-size);
+  letter-spacing: var(--font-letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.section-landing__decision-title {
+  color: var(--text-heading);
+  font-size: var(--type-title-sm);
+  line-height: 1.5;
+}
+
+.section-landing__decision-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--type-body-size);
+  line-height: 1.7;
+}
+
+.section-landing__decision-steps {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-secondary);
+  font-size: var(--type-body-size);
+  line-height: 1.7;
 }
 
 .section-landing__entry-item {
