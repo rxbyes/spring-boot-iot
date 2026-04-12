@@ -87,25 +87,25 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     navCaption: '查看接入智维分组能力与常用入口',
     navShort: '概',
     title: '接入智维',
-    description: '接入智维总览只负责入口分组和快速判断，不再重复子页说明墙。',
-    intro: '这里回答“先去哪处理”，子页只回答“在这个域里怎么做”。',
-    hubJudgement: '先进入资产底座，再切换到诊断排障。',
-    hubLeadTitle: '优先处理资产底座与最近异常联动',
-    hubLeadDescription: '产品与设备先稳住，链路验证、异常观测、链路追踪、数据校验只保留强相关联动。',
+    description: '接入智维总览负责回答先去哪、再去哪、最后去哪修。',
+    intro: '先在总览判断当前位于排障树哪一段，再进入对应诊断页或治理页。',
+    hubJudgement: '先做链路验证，再按证据分流到诊断页，最后回产品或设备治理修正。',
+    hubLeadTitle: '标准排障路径',
+    hubLeadDescription: '标准排障路径固定为：链路验证 -> 链路追踪 / 异常观测 / 数据校验 -> 产品定义中心 / 设备资产中心。',
     hubLeadPath: '/products',
     menuTitle: '接入智维',
     menuHint: '覆盖产品定义、设备资产、链路验证、异常观测、链路追踪与数据校验。',
     matchKeys: ['iot-access', 'device-access', 'iot-core'],
     matchLabels: ['接入智维', '设备接入'],
     cards: [
-      { path: '/products', label: '产品定义中心', description: '维护产品台账、接入协议与设备归属基线。', short: '产', keywords: ['产品定义中心', '产品台账', '产品建档'] },
+      { path: '/products', label: '产品定义中心', description: '维护产品定义，并承接契约治理、版本治理与风险目录入口。', short: '产', keywords: ['产品定义中心', '产品台账', '产品建档'] },
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', short: '设', keywords: ['设备资产中心', '设备资产', '设备档案'] },
-      { path: '/reporting', label: '链路验证中心', description: '按设备编码反查接入契约，执行 HTTP / MQTT 模拟上报并核验主链路解析结果。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证', 'HTTP', 'MQTT', '设备反查'] },
-      { path: '/system-log', label: '异常观测台', description: '排查 system_error、MQTT 异常和后台链路问题。', short: '观', keywords: ['异常观测台', 'system_error', '异常排查'] },
-      { path: '/message-trace', label: '链路追踪台', description: '按 TraceId、设备编码和 Topic 串联接入链路，并切换查看失败归档。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic', '失败归档', '接入失败'] },
-      { path: '/file-debug', label: '数据校验台', description: '查看文件快照与固件聚合调试结果。', short: '校', keywords: ['数据校验台', '文件校验', '固件调试'] }
+      { path: '/reporting', label: '链路验证中心', description: '排障起点：先发起模拟验证，再决定进入哪一条诊断分支。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证', 'HTTP', 'MQTT', '设备反查'] },
+      { path: '/system-log', label: '异常观测台', description: '后台异常核对：查看 system_error 与异步异常，再决定回哪一页修正。', short: '观', keywords: ['异常观测台', 'system_error', '异常排查'] },
+      { path: '/message-trace', label: '链路追踪台', description: '主链路复盘：查看 Pipeline、Payload 与失败归档，再决定回哪一页修正。', short: '追', keywords: ['链路追踪台', 'TraceId', 'Topic', '失败归档', '接入失败'] },
+      { path: '/file-debug', label: '数据校验台', description: '数据校验节点：查看快照、聚合与原始响应，再决定回哪一页修正。', short: '校', keywords: ['数据校验台', '文件校验', '固件调试'] }
     ],
-    steps: ['先完成产品定义与协议绑定。', '再维护设备资产与认证信息。', '通过链路验证、链路追踪和异常观测完成接入排障。']
+    steps: ['先到链路验证中心拿到本次验证结果。', '再按问题类型进入链路追踪台、异常观测台或数据校验台。', '最后回产品定义中心或设备资产中心完成修正。']
   },
   {
     key: 'risk-ops',

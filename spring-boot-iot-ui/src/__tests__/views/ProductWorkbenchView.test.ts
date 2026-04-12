@@ -289,6 +289,17 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const ElAlertStub = defineComponent({
+  name: 'ElAlert',
+  props: ['title', 'type'],
+  template: `
+    <section class="el-alert-stub" :data-type="type">
+      <strong v-if="title" class="el-alert-stub__title">{{ title }}</strong>
+      <div class="el-alert-stub__content"><slot /></div>
+    </section>
+  `
+})
+
 const StandardTableTextColumnStub = defineComponent({
   name: 'StandardTableTextColumn',
   props: ['prop', 'label', 'minWidth', 'width'],
@@ -388,6 +399,7 @@ function mountView() {
         CsvColumnSettingDialog: true,
         DeviceListDrawer: DeviceListDrawerStub,
         EmptyState: true,
+        ElAlert: ElAlertStub,
         ElForm: ElFormStub,
         ElFormItem: true,
         ElTable: ElTableStub,
@@ -481,7 +493,8 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('新增产品')
-    expect(wrapper.text()).toContain('统一维护产品台账')
+    expect(wrapper.text()).toContain('统一维护产品定义，并承接契约治理、版本治理与风险目录入口。')
+    expect(wrapper.text()).toContain('当前页同时承接产品定义、契约治理、版本治理与风险目录入口。')
     expect(wrapper.text()).not.toContain('PRODUCT CENTER')
   })
 
@@ -978,6 +991,7 @@ describe('ProductWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自异常观测台')
     expect(wrapper.text()).toContain('Trace trace-001')
+    expect(wrapper.text()).toContain('优先核对产品定义与契约基线')
   })
 
   it('opens the unified business workbench with overview as the default detail view', async () => {

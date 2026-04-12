@@ -1129,7 +1129,36 @@ onMounted(async () => {
 
 .role-auth-workspace {
   display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(18rem, 0.92fr);
+  grid-template-rows: minmax(15rem, 1fr) minmax(15rem, 1fr);
   gap: 12px;
+  align-items: stretch;
+}
+
+.role-auth-workspace > section {
+  min-width: 0;
+  min-height: 0;
+}
+
+.role-auth-workspace > section:first-child {
+  grid-row: 1 / span 2;
+}
+
+.role-auth-workspace > section :deep(.role-auth-card) {
+  height: 100%;
+}
+
+.role-auth-workspace > section :deep(.role-auth-card > .el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.role-auth-workspace > section :deep(.panel-card__content) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .role-auth-summary {
@@ -1155,6 +1184,17 @@ onMounted(async () => {
 @media (max-width: 960px) {
   .role-form-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .role-auth-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, minmax(0, auto));
+  }
+
+  .role-auth-workspace > section:first-child {
+    grid-row: auto;
   }
 }
 </style>

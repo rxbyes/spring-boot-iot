@@ -2,7 +2,7 @@
   <StandardPageShell class="product-asset-view">
     <StandardWorkbenchPanel
       title="产品定义中心"
-      description="统一维护产品台账、协议绑定与接入契约。"
+      description="统一维护产品定义，并承接契约治理、版本治理与风险目录入口。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
@@ -785,7 +785,11 @@ const diagnosticEntryMessage = computed(() => {
   }
   const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
   const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
-  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, '优先核对产品契约、协议编码与物模型完整性。']
+  return [
+    sourceLabel ? `来自${sourceLabel}` : '',
+    traceLabel,
+    '优先核对产品定义与契约基线，必要时进入契约字段继续完成治理修正。'
+  ]
     .filter(Boolean)
     .join(' · ')
 })
@@ -854,7 +858,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
 const governanceSummaryTitle = computed(() => {
   const focusProduct = governanceFocusProduct.value
   if (!focusProduct) {
-    return '请先选择产品，系统会自动展示当前聚焦产品的治理链路进度。'
+    return '当前页同时承接产品定义、契约治理、版本治理与风险目录入口。请选择产品后查看当前聚焦产品的治理进度。'
   }
   if (governanceLoading.value) {
     return `正在同步 ${focusProduct.productName || focusProduct.productKey || '当前产品'} 的治理进度...`

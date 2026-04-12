@@ -705,6 +705,8 @@ interface DeviceToolbarAction {
   divided?: boolean
 }
 
+type DeviceFormMode = 'create' | 'edit' | 'register'
+
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
@@ -734,6 +736,7 @@ const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const replaceRefreshMessage = ref('')
 const replaceRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
+const formMode = ref<DeviceFormMode>('create')
 const editingDeviceId = ref<string | number | null>(null)
 const replaceFormDirtySinceOpen = ref(false)
 
@@ -744,6 +747,7 @@ const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
+const registerSourceRow = ref<Device | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
@@ -823,8 +827,22 @@ const formData = reactive<DeviceFormState>(createDefaultFormData())
 
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTotal } = useServerPagination(defaultPageSize)
 
-const formTitle = computed(() => (editingDeviceId.value ? '编辑设备' : '新增设备'))
-const submitPermission = computed(() => (editingDeviceId.value ? 'iot:devices:update' : 'iot:devices:add'))
+const formTitle = computed(() => {
+  if (formMode.value === 'edit') {
+    return '编辑设备'
+  }
+  if (formMode.value === 'register') {
+    return '登记设备'
+  }
+  return '新增设备'
+})
+const formSubtitle = computed(() =>
+  formMode.value === 'register'
+    ? '基于未登记上报线索补齐正式设备档案，提交后会直接转为已登记设备。'
+    : '统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。'
+)
+const formSubmitText = computed(() => (formMode.value === 'edit' ? '保存设备变更' : '提交设备建档'))
+const submitPermission = computed(() => (formMode.value === 'edit' ? 'iot:devices:update' : 'iot:devices:add'))
 const detailTitle = computed(() => {
   if (detailData.value?.registrationStatus === 0) {
     return detailData.value.deviceCode || '未登记设备'

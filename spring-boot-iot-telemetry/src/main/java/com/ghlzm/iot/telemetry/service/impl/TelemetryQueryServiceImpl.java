@@ -110,7 +110,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         if (!FILL_POLICY_ZERO.equals(fillPolicy)) {
             throw new BizException("当前仅支持 ZERO 补零策略");
         }
-        RangeDefinition rangeDefinition = resolveRangeDefinition(request.getRangeCode());
+        LocalDateTime now = LocalDateTime.now();
+        HistoryQueryWindow queryWindow = resolveHistoryQueryWindow(request.getRangeCode(), now);
         if (!storageModeResolver.isTdengineEnabled()) {
             throw new BizException("当前环境未启用 TDengine 历史查询");
         }
@@ -122,9 +123,9 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         Map<String, TelemetryMetricMapping> mappingMap = device.getProductId() == null
                 ? Map.of()
                 : deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
-        List<BucketSlot> slots = buildBucketSlots(rangeDefinition, LocalDateTime.now());
-        List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap, identifiers);
-        return buildHistoryBatchResponse(device.getId(), identifiers, request.getRangeCode(), rangeDefinition, slots, historyPoints, metadataMap);
+        List<BucketSlot> slots = buildBucketSlots(queryWindow);
+        List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap, identifiers, queryWindow);
+        return buildHistoryBatchResponse(device.getId(), identifiers, request.getRangeCode(), queryWindow, slots, historyPoints, metadataMap);
     }
 
     private Map<String, Object> buildTdengineResponse(Device device, Product product) {
@@ -206,7 +207,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                                                      Product product,
                                                      Map<String, DevicePropertyMetadata> metadataMap,
                                                      Map<String, TelemetryMetricMapping> mappingMap,
-                                                     List<String> identifiers) {
+                                                     List<String> identifiers,
+                                                     HistoryQueryWindow queryWindow) {
         String historySource = telemetryReadRouter.historySource();
         boolean primaryV2 = historySource != null && historySource.startsWith("v2");
         boolean fallbackEnabled = telemetryReadRouter.isLegacyReadFallbackEnabled();
@@ -216,8 +218,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 fallbackEnabled,
                 "继续尝试回退链路",
                 () -> primaryV2
-                        ? readV2History(device, product, metadataMap, identifiers)
-                        : readLegacyHistory(device, product, metadataMap, mappingMap)
+                        ? readV2History(device, product, metadataMap, identifiers, queryWindow)
+                        : readLegacyHistory(device, product, metadataMap, mappingMap, queryWindow)
         );
         if (!fallbackEnabled) {
             return primary;
@@ -228,8 +230,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 true,
                 "保留主链路结果",
                 () -> primaryV2
-                        ? readLegacyHistory(device, product, metadataMap, mappingMap)
-                        : readV2History(device, product, metadataMap, identifiers)
+                        ? readLegacyHistory(device, product, metadataMap, mappingMap, queryWindow)
+                        : readV2History(device, product, metadataMap, identifiers, queryWindow)
         );
         return mergeHistoryPoints(primary, secondary);
     }
@@ -257,12 +259,15 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private List<TelemetryV2Point> readV2History(Device device,
                                                  Product product,
                                                  Map<String, DevicePropertyMetadata> metadataMap,
-                                                 List<String> identifiers) {
+                                                 List<String> identifiers,
+                                                 HistoryQueryWindow queryWindow) {
         List<TelemetryV2Point> rawHistory = telemetryRawHistoryReader.listHistory(
                 device,
                 product,
                 metadataMap,
                 identifiers,
+                queryWindow.windowStart(),
+                queryWindow.windowEnd(),
                 HISTORY_BATCH_SIZE
         );
         try {
@@ -273,6 +278,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                     device,
                     product,
                     metadataMap,
+                    queryWindow.windowStart(),
+                    queryWindow.windowEnd(),
                     HISTORY_BATCH_SIZE
             );
             return mergeHistoryPoints(rawHistory, normalizedHistory);
@@ -287,8 +294,17 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private List<TelemetryV2Point> readLegacyHistory(Device device,
                                                      Product product,
                                                      Map<String, DevicePropertyMetadata> metadataMap,
-                                                     Map<String, TelemetryMetricMapping> mappingMap) {
-        return legacyTelemetryHistoryReader.listHistory(device, product, metadataMap, mappingMap, HISTORY_BATCH_SIZE);
+                                                     Map<String, TelemetryMetricMapping> mappingMap,
+                                                     HistoryQueryWindow queryWindow) {
+        return legacyTelemetryHistoryReader.listHistory(
+                device,
+                product,
+                metadataMap,
+                mappingMap,
+                queryWindow.windowStart(),
+                queryWindow.windowEnd(),
+                HISTORY_BATCH_SIZE
+        );
     }
 
     private List<TelemetryV2Point> mergeHistoryPoints(List<TelemetryV2Point> primary,
@@ -316,24 +332,24 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private TelemetryHistoryBatchResponse buildHistoryBatchResponse(Long deviceId,
                                                                     List<String> identifiers,
                                                                     String rangeCode,
-                                                                    RangeDefinition rangeDefinition,
+                                                                    HistoryQueryWindow queryWindow,
                                                                     List<BucketSlot> slots,
                                                                     List<TelemetryV2Point> historyPoints,
                                                                     Map<String, DevicePropertyMetadata> metadataMap) {
         TelemetryHistoryBatchResponse response = new TelemetryHistoryBatchResponse();
         response.setDeviceId(deviceId);
         response.setRangeCode(normalizeRangeCode(rangeCode));
-        response.setBucket(rangeDefinition.bucketCode());
+        response.setBucket(queryWindow.bucketCode());
         List<TelemetryHistoryBatchSeries> seriesList = new ArrayList<>();
         for (String identifier : identifiers) {
-            seriesList.add(buildSeries(identifier, rangeDefinition, slots, historyPoints, metadataMap.get(identifier)));
+            seriesList.add(buildSeries(identifier, queryWindow, slots, historyPoints, metadataMap.get(identifier)));
         }
         response.setPoints(seriesList);
         return response;
     }
 
     private TelemetryHistoryBatchSeries buildSeries(String identifier,
-                                                    RangeDefinition rangeDefinition,
+                                                    HistoryQueryWindow queryWindow,
                                                     List<BucketSlot> slots,
                                                     List<TelemetryV2Point> historyPoints,
                                                     DevicePropertyMetadata metadata) {
@@ -346,7 +362,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             if (historyTime == null) {
                 continue;
             }
-            LocalDateTime bucketStart = alignToBucket(historyTime, rangeDefinition.unit());
+            LocalDateTime bucketStart = alignToBucket(historyTime, queryWindow.unit());
             if (!containsSlot(slots, bucketStart)) {
                 continue;
             }
@@ -444,14 +460,25 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return fillPolicy.trim().toUpperCase(Locale.ROOT);
     }
 
-    private RangeDefinition resolveRangeDefinition(String rangeCode) {
-        return switch (normalizeRangeCode(rangeCode)) {
-            case "1d" -> new RangeDefinition("1d", "hour", ChronoUnit.HOURS, 24);
-            case "7d" -> new RangeDefinition("7d", "day", ChronoUnit.DAYS, 7);
-            case "30d" -> new RangeDefinition("30d", "day", ChronoUnit.DAYS, 30);
-            case "365d" -> new RangeDefinition("365d", "month", ChronoUnit.MONTHS, 12);
+    private HistoryQueryWindow resolveHistoryQueryWindow(String rangeCode, LocalDateTime now) {
+        HistoryWindowTemplate template = switch (normalizeRangeCode(rangeCode)) {
+            case "1d" -> new HistoryWindowTemplate("1d", "hour", ChronoUnit.HOURS, 24);
+            case "7d" -> new HistoryWindowTemplate("7d", "day", ChronoUnit.DAYS, 7);
+            case "30d" -> new HistoryWindowTemplate("30d", "day", ChronoUnit.DAYS, 30);
+            case "365d" -> new HistoryWindowTemplate("365d", "month", ChronoUnit.MONTHS, 12);
             default -> throw new BizException("不支持的时间范围: " + rangeCode);
         };
+        LocalDateTime anchor = alignToBucket(now, template.unit());
+        LocalDateTime windowStart = anchor.minus(template.slotCount() - 1L, template.unit());
+        LocalDateTime windowEnd = anchor.plus(1, template.unit());
+        return new HistoryQueryWindow(
+                template.rangeCode(),
+                template.bucketCode(),
+                template.unit(),
+                template.slotCount(),
+                windowStart,
+                windowEnd
+        );
     }
 
     private String normalizeRangeCode(String rangeCode) {
@@ -461,12 +488,12 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return rangeCode.trim().toLowerCase(Locale.ROOT);
     }
 
-    private List<BucketSlot> buildBucketSlots(RangeDefinition rangeDefinition, LocalDateTime now) {
-        LocalDateTime anchor = alignToBucket(now, rangeDefinition.unit());
+    private List<BucketSlot> buildBucketSlots(HistoryQueryWindow queryWindow) {
         List<BucketSlot> slots = new ArrayList<>();
-        for (int index = rangeDefinition.slotCount() - 1; index >= 0; index--) {
-            LocalDateTime start = anchor.minus(index, rangeDefinition.unit());
-            slots.add(new BucketSlot(start, start.plus(1, rangeDefinition.unit())));
+        LocalDateTime cursor = queryWindow.windowStart();
+        for (int index = 0; index < queryWindow.slotCount(); index++) {
+            slots.add(new BucketSlot(cursor, cursor.plus(1, queryWindow.unit())));
+            cursor = cursor.plus(1, queryWindow.unit());
         }
         return slots;
     }
@@ -537,7 +564,15 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return "1".equals(normalized) || "true".equals(normalized) || "yes".equals(normalized);
     }
 
-    private record RangeDefinition(String rangeCode, String bucketCode, ChronoUnit unit, int slotCount) {
+    private record HistoryWindowTemplate(String rangeCode, String bucketCode, ChronoUnit unit, int slotCount) {
+    }
+
+    private record HistoryQueryWindow(String rangeCode,
+                                      String bucketCode,
+                                      ChronoUnit unit,
+                                      int slotCount,
+                                      LocalDateTime windowStart,
+                                      LocalDateTime windowEnd) {
     }
 
     private record BucketSlot(LocalDateTime start, LocalDateTime end) {

@@ -179,7 +179,7 @@ function handleSelectionChange(value: Array<number | string>) {
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--el-color-primary);
+  color: var(--brand);
   font-size: 0.875rem;
   cursor: pointer;
 }
@@ -192,11 +192,18 @@ function handleSelectionChange(value: Array<number | string>) {
 .role-auth-button-panel__summary {
   color: var(--text-secondary);
   font-size: 0.875rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  background: var(--surface-subtle);
 }
 
 .role-auth-button-panel__list {
   display: grid;
   gap: 0.75rem;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.2rem;
 }
 
 .role-auth-button-panel__item {

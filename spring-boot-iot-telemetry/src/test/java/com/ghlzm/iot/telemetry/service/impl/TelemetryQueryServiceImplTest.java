@@ -101,7 +101,9 @@ class TelemetryQueryServiceImplTest {
                 "S1_ZT_1.sensor_state.L4_NW_1", statusMetadata
         ));
         when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(true);
-        when(normalizedTelemetryHistoryReader.listHistory(eq(device), eq(product), anyMap(), anyInt())).thenReturn(List.of(
+        when(normalizedTelemetryHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        )).thenReturn(List.of(
                 historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0)),
                 historyPoint("S1_ZT_1.sensor_state.L4_NW_1", "传感器在线状态", 1L, LocalDateTime.of(2026, 4, 7, 0, 0))
         ));
@@ -162,10 +164,15 @@ class TelemetryQueryServiceImplTest {
                 "S1_ZT_1.sensor_state.L4_NW_1", statusMetadata
         ));
         when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
-        when(legacyTelemetryHistoryReader.listHistory(eq(device), eq(product), anyMap(), anyMap(), anyInt()))
+        when(legacyTelemetryHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), anyMap(), any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenReturn(List.of());
         when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
-        when(telemetryRawHistoryReader.listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1", "S1_ZT_1.sensor_state.L4_NW_1")), anyInt()))
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1", "S1_ZT_1.sensor_state.L4_NW_1")),
+                any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenReturn(List.of(
                         historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0)),
                         historyPoint("S1_ZT_1.sensor_state.L4_NW_1", "传感器在线状态", 1L, LocalDateTime.of(2026, 4, 7, 0, 0))
@@ -181,7 +188,10 @@ class TelemetryQueryServiceImplTest {
 
         assertEquals(true, result.getPoints().get(0).getBuckets().stream().anyMatch(item -> item.getValue() == 2.6D));
         assertEquals(true, result.getPoints().get(1).getBuckets().stream().anyMatch(item -> item.getValue() == 1D));
-        verify(telemetryRawHistoryReader).listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1", "S1_ZT_1.sensor_state.L4_NW_1")), anyInt());
+        verify(telemetryRawHistoryReader).listHistory(
+                eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1", "S1_ZT_1.sensor_state.L4_NW_1")),
+                any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        );
     }
 
     @Test
@@ -198,9 +208,14 @@ class TelemetryQueryServiceImplTest {
                 "L4_NW_1", measureMetadata
         ));
         when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
-        when(legacyTelemetryHistoryReader.listHistory(eq(device), eq(product), anyMap(), anyMap(), anyInt()))
+        when(legacyTelemetryHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), anyMap(), any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenReturn(List.of());
-        when(telemetryRawHistoryReader.listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")), anyInt()))
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenReturn(List.of(
                         historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0))
                 ));
@@ -232,9 +247,14 @@ class TelemetryQueryServiceImplTest {
                 "L4_NW_1", measureMetadata
         ));
         when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
-        when(legacyTelemetryHistoryReader.listHistory(eq(device), eq(product), anyMap(), anyMap(), anyInt()))
+        when(legacyTelemetryHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), anyMap(), any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenThrow(new RuntimeException("legacy stable unavailable"));
-        when(telemetryRawHistoryReader.listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")), anyInt()))
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenReturn(List.of(
                         historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0))
                 ));
@@ -268,7 +288,10 @@ class TelemetryQueryServiceImplTest {
                 "L4_NW_1", measureMetadata
         ));
         when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
-        when(telemetryRawHistoryReader.listHistory(eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")), anyInt()))
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        ))
                 .thenReturn(List.of(
                         historyPoint("L4_NW_1", "泥水位高程", 2.6D, reportedAt, ingestedAt)
                 ));
@@ -292,6 +315,150 @@ class TelemetryQueryServiceImplTest {
 
         assertEquals(2.6D, bucketMap.get(BUCKET_TIME_FORMATTER.format(ingestedAt.withHour(0))));
         assertEquals(0D, bucketMap.get(BUCKET_TIME_FORMATTER.format(reportedAt.withHour(0))));
+    }
+
+    @Test
+    void getHistoryBatchShouldPassRequestedWindowToRawHistoryReader() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata measureMetadata = metadata("泥水位高程", "double");
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "L4_NW_1", measureMetadata
+        ));
+        when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of(
+                historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.now().minusDays(1))
+        ));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        telemetryQueryService.getHistoryBatch(request);
+
+        verify(telemetryRawHistoryReader).listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        );
+    }
+
+    @Test
+    void getHistoryBatchShouldPassRequestedWindowToNormalizedHistoryReader() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata measureMetadata = metadata("泥水位高程", "double");
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "L4_NW_1", measureMetadata
+        ));
+        when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of());
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(true);
+        when(normalizedTelemetryHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of(
+                historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.now().minusDays(1))
+        ));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        telemetryQueryService.getHistoryBatch(request);
+
+        verify(normalizedTelemetryHistoryReader).listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        );
+    }
+
+    @Test
+    void getHistoryBatchShouldPassRequestedWindowToLegacyHistoryReader() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata measureMetadata = metadata("泥水位高程", "double");
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("legacy");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "L4_NW_1", measureMetadata
+        ));
+        when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
+        when(legacyTelemetryHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                anyMap(),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of(
+                historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.now().minusDays(1))
+        ));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        telemetryQueryService.getHistoryBatch(request);
+
+        verify(legacyTelemetryHistoryReader).listHistory(
+                eq(device),
+                eq(product),
+                anyMap(),
+                anyMap(),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        );
     }
 
     @Test

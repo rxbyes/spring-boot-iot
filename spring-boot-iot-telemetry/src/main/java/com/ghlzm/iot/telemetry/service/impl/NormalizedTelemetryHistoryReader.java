@@ -27,24 +27,6 @@ public class NormalizedTelemetryHistoryReader {
             WHERE device_id = ?
             """;
 
-    private static final String SELECT_SQL = """
-            SELECT
-                ts,
-                reported_at,
-                trace_id,
-                message_type,
-                metric_code,
-                metric_name,
-                value_type,
-                value_text,
-                value_long,
-                value_double,
-                value_bool
-            FROM iot_device_telemetry_point
-            WHERE device_id = ?
-            ORDER BY reported_at ASC, ts ASC
-            """;
-
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final TdengineTelemetrySchemaSupport schemaSupport;
 
@@ -68,12 +50,28 @@ public class NormalizedTelemetryHistoryReader {
                                               Product product,
                                               Map<String, DevicePropertyMetadata> metadataMap,
                                               int batchSize) {
+        return listHistory(device, product, metadataMap, null, null, batchSize);
+    }
+
+    public List<TelemetryV2Point> listHistory(Device device,
+                                              Product product,
+                                              Map<String, DevicePropertyMetadata> metadataMap,
+                                              LocalDateTime windowStart,
+                                              LocalDateTime windowEnd,
+                                              int batchSize) {
         if (device == null || device.getId() == null) {
             return List.of();
         }
         schemaSupport.ensureTable();
         JdbcTemplate jdbcTemplate = jdbcTemplateProvider.getJdbcTemplate();
-        return jdbcTemplate.query(SELECT_SQL, rs -> {
+        List<Object> args = new ArrayList<>();
+        args.add(device.getId());
+        String sql = buildSelectSql(windowStart, windowEnd, batchSize);
+        if (windowStart != null && windowEnd != null) {
+            args.add(Timestamp.valueOf(windowStart));
+            args.add(Timestamp.valueOf(windowEnd));
+        }
+        return jdbcTemplate.query(sql, rs -> {
             List<TelemetryV2Point> points = new ArrayList<>();
             while (rs.next()) {
                 String metricCode = rs.getString("metric_code");
@@ -123,7 +121,36 @@ public class NormalizedTelemetryHistoryReader {
                 points.add(point);
             }
             return points;
-        }, device.getId());
+        }, args.toArray());
+    }
+
+    private String buildSelectSql(LocalDateTime windowStart,
+                                  LocalDateTime windowEnd,
+                                  int batchSize) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    ts,
+                    reported_at,
+                    trace_id,
+                    message_type,
+                    metric_code,
+                    metric_name,
+                    value_type,
+                    value_text,
+                    value_long,
+                    value_double,
+                    value_bool
+                FROM iot_device_telemetry_point
+                WHERE device_id = ?
+                """);
+        if (windowStart != null && windowEnd != null) {
+            sql.append(" AND COALESCE(reported_at, ts) >= ?")
+                    .append(" AND COALESCE(reported_at, ts) < ?");
+        }
+        sql.append(" ORDER BY reported_at ASC, ts ASC")
+                .append(" LIMIT ")
+                .append(Math.max(batchSize, 1));
+        return sql.toString();
     }
 
     private String resolveMetricName(String metricCode, String rowMetricName, DevicePropertyMetadata metadata) {

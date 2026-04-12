@@ -57,7 +57,6 @@
             </div>
             <div class="role-auth-node__meta">
               <span v-if="data.type === 0" class="role-auth-node__hint">目录节点自动补齐</span>
-              <code v-if="data.path">{{ data.path }}</code>
             </div>
           </div>
         </template>
@@ -211,7 +210,7 @@ function filterNode(keyword: string, data: MenuTreeNode) {
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--el-color-primary);
+  color: var(--brand);
   font-size: 0.875rem;
   cursor: pointer;
 }
@@ -224,7 +223,7 @@ function filterNode(keyword: string, data: MenuTreeNode) {
 .role-auth-tree {
   margin-top: 0.9rem;
   min-height: 18rem;
-  max-height: 28rem;
+  flex: 1;
   overflow: auto;
   padding-right: 0.25rem;
 }
@@ -258,14 +257,13 @@ function filterNode(keyword: string, data: MenuTreeNode) {
   align-items: center;
   min-height: 1.4rem;
   padding: 0 0.45rem;
-  border-radius: 999px;
-  background: rgba(21, 101, 192, 0.08);
-  color: #1565c0;
+  border-radius: var(--radius-pill);
+  background: var(--info-bg);
+  color: var(--info);
   font-size: 0.75rem;
 }
 
-.role-auth-node__hint,
-.role-auth-node__meta code {
+.role-auth-node__hint {
   color: var(--text-tertiary);
 }
 </style>

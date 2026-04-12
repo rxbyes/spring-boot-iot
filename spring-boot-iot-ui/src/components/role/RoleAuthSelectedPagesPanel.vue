@@ -75,6 +75,9 @@ defineEmits<{
 .role-auth-selected-pages {
   display: grid;
   gap: 0.75rem;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.2rem;
 }
 
 .role-auth-selected-pages__item {
@@ -89,8 +92,8 @@ defineEmits<{
 }
 
 .role-auth-selected-pages__item--active {
-  border-color: rgba(21, 101, 192, 0.34);
-  box-shadow: inset 0 0 0 1px rgba(21, 101, 192, 0.16);
+  border-color: var(--panel-border-strong);
+  box-shadow: var(--shadow-inset-highlight-78);
 }
 
 .role-auth-selected-pages__main {
@@ -113,9 +116,9 @@ defineEmits<{
   align-items: center;
   min-height: 1.35rem;
   padding: 0 0.45rem;
-  border-radius: 999px;
-  background: rgba(21, 101, 192, 0.08);
-  color: #1565c0;
+  border-radius: var(--radius-pill);
+  background: var(--info-bg);
+  color: var(--info);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -132,8 +135,12 @@ defineEmits<{
   align-self: center;
   border: none;
   background: transparent;
-  color: #c62828;
+  color: var(--button-action-text);
   font-size: 0.875rem;
   cursor: pointer;
+}
+
+.role-auth-selected-pages__remove:hover {
+  color: var(--button-action-hover-text);
 }
 </style>

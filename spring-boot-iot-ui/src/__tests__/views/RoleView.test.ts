@@ -42,4 +42,12 @@ describe('RoleView governance contract', () => {
     expect(source).toContain('selectedButtonIdsByPage')
     expect(source).toContain('selectedButtonIdsByPage.value[pageId] = []')
   })
+
+  it('keeps the three authorization sections in a compact shared-height workspace', () => {
+    const source = readSource()
+
+    expect(source).toContain('.role-auth-workspace')
+    expect(source).toContain('grid-template-rows:')
+    expect(source).toContain('.role-auth-workspace > section')
+  })
 })
