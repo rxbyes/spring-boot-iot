@@ -598,18 +598,71 @@ public class GovernanceWorkItemServiceImpl implements GovernanceWorkItemService 
         LambdaQueryWrapper<GovernanceWorkItem> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(GovernanceWorkItem::getDeleted, 0);
         if (query == null) {
-            wrapper.orderByDesc(GovernanceWorkItem::getCreateTime).orderByDesc(GovernanceWorkItem::getId);
+            applyWorkItemOrdering(wrapper);
             return wrapper;
         }
         wrapper.eq(StringUtils.hasText(normalize(query.getWorkItemCode())), GovernanceWorkItem::getWorkItemCode, normalize(query.getWorkItemCode()));
         wrapper.eq(StringUtils.hasText(normalize(query.getWorkStatus())), GovernanceWorkItem::getWorkStatus, normalize(query.getWorkStatus()));
+        wrapper.eq(StringUtils.hasText(normalize(query.getExecutionStatus())), GovernanceWorkItem::getExecutionStatus, normalize(query.getExecutionStatus()));
         wrapper.eq(StringUtils.hasText(normalize(query.getSubjectType())), GovernanceWorkItem::getSubjectType, normalize(query.getSubjectType()));
         wrapper.eq(query.getSubjectId() != null, GovernanceWorkItem::getSubjectId, query.getSubjectId());
         wrapper.eq(query.getProductId() != null, GovernanceWorkItem::getProductId, query.getProductId());
         wrapper.eq(query.getRiskMetricId() != null, GovernanceWorkItem::getRiskMetricId, query.getRiskMetricId());
         wrapper.eq(query.getAssigneeUserId() != null, GovernanceWorkItem::getAssigneeUserId, query.getAssigneeUserId());
-        wrapper.orderByDesc(GovernanceWorkItem::getCreateTime).orderByDesc(GovernanceWorkItem::getId);
+        applyKeywordFilter(wrapper, normalize(query.getKeyword()));
+        applyWorkItemOrdering(wrapper);
         return wrapper;
+    }
+
+    private void applyKeywordFilter(LambdaQueryWrapper<GovernanceWorkItem> wrapper, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return;
+        }
+        Long exactLong = parseExactLongKeyword(keyword);
+        wrapper.and(nested -> {
+            if (exactLong != null) {
+                nested.eq(GovernanceWorkItem::getApprovalOrderId, exactLong)
+                        .or()
+                        .eq(GovernanceWorkItem::getReleaseBatchId, exactLong)
+                        .or();
+            }
+            nested.eq(GovernanceWorkItem::getProductKey, keyword)
+                    .or()
+                    .eq(GovernanceWorkItem::getDeviceCode, keyword)
+                    .or()
+                    .eq(GovernanceWorkItem::getTraceId, keyword)
+                    .or()
+                    .like(GovernanceWorkItem::getProductKey, keyword)
+                    .or()
+                    .like(GovernanceWorkItem::getDeviceCode, keyword)
+                    .or()
+                    .like(GovernanceWorkItem::getTraceId, keyword);
+        });
+    }
+
+    private Long parseExactLongKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword) || !keyword.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(keyword);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private void applyWorkItemOrdering(LambdaQueryWrapper<GovernanceWorkItem> wrapper) {
+        wrapper.last("ORDER BY CASE work_status "
+                + "WHEN 'OPEN' THEN 0 "
+                + "WHEN 'ACKED' THEN 1 "
+                + "WHEN 'BLOCKED' THEN 2 "
+                + "WHEN 'RESOLVED' THEN 3 "
+                + "WHEN 'CLOSED' THEN 4 ELSE 9 END, "
+                + "CASE priority_level "
+                + "WHEN 'P1' THEN 0 "
+                + "WHEN 'P2' THEN 1 "
+                + "WHEN 'P3' THEN 2 ELSE 9 END, "
+                + "update_time DESC, id DESC");
     }
 
     private GovernanceWorkItemVO toVO(GovernanceWorkItem item) {

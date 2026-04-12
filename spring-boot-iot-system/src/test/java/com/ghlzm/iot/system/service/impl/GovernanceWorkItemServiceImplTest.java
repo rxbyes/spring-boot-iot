@@ -1,5 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.GovernanceReplayFeedback;
@@ -18,6 +20,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -35,6 +39,12 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GovernanceWorkItemServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, GovernanceWorkItem.class);
+    }
 
     @Mock
     private GovernanceWorkItemMapper workItemMapper;
@@ -269,6 +279,55 @@ class GovernanceWorkItemServiceImplTest {
         verify(workItemMapper).selectPage(any(), any());
         verify(contributor, never()).collectWorkItems();
         assertNotNull(scheduledRefresh.get());
+    }
+
+    @Test
+    void pageWorkItemsShouldApplyKeywordAndExecutionStatusFilters() {
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of());
+            page.setTotal(0);
+            return page;
+        });
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+        GovernanceWorkItemPageQuery query = new GovernanceWorkItemPageQuery();
+        query.setKeyword("2043187508765708289");
+        query.setExecutionStatus("PENDING_APPROVAL");
+
+        service.pageWorkItems(query, 10001L);
+
+        org.mockito.ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<GovernanceWorkItem>> wrapperCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(workItemMapper).selectPage(any(), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("execution_status"), sqlSegment);
+        assertTrue(sqlSegment.contains("approval_order_id"), sqlSegment);
+        assertTrue(sqlSegment.contains("release_batch_id"), sqlSegment);
+        assertTrue(sqlSegment.contains("product_key"), sqlSegment);
+        assertTrue(sqlSegment.contains("device_code"), sqlSegment);
+        assertTrue(sqlSegment.contains("trace_id"), sqlSegment);
+    }
+
+    @Test
+    void pageWorkItemsShouldBuildPriorityFirstOrdering() {
+        when(workItemMapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            Page<GovernanceWorkItem> page = invocation.getArgument(0);
+            page.setRecords(List.of());
+            page.setTotal(0);
+            return page;
+        });
+        GovernanceWorkItemServiceImpl service = new GovernanceWorkItemServiceImpl(workItemMapper, List.of());
+
+        service.pageWorkItems(new GovernanceWorkItemPageQuery(), 10001L);
+
+        org.mockito.ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<GovernanceWorkItem>> wrapperCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(workItemMapper).selectPage(any(), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
+        assertTrue(sqlSegment.contains("CASE work_status"), sqlSegment);
+        assertTrue(sqlSegment.contains("CASE priority_level"), sqlSegment);
+        assertTrue(sqlSegment.contains("update_time DESC"), sqlSegment);
+        assertTrue(sqlSegment.contains("id DESC"), sqlSegment);
     }
 
     @Test
