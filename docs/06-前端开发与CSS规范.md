@@ -99,7 +99,7 @@
 20. `IotAccessResultSection`、`IotAccessFilterBar`：已废弃，不再作为 `接入智维` 正文结构组件回流。
 
 补充规则：
-- `/role` 的授权抽屉必须保持“三段式授权工作区”语法：`RoleAuthPageTreePanel` 只承接目录/页面树与批量页面勾选，`RoleAuthSelectedPagesPanel` 只承接已选页面列表与当前页切换，`RoleAuthButtonPanel` 只承接当前页面的按钮颗粒度细化。桌面端优先保持“左侧页面树 + 右侧已选页面/按钮细化”共享高度工作区，移动端再顺序回落；树节点只保留页面名称与目录/页面类型提示，不在树行内重复展示路由文本。不得再把按钮节点塞回树里，也不得通过加宽抽屉解决拥挤；最终提交必须继续复用后端既有 `menuIds` 合同。
+- `/role` 的授权抽屉必须保持“顶部摘要 + 左侧统一权限树 + 右侧当前节点详情”的结构：目录、页面、按钮均可直接授权，树节点只保留复选框、名称、类型标签和子级数量，不在树行内重复堆叠路由、权限码或说明；右侧只平铺当前节点直属子级或当前按钮详情。不得再回流旧的“已选页面 + 当前页面按钮”三段式工作区，也不得通过默认全展开或加宽抽屉解决拥挤；最终提交必须继续复用后端既有 `menuIds` 合同。
 - `StandardActionLink` 当前不再开放 `tone`，也不允许借道透传 `type / plain / text` 去混入第二套按钮语义；行内轻操作统一走共享品牌动作。
 - `StandardActionMenu` 的 item 当前只保留 `key / command / label / disabled / divided`；删除或危险语义通过确认流表达，不再靠菜单颜色分支表达。
 - `StandardRowActions` 当前固定使用 `variant="table | card | editor"`：

@@ -521,11 +521,11 @@ const roleActionColumnWidth = resolveWorkbenchActionColumnWidth({
 
 const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
-const selectedPageIds = ref<number[]>([]);
-const selectedButtonIdsByPage = ref<Record<number, number[]>>({});
-const activePageId = ref<number | null>(null);
-const pageKeyword = ref("");
-const buttonKeyword = ref("");
+const grantedMenuIds = ref<number[]>([]);
+const currentNodeId = ref<number | null>(null);
+const treeKeyword = ref("");
+const detailKeyword = ref("");
+const expandedNodeKeys = ref<number[]>([]);
 const dataScopeOptions = [
   { label: "全局", value: "ALL" },
   { label: "租户内全部", value: "TENANT" },
@@ -536,91 +536,90 @@ const dataScopeOptions = [
 
 const formData = ref<RoleFormData>(createEmptyRoleForm());
 const menuNodeMap = computed(() => buildMenuNodeMap(rawMenuTree.value));
-const pageTreeData = computed(() => buildRolePageTree(rawMenuTree.value));
-const checkedMenuCount = computed(() => formData.value.menuIds.length);
-const selectedPageCount = computed(() => selectedPageIds.value.length);
-const selectedButtonCount = computed(() =>
-  selectedPageIds.value.reduce((count, pageId) => {
-    return count + resolvePageButtonSelection(pageId).length;
+const menuSelectionStateMap = computed(() =>
+  buildMenuSelectionStateMap(rawMenuTree.value, grantedMenuIds.value),
+);
+const displayTreeData = computed(() =>
+  filterPermissionTreeByKeyword(rawMenuTree.value, treeKeyword.value),
+);
+const treePanelExpandedKeys = computed(() => {
+  if (treeKeyword.value.trim()) {
+    const expandedKeySet = new Set<number>();
+    const visitVisibleNodes = (nodes: MenuTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children?.length) {
+          expandedKeySet.add(node.id);
+          visitVisibleNodes(node.children);
+        }
+      });
+    };
+    visitVisibleNodes(displayTreeData.value);
+    return Array.from(expandedKeySet);
+  }
+
+  const expandedKeySet = new Set(expandedNodeKeys.value);
+  resolveNodeAncestorIds(rawMenuTree.value, currentNodeId.value).forEach((menuId) => {
+    expandedKeySet.add(menuId);
+  });
+  return Array.from(expandedKeySet);
+});
+const checkedMenuCount = computed(() => grantedMenuIds.value.length);
+const grantedDirectoryCount = computed(() =>
+  grantedMenuIds.value.reduce((count, menuId) => {
+    return menuNodeMap.value.get(menuId)?.type === 0 ? count + 1 : count;
   }, 0),
 );
-const activePageInfo = computed(() => {
-  if (activePageId.value === null) {
-    return null;
-  }
-  const page = menuNodeMap.value.get(activePageId.value);
-  if (!page || page.type !== 1 || !selectedPageIds.value.includes(page.id)) {
-    return null;
-  }
-  return {
-    id: page.id,
-    menuName: page.menuName,
-    path: page.path,
-  };
-});
-const activePageButtonRows = computed(() => {
-  if (activePageId.value === null) {
-    return [];
-  }
-  const page = menuNodeMap.value.get(activePageId.value);
-  if (!page || page.type !== 1) {
-    return [];
-  }
-  return (page.children || [])
-    .filter((child) => child.type === 2)
-    .map((child) => ({
-      id: child.id,
-      menuName: child.menuName,
-      menuCode: child.menuCode,
-      description:
-        child.meta?.menuHint ||
-        child.meta?.caption ||
-        child.meta?.shortLabel ||
-        "",
-    }));
-});
-const activePageSelectedButtonIds = computed(() => {
-  if (activePageId.value === null) {
-    return [];
-  }
-  return resolvePageButtonSelection(activePageId.value);
-});
-const selectedPageItems = computed(() =>
-  selectedPageIds.value
-    .map((pageId) => {
-      const page = menuNodeMap.value.get(pageId);
-      if (!page || page.type !== 1) {
-        return null;
-      }
-      const buttonCount = resolveSelectableButtonIds(pageId).length;
-      const selectedCount = resolvePageButtonSelection(pageId).length;
-      let buttonSummary = "未选按钮";
-      if (buttonCount === 0) {
-        buttonSummary = "无独立按钮";
-      } else if (selectedCount > 0) {
-        buttonSummary = `已选 ${selectedCount} 个按钮`;
-      }
-
-      return {
-        id: page.id,
-        menuName: page.menuName,
-        path: page.path,
-        buttonSummary,
-        active: page.id === activePageId.value,
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is {
-        id: number;
-        menuName: string;
-        path?: string;
-        buttonSummary: string;
-        active: boolean;
-      } => Boolean(item),
-    ),
+const grantedPageCount = computed(() =>
+  grantedMenuIds.value.reduce((count, menuId) => {
+    return menuNodeMap.value.get(menuId)?.type === 1 ? count + 1 : count;
+  }, 0),
 );
+const grantedButtonCount = computed(() =>
+  grantedMenuIds.value.reduce((count, menuId) => {
+    return menuNodeMap.value.get(menuId)?.type === 2 ? count + 1 : count;
+  }, 0),
+);
+const currentNode = computed(() => {
+  if (currentNodeId.value === null) {
+    return null;
+  }
+  return menuNodeMap.value.get(currentNodeId.value) || null;
+});
+const currentNodeState = computed(() => {
+  if (currentNodeId.value === null) {
+    return null;
+  }
+  return menuSelectionStateMap.value.get(currentNodeId.value) || null;
+});
+const currentNodeParentLabel = computed(() => {
+  if (!currentNode.value || typeof currentNode.value.parentId !== "number") {
+    return "";
+  }
+  return menuNodeMap.value.get(currentNode.value.parentId)?.menuName || "";
+});
+const currentNodeDetailItems = computed(() =>
+  resolveNodeDetailItems(
+    rawMenuTree.value,
+    currentNodeId.value,
+    detailKeyword.value,
+    menuSelectionStateMap.value,
+  ),
+);
+const currentNodeStatusLabel = computed(() => {
+  if (!currentNodeState.value) {
+    return "未授权";
+  }
+  if (currentNodeState.value.checked) {
+    return "全量授权";
+  }
+  if (currentNodeState.value.indeterminate) {
+    return currentNodeState.value.selfSelected ? "部分授权" : "子级部分授权";
+  }
+  if (currentNodeState.value.selfSelected) {
+    return "已授权";
+  }
+  return "未授权";
+});
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -674,160 +673,80 @@ function createEmptyRoleForm(): RoleFormData {
   };
 }
 
-function resolveSelectableButtonIds(pageId: number): number[] {
-  const page = menuNodeMap.value.get(pageId);
-  if (!page || page.type !== 1) {
-    return [];
+function syncGrantedMenuIdsToForm() {
+  formData.value.menuIds = [...grantedMenuIds.value];
+}
+
+function ensureExpandedNode(menuId: number | null) {
+  if (menuId === null) {
+    return;
   }
-  return (page.children || [])
-    .filter((child) => child.type === 2)
-    .map((child) => child.id);
-}
-
-function normalizePageIds(pageIds: number[]): number[] {
-  const seen = new Set<number>();
-  return pageIds.filter((pageId) => {
-    const page = menuNodeMap.value.get(pageId);
-    if (!page || page.type !== 1 || seen.has(pageId)) {
-      return false;
-    }
-    seen.add(pageId);
-    return true;
-  });
-}
-
-function normalizeButtonIdsForPage(pageId: number, buttonIds: number[]): number[] {
-  const allowedButtonIds = new Set(resolveSelectableButtonIds(pageId));
-  const seen = new Set<number>();
-  return buttonIds.filter((buttonId) => {
-    if (!allowedButtonIds.has(buttonId) || seen.has(buttonId)) {
-      return false;
-    }
-    seen.add(buttonId);
-    return true;
-  });
-}
-
-function resolvePageButtonSelection(pageId: number): number[] {
-  return normalizeButtonIdsForPage(
-    pageId,
-    selectedButtonIdsByPage.value[pageId] || [],
+  const ancestorIds = resolveNodeAncestorIds(rawMenuTree.value, menuId);
+  expandedNodeKeys.value = Array.from(
+    new Set([...expandedNodeKeys.value, ...ancestorIds]),
   );
 }
 
-function syncGrantedMenuIds() {
-  formData.value.menuIds = composeRoleGrantedMenuIds(
-    rawMenuTree.value,
-    selectedPageIds.value,
-    selectedButtonIdsByPage.value,
-  );
-}
-
-function ensureActivePage(preferredPageId: number | null = null) {
+function resolveDefaultCurrentNodeId(preferredNodeId: number | null = null) {
   if (
-    preferredPageId !== null &&
-    selectedPageIds.value.includes(preferredPageId)
+    preferredNodeId !== null &&
+    menuNodeMap.value.has(preferredNodeId)
   ) {
-    activePageId.value = preferredPageId;
-    return;
+    return preferredNodeId;
   }
   if (
-    activePageId.value !== null &&
-    selectedPageIds.value.includes(activePageId.value)
+    currentNodeId.value !== null &&
+    menuNodeMap.value.has(currentNodeId.value)
   ) {
-    return;
+    return currentNodeId.value;
   }
-  activePageId.value = selectedPageIds.value[0] ?? null;
-  buttonKeyword.value = "";
+  return grantedMenuIds.value[0] ?? rawMenuTree.value[0]?.id ?? null;
 }
 
 function applyRoleGrantedMenuIds(
-  grantedMenuIds: number[],
-  preferredPageId: number | null = null,
+  menuIds: Array<number | undefined | null>,
+  preferredNodeId: number | null = null,
 ) {
-  const resolvedGrantedMenuIds = resolveRoleCheckedMenuIds(
-    rawMenuTree.value,
-    grantedMenuIds,
-  );
-  const nextSelectedPageIds = resolveRoleSelectedPageIds(
-    rawMenuTree.value,
-    resolvedGrantedMenuIds,
-  );
-  const resolvedButtonIdsByPage = resolveRoleSelectedButtonIdsByPage(
-    rawMenuTree.value,
-    resolvedGrantedMenuIds,
-  );
-
-  selectedPageIds.value = normalizePageIds(nextSelectedPageIds);
-  const nextSelectedButtonIdsByPage: Record<number, number[]> = {};
-  selectedPageIds.value.forEach((pageId) => {
-    nextSelectedButtonIdsByPage[pageId] = normalizeButtonIdsForPage(
-      pageId,
-      resolvedButtonIdsByPage[pageId] || [],
-    );
-  });
-  selectedButtonIdsByPage.value = nextSelectedButtonIdsByPage;
-  ensureActivePage(preferredPageId);
-  syncGrantedMenuIds();
+  grantedMenuIds.value = resolveGrantedMenuIds(rawMenuTree.value, menuIds);
+  syncGrantedMenuIdsToForm();
+  currentNodeId.value = resolveDefaultCurrentNodeId(preferredNodeId);
+  ensureExpandedNode(currentNodeId.value);
 }
 
-function handleSelectedPageIdsChange(pageIds: number[]) {
-  const normalizedPageIds = normalizePageIds(pageIds);
-  const previousPageIds = new Set(selectedPageIds.value);
-  const nextSelectedButtonIdsByPage: Record<number, number[]> = {};
-
-  normalizedPageIds.forEach((pageId) => {
-    if (!selectedButtonIdsByPage.value[pageId]) {
-      selectedButtonIdsByPage.value[pageId] = [];
-    }
-    nextSelectedButtonIdsByPage[pageId] = normalizeButtonIdsForPage(
-      pageId,
-      selectedButtonIdsByPage.value[pageId],
-    );
-  });
-
-  selectedPageIds.value = normalizedPageIds;
-  selectedButtonIdsByPage.value = nextSelectedButtonIdsByPage;
-  const addedPageId =
-    normalizedPageIds.find((pageId) => !previousPageIds.has(pageId)) ?? null;
-  ensureActivePage(addedPageId ?? activePageId.value);
-  syncGrantedMenuIds();
+function handleToggleMenu(menuId: number, checked: boolean) {
+  grantedMenuIds.value = toggleMenuGrant(
+    rawMenuTree.value,
+    grantedMenuIds.value,
+    menuId,
+    checked,
+  );
+  syncGrantedMenuIdsToForm();
+  if (currentNodeId.value === null || !menuNodeMap.value.has(currentNodeId.value)) {
+    currentNodeId.value = resolveDefaultCurrentNodeId(menuId);
+  }
+  ensureExpandedNode(menuId);
 }
 
-function handleClearSelectedPages() {
-  selectedPageIds.value = [];
-  selectedButtonIdsByPage.value = {};
-  activePageId.value = null;
-  buttonKeyword.value = "";
-  syncGrantedMenuIds();
-}
-
-function handleActivePageChange(pageId: number) {
-  if (!selectedPageIds.value.includes(pageId)) {
+function handleSelectCurrentNode(menuId: number) {
+  if (!menuNodeMap.value.has(menuId)) {
     return;
   }
-  activePageId.value = pageId;
-  buttonKeyword.value = "";
+  currentNodeId.value = menuId;
+  detailKeyword.value = "";
+  ensureExpandedNode(menuId);
 }
 
-function handleRemoveSelectedPage(pageId: number) {
-  handleSelectedPageIdsChange(
-    selectedPageIds.value.filter((selectedPageId) => selectedPageId !== pageId),
-  );
-}
-
-function handleActivePageButtonIdsChange(buttonIds: number[]) {
-  if (activePageId.value === null) {
+function handleExpandNode(menuId: number) {
+  if (expandedNodeKeys.value.includes(menuId)) {
     return;
   }
-  selectedButtonIdsByPage.value = {
-    ...selectedButtonIdsByPage.value,
-    [activePageId.value]: normalizeButtonIdsForPage(
-      activePageId.value,
-      buttonIds,
-    ),
-  };
-  syncGrantedMenuIds();
+  expandedNodeKeys.value = [...expandedNodeKeys.value, menuId];
+}
+
+function handleCollapseNode(menuId: number) {
+  expandedNodeKeys.value = expandedNodeKeys.value.filter(
+    (expandedMenuId) => expandedMenuId !== menuId,
+  );
 }
 
 async function getRoles() {
@@ -893,11 +812,11 @@ async function openRoleDialog(title: string, role: RoleFormData) {
     ...role,
     menuIds: [],
   };
-  pageKeyword.value = "";
-  buttonKeyword.value = "";
-  activePageId.value = null;
-  selectedPageIds.value = [];
-  selectedButtonIdsByPage.value = {};
+  treeKeyword.value = "";
+  detailKeyword.value = "";
+  currentNodeId.value = null;
+  grantedMenuIds.value = [];
+  expandedNodeKeys.value = [];
   dialogVisible.value = true;
   await loadMenuAuthTree();
   applyRoleGrantedMenuIds(role.menuIds);
@@ -1035,16 +954,12 @@ async function handleDelete(row: Role) {
 }
 
 async function refreshMenuTree() {
-  const currentGrantedMenuIds = composeRoleGrantedMenuIds(
-    rawMenuTree.value,
-    selectedPageIds.value,
-    selectedButtonIdsByPage.value,
-  );
+  const currentGrantedMenuIds = [...grantedMenuIds.value];
   const success = await loadMenuAuthTree();
   if (!success) {
     return;
   }
-  applyRoleGrantedMenuIds(currentGrantedMenuIds, activePageId.value);
+  applyRoleGrantedMenuIds(currentGrantedMenuIds, currentNodeId.value);
   ElMessage.success("菜单树已刷新");
 }
 
@@ -1066,11 +981,7 @@ async function handleSubmit() {
     return;
   }
 
-  formData.value.menuIds = composeRoleGrantedMenuIds(
-    rawMenuTree.value,
-    selectedPageIds.value,
-    selectedButtonIdsByPage.value,
-  );
+  formData.value.menuIds = [...grantedMenuIds.value];
   submitLoading.value = true;
   try {
     const payload = {
@@ -1080,7 +991,7 @@ async function handleSubmit() {
       description: formData.value.description,
       dataScopeType: formData.value.dataScopeType,
       status: formData.value.status,
-      menuIds: [...formData.value.menuIds],
+      menuIds: [...grantedMenuIds.value],
     };
     const res = payload.id ? await updateRole(payload) : await addRole(payload);
     if (res.code === 200) {
@@ -1100,11 +1011,11 @@ async function handleSubmit() {
 
 function handleDialogClose() {
   formRef.value?.resetFields();
-  pageKeyword.value = "";
-  buttonKeyword.value = "";
-  activePageId.value = null;
-  selectedPageIds.value = [];
-  selectedButtonIdsByPage.value = {};
+  treeKeyword.value = "";
+  detailKeyword.value = "";
+  currentNodeId.value = null;
+  grantedMenuIds.value = [];
+  expandedNodeKeys.value = [];
   formData.value = createEmptyRoleForm();
 }
 
@@ -1140,21 +1051,58 @@ onMounted(async () => {
   gap: 12px;
 }
 
+.role-auth-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.role-auth-summary-grid__item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.role-auth-summary-grid__label {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.role-auth-summary-grid__item strong {
+  color: var(--text-primary);
+  font-size: 1.02rem;
+}
+
+.role-auth-summary-grid__item p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  line-height: 1.5;
+}
+
+.role-auth-note {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
 .role-auth-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(18rem, 0.92fr);
-  grid-template-rows: minmax(15rem, 1fr) minmax(15rem, 1fr);
+  grid-template-columns: minmax(18rem, 0.92fr) minmax(0, 1.08fr);
   gap: 12px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .role-auth-workspace > section {
   min-width: 0;
   min-height: 0;
-}
-
-.role-auth-workspace > section:first-child {
-  grid-row: 1 / span 2;
 }
 
 .role-auth-workspace > section :deep(.role-auth-card) {
@@ -1174,26 +1122,6 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-.role-auth-summary {
-  display: grid;
-  gap: 8px;
-}
-
-.role-auth-summary__count {
-  color: var(--el-text-color-primary);
-  font-weight: 500;
-}
-
-.role-auth-summary__meta {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.role-auth-summary__empty {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
 @media (max-width: 960px) {
   .role-form-layout {
     grid-template-columns: 1fr;
@@ -1201,13 +1129,18 @@ onMounted(async () => {
 }
 
 @media (max-width: 1180px) {
-  .role-auth-workspace {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(3, minmax(0, auto));
+  .role-auth-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .role-auth-workspace > section:first-child {
-    grid-row: auto;
+  .role-auth-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .role-auth-summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
