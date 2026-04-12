@@ -17,6 +17,15 @@ export function buildMenuNodeMap(nodes: MenuTreeNode[]): Map<number, MenuTreeNod
   return nodeMap;
 }
 
+export function buildRolePageTree(nodes: MenuTreeNode[]): MenuTreeNode[] {
+  return nodes
+    .filter((node) => node.type !== 2)
+    .map((node) => ({
+      ...node,
+      children: buildRolePageTree(node.children || [])
+    }));
+}
+
 export function resolveRoleCheckedMenuIds(nodes: MenuTreeNode[], grantedIds: Array<number | undefined | null>): number[] {
   if (!grantedIds.length) {
     return [];
@@ -39,6 +48,84 @@ export function resolveRoleCheckedMenuIds(nodes: MenuTreeNode[], grantedIds: Arr
   });
 
   return checkedIds;
+}
+
+export function resolveRoleSelectedPageIds(
+  nodes: MenuTreeNode[],
+  grantedIds: Array<number | undefined | null>
+): number[] {
+  if (!grantedIds.length) {
+    return [];
+  }
+
+  const grantedSet = new Set(
+    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
+  );
+
+  const selectedPageIds: number[] = [];
+  visitMenus(nodes, (node) => {
+    if (node.type === 1 && grantedSet.has(node.id)) {
+      selectedPageIds.push(node.id);
+    }
+  });
+  return selectedPageIds;
+}
+
+export function resolveRoleSelectedButtonIdsByPage(
+  nodes: MenuTreeNode[],
+  grantedIds: Array<number | undefined | null>
+): Record<number, number[]> {
+  if (!grantedIds.length) {
+    return {};
+  }
+
+  const grantedSet = new Set(
+    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
+  );
+  const selectedButtonIdsByPage: Record<number, number[]> = {};
+
+  visitMenus(nodes, (node) => {
+    if (node.type !== 2 || typeof node.parentId !== 'number' || !grantedSet.has(node.id)) {
+      return;
+    }
+
+    if (!selectedButtonIdsByPage[node.parentId]) {
+      selectedButtonIdsByPage[node.parentId] = [];
+    }
+    selectedButtonIdsByPage[node.parentId].push(node.id);
+  });
+
+  return selectedButtonIdsByPage;
+}
+
+export function composeRoleGrantedMenuIds(
+  nodes: MenuTreeNode[],
+  selectedPageIds: number[],
+  selectedButtonIdsByPage: Record<number, number[]>
+): number[] {
+  if (!selectedPageIds.length) {
+    return [];
+  }
+
+  const selectedPageIdSet = new Set(selectedPageIds);
+  const nodeMap = buildMenuNodeMap(nodes);
+  const composedIds = new Set<number>(selectedPageIds);
+
+  Object.entries(selectedButtonIdsByPage).forEach(([pageIdText, buttonIds]) => {
+    const pageId = Number(pageIdText);
+    if (!selectedPageIdSet.has(pageId)) {
+      return;
+    }
+
+    buttonIds.forEach((buttonId) => {
+      const node = nodeMap.get(buttonId);
+      if (node?.type === 2 && node.parentId === pageId) {
+        composedIds.add(buttonId);
+      }
+    });
+  });
+
+  return Array.from(composedIds);
 }
 
 export function resolveRoleMenuSummary(nodes: MenuTreeNode[], grantedIds: Array<number | undefined | null>, limit = 6): string[] {
