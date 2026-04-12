@@ -92,7 +92,7 @@ export function buildGovernanceContractGatePlan({
     '-am',
     '-DskipTests=false',
     '-Dsurefire.failIfNoSpecifiedTests=false',
-    '-Dtest=GovernanceApprovalPolicyResolverImplTest,GovernanceApprovalServiceImplTest,ProductModelServiceImplTest,VendorMetricMappingRuntimeServiceImplTest,ProductModelControllerTest,ProductContractReleaseControllerTest,ProductGovernanceApprovalControllerTest,DefaultRiskMetricCatalogPublishRuleTest',
+    '-Dtest=GovernanceApprovalPolicyResolverImplTest,GovernanceApprovalServiceImplTest,ProductModelServiceImplTest,VendorMetricMappingRuntimeServiceImplTest,ProductModelControllerTest,ProductContractReleaseControllerTest,ProductContractGovernanceApprovalPayloadsTest,ProductGovernanceApprovalControllerTest,DefaultRiskMetricCatalogPublishRuleTest',
     'test'
   ];
 
@@ -116,7 +116,8 @@ export function buildGovernanceContractGatePlan({
           'test',
           '--',
           '--run',
-          'src/__tests__/components/product/ProductModelDesignerWorkspace.test.ts'
+          'src/__tests__/components/product/ProductModelDesignerWorkspace.test.ts',
+          'src/__tests__/components/product/ProductModelGovernanceCompareTable.test.ts'
         ]
       }
     ]

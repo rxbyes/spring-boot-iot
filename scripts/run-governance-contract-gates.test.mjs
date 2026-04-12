@@ -29,7 +29,7 @@ test('builds backend and frontend governance contract steps with Maven settings'
   ]);
   assert.match(
     plan.steps[0].command.join(' '),
-    /GovernanceApprovalPolicyResolverImplTest,GovernanceApprovalServiceImplTest,ProductModelServiceImplTest,VendorMetricMappingRuntimeServiceImplTest,ProductModelControllerTest,ProductContractReleaseControllerTest,ProductGovernanceApprovalControllerTest,DefaultRiskMetricCatalogPublishRuleTest/
+    /GovernanceApprovalPolicyResolverImplTest,GovernanceApprovalServiceImplTest,ProductModelServiceImplTest,VendorMetricMappingRuntimeServiceImplTest,ProductModelControllerTest,ProductContractReleaseControllerTest,ProductContractGovernanceApprovalPayloadsTest,ProductGovernanceApprovalControllerTest,DefaultRiskMetricCatalogPublishRuleTest/
   );
   assert.deepEqual(plan.steps[1].command, [
     'npm.cmd',
@@ -38,7 +38,8 @@ test('builds backend and frontend governance contract steps with Maven settings'
     'test',
     '--',
     '--run',
-    'src/__tests__/components/product/ProductModelDesignerWorkspace.test.ts'
+    'src/__tests__/components/product/ProductModelDesignerWorkspace.test.ts',
+    'src/__tests__/components/product/ProductModelGovernanceCompareTable.test.ts'
   ]);
 });
 
