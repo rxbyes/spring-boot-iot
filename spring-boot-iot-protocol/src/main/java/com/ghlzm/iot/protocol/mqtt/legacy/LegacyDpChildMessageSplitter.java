@@ -525,7 +525,7 @@ public class LegacyDpChildMessageSplitter {
                                                                  LegacyDpNormalizeResult result) {
         if (rule == null
                 || result == null
-                || !isDeepDisplacementLogicalCode(rule.logicalChannelCode())
+                || !supportsStatusOnlySensorMirror(rule.logicalChannelCode())
                 || !STATUS_MIRROR_STRATEGY_SENSOR_STATE.equalsIgnoreCase(normalizeStrategy(rule.statusMirrorStrategy()))) {
             return null;
         }
@@ -535,12 +535,19 @@ public class LegacyDpChildMessageSplitter {
         }
         Map<String, Object> childProperties = new LinkedHashMap<>();
         childProperties.put(CHILD_SENSOR_STATE_PROPERTY, sensorState);
+        List<String> parentRemovalKeys = shouldRemoveMirroredSensorStateFromParent(rule, childProperties)
+                ? List.of(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode())
+                : List.of();
         return new StatusOnlyChildPayload(
                 result.getTimestamp(),
                 childProperties,
                 writeStatusOnlyChildRawPayload(rule.logicalChannelCode(), sensorState),
-                List.of(PARENT_SENSOR_STATE_PROPERTY_PREFIX + rule.logicalChannelCode())
+                parentRemovalKeys
         );
+    }
+
+    private boolean supportsStatusOnlySensorMirror(String logicalCode) {
+        return isDeepDisplacementLogicalCode(logicalCode) || isCrackLogicalCode(logicalCode);
     }
 
     private String normalizeStrategy(String strategy) {

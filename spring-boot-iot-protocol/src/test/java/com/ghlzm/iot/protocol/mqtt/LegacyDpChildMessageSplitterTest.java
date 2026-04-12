@@ -354,6 +354,69 @@ class LegacyDpChildMessageSplitterTest {
     }
 
     @Test
+    void shouldSplitStatusOnlyCrackChildrenToSensorStateMessages() {
+        IotProperties iotProperties = new IotProperties();
+        IotProperties.Device device = new IotProperties.Device();
+        device.setSubDeviceMappings(Map.of(
+                "SK00EA0D1307968",
+                Map.of(
+                        "L1_LF_1", "202018195",
+                        "L1_LF_2", "202018192",
+                        "L1_LF_3", "202018190"
+                )
+        ));
+        iotProperties.setDevice(device);
+
+        LegacyDpChildMessageSplitter splitter = new LegacyDpChildMessageSplitter(iotProperties);
+        LegacyDpNormalizeResult normalizeResult = new LegacyDpNormalizeResult();
+
+        Map<String, Object> parentProperties = new LinkedHashMap<>();
+        parentProperties.put("S1_ZT_1.ext_power_volt", 12.12);
+        parentProperties.put("S1_ZT_1.sensor_state.L1_LF_1", 0);
+        parentProperties.put("S1_ZT_1.sensor_state.L1_LF_2", 1);
+        parentProperties.put("S1_ZT_1.sensor_state.L1_LF_3", 0);
+        normalizeResult.setProperties(parentProperties);
+        normalizeResult.setTimestamp(LocalDateTime.of(2026, 4, 12, 9, 40, 18));
+        normalizeResult.setMessageType("status");
+        normalizeResult.setFamilyCodes(List.of("S1_ZT_1"));
+
+        DeviceUpMessage parentMessage = new DeviceUpMessage();
+        parentMessage.setTenantId("1");
+        parentMessage.setProductKey("south_rtu");
+        parentMessage.setDeviceCode("SK00EA0D1307968");
+        parentMessage.setMessageType("status");
+        parentMessage.setTopic("$dp");
+        parentMessage.setTimestamp(LocalDateTime.of(2026, 4, 12, 9, 40, 18));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("SK00EA0D1307968", Map.of(
+                "S1_ZT_1", timestampPayload(Map.of(
+                        "ext_power_volt", 12.12,
+                        "sensor_state", Map.of(
+                                "L1_LF_1", 0,
+                                "L1_LF_2", 1,
+                                "L1_LF_3", 0
+                        )
+                ))
+        ));
+
+        LegacyDpNormalizeResult result = splitter.split(payload, parentMessage, normalizeResult);
+
+        assertEquals(Boolean.TRUE, result.getChildSplitApplied());
+        assertEquals(3, result.getChildMessages().size());
+        assertEquals(Map.of("sensor_state", 0), result.getChildMessages().get(0).getProperties());
+        assertEquals(Map.of("sensor_state", 1), result.getChildMessages().get(1).getProperties());
+        assertEquals(Map.of("sensor_state", 0), result.getChildMessages().get(2).getProperties());
+        assertEquals("202018195", result.getChildMessages().get(0).getDeviceCode());
+        assertEquals("202018192", result.getChildMessages().get(1).getDeviceCode());
+        assertEquals("202018190", result.getChildMessages().get(2).getDeviceCode());
+        assertEquals(12.12, result.getProperties().get("S1_ZT_1.ext_power_volt"));
+        assertEquals(0, result.getProperties().get("S1_ZT_1.sensor_state.L1_LF_1"));
+        assertEquals(1, result.getProperties().get("S1_ZT_1.sensor_state.L1_LF_2"));
+        assertEquals(0, result.getProperties().get("S1_ZT_1.sensor_state.L1_LF_3"));
+    }
+
+    @Test
     void shouldPreferRelationRegistryRuleOverLegacyConfigFallbackForCollectorPayload() {
         IotProperties iotProperties = new IotProperties();
         IotProperties.Device device = new IotProperties.Device();

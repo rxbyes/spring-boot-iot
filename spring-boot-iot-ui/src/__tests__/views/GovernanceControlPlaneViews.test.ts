@@ -251,6 +251,35 @@ describe('governance control plane views', () => {
     expect(wrapper.text()).toContain('产品尚未进入治理主链路')
   })
 
+  it('keeps long governance route ids as strings when loading filtered work items', async () => {
+    mockRoute.query = {
+      productId: '9223372036854775807',
+      workItemCode: 'PENDING_CONTRACT_RELEASE',
+      workStatus: 'OPEN'
+    }
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    expect(mockPageWorkItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productId: '9223372036854775807',
+        workItemCode: 'PENDING_CONTRACT_RELEASE',
+        workStatus: 'OPEN'
+      })
+    )
+  })
+
   it('dispatches pending contract release work items into the product contract workspace', async () => {
     mockPageWorkItems.mockResolvedValue({
       code: 200,

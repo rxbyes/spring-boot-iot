@@ -488,10 +488,10 @@ function buildQueryFromRoute(): GovernanceWorkItemPageQuery {
     workItemCode: parseStringQuery(route.query.workItemCode),
     workStatus: parseStringQuery(route.query.workStatus) || 'OPEN',
     subjectType: parseStringQuery(route.query.subjectType),
-    subjectId: parseNumberQuery(route.query.subjectId),
-    productId: parseNumberQuery(route.query.productId),
-    riskMetricId: parseNumberQuery(route.query.riskMetricId),
-    assigneeUserId: parseNumberQuery(route.query.assigneeUserId),
+    subjectId: parseIdQuery(route.query.subjectId),
+    productId: parseIdQuery(route.query.productId),
+    riskMetricId: parseIdQuery(route.query.riskMetricId),
+    assigneeUserId: parseIdQuery(route.query.assigneeUserId),
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
@@ -848,6 +848,14 @@ function parseNumberQuery(value: unknown) {
     return undefined
   }
   return Number(text)
+}
+
+function parseIdQuery(value: unknown) {
+  const text = parseStringQuery(value)
+  if (!text || !/^-?\d+$/.test(text)) {
+    return undefined
+  }
+  return text
 }
 
 function snapshotNumberValue(snapshotJson: string | null | undefined, key: string) {
