@@ -1,53 +1,43 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 function readSource() {
-  return readFileSync(resolve(import.meta.dirname, '../../views/RoleView.vue'), 'utf8')
+  return readFileSync(resolve(import.meta.dirname, '../../views/RoleView.vue'), 'utf8');
 }
 
 describe('RoleView governance contract', () => {
   it('renders the role data-scope field in both table and form', () => {
-    const source = readSource()
+    const source = readSource();
 
-    expect(source).toContain('label="数据范围"')
-    expect(source).toContain('prop="dataScopeType"')
-    expect(source).toContain('v-model="formData.dataScopeType"')
-  })
+    expect(source).toContain('label="数据范围"');
+    expect(source).toContain('prop="dataScopeType"');
+    expect(source).toContain('v-model="formData.dataScopeType"');
+  });
 
   it('submits the role data-scope value together with role payloads', () => {
-    const source = readSource()
+    const source = readSource();
 
-    expect(source).toContain('dataScopeType:')
-    expect(source).toContain('payload.id ? await updateRole(payload) : await addRole(payload)')
-  })
+    expect(source).toContain('dataScopeType:');
+    expect(source).toContain('payload.id ? await updateRole(payload) : await addRole(payload)');
+  });
 
-  it('renders the three-stage role authorization workspace instead of a mixed menu-button tree', () => {
-    const source = readSource()
+  it('renders the role authorization drawer as summary plus full permission tree and current-node detail', () => {
+    const source = readSource();
 
-    expect(source).toContain('RoleAuthPageTreePanel')
-    expect(source).toContain('RoleAuthSelectedPagesPanel')
-    expect(source).toContain('RoleAuthButtonPanel')
-    expect(source).toContain('步骤 1：页面授权')
-    expect(source).toContain('步骤 2：已选页面')
-    expect(source).toContain('当前页面按钮权限')
-    expect(source).not.toContain('<h3>菜单与按钮授权</h3>')
-  })
+    expect(source).toContain('RoleAuthPermissionTreePanel');
+    expect(source).toContain('RoleAuthNodeDetailPanel');
+    expect(source).toContain('role-auth-summary-grid');
+    expect(source).not.toContain('RoleAuthSelectedPagesPanel');
+    expect(source).not.toContain('步骤 1：页面授权');
+  });
 
-  it('recomposes submitted menu ids from selected pages and page-local buttons', () => {
-    const source = readSource()
+  it('keeps all-level granted ids in a single local state and submits menuIds from that state', () => {
+    const source = readSource();
 
-    expect(source).toContain('composeRoleGrantedMenuIds(')
-    expect(source).toContain('selectedPageIds')
-    expect(source).toContain('selectedButtonIdsByPage')
-    expect(source).toContain('selectedButtonIdsByPage.value[pageId] = []')
-  })
-
-  it('keeps the three authorization sections in a compact shared-height workspace', () => {
-    const source = readSource()
-
-    expect(source).toContain('.role-auth-workspace')
-    expect(source).toContain('grid-template-rows:')
-    expect(source).toContain('.role-auth-workspace > section')
-  })
-})
+    expect(source).toContain('const grantedMenuIds = ref<number[]>([])');
+    expect(source).toContain('toggleMenuGrant(');
+    expect(source).toContain('resolveGrantedMenuIds(');
+    expect(source).toContain('menuIds: [...grantedMenuIds.value]');
+  });
+});

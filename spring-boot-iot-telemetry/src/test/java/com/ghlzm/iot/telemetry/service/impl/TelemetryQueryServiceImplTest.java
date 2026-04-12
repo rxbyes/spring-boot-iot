@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -455,6 +456,67 @@ class TelemetryQueryServiceImplTest {
                 eq(product),
                 anyMap(),
                 anyMap(),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        );
+    }
+
+    @Test
+    void getHistoryBatchShouldFallbackToCurrentPropertyMetadataWhenProductMetadataIsMissing() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DeviceProperty currentProperty = new DeviceProperty();
+        currentProperty.setDeviceId(2001L);
+        currentProperty.setIdentifier("L4_NW_1");
+        currentProperty.setPropertyName("泥水位");
+        currentProperty.setValueType("int");
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of());
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(currentProperty));
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> {
+                    DevicePropertyMetadata metadata = metadataMap == null ? null : metadataMap.get("L4_NW_1");
+                    return metadata != null
+                            && "泥水位".equals(metadata.getPropertyName())
+                            && "int".equals(metadata.getDataType());
+                }),
+                eq(List.of("L4_NW_1")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of(
+                historyPoint("L4_NW_1", "泥水位", 1L, LocalDateTime.of(2026, 4, 7, 0, 0))
+        ));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L4_NW_1"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        TelemetryHistoryBatchResponse result = telemetryQueryService.getHistoryBatch(request);
+
+        assertEquals("泥水位", result.getPoints().get(0).getDisplayName());
+        assertEquals("measure", result.getPoints().get(0).getSeriesType());
+        verify(telemetryRawHistoryReader).listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> {
+                    DevicePropertyMetadata metadata = metadataMap == null ? null : metadataMap.get("L4_NW_1");
+                    return metadata != null
+                            && "泥水位".equals(metadata.getPropertyName())
+                            && "int".equals(metadata.getDataType());
+                }),
+                eq(List.of("L4_NW_1")),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class),
                 anyInt()

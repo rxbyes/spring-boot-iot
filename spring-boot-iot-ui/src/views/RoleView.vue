@@ -2,7 +2,7 @@
   <div class="role-view sys-mgmt-view standard-list-view">
     <StandardWorkbenchPanel
       title="角色权限"
-      description="在角色页统一维护基础信息、页面菜单与按钮权限，导航结构以导航编排页维护结果为准。"
+      description="在角色页统一维护基础信息与目录、页面、按钮全层级权限，导航结构以导航编排页维护结果为准。"
       show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
@@ -224,7 +224,7 @@
     <StandardFormDrawer
       v-model="dialogVisible"
       :title="dialogTitle"
-      subtitle="通过右侧抽屉维护角色基础信息，并同步配置菜单与按钮权限。"
+      subtitle="通过右侧抽屉维护角色基础信息，并同步配置目录、页面、按钮权限。"
       size="68rem"
       @close="handleDialogClose"
     >
@@ -275,58 +275,71 @@
               <el-radio :value="0">禁用</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="授权摘要">
-            <div class="role-auth-summary">
-              <span class="role-auth-summary__count">
-                已选 {{ selectedPageCount }} 个页面，已细化 {{ selectedButtonCount }} 个按钮
-              </span>
-              <span class="role-auth-summary__meta">
-                提交时将按原 menuIds 合同写回 {{ checkedMenuCount }} 项页面/按钮授权。
-              </span>
-              <span v-if="selectedPageCount === 0" class="role-auth-summary__empty"
-                >未配置菜单权限时，登录后将看不到业务导航。</span
-              >
-            </div>
-          </el-form-item>
         </el-form>
 
         <section class="role-form-layout__auth">
           <div class="role-auth-panel">
-            <el-alert
-              type="info"
-              show-icon
-              :closable="false"
-              title="先批量勾选页面，再从已选页面列表切换当前页面细化按钮权限；最终仍按原 menuIds 合同提交。"
-            />
+            <div class="role-auth-summary-grid">
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">目录</span>
+                <strong>{{ grantedDirectoryCount }}</strong>
+                <p>已授权目录节点</p>
+              </article>
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">页面</span>
+                <strong>{{ grantedPageCount }}</strong>
+                <p>已授权页面节点</p>
+              </article>
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">按钮</span>
+                <strong>{{ grantedButtonCount }}</strong>
+                <p>已授权按钮节点</p>
+              </article>
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">当前节点</span>
+                <strong>{{ currentNode ? currentNode.menuName : "未定位" }}</strong>
+                <p>
+                  {{ currentNodeStatusLabel }}
+                  <template v-if="currentNodeState">
+                    ，直属子级 {{ currentNodeState.selectedChildCount }}/{{
+                      currentNodeState.totalChildCount
+                    }}
+                  </template>
+                </p>
+              </article>
+            </div>
+            <div class="role-auth-note">
+              左侧统一处理目录、页面和按钮授权；右侧只平铺当前节点直属子级。保存仍沿用既有
+              menuIds 合同，共 {{ checkedMenuCount }} 项授权。
+            </div>
             <div class="role-auth-workspace">
-              <section aria-label="步骤 1：页面授权">
-                <RoleAuthPageTreePanel
-                  :tree-data="pageTreeData"
-                  :checked-page-ids="selectedPageIds"
-                  :keyword="pageKeyword"
+              <section aria-label="左侧权限树">
+                <RoleAuthPermissionTreePanel
+                  :tree-data="displayTreeData"
+                  :current-node-id="currentNodeId"
+                  :expanded-keys="treePanelExpandedKeys"
+                  :selection-state-map="menuSelectionStateMap"
+                  :keyword="treeKeyword"
                   :loading="menuTreeLoading"
-                  @update:keyword="pageKeyword = $event"
-                  @update:checked-page-ids="handleSelectedPageIdsChange"
+                  @update:keyword="treeKeyword = $event"
+                  @toggle="handleToggleMenu"
+                  @select-node="handleSelectCurrentNode"
+                  @expand="handleExpandNode"
+                  @collapse="handleCollapseNode"
                   @refresh="refreshMenuTree"
-                  @clear="handleClearSelectedPages"
                 />
               </section>
-              <section aria-label="步骤 2：已选页面">
-                <RoleAuthSelectedPagesPanel
-                  :items="selectedPageItems"
-                  @select="handleActivePageChange"
-                  @remove="handleRemoveSelectedPage"
-                />
-              </section>
-              <section aria-label="当前页面按钮权限">
-                <RoleAuthButtonPanel
-                  :active-page="activePageInfo"
-                  :button-rows="activePageButtonRows"
-                  :selected-button-ids="activePageSelectedButtonIds"
-                  :keyword="buttonKeyword"
+              <section aria-label="当前节点详情">
+                <RoleAuthNodeDetailPanel
+                  :current-node="currentNode"
+                  :current-node-state="currentNodeState"
+                  :parent-label="currentNodeParentLabel"
+                  :items="currentNodeDetailItems"
+                  :keyword="detailKeyword"
                   :loading="menuTreeLoading"
-                  @update:keyword="buttonKeyword = $event"
-                  @update:selected-button-ids="handleActivePageButtonIdsChange"
+                  @update:keyword="detailKeyword = $event"
+                  @toggle="handleToggleMenu"
+                  @focus-child="handleSelectCurrentNode"
                 />
               </section>
             </div>
@@ -376,9 +389,8 @@ import { ElMessage } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import CsvColumnSettingDialog from "@/components/CsvColumnSettingDialog.vue";
 import EmptyState from "@/components/EmptyState.vue";
-import RoleAuthButtonPanel from "@/components/role/RoleAuthButtonPanel.vue";
-import RoleAuthPageTreePanel from "@/components/role/RoleAuthPageTreePanel.vue";
-import RoleAuthSelectedPagesPanel from "@/components/role/RoleAuthSelectedPagesPanel.vue";
+import RoleAuthNodeDetailPanel from "@/components/role/RoleAuthNodeDetailPanel.vue";
+import RoleAuthPermissionTreePanel from "@/components/role/RoleAuthPermissionTreePanel.vue";
 import StandardAppliedFiltersBar from "@/components/StandardAppliedFiltersBar.vue";
 import StandardDrawerFooter from "@/components/StandardDrawerFooter.vue";
 import StandardFormDrawer from "@/components/StandardFormDrawer.vue";
@@ -411,11 +423,12 @@ import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
 import { confirmDelete, isConfirmCancelled } from "@/utils/confirm";
 import {
   buildMenuNodeMap,
-  buildRolePageTree,
-  composeRoleGrantedMenuIds,
-  resolveRoleCheckedMenuIds,
-  resolveRoleSelectedButtonIdsByPage,
-  resolveRoleSelectedPageIds,
+  buildMenuSelectionStateMap,
+  filterPermissionTreeByKeyword,
+  resolveGrantedMenuIds,
+  resolveNodeAncestorIds,
+  resolveNodeDetailItems,
+  toggleMenuGrant,
 } from "@/utils/menuAuth";
 import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 

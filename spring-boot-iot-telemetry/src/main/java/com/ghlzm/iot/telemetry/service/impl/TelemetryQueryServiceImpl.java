@@ -117,9 +117,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         Device device = requireDevice(request.getDeviceId());
         Product product = device.getProductId() == null ? null : productMapper.selectById(device.getProductId());
-        Map<String, DevicePropertyMetadata> metadataMap = device.getProductId() == null
-                ? Map.of()
-                : devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId());
+        Map<String, DevicePropertyMetadata> metadataMap = buildHistoryMetadataMap(device, identifiers);
         Map<String, TelemetryMetricMapping> mappingMap = device.getProductId() == null
                 ? Map.of()
                 : deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
@@ -201,6 +199,34 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             return latestPoints;
         }
         return tdengineTelemetryFacade.listLatestPoints(device, product);
+    }
+
+    private Map<String, DevicePropertyMetadata> buildHistoryMetadataMap(Device device, List<String> identifiers) {
+        Map<String, DevicePropertyMetadata> metadataMap = new LinkedHashMap<>();
+        if (device != null && device.getProductId() != null) {
+            metadataMap.putAll(devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId()));
+        }
+        if (device == null || device.getId() == null || identifiers == null || identifiers.isEmpty()) {
+            return metadataMap;
+        }
+        List<DeviceProperty> currentProperties = devicePropertyMapper.selectList(
+                new LambdaQueryWrapper<DeviceProperty>()
+                        .eq(DeviceProperty::getDeviceId, device.getId())
+                        .in(DeviceProperty::getIdentifier, identifiers)
+        );
+        for (DeviceProperty currentProperty : currentProperties) {
+            if (currentProperty == null || currentProperty.getIdentifier() == null || currentProperty.getIdentifier().isBlank()) {
+                continue;
+            }
+            metadataMap.computeIfAbsent(currentProperty.getIdentifier(), key -> {
+                DevicePropertyMetadata metadata = new DevicePropertyMetadata();
+                metadata.setIdentifier(currentProperty.getIdentifier());
+                metadata.setPropertyName(currentProperty.getPropertyName());
+                metadata.setDataType(currentProperty.getValueType());
+                return metadata;
+            });
+        }
+        return metadataMap;
     }
 
     private List<TelemetryV2Point> readHistoryPoints(Device device,

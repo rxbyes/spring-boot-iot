@@ -6,6 +6,8 @@ import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.Map;
  */
 @Service
 public class LegacyTelemetryHistoryReader {
+
+    private static final Logger log = LoggerFactory.getLogger(LegacyTelemetryHistoryReader.class);
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final LegacyTdengineSchemaInspector schemaInspector;
@@ -117,14 +121,21 @@ public class LegacyTelemetryHistoryReader {
         List<Object> args = new ArrayList<>();
         sql.append(" FROM ").append(subTable);
         if (windowStart != null && windowEnd != null) {
-            String effectiveTimeColumn = schema.hasColumn("rd") ? "rd" : "ts";
-            sql.append(" WHERE COALESCE(")
-                    .append(effectiveTimeColumn)
-                    .append(", ts) >= ? AND COALESCE(")
-                    .append(effectiveTimeColumn)
-                    .append(", ts) < ?");
-            args.add(Timestamp.valueOf(windowStart));
-            args.add(Timestamp.valueOf(windowEnd));
+            if (schema.hasColumn("rd")) {
+                sql.append(" WHERE ((")
+                        .append("rd >= ? AND rd < ?")
+                        .append(") OR (")
+                        .append("rd IS NULL AND ts >= ? AND ts < ?")
+                        .append("))");
+                args.add(Timestamp.valueOf(windowStart));
+                args.add(Timestamp.valueOf(windowEnd));
+                args.add(Timestamp.valueOf(windowStart));
+                args.add(Timestamp.valueOf(windowEnd));
+            } else {
+                sql.append(" WHERE ts >= ? AND ts < ?");
+                args.add(Timestamp.valueOf(windowStart));
+                args.add(Timestamp.valueOf(windowEnd));
+            }
         }
         sql.append(" ORDER BY ts ASC LIMIT ").append(Math.max(batchSize, 1));
         try {
@@ -173,6 +184,10 @@ public class LegacyTelemetryHistoryReader {
                 return points;
             }, args.toArray());
         } catch (Exception ex) {
+            log.warn("读取 legacy telemetry 历史失败, table={}, deviceId={}, error={}",
+                    subTable,
+                    device == null ? null : device.getId(),
+                    ex.getMessage());
             return List.of();
         }
     }

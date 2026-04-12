@@ -70,6 +70,8 @@ public class NormalizedTelemetryHistoryReader {
         if (windowStart != null && windowEnd != null) {
             args.add(Timestamp.valueOf(windowStart));
             args.add(Timestamp.valueOf(windowEnd));
+            args.add(Timestamp.valueOf(windowStart));
+            args.add(Timestamp.valueOf(windowEnd));
         }
         return jdbcTemplate.query(sql, rs -> {
             List<TelemetryV2Point> points = new ArrayList<>();
@@ -144,8 +146,11 @@ public class NormalizedTelemetryHistoryReader {
                 WHERE device_id = ?
                 """);
         if (windowStart != null && windowEnd != null) {
-            sql.append(" AND COALESCE(reported_at, ts) >= ?")
-                    .append(" AND COALESCE(reported_at, ts) < ?");
+            sql.append(" AND ((")
+                    .append("reported_at >= ? AND reported_at < ?")
+                    .append(") OR (")
+                    .append("reported_at IS NULL AND ts >= ? AND ts < ?")
+                    .append("))");
         }
         sql.append(" ORDER BY reported_at ASC, ts ASC")
                 .append(" LIMIT ")

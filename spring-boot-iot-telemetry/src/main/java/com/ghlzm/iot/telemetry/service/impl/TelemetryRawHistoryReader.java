@@ -5,6 +5,8 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.Set;
  */
 @Service
 public class TelemetryRawHistoryReader {
+
+    private static final Logger log = LoggerFactory.getLogger(TelemetryRawHistoryReader.class);
 
     private static final String SELECT_COLUMNS = """
             SELECT
@@ -111,6 +115,8 @@ public class TelemetryRawHistoryReader {
         if (windowStart != null && windowEnd != null) {
             args.add(Timestamp.valueOf(windowStart));
             args.add(Timestamp.valueOf(windowEnd));
+            args.add(Timestamp.valueOf(windowStart));
+            args.add(Timestamp.valueOf(windowEnd));
         }
         try {
             return jdbcTemplate.query(sql, rs -> {
@@ -161,6 +167,10 @@ public class TelemetryRawHistoryReader {
                 return points;
             }, args.toArray());
         } catch (Exception ex) {
+            log.warn("读取 telemetry v2 raw 历史失败, table={}, deviceId={}, error={}",
+                    childTable,
+                    device == null ? null : device.getId(),
+                    ex.getMessage());
             return List.of();
         }
     }
@@ -197,8 +207,11 @@ public class TelemetryRawHistoryReader {
                 .append(placeholders)
                 .append(")");
         if (windowStart != null && windowEnd != null) {
-            sql.append(" AND COALESCE(ingested_at, ts, reported_at) >= ?")
-                    .append(" AND COALESCE(ingested_at, ts, reported_at) < ?");
+            sql.append(" AND ((")
+                    .append("ingested_at >= ? AND ingested_at < ?")
+                    .append(") OR (")
+                    .append("ingested_at IS NULL AND ts >= ? AND ts < ?")
+                    .append("))");
         }
         sql.append(" ORDER BY ts ASC")
                 .append(" LIMIT ")

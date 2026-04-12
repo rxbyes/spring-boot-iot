@@ -1,7 +1,7 @@
 <template>
   <StandardWorkbenchPanel
     title="接入失败归档台"
-    description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，快速回放失败上下文。"
+    description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，并决定下一步回链路追踪、异常观测还是治理修正。"
     show-filters
     :show-applied-filters="hasAppliedFilters"
     :show-inline-state="showInlineState"
@@ -491,12 +491,12 @@ const detailPayloadTruncatedText = computed(() => {
 });
 const detailRouteAdvice = computed(() => {
   if (detailData.value.traceId) {
-    return `建议先回查 TraceId（${detailData.value.traceId}）对应的异常观测台，再切回链路追踪核对主链路是否已落消息日志。`;
+    return `建议先到链路追踪台核对失败阶段（TraceId：${detailData.value.traceId}），再视证据回异常观测台或治理页修正。`;
   }
   if (detailData.value.deviceCode) {
-    return `建议按设备编码 ${detailData.value.deviceCode} 回查异常观测台和链路追踪台，确认失败发生在建档校验前还是分发阶段。`;
+    return `建议先按设备编码 ${detailData.value.deviceCode} 回链路追踪台补齐主链路证据，再决定去异常观测台还是治理页修正。`;
   }
-  return '建议结合 Topic、协议编码和契约快照继续排查失败发生点。';
+  return '建议先结合 Topic、协议编码和契约快照定位失败发生点，再决定回链路追踪台还是治理页。';
 });
 const detailSummaryCards = computed<DetailSummaryCard[]>(() => [
   {

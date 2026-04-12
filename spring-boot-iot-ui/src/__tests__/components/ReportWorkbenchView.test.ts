@@ -1021,7 +1021,7 @@ describe('ReportWorkbenchView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('MQTT 已发布，等待消费回流');
+    expect(wrapper.text()).toContain('当前仍在等待 trace 回流。');
 
     const logButton = findButtonByText(wrapper, '查看异常观测');
     expect(logButton).toBeTruthy();

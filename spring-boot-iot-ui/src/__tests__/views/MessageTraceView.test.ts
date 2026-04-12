@@ -551,6 +551,8 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('来自链路验证中心');
+    expect(wrapper.text()).toContain('当前节点：主链路复盘');
+    expect(wrapper.text()).toContain('下一步按证据进入异常观测、数据校验或治理页。');
     expect(messageApi.pageMessageTraceLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-route-001',
       deviceCode: 'stored-device-01',
@@ -1050,7 +1052,7 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('链路追踪台');
     expect(wrapper.text()).toContain('失败归档');
     expect(wrapper.text()).toContain('TraceId');
-    expect(wrapper.text()).toContain('按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。');
+    expect(wrapper.text()).toContain('主链路复盘：按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路，并判断下一步去异常观测、数据校验还是治理修正。');
     expect(wrapper.text()).not.toContain('TRACE CENTER');
     expect(wrapper.text()).not.toContain('运维看板');
     expect(wrapper.text()).not.toContain('最近会话');
@@ -1396,7 +1398,6 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(findButtonByText(wrapper, '观测')).toBeUndefined();
-    expect(wrapper.text()).not.toContain('观测');
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(window.sessionStorage.getItem('iot-access:diagnostic-context')).toBeNull();
   });

@@ -1,43 +1,41 @@
-# Role Auth Drawer Restructure Implementation Plan
+# Role Auth Drawer Full-Permission Tree Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restructure the `RoleView` authorization drawer so the tree only handles directory/page access while button permissions are edited per selected page, without changing the existing backend `menuIds` contract.
+**Goal:** Rebuild `/role` authorization so the drawer uses a single full-permission tree for directory/page/button assignment plus a flat current-node detail panel, while keeping the existing backend `menuIds` contract.
 
-**Architecture:** Keep `/api/menu/tree` and role detail `menuIds` as the only truth, add pure `menuAuth` helpers that derive a page-only tree plus per-page button groups, and refactor `RoleView.vue` into a left-form + right three-section authorization workspace. The implementation stays fully front-end: tests first, then minimal Vue changes, then document the new interaction contract in the existing docs.
+**Architecture:** Replace the old page-only tree split with a single selected-node set that contains all permission types, derive custom checked/half-checked states from tree relations, and render tree rows with custom checkboxes instead of the old built-in page/button split. Keep the role form, role APIs, and backend persistence contract unchanged; only refactor the front-end state model, components, tests, and in-place docs.
 
-**Tech Stack:** Vue 3, TypeScript, Element Plus, Vitest, existing `Standard*` shared components and guards.
+**Tech Stack:** Vue 3, TypeScript, Element Plus, Vitest, existing shared `Standard*` and `PanelCard` components.
 
 ---
 
 ## File Structure
 
 - `spring-boot-iot-ui/src/utils/menuAuth.ts`
-  - Add pure helpers for page-only trees, page/button selection splitting, per-page button grouping, and final `menuIds` recomposition.
+  - Own tree traversal, ancestor/descendant helpers, checked-state derivation, display filtering, and child-detail derivation for the new permission model.
 - `spring-boot-iot-ui/src/__tests__/utils/menuAuth.test.ts`
-  - Lock the new page/button split semantics before touching `RoleView.vue`.
-- `spring-boot-iot-ui/src/components/role/RoleAuthPageTreePanel.vue`
-  - Render the page-only tree, search box, and page-level bulk actions.
-- `spring-boot-iot-ui/src/components/role/RoleAuthSelectedPagesPanel.vue`
-  - Render the selected-page cards and current-page selection state.
-- `spring-boot-iot-ui/src/components/role/RoleAuthButtonPanel.vue`
-  - Render current-page button empty states, search box, and page-local button bulk actions.
+  - Lock the new all-level permission behavior before touching the view.
+- `spring-boot-iot-ui/src/components/role/RoleAuthPermissionTreePanel.vue`
+  - Render the full permission tree with custom checkbox state and lightweight tree rows.
+- `spring-boot-iot-ui/src/components/role/RoleAuthNodeDetailPanel.vue`
+  - Render the flat current-node child list or button info panel.
 - `spring-boot-iot-ui/src/__tests__/components/RoleAuthPanels.test.ts`
-  - Verify the new authorization panels render the intended empty states and current-page button rows.
+  - Verify the new tree/detail panels render all-level authorization states.
 - `spring-boot-iot-ui/src/views/RoleView.vue`
-  - Replace the mixed menu/button tree with the three-section authorization workspace and wire new local state.
+  - Replace the old three-panel page/button workspace with summary + tree + current-node detail.
 - `spring-boot-iot-ui/src/__tests__/views/RoleView.test.ts`
-  - Keep the governance contract test aligned with the new structure and merged-submit semantics.
+  - Keep the governance contract aligned with the new structure and selected-id model.
 - `docs/02-业务功能与流程说明.md`
-  - Update the role-permission page behavior from “same tree picks menu + button” to “page tree + per-page button refinement”.
+  - Update the role page behavior description to the new all-level authorization structure.
 - `docs/06-前端开发与CSS规范.md`
-  - Add the new role-permission drawer layout rule so button nodes never return to the tree.
+  - Replace the old three-panel rule with the new full-permission-tree rule.
 - `docs/08-变更记录与技术债清单.md`
-  - Log the behavior change and verification evidence.
+  - Record the redesign and verification evidence.
 - `docs/15-前端优化与治理计划.md`
-  - Record the prevention rule for future governance-page regressions.
+  - Add a prevention rule so tree rows stay lightweight and node detail stays flat.
 
-## Task 1: Lock Page/Button Split Semantics in `menuAuth`
+## Task 1: Lock Full-Permission Utility Semantics
 
 **Files:**
 - Modify: `spring-boot-iot-ui/src/__tests__/utils/menuAuth.test.ts`
@@ -45,52 +43,50 @@
 
 - [ ] **Step 1: Write the failing utility tests**
 
-Add the new imports and tests to `spring-boot-iot-ui/src/__tests__/utils/menuAuth.test.ts`:
+Update `spring-boot-iot-ui/src/__tests__/utils/menuAuth.test.ts` so it covers the new all-level helpers. Replace the old page-only expectations with tests like:
 
 ```ts
 import {
   buildMenuNodeMap,
-  buildRolePageTree,
-  composeRoleGrantedMenuIds,
-  resolveRoleCheckedMenuIds,
-  resolveRoleMenuSummary,
-  resolveRoleSelectedButtonIdsByPage,
-  resolveRoleSelectedPageIds
+  buildMenuSelectionStateMap,
+  filterPermissionTreeByKeyword,
+  resolveGrantedMenuIds,
+  resolveNodeDetailItems,
+  toggleMenuGrant
 } from '@/utils/menuAuth';
 
-it('builds a page-only tree and groups granted buttons by parent page', () => {
-  const pageTree = buildRolePageTree(menuTree);
+it('marks a selected page without all buttons as half-checked', () => {
+  const granted = resolveGrantedMenuIds(menuTree, [1, 2]);
+  const stateMap = buildMenuSelectionStateMap(menuTree, granted);
 
-  expect(pageTree[0].children.map((item) => item.id)).toEqual([2, 4]);
-  expect(pageTree[0].children[0].children).toEqual([]);
-  expect(resolveRoleSelectedPageIds(menuTree, [1, 2, 3, 4, 5])).toEqual([2, 4]);
-  expect(resolveRoleSelectedButtonIdsByPage(menuTree, [1, 2, 3, 4, 5])).toEqual({
-    2: [3],
-    4: [5]
-  });
+  expect(stateMap.get(1)).toMatchObject({ checked: false, indeterminate: true, selfSelected: true });
+  expect(stateMap.get(2)).toMatchObject({ checked: false, indeterminate: true, selfSelected: true });
 });
 
-it('drops orphan button ids when recomposing submit menu ids', () => {
-  expect(
-    composeRoleGrantedMenuIds(menuTree, [4], {
-      2: [3],
-      4: [5]
-    })
-  ).toEqual([4, 5]);
+it('checking a directory adds descendants and keeping a sibling unchecked leaves the parent half-checked', () => {
+  const granted = toggleMenuGrant(menuTree, [], 1, true);
+  const nextGranted = toggleMenuGrant(menuTree, granted, 5, false);
+  const stateMap = buildMenuSelectionStateMap(menuTree, nextGranted);
+
+  expect(nextGranted).toEqual([1, 2, 3, 4]);
+  expect(stateMap.get(1)).toMatchObject({ checked: false, indeterminate: true });
 });
-```
 
-Also extend the test fixture with a second page button so the orphan-filter case is real:
+it('allows selecting a child from an unselected parent by auto-including ancestors', () => {
+  expect(toggleMenuGrant(menuTree, [], 5, true)).toEqual([1, 4, 5]);
+});
 
-```ts
-{
-  id: 5,
-  parentId: 4,
-  menuName: '刷新菜单',
-  menuCode: 'system:menu:refresh',
-  type: 2,
-  children: []
-}
+it('filters the display tree without mutating granted ids', () => {
+  const granted = resolveGrantedMenuIds(menuTree, [1, 4, 5]);
+
+  expect(filterPermissionTreeByKeyword(menuTree, '角色').map((item) => item.id)).toEqual([1]);
+  expect(granted).toEqual([1, 4, 5]);
+});
+
+it('returns the current node direct children for the detail panel', () => {
+  expect(resolveNodeDetailItems(menuTree, 1).map((item) => item.id)).toEqual([2, 4]);
+  expect(resolveNodeDetailItems(menuTree, 2).map((item) => item.id)).toEqual([3]);
+});
 ```
 
 - [ ] **Step 2: Run the utility test and verify it fails**
@@ -101,86 +97,74 @@ Run:
 npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/utils/menuAuth.test.ts
 ```
 
-Expected: FAIL with TypeScript import errors such as `No exported member 'buildRolePageTree'` / `No exported member 'composeRoleGrantedMenuIds'`.
+Expected: FAIL with missing-export or assertion failures because the old utility layer only knows the page/button split model.
 
-- [ ] **Step 3: Implement the pure helpers in `menuAuth.ts`**
+- [ ] **Step 3: Implement the new tree helpers**
 
-Add the new helpers to `spring-boot-iot-ui/src/utils/menuAuth.ts`:
+In `spring-boot-iot-ui/src/utils/menuAuth.ts`, add the all-level helpers and remove page-split-only logic. The implementation should include:
 
 ```ts
-export function buildRolePageTree(nodes: MenuTreeNode[]): MenuTreeNode[] {
-  return nodes
-    .filter((node) => node.type !== 2)
-    .map((node) => ({
-      ...node,
-      children: buildRolePageTree(node.children || [])
-    }));
-}
-
-export function resolveRoleSelectedPageIds(
+export function resolveGrantedMenuIds(
   nodes: MenuTreeNode[],
   grantedIds: Array<number | undefined | null>
 ): number[] {
-  const grantedSet = new Set(
-    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
-  );
-
-  const pageIds: number[] = [];
-  visitMenus(nodes, (node) => {
-    if (node.type === 1 && grantedSet.has(node.id)) {
-      pageIds.push(node.id);
-    }
-  });
-  return pageIds;
-}
-
-export function resolveRoleSelectedButtonIdsByPage(
-  nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>
-): Record<number, number[]> {
-  const grantedSet = new Set(
-    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
-  );
-  const buttonIdsByPage: Record<number, number[]> = {};
-
-  visitMenus(nodes, (node) => {
-    if (node.type !== 2 || typeof node.parentId !== 'number' || !grantedSet.has(node.id)) {
-      return;
-    }
-    if (!buttonIdsByPage[node.parentId]) {
-      buttonIdsByPage[node.parentId] = [];
-    }
-    buttonIdsByPage[node.parentId].push(node.id);
-  });
-
-  return buttonIdsByPage;
-}
-
-export function composeRoleGrantedMenuIds(
-  nodes: MenuTreeNode[],
-  selectedPageIds: number[],
-  selectedButtonIdsByPage: Record<number, number[]>
-): number[] {
-  const pageSet = new Set(selectedPageIds);
-  const result = new Set<number>(selectedPageIds);
   const nodeMap = buildMenuNodeMap(nodes);
-
-  Object.entries(selectedButtonIdsByPage).forEach(([pageIdText, buttonIds]) => {
-    const pageId = Number(pageIdText);
-    if (!pageSet.has(pageId)) {
-      return;
+  const seen = new Set<number>();
+  return grantedIds.filter((menuId): menuId is number => {
+    if (typeof menuId !== 'number' || seen.has(menuId) || !nodeMap.has(menuId)) {
+      return false;
     }
-    buttonIds.forEach((buttonId) => {
-      const node = nodeMap.get(buttonId);
-      if (node?.type === 2 && node.parentId === pageId) {
-        result.add(buttonId);
-      }
+    seen.add(menuId);
+    return true;
+  });
+}
+
+export function toggleMenuGrant(
+  nodes: MenuTreeNode[],
+  grantedIds: number[],
+  targetId: number,
+  checked: boolean
+): number[] {
+  const nodeMap = buildMenuNodeMap(nodes);
+  const relationMap = buildMenuRelationMap(nodes);
+  const nextGranted = new Set(resolveGrantedMenuIds(nodes, grantedIds));
+  const descendants = relationMap.get(targetId)?.descendantIds ?? [];
+  const ancestors = relationMap.get(targetId)?.ancestorIds ?? [];
+
+  if (checked) {
+    [targetId, ...descendants, ...ancestors].forEach((id) => nextGranted.add(id));
+  } else {
+    [targetId, ...descendants].forEach((id) => nextGranted.delete(id));
+  }
+
+  return Array.from(nextGranted);
+}
+
+export function buildMenuSelectionStateMap(nodes: MenuTreeNode[], grantedIds: number[]) {
+  const grantedSet = new Set(resolveGrantedMenuIds(nodes, grantedIds));
+  const relationMap = buildMenuRelationMap(nodes);
+  const stateMap = new Map<number, { checked: boolean; indeterminate: boolean; selfSelected: boolean }>();
+
+  relationMap.forEach((relation, nodeId) => {
+    const subtreeIds = [nodeId, ...relation.descendantIds];
+    const selectedCount = subtreeIds.filter((id) => grantedSet.has(id)).length;
+    const total = subtreeIds.length;
+    stateMap.set(nodeId, {
+      checked: total > 0 && selectedCount === total,
+      indeterminate: selectedCount > 0 && selectedCount < total,
+      selfSelected: grantedSet.has(nodeId)
     });
   });
 
-  return Array.from(result);
+  return stateMap;
 }
 ```
+
+Also add helpers to:
+
+- derive parent/child relations
+- filter the display tree by keyword while preserving matching ancestors
+- derive current-node direct children for the right panel
 
 - [ ] **Step 4: Re-run the utility test and verify it passes**
 
@@ -190,63 +174,70 @@ Run:
 npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/utils/menuAuth.test.ts
 ```
 
-Expected: PASS with all `menuAuth utils` tests green.
+Expected: PASS with all new utility tests green.
 
-- [ ] **Step 5: Commit the utility layer**
-
-Run:
-
-```bash
-git add spring-boot-iot-ui/src/utils/menuAuth.ts spring-boot-iot-ui/src/__tests__/utils/menuAuth.test.ts
-git commit -m "test: lock role auth menu split helpers"
-```
-
-## Task 2: Add Presentational Role Authorization Panels
+## Task 2: Build the New Permission Tree and Detail Panels
 
 **Files:**
-- Create: `spring-boot-iot-ui/src/components/role/RoleAuthPageTreePanel.vue`
-- Create: `spring-boot-iot-ui/src/components/role/RoleAuthSelectedPagesPanel.vue`
-- Create: `spring-boot-iot-ui/src/components/role/RoleAuthButtonPanel.vue`
-- Create: `spring-boot-iot-ui/src/__tests__/components/RoleAuthPanels.test.ts`
+- Create: `spring-boot-iot-ui/src/components/role/RoleAuthPermissionTreePanel.vue`
+- Create: `spring-boot-iot-ui/src/components/role/RoleAuthNodeDetailPanel.vue`
+- Delete: `spring-boot-iot-ui/src/components/role/RoleAuthPageTreePanel.vue`
+- Delete: `spring-boot-iot-ui/src/components/role/RoleAuthSelectedPagesPanel.vue`
+- Delete: `spring-boot-iot-ui/src/components/role/RoleAuthButtonPanel.vue`
+- Modify: `spring-boot-iot-ui/src/__tests__/components/RoleAuthPanels.test.ts`
 
 - [ ] **Step 1: Write the failing panel tests**
 
-Create `spring-boot-iot-ui/src/__tests__/components/RoleAuthPanels.test.ts`:
+Update `spring-boot-iot-ui/src/__tests__/components/RoleAuthPanels.test.ts` to exercise the new components:
 
 ```ts
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import RoleAuthButtonPanel from '@/components/role/RoleAuthButtonPanel.vue';
-import RoleAuthSelectedPagesPanel from '@/components/role/RoleAuthSelectedPagesPanel.vue';
+import RoleAuthNodeDetailPanel from '@/components/role/RoleAuthNodeDetailPanel.vue';
+import RoleAuthPermissionTreePanel from '@/components/role/RoleAuthPermissionTreePanel.vue';
 
 describe('Role auth panels', () => {
-  it('shows a guidance empty state before a page is selected', () => {
-    const wrapper = mount(RoleAuthButtonPanel, {
+  it('renders tree rows with type tag and child count but without stacked route text', () => {
+    const wrapper = mount(RoleAuthPermissionTreePanel, {
       props: {
-        activePage: null,
-        buttonRows: [],
+        treeData: [
+          {
+            id: 1,
+            menuName: '平台治理',
+            type: 0,
+            children: [
+              { id: 2, parentId: 1, menuName: '角色权限', path: '/role', type: 1, children: [] }
+            ]
+          }
+        ],
+        currentNodeId: 1,
+        expandedKeys: [1],
+        selectionState: { 1: { checked: false, indeterminate: true, selfSelected: true }, 2: { checked: false, indeterminate: false, selfSelected: false } },
         keyword: '',
         loading: false
       }
     });
 
-    expect(wrapper.text()).toContain('请先勾选页面，或从已选页面列表选择一个页面');
+    expect(wrapper.text()).toContain('平台治理');
+    expect(wrapper.text()).toContain('目录');
+    expect(wrapper.text()).toContain('1 项');
+    expect(wrapper.text()).not.toContain('/role');
   });
 
-  it('shows page status cards without expanding every button name', () => {
-    const wrapper = mount(RoleAuthSelectedPagesPanel, {
+  it('renders current node direct children as a flat list and shows button metadata on page nodes', () => {
+    const wrapper = mount(RoleAuthNodeDetailPanel, {
       props: {
-        items: [
-          { id: 2, menuName: '角色权限', path: '/role', buttonSummary: '已选 2 个按钮', active: true },
-          { id: 4, menuName: '导航编排', path: '/menu', buttonSummary: '无独立按钮', active: false }
-        ]
+        currentNode: { id: 2, menuName: '角色权限', type: 1, path: '/role' },
+        items: [{ id: 3, menuName: '新增角色', menuCode: 'system:role:add', type: 2, checked: true, indeterminate: false, childCount: 0 }],
+        keyword: '',
+        loading: false
       }
     });
 
-    expect(wrapper.text()).toContain('已选 2 个按钮');
-    expect(wrapper.text()).toContain('无独立按钮');
-    expect(wrapper.text()).not.toContain('system:role:add');
+    expect(wrapper.text()).toContain('新增角色');
+    expect(wrapper.text()).toContain('system:role:add');
+    expect(wrapper.text()).not.toContain('步骤 2：已选页面');
   });
 });
 ```
@@ -259,92 +250,37 @@ Run:
 npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/components/RoleAuthPanels.test.ts
 ```
 
-Expected: FAIL with module resolution errors because the new role authorization components do not exist yet.
+Expected: FAIL because the new components do not exist yet and the old assertions no longer match.
 
-- [ ] **Step 3: Create the three panel components with minimal props/emits**
+- [ ] **Step 3: Implement the two new panel components**
 
-Create `spring-boot-iot-ui/src/components/role/RoleAuthPageTreePanel.vue`:
+Create `spring-boot-iot-ui/src/components/role/RoleAuthPermissionTreePanel.vue` with:
 
-```vue
-<template>
-  <section class="role-auth-panel">
-    <div class="role-auth-panel__header">
-      <div>
-        <h3>步骤 1：页面授权</h3>
-        <p>树里只显示目录和页面；按钮权限请在页面选定后单独配置。</p>
-      </div>
-      <slot name="actions" />
-    </div>
-    <slot />
-  </section>
-</template>
-```
+- `PanelCard` shell
+- search input + refresh action
+- `el-tree` with custom checkbox nodes
+- node row content containing only name, type tag, and child count
+- emits for:
+  - `update:keyword`
+  - `toggle`
+  - `select-node`
+  - `expand`
+  - `collapse`
+  - `refresh`
 
-Create `spring-boot-iot-ui/src/components/role/RoleAuthSelectedPagesPanel.vue`:
+Create `spring-boot-iot-ui/src/components/role/RoleAuthNodeDetailPanel.vue` with:
 
-```vue
-<script setup lang="ts">
-defineProps<{
-  items: Array<{ id: number; menuName: string; path?: string; buttonSummary: string; active: boolean }>;
-}>();
-const emit = defineEmits<{ select: [pageId: number] }>();
-</script>
+- `PanelCard` shell
+- current-node header and node-status summary
+- child search input
+- flat child list when current node has children
+- button info card when current node is a button
+- emits for:
+  - `update:keyword`
+  - `toggle`
+  - `focus-child`
 
-<template>
-  <section class="role-auth-panel">
-    <div class="role-auth-panel__header">
-      <div>
-        <h3>步骤 2：已选页面</h3>
-        <p>从已选页面里挑一个页面，再精修该页面按钮。</p>
-      </div>
-    </div>
-    <button
-      v-for="item in items"
-      :key="item.id"
-      class="role-selected-page-card"
-      :class="{ 'role-selected-page-card--active': item.active }"
-      type="button"
-      @click="emit('select', item.id)"
-    >
-      <strong>{{ item.menuName }}</strong>
-      <span>{{ item.path || '--' }}</span>
-      <span>{{ item.buttonSummary }}</span>
-    </button>
-  </section>
-</template>
-```
-
-Create `spring-boot-iot-ui/src/components/role/RoleAuthButtonPanel.vue`:
-
-```vue
-<script setup lang="ts">
-defineProps<{
-  activePage: { id: number; menuName: string } | null;
-  buttonRows: Array<{ id: number; menuName: string; menuCode?: string; description?: string; checked: boolean }>;
-  keyword: string;
-  loading: boolean;
-}>();
-</script>
-
-<template>
-  <section class="role-auth-panel">
-    <div class="role-auth-panel__header">
-      <div>
-        <h3>当前页面按钮权限</h3>
-        <p v-if="activePage">当前页：{{ activePage.menuName }}</p>
-        <p v-else>请先勾选页面，或从已选页面列表选择一个页面</p>
-      </div>
-    </div>
-    <div v-if="!activePage" class="role-auth-panel__empty">
-      请先勾选页面，或从已选页面列表选择一个页面
-    </div>
-    <div v-else-if="buttonRows.length === 0" class="role-auth-panel__empty">
-      当前页面暂无独立按钮权限
-    </div>
-    <slot v-else />
-  </section>
-</template>
-```
+Delete the old page-split components after `RoleView.vue` no longer imports them.
 
 - [ ] **Step 4: Re-run the panel test and verify it passes**
 
@@ -354,18 +290,9 @@ Run:
 npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/components/RoleAuthPanels.test.ts
 ```
 
-Expected: PASS with the two new panel tests green.
+Expected: PASS with the updated panel tests green.
 
-- [ ] **Step 5: Commit the panel layer**
-
-Run:
-
-```bash
-git add spring-boot-iot-ui/src/components/role spring-boot-iot-ui/src/__tests__/components/RoleAuthPanels.test.ts
-git commit -m "feat: add role auth drawer panels"
-```
-
-## Task 3: Wire `RoleView` to the Split Authorization Workspace
+## Task 3: Rewire `RoleView` to the Unified Permission Model
 
 **Files:**
 - Modify: `spring-boot-iot-ui/src/views/RoleView.vue`
@@ -373,25 +300,26 @@ git commit -m "feat: add role auth drawer panels"
 
 - [ ] **Step 1: Write the failing `RoleView` contract tests**
 
-Update `spring-boot-iot-ui/src/__tests__/views/RoleView.test.ts`:
+Update `spring-boot-iot-ui/src/__tests__/views/RoleView.test.ts` so it expects the new structure:
 
 ```ts
-it('splits the drawer auth area into page authorization, selected pages and current page buttons', () => {
+it('renders the role authorization drawer as summary plus full permission tree and current-node detail', () => {
   const source = readSource();
 
-  expect(source).toContain('步骤 1：页面授权');
-  expect(source).toContain('步骤 2：已选页面');
-  expect(source).toContain('当前页面按钮权限');
-  expect(source).not.toContain('h3>菜单与按钮授权');
+  expect(source).toContain('RoleAuthPermissionTreePanel');
+  expect(source).toContain('RoleAuthNodeDetailPanel');
+  expect(source).toContain('role-auth-summary-grid');
+  expect(source).not.toContain('RoleAuthSelectedPagesPanel');
+  expect(source).not.toContain('步骤 1：页面授权');
 });
 
-it('keeps page ids and button ids in separate local state before recomposing menuIds on submit', () => {
+it('keeps all-level granted ids in a single local state and submits menuIds from that state', () => {
   const source = readSource();
 
-  expect(source).toContain('selectedPageIds');
-  expect(source).toContain('selectedButtonIdsByPage');
-  expect(source).toContain('composeRoleGrantedMenuIds');
-  expect(source).not.toContain('function collectCheckedMenuIds()');
+  expect(source).toContain('const grantedMenuIds = ref<number[]>([])');
+  expect(source).toContain('toggleMenuGrant(');
+  expect(source).toContain('resolveGrantedMenuIds(');
+  expect(source).toContain('menuIds: [...grantedMenuIds.value]');
 });
 ```
 
@@ -403,81 +331,58 @@ Run:
 npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/views/RoleView.test.ts
 ```
 
-Expected: FAIL because the current source still contains the old `菜单与按钮授权` section and still uses the mixed tree submission path.
+Expected: FAIL because `RoleView.vue` still imports and renders the old page/button split workspace.
 
-- [ ] **Step 3: Refactor `RoleView.vue` to use page/button split state**
+- [ ] **Step 3: Refactor `RoleView.vue`**
 
-In `spring-boot-iot-ui/src/views/RoleView.vue`, replace the mixed-tree state with separate page/button state:
+In `spring-boot-iot-ui/src/views/RoleView.vue`:
+
+- replace `selectedPageIds`, `selectedButtonIdsByPage`, `activePageId`, `pageKeyword`, `buttonKeyword`
+  with:
 
 ```ts
-const selectedPageIds = ref<number[]>([]);
-const selectedButtonIdsByPage = ref<Record<number, number[]>>({});
-const activePageId = ref<number | null>(null);
+const grantedMenuIds = ref<number[]>([]);
+const currentNodeId = ref<number | null>(null);
+const treeKeyword = ref('');
+const detailKeyword = ref('');
+const expandedNodeKeys = ref<number[]>([]);
+```
 
-const pageTreeData = computed(() => buildRolePageTree(rawMenuTree.value));
-const selectedPages = computed(() =>
-  resolveRoleSelectedPageIds(rawMenuTree.value, composeRoleGrantedMenuIds(rawMenuTree.value, selectedPageIds.value, selectedButtonIdsByPage.value))
+- derive:
+
+```ts
+const grantedMenuIdSet = computed(() => new Set(grantedMenuIds.value));
+const selectionStateMap = computed(() =>
+  buildMenuSelectionStateMap(rawMenuTree.value, grantedMenuIds.value)
 );
-const currentPageButtons = computed(() => {
-  if (!activePageId.value) {
-    return [];
-  }
-  return (pageButtonMap.value[activePageId.value] || []).filter((item) =>
-    [item.menuName, item.menuCode].filter(Boolean).some((text) =>
-      String(text).toLowerCase().includes(buttonKeyword.value.trim().toLowerCase())
-    )
-  );
-});
+const displayTreeData = computed(() =>
+  filterPermissionTreeByKeyword(rawMenuTree.value, treeKeyword.value)
+);
+const currentNode = computed(() =>
+  currentNodeId.value === null ? null : menuNodeMap.value.get(currentNodeId.value) ?? null
+);
+const currentNodeDetailItems = computed(() =>
+  resolveNodeDetailItems(rawMenuTree.value, currentNodeId.value, detailKeyword.value, selectionStateMap.value)
+);
+```
 
-function applyGrantedMenuIds(menuIds: number[]) {
-  selectedPageIds.value = resolveRoleSelectedPageIds(rawMenuTree.value, menuIds);
-  selectedButtonIdsByPage.value = resolveRoleSelectedButtonIdsByPage(rawMenuTree.value, menuIds);
-  activePageId.value = selectedPageIds.value[0] ?? null;
+- load/edit/reset flows should use:
+
+```ts
+grantedMenuIds.value = resolveGrantedMenuIds(rawMenuTree.value, role.menuIds);
+currentNodeId.value = grantedMenuIds.value[0] ?? rawMenuTree.value[0]?.id ?? null;
+expandedNodeKeys.value = currentNodeId.value ? resolveNodeAncestorIds(rawMenuTree.value, currentNodeId.value) : [];
+```
+
+- tree/detail toggle handlers should use the same helper:
+
+```ts
+function handleToggleMenu(menuId: number, checked: boolean) {
+  grantedMenuIds.value = toggleMenuGrant(rawMenuTree.value, grantedMenuIds.value, menuId, checked);
 }
-
-function buildSubmitMenuIds() {
-  return composeRoleGrantedMenuIds(
-    rawMenuTree.value,
-    selectedPageIds.value,
-    selectedButtonIdsByPage.value
-  );
-}
 ```
 
-Replace the old right-side tree block with the three panels:
-
-```vue
-<RoleAuthPageTreePanel>
-  <!-- page search + page-only el-tree -->
-</RoleAuthPageTreePanel>
-
-<div class="role-auth-workspace">
-  <RoleAuthSelectedPagesPanel
-    :items="selectedPageCards"
-    @select="handleSelectAuthorizedPage"
-  />
-  <RoleAuthButtonPanel
-    :active-page="activeButtonPage"
-    :button-rows="currentPageButtonRows"
-    :keyword="buttonKeyword"
-    :loading="menuTreeLoading"
-  >
-    <!-- button search + per-page checkboxes -->
-  </RoleAuthButtonPanel>
-</div>
-```
-
-Update the left summary to numeric counters instead of a tag cloud:
-
-```vue
-<div class="role-auth-summary role-auth-summary--compact">
-  <span class="role-auth-summary__metric">已选页面 {{ selectedPageIds.length }}</span>
-  <span class="role-auth-summary__metric">已配置按钮页面 {{ configuredButtonPageCount }}</span>
-  <span class="role-auth-summary__metric">当前页已选按钮 {{ activePageCheckedCount }}</span>
-</div>
-```
-
-Finally, submit the merged ids instead of the old mixed tree collection:
+- submit should stay on the old backend contract:
 
 ```ts
 const payload = {
@@ -487,11 +392,20 @@ const payload = {
   description: formData.value.description,
   dataScopeType: formData.value.dataScopeType,
   status: formData.value.status,
-  menuIds: buildSubmitMenuIds()
+  menuIds: [...grantedMenuIds.value]
 };
 ```
 
-- [ ] **Step 4: Re-run the targeted drawer tests and verify they pass**
+- replace the old authorization workspace markup with:
+  - a compact summary grid
+  - `RoleAuthPermissionTreePanel`
+  - `RoleAuthNodeDetailPanel`
+
+- update drawer copy so it describes “统一权限树 + 当前节点详情”, not the old step-by-step page flow
+
+- adjust layout CSS to a flatter two-column auth area and remove the old shared-height three-panel grid
+
+- [ ] **Step 4: Re-run the targeted tests and verify they pass**
 
 Run:
 
@@ -499,16 +413,7 @@ Run:
 npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/utils/menuAuth.test.ts src/__tests__/components/RoleAuthPanels.test.ts src/__tests__/views/RoleView.test.ts
 ```
 
-Expected: PASS with utility, panel, and `RoleView` contract tests green.
-
-- [ ] **Step 5: Commit the `RoleView` refactor**
-
-Run:
-
-```bash
-git add spring-boot-iot-ui/src/views/RoleView.vue spring-boot-iot-ui/src/__tests__/views/RoleView.test.ts
-git commit -m "feat: split role auth drawer by page and button"
-```
+Expected: PASS with utility, panel, and `RoleView` tests green.
 
 ## Task 4: Update Docs and Run Front-End Verification
 
@@ -518,35 +423,35 @@ git commit -m "feat: split role auth drawer by page and button"
 - Modify: `docs/08-变更记录与技术债清单.md`
 - Modify: `docs/15-前端优化与治理计划.md`
 
-- [ ] **Step 1: Update the behavior docs**
+- [ ] **Step 1: Update the in-place docs**
 
-Apply the following Markdown snippets in the listed files.
+Apply the new behavior wording:
 
-In `docs/02-业务功能与流程说明.md`, add the role-permission page behavior update:
-
-```md
-- `角色权限` 抽屉当前已按“页面授权 -> 已选页面 -> 当前页面按钮权限”收口：页面树只展示目录与页面，按钮权限改为从已选页面中逐页精修，仍沿用原有 `menuIds` 与按钮权限码真相。
-```
-
-In `docs/06-前端开发与CSS规范.md`, add the UI rule:
+In `docs/02-业务功能与流程说明.md`:
 
 ```md
-- `RoleView` 权限抽屉当前固定采用“页面树 + 已选页面列表 + 当前页面按钮区”的三段式结构；按钮节点不得再回流到授权树展示中，按钮精修必须以下半区当前页面面板承接。
+- `角色权限` 抽屉当前已收口为“统一权限树 + 当前节点详情”结构：目录、页面、按钮都可直接授权；左侧树只保留节点名称、类型与子级数量，右侧只平铺当前节点直属子级或按钮详情，保存仍沿用既有 `menuIds` 合同。
 ```
 
-In `docs/15-前端优化与治理计划.md`, add the prevention rule:
+In `docs/06-前端开发与CSS规范.md`:
 
 ```md
-- 若治理类表单抽屉同时涉及“访问范围”和“细粒度操作权限”，优先先分离主层级与细粒度层级，不要再用同一棵树同时堆页面和按钮；`角色权限` 已将该类回归收口为页面树 + 按页按钮精修基线。
+- `/role` 的授权抽屉必须保持“顶部摘要 + 左侧全权限树 + 右侧当前节点详情”的结构；目录、页面、按钮均可授权，但树节点只保留单行信息，不得再把路由、权限码、说明堆回树行，也不得回流旧的“已选页面 + 当前页面按钮”三段式工作区。
 ```
 
-In `docs/08-变更记录与技术债清单.md`, add the change log entry:
+In `docs/15-前端优化与治理计划.md`:
 
 ```md
-- 2026-04-12：`/role` 抽屉已完成角色权限分层重构。前端当前把混合菜单/按钮树拆为“页面授权 / 已选页面 / 当前页面按钮权限”三段式工作区，树中不再展示按钮节点；按钮权限继续保留在原 `menuIds` 提交语义中，并按当前页面单独精修。定向验证：`npm --prefix spring-boot-iot-ui run test -- --run src/__tests__/utils/menuAuth.test.ts src/__tests__/components/RoleAuthPanels.test.ts src/__tests__/views/RoleView.test.ts`、`npm --prefix spring-boot-iot-ui run build`、`npm --prefix spring-boot-iot-ui run component:guard`、`npm --prefix spring-boot-iot-ui run list:guard`、`npm --prefix spring-boot-iot-ui run style:guard`。
+- 治理类权限抽屉若同时覆盖目录、页面与按钮授权，优先采用“统一权限树承载层级关系，当前节点详情承载平铺明细”的模式；`/role` 已以该模式替代旧的页面/按钮拆分工作区，后续不得通过默认全展开或树内多行说明来换取所谓“信息完整”。
 ```
 
-- [ ] **Step 2: Run the verification commands**
+In `docs/08-变更记录与技术债清单.md`, replace the 2026-04-12 role-auth entry with the new final version:
+
+```md
+- 2026-04-12：`/role` 的角色授权抽屉已按最终方案重构为“顶部摘要 + 左侧全权限树 + 右侧当前节点详情”。目录、页面、按钮当前都属于可授权节点；勾选父节点会默认覆盖全部后代，管理员仍可继续取消部分子节点，父节点会显示半选态。树行只保留名称、类型和子级数量，不再把路由/权限码/说明堆进树里；按钮颗粒度继续保留，并通过当前页面详情面板平铺维护。定向验证：`npx vitest run src/__tests__/utils/menuAuth.test.ts src/__tests__/components/RoleAuthPanels.test.ts src/__tests__/views/RoleView.test.ts`、`npm run build`、`npm run component:guard`、`npm run list:guard`、`npm run style:guard`、`node scripts/docs/check-topology.mjs`（工作目录：`spring-boot-iot-ui`）。
+```
+
+- [ ] **Step 2: Run verification**
 
 Run:
 
@@ -556,61 +461,47 @@ npm --prefix spring-boot-iot-ui run build
 npm --prefix spring-boot-iot-ui run component:guard
 npm --prefix spring-boot-iot-ui run list:guard
 npm --prefix spring-boot-iot-ui run style:guard
+node scripts/docs/check-topology.mjs
 git diff --check
 ```
 
 Expected:
 
 - targeted Vitest suite: PASS
-- `vite build`: PASS
-- `component:guard`: PASS
-- `list:guard`: PASS
-- `style:guard`: PASS
+- build: PASS
+- component guard: PASS
+- list guard: PASS
+- style guard: PASS
+- docs topology check: PASS
 - `git diff --check`: no output
-
-- [ ] **Step 3: Commit the docs and verification pass**
-
-Run:
-
-```bash
-git add docs/02-业务功能与流程说明.md docs/06-前端开发与CSS规范.md docs/08-变更记录与技术债清单.md docs/15-前端优化与治理计划.md
-git commit -m "docs: record role auth drawer restructure"
-```
 
 ## Self-Review
 
 ### Spec coverage
 
-- Page tree no longer mixes buttons: Task 1 + Task 3
-- Selected-page list as button refinement entry: Task 2 + Task 3
-- Current-page button panel with empty states and page-local bulk actions: Task 2 + Task 3
+- Unified tree across directory/page/button: Task 1 + Task 3
+- Current-node flat detail panel: Task 2 + Task 3
+- Parent-selects-descendants with partial child deselect: Task 1 + Task 3
 - Existing `menuIds` contract preserved: Task 1 + Task 3
-- Docs updated in-place: Task 4
+- Docs updated in place: Task 4
 
 ### Placeholder scan
 
-- No unresolved placeholders or deferred-implementation markers remain.
-- Every code-changing step includes the code shape to add.
-- Every verification step includes exact commands and expected outcomes.
+- No deferred placeholders remain.
+- Every verification step includes exact commands.
+- Each task references exact file paths.
 
 ### Type consistency
 
-- Utility helper names are consistent across tests and integration:
-  - `buildRolePageTree`
-  - `resolveRoleSelectedPageIds`
-  - `resolveRoleSelectedButtonIdsByPage`
-  - `composeRoleGrantedMenuIds`
-- `RoleView` state names are consistent across the plan:
-  - `selectedPageIds`
-  - `selectedButtonIdsByPage`
-  - `activePageId`
-
-## Execution Handoff
-
-Plan complete and saved to `docs/superpowers/plans/2026-04-12-role-auth-drawer-restructure-implementation-plan.md`. Two execution options:
-
-**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
-
-Which approach?
+- Utility names used consistently:
+  - `resolveGrantedMenuIds`
+  - `toggleMenuGrant`
+  - `buildMenuSelectionStateMap`
+  - `filterPermissionTreeByKeyword`
+  - `resolveNodeDetailItems`
+- `RoleView` state names used consistently:
+  - `grantedMenuIds`
+  - `currentNodeId`
+  - `treeKeyword`
+  - `detailKeyword`
+  - `expandedNodeKeys`
