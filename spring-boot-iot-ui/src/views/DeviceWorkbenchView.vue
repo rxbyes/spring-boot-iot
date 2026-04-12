@@ -713,8 +713,6 @@ interface DeviceToolbarAction {
   divided?: boolean
 }
 
-type DeviceFormMode = 'create' | 'edit' | 'register'
-
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
@@ -756,7 +754,6 @@ const detailData = ref<Device | null>(null)
 const registerSourceRow = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
-const registerSourceRow = ref<Device | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'

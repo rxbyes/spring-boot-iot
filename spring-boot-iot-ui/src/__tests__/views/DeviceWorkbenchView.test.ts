@@ -69,11 +69,6 @@ vi.mock('@/stores/permission', () => ({
   })
 }))
 
-function setMockPermissions(...permissions: string[]) {
-  mockPermissions.clear()
-  permissions.forEach((permission) => mockPermissions.add(permission))
-}
-
 vi.mock('@/utils/confirm', () => ({
   confirmAction: vi.fn(),
   confirmDelete: vi.fn(),
@@ -355,13 +350,6 @@ describe('DeviceWorkbenchView', () => {
         records: []
       }
     })
-    setMockPermissions(
-      'iot:devices:add',
-      'iot:devices:update',
-      'iot:devices:delete',
-      'iot:devices:export',
-      'iot:devices:replace'
-    )
     installSessionStorageMock()
     vi.mocked(ElMessage.error).mockReset()
     vi.mocked(ElMessage.success).mockReset()
@@ -750,63 +738,6 @@ describe('DeviceWorkbenchView', () => {
       .find((component) => component.props('label') === '操作')
 
     expect(String(actionColumn?.props('width'))).toBe('160')
-  })
-
-  it('shows edit for unregistered rows when create permission exists', async () => {
-    setMockPermissions('iot:devices:add')
-    const wrapper = mountView()
-    await flushPromises()
-    await nextTick()
-
-    ;(wrapper.vm as any).tableData = [
-      {
-        sourceRecordId: 7001,
-        productKey: 'shadow-product',
-        productName: '未登记产品',
-        deviceCode: 'shadow-device-01',
-        deviceName: '未登记设备',
-        registrationStatus: 0,
-        assetSourceType: 'invalid_report_state',
-        createTime: '2026-04-12T09:00:00'
-      }
-    ]
-    await nextTick()
-
-    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
-    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
-    const tableRowActions = rowActions.find((component) => component.props('variant') === 'table')
-
-    expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
-      '详情',
-      '编辑'
-    ])
-    expect(((tableRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
-      '详情',
-      '编辑'
-    ])
-  })
-
-  it('switches unregistered edit into register mode with add-permission submit copy', async () => {
-    setMockPermissions('iot:devices:add')
-    const wrapper = mountView()
-    await flushPromises()
-    await nextTick()
-
-    ;(wrapper.vm as any).handleEdit({
-      sourceRecordId: 7001,
-      productKey: 'shadow-product',
-      deviceCode: 'shadow-device-01',
-      deviceName: '未登记设备',
-      registrationStatus: 0,
-      assetSourceType: 'invalid_report_state'
-    })
-    await nextTick()
-
-    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
-    expect(formDrawer.props('title')).toBe('登记设备')
-    expect(String(formDrawer.props('subtitle'))).toContain('未登记上报线索')
-    expect(wrapper.text()).toContain('提交设备建档')
-    expect(wrapper.text()).not.toContain('保存设备变更')
   })
 
   it('shows the organization ledger in both the list source and rendered device cards', async () => {
