@@ -59,8 +59,8 @@
           >
             <div class="role-auth-detail__item-main">
               <el-checkbox
-                :model-value="item.checked"
-                :indeterminate="item.indeterminate"
+                :model-value="resolveCheckboxChecked(item)"
+                :indeterminate="resolveCheckboxIndeterminate(item)"
                 @click.stop
                 @change="handleToggle(item.id, $event)"
               />
@@ -74,6 +74,12 @@
                   <span class="role-auth-detail__type">{{ resolveTypeLabel(item.type) }}</span>
                   <span v-if="item.childCount > 0" class="role-auth-detail__count">
                     {{ item.childCount }} 项
+                  </span>
+                  <span
+                    v-if="shouldShowPartialBadge(item)"
+                    class="role-auth-detail__partial"
+                  >
+                    子级部分
                   </span>
                 </div>
                 <p v-if="item.menuCode || item.path" class="role-auth-detail__line">
@@ -149,6 +155,11 @@ const currentNodeStatusLabel = computed(() => {
   return '未授权';
 });
 
+type MenuSelectableState = Pick<MenuSelectionState, 'checked' | 'indeterminate' | 'selfSelected'> & {
+  totalChildCount?: number;
+  childCount?: number;
+};
+
 function resolveTypeLabel(type?: number) {
   if (type === 2) {
     return '按钮';
@@ -161,6 +172,18 @@ function resolveTypeLabel(type?: number) {
 
 function handleKeywordChange(value: string | number) {
   emit('update:keyword', String(value ?? ''));
+}
+
+function resolveCheckboxChecked(state: MenuSelectableState): boolean {
+  return state.selfSelected || state.checked;
+}
+
+function resolveCheckboxIndeterminate(state: MenuSelectableState): boolean {
+  return state.indeterminate && !state.selfSelected;
+}
+
+function shouldShowPartialBadge(state: MenuSelectableState): boolean {
+  return state.indeterminate && state.selfSelected && (state.childCount ?? state.totalChildCount ?? 0) > 0;
 }
 
 function handleToggle(menuId: number, value: string | number | boolean) {
@@ -200,7 +223,8 @@ function handleToggle(menuId: number, value: string | number | boolean) {
 }
 
 .role-auth-detail__type,
-.role-auth-detail__count {
+.role-auth-detail__count,
+.role-auth-detail__partial {
   display: inline-flex;
   align-items: center;
   min-height: 1.35rem;
@@ -215,6 +239,11 @@ function handleToggle(menuId: number, value: string | number | boolean) {
 }
 
 .role-auth-detail__count {
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+
+.role-auth-detail__partial {
   background: var(--surface-subtle);
   color: var(--text-secondary);
 }

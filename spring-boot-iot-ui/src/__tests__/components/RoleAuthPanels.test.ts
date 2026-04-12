@@ -145,4 +145,69 @@ describe('Role auth panels', () => {
     expect(checkboxInput.exists()).toBe(true);
     expect((checkboxInput.element as HTMLInputElement).checked).toBe(true);
   });
+
+  it('emits toggle when clicking a tree checkbox', async () => {
+    const wrapper = mount(RoleAuthPermissionTreePanel, {
+      props: {
+        treeData: [
+          {
+            id: 1,
+            menuName: '平台治理',
+            type: 0,
+            children: []
+          }
+        ],
+        currentNodeId: 1,
+        expandedKeys: [1],
+        selectionStateMap: new Map([
+          [1, { checked: false, indeterminate: false, selfSelected: false, selectedChildCount: 0, totalChildCount: 0 }]
+        ]),
+        keyword: '',
+        loading: false
+      }
+    });
+
+    const checkboxInput = wrapper.find('input[type="checkbox"]');
+
+    expect(checkboxInput.exists()).toBe(true);
+    await checkboxInput.setValue(true);
+
+    expect(wrapper.emitted('toggle')).toEqual([[1, true]]);
+  });
+
+  it('emits toggle when clicking a detail checkbox', async () => {
+    const wrapper = mount(RoleAuthNodeDetailPanel, {
+      props: {
+        currentNode: { id: 1, menuName: '平台治理', type: 0, children: [] },
+        currentNodeState: {
+          checked: false,
+          indeterminate: false,
+          selfSelected: false,
+          selectedChildCount: 0,
+          totalChildCount: 1
+        },
+        items: [
+          {
+            id: 2,
+            menuName: '角色权限',
+            menuCode: 'system:role',
+            type: 1,
+            checked: false,
+            indeterminate: false,
+            selfSelected: false,
+            childCount: 1
+          }
+        ],
+        keyword: '',
+        loading: false
+      }
+    });
+
+    const checkboxInput = wrapper.find('input[type="checkbox"]');
+
+    expect(checkboxInput.exists()).toBe(true);
+    await checkboxInput.setValue(true);
+
+    expect(wrapper.emitted('toggle')).toEqual([[2, true]]);
+  });
 });

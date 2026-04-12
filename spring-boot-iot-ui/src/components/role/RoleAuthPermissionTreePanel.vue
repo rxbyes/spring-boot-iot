@@ -41,8 +41,8 @@
             :class="{ 'role-auth-tree-panel__node--active': data.id === currentNodeId }"
           >
             <el-checkbox
-              :model-value="resolveSelectionState(data.id).checked"
-              :indeterminate="resolveSelectionState(data.id).indeterminate"
+              :model-value="resolveCheckboxChecked(resolveSelectionState(data.id))"
+              :indeterminate="resolveCheckboxIndeterminate(resolveSelectionState(data.id))"
               @click.stop
               @change="handleToggle(data.id, $event)"
             />
@@ -53,6 +53,12 @@
               </span>
               <span v-if="(data.children || []).length > 0" class="role-auth-tree-panel__node-count">
                 {{ (data.children || []).length }} 项
+              </span>
+              <span
+                v-if="shouldShowPartialBadge(resolveSelectionState(data.id))"
+                class="role-auth-tree-panel__node-partial"
+              >
+                子级部分
               </span>
             </div>
           </div>
@@ -126,6 +132,18 @@ function resolveSelectionState(menuId: number): MenuSelectionState {
       totalChildCount: 0
     }
   );
+}
+
+function resolveCheckboxChecked(state: MenuSelectionState): boolean {
+  return state.selfSelected || state.checked;
+}
+
+function resolveCheckboxIndeterminate(state: MenuSelectionState): boolean {
+  return state.indeterminate && !state.selfSelected;
+}
+
+function shouldShowPartialBadge(state: MenuSelectionState): boolean {
+  return state.indeterminate && state.selfSelected && state.totalChildCount > 0;
 }
 
 function handleKeywordChange(value: string | number) {
@@ -217,5 +235,16 @@ function handleNodeCollapse(data: MenuTreeNode) {
 .role-auth-tree-panel__node-count {
   background: var(--surface-subtle);
   color: var(--text-secondary);
+}
+
+.role-auth-tree-panel__node-partial {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 </style>

@@ -118,6 +118,7 @@ export function resolveGrantedMenuIds(
   }
 
   const nodeMap = buildMenuNodeMap(nodes);
+  const relationMap = buildMenuRelationMap(nodes);
   const grantedIdSet = new Set<number>();
 
   grantedIds.forEach((menuId) => {
@@ -125,6 +126,9 @@ export function resolveGrantedMenuIds(
       return;
     }
     grantedIdSet.add(menuId);
+    (relationMap.get(menuId)?.ancestorIds || []).forEach((ancestorId) => {
+      grantedIdSet.add(ancestorId);
+    });
   });
 
   return orderMenuIdsByTree(nodes, grantedIdSet);

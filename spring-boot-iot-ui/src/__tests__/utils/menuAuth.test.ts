@@ -68,6 +68,10 @@ describe('menuAuth utils', () => {
     expect(resolveGrantedMenuIds(menuTree, [4, undefined, 1, 999, 4, 5])).toEqual([1, 4, 5]);
   });
 
+  it('normalizes granted ids from leaf menus by auto-including ancestors', () => {
+    expect(resolveGrantedMenuIds(menuTree, [5])).toEqual([1, 4, 5]);
+  });
+
   it('marks a selected page without all buttons as half-selected', () => {
     const stateMap = buildMenuSelectionStateMap(menuTree, [1, 2]);
 
