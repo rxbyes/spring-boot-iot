@@ -74,6 +74,26 @@ class GovernanceWorkItemControllerTest {
     }
 
     @Test
+    void pageWorkItemsShouldDelegateKeywordAndExecutionStatusFilters() {
+        GovernanceWorkItemPageQuery query = new GovernanceWorkItemPageQuery();
+        query.setKeyword("2043187508765708289");
+        query.setExecutionStatus("PENDING_APPROVAL");
+        query.setWorkStatus("OPEN");
+        query.setPageNum(1L);
+        query.setPageSize(20L);
+        when(governanceWorkItemService.pageWorkItems(query, 10001L))
+                .thenReturn(PageResult.of(0L, 1L, 20L, List.of()));
+
+        controller.pageWorkItems(query, authentication(10001L));
+
+        verify(governanceWorkItemService).pageWorkItems(org.mockito.ArgumentMatchers.argThat(actual ->
+                "2043187508765708289".equals(actual.getKeyword())
+                        && "PENDING_APPROVAL".equals(actual.getExecutionStatus())
+                        && "OPEN".equals(actual.getWorkStatus())
+        ), org.mockito.ArgumentMatchers.eq(10001L));
+    }
+
+    @Test
     void blockWorkItemShouldDelegateToService() {
         GovernanceWorkItemTransitionDTO dto = new GovernanceWorkItemTransitionDTO();
         dto.setComment("等待外部确认");
