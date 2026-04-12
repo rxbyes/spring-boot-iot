@@ -374,7 +374,10 @@ const timelineStorageHint = computed(() => {
   if (timelineStepCount.value > 0) {
     return '展开后查看完整处理轨迹';
   }
-  if (props.timelineLookupError || props.timelineExpired || props.timelineLoading || props.detail.traceId) {
+  if (props.timelineLoading) {
+    return '后台正在补数，读取完成后可在此展开完整时间线';
+  }
+  if (props.timelineLookupError || props.timelineExpired || props.detail.traceId) {
     return props.timelineEmptyDescription;
   }
   return '当前记录没有可复盘链路';
@@ -489,10 +492,12 @@ const timelineSummaryTone = computed(() => {
 });
 
 const timelineSummaryDescription = computed(() => {
+  if (props.timelineLoading) {
+    return '后台正在补数，读取完成后可在此展开完整时间线。';
+  }
   if (
     props.timelineLookupError ||
     props.timelineExpired ||
-    props.timelineLoading ||
     (timelineStepCount.value === 0 && Boolean(props.detail.traceId))
   ) {
     return props.timelineEmptyDescription;
@@ -662,7 +667,7 @@ function getMessageTypeLabel(value?: string | null) {
 
 .message-trace-detail-workbench__summary-label,
 .message-trace-detail-workbench__ledger-label,
-.message-trace-detail-workbench__timeline-label {
+.message-trace-detail-workbench__timeline-card-label {
   color: var(--text-caption);
   font-size: 12px;
   line-height: 1.45;
@@ -742,45 +747,88 @@ function getMessageTypeLabel(value?: string | null) {
   background: color-mix(in srgb, var(--brand) 6%, white);
 }
 
-.message-trace-detail-workbench__timeline-summary {
+.message-trace-detail-workbench__timeline-summary-grid {
   display: grid;
-  gap: 0.36rem;
-  padding: 0.95rem 1rem;
-  border-radius: calc(var(--radius-md) + 4px);
-  border: 1px solid var(--panel-border);
-  background: var(--surface-soft);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
 }
 
-.message-trace-detail-workbench__timeline-summary--ready {
+.message-trace-detail-workbench__timeline-card {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 1rem 1.05rem;
+  border-radius: calc(var(--radius-md) + 4px);
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  background: rgba(248, 251, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.message-trace-detail-workbench__timeline-card--wide {
+  grid-column: 1 / -1;
+}
+
+.message-trace-detail-workbench__timeline-card--ready {
   border-color: color-mix(in srgb, var(--brand) 12%, var(--panel-border));
   background: color-mix(in srgb, var(--brand) 5%, var(--surface-soft));
 }
 
-.message-trace-detail-workbench__timeline-summary--warning {
+.message-trace-detail-workbench__timeline-card--warning {
   border-color: color-mix(in srgb, var(--warning) 22%, var(--panel-border));
   background: color-mix(in srgb, var(--warning-bg) 42%, white);
 }
 
-.message-trace-detail-workbench__timeline-summary--muted {
+.message-trace-detail-workbench__timeline-card--muted {
   background: var(--surface-muted);
 }
 
-.message-trace-detail-workbench__timeline-summary--loading {
+.message-trace-detail-workbench__timeline-card--loading {
   border-color: color-mix(in srgb, var(--accent) 16%, var(--panel-border));
   background: color-mix(in srgb, var(--info-bg) 42%, white);
 }
 
-.message-trace-detail-workbench__timeline-title {
+.message-trace-detail-workbench__timeline-card-value {
   color: var(--text-heading);
   font-size: 14px;
+  font-weight: 500;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
-.message-trace-detail-workbench__timeline-description {
+.message-trace-detail-workbench__timeline-card-hint {
   margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.message-trace-detail-workbench__timeline-note {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border: 1px dashed var(--panel-border);
+  border-radius: calc(var(--radius-md) + 2px);
+  background: var(--surface-soft);
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.7;
+}
+
+.message-trace-detail-workbench__timeline-note--ready {
+  border-color: color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+}
+
+.message-trace-detail-workbench__timeline-note--warning {
+  border-color: color-mix(in srgb, var(--warning) 22%, var(--panel-border));
+  background: color-mix(in srgb, var(--warning-bg) 36%, white);
+}
+
+.message-trace-detail-workbench__timeline-note--muted {
+  background: var(--surface-muted);
+}
+
+.message-trace-detail-workbench__timeline-note--loading {
+  border-color: color-mix(in srgb, var(--accent) 16%, var(--panel-border));
+  background: color-mix(in srgb, var(--info-bg) 32%, white);
 }
 
 @media (max-width: 960px) {
@@ -792,7 +840,15 @@ function getMessageTypeLabel(value?: string | null) {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .message-trace-detail-workbench__timeline-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .message-trace-detail-workbench__ledger-item--wide {
+    grid-column: auto;
+  }
+
+  .message-trace-detail-workbench__timeline-card--wide {
     grid-column: auto;
   }
 }

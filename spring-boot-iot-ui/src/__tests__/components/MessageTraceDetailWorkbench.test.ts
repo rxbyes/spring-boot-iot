@@ -135,7 +135,8 @@ describe('MessageTraceDetailWorkbench', () => {
       }
     });
 
-    expect(wrapper.findAll('.message-trace-detail-workbench__timeline-summary').length).toBe(1);
+    expect(wrapper.findAll('.message-trace-detail-workbench__timeline-card').length).toBe(4);
+    expect(wrapper.findAll('.message-trace-detail-workbench__timeline-card--ready').length).toBe(1);
     expect(wrapper.text()).toContain('当前状态');
     expect(wrapper.text()).toContain('处理节点');
     expect(wrapper.text()).toContain('Trace 归属');

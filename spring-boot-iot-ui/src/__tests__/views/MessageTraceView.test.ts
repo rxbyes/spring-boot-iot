@@ -919,7 +919,7 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
-    expect(wrapper.text()).toContain('时间线已过期，但 payload 对照已从消息日志恢复。');
+    expect(wrapper.text()).toContain('时间线已过期，Payload 仍可继续复盘');
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
@@ -1103,7 +1103,8 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('存储异常');
+    expect(wrapper.text()).toContain('message-flow / Redis 读取异常');
     expect(wrapper.text()).toContain('当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。');
     expect(ElMessage.error).not.toHaveBeenCalled();
   });
@@ -1123,7 +1124,8 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('存储异常');
+    expect(wrapper.text()).toContain('message-flow / Redis 读取异常');
     expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
     expect(ElMessage.error).not.toHaveBeenCalled();
@@ -1167,7 +1169,8 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('解密后明文');
     expect(wrapper.text()).toContain('解析结果');
     expect(wrapper.text()).toContain('humidity');
-    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('存储异常');
+    expect(wrapper.text()).toContain('message-flow / Redis 读取异常');
     expect(ElMessage.error).not.toHaveBeenCalled();
   });
 
