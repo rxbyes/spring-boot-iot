@@ -497,6 +497,85 @@ export interface ProductModelGovernanceApplyResult {
   appliedItems?: ProductModelGovernanceAppliedItem[] | null;
 }
 
+export type VendorMetricMappingSuggestionStatus =
+  | 'READY_TO_CREATE'
+  | 'ALREADY_COVERED'
+  | 'LOW_CONFIDENCE'
+  | 'CONFLICTS_WITH_EXISTING'
+  | `IGNORED_${string}`
+  | string;
+
+export type VendorMetricMappingRuleScopeType =
+  | 'PRODUCT'
+  | 'DEVICE_FAMILY'
+  | 'SCENARIO'
+  | 'PROTOCOL'
+  | 'TENANT_DEFAULT';
+
+export type VendorMetricMappingRuleLifecycleStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'DISABLED'
+  | string;
+
+export interface VendorMetricMappingRuleSuggestion {
+  id?: IdType | null;
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier: string;
+  recommendedScopeType?: VendorMetricMappingRuleScopeType | null;
+  status: VendorMetricMappingSuggestionStatus | string;
+  confidence?: string | null;
+  evidenceCount?: number | null;
+  sampleValue?: string | null;
+  valueType?: string | null;
+  evidenceOrigin?: string | null;
+  lastSeenTime?: string | null;
+  reason?: string | null;
+  existingRuleId?: IdType | null;
+  existingTargetNormativeIdentifier?: string | null;
+}
+
+export interface VendorMetricMappingRuleSuggestionQuery {
+  includeCovered?: boolean;
+  includeIgnored?: boolean;
+  minEvidenceCount?: number;
+}
+
+export interface VendorMetricMappingRule {
+  id?: IdType | null;
+  productId?: IdType | null;
+  scopeType?: VendorMetricMappingRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  relationConditionJson?: string | null;
+  normalizationRuleJson?: string | null;
+  targetNormativeIdentifier?: string | null;
+  status?: VendorMetricMappingRuleLifecycleStatus | null;
+  versionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface VendorMetricMappingRuleCreatePayload {
+  scopeType: VendorMetricMappingRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  relationConditionJson?: string | null;
+  normalizationRuleJson?: string | null;
+  targetNormativeIdentifier: string;
+  status: VendorMetricMappingRuleLifecycleStatus;
+}
+
 export interface ProductModelGovernanceAppliedItem {
   modelType?: ProductModelType | null;
   identifier?: string | null;

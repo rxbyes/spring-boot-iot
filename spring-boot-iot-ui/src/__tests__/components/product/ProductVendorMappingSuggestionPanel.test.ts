@@ -1,16 +1,25 @@
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
 
-const listVendorMetricMappingRuleSuggestions = vi.fn()
-const createVendorMetricMappingRule = vi.fn()
-
-const confirmAction = vi.fn()
-const isConfirmCancelled = vi.fn()
-
-const messageSuccess = vi.fn()
-const messageError = vi.fn()
-const messageWarning = vi.fn()
+const {
+  listVendorMetricMappingRuleSuggestions,
+  createVendorMetricMappingRule,
+  confirmAction,
+  isConfirmCancelled,
+  messageSuccess,
+  messageError,
+  messageWarning
+} = vi.hoisted(() => ({
+  listVendorMetricMappingRuleSuggestions: vi.fn(),
+  createVendorMetricMappingRule: vi.fn(),
+  confirmAction: vi.fn(),
+  isConfirmCancelled: vi.fn(),
+  messageSuccess: vi.fn(),
+  messageError: vi.fn(),
+  messageWarning: vi.fn()
+}))
 
 vi.mock(
   '@/api/vendorMetricMappingRule',
@@ -44,14 +53,13 @@ function buildSuggestion(overrides: Record<string, unknown> = {}) {
   return {
     id: 'suggestion-ready',
     rawIdentifier: 'vendor.value',
+    logicalChannelCode: 'L1_LF_1',
     targetNormativeIdentifier: 'value',
-    targetNormativeName: '当前雨量',
-    suggestionStatus: 'READY_TO_CREATE',
+    status: 'READY_TO_CREATE',
     evidenceCount: 3,
-    confidence: 0.96,
-    latestSource: 'runtime',
-    ignored: false,
-    covered: false,
+    confidence: '0.96',
+    sampleValue: '0.2136',
+    reason: '运行态证据与规范字段稳定命中',
     ...overrides
   }
 }
@@ -59,20 +67,11 @@ function buildSuggestion(overrides: Record<string, unknown> = {}) {
 function mockSuggestionResponse(items: Array<Record<string, unknown>>) {
   return {
     code: 200,
-    data: {
-      list: items,
-      total: items.length
-    }
+    data: items
   }
 }
 
-async function loadPanel() {
-  return (await import('@/components/product/ProductVendorMappingSuggestionPanel.vue')).default
-}
-
 async function mountPanel(props: Record<string, unknown> = {}) {
-  const ProductVendorMappingSuggestionPanel = await loadPanel()
-
   const wrapper = mount(ProductVendorMappingSuggestionPanel, {
     props: {
       productId: 1001,
@@ -118,7 +117,10 @@ describe('ProductVendorMappingSuggestionPanel', () => {
       includeCovered: false,
       includeIgnored: false,
       minEvidenceCount: 1
-    })
+    }, expect.objectContaining({
+      suppressErrorToast: true,
+      signal: expect.any(Object)
+    }))
 
     const callCountAfterInitialLoad = listVendorMetricMappingRuleSuggestions.mock.calls.length
 
@@ -130,7 +132,10 @@ describe('ProductVendorMappingSuggestionPanel', () => {
       includeCovered: true,
       includeIgnored: false,
       minEvidenceCount: 1
-    })
+    }, expect.objectContaining({
+      suppressErrorToast: true,
+      signal: expect.any(Object)
+    }))
     const callCountAfterCoveredToggle = listVendorMetricMappingRuleSuggestions.mock.calls.length
 
     await wrapper.setProps({ refreshToken: 1 })
@@ -143,7 +148,10 @@ describe('ProductVendorMappingSuggestionPanel', () => {
       includeCovered: true,
       includeIgnored: false,
       minEvidenceCount: 1
-    })
+    }, expect.objectContaining({
+      suppressErrorToast: true,
+      signal: expect.any(Object)
+    }))
     const callCountAfterRefresh = listVendorMetricMappingRuleSuggestions.mock.calls.length
 
     await wrapper.setProps({ productId: 2002 })
@@ -154,7 +162,10 @@ describe('ProductVendorMappingSuggestionPanel', () => {
       includeCovered: true,
       includeIgnored: false,
       minEvidenceCount: 1
-    })
+    }, expect.objectContaining({
+      suppressErrorToast: true,
+      signal: expect.any(Object)
+    }))
   })
 
   it('creates a PRODUCT plus DRAFT rule from READY_TO_CREATE and emits accepted', async () => {
@@ -173,7 +184,7 @@ describe('ProductVendorMappingSuggestionPanel', () => {
         rawIdentifier: 'vendor.value',
         targetNormativeIdentifier: 'value',
         scopeType: 'PRODUCT',
-        lifecycleStatus: 'DRAFT'
+        status: 'DRAFT'
       })
     )
     expect(messageSuccess).toHaveBeenCalledTimes(1)
@@ -186,8 +197,9 @@ describe('ProductVendorMappingSuggestionPanel', () => {
       mockSuggestionResponse([
         buildSuggestion({
           id: 'suggestion-low-confidence',
-          suggestionStatus: 'LOW_CONFIDENCE',
-          confidence: 0.42
+          status: 'LOW_CONFIDENCE',
+          confidence: '0.42',
+          reason: '证据次数较少，需要人工确认'
         })
       ])
     )
@@ -206,6 +218,12 @@ describe('ProductVendorMappingSuggestionPanel', () => {
     await flushPromises()
 
     expect(confirmAction).toHaveBeenCalledTimes(1)
+    expect(confirmAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '采纳低置信度建议',
+        confirmButtonText: '继续创建草稿'
+      })
+    )
     expect(createVendorMetricMappingRule).not.toHaveBeenCalled()
 
     resolveConfirmation?.()
@@ -219,13 +237,13 @@ describe('ProductVendorMappingSuggestionPanel', () => {
         rawIdentifier: 'vendor.value',
         targetNormativeIdentifier: 'value',
         scopeType: 'PRODUCT',
-        lifecycleStatus: 'DRAFT'
+        status: 'DRAFT'
       })
     )
     expect(wrapper.emitted('accepted')?.[0]?.[0]).toEqual(
       expect.objectContaining({
         id: 'suggestion-low-confidence',
-        suggestionStatus: 'LOW_CONFIDENCE'
+        status: 'LOW_CONFIDENCE'
       })
     )
   })
@@ -235,13 +253,23 @@ describe('ProductVendorMappingSuggestionPanel', () => {
       mockSuggestionResponse([
         buildSuggestion({
           id: 'suggestion-conflict',
-          suggestionStatus: 'CONFLICTS_WITH_EXISTING'
+          rawIdentifier: 'L1_QJ_1.angle',
+          logicalChannelCode: 'L1_QJ_1',
+          status: 'CONFLICTS_WITH_EXISTING',
+          sampleValue: '82.2744',
+          reason: '当前产品已有命中规则',
+          existingRuleId: 91,
+          existingTargetNormativeIdentifier: 'sensor_state'
         })
       ])
     )
 
     const wrapper = await mountPanel()
 
+    expect(wrapper.text()).toContain('L1_QJ_1')
+    expect(wrapper.text()).toContain('82.2744')
+    expect(wrapper.text()).toContain('当前产品已有命中规则')
+    expect(wrapper.text()).toContain('existingRuleId=91')
     expect(
       wrapper.find('[data-testid="vendor-mapping-suggestion-accept-suggestion-conflict"]').exists()
     ).toBe(false)
@@ -261,5 +289,51 @@ describe('ProductVendorMappingSuggestionPanel', () => {
     await flushPromises()
 
     expect(messageError).not.toHaveBeenCalled()
+  })
+
+  it('renders inline load errors and retries without stale-row collisions for duplicate raw identifiers', async () => {
+    listVendorMetricMappingRuleSuggestions
+      .mockRejectedValueOnce(new Error('加载失败'))
+      .mockResolvedValueOnce(
+        mockSuggestionResponse([
+          buildSuggestion({
+            id: null,
+            rawIdentifier: 'vendor.value',
+            logicalChannelCode: 'L1_A',
+            targetNormativeIdentifier: 'value'
+          }),
+          buildSuggestion({
+            id: null,
+            rawIdentifier: 'vendor.value',
+            logicalChannelCode: 'L1_B',
+            targetNormativeIdentifier: 'sensor_state'
+          })
+        ])
+      )
+
+    const wrapper = await mountPanel()
+
+    expect(wrapper.text()).toContain('映射规则建议加载失败')
+    expect(wrapper.text()).toContain('加载失败')
+
+    await wrapper.get('[data-testid="vendor-mapping-suggestion-retry"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('L1_A')
+    expect(wrapper.text()).toContain('L1_B')
+
+    await wrapper
+      .get('[data-testid="vendor-mapping-suggestion-accept-vendor.value::L1_B::sensor_state"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(createVendorMetricMappingRule).toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        rawIdentifier: 'vendor.value',
+        logicalChannelCode: 'L1_B',
+        targetNormativeIdentifier: 'sensor_state'
+      })
+    )
   })
 })
