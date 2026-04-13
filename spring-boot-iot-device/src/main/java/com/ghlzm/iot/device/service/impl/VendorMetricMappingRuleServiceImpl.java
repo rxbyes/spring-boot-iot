@@ -11,9 +11,11 @@ import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,12 +34,21 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     private static final String SCOPE_TYPE_PROTOCOL = "PROTOCOL";
     private static final String SCOPE_TYPE_TENANT_DEFAULT = "TENANT_DEFAULT";
     private static final String STATUS_DRAFT = "DRAFT";
+    private static final String PROTOCOL_FAMILY_SELECTOR_PREFIX = "family:";
 
     private final VendorMetricMappingRuleMapper mapper;
+    private final IotProperties iotProperties;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper) {
+        this(mapper, null);
+    }
+
+    @Autowired
+    public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                              IotProperties iotProperties) {
         this.mapper = mapper;
+        this.iotProperties = iotProperties;
     }
 
     @Override
@@ -112,7 +123,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         String scopeType = normalizeScopeType(dto == null ? null : dto.getScopeType());
         rule.setProductId(productId);
         rule.setScopeType(scopeType);
-        rule.setProtocolCode(normalizeLower(dto == null ? null : dto.getProtocolCode()));
+        rule.setProtocolCode(normalizeProtocolSelector(dto == null ? null : dto.getProtocolCode()));
         rule.setScenarioCode(normalizeLower(dto == null ? null : dto.getScenarioCode()));
         rule.setDeviceFamily(normalizeLower(dto == null ? null : dto.getDeviceFamily()));
         rule.setRawIdentifier(normalizeRawIdentifier(dto == null ? null : dto.getRawIdentifier()));
@@ -199,6 +210,22 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         return StringUtils.hasText(normalized) ? normalized.toLowerCase(Locale.ROOT) : null;
     }
 
+    private String normalizeProtocolSelector(String value) {
+        String normalized = normalizeText(value);
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        String normalizedLower = normalized.toLowerCase(Locale.ROOT);
+        if (!normalizedLower.startsWith(PROTOCOL_FAMILY_SELECTOR_PREFIX)) {
+            return normalizedLower;
+        }
+        String familyCode = normalizeLower(normalizedLower.substring(PROTOCOL_FAMILY_SELECTOR_PREFIX.length()));
+        if (!StringUtils.hasText(familyCode)) {
+            return null;
+        }
+        return PROTOCOL_FAMILY_SELECTOR_PREFIX + familyCode;
+    }
+
     private String normalizeUpper(String value) {
         String normalized = normalizeText(value);
         return StringUtils.hasText(normalized) ? normalized.toUpperCase(Locale.ROOT) : null;
@@ -226,6 +253,33 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         if (SCOPE_TYPE_PROTOCOL.equals(scopeType) && !StringUtils.hasText(rule.getProtocolCode())) {
             throw new BizException("protocolCode 不能为空");
         }
+        if (SCOPE_TYPE_PROTOCOL.equals(scopeType)
+                && isProtocolFamilySelector(rule.getProtocolCode())
+                && !isConfiguredProtocolFamilySelector(rule.getProtocolCode())) {
+            throw new BizException("protocolCode 对应的协议族不存在或未启用: " + rule.getProtocolCode());
+        }
+    }
+
+    private boolean isProtocolFamilySelector(String protocolCode) {
+        String normalizedSelector = normalizeProtocolSelector(protocolCode);
+        return StringUtils.hasText(normalizedSelector)
+                && normalizedSelector.startsWith(PROTOCOL_FAMILY_SELECTOR_PREFIX);
+    }
+
+    private boolean isConfiguredProtocolFamilySelector(String protocolCode) {
+        String normalizedSelector = normalizeProtocolSelector(protocolCode);
+        if (!StringUtils.hasText(normalizedSelector) || iotProperties == null || iotProperties.getProtocol() == null) {
+            return false;
+        }
+        String familyCode = normalizedSelector.substring(PROTOCOL_FAMILY_SELECTOR_PREFIX.length());
+        return iotProperties.getProtocol().getFamilyDefinitions().entrySet().stream()
+                .anyMatch(entry -> {
+                    String entryKey = normalizeLower(entry.getKey());
+                    IotProperties.Protocol.FamilyDefinition definition = entry.getValue();
+                    String configuredFamilyCode = normalizeLower(definition == null ? null : definition.getFamilyCode());
+                    boolean sameFamily = familyCode.equals(entryKey) || familyCode.equals(configuredFamilyCode);
+                    return sameFamily && definition != null && !Boolean.FALSE.equals(definition.getEnabled());
+                });
     }
 
     private void ensureNoConflictingRule(VendorMetricMappingRule incomingRule, Long currentRuleId) {

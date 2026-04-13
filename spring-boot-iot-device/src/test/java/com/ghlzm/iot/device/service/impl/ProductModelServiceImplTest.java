@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -93,12 +94,14 @@ class ProductModelServiceImplTest {
                 applicationEventPublisher,
                 vendorMetricMappingRuntimeService
         );
+        lenient().when(productModelMapper.selectAnyByProductAndIdentifier(any(), any())).thenReturn(List.of());
     }
 
     @Test
     void createModelShouldRejectDuplicateIdentifierWithinSameProduct() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
-        when(productModelMapper.selectOne(any())).thenReturn(existingModel(2001L, "temperature", 1));
+        when(productModelMapper.selectAnyByProductAndIdentifier(1001L, "temperature"))
+                .thenReturn(List.of(existingModel(2001L, "temperature", 1)));
 
         BizException ex = assertThrows(
                 BizException.class,
@@ -107,6 +110,29 @@ class ProductModelServiceImplTest {
 
         assertTrue(ex.getMessage().contains("物模型标识已存在"));
         verify(productModelMapper, never()).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void createModelShouldReviveSoftDeletedHistoricalIdentifierInsteadOfInsertingDuplicate() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        ProductModel deletedModel = existingModel(3001L, "temperature", 6);
+        deletedModel.setDeleted(1);
+        when(productModelMapper.selectAnyByProductAndIdentifier(1001L, "temperature"))
+                .thenReturn(List.of(deletedModel));
+        when(productModelMapper.reviveDeletedById(any(ProductModel.class))).thenReturn(1);
+
+        ProductModelVO result = productModelService.createModel(1001L, propertyDto("temperature", "double"));
+
+        assertEquals(3001L, result.getId());
+        assertEquals("temperature", result.getIdentifier());
+        verify(productModelMapper, never()).insert(any(ProductModel.class));
+        verify(productModelMapper).reviveDeletedById(org.mockito.ArgumentMatchers.<ProductModel>argThat(model ->
+                Long.valueOf(3001L).equals(model.getId())
+                        && Long.valueOf(1001L).equals(model.getProductId())
+                        && Integer.valueOf(0).equals(model.getDeleted())
+                        && "temperature".equals(model.getIdentifier())
+                        && "double".equals(model.getDataType())
+        ));
     }
 
     @Test
@@ -134,6 +160,26 @@ class ProductModelServiceImplTest {
 
         assertEquals("属性物模型必须填写 dataType", ex.getMessage());
         verify(productModelMapper, never()).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void updateModelShouldRejectIdentifierReservedBySoftDeletedHistoricalRow() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        ProductModel current = existingModel(2001L, "humidity", 3);
+        current.setProductId(1001L);
+        when(productModelMapper.selectById(2001L)).thenReturn(current);
+        ProductModel deletedModel = existingModel(3001L, "temperature", 6);
+        deletedModel.setDeleted(1);
+        when(productModelMapper.selectAnyByProductAndIdentifier(1001L, "temperature"))
+                .thenReturn(List.of(deletedModel));
+
+        BizException ex = assertThrows(
+                BizException.class,
+                () -> productModelService.updateModel(1001L, 2001L, propertyDto("temperature", "double"))
+        );
+
+        assertEquals("同一产品下物模型标识已存在历史记录，请先恢复或更换标识: temperature", ex.getMessage());
+        verify(productModelMapper, never()).updateById(any(ProductModel.class));
     }
 
     @Test
@@ -203,8 +249,6 @@ class ProductModelServiceImplTest {
     @Test
     void createEventModelShouldPersistCompatibilityDataTypeForExistingSchema() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
-
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("event");
         dto.setIdentifier("alarmRaised");
@@ -223,8 +267,6 @@ class ProductModelServiceImplTest {
     @Test
     void createServiceModelShouldPersistCompatibilityDataTypeForExistingSchema() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
-
         ProductModelUpsertDTO dto = new ProductModelUpsertDTO();
         dto.setModelType("service");
         dto.setIdentifier("setThreshold");
@@ -884,7 +926,6 @@ class ProductModelServiceImplTest {
     @Test
     void applyGovernanceShouldNormalizeRawIdentifierByVendorMappingRuleBeforePersisting() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "crack-monitor"));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("disp")))
                 .thenReturn("value");
 
@@ -902,7 +943,6 @@ class ProductModelServiceImplTest {
     @Test
     void applyGovernanceShouldReturnReleaseBatchIdAfterPublishingFormalFields() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "瑁傜紳鐩戞祴浜у搧"));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         when(productContractReleaseService.createBatch(
                 eq(1001L),
                 eq("phase1-crack"),
@@ -926,7 +966,6 @@ class ProductModelServiceImplTest {
     @Test
     void applyGovernanceShouldPublishContractReleasedEventAfterReleaseBatchCreated() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L, "phase1-crack-product", "crack-monitor"));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         ProductModel releasedValue = new ProductModel();
         releasedValue.setId(3101L);
         releasedValue.setProductId(1001L);
@@ -965,7 +1004,6 @@ class ProductModelServiceImplTest {
     @Test
     void applyGovernanceShouldReturnGnssReleaseBatchIdAfterPublishingFormalFields() {
         when(productMapper.selectById(3003L)).thenReturn(product(3003L, "gnss-monitor-v1", "gnss-monitor"));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         when(productContractReleaseService.createBatch(
                 eq(3003L),
                 eq("phase2-gnss"),
@@ -993,7 +1031,6 @@ class ProductModelServiceImplTest {
                 "nf-monitor-laser-rangefinder-v1",
                 "南方测绘 监测型 激光测距仪"
         ));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         when(productContractReleaseService.createBatch(
                 eq(5005L),
                 eq("phase1-crack"),
@@ -1021,7 +1058,6 @@ class ProductModelServiceImplTest {
                 "nf-monitor-deep-displacement-v1",
                 "南方测绘 监测型 深部位移监测仪"
         ));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         when(productContractReleaseService.createBatch(
                 eq(4004L),
                 eq("phase3-deep-displacement"),
@@ -1049,7 +1085,6 @@ class ProductModelServiceImplTest {
                 "nf-monitor-tipping-bucket-rain-gauge-v1",
                 "南方测绘 监测型 翻斗式雨量计"
         ));
-        when(productModelMapper.selectOne(any())).thenReturn(null);
         when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_YL_1.value")))
                 .thenReturn("value");
         when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_YL_1.totalValue")))
@@ -1129,8 +1164,6 @@ class ProductModelServiceImplTest {
     void applyGovernanceShouldAllowCollectorOwnedRuntimeStatusFields() {
         Product collector = collectorProduct(6006L);
         when(productMapper.selectById(6006L)).thenReturn(collector);
-        when(productModelMapper.selectOne(any())).thenReturn(null);
-
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
         dto.setItems(List.of(
                 applyItem("create", null, "property", "temp", "设备温度"),

@@ -40,6 +40,7 @@ import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -592,6 +593,7 @@ class RiskPointServiceImplTest {
         RegionService regionService = mock(RegionService.class);
         UserService userService = mock(UserService.class);
         DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
         DeviceService deviceService = mock(DeviceService.class);
         RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
                 deviceMapper,
@@ -599,7 +601,100 @@ class RiskPointServiceImplTest {
                 regionService,
                 userService,
                 dictService,
-                null,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7102L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2001L, 7103L, "ops-device-01");
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        Organization parentOrg = activeOrganization(7101L, 0L, 1L, "org-parent");
+        Organization riskPointOrg = activeOrganization(7102L, 7101L, 1L, "org-risk-point");
+        Organization siblingOrg = activeOrganization(7103L, 7101L, 1L, "org-sibling");
+        when(organizationService.getById(7101L)).thenReturn(parentOrg);
+        when(organizationService.getById(7102L)).thenReturn(riskPointOrg);
+        when(organizationService.getById(7103L)).thenReturn(siblingOrg);
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.getRequiredById(99L, 2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDevice(request, 99L));
+        assertEquals("设备所属组织与风险点所属组织不是父子组织", error.getMessage());
+    }
+
+    @Test
+    void bindDeviceShouldAllowParentOrganizationWithinSameTenantForNonSuperAdmin() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7102L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        when(organizationService.getById(7101L)).thenReturn(activeOrganization(7101L, 0L, 1L, "org-parent"));
+        when(organizationService.getById(7102L)).thenReturn(activeOrganization(7102L, 7101L, 1L, "org-child"));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.getRequiredById(99L, 2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        assertDoesNotThrow(() -> service.bindDevice(request, 99L));
+        verify(deviceMapper).insert(org.mockito.ArgumentMatchers.<RiskPointDevice>argThat(binding ->
+                Objects.equals(12L, binding.getRiskPointId())
+                        && Objects.equals(2001L, binding.getDeviceId())
+                        && Objects.equals("ops-device-01", binding.getDeviceCode())));
+    }
+
+    @Test
+    void bindDeviceShouldAllowChildOrganizationWithinSameTenantForNonSuperAdmin() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
                 deviceService
         ));
 
@@ -607,20 +702,114 @@ class RiskPointServiceImplTest {
         riskPoint.setId(12L);
         riskPoint.setOrgId(7101L);
         riskPoint.setTenantId(1L);
-
         Device device = activeDevice(2001L, 7102L, "ops-device-01");
+
         RiskPointDevice request = new RiskPointDevice();
         request.setRiskPointId(12L);
         request.setDeviceId(2001L);
         request.setMetricIdentifier("temperature");
 
-        doReturn(riskPoint).when(service).getById(12L);
-        when(deviceService.getRequiredById(2001L)).thenReturn(device);
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        when(organizationService.getById(7101L)).thenReturn(activeOrganization(7101L, 0L, 1L, "org-parent"));
+        when(organizationService.getById(7102L)).thenReturn(activeOrganization(7102L, 7101L, 1L, "org-child"));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.getRequiredById(99L, 2001L)).thenReturn(device);
         when(deviceMapper.selectOne(any())).thenReturn(null);
         when(deviceMapper.selectList(any())).thenReturn(List.of());
 
-        BizException error = assertThrows(BizException.class, () -> service.bindDevice(request));
-        assertEquals("设备所属组织与风险点所属组织不一致", error.getMessage());
+        assertDoesNotThrow(() -> service.bindDevice(request, 99L));
+        verify(deviceMapper).insert(org.mockito.ArgumentMatchers.<RiskPointDevice>argThat(binding ->
+                Objects.equals(12L, binding.getRiskPointId())
+                        && Objects.equals(2001L, binding.getDeviceId())
+                        && Objects.equals("ops-device-01", binding.getDeviceCode())));
+    }
+
+    @Test
+    void bindDeviceShouldRejectCrossTenantForNonSuperAdmin() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7102L, "ops-device-01");
+        device.setTenantId(2L);
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.getRequiredById(99L, 2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDevice(request, 99L));
+        assertEquals("设备与风险点不属于同一租户，禁止绑定", error.getMessage());
+    }
+
+    @Test
+    void bindDeviceShouldAllowCrossTenantForSuperAdmin() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7201L, "ops-device-01");
+        device.setTenantId(2L);
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setMetricIdentifier("temperature");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.ALL, true));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.getRequiredById(99L, 2001L)).thenReturn(device);
+        when(deviceMapper.selectOne(any())).thenReturn(null);
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        assertDoesNotThrow(() -> service.bindDevice(request, 99L));
+        verify(deviceMapper).insert(org.mockito.ArgumentMatchers.<RiskPointDevice>argThat(binding ->
+                Objects.equals(12L, binding.getRiskPointId())
+                        && Objects.equals(2001L, binding.getDeviceId())
+                        && Objects.equals("ops-device-01", binding.getDeviceCode())));
     }
 
     @Test
@@ -677,6 +866,52 @@ class RiskPointServiceImplTest {
         List<DeviceOptionVO> result = service.listBindableDevices(12L, 99L);
 
         assertEquals(List.of(2001L, 2003L), result.stream().map(DeviceOptionVO::getId).toList());
+    }
+
+    @Test
+    void listBindableDevicesShouldKeepParentChildOrganizationsAndExcludeSiblingOrganizations() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setTenantId(1L);
+        riskPoint.setOrgId(7102L);
+
+        DeviceOptionVO parentOrgDevice = deviceOption(2001L, 7101L, "device-parent");
+        DeviceOptionVO sameOrgDevice = deviceOption(2002L, 7102L, "device-same");
+        DeviceOptionVO siblingOrgDevice = deviceOption(2003L, 7103L, "device-sibling");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.TENANT, false));
+        when(organizationService.getById(7101L)).thenReturn(activeOrganization(7101L, 0L, 1L, "org-parent"));
+        when(organizationService.getById(7102L)).thenReturn(activeOrganization(7102L, 7101L, 1L, "org-child"));
+        when(organizationService.getById(7103L)).thenReturn(activeOrganization(7103L, 7101L, 1L, "org-sibling"));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.listDeviceOptions(99L, false)).thenReturn(List.of(
+                parentOrgDevice,
+                sameOrgDevice,
+                siblingOrgDevice
+        ));
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        List<DeviceOptionVO> result = service.listBindableDevices(12L, 99L);
+
+        assertEquals(List.of(2001L, 2002L), result.stream().map(DeviceOptionVO::getId).toList());
     }
 
     @Test
@@ -1243,8 +1478,14 @@ class RiskPointServiceImplTest {
     }
 
     private Organization activeOrganization(Long id, String name) {
+        return activeOrganization(id, 0L, 1L, name);
+    }
+
+    private Organization activeOrganization(Long id, Long parentId, Long tenantId, String name) {
         Organization organization = new Organization();
         organization.setId(id);
+        organization.setParentId(parentId);
+        organization.setTenantId(tenantId);
         organization.setOrgName(name);
         organization.setStatus(1);
         organization.setDeleted(0);

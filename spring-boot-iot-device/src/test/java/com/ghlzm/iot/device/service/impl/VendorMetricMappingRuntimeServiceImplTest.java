@@ -9,9 +9,11 @@ import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
+import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
+import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -138,6 +140,40 @@ class VendorMetricMappingRuntimeServiceImplTest {
     }
 
     @Test
+    void resolveForRuntimeShouldPreferProtocolFamilyRuleOverBaseProtocolRule() {
+        IotProperties properties = new IotProperties();
+        IotProperties.Protocol.FamilyDefinition familyDefinition = new IotProperties.Protocol.FamilyDefinition();
+        familyDefinition.setFamilyCode("legacy-dp-crack");
+        familyDefinition.setProtocolCode("mqtt-json");
+        properties.getProtocol().getFamilyDefinitions().put("legacy-dp-crack", familyDefinition);
+        VendorMetricMappingRuntimeServiceImpl service = new VendorMetricMappingRuntimeServiceImpl(
+                mapper,
+                normativeMetricDefinitionService,
+                snapshotService,
+                metricIdentifierResolver,
+                properties
+        );
+        when(mapper.selectList(any())).thenReturn(List.of(
+                mappingRule(9901L, 1001L, "disp", null, "sensor_state", "ACTIVE",
+                        "PROTOCOL", null, null, "mqtt-json"),
+                mappingRule(9902L, 1001L, "disp", null, "value", "ACTIVE",
+                        "PROTOCOL", null, null, "family:legacy-dp-crack")
+        ));
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setProtocolCode("mqtt-json");
+        DeviceUpProtocolMetadata protocolMetadata = new DeviceUpProtocolMetadata();
+        protocolMetadata.setFamilyCodes(List.of("legacy-dp-crack"));
+        upMessage.setProtocolMetadata(protocolMetadata);
+
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                service.resolveForRuntime(crackProduct(1001L), upMessage, "disp", null);
+
+        assertEquals(9902L, resolution.ruleId());
+        assertEquals("value", resolution.targetNormativeIdentifier());
+    }
+
+    @Test
     void resolveForGovernanceShouldMatchDeviceFamilyFromNormativeDefinitions() {
         VendorMetricMappingRuntimeServiceImpl service =
                 new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
@@ -193,6 +229,20 @@ class VendorMetricMappingRuntimeServiceImplTest {
                                                 String scopeType,
                                                 String scenarioCode,
                                                 String deviceFamily) {
+        return mappingRule(id, productId, rawIdentifier, logicalChannelCode, targetNormativeIdentifier, status,
+                scopeType, scenarioCode, deviceFamily, "mqtt-json");
+    }
+
+    private VendorMetricMappingRule mappingRule(Long id,
+                                                Long productId,
+                                                String rawIdentifier,
+                                                String logicalChannelCode,
+                                                String targetNormativeIdentifier,
+                                                String status,
+                                                String scopeType,
+                                                String scenarioCode,
+                                                String deviceFamily,
+                                                String protocolCode) {
         VendorMetricMappingRule rule = new VendorMetricMappingRule();
         rule.setId(id);
         rule.setProductId(productId);
@@ -201,7 +251,7 @@ class VendorMetricMappingRuntimeServiceImplTest {
         rule.setLogicalChannelCode(logicalChannelCode);
         rule.setTargetNormativeIdentifier(targetNormativeIdentifier);
         rule.setScenarioCode(scenarioCode);
-        rule.setProtocolCode("mqtt-json");
+        rule.setProtocolCode(protocolCode);
         rule.setDeviceFamily(deviceFamily);
         rule.setStatus(status);
         rule.setDeleted(0);

@@ -42,9 +42,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -293,7 +295,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   throw new BizException("设备已绑定到该风险点");
             }
 
-            validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId());
+            validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId(), currentUserId);
             riskPointDevice.setDeviceCode(device.getDeviceCode());
             riskPointDevice.setDeviceName(device.getDeviceName());
 
@@ -338,7 +340,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   throw new BizException("设备已绑定到该风险点");
             }
 
-            validateRiskPointDeviceBinding(riskPoint, device, request.getRiskPointId());
+            validateRiskPointDeviceBinding(riskPoint, device, request.getRiskPointId(), currentUserId);
             RiskPointDeviceCapabilityBinding binding = new RiskPointDeviceCapabilityBinding();
             binding.setRiskPointId(request.getRiskPointId());
             binding.setDeviceId(request.getDeviceId());
@@ -453,8 +455,9 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     .map(RiskPointDeviceCapabilityBinding::getDeviceId)
                     .filter(Objects::nonNull)
                     .forEach(occupiedDeviceIds::add);
+            DataPermissionContext bindingContext = resolveBindingPermissionContext(currentUserId);
             return deviceOptions.stream()
-                    .filter(device -> Objects.equals(riskPoint.getOrgId(), device.getOrgId()))
+                    .filter(device -> isDeviceOptionBindableForRiskPoint(riskPoint, device, currentUserId, bindingContext))
                     .filter(device -> currentRiskPointDeviceIds.contains(device.getId()) || !occupiedDeviceIds.contains(device.getId()))
                     .toList();
       }
@@ -486,16 +489,111 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     : deviceService.getRequiredById(currentUserId, deviceId);
       }
 
-      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
+      private DataPermissionContext resolveBindingPermissionContext(Long currentUserId) {
+            if (!hasDataPermissionSupport() || currentUserId == null) {
+                  return null;
+            }
+            return permissionService.getDataPermissionContext(currentUserId);
+      }
+
+      private boolean isDeviceOptionBindableForRiskPoint(RiskPoint riskPoint,
+                                                         DeviceOptionVO deviceOption,
+                                                         Long currentUserId,
+                                                         DataPermissionContext bindingContext) {
+            if (deviceOption == null || deviceOption.getId() == null) {
+                  return false;
+            }
+            if (deviceOption.getOrgId() == null || deviceOption.getOrgId() <= 0) {
+                  return false;
+            }
+            if (bindingContext != null && bindingContext.superAdmin()) {
+                  return true;
+            }
+            if (bindingContext != null && currentUserId != null) {
+                  if (riskPoint.getTenantId() == null
+                          || bindingContext.tenantId() == null
+                          || !Objects.equals(riskPoint.getTenantId(), bindingContext.tenantId())) {
+                        return false;
+                  }
+                  return hasBindableOrganizationRelation(riskPoint.getOrgId(), deviceOption.getOrgId());
+            }
+            Device device = resolveRequiredDevice(currentUserId, deviceOption.getId());
+            if (device.getOrgId() == null || device.getOrgId() <= 0) {
+                  return false;
+            }
+            if (riskPoint.getTenantId() == null
+                    || device.getTenantId() == null
+                    || !Objects.equals(riskPoint.getTenantId(), device.getTenantId())) {
+                  return false;
+            }
+            return hasBindableOrganizationRelation(riskPoint.getOrgId(), device.getOrgId());
+      }
+
+      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId, Long currentUserId) {
             if (device.getOrgId() == null || device.getOrgId() <= 0) {
                   throw new BizException("设备未归属组织，禁止绑定风险点");
             }
-            if (!Objects.equals(riskPoint.getOrgId(), device.getOrgId())) {
-                  throw new BizException("设备所属组织与风险点所属组织不一致");
+            DataPermissionContext bindingContext = resolveBindingPermissionContext(currentUserId);
+            if (bindingContext == null || !bindingContext.superAdmin()) {
+                  if (riskPoint.getTenantId() == null
+                          || device.getTenantId() == null
+                          || !Objects.equals(riskPoint.getTenantId(), device.getTenantId())) {
+                        throw new BizException("设备与风险点不属于同一租户，禁止绑定");
+                  }
+                  if (!hasBindableOrganizationRelation(riskPoint.getOrgId(), device.getOrgId())) {
+                        throw new BizException("设备所属组织与风险点所属组织不是父子组织");
+                  }
             }
             if (hasBindingOnOtherRiskPoint(device.getId(), currentRiskPointId)) {
                   throw new BizException("设备已绑定其他风险点，不能重复绑定");
             }
+      }
+
+      private boolean hasBindableOrganizationRelation(Long leftOrgId, Long rightOrgId) {
+            if (leftOrgId == null || leftOrgId <= 0 || rightOrgId == null || rightOrgId <= 0) {
+                  return false;
+            }
+            if (Objects.equals(leftOrgId, rightOrgId)) {
+                  return true;
+            }
+            Map<Long, Organization> organizationCache = new HashMap<>();
+            return isAncestorOrSelf(leftOrgId, rightOrgId, organizationCache)
+                    || isAncestorOrSelf(rightOrgId, leftOrgId, organizationCache);
+      }
+
+      private boolean isAncestorOrSelf(Long ancestorOrgId,
+                                       Long descendantOrgId,
+                                       Map<Long, Organization> organizationCache) {
+            Long currentOrgId = descendantOrgId;
+            while (currentOrgId != null && currentOrgId > 0) {
+                  if (Objects.equals(ancestorOrgId, currentOrgId)) {
+                        return true;
+                  }
+                  Organization organization = loadOrganization(currentOrgId, organizationCache);
+                  if (organization == null
+                          || organization.getParentId() == null
+                          || organization.getParentId() <= 0
+                          || Objects.equals(currentOrgId, organization.getParentId())) {
+                        return false;
+                  }
+                  currentOrgId = organization.getParentId();
+            }
+            return false;
+      }
+
+      private Organization loadOrganization(Long orgId, Map<Long, Organization> organizationCache) {
+            if (organizationService == null || orgId == null || orgId <= 0) {
+                  return null;
+            }
+            Organization cached = organizationCache.get(orgId);
+            if (cached != null) {
+                  return cached;
+            }
+            Organization organization = organizationService.getById(orgId);
+            if (organization != null) {
+                  organizationCache.put(orgId, organization);
+            }
+            return organization;
       }
 
       private boolean hasBindingOnOtherRiskPoint(Long deviceId, Long currentRiskPointId) {

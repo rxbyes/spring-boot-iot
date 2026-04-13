@@ -232,13 +232,24 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ProductModelVO createModel(Long productId, ProductModelUpsertDTO dto) {
-        getRequiredProduct(productId);
+        Product product = getRequiredProduct(productId);
         String modelType = normalizeModelType(dto.getModelType());
         String identifier = normalizeRequired(dto.getIdentifier(), "物模型标识");
         validateByModelType(modelType, dto);
-        ensureIdentifierUnique(productId, identifier, null);
+        List<ProductModel> existingModels = loadModelsByIdentifierIncludingDeleted(productId, identifier);
+        if (resolveActiveModel(existingModels, null) != null) {
+            throw duplicateIdentifierException(identifier);
+        }
+        ProductModel deletedModel = resolveDeletedModelForRevive(existingModels, modelType);
+        if (deletedModel != null) {
+            return reviveDeletedModel(product, deletedModel, modelType, identifier, dto);
+        }
+        if (!existingModels.isEmpty()) {
+            throw historicalDuplicateIdentifierException(identifier);
+        }
 
         ProductModel model = new ProductModel();
+        model.setTenantId(defaultTenantId(product.getTenantId()));
         model.setProductId(productId);
         applyEditableFields(model, modelType, identifier, dto);
         productModelMapper.insert(model);
@@ -1278,17 +1289,72 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     private void ensureIdentifierUnique(Long productId, String identifier, Long excludeId) {
-        LambdaQueryWrapper<ProductModel> wrapper = new LambdaQueryWrapper<ProductModel>()
-                .eq(ProductModel::getProductId, productId)
-                .eq(ProductModel::getIdentifier, identifier)
-                .eq(ProductModel::getDeleted, 0);
-        if (excludeId != null) {
-            wrapper.ne(ProductModel::getId, excludeId);
+        List<ProductModel> existingModels = loadModelsByIdentifierIncludingDeleted(productId, identifier);
+        if (resolveActiveModel(existingModels, excludeId) != null) {
+            throw duplicateIdentifierException(identifier);
         }
-        ProductModel existing = productModelMapper.selectOne(wrapper);
-        if (existing != null) {
-            throw new BizException("同一产品下物模型标识已存在: " + identifier);
+        boolean hasHistoricalConflict = existingModels.stream()
+                .filter(model -> model != null && (excludeId == null || !excludeId.equals(model.getId())))
+                .anyMatch(model -> Integer.valueOf(1).equals(model.getDeleted()));
+        if (hasHistoricalConflict) {
+            throw historicalDuplicateIdentifierException(identifier);
         }
+    }
+
+    private List<ProductModel> loadModelsByIdentifierIncludingDeleted(Long productId, String identifier) {
+        List<ProductModel> models = productModelMapper.selectAnyByProductAndIdentifier(productId, identifier);
+        return models == null ? List.of() : models;
+    }
+
+    private ProductModel resolveActiveModel(List<ProductModel> models, Long excludeId) {
+        if (models == null || models.isEmpty()) {
+            return null;
+        }
+        return models.stream()
+                .filter(model -> model != null && !Integer.valueOf(1).equals(model.getDeleted()))
+                .filter(model -> excludeId == null || !excludeId.equals(model.getId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private ProductModel resolveDeletedModelForRevive(List<ProductModel> models, String modelType) {
+        if (models == null || models.isEmpty()) {
+            return null;
+        }
+        List<ProductModel> deletedModels = models.stream()
+                .filter(model -> model != null && Integer.valueOf(1).equals(model.getDeleted()))
+                .toList();
+        if (deletedModels.size() != 1) {
+            return null;
+        }
+        ProductModel deletedModel = deletedModels.get(0);
+        if (!modelType.equals(normalizeOptional(deletedModel.getModelType()))) {
+            return null;
+        }
+        return deletedModel;
+    }
+
+    private ProductModelVO reviveDeletedModel(Product product,
+                                              ProductModel deletedModel,
+                                              String modelType,
+                                              String identifier,
+                                              ProductModelUpsertDTO dto) {
+        deletedModel.setTenantId(defaultTenantId(product == null ? null : product.getTenantId()));
+        deletedModel.setProductId(product == null ? null : product.getId());
+        deletedModel.setDeleted(0);
+        applyEditableFields(deletedModel, modelType, identifier, dto);
+        if (productModelMapper.reviveDeletedById(deletedModel) <= 0) {
+            throw new BizException("产品物模型恢复失败，请稍后重试");
+        }
+        return toVO(deletedModel);
+    }
+
+    private BizException duplicateIdentifierException(String identifier) {
+        return new BizException("同一产品下物模型标识已存在: " + identifier);
+    }
+
+    private BizException historicalDuplicateIdentifierException(String identifier) {
+        return new BizException("同一产品下物模型标识已存在历史记录，请先恢复或更换标识: " + identifier);
     }
 
     private void applyEditableFields(ProductModel model, String modelType, String identifier, ProductModelUpsertDTO dto) {

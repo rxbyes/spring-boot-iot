@@ -4,6 +4,7 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.framework.config.IotProperties;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,6 +102,47 @@ class VendorMetricMappingRuleServiceImplTest {
         BizException error = assertThrows(BizException.class, () -> service.createRule(1001L, 10001L, dto));
 
         assertEquals("厂商字段映射规则存在冲突，请先清理同 scope 下的重复目标: l3_yl_1.value", error.getMessage());
+        verify(mapper, never()).insert(any(VendorMetricMappingRule.class));
+    }
+
+    @Test
+    void createRuleShouldAcceptConfiguredProtocolFamilySelector() {
+        IotProperties properties = new IotProperties();
+        IotProperties.Protocol.FamilyDefinition familyDefinition = new IotProperties.Protocol.FamilyDefinition();
+        familyDefinition.setFamilyCode("legacy-dp-crack");
+        familyDefinition.setProtocolCode("mqtt-json");
+        properties.getProtocol().getFamilyDefinitions().put("legacy-dp-crack", familyDefinition);
+
+        VendorMetricMappingRuleUpsertDTO dto = new VendorMetricMappingRuleUpsertDTO();
+        dto.setScopeType("PROTOCOL");
+        dto.setProtocolCode("family:legacy-dp-crack");
+        dto.setRawIdentifier("disp");
+        dto.setTargetNormativeIdentifier("value");
+
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, properties);
+
+        service.createRule(1001L, 10001L, dto);
+
+        verify(mapper).insert(argThat((VendorMetricMappingRule rule) ->
+                "PROTOCOL".equals(rule.getScopeType())
+                        && "family:legacy-dp-crack".equals(rule.getProtocolCode())
+                        && "disp".equals(rule.getRawIdentifier())
+        ));
+    }
+
+    @Test
+    void createRuleShouldRejectUnknownProtocolFamilySelector() {
+        VendorMetricMappingRuleUpsertDTO dto = new VendorMetricMappingRuleUpsertDTO();
+        dto.setScopeType("PROTOCOL");
+        dto.setProtocolCode("family:missing-family");
+        dto.setRawIdentifier("disp");
+        dto.setTargetNormativeIdentifier("value");
+
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, new IotProperties());
+
+        BizException error = assertThrows(BizException.class, () -> service.createRule(1001L, 10001L, dto));
+
+        assertEquals("protocolCode 对应的协议族不存在或未启用: family:missing-family", error.getMessage());
         verify(mapper, never()).insert(any(VendorMetricMappingRule.class));
     }
 }
