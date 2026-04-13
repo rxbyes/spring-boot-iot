@@ -1337,6 +1337,123 @@ describe('DeviceInsightView', () => {
     expect(displayNameColumn.text()).toContain('激光测距状态');
   });
 
+  it('uses the formal field name in the property snapshot when runtime identifiers are raw aliases', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3501,
+        productId: 801,
+        deviceCode: 'COLLECT-SIGNAL-001',
+        deviceName: '采集终端 1 号',
+        productName: '雨量采集终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-13 09:00:00',
+        lastReportTime: '2026-04-13 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '现场信号读数',
+          propertyValue: '-82',
+          valueType: 'int',
+          updateTime: '2026-04-13 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 801,
+        productKey: 'collect-product-signal',
+        productName: '雨量采集终端',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'signal_4g',
+                displayName: '传输信号',
+                group: 'status',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 31,
+          productId: 801,
+          modelType: 'property',
+          identifier: 'signal_4g',
+          modelName: '蜂窝信号强度',
+          dataType: 'int',
+          specsJson: JSON.stringify({
+            unit: 'dBm'
+          })
+        }
+      ]
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 3501,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'signal_4g',
+            displayName: '传输信号',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-13 09:00:00', value: -82, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'COLLECT-SIGNAL-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const displayNameColumn = wrapper.find('[data-label="属性名称"]');
+
+    expect(displayNameColumn.exists()).toBe(true);
+    expect(displayNameColumn.text()).toContain('蜂窝信号强度');
+    expect(displayNameColumn.text()).not.toContain('现场信号读数');
+  });
+
   it('keeps trend preview empty when no manual trend metric is configured', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,

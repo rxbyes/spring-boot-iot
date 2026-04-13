@@ -343,6 +343,309 @@
       ]
     },
     {
+      "key": "product-governance-unknown-capability",
+      "name": "待确认产品治理提示可达",
+      "route": "/products",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "description": "验证待确认产品进入契约字段工作区后，会显示能力待确认与返回编辑档案的引导。",
+      "businessFlow": "产品能力待确认场景在治理工作台中的可达性",
+      "featurePoints": [
+        "待确认产品工作台可达",
+        "契约字段显示能力待确认",
+        "可回到编辑档案完善能力"
+      ],
+      "initialApis": [],
+      "steps": [
+        {
+          "id": "product-governance-unknown-fill-quick-search",
+          "label": "填写待确认产品快速搜索",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#quick-search"
+          },
+          "value": "自动化产品 ${runToken}",
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-query",
+          "label": "按待确认产品名称查询台账",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "查询",
+            "exact": true
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-wait-row",
+          "label": "等待待确认产品出现在台账中",
+          "type": "waitVisible",
+          "locator": {
+            "type": "text",
+            "value": "自动化产品 ${runToken}",
+            "exact": false
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-open-workbench",
+          "label": "打开待确认产品经营工作台",
+          "type": "tableRowAction",
+          "rowText": "自动化产品 ${runToken}",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "进入工作台",
+              "exact": true
+            }
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-switch-models",
+          "label": "切换到契约字段页签",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "契约字段",
+            "exact": true
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-wait-workspace",
+          "label": "等待待确认产品契约字段工作区出现",
+          "type": "waitVisible",
+          "locator": {
+            "type": "testId",
+            "value": "contract-field-sample-stage"
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-assert-capability",
+          "label": "断言工作区显示能力待确认",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "能力待确认",
+          "optional": false
+        },
+        {
+          "id": "product-governance-unknown-assert-edit-action",
+          "label": "断言工作区提示去完善产品能力",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "去完善产品能力",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "key": "product-governance-collecting-device-binding",
+      "name": "采集型产品设备级风险点绑定提示可达",
+      "route": "/products",
+      "scope": "delivery",
+      "readySelector": "#quick-search",
+      "description": "创建采集型产品并验证契约字段工作区会按设备级风险点绑定收口，而不是继续展示目录发布与阈值策略主链路。",
+      "businessFlow": "采集型产品能力分流在治理工作台中的可达性",
+      "featurePoints": [
+        "采集型产品创建",
+        "契约字段显示设备级风险点绑定",
+        "目录发布与阈值策略收口为监测型专属语义"
+      ],
+      "initialApis": [],
+      "steps": [
+        {
+          "id": "product-governance-collecting-open-create",
+          "label": "打开新增采集型产品抽屉",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "新增产品",
+            "exact": true
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-fill-key",
+          "label": "填写采集型产品编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#product-key"
+          },
+          "value": "autotest-collect-product-${runToken}",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-fill-name",
+          "label": "填写采集型产品名称",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#product-name"
+          },
+          "value": "自动化采集型产品 ${runToken}",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-fill-protocol",
+          "label": "填写采集型产品协议编码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#protocol-code"
+          },
+          "value": "mqtt-json",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-fill-format",
+          "label": "填写采集型产品数据格式",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#data-format"
+          },
+          "value": "JSON",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-select-capability",
+          "label": "选择采集型产品能力",
+          "type": "selectOption",
+          "locator": {
+            "type": "label",
+            "value": "产品能力",
+            "exact": true
+          },
+          "optionText": "采集型",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-submit",
+          "label": "提交采集型产品并捕获主键",
+          "type": "triggerApi",
+          "matcher": "/api/device/product/add",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#product-submit-button"
+            }
+          },
+          "captures": [
+            {
+              "variable": "collectingProductId",
+              "path": "payload.data.id"
+            }
+          ],
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-fill-quick-search",
+          "label": "填写采集型产品快速搜索",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#quick-search"
+          },
+          "value": "自动化采集型产品 ${runToken}",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-query",
+          "label": "按采集型产品名称查询台账",
+          "type": "triggerApi",
+          "matcher": "/api/device/product/page",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "查询",
+              "exact": true
+            }
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-open-workbench",
+          "label": "打开采集型产品经营工作台",
+          "type": "tableRowAction",
+          "rowText": "自动化采集型产品 ${runToken}",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "进入工作台",
+              "exact": true
+            }
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-switch-models",
+          "label": "切换到采集型产品契约字段页签",
+          "type": "click",
+          "locator": {
+            "type": "role",
+            "role": "button",
+            "name": "契约字段",
+            "exact": true
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-wait-workspace",
+          "label": "等待采集型产品契约字段工作区出现",
+          "type": "waitVisible",
+          "locator": {
+            "type": "testId",
+            "value": "contract-field-sample-stage"
+          },
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-assert-binding",
+          "label": "断言工作区显示设备级风险点绑定",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "设备级风险点绑定",
+          "optional": false
+        },
+        {
+          "id": "product-governance-collecting-assert-boundary",
+          "label": "断言工作区显示仅监测型适用的边界提示",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "目录发布与阈值策略仅监测型适用",
+          "optional": false
+        }
+      ]
+    },
+    {
       "key": "device-workbench",
       "name": "设备资产建档与库存校验",
       "route": "/devices",
