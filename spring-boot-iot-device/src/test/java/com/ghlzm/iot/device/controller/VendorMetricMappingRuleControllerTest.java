@@ -4,7 +4,9 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuleSuggestionService;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleSuggestionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
@@ -25,6 +27,8 @@ class VendorMetricMappingRuleControllerTest {
 
     @Mock
     private VendorMetricMappingRuleService service;
+    @Mock
+    private VendorMetricMappingRuleSuggestionService suggestionService;
 
     @Mock
     private GovernancePermissionGuard permissionGuard;
@@ -33,7 +37,7 @@ class VendorMetricMappingRuleControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new VendorMetricMappingRuleController(service, permissionGuard);
+        controller = new VendorMetricMappingRuleController(service, suggestionService, permissionGuard);
     }
 
     @Test
@@ -92,6 +96,26 @@ class VendorMetricMappingRuleControllerTest {
                 "iot:product-contract:govern"
         );
         verify(service).updateAndGet(1001L, 9202L, 10001L, dto);
+    }
+
+    @Test
+    void listSuggestionsShouldRequireGovernPermissionAndDelegateToService() {
+        VendorMetricMappingRuleSuggestionVO row = new VendorMetricMappingRuleSuggestionVO();
+        row.setRawIdentifier("disp");
+        row.setStatus("READY_TO_CREATE");
+        when(suggestionService.listSuggestions(1001L, false, false, 1))
+                .thenReturn(List.of(row));
+
+        R<List<VendorMetricMappingRuleSuggestionVO>> response =
+                controller.listSuggestions(1001L, false, false, 1, authentication(10001L));
+
+        assertEquals("READY_TO_CREATE", response.getData().get(0).getStatus());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "厂商字段映射规则建议",
+                "iot:product-contract:govern"
+        );
+        verify(suggestionService).listSuggestions(1001L, false, false, 1);
     }
 
     private Authentication authentication(Long userId) {

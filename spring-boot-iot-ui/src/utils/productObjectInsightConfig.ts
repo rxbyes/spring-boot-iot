@@ -30,7 +30,7 @@ export function createProductObjectInsightMetricFromModel(
   model: Pick<ProductModel, 'identifier' | 'modelName' | 'sortNo'>,
   group: ProductObjectInsightMetricGroup
 ): ProductObjectInsightCustomMetricConfig {
-  const identifier = normalizeText(model.identifier)
+  const identifier = normalizeMetricIdentifier(model.identifier)
   const displayName = normalizeText(model.modelName) || identifier
   return {
     ...createEmptyProductObjectInsightMetric(),
@@ -143,8 +143,8 @@ export function findProductObjectInsightMetric(
   rows: ProductObjectInsightCustomMetricConfig[],
   identifier: string
 ) {
-  const normalizedIdentifier = normalizeText(identifier)
-  return rows.find((item) => normalizeText(item.identifier) === normalizedIdentifier)
+  const normalizedIdentifier = normalizeMetricIdentifier(identifier)
+  return rows.find((item) => normalizeMetricIdentifier(item.identifier) === normalizedIdentifier)
 }
 
 export function upsertProductObjectInsightMetric(
@@ -153,7 +153,7 @@ export function upsertProductObjectInsightMetric(
 ) {
   const normalizedMetric = normalizeMetric(metric)
   const targetIndex = rows.findIndex(
-    (item) => normalizeText(item.identifier) === normalizedMetric.identifier
+    (item) => normalizeMetricIdentifier(item.identifier) === normalizedMetric.identifier
   )
 
   if (targetIndex < 0) {
@@ -182,8 +182,8 @@ export function removeProductObjectInsightMetric(
   rows: ProductObjectInsightCustomMetricConfig[],
   identifier: string
 ) {
-  const normalizedIdentifier = normalizeText(identifier)
-  return rows.filter((item) => normalizeText(item.identifier) !== normalizedIdentifier)
+  const normalizedIdentifier = normalizeMetricIdentifier(identifier)
+  return rows.filter((item) => normalizeMetricIdentifier(item.identifier) !== normalizedIdentifier)
 }
 
 function parseProductMetadata(metadataJson?: string | null): ProductMetadata | null {
@@ -207,6 +207,18 @@ function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function normalizeMetricIdentifier(value: unknown): string {
+  const normalized = normalizeText(value)
+  if (!normalized) {
+    return ''
+  }
+  const lastDotIndex = normalized.lastIndexOf('.')
+  if (lastDotIndex < 0 || lastDotIndex === normalized.length - 1) {
+    return normalized
+  }
+  return normalized.slice(lastDotIndex + 1)
+}
+
 function serializeProductObjectInsightMetricGroup(group: ProductObjectInsightMetricGroup) {
   return group === 'statusEvent' ? 'status' : group
 }
@@ -215,7 +227,7 @@ function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): Produc
   return {
     ...createEmptyProductObjectInsightMetric(),
     ...metric,
-    identifier: normalizeText(metric.identifier),
+    identifier: normalizeMetricIdentifier(metric.identifier),
     displayName: normalizeText(metric.displayName),
     analysisTitle: normalizeText(metric.analysisTitle),
     analysisTag: normalizeText(metric.analysisTag),

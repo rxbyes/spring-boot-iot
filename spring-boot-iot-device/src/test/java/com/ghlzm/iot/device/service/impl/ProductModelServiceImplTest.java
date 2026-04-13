@@ -574,6 +574,53 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepAllParentStatusFieldsForDirectCollectorRtuProduct() {
+        Product collector = directCollectorRtuProduct(6007L);
+        when(productMapper.selectById(6007L)).thenReturn(collector);
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("composite");
+        manualExtract.setParentDeviceCode("SK00EA0D1307986");
+        manualExtract.setRelationMappings(List.of(relationMapping("L1_LF_1", "202018143")));
+        manualExtract.setSamplePayload("""
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-13T17:34:04.000Z":{"ext_power_volt":12.12,"solar_volt":0,"battery_dump_energy":0,"battery_volt":0,"supply_power":0,"consume_power":0,"temp":20.44,"humidity":89.04,"temp_out":20.44,"humidity_out":89.04,"lon":"0.000000","lat":"0.000000","signal_4g":22,"singal_NB":0,"singal_db":0,"sw_version":"1.09.250808.RK00PX.BETA","sensor_state":{"L1_LF_1":0}}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6007L, dto);
+
+        assertEquals(
+                List.of(
+                        "battery_dump_energy",
+                        "battery_volt",
+                        "consume_power",
+                        "ext_power_volt",
+                        "humidity",
+                        "humidity_out",
+                        "lat",
+                        "lon",
+                        "signal_4g",
+                        "signal_NB",
+                        "signal_db",
+                        "solar_volt",
+                        "supply_power",
+                        "sw_version",
+                        "temp",
+                        "temp_out"
+                ),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .sorted()
+                        .toList()
+        );
+        assertTrue(result.getCompareRows().stream().noneMatch(item -> "sensor_state".equals(item.getIdentifier())));
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -1180,6 +1227,40 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void applyGovernanceShouldAllowDirectCollectorRtuRuntimeStatusFields() {
+        Product collector = directCollectorRtuProduct(6007L);
+        when(productMapper.selectById(6007L)).thenReturn(collector);
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "ext_power_volt", "外接电源电压"),
+                applyItem("create", null, "property", "lat", "纬度"),
+                applyItem("create", null, "property", "signal_NB", "NB 信号强度"),
+                applyItem("create", null, "property", "sw_version", "软件版本")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6007L, dto, 10001L);
+
+        assertEquals(4, result.getCreatedCount());
+        assertEquals(0, result.getUpdatedCount());
+        assertEquals(0, result.getSkippedCount());
+        verify(productModelMapper, times(4)).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldRejectDirectCollectorRtuChildSensorState() {
+        Product collector = directCollectorRtuProduct(6007L);
+        when(productMapper.selectById(6007L)).thenReturn(collector);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(applyItem("create", null, "property", "sensor_state", "传感器状态")));
+
+        BizException ex = assertThrows(BizException.class, () -> productModelService.applyGovernance(6007L, dto, 10001L));
+
+        assertEquals("采集器产品不能发布子设备正式字段: sensor_state", ex.getMessage());
+        verify(productModelMapper, never()).insert(any(ProductModel.class));
+    }
+
+    @Test
     void applyGovernanceShouldRejectUpdateWithoutTargetModelId() {
         when(productMapper.selectById(1001L)).thenReturn(product(1001L));
 
@@ -1210,6 +1291,10 @@ class ProductModelServiceImplTest {
         Product product = product(id, "nf-monitor-collector-v1", "南方测绘 监测型 采集器");
         product.setNodeType(2);
         return product;
+    }
+
+    private Product directCollectorRtuProduct(Long id) {
+        return product(id, "nf-collect-rtu-v1", "南方测绘 采集型 遥测终端");
     }
 
     private Device device(Long id, Long productId, String deviceCode) {

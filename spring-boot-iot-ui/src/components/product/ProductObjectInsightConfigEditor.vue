@@ -225,6 +225,7 @@ import {
   MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS,
   createEmptyProductObjectInsightMetric,
   createProductObjectInsightMetricFromModel,
+  findProductObjectInsightMetric,
   removeProductObjectInsightMetric,
   upsertProductObjectInsightMetric
 } from '@/utils/productObjectInsightConfig'
@@ -319,7 +320,7 @@ function normalizeMetricGroup(value: unknown) {
 }
 
 function hasMetric(identifier: string) {
-  return normalizedMetrics.value.some((item) => item.identifier === normalizeText(identifier))
+  return Boolean(findProductObjectInsightMetric(normalizedMetrics.value, identifier))
 }
 
 function isQuickAddDisabled(identifier: string) {
@@ -327,7 +328,7 @@ function isQuickAddDisabled(identifier: string) {
 }
 
 function resolveMetricStateLabel(identifier: string) {
-  const metric = normalizedMetrics.value.find((item) => item.identifier === normalizeText(identifier))
+  const metric = findProductObjectInsightMetric(normalizedMetrics.value, identifier)
   if (!metric) {
     return '当前未加入趋势'
   }

@@ -15,6 +15,11 @@ final class CollectorChildMetricBoundaryPolicy {
     private static final String SAMPLE_TYPE_STATUS = "status";
     private static final String STATUS_PREFIX = "S1_ZT_1.";
     private static final String PARENT_SENSOR_STATE_PREFIX = "S1_ZT_1.sensor_state.";
+    private static final Set<String> COLLECTOR_PRODUCT_KEY_HINTS = Set.of(
+            "collector",
+            "collect-rtu",
+            "collect_rtu"
+    );
     private static final Set<String> CHILD_OWNED_TELEMETRY_SEGMENTS = Set.of(
             "angle",
             "value",
@@ -33,11 +38,7 @@ final class CollectorChildMetricBoundaryPolicy {
             "gpssingley",
             "gpssinglez",
             "dispsx",
-            "dispsy",
-            "lat",
-            "lon",
-            "latitude",
-            "longitude"
+            "dispsy"
     );
 
     boolean applies(Product product, String deviceStructure) {
@@ -46,7 +47,15 @@ final class CollectorChildMetricBoundaryPolicy {
     }
 
     boolean appliesToProduct(Product product) {
-        return product != null && Integer.valueOf(COLLECTOR_NODE_TYPE).equals(product.getNodeType());
+        if (product == null) {
+            return false;
+        }
+        if (Integer.valueOf(COLLECTOR_NODE_TYPE).equals(product.getNodeType())) {
+            return true;
+        }
+        return matchesCollectorProductKey(product.getProductKey())
+                || matchesCollectorProductLabel(product.getProductName())
+                || matchesCollectorProductLabel(product.getDescription());
     }
 
     boolean shouldKeepLeaf(String sampleType, String rawIdentifier, List<String> logicalChannelCodes) {
@@ -131,6 +140,23 @@ final class CollectorChildMetricBoundaryPolicy {
     private String normalizeKeyword(String value) {
         String normalized = normalizeText(value);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private boolean matchesCollectorProductKey(String value) {
+        String normalized = normalizeKeyword(value);
+        if (normalized == null) {
+            return false;
+        }
+        return COLLECTOR_PRODUCT_KEY_HINTS.stream().anyMatch(normalized::contains);
+    }
+
+    private boolean matchesCollectorProductLabel(String value) {
+        String normalized = normalizeText(value);
+        if (normalized == null) {
+            return false;
+        }
+        return normalized.contains("采集器")
+                || (normalized.contains("采集") && normalized.contains("终端"));
     }
 
     private String lastIdentifierSegment(String identifier) {

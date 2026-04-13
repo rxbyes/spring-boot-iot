@@ -78,7 +78,22 @@
             class="view-alert"
           />
           <el-alert
-            v-else-if="governanceTaskItems.length"
+            v-if="governanceCapabilityNotice"
+            :title="governanceCapabilityNotice.title"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <div class="product-governance-capability-note">
+              <span>{{ governanceCapabilityNotice.detail }}</span>
+              <StandardButton action="query" link @click="openGovernanceCapabilityAction(governanceCapabilityNotice.path)">
+                {{ governanceCapabilityNotice.actionLabel }}
+              </StandardButton>
+            </div>
+          </el-alert>
+          <el-alert
+            v-if="!governanceErrorMessage && governanceTaskItems.length"
             :title="`当前聚焦产品仍有 ${governanceTaskItems.length} 项治理待办`"
             type="warning"
             :closable="false"
@@ -96,7 +111,7 @@
             </ul>
           </el-alert>
           <el-alert
-            v-else-if="governanceFocusProduct && !governanceLoading"
+            v-if="!governanceErrorMessage && !governanceTaskItems.length && governanceFocusProduct && !governanceLoading"
             :title="governanceClosedoutTitle"
             type="success"
             :closable="false"
@@ -385,6 +400,7 @@
           v-if="businessWorkbenchLoadedViews.edit"
           ref="editWorkspaceRef"
           :model="formData"
+          :product-capability-type="productCapabilityType"
           :object-insight-metrics="objectInsightMetricRows"
           :available-models="editAvailableModels"
           :rules="formRules"
@@ -392,6 +408,7 @@
           :submit-loading="submitLoading"
           :refresh-state="formRefreshState"
           :refresh-message="formRefreshMessage"
+          @update:product-capability-type="handleProductCapabilityTypeChange"
           @update:object-insight-metrics="handleObjectInsightMetricsChange"
           @cancel="handleCancelEdit"
           @submit="handleSubmit"
@@ -441,6 +458,15 @@
                 <el-select v-model="formData.nodeType" placeholder="请选择节点类型">
                   <el-option label="直连设备" :value="1" />
                   <el-option label="网关设备" :value="2" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="产品能力">
+                <el-select v-model="productCapabilityType" placeholder="请选择产品能力">
+                  <el-option label="监测型" value="MONITORING" />
+                  <el-option label="采集型" value="COLLECTING" />
+                  <el-option label="预警型" value="WARNING" />
+                  <el-option label="视频型" value="VIDEO" />
+                  <el-option label="待确认" value="UNKNOWN" />
                 </el-select>
               </el-form-item>
               <el-form-item label="数据格式">
@@ -549,6 +575,7 @@ import type {
   PageResult,
   Product,
   ProductAddPayload,
+  ProductGovernanceCapabilityType,
   ProductModel,
   ProductObjectInsightCustomMetricConfig
 } from '@/types/api'
@@ -594,6 +621,12 @@ import {
   parseProductObjectInsightMetrics,
   validateProductObjectInsightMetrics
 } from '@/utils/productObjectInsightConfig'
+import {
+  buildProductGovernanceMetadataJson,
+  getProductGovernanceCapabilityLabel,
+  resolveProductGovernanceApplicability,
+  resolveProductGovernanceCapabilityType
+} from '@/utils/productGovernanceCapability'
 
 function formatCount(value?: number | null) {
   const count = Number(value)
@@ -666,6 +699,13 @@ interface GovernanceTaskItem {
   path: string
 }
 
+interface GovernanceCapabilityNotice {
+  title: string
+  detail: string
+  actionLabel: string
+  path: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
@@ -717,6 +757,7 @@ const governanceLoading = ref(false)
 const governanceErrorMessage = ref('')
 const governanceCoverageOverview = ref<RiskGovernanceCoverageOverview | null>(null)
 const latestContractReleaseBatch = ref<ProductContractReleaseBatch | null>(null)
+const productCapabilityType = ref<ProductGovernanceCapabilityType>('UNKNOWN')
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'product-definition-center'
@@ -802,6 +843,7 @@ const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagno
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
 const governanceFocusProduct = computed(() => businessWorkbenchProduct.value || currentProduct.value || tableData.value[0] || null)
+const governanceApplicability = computed(() => resolveProductGovernanceApplicability(governanceFocusProduct.value))
 const productWorkbenchRouteContextKeys = [
   'openProductId',
   'workbenchView',
@@ -820,6 +862,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
   const coverage = governanceCoverageOverview.value
   const productId = governanceFocusProduct.value.id
   const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+  const applicability = governanceApplicability.value
   const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
   const publishedRiskMetricCount = resolveGovernanceCount(coverage.publishedRiskMetricCount)
@@ -840,7 +883,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
     })
   }
 
-  if (publishableContractPropertyCount > 0 && publishableContractPropertyCount > publishedRiskMetricCount) {
+  if (applicability.supportsMetricGovernance && publishableContractPropertyCount > 0 && publishableContractPropertyCount > publishedRiskMetricCount) {
     tasks.push({
       key: 'pending-metric-publish',
       title: '待发布风险指标目录',
@@ -849,7 +892,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
     })
   }
 
-  if (publishedRiskMetricCount > 0 && boundRiskMetricCount < publishedRiskMetricCount) {
+  if (applicability.supportsMetricGovernance && publishedRiskMetricCount > 0 && boundRiskMetricCount < publishedRiskMetricCount) {
     tasks.push({
       key: 'pending-risk-binding',
       title: '待绑定风险点',
@@ -858,7 +901,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
     })
   }
 
-  if (boundRiskMetricCount > 0 && ruleCoveredRiskMetricCount < boundRiskMetricCount) {
+  if (applicability.supportsMetricGovernance && boundRiskMetricCount > 0 && ruleCoveredRiskMetricCount < boundRiskMetricCount) {
     tasks.push({
       key: 'pending-policy',
       title: '待补阈值策略',
@@ -884,14 +927,31 @@ const governanceSummaryTitle = computed(() => {
   const coverage = governanceCoverageOverview.value
   const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
+  const applicability = governanceApplicability.value
+  const capabilityLabel = getProductGovernanceCapabilityLabel(applicability.capabilityType)
+  const productName = focusProduct.productName || focusProduct.productKey || '--'
+  const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+  const formalFieldsWithoutReleaseBatch = !hasReleaseBatch && contractPropertyCount > 0
+
+  if (applicability.supportsDeviceOnlyRiskBinding) {
+    const suffix = formalFieldsWithoutReleaseBatch
+      ? '当前已存在正式字段，但尚未查到正式发布批次；当前已生效字段已是正式真相，如需补做首个批次，请回到产品经营工作台的“契约字段”重新 compare/apply。'
+      : '合同发布入口在产品经营工作台的“契约字段”。'
+    return `当前聚焦产品：${productName}，合同字段 ${formatCount(contractPropertyCount)} 项。当前产品为${capabilityLabel}，不进入风险指标目录与阈值策略治理；支持设备级风险点绑定。${suffix}`
+  }
+
+  if (applicability.capabilityType === 'UNKNOWN') {
+    return `当前聚焦产品：${productName}，合同字段 ${formatCount(contractPropertyCount)} 项。产品能力待确认；请先完善产品能力，再决定是否进入风险指标目录、设备级风险点绑定或阈值策略治理。`
+  }
+
   if (publishableContractPropertyCount === 0) {
     if (!latestContractReleaseBatch.value?.id && contractPropertyCount > 0) {
-      return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。当前已存在正式字段，但尚未查到正式发布批次；当前已生效字段已是正式真相，如需补做首个批次，请回到产品经营工作台的“契约字段”重新 compare/apply。`
+      return `当前聚焦产品：${productName}，合同字段 ${formatCount(contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。当前已存在正式字段，但尚未查到正式发布批次；当前已生效字段已是正式真相，如需补做首个批次，请回到产品经营工作台的“契约字段”重新 compare/apply。`
     }
-    return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。合同发布入口在产品经营工作台的“契约字段”。`
+    return `当前聚焦产品：${productName}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。合同发布入口在产品经营工作台的“契约字段”。`
   }
   const summarySegments = [
-    `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}`,
+    `当前聚焦产品：${productName}`,
     `合同字段 ${formatCount(coverage.contractPropertyCount)} 项`,
     publishableContractPropertyCount < Number(coverage.contractPropertyCount ?? 0)
       ? `可入目录 ${formatCount(publishableContractPropertyCount)} 项`
@@ -909,6 +969,17 @@ const governanceClosedoutTitle = computed(() => {
   const coverage = governanceCoverageOverview.value
   const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
+  const applicability = governanceApplicability.value
+  const capabilityLabel = getProductGovernanceCapabilityLabel(applicability.capabilityType)
+
+  if (applicability.supportsDeviceOnlyRiskBinding) {
+    return `当前产品为${capabilityLabel}；合同治理与版本台账可继续抽检，如需继续风险治理请前往风险点绑定执行设备级绑定。`
+  }
+
+  if (applicability.capabilityType === 'UNKNOWN') {
+    return '当前产品能力待确认；请先完善产品能力，再继续后续治理。'
+  }
+
   if (publishableContractPropertyCount === 0) {
     if (!latestContractReleaseBatch.value?.id && contractPropertyCount > 0) {
       return '当前已生效字段已是正式真相；若后续仍需补做首个正式发布批次，请回到“契约字段”重新 compare/apply。'
@@ -916,6 +987,35 @@ const governanceClosedoutTitle = computed(() => {
     return '当前产品暂无可入目录字段；请仅在“契约字段”完成合同发布与版本台账核对，无需继续目录发布、风险点绑定与策略覆盖流程。'
   }
   return '当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。'
+})
+const governanceCapabilityNotice = computed<GovernanceCapabilityNotice | null>(() => {
+  const focusProduct = governanceFocusProduct.value
+  if (!focusProduct) {
+    return null
+  }
+
+  const applicability = governanceApplicability.value
+  const capabilityLabel = getProductGovernanceCapabilityLabel(applicability.capabilityType)
+
+  if (applicability.supportsDeviceOnlyRiskBinding) {
+    return {
+      title: `当前产品为${capabilityLabel}，不进入风险指标目录与阈值策略治理；支持设备级风险点绑定。`,
+      detail: '后续风险治理请直接前往风险点绑定执行设备级绑定，不再生成目录发布、风险点数量和阈值策略覆盖伪待办。',
+      actionLabel: '去风险点绑定',
+      path: '/risk-point'
+    }
+  }
+
+  if (applicability.capabilityType === 'UNKNOWN') {
+    return {
+      title: '产品能力待确认',
+      detail: '请先在产品经营工作台的“编辑档案”确认当前产品是监测型、采集型、预警型还是视频型，再决定后续治理链路。',
+      actionLabel: '去完善产品能力',
+      path: buildProductWorkbenchPath(focusProduct.id, 'edit')
+    }
+  }
+
+  return null
 })
 const productRowActions = computed<ProductRowAction[]>(() => [])
 const productActionColumnWidth = computed(() =>
@@ -1146,6 +1246,7 @@ function resetFormData(source?: Partial<Product>) {
     metadataJson: source?.metadataJson || '',
     status: source?.status ?? 1
   })
+  productCapabilityType.value = resolveProductGovernanceCapabilityType(source)
   objectInsightMetricRows.value = parseProductObjectInsightMetrics(source?.metadataJson)
 }
 
@@ -1171,6 +1272,10 @@ function clearListRefreshState() {
 
 function handleObjectInsightMetricsChange(value: ProductObjectInsightCustomMetricConfig[]) {
   objectInsightMetricRows.value = value
+}
+
+function handleProductCapabilityTypeChange(value: ProductGovernanceCapabilityType) {
+  productCapabilityType.value = value
 }
 
 function handleBusinessWorkbenchProductUpdated(product: Product) {
@@ -2074,6 +2179,16 @@ function openGovernanceTask(path: string) {
   void router.push(path)
 }
 
+function openGovernanceCapabilityAction(path: string) {
+  const focusProduct = governanceFocusProduct.value
+  recordActivity({
+    title: `产品治理能力入口跳转 · ${path}`,
+    detail: `聚焦产品 ${focusProduct?.productKey || '--'} 进入 ${path}`,
+    tag: 'product-governance-capability'
+  })
+  void router.push(path)
+}
+
 function buildGovernanceTaskPath(productId: number | string | null | undefined, workItemCode: string) {
   const query = new URLSearchParams()
   if (productId != null && String(productId).trim()) {
@@ -2389,7 +2504,10 @@ async function handleSubmit() {
 
   const payload: ProductAddPayload = {
     ...formData,
-    metadataJson: buildProductMetadataJson(objectInsightMetricRows.value, formData.metadataJson)
+    metadataJson: buildProductGovernanceMetadataJson(
+      productCapabilityType.value,
+      buildProductMetadataJson(objectInsightMetricRows.value, formData.metadataJson)
+    )
   }
 
   submitLoading.value = true
@@ -2622,6 +2740,19 @@ onMounted(async () => {
 }
 
 .product-governance-task-list__content span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.product-governance-capability-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.72rem;
+}
+
+.product-governance-capability-note span {
   color: var(--text-secondary);
   font-size: 0.82rem;
   line-height: 1.5;

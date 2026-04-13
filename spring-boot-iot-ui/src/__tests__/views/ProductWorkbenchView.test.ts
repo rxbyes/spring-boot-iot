@@ -250,7 +250,7 @@ const ProductDeviceListWorkspaceStub = defineComponent({
 
 const ProductEditWorkspaceStub = defineComponent({
   name: 'ProductEditWorkspace',
-  props: ['model', 'editing', 'availableModels'],
+  props: ['model', 'editing', 'availableModels', 'productCapabilityType'],
   emits: ['cancel', 'submit'],
   setup(props, { expose }) {
     expose({
@@ -261,7 +261,8 @@ const ProductEditWorkspaceStub = defineComponent({
       h('section', { class: 'product-edit-workspace-stub' }, [
         h('span', props.model?.productName || ''),
         h('span', props.editing ? 'editing' : 'creating'),
-        h('span', `available-models:${props.availableModels?.length ?? 0}`)
+        h('span', `available-models:${props.availableModels?.length ?? 0}`),
+        h('span', `capability:${props.productCapabilityType || ''}`)
       ])
   }
 })
@@ -509,8 +510,8 @@ describe('ProductWorkbenchView', () => {
         records: [
           {
             id: 1001,
-            productKey: 'demo-product',
-            productName: '演示产品',
+            productKey: 'demo-monitoring-product',
+            productName: '演示 监测型 产品',
             protocolCode: 'mqtt-json',
             nodeType: 1,
             dataFormat: 'JSON',
@@ -615,8 +616,8 @@ describe('ProductWorkbenchView', () => {
         records: [
           {
             id: 1001,
-            productKey: 'demo-product',
-            productName: '演示产品',
+            productKey: 'nf-monitor-empty-v1',
+            productName: '南方测绘 监测型 空白产品',
             protocolCode: 'mqtt-json',
             nodeType: 1,
             dataFormat: 'JSON',
@@ -718,10 +719,133 @@ describe('ProductWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('当前已存在正式字段，但尚未查到正式发布批次')
     expect(wrapper.text()).toContain('当前已生效字段已是正式真相')
+    expect(wrapper.text()).toContain('当前产品为预警型，不进入风险指标目录与阈值策略治理；支持设备级风险点绑定。')
     expect(wrapper.text()).not.toContain('待发布合同')
     expect(wrapper.text()).not.toContain('待发布风险指标目录')
     expect(wrapper.text()).not.toContain('待绑定风险点')
     expect(wrapper.text()).not.toContain('待补阈值策略')
+  })
+
+  it('shows device-only risk binding guidance for collecting products instead of metric-governance pending counts', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'nf-collect-telemetry-terminal-v1',
+            productName: '南方测绘 采集型 遥测终端',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 1,
+        records: [
+          {
+            id: 5001
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceCoverageOverview.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        contractPropertyCount: 17,
+        publishableContractPropertyCount: 0,
+        publishedRiskMetricCount: 0,
+        boundRiskMetricCount: 0,
+        ruleCoveredRiskMetricCount: 0,
+        contractMetricCoverageRate: 0,
+        bindingCoverageRate: 0,
+        ruleCoverageRate: 0
+      } as any
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('当前产品为采集型，不进入风险指标目录与阈值策略治理；支持设备级风险点绑定。')
+    expect(wrapper.text()).toContain('去风险点绑定')
+    expect(wrapper.text()).not.toContain('待发布风险指标目录')
+    expect(wrapper.text()).not.toContain('待绑定风险点')
+    expect(wrapper.text()).not.toContain('待补阈值策略')
+  })
+
+  it('surfaces capability confirmation instead of not-applicable guidance for unknown products', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'generic-device',
+            productName: '通用设备',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 1,
+        records: [
+          {
+            id: 5001
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceCoverageOverview.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        contractPropertyCount: 3,
+        publishableContractPropertyCount: 0,
+        publishedRiskMetricCount: 0,
+        boundRiskMetricCount: 0,
+        ruleCoveredRiskMetricCount: 0,
+        contractMetricCoverageRate: 0,
+        bindingCoverageRate: 0,
+        ruleCoverageRate: 0
+      } as any
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('产品能力待确认')
+    expect(wrapper.text()).toContain('去完善产品能力')
+    expect(wrapper.text()).not.toContain('目录发布、风险点绑定与策略覆盖暂不适用')
   })
 
   it('routes supported governance todo items from /products into the correct domain workbench', async () => {
@@ -735,8 +859,8 @@ describe('ProductWorkbenchView', () => {
         records: [
           {
             id: 1001,
-            productKey: 'demo-product',
-            productName: '演示产品',
+            productKey: 'demo-monitoring-product',
+            productName: '演示 监测型 产品',
             protocolCode: 'mqtt-json',
             nodeType: 1,
             dataFormat: 'JSON',
@@ -789,8 +913,8 @@ describe('ProductWorkbenchView', () => {
         records: [
           {
             id: 1001,
-            productKey: 'demo-product',
-            productName: '演示产品',
+            productKey: 'demo-monitoring-product',
+            productName: '演示 监测型 产品',
             protocolCode: 'mqtt-json',
             nodeType: 1,
             dataFormat: 'JSON',
@@ -826,7 +950,7 @@ describe('ProductWorkbenchView', () => {
     expect(mockRecordActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         title: `产品治理待办跳转 · ${task!.path}`,
-        detail: expect.stringContaining('demo-product'),
+        detail: expect.stringContaining('demo-monitoring-product'),
         tag: 'product-governance-task'
       })
     )
@@ -1254,6 +1378,7 @@ describe('ProductWorkbenchView', () => {
     ;(wrapper.vm as any).formData.metadataJson = JSON.stringify({
       site: '北坡监测点'
     })
+    ;(wrapper.vm as any).productCapabilityType = 'COLLECTING'
     ;(wrapper.vm as any).objectInsightMetricRows = [
       {
         ...createEmptyProductObjectInsightMetric(),
@@ -1302,6 +1427,11 @@ describe('ProductWorkbenchView', () => {
     expect(mockAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.humidity"')
+      })
+    )
+    expect(mockAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"productCapabilityType":"COLLECTING"')
       })
     )
   })

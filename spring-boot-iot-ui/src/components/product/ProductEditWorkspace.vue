@@ -56,6 +56,19 @@
               <el-option label="网关设备" :value="2" />
             </el-select>
           </el-form-item>
+          <el-form-item label="产品能力">
+            <el-select
+              :model-value="productCapabilityType"
+              placeholder="请选择产品能力"
+              @update:model-value="emit('update:productCapabilityType', $event)"
+            >
+              <el-option label="监测型" value="MONITORING" />
+              <el-option label="采集型" value="COLLECTING" />
+              <el-option label="预警型" value="WARNING" />
+              <el-option label="视频型" value="VIDEO" />
+              <el-option label="待确认" value="UNKNOWN" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="数据格式">
             <el-input id="data-format" v-model="model.dataFormat" placeholder="请输入数据格式，例如 JSON" />
           </el-form-item>
@@ -114,13 +127,19 @@ import type { FormInstance, FormRules } from 'element-plus'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import ProductObjectInsightConfigEditor from '@/components/product/ProductObjectInsightConfigEditor.vue'
-import type { ProductAddPayload, ProductModel, ProductObjectInsightCustomMetricConfig } from '@/types/api'
+import type {
+  ProductAddPayload,
+  ProductGovernanceCapabilityType,
+  ProductModel,
+  ProductObjectInsightCustomMetricConfig
+} from '@/types/api'
 
 type ProductEditFormState = ProductAddPayload
 
 const props = withDefaults(
   defineProps<{
     model: ProductEditFormState
+    productCapabilityType: ProductGovernanceCapabilityType
     objectInsightMetrics: ProductObjectInsightCustomMetricConfig[]
     availableModels?: ProductModel[]
     rules: FormRules<ProductEditFormState>
@@ -141,6 +160,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: 'cancel'): void
   (event: 'submit'): void
+  (event: 'update:productCapabilityType', value: ProductGovernanceCapabilityType): void
   (event: 'update:objectInsightMetrics', value: ProductObjectInsightCustomMetricConfig[]): void
 }>()
 

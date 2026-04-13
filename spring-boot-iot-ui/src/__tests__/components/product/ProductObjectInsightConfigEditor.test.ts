@@ -206,7 +206,7 @@ describe('ProductObjectInsightConfigEditor', () => {
 
     expect(updateSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        identifier: 'L1_LF_1.value',
+        identifier: 'value',
         displayName: '裂缝量',
         group: 'measure',
         includeInTrend: true,

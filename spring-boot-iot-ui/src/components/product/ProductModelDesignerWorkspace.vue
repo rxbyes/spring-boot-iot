@@ -60,99 +60,40 @@
           <div class="product-model-designer__rollback-preview-head">
             <div>
               <strong>治理下一步</strong>
-              <p>把“合同发布 → 风险指标目录 → 风险点绑定 → 阈值策略”固定成显式路径；其中风险指标目录会随正式发布批次自动同步。</p>
+              <p>{{ governanceStepsIntroText }}</p>
             </div>
           </div>
 
           <div class="product-model-designer__governance-step-grid">
-            <article class="product-model-designer__governance-step-card">
-              <span class="product-model-designer__governance-step-kicker">步骤 1</span>
-              <strong>合同发布</strong>
-              <span class="product-model-designer__governance-step-status">{{ contractStepStatusText }}</span>
-              <p>{{ contractStepDescription }}</p>
-              <div class="product-model-designer__governance-step-actions">
+            <article
+              v-for="(step, index) in governanceStepCards"
+              :key="step.key"
+              class="product-model-designer__governance-step-card"
+            >
+              <span class="product-model-designer__governance-step-kicker">{{ `步骤 ${index + 1}` }}</span>
+              <strong>{{ step.title }}</strong>
+              <span class="product-model-designer__governance-step-status">{{ step.status }}</span>
+              <p>{{ step.description }}</p>
+              <div v-if="step.actionLabel && step.actionKey" class="product-model-designer__governance-step-actions">
                 <StandardButton
-                  v-if="latestReleaseBatchId"
                   action="query"
                   link
-                  data-testid="contract-field-next-ledger"
-                  @click="focusVersionLedgerStage"
+                  :data-testid="step.actionTestid"
+                  @click="handleGovernanceStepAction(step.actionKey)"
                 >
-                  查看版本台账
-                </StandardButton>
-                <StandardButton
-                  v-else
-                  action="query"
-                  link
-                  data-testid="contract-field-next-contract"
-                  @click="focusSampleStage"
-                >
-                  {{ entryActionText }}
-                </StandardButton>
-              </div>
-            </article>
-
-            <article class="product-model-designer__governance-step-card">
-              <span class="product-model-designer__governance-step-kicker">步骤 2</span>
-              <strong>风险指标目录</strong>
-              <span class="product-model-designer__governance-step-status">{{ metricCatalogStepStatusText }}</span>
-              <p>{{ metricCatalogStepDescription }}</p>
-              <div class="product-model-designer__governance-step-actions">
-                <StandardButton
-                  v-if="releaseLedgerRows.length"
-                  action="query"
-                  link
-                  @click="focusVersionLedgerStage"
-                >
-                  查看版本台账
-                </StandardButton>
-              </div>
-            </article>
-
-            <article class="product-model-designer__governance-step-card">
-              <span class="product-model-designer__governance-step-kicker">步骤 3</span>
-              <strong>风险点绑定</strong>
-              <span class="product-model-designer__governance-step-status">{{ riskPointStepStatusText }}</span>
-              <p>{{ riskPointStepDescription }}</p>
-              <div class="product-model-designer__governance-step-actions">
-                <StandardButton
-                  v-if="canOpenRiskPointWorkbench"
-                  action="query"
-                  link
-                  data-testid="contract-field-next-risk-point"
-                  @click="openRiskPointWorkbench"
-                >
-                  去风险对象中心
-                </StandardButton>
-              </div>
-            </article>
-
-            <article class="product-model-designer__governance-step-card">
-              <span class="product-model-designer__governance-step-kicker">步骤 4</span>
-              <strong>阈值策略</strong>
-              <span class="product-model-designer__governance-step-status">{{ ruleStepStatusText }}</span>
-              <p>{{ ruleStepDescription }}</p>
-              <div class="product-model-designer__governance-step-actions">
-                <StandardButton
-                  v-if="canOpenRuleWorkbench"
-                  action="query"
-                  link
-                  data-testid="contract-field-next-rule"
-                  @click="openRuleWorkbench"
-                >
-                  去阈值策略
+                  {{ step.actionLabel }}
                 </StandardButton>
               </div>
             </article>
           </div>
 
           <div
-            v-if="showDownstreamGovernanceBoundaryNote"
+            v-if="showGovernanceBoundaryNote"
             class="product-model-designer__governance-note"
             data-testid="contract-field-downstream-boundary-note"
           >
-            <strong>当前只保留合同发布与版本台账语义</strong>
-            <p>本批次没有命中可进入风险闭环的目录指标，所以不会出现单独的目录发布、风险点绑定或阈值策略入口。</p>
+            <strong>{{ governanceBoundaryNoteTitle }}</strong>
+            <p>{{ governanceBoundaryNoteDescription }}</p>
           </div>
         </section>
 
@@ -1054,8 +995,6 @@ import type {
   ProductModelType,
   ProductObjectInsightMetricGroup
 } from '@/types/api'
-
-const router = useRouter()
 import { ElMessage } from '@/utils/message'
 import { getObjectInsightMetricGroupLabel } from '@/utils/objectInsightMetricGroup'
 import {
@@ -1066,6 +1005,12 @@ import {
   removeProductObjectInsightMetric,
   upsertProductObjectInsightMetric
 } from '@/utils/productObjectInsightConfig'
+import {
+  getProductGovernanceCapabilityLabel,
+  resolveProductGovernanceApplicability
+} from '@/utils/productGovernanceCapability'
+
+const router = useRouter()
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
 type SampleType = 'business' | 'status'
@@ -1077,6 +1022,18 @@ interface RelationMappingRow {
   childDeviceCode: string
   canonicalizationStrategy: string
   statusMirrorStrategy: string
+}
+
+type GovernanceStepActionKey = 'ledger' | 'contract' | 'risk-point' | 'rule' | 'edit'
+
+interface GovernanceStepCard {
+  key: string
+  title: string
+  status: string
+  description: string
+  actionLabel?: string
+  actionKey?: GovernanceStepActionKey
+  actionTestid?: string
 }
 
 interface GovernanceApprovalPayloadExecution<TResult> {
@@ -1200,10 +1157,14 @@ const selectedLedgerMetricCount = computed(() => selectedLedgerMetrics.value.len
 const singleSelectedLedgerMetric = computed(() =>
   selectedLedgerMetrics.value.length === 1 ? selectedLedgerMetrics.value[0] ?? null : null
 )
+const currentGovernanceProduct = computed(() => productSnapshot.value ?? props.product ?? null)
+const governanceApplicability = computed(() => resolveProductGovernanceApplicability(currentGovernanceProduct.value))
+const governanceCapabilityLabel = computed(() => getProductGovernanceCapabilityLabel(governanceApplicability.value.capabilityType))
 const canOpenRiskPointWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
 const canOpenRuleWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
+const canOpenDeviceOnlyRiskPointWorkbench = computed(() => Boolean(currentGovernanceProduct.value?.id))
 const hasFormalFieldsWithoutReleaseBatch = computed(() => !latestReleaseBatchId.value && models.value.length > 0)
-const showDownstreamGovernanceBoundaryNote = computed(
+const showMetricGovernanceBoundaryNote = computed(
   () => Boolean(latestReleaseBatchId.value) && !versionLedgerLoading.value && selectedLedgerMetricCount.value === 0
 )
 const entryActionText = computed(() => {
@@ -1229,6 +1190,18 @@ const contractStepDescription = computed(() => {
     return `当前已存在 ${models.value.length} 项正式字段，但尚未查到正式发布批次；底部“当前已生效字段”已是当前正式真相，如需补做首个批次，请重新提取字段并完成 compare/apply。`
   }
   return '先完成样本提取、确认本次生效，再提交审批形成正式合同发布批次。'
+})
+const versionLedgerStepStatusText = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return '已形成批次'
+  }
+  return '待合同发布'
+})
+const versionLedgerStepDescription = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return `当前已形成正式发布批次 ${latestReleaseBatchId.value}，可继续查看版本台账与跨批次对账。`
+  }
+  return '完成合同发布后，这里会沉淀版本台账并支持跨批次字段 / 指标目录对账。'
 })
 const metricCatalogStepStatusText = computed(() => {
   if (hasFormalFieldsWithoutReleaseBatch.value) {
@@ -1319,6 +1292,128 @@ const ruleStepDescription = computed(() => {
     return '风险点绑定完成后，请继续到阈值策略页补齐覆盖。'
   }
   return '当前批次没有风险指标目录，阈值策略暂不适用。'
+})
+const governanceStepsIntroText = computed(() => {
+  if (governanceApplicability.value.supportsMetricGovernance) {
+    return '把“合同发布 → 风险指标目录 → 风险点绑定 → 阈值策略”固定成显式路径；其中风险指标目录会随正式发布批次自动同步。'
+  }
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return `当前产品为${governanceCapabilityLabel.value}，工作区只保留合同发布、版本台账与设备级风险点绑定语义。`
+  }
+  return '当前产品能力待确认，工作区先保留合同发布与版本台账，并等待确认后续治理路径。'
+})
+const governanceStepCards = computed<GovernanceStepCard[]>(() => {
+  const contractStep: GovernanceStepCard = {
+    key: 'contract-release',
+    title: '合同发布',
+    status: contractStepStatusText.value,
+    description: contractStepDescription.value,
+    actionLabel: latestReleaseBatchId.value ? '查看版本台账' : entryActionText.value,
+    actionKey: latestReleaseBatchId.value ? 'ledger' : 'contract',
+    actionTestid: latestReleaseBatchId.value ? 'contract-field-next-ledger' : 'contract-field-next-contract'
+  }
+
+  if (governanceApplicability.value.supportsMetricGovernance) {
+    return [
+      contractStep,
+      {
+        key: 'metric-catalog',
+        title: '风险指标目录',
+        status: metricCatalogStepStatusText.value,
+        description: metricCatalogStepDescription.value,
+        actionLabel: releaseLedgerRows.value.length ? '查看版本台账' : undefined,
+        actionKey: releaseLedgerRows.value.length ? 'ledger' : undefined
+      },
+      {
+        key: 'risk-point',
+        title: '风险点绑定',
+        status: riskPointStepStatusText.value,
+        description: riskPointStepDescription.value,
+        actionLabel: canOpenRiskPointWorkbench.value ? '去风险对象中心' : undefined,
+        actionKey: canOpenRiskPointWorkbench.value ? 'risk-point' : undefined,
+        actionTestid: canOpenRiskPointWorkbench.value ? 'contract-field-next-risk-point' : undefined
+      },
+      {
+        key: 'rule',
+        title: '阈值策略',
+        status: ruleStepStatusText.value,
+        description: ruleStepDescription.value,
+        actionLabel: canOpenRuleWorkbench.value ? '去阈值策略' : undefined,
+        actionKey: canOpenRuleWorkbench.value ? 'rule' : undefined,
+        actionTestid: canOpenRuleWorkbench.value ? 'contract-field-next-rule' : undefined
+      }
+    ]
+  }
+
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return [
+      contractStep,
+      {
+        key: 'version-ledger',
+        title: '版本台账',
+        status: versionLedgerStepStatusText.value,
+        description: versionLedgerStepDescription.value,
+        actionLabel: latestReleaseBatchId.value ? '查看版本台账' : undefined,
+        actionKey: latestReleaseBatchId.value ? 'ledger' : undefined,
+        actionTestid: latestReleaseBatchId.value ? 'contract-field-next-ledger' : undefined
+      },
+      {
+        key: 'device-risk-point',
+        title: '设备级风险点绑定',
+        status: '设备级绑定',
+        description: `当前产品为${governanceCapabilityLabel.value}，风险治理按设备级正式绑定收口，不依赖风险指标目录。`,
+        actionLabel: canOpenDeviceOnlyRiskPointWorkbench.value ? '去风险点绑定' : undefined,
+        actionKey: canOpenDeviceOnlyRiskPointWorkbench.value ? 'risk-point' : undefined,
+        actionTestid: canOpenDeviceOnlyRiskPointWorkbench.value ? 'contract-field-next-risk-point' : undefined
+      }
+    ]
+  }
+
+  return [
+    contractStep,
+    {
+      key: 'version-ledger',
+      title: '版本台账',
+      status: versionLedgerStepStatusText.value,
+      description: versionLedgerStepDescription.value,
+      actionLabel: latestReleaseBatchId.value ? '查看版本台账' : undefined,
+      actionKey: latestReleaseBatchId.value ? 'ledger' : undefined,
+      actionTestid: latestReleaseBatchId.value ? 'contract-field-next-ledger' : undefined
+    },
+    {
+      key: 'capability-pending',
+      title: '能力待确认',
+      status: '待确认',
+      description: '请先回到编辑档案确认当前产品能力，再决定是否进入风险指标目录或设备级风险点绑定。',
+      actionLabel: currentGovernanceProduct.value?.id ? '去完善产品能力' : undefined,
+      actionKey: currentGovernanceProduct.value?.id ? 'edit' : undefined,
+      actionTestid: currentGovernanceProduct.value?.id ? 'contract-field-next-capability' : undefined
+    }
+  ]
+})
+const showGovernanceBoundaryNote = computed(() => {
+  if (governanceApplicability.value.supportsMetricGovernance) {
+    return showMetricGovernanceBoundaryNote.value
+  }
+  return governanceApplicability.value.supportsDeviceOnlyRiskBinding || governanceApplicability.value.capabilityType === 'UNKNOWN'
+})
+const governanceBoundaryNoteTitle = computed(() => {
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return '目录发布与阈值策略仅监测型适用'
+  }
+  if (governanceApplicability.value.capabilityType === 'UNKNOWN') {
+    return '请先确认产品能力再进入后续治理'
+  }
+  return '当前只保留合同发布与版本台账语义'
+})
+const governanceBoundaryNoteDescription = computed(() => {
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return `当前产品为${governanceCapabilityLabel.value}，后续风险治理直接通过设备级风险点绑定收口，不再展示目录发布或阈值策略入口。`
+  }
+  if (governanceApplicability.value.capabilityType === 'UNKNOWN') {
+    return '请先回到编辑档案确认产品能力，再决定是否进入风险指标目录、设备级风险点绑定或阈值策略治理。'
+  }
+  return '本批次没有命中可进入风险闭环的目录指标，所以不会出现单独的目录发布、风险点绑定或阈值策略入口。'
 })
 const footerSummaryText = computed(() => {
   if (showCollectorBoundaryEmpty.value) {
@@ -1758,7 +1853,7 @@ async function handleRenameModel(model: ProductModel) {
         const updatedProduct = await updateProductObjectInsightMetrics(
           currentProduct,
           trendMetricRows.value.map((item) =>
-            item.identifier === model.identifier
+            item.identifier === matchedMetric.identifier
               ? {
                   ...item,
                   displayName: nextModelName
@@ -1861,7 +1956,7 @@ async function persistTrendMetricConfig(
     emit('product-updated', updatedProduct)
     ElMessage.success(successMessage)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '更新对象洞察趋势配置失败')
+    showRequestErrorMessage(error, '更新对象洞察趋势配置失败')
   } finally {
     trendMetricSubmitting.value = false
     trendMetricSubmittingKey.value = ''
@@ -1978,6 +2073,39 @@ function openRuleWorkbench() {
     return
   }
   void router.push({ path: '/rule-definition' })
+}
+
+function openCapabilityConfirmationWorkbench() {
+  if (!currentGovernanceProduct.value?.id) {
+    return
+  }
+  void router.push({
+    path: '/products',
+    query: {
+      openProductId: String(currentGovernanceProduct.value.id),
+      workbenchView: 'edit'
+    }
+  })
+}
+
+function handleGovernanceStepAction(actionKey: GovernanceStepActionKey) {
+  switch (actionKey) {
+    case 'ledger':
+      focusVersionLedgerStage()
+      return
+    case 'contract':
+      focusSampleStage()
+      return
+    case 'risk-point':
+      openRiskPointWorkbench()
+      return
+    case 'rule':
+      openRuleWorkbench()
+      return
+    case 'edit':
+      openCapabilityConfirmationWorkbench()
+      return
+  }
 }
 
 function handleDeviceStructureChange(value: DeviceStructure) {

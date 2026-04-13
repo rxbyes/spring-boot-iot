@@ -256,8 +256,15 @@ export interface ProductObjectInsightConfig {
   customMetrics?: ProductObjectInsightCustomMetricConfig[] | null;
 }
 
+export type ProductGovernanceCapabilityType = 'MONITORING' | 'COLLECTING' | 'WARNING' | 'VIDEO' | 'UNKNOWN';
+
+export interface ProductGovernanceConfig {
+  productCapabilityType?: ProductGovernanceCapabilityType | string | null;
+}
+
 export interface ProductMetadata {
   objectInsight?: ProductObjectInsightConfig | null;
+  governance?: ProductGovernanceConfig | null;
 }
 
 export type ProductModelType = 'property' | 'event' | 'service';

@@ -750,6 +750,96 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.find('[data-testid="contract-field-next-rule"]').exists()).toBe(false)
   })
 
+  it('shows device-only risk binding guidance for collecting products', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 99002,
+            scenarioCode: 'phase-collect',
+            releaseStatus: 'RELEASED',
+            releasedFieldCount: 17,
+            createTime: '2026-04-10 18:00:00'
+          }
+        ]
+      }
+    })
+    mockPageRiskMetricCatalogs.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 20,
+        records: []
+      }
+    })
+
+    const wrapper = mountWorkspace({
+      productKey: 'nf-collect-telemetry-terminal-v1',
+      productName: '南方测绘 采集型 遥测终端'
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('设备级风险点绑定')
+    expect(wrapper.text()).toContain('目录发布与阈值策略仅监测型适用')
+    expect(wrapper.text()).not.toContain('风险点绑定暂不适用')
+    expect(wrapper.text()).not.toContain('阈值策略暂不适用')
+    expect(wrapper.find('[data-testid="contract-field-next-risk-point"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="contract-field-next-rule"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="contract-field-next-risk-point"]').trigger('click')
+    expect(mockRouter.push).toHaveBeenCalledWith({ path: '/risk-point' })
+  })
+
+  it('shows capability confirmation guidance for unknown products', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 99002,
+            scenarioCode: 'phase-generic',
+            releaseStatus: 'RELEASED',
+            releasedFieldCount: 3,
+            createTime: '2026-04-10 18:00:00'
+          }
+        ]
+      }
+    })
+    mockPageRiskMetricCatalogs.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 20,
+        records: []
+      }
+    })
+
+    const wrapper = mountWorkspace({
+      productKey: 'generic-device',
+      productName: '通用设备'
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('能力待确认')
+    expect(wrapper.text()).toContain('去完善产品能力')
+    expect(wrapper.text()).not.toContain('暂不适用')
+  })
+
   it('separates existing formal fields from release-batch state when no batch is found', async () => {
     mockPageProductContractReleaseBatches.mockResolvedValueOnce({
       code: 200,
@@ -1024,6 +1114,59 @@ describe('ProductModelDesignerWorkspace', () => {
         metadataJson: expect.stringContaining('"group":"status"')
       })
     )
+  })
+
+  it('normalizes alias-style formal property identifiers before saving runtime trend metrics', async () => {
+    mockListProductModels.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 2002,
+          modelType: 'property',
+          identifier: 'S1_ZT_1.signal_4g',
+          modelName: '4G 信号强度',
+          dataType: 'double',
+          description: '正式字段'
+        }
+      ]
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-trend-runtime-2002"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockUpdateProduct).toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"identifier":"signal_4g"')
+      })
+    )
+    expect(mockUpdateProduct).not.toHaveBeenCalledWith(
+      1001,
+      expect.objectContaining({
+        metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.signal_4g"')
+      })
+    )
+  })
+
+  it('does not add a second toast when handled object-insight runtime save errors happen', async () => {
+    mockUpdateProduct.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-trend-runtime-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(ElMessage.error).not.toHaveBeenCalled()
+    expect(ElMessage.warning).not.toHaveBeenCalled()
   })
 
   it('can delete a formal model from the contract-field workspace', async () => {

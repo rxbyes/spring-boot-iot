@@ -1,11 +1,11 @@
 import type { RiskPointBindingDeviceGroup } from '@/api/riskPoint'
 import type { DeviceOption } from '@/types/api'
 
-export type DeviceBindingCapabilityType = 'MONITORING' | 'WARNING' | 'VIDEO' | 'UNKNOWN'
+export type DeviceBindingCapabilityType = 'MONITORING' | 'COLLECTING' | 'WARNING' | 'VIDEO' | 'UNKNOWN'
 
 const normalizeCapabilityType = (value?: string | null): DeviceBindingCapabilityType => {
   const normalized = (value || '').trim().toUpperCase()
-  if (normalized === 'MONITORING' || normalized === 'WARNING' || normalized === 'VIDEO') {
+  if (normalized === 'MONITORING' || normalized === 'COLLECTING' || normalized === 'WARNING' || normalized === 'VIDEO') {
     return normalized
   }
   return 'UNKNOWN'
@@ -26,7 +26,7 @@ export const supportsMetricBinding = (device?: Partial<DeviceOption> | null) => 
     return device.supportsMetricBinding
   }
   const capabilityType = resolveDeviceCapabilityType(device)
-  if (capabilityType === 'WARNING' || capabilityType === 'VIDEO') {
+  if (capabilityType === 'COLLECTING' || capabilityType === 'WARNING' || capabilityType === 'VIDEO') {
     return false
   }
   return true
@@ -39,6 +39,8 @@ export const getDeviceCapabilityLabel = (capabilityType?: string | null) => {
   switch (normalizeCapabilityType(capabilityType)) {
     case 'MONITORING':
       return '监测型'
+    case 'COLLECTING':
+      return '采集型'
     case 'WARNING':
       return '预警型'
     case 'VIDEO':
