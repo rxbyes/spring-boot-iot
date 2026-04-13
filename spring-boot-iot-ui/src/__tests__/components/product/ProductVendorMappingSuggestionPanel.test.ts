@@ -169,6 +169,7 @@ describe('ProductVendorMappingSuggestionPanel', () => {
   })
 
   it('requires confirmation before creating a LOW_CONFIDENCE suggestion', async () => {
+    let resolveConfirmation: (() => void) | undefined
     listVendorMetricMappingRuleSuggestions.mockResolvedValueOnce(
       mockSuggestionResponse([
         buildSuggestion({
@@ -178,15 +179,27 @@ describe('ProductVendorMappingSuggestionPanel', () => {
         })
       ])
     )
+    confirmAction.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirmation = resolve
+        })
+    )
 
     const wrapper = await mountPanel()
 
-    await wrapper
+    const acceptPromise = wrapper
       .get('[data-testid="vendor-mapping-suggestion-accept-suggestion-low-confidence"]')
       .trigger('click')
     await flushPromises()
 
     expect(confirmAction).toHaveBeenCalledTimes(1)
+    expect(createVendorMetricMappingRule).not.toHaveBeenCalled()
+
+    resolveConfirmation?.()
+    await acceptPromise
+    await flushPromises()
+
     expect(createVendorMetricMappingRule).toHaveBeenCalledWith(1001, expect.objectContaining({
       rawIdentifier: 'vendor.value',
       targetNormativeIdentifier: 'value',
