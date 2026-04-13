@@ -464,4 +464,37 @@ describe('deviceInsightCapability', () => {
       expect.arrayContaining(['l1_js_1.gx', 'l1_lf_1.value', 's1_zt_1.signal_4g'])
     );
   });
+
+  it('resolves canonical runtime custom metrics to raw property identifiers when the latest property uses an alias path', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'COLLECT-CANONICAL-001',
+      productName: '雨量采集终端',
+      productMetadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'signal_4g',
+              displayName: '传输信号',
+              group: 'runtime',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-81',
+          valueType: 'int'
+        }
+      ]
+    });
+
+    expect(profile.historyIdentifiers).toEqual(['S1_ZT_1.signal_4g']);
+    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('S1_ZT_1.signal_4g');
+  });
 });

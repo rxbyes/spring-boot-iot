@@ -310,7 +310,7 @@ const snapshotMetrics = computed(() =>
       label: appendUnitToDisplayName(
         resolveMetricBaseName(
           metric.identifier,
-          productModelDisplayNameMap.value.get(metric.identifier),
+          resolveProductModelValue(productModelDisplayNameMap.value, metric.identifier),
           metric.displayName,
           property?.propertyName
         ),
@@ -395,12 +395,12 @@ const propertyTableRows = computed(() => {
       ...(property ?? {}),
       identifier,
       propertyValue: normalizeText(property?.propertyValue) || (latestActualBucket ? String(latestActualBucket.value) : '--'),
-      valueType: normalizeText(property?.valueType) || productModelDataTypeMap.value.get(identifier) || '--',
+      valueType: normalizeText(property?.valueType) || resolveProductModelValue(productModelDataTypeMap.value, identifier) || '--',
       displayName: resolveMetricBaseName(
         identifier,
-        productModelDisplayNameMap.value.get(identifier),
-        configuredMetric?.displayName,
+        resolveProductModelValue(productModelDisplayNameMap.value, identifier),
         property?.propertyName,
+        configuredMetric?.displayName,
         series?.displayName
       ),
       displayUnit: resolveMetricUnit(identifier, property) || '--',
@@ -614,7 +614,7 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
             displayName: appendUnitToDisplayName(
               resolveMetricBaseName(
                 identifier,
-                productModelDisplayNameMap.value.get(identifier),
+                resolveProductModelValue(productModelDisplayNameMap.value, identifier),
                 profileDisplayName,
                 property?.propertyName,
                 point.displayName
@@ -733,7 +733,7 @@ function resolveDisplayName(profile: InsightCapabilityProfile, identifier: strin
   if (extensionMetric) {
     return resolveMetricBaseName(identifier, extensionMetric.displayName);
   }
-  const productModelDisplayName = productModelDisplayNameMap.value.get(identifier);
+  const productModelDisplayName = resolveProductModelValue(productModelDisplayNameMap.value, identifier);
   if (productModelDisplayName) {
     return resolveMetricBaseName(identifier, productModelDisplayName);
   }
@@ -851,7 +851,26 @@ function resolveMetricBaseName(identifier: string, ...candidates: Array<unknown>
 }
 
 function resolveMetricUnit(identifier: string, property?: DeviceProperty | null) {
-  return normalizeText(property?.unit) || productModelUnitMap.value.get(identifier) || '';
+  return normalizeText(property?.unit) || resolveProductModelValue(productModelUnitMap.value, identifier) || '';
+}
+
+function resolveProductModelValue(map: Map<string, string>, identifier: string) {
+  return map.get(identifier) || map.get(normalizeMetricIdentifier(identifier)) || '';
+}
+
+function normalizeMetricIdentifier(identifier: string) {
+  const normalized = identifier.trim();
+  if (!normalized) {
+    return '';
+  }
+  if (/(^|[.])sensor_state([.]|$)/i.test(normalized)) {
+    return 'sensor_state';
+  }
+  const lastDotIndex = normalized.lastIndexOf('.');
+  if (lastDotIndex < 0 || lastDotIndex === normalized.length - 1) {
+    return normalized;
+  }
+  return normalized.slice(lastDotIndex + 1);
 }
 
 function appendUnitToDisplayName(displayName: string, unit?: string) {

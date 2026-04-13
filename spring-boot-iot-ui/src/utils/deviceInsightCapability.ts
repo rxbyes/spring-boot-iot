@@ -507,7 +507,32 @@ function resolveRuntimeMetricIdentifier(identifier: string, properties: DevicePr
   }
   const normalizedIdentifier = identifier.trim().toLowerCase();
   const caseInsensitiveMatch = properties.find((item) => item.identifier?.trim().toLowerCase() === normalizedIdentifier);
-  return caseInsensitiveMatch?.identifier || identifier;
+  if (caseInsensitiveMatch?.identifier) {
+    return caseInsensitiveMatch.identifier;
+  }
+  const normalizedMetricIdentifier = normalizeRuntimeMetricIdentifier(identifier);
+  if (!normalizedMetricIdentifier) {
+    return identifier;
+  }
+  const canonicalMatch = properties.find((item) =>
+    normalizeRuntimeMetricIdentifier(item.identifier || '').toLowerCase() === normalizedMetricIdentifier.toLowerCase()
+  );
+  return canonicalMatch?.identifier || identifier;
+}
+
+function normalizeRuntimeMetricIdentifier(identifier: string) {
+  const normalized = identifier.trim();
+  if (!normalized) {
+    return '';
+  }
+  if (/(^|[.])sensor_state([.]|$)/i.test(normalized)) {
+    return 'sensor_state';
+  }
+  const lastDotIndex = normalized.lastIndexOf('.');
+  if (lastDotIndex < 0 || lastDotIndex === normalized.length - 1) {
+    return normalized;
+  }
+  return normalized.slice(lastDotIndex + 1);
 }
 
 function toRuntimeCandidate(property: DeviceProperty): RuntimeMetricCandidate[] {
