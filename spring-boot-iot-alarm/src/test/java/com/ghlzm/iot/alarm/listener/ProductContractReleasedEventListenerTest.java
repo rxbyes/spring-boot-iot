@@ -21,8 +21,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -147,6 +150,20 @@ class ProductContractReleasedEventListenerTest {
                         && row.getSnapshotJson().contains("\"L1_LF_1.value\"")
                         && row.getSnapshotJson().contains("\"value\"")
         ));
+    }
+
+    @Test
+    void springContextShouldInstantiateProductContractReleasedEventListenerBean() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(ProductModelMapper.class, () -> productModelMapper);
+            context.registerBean(RiskMetricCatalogPublishRule.class, () -> publishRule);
+            context.registerBean(RiskMetricCatalogService.class, () -> riskMetricCatalogService);
+            context.registerBean(ProductMetricResolverSnapshotMapper.class, () -> resolverSnapshotMapper);
+            context.register(ProductContractReleasedEventListener.class);
+
+            assertDoesNotThrow(context::refresh);
+            assertNotNull(context.getBean(ProductContractReleasedEventListener.class));
+        }
     }
 
     private ProductModel propertyModel(Long id, Long productId, String identifier, String modelName) {

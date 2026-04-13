@@ -12,10 +12,15 @@ import com.ghlzm.iot.device.mapper.ProductMetricResolverSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * 已发布产品合同快照服务实现。
@@ -27,15 +32,17 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
     private final ProductContractReleaseBatchMapper releaseBatchMapper;
     private final ProductMetricResolverSnapshotMapper snapshotMapper;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final ConcurrentMap<Long, CachedSnapshot> latestSnapshotCache = new ConcurrentHashMap<>();
 
     public PublishedProductContractSnapshotServiceImpl(ProductModelMapper productModelMapper,
                                                        ProductContractReleaseBatchMapper releaseBatchMapper) {
         this(productModelMapper, releaseBatchMapper, null);
     }
 
+    @Autowired
     public PublishedProductContractSnapshotServiceImpl(ProductModelMapper productModelMapper,
                                                        ProductContractReleaseBatchMapper releaseBatchMapper,
-                                                       ProductMetricResolverSnapshotMapper snapshotMapper) {
+                                                       @Nullable ProductMetricResolverSnapshotMapper snapshotMapper) {
         this.productModelMapper = productModelMapper;
         this.releaseBatchMapper = releaseBatchMapper;
         this.snapshotMapper = snapshotMapper;
@@ -47,8 +54,13 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return PublishedProductContractSnapshot.empty(null);
         }
         Long latestReleasedBatchId = resolveLatestReleasedBatchId(productId);
+        CachedSnapshot cachedSnapshot = latestSnapshotCache.get(productId);
+        if (cachedSnapshot != null && Objects.equals(cachedSnapshot.releaseBatchId(), latestReleasedBatchId)) {
+            return cachedSnapshot.snapshot();
+        }
         PublishedProductContractSnapshot persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
         if (persistedSnapshot != null) {
+            cacheSnapshot(productId, latestReleasedBatchId, persistedSnapshot);
             return persistedSnapshot;
         }
         PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
@@ -72,7 +84,9 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             builder.canonicalAlias(identifier, canonicalIdentifier);
             builder.canonicalAlias(canonicalIdentifier, canonicalIdentifier);
         }
-        return builder.build();
+        PublishedProductContractSnapshot snapshot = builder.build();
+        cacheSnapshot(productId, latestReleasedBatchId, snapshot);
+        return snapshot;
     }
 
     private PublishedProductContractSnapshot loadPersistedSnapshot(Long productId, Long releaseBatchId) {
@@ -111,6 +125,19 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return null;
         }
         return batches.get(0).getId();
+    }
+
+    private void cacheSnapshot(Long productId,
+                               Long releaseBatchId,
+                               PublishedProductContractSnapshot snapshot) {
+        if (productId == null) {
+            return;
+        }
+        if (releaseBatchId == null || snapshot == null) {
+            latestSnapshotCache.remove(productId);
+            return;
+        }
+        latestSnapshotCache.put(productId, new CachedSnapshot(releaseBatchId, snapshot));
     }
 
     private PublishedProductContractSnapshot parseSnapshot(Long productId, Long releaseBatchId, String snapshotJson) {
@@ -157,5 +184,8 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return trimmed.substring(idx + 1);
         }
         return trimmed;
+    }
+
+    private record CachedSnapshot(Long releaseBatchId, PublishedProductContractSnapshot snapshot) {
     }
 }

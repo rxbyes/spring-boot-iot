@@ -21,7 +21,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.core.type.TypeReference;
@@ -46,7 +49,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                                         ProductMapper productMapper,
                                         NormativeMetricDefinitionService normativeMetricDefinitionService,
                                         List<RiskMetricScenarioResolver> scenarioResolvers,
-                                        ApplicationEventPublisher applicationEventPublisher) {
+                                      ApplicationEventPublisher applicationEventPublisher) {
         this(
                 riskMetricCatalogMapper,
                 productMapper,
@@ -57,12 +60,13 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         );
     }
 
+    @Autowired
     public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper,
                                         ProductMapper productMapper,
                                         NormativeMetricDefinitionService normativeMetricDefinitionService,
                                         List<RiskMetricScenarioResolver> scenarioResolvers,
                                         ApplicationEventPublisher applicationEventPublisher,
-                                        PublishedProductContractSnapshotService snapshotService) {
+                                        @Nullable PublishedProductContractSnapshotService snapshotService) {
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
         this.productMapper = productMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;

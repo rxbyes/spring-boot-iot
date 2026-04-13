@@ -801,6 +801,20 @@ CREATE TABLE IF NOT EXISTS iot_product_contract_release_snapshot (
     KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='契约发布快照表'
 """,
+    "iot_product_metric_resolver_snapshot": """
+CREATE TABLE IF NOT EXISTS iot_product_metric_resolver_snapshot (
+    id BIGINT NOT NULL COMMENT '主键',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    product_id BIGINT NOT NULL COMMENT '产品ID',
+    release_batch_id BIGINT NOT NULL COMMENT '发布批次ID',
+    snapshot_json JSON NOT NULL COMMENT '解析快照载荷',
+    create_by BIGINT DEFAULT NULL COMMENT '创建人',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_metric_resolver_snapshot_batch (product_id, release_batch_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产品指标解析快照表'
+""",
     "iot_device_secret_rotation_log": """
 CREATE TABLE IF NOT EXISTS iot_device_secret_rotation_log (
     id BIGINT NOT NULL COMMENT '主键',
@@ -1468,6 +1482,12 @@ INDEXES_TO_ADD: IndexSpecMap = {
             "ALTER TABLE `iot_device_relation` ADD UNIQUE INDEX `uk_relation_parent_code_channel` (`tenant_id`, `parent_device_code`, `logical_channel_code`, `deleted`)",
         ),
     ],
+    "iot_product_metric_resolver_snapshot": [
+        (
+            "uk_metric_resolver_snapshot_batch",
+            "ALTER TABLE `iot_product_metric_resolver_snapshot` ADD UNIQUE INDEX `uk_metric_resolver_snapshot_batch` (`product_id`, `release_batch_id`, `deleted`)",
+        ),
+    ],
 }
 
 UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
@@ -1493,6 +1513,11 @@ UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
         "tenant_id",
         "parent_device_code",
         "logical_channel_code",
+        "deleted",
+    ),
+    ("iot_product_metric_resolver_snapshot", "uk_metric_resolver_snapshot_batch"): (
+        "product_id",
+        "release_batch_id",
         "deleted",
     ),
 }
@@ -1533,6 +1558,10 @@ EXPECTED_INDEX_SHAPES: IndexShapeMap = {
     ("iot_governance_ops_alert", "uk_governance_ops_alert_code"): (
         True,
         ("tenant_id", "alert_type", "alert_code", "deleted"),
+    ),
+    ("iot_product_metric_resolver_snapshot", "uk_metric_resolver_snapshot_batch"): (
+        True,
+        ("product_id", "release_batch_id", "deleted"),
     ),
 }
 

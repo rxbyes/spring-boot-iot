@@ -117,11 +117,33 @@ class VendorMetricMappingRuntimeServiceImplTest {
     }
 
     @Test
+    void resolveForRuntimeShouldSupportDeviceFamilyScopeWhenNoProductRuleExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                mappingRule(8801L, 7007L, "L3_YL_1.value", "L3_YL_1", "value", "ACTIVE",
+                        "DEVICE_FAMILY", "phase4-rain-gauge", "RAIN_GAUGE")
+        ));
+        when(normativeMetricDefinitionService.listByScenario("phase4-rain-gauge"))
+                .thenReturn(List.of(normativeDefinition("phase4-rain-gauge", "value", "RAIN_GAUGE")));
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setProtocolCode("mqtt-json");
+
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                service.resolveForRuntime(rainGaugeProduct(7007L), upMessage, "L3_YL_1.value", "L3_YL_1");
+
+        assertEquals(8801L, resolution.ruleId());
+        assertEquals("value", resolution.targetNormativeIdentifier());
+    }
+
+    @Test
     void resolveForGovernanceShouldMatchDeviceFamilyFromNormativeDefinitions() {
         VendorMetricMappingRuntimeServiceImpl service =
                 new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
         when(mapper.selectList(any())).thenReturn(List.of(
-                mappingRule(8801L, 7007L, "L3_YL_1.value", "L3_YL_1", "value", "ACTIVE", "phase4-rain-gauge", "RAIN_GAUGE")
+                mappingRule(8801L, 7007L, "L3_YL_1.value", "L3_YL_1", "value", "ACTIVE",
+                        "DEVICE_FAMILY", "phase4-rain-gauge", "RAIN_GAUGE")
         ));
         when(normativeMetricDefinitionService.listByScenario("phase4-rain-gauge"))
                 .thenReturn(List.of(normativeDefinition("phase4-rain-gauge", "value", "RAIN_GAUGE")));
@@ -158,7 +180,8 @@ class VendorMetricMappingRuntimeServiceImplTest {
                                                 String logicalChannelCode,
                                                 String targetNormativeIdentifier,
                                                 String status) {
-        return mappingRule(id, productId, rawIdentifier, logicalChannelCode, targetNormativeIdentifier, status, "phase1-crack", null);
+        return mappingRule(id, productId, rawIdentifier, logicalChannelCode, targetNormativeIdentifier, status,
+                "PRODUCT", "phase1-crack", null);
     }
 
     private VendorMetricMappingRule mappingRule(Long id,
@@ -167,12 +190,13 @@ class VendorMetricMappingRuntimeServiceImplTest {
                                                 String logicalChannelCode,
                                                 String targetNormativeIdentifier,
                                                 String status,
+                                                String scopeType,
                                                 String scenarioCode,
                                                 String deviceFamily) {
         VendorMetricMappingRule rule = new VendorMetricMappingRule();
         rule.setId(id);
         rule.setProductId(productId);
-        rule.setScopeType("PRODUCT");
+        rule.setScopeType(scopeType);
         rule.setRawIdentifier(rawIdentifier);
         rule.setLogicalChannelCode(logicalChannelCode);
         rule.setTargetNormativeIdentifier(targetNormativeIdentifier);

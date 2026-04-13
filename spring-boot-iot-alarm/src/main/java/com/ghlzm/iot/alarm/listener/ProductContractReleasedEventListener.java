@@ -15,9 +15,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -40,10 +42,11 @@ public class ProductContractReleasedEventListener {
         this(productModelMapper, riskMetricCatalogPublishRule, riskMetricCatalogService, null);
     }
 
+    @Autowired
     public ProductContractReleasedEventListener(ProductModelMapper productModelMapper,
                                                 RiskMetricCatalogPublishRule riskMetricCatalogPublishRule,
                                                 RiskMetricCatalogService riskMetricCatalogService,
-                                                ProductMetricResolverSnapshotMapper resolverSnapshotMapper) {
+                                                @Nullable ProductMetricResolverSnapshotMapper resolverSnapshotMapper) {
         this.productModelMapper = productModelMapper;
         this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule;
         this.riskMetricCatalogService = riskMetricCatalogService;

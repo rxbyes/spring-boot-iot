@@ -12,14 +12,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -91,6 +95,46 @@ class PublishedProductContractSnapshotServiceImplTest {
         assertTrue(snapshot.publishedIdentifiers().contains("value"));
         assertEquals("value", snapshot.canonicalAliasOf("L1_LF_1.value").orElse(null));
         verify(productModelMapper, never()).selectList(any());
+    }
+
+    @Test
+    void shouldServeResolverSnapshotFromCacheAfterFirstLoad() {
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(9001L);
+        when(releaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+
+        ProductMetricResolverSnapshot persisted = new ProductMetricResolverSnapshot();
+        persisted.setProductId(1001L);
+        persisted.setReleaseBatchId(9001L);
+        persisted.setSnapshotJson("""
+                {
+                  "publishedIdentifiers": ["value"],
+                  "canonicalAliases": {
+                    "L1_LF_1.value": "value",
+                    "value": "value"
+                  }
+                }
+                """);
+        when(snapshotMapper.selectList(any())).thenReturn(List.of(persisted));
+
+        snapshotService.getRequiredSnapshot(1001L);
+        snapshotService.getRequiredSnapshot(1001L);
+
+        verify(snapshotMapper, times(1)).selectList(any());
+        verify(productModelMapper, never()).selectList(any());
+    }
+
+    @Test
+    void springContextShouldInstantiatePublishedSnapshotServiceBean() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(ProductModelMapper.class, () -> productModelMapper);
+            context.registerBean(ProductContractReleaseBatchMapper.class, () -> releaseBatchMapper);
+            context.registerBean(ProductMetricResolverSnapshotMapper.class, () -> snapshotMapper);
+            context.register(PublishedProductContractSnapshotServiceImpl.class);
+
+            assertDoesNotThrow(context::refresh);
+            assertNotNull(context.getBean(PublishedProductContractSnapshotServiceImpl.class));
+        }
     }
 
     private ProductModel property(String identifier) {

@@ -27,6 +27,10 @@ import tools.jackson.databind.json.JsonMapper;
 public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRuleService {
 
     private static final String SCOPE_TYPE_PRODUCT = "PRODUCT";
+    private static final String SCOPE_TYPE_DEVICE_FAMILY = "DEVICE_FAMILY";
+    private static final String SCOPE_TYPE_SCENARIO = "SCENARIO";
+    private static final String SCOPE_TYPE_PROTOCOL = "PROTOCOL";
+    private static final String SCOPE_TYPE_TENANT_DEFAULT = "TENANT_DEFAULT";
     private static final String STATUS_DRAFT = "DRAFT";
 
     private final VendorMetricMappingRuleMapper mapper;
@@ -57,6 +61,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         VendorMetricMappingRule rule = new VendorMetricMappingRule();
         rule.setId(IdWorker.getId());
         applyEditableFields(rule, productId, dto);
+        ensureNoConflictingRule(rule, null);
         rule.setStatus(normalizeStatus(dto == null ? null : dto.getStatus(), STATUS_DRAFT));
         rule.setVersionNo(1);
         rule.setCreateBy(normalizePositiveLong(operatorId));
@@ -80,6 +85,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
                                                   VendorMetricMappingRuleUpsertDTO dto) {
         VendorMetricMappingRule rule = getRequiredRule(productId, ruleId);
         applyEditableFields(rule, productId, dto);
+        ensureNoConflictingRule(rule, ruleId);
         rule.setStatus(normalizeStatus(dto == null ? null : dto.getStatus(), rule.getStatus()));
         rule.setVersionNo(nextVersion(rule.getVersionNo()));
         rule.setUpdateBy(normalizePositiveLong(operatorId));
@@ -104,19 +110,17 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
             throw new BizException("产品标识不能为空");
         }
         String scopeType = normalizeScopeType(dto == null ? null : dto.getScopeType());
-        if (!SCOPE_TYPE_PRODUCT.equals(scopeType)) {
-            throw new BizException("当前仅支持产品级映射规则");
-        }
         rule.setProductId(productId);
         rule.setScopeType(scopeType);
-        rule.setProtocolCode(normalizeText(dto == null ? null : dto.getProtocolCode()));
-        rule.setScenarioCode(normalizeText(dto == null ? null : dto.getScenarioCode()));
-        rule.setDeviceFamily(normalizeText(dto == null ? null : dto.getDeviceFamily()));
+        rule.setProtocolCode(normalizeLower(dto == null ? null : dto.getProtocolCode()));
+        rule.setScenarioCode(normalizeLower(dto == null ? null : dto.getScenarioCode()));
+        rule.setDeviceFamily(normalizeLower(dto == null ? null : dto.getDeviceFamily()));
         rule.setRawIdentifier(normalizeRawIdentifier(dto == null ? null : dto.getRawIdentifier()));
         rule.setLogicalChannelCode(normalizeText(dto == null ? null : dto.getLogicalChannelCode()));
         rule.setRelationConditionJson(normalizeJson(dto == null ? null : dto.getRelationConditionJson(), "relationConditionJson"));
         rule.setNormalizationRuleJson(normalizeJson(dto == null ? null : dto.getNormalizationRuleJson(), "normalizationRuleJson"));
         rule.setTargetNormativeIdentifier(normalizeLowerIdentifier(dto == null ? null : dto.getTargetNormativeIdentifier()));
+        validateScopeFields(rule);
     }
 
     private VendorMetricMappingRuleVO toVO(VendorMetricMappingRule rule) {
@@ -144,7 +148,17 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
 
     private String normalizeScopeType(String scopeType) {
         String normalized = normalizeUpper(scopeType);
-        return StringUtils.hasText(normalized) ? normalized : SCOPE_TYPE_PRODUCT;
+        if (!StringUtils.hasText(normalized)) {
+            return SCOPE_TYPE_PRODUCT;
+        }
+        return switch (normalized) {
+            case SCOPE_TYPE_PRODUCT,
+                 SCOPE_TYPE_DEVICE_FAMILY,
+                 SCOPE_TYPE_SCENARIO,
+                 SCOPE_TYPE_PROTOCOL,
+                 SCOPE_TYPE_TENANT_DEFAULT -> normalized;
+            default -> throw new BizException("scopeType 不合法: " + scopeType);
+        };
     }
 
     private String normalizeStatus(String status, String defaultValue) {
@@ -180,6 +194,11 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    private String normalizeLower(String value) {
+        String normalized = normalizeText(value);
+        return StringUtils.hasText(normalized) ? normalized.toLowerCase(Locale.ROOT) : null;
+    }
+
     private String normalizeUpper(String value) {
         String normalized = normalizeText(value);
         return StringUtils.hasText(normalized) ? normalized.toUpperCase(Locale.ROOT) : null;
@@ -191,5 +210,73 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
 
     private Integer nextVersion(Integer currentVersion) {
         return currentVersion == null || currentVersion <= 0 ? 1 : currentVersion + 1;
+    }
+
+    private void validateScopeFields(VendorMetricMappingRule rule) {
+        if (rule == null) {
+            return;
+        }
+        String scopeType = normalizeScopeType(rule.getScopeType());
+        if (SCOPE_TYPE_DEVICE_FAMILY.equals(scopeType) && !StringUtils.hasText(rule.getDeviceFamily())) {
+            throw new BizException("deviceFamily 不能为空");
+        }
+        if (SCOPE_TYPE_SCENARIO.equals(scopeType) && !StringUtils.hasText(rule.getScenarioCode())) {
+            throw new BizException("scenarioCode 不能为空");
+        }
+        if (SCOPE_TYPE_PROTOCOL.equals(scopeType) && !StringUtils.hasText(rule.getProtocolCode())) {
+            throw new BizException("protocolCode 不能为空");
+        }
+    }
+
+    private void ensureNoConflictingRule(VendorMetricMappingRule incomingRule, Long currentRuleId) {
+        if (incomingRule == null || incomingRule.getProductId() == null || !StringUtils.hasText(incomingRule.getRawIdentifier())) {
+            return;
+        }
+        List<VendorMetricMappingRule> existingRules = mapper.selectList(new LambdaQueryWrapper<VendorMetricMappingRule>()
+                .eq(VendorMetricMappingRule::getDeleted, 0)
+                .eq(VendorMetricMappingRule::getProductId, incomingRule.getProductId())
+                .eq(VendorMetricMappingRule::getRawIdentifier, incomingRule.getRawIdentifier()));
+        if (existingRules == null || existingRules.isEmpty()) {
+            return;
+        }
+        for (VendorMetricMappingRule existingRule : existingRules) {
+            if (existingRule == null || Integer.valueOf(1).equals(existingRule.getDeleted())) {
+                continue;
+            }
+            if (currentRuleId != null && currentRuleId.equals(existingRule.getId())) {
+                continue;
+            }
+            if (!sameScopeSignature(existingRule, incomingRule)) {
+                continue;
+            }
+            if (sameTarget(existingRule, incomingRule)) {
+                continue;
+            }
+            throw new BizException("厂商字段映射规则存在冲突，请先清理同 scope 下的重复目标: " + incomingRule.getRawIdentifier());
+        }
+    }
+
+    private boolean sameScopeSignature(VendorMetricMappingRule left, VendorMetricMappingRule right) {
+        return equalsIgnoreCase(left.getScopeType(), right.getScopeType())
+                && equalsIgnoreCase(left.getLogicalChannelCode(), right.getLogicalChannelCode())
+                && equalsIgnoreCase(left.getProtocolCode(), right.getProtocolCode())
+                && equalsIgnoreCase(left.getScenarioCode(), right.getScenarioCode())
+                && equalsIgnoreCase(left.getDeviceFamily(), right.getDeviceFamily());
+    }
+
+    private boolean sameTarget(VendorMetricMappingRule left, VendorMetricMappingRule right) {
+        return equalsIgnoreCase(left.getTargetNormativeIdentifier(), right.getTargetNormativeIdentifier());
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        String normalizedLeft = normalizeText(left);
+        String normalizedRight = normalizeText(right);
+        if (normalizedLeft == null && normalizedRight == null) {
+            return true;
+        }
+        if (normalizedLeft == null || normalizedRight == null) {
+            return false;
+        }
+        return normalizedLeft.equalsIgnoreCase(normalizedRight);
     }
 }

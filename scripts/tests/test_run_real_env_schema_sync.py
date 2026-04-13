@@ -146,6 +146,13 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_ops_alert", ops_alert_sql)
         self.assertIn("alert_status", ops_alert_sql)
 
+    def test_create_table_sql_covers_product_metric_resolver_snapshot_table(self):
+        snapshot_sql = schema_sync.CREATE_TABLE_SQL.get("iot_product_metric_resolver_snapshot")
+        self.assertIsNotNone(snapshot_sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS iot_product_metric_resolver_snapshot", snapshot_sql)
+        self.assertIn("release_batch_id", snapshot_sql)
+        self.assertIn("uk_metric_resolver_snapshot_batch", snapshot_sql)
+
     def test_columns_to_add_covers_governance_work_item_lifecycle_hub_fields(self):
         self.assertIn("iot_governance_work_item", schema_sync.COLUMNS_TO_ADD)
         work_item_columns = dict(schema_sync.COLUMNS_TO_ADD["iot_governance_work_item"])
@@ -184,6 +191,14 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertEqual(
             relation_index_sql["uk_relation_parent_code_channel"],
             "ALTER TABLE `iot_device_relation` ADD UNIQUE INDEX `uk_relation_parent_code_channel` (`tenant_id`, `parent_device_code`, `logical_channel_code`, `deleted`)",
+        )
+
+    def test_indexes_to_add_covers_metric_resolver_snapshot_batch_uniqueness(self):
+        self.assertIn("iot_product_metric_resolver_snapshot", schema_sync.INDEXES_TO_ADD)
+        snapshot_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_product_metric_resolver_snapshot"])
+        self.assertEqual(
+            snapshot_index_sql["uk_metric_resolver_snapshot_batch"],
+            "ALTER TABLE `iot_product_metric_resolver_snapshot` ADD UNIQUE INDEX `uk_metric_resolver_snapshot_batch` (`product_id`, `release_batch_id`, `deleted`)",
         )
 
     def test_governance_approval_policy_seeds_cover_fixed_reviewer_defaults(self):

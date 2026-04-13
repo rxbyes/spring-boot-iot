@@ -30,6 +30,10 @@ import org.springframework.util.StringUtils;
 public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappingRuntimeService {
 
     private static final String SCOPE_TYPE_PRODUCT = "PRODUCT";
+    private static final String SCOPE_TYPE_DEVICE_FAMILY = "DEVICE_FAMILY";
+    private static final String SCOPE_TYPE_SCENARIO = "SCENARIO";
+    private static final String SCOPE_TYPE_PROTOCOL = "PROTOCOL";
+    private static final String SCOPE_TYPE_TENANT_DEFAULT = "TENANT_DEFAULT";
     private static final Set<String> DISABLED_STATUSES = Set.of("INACTIVE", "DISABLED", "RETIRED");
 
     private final VendorMetricMappingRuleMapper mapper;
@@ -129,11 +133,13 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         Set<String> scenarioDeviceFamilies = resolveScenarioDeviceFamilies(scenarioCode);
         List<ResolvedRuleCandidate> candidates = mapper.selectList(new LambdaQueryWrapper<VendorMetricMappingRule>()
                         .eq(VendorMetricMappingRule::getDeleted, 0)
-                        .eq(VendorMetricMappingRule::getProductId, productId)
-                        .eq(VendorMetricMappingRule::getScopeType, SCOPE_TYPE_PRODUCT)
+                        .and(wrapper -> wrapper.eq(VendorMetricMappingRule::getProductId, productId)
+                                .or(scope -> scope.isNull(VendorMetricMappingRule::getProductId)
+                                        .eq(VendorMetricMappingRule::getScopeType, SCOPE_TYPE_TENANT_DEFAULT)))
                         .eq(VendorMetricMappingRule::getRawIdentifier, normalizedRawIdentifier))
                 .stream()
                 .filter(this::isUsableRule)
+                .filter(rule -> scopeMatches(rule, scenarioCode, normalizedProtocolCode, scenarioDeviceFamilies))
                 .filter(rule -> matchesOptional(rule.getScenarioCode(), scenarioCode))
                 .filter(rule -> matchesOptional(rule.getProtocolCode(), normalizedProtocolCode))
                 .filter(rule -> matchesOptionalUpper(rule.getLogicalChannelCode(), normalizedLogicalChannelCode))
@@ -180,11 +186,36 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         if (rule == null || Integer.valueOf(1).equals(rule.getDeleted())) {
             return false;
         }
-        if (!SCOPE_TYPE_PRODUCT.equalsIgnoreCase(normalizeText(rule.getScopeType()))) {
+        String scopeType = normalizeUpper(rule.getScopeType());
+        if (!Set.of(
+                SCOPE_TYPE_PRODUCT,
+                SCOPE_TYPE_DEVICE_FAMILY,
+                SCOPE_TYPE_SCENARIO,
+                SCOPE_TYPE_PROTOCOL,
+                SCOPE_TYPE_TENANT_DEFAULT
+        ).contains(scopeType)) {
             return false;
         }
         String status = normalizeUpper(rule.getStatus());
         return status == null || !DISABLED_STATUSES.contains(status);
+    }
+
+    private boolean scopeMatches(VendorMetricMappingRule rule,
+                                 String scenarioCode,
+                                 String protocolCode,
+                                 Set<String> scenarioDeviceFamilies) {
+        String scopeType = normalizeUpper(rule == null ? null : rule.getScopeType());
+        if (scopeType == null) {
+            return false;
+        }
+        return switch (scopeType) {
+            case SCOPE_TYPE_PRODUCT -> true;
+            case SCOPE_TYPE_DEVICE_FAMILY -> matchesRequired(rule.getDeviceFamily(), scenarioDeviceFamilies);
+            case SCOPE_TYPE_SCENARIO -> matchesRequired(rule.getScenarioCode(), scenarioCode);
+            case SCOPE_TYPE_PROTOCOL -> matchesRequired(rule.getProtocolCode(), protocolCode);
+            case SCOPE_TYPE_TENANT_DEFAULT -> true;
+            default -> false;
+        };
     }
 
     private boolean matchesOptional(String expectedValue, String actualValue) {
@@ -211,21 +242,42 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         return actualValues != null && actualValues.contains(normalizedExpectedValue);
     }
 
+    private boolean matchesRequired(String expectedValue, String actualValue) {
+        String normalizedExpectedValue = normalizeLower(expectedValue);
+        return normalizedExpectedValue != null && normalizedExpectedValue.equals(normalizeLower(actualValue));
+    }
+
+    private boolean matchesRequired(String expectedValue, Set<String> actualValues) {
+        String normalizedExpectedValue = normalizeLower(expectedValue);
+        return normalizedExpectedValue != null && actualValues != null && actualValues.contains(normalizedExpectedValue);
+    }
+
     private int specificity(VendorMetricMappingRule rule) {
-        int score = 0;
-        if (StringUtils.hasText(rule.getScenarioCode())) {
-            score++;
-        }
-        if (StringUtils.hasText(rule.getProtocolCode())) {
-            score++;
-        }
-        if (StringUtils.hasText(rule.getLogicalChannelCode())) {
-            score++;
-        }
-        if (StringUtils.hasText(rule.getDeviceFamily())) {
-            score++;
+        int score = scopePriority(rule == null ? null : rule.getScopeType()) * 10;
+        if (StringUtils.hasText(rule == null ? null : rule.getLogicalChannelCode())) {
+            score += 1;
         }
         return score;
+    }
+
+    private int scopePriority(String scopeType) {
+        String normalizedScopeType = normalizeUpper(scopeType);
+        if (SCOPE_TYPE_PRODUCT.equals(normalizedScopeType)) {
+            return 5;
+        }
+        if (SCOPE_TYPE_DEVICE_FAMILY.equals(normalizedScopeType)) {
+            return 4;
+        }
+        if (SCOPE_TYPE_SCENARIO.equals(normalizedScopeType)) {
+            return 3;
+        }
+        if (SCOPE_TYPE_PROTOCOL.equals(normalizedScopeType)) {
+            return 2;
+        }
+        if (SCOPE_TYPE_TENANT_DEFAULT.equals(normalizedScopeType)) {
+            return 1;
+        }
+        return 0;
     }
 
     private String canonicalizeTargetIdentifier(Product product, String targetIdentifier) {

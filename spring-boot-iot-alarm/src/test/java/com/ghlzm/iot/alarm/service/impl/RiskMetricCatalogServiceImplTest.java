@@ -19,7 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -265,6 +268,23 @@ class RiskMetricCatalogServiceImplTest {
                         && "RM_1001_VALUE".equals(row.getRiskMetricCode())
                         && "激光测距值".equals(row.getRiskMetricName())
         ));
+    }
+
+    @Test
+    void springContextShouldInstantiateRiskMetricCatalogServiceBean() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(RiskMetricCatalogMapper.class, () -> riskMetricCatalogMapper);
+            context.registerBean(ProductMapper.class, () -> productMapper);
+            context.registerBean(NormativeMetricDefinitionService.class, () -> normativeMetricDefinitionService);
+            context.registerBean(ApplicationEventPublisher.class, () -> applicationEventPublisher);
+            context.registerBean(PublishedProductContractSnapshotService.class, () -> snapshotService);
+            context.registerBean("keywordRiskMetricScenarioResolver", RiskMetricScenarioResolver.class,
+                    KeywordRiskMetricScenarioResolver::new);
+            context.register(RiskMetricCatalogServiceImpl.class);
+
+            assertDoesNotThrow(context::refresh);
+            assertNotNull(context.getBean(RiskMetricCatalogServiceImpl.class));
+        }
     }
 
     private NormativeMetricDefinition normative(String scenarioCode,
