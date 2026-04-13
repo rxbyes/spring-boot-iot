@@ -27,8 +27,8 @@ public class DefaultMetricIdentifierResolver implements MetricIdentifierResolver
     }
 
     private MetricIdentifierResolution resolve(PublishedProductContractSnapshot snapshot, String metricIdentifier) {
-        String normalizedInput = normalize(metricIdentifier);
-        if (normalizedInput == null) {
+        String sanitizedInput = sanitize(metricIdentifier);
+        if (sanitizedInput == null) {
             return MetricIdentifierResolution.of(metricIdentifier, null, MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER);
         }
         PublishedProductContractSnapshot safeSnapshot = snapshot == null
@@ -46,10 +46,10 @@ public class DefaultMetricIdentifierResolver implements MetricIdentifierResolver
                         MetricIdentifierResolution.SOURCE_CASE_INSENSITIVE_GUESS);
             }
         }
-        return MetricIdentifierResolution.of(metricIdentifier, normalizedInput, MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER);
+        return MetricIdentifierResolution.of(metricIdentifier, sanitizedInput, MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER);
     }
 
-    private String normalize(String identifier) {
+    private String sanitize(String identifier) {
         if (identifier == null) {
             return null;
         }
@@ -57,6 +57,6 @@ public class DefaultMetricIdentifierResolver implements MetricIdentifierResolver
         if (trimmed.isEmpty()) {
             return null;
         }
-        return trimmed.toLowerCase();
+        return trimmed;
     }
 }

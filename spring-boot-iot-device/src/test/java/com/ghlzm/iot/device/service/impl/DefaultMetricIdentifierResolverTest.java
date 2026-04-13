@@ -38,4 +38,18 @@ class DefaultMetricIdentifierResolverTest {
         assertEquals("gpsTotalX", resolution.canonicalIdentifier());
         assertEquals(MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT, resolution.source());
     }
+
+    @Test
+    void shouldPreserveRawIdentifierCaseWhenSnapshotDoesNotMatch() {
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(9001L)
+                .publishedIdentifier("value")
+                .build();
+
+        MetricIdentifierResolution resolution = resolver.resolveForRuntime(snapshot, " RawMetricX ");
+
+        assertEquals("RawMetricX", resolution.canonicalIdentifier());
+        assertEquals(MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER, resolution.source());
+    }
 }
