@@ -656,12 +656,28 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
 
             String productKey = null;
             String productName = null;
-            if (productService != null && device != null && device.getProductId() != null) {
-                  Product product = productService.getRequiredById(device.getProductId());
-                  productKey = product.getProductKey();
-                  productName = product.getProductName();
+            if (productService != null
+                    && device != null
+                    && device.getProductId() != null
+                    && device.getProductId() > 0) {
+                  try {
+                        Product product = productService.getRequiredById(device.getProductId());
+                        if (product != null) {
+                              productKey = product.getProductKey();
+                              productName = product.getProductName();
+                        }
+                  } catch (BizException ex) {
+                        productKey = null;
+                        productName = null;
+                  }
             }
-            DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.resolve(productKey, productName, hasFormalMetrics);
+            DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.resolve(
+                    productKey,
+                    productName,
+                    device == null ? null : device.getDeviceCode(),
+                    device == null ? null : device.getDeviceName(),
+                    hasFormalMetrics
+            );
             if (capabilityType == DeviceBindingCapabilityType.UNKNOWN) {
                   DeviceBindingCapabilityType requestedType = DeviceBindingCapabilitySupport.normalize(requestedCapabilityType);
                   if (requestedType != DeviceBindingCapabilityType.UNKNOWN) {

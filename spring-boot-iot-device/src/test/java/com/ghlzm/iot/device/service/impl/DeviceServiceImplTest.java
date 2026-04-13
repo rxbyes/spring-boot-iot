@@ -8,6 +8,7 @@ import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
@@ -23,6 +24,7 @@ import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.Organization;
@@ -489,6 +491,29 @@ class DeviceServiceImplTest {
         String sqlSegment = wrapperCaptor.getValue().getSqlSegment();
         assertTrue(sqlSegment.contains("tenant_id"));
         assertTrue(sqlSegment.contains("org_id"));
+    }
+
+    @Test
+    void listDeviceOptionsShouldInferVideoCapabilityFromDeviceNameWhenProductMissing() {
+        Device videoDevice = new Device();
+        videoDevice.setId(4005L);
+        videoDevice.setProductId(0L);
+        videoDevice.setOrgId(7101L);
+        videoDevice.setDeviceCode("3c2c1e3d-5f57-4db3-a42a-1cc2a5b21963");
+        videoDevice.setDeviceName("G30甘肃天水宝天段K1328+850上行水毁监控");
+        videoDevice.setDeviceStatus(DeviceStatusEnum.ENABLED.getCode());
+
+        doReturn(List.of(videoDevice)).when(deviceService).list(any(LambdaQueryWrapper.class));
+        when(productService.listByIds(any())).thenReturn(List.of());
+        when(riskMetricCatalogReadMapper.selectList(any())).thenReturn(List.of());
+
+        List<DeviceOptionVO> result = deviceService.listDeviceOptions(false);
+
+        assertEquals(1, result.size());
+        assertEquals(DeviceBindingCapabilityType.VIDEO.name(), result.get(0).getDeviceCapabilityType());
+        assertEquals(Boolean.FALSE, result.get(0).getSupportsMetricBinding());
+        assertEquals(Boolean.TRUE, result.get(0).getAiEventExpandable());
+        assertEquals("3c2c1e3d-5f57-4db3-a42a-1cc2a5b21963", result.get(0).getDeviceCode());
     }
 
     @Test

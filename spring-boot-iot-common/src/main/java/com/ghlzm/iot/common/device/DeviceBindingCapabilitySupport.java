@@ -13,6 +13,7 @@ public final class DeviceBindingCapabilitySupport {
     public static final String EXTENSION_STATUS_AI_EVENT_RESERVED = "AI_EVENT_RESERVED";
 
     private static final List<String> VIDEO_KEYWORDS = List.of("video", "camera", "ipc", "视频", "摄像");
+    private static final List<String> VIDEO_DEVICE_HINT_KEYWORDS = List.of("video", "camera", "ipc", "视频", "摄像", "监控");
     private static final List<String> WARNING_KEYWORDS = List.of("warning", "warn", "预警", "声光", "爆闪", "广播", "情报板", "报警");
     private static final List<String> MONITORING_KEYWORDS = List.of("monitor", "monitoring", "监测", "gnss", "位移", "倾角", "裂缝", "雨量", "水位", "激光");
 
@@ -49,8 +50,44 @@ public final class DeviceBindingCapabilitySupport {
 
     public static DeviceBindingCapabilityType resolve(String productKey,
                                                       String productName,
+                                                      String deviceCode,
+                                                      String deviceName) {
+        DeviceBindingCapabilityType resolved = resolve(productKey, productName);
+        if (resolved != DeviceBindingCapabilityType.UNKNOWN) {
+            return resolved;
+        }
+        String normalizedDeviceHints = normalizeKeywords(deviceCode, deviceName);
+        if (!StringUtils.hasText(normalizedDeviceHints)) {
+            return DeviceBindingCapabilityType.UNKNOWN;
+        }
+        if (containsAny(normalizedDeviceHints, VIDEO_DEVICE_HINT_KEYWORDS)) {
+            return DeviceBindingCapabilityType.VIDEO;
+        }
+        if (containsAny(normalizedDeviceHints, WARNING_KEYWORDS)) {
+            return DeviceBindingCapabilityType.WARNING;
+        }
+        if (containsAny(normalizedDeviceHints, MONITORING_KEYWORDS)) {
+            return DeviceBindingCapabilityType.MONITORING;
+        }
+        return DeviceBindingCapabilityType.UNKNOWN;
+    }
+
+    public static DeviceBindingCapabilityType resolve(String productKey,
+                                                      String productName,
                                                       boolean hasFormalMetrics) {
         DeviceBindingCapabilityType resolved = resolve(productKey, productName);
+        if (resolved != DeviceBindingCapabilityType.UNKNOWN) {
+            return resolved;
+        }
+        return hasFormalMetrics ? DeviceBindingCapabilityType.MONITORING : DeviceBindingCapabilityType.UNKNOWN;
+    }
+
+    public static DeviceBindingCapabilityType resolve(String productKey,
+                                                      String productName,
+                                                      String deviceCode,
+                                                      String deviceName,
+                                                      boolean hasFormalMetrics) {
+        DeviceBindingCapabilityType resolved = resolve(productKey, productName, deviceCode, deviceName);
         if (resolved != DeviceBindingCapabilityType.UNKNOWN) {
             return resolved;
         }
@@ -73,9 +110,21 @@ public final class DeviceBindingCapabilitySupport {
         return isAiEventExpandable(type) ? EXTENSION_STATUS_AI_EVENT_RESERVED : null;
     }
 
-    private static String normalizeKeywords(String productKey, String productName) {
-        String merged = (safeText(productKey) + " " + safeText(productName)).trim();
-        return merged.toLowerCase(Locale.ROOT);
+    private static String normalizeKeywords(String... values) {
+        if (values == null || values.length == 0) {
+            return "";
+        }
+        StringBuilder merged = new StringBuilder();
+        for (String value : values) {
+            if (!StringUtils.hasText(value)) {
+                continue;
+            }
+            if (merged.length() > 0) {
+                merged.append(' ');
+            }
+            merged.append(value.trim());
+        }
+        return merged.toString().toLowerCase(Locale.ROOT);
     }
 
     private static String safeText(String value) {

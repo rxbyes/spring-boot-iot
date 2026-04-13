@@ -1498,6 +1498,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.resolve(
                 product == null ? null : product.getProductKey(),
                 product == null ? null : product.getProductName(),
+                device == null ? null : device.getDeviceCode(),
+                device == null ? null : device.getDeviceName(),
                 hasFormalMetrics
         );
         option.setId(device.getId());

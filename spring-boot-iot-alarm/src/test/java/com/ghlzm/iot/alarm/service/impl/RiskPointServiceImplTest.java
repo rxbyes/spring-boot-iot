@@ -1257,6 +1257,70 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void bindDeviceCapabilityAndReturnShouldInferVideoCapabilityWhenProductMetadataMissing() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper = mock(RiskPointDeviceCapabilityBindingMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductService productService = mock(ProductService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                capabilityBindingMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                null,
+                productService
+        ));
+
+        RiskPointDeviceCapabilityBindingRequest request = new RiskPointDeviceCapabilityBindingRequest();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2002L);
+        request.setDeviceCapabilityType(DeviceBindingCapabilityType.UNKNOWN.name());
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2002L, 7101L, "3c2c1e3d-5f57-4db3-a42a-1cc2a5b21963");
+        device.setDeviceName("G30甘肃天水宝天段K1328+850上行水毁监控");
+        device.setProductId(0L);
+
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        when(deviceService.getRequiredById(1001L, 2002L)).thenReturn(device);
+        when(deviceService.listMetricOptions(1001L, 2002L)).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(capabilityBindingMapper.selectList(any())).thenReturn(List.of());
+        doAnswer(invocation -> {
+            RiskPointDeviceCapabilityBinding saved = invocation.getArgument(0);
+            saved.setId(9902L);
+            return 1;
+        }).when(capabilityBindingMapper).insert((RiskPointDeviceCapabilityBinding) any(RiskPointDeviceCapabilityBinding.class));
+
+        RiskPointDeviceCapabilityBinding saved = service.bindDeviceCapabilityAndReturn(request, 1001L);
+
+        assertEquals(9902L, saved.getId());
+        assertEquals(DeviceBindingCapabilityType.VIDEO.name(), saved.getDeviceCapabilityType());
+        assertEquals("AI_EVENT_RESERVED", saved.getExtensionStatus());
+        verify(productService, never()).getRequiredById(any());
+        verify(capabilityBindingMapper).insert(argThat((RiskPointDeviceCapabilityBinding binding) ->
+                Long.valueOf(12L).equals(binding.getRiskPointId())
+                        && Long.valueOf(2002L).equals(binding.getDeviceId())
+                        && "3c2c1e3d-5f57-4db3-a42a-1cc2a5b21963".equals(binding.getDeviceCode())
+                        && "G30甘肃天水宝天段K1328+850上行水毁监控".equals(binding.getDeviceName())
+                        && DeviceBindingCapabilityType.VIDEO.name().equals(binding.getDeviceCapabilityType())
+                        && "AI_EVENT_RESERVED".equals(binding.getExtensionStatus())
+        ));
+    }
+
+    @Test
     void deleteRiskPointShouldUseLogicalDeleteApi() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
