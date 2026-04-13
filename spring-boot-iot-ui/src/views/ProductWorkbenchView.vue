@@ -822,7 +822,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
       key: 'pending-contract-release',
       title: '待发布合同',
       detail: '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
-      path: buildGovernanceTaskPath(productId, 'PENDING_CONTRACT_RELEASE')
+      path: buildProductWorkbenchPath(productId, 'models')
     })
   }
 

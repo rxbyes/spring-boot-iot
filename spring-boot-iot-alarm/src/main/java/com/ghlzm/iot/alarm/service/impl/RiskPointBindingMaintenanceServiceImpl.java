@@ -17,6 +17,8 @@ import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
@@ -67,6 +69,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
     private final GovernanceApprovalService governanceApprovalService;
     private final GovernanceWorkItemService governanceWorkItemService;
+    private final DeviceService deviceService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
@@ -80,6 +83,26 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 pendingPromotionMapper,
                 null,
                 null,
+                null,
+                null
+        );
+    }
+
+    public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
+                                                  RiskPointDeviceMapper riskPointDeviceMapper,
+                                                  RiskPointDevicePendingBindingMapper pendingBindingMapper,
+                                                  RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
+                                                  GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
+                                                  GovernanceApprovalService governanceApprovalService,
+                                                  GovernanceWorkItemService governanceWorkItemService) {
+        this(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                governanceApprovalPolicyResolver,
+                governanceApprovalService,
+                governanceWorkItemService,
                 null
         );
     }
@@ -91,7 +114,8 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                                                   RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
                                                   GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
                                                   @Lazy GovernanceApprovalService governanceApprovalService,
-                                                  GovernanceWorkItemService governanceWorkItemService) {
+                                                  GovernanceWorkItemService governanceWorkItemService,
+                                                  @Lazy DeviceService deviceService) {
         this.riskPointService = riskPointService;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
         this.pendingBindingMapper = pendingBindingMapper;
@@ -99,6 +123,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
         this.governanceApprovalService = governanceApprovalService;
         this.governanceWorkItemService = governanceWorkItemService;
+        this.deviceService = deviceService;
     }
 
     @Override
@@ -219,11 +244,23 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     }
 
     @Override
+    public List<DeviceMetricOptionVO> listFormalBindingMetricOptions(Long deviceId, Long currentUserId) {
+        if (deviceService == null) {
+            return List.of();
+        }
+        return deviceService.listMetricOptions(currentUserId, deviceId).stream()
+                .filter(option -> option.getRiskMetricId() != null)
+                .sorted(Comparator.comparing(DeviceMetricOptionVO::getIdentifier, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public GovernanceSubmissionResultVO submitBindDevice(RiskPointDevice riskPointDevice, Long currentUserId) {
         if (riskPointDevice == null) {
             throw new BizException("风险点绑定请求不能为空");
         }
+        normalizeFormalBindingSelection(riskPointDevice, currentUserId);
         Long subjectId = IdWorker.getId();
         String snapshotJson = writeBindSnapshot(riskPointDevice);
         Long approverUserId = resolveOptionalApproverUserId(
@@ -343,7 +380,13 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                                                          Long currentUserId) {
         RiskPointDevice oldBinding = requireBinding(bindingId);
         riskPointService.getById(oldBinding.getRiskPointId(), currentUserId);
-        String newMetricIdentifier = normalizeRequiredMetricIdentifier(request == null ? null : request.getMetricIdentifier());
+        DeviceMetricOptionVO option = requireFormalBindingMetricOption(
+                currentUserId,
+                oldBinding.getDeviceId(),
+                request == null ? null : request.getRiskMetricId(),
+                request == null ? null : request.getMetricIdentifier()
+        );
+        String newMetricIdentifier = normalizeRequiredMetricIdentifier(option.getIdentifier());
         String oldMetricIdentifier = normalizeMetricIdentifier(oldBinding.getMetricIdentifier());
         if (Objects.equals(newMetricIdentifier, oldMetricIdentifier)) {
             throw new BizException("替换测点不能与原测点相同");
@@ -364,12 +407,9 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         replacement.setDeviceId(oldBinding.getDeviceId());
         replacement.setDeviceCode(oldBinding.getDeviceCode());
         replacement.setDeviceName(oldBinding.getDeviceName());
-        replacement.setRiskMetricId(request == null ? null : request.getRiskMetricId());
+        replacement.setRiskMetricId(option.getRiskMetricId());
         replacement.setMetricIdentifier(newMetricIdentifier);
-        replacement.setMetricName(resolveReplacementMetricName(
-                request == null ? null : request.getMetricName(),
-                newMetricIdentifier
-        ));
+        replacement.setMetricName(resolveReplacementMetricName(option.getName(), newMetricIdentifier));
         RiskPointDevice saved = riskPointService.bindDeviceAndReturn(replacement, currentUserId);
 
         int deletedRows = riskPointDeviceMapper.deleteById(bindingId);
@@ -415,6 +455,31 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     private String resolveReplacementMetricName(String metricName, String metricIdentifier) {
         String normalizedMetricName = normalizeMetricName(metricName);
         return normalizedMetricName == null ? metricIdentifier : normalizedMetricName;
+    }
+
+    private DeviceMetricOptionVO requireFormalBindingMetricOption(Long currentUserId,
+                                                                  Long deviceId,
+                                                                  Long riskMetricId,
+                                                                  String metricIdentifier) {
+        List<DeviceMetricOptionVO> options = listFormalBindingMetricOptions(deviceId, currentUserId);
+        String normalizedIdentifier = normalizeMetricIdentifier(metricIdentifier);
+        return options.stream()
+                .filter(option -> Objects.equals(option.getRiskMetricId(), riskMetricId)
+                        || (normalizedIdentifier != null && normalizedIdentifier.equals(option.getIdentifier())))
+                .findFirst()
+                .orElseThrow(() -> new BizException("当前测点未发布到风险指标目录，不能用于正式绑定"));
+    }
+
+    private void normalizeFormalBindingSelection(RiskPointDevice request, Long currentUserId) {
+        DeviceMetricOptionVO option = requireFormalBindingMetricOption(
+                currentUserId,
+                request.getDeviceId(),
+                request.getRiskMetricId(),
+                request.getMetricIdentifier()
+        );
+        request.setRiskMetricId(option.getRiskMetricId());
+        request.setMetricIdentifier(option.getIdentifier());
+        request.setMetricName(resolveReplacementMetricName(option.getName(), option.getIdentifier()));
     }
 
     private Long openWorkItem(String actionCode,

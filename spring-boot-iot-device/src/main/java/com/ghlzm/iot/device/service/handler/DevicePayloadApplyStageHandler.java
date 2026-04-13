@@ -7,14 +7,19 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.service.CommandRecordService;
 import com.ghlzm.iot.device.service.DeviceFileService;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -42,7 +47,28 @@ public class DevicePayloadApplyStageHandler {
     private final DeviceFileService deviceFileService;
     private final ProductMetricEvidenceService productMetricEvidenceService;
     private final VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
+    private final PublishedProductContractSnapshotService snapshotService;
+    private final MetricIdentifierResolver metricIdentifierResolver;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+
+    @Autowired
+    public DevicePayloadApplyStageHandler(DevicePropertyMapper devicePropertyMapper,
+                                          DevicePropertyMetadataService devicePropertyMetadataService,
+                                          CommandRecordService commandRecordService,
+                                          DeviceFileService deviceFileService,
+                                          ProductMetricEvidenceService productMetricEvidenceService,
+                                          VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService,
+                                          PublishedProductContractSnapshotService snapshotService,
+                                          MetricIdentifierResolver metricIdentifierResolver) {
+        this.devicePropertyMapper = devicePropertyMapper;
+        this.devicePropertyMetadataService = devicePropertyMetadataService;
+        this.commandRecordService = commandRecordService;
+        this.deviceFileService = deviceFileService;
+        this.productMetricEvidenceService = productMetricEvidenceService;
+        this.vendorMetricMappingRuntimeService = vendorMetricMappingRuntimeService;
+        this.snapshotService = snapshotService;
+        this.metricIdentifierResolver = metricIdentifierResolver;
+    }
 
     public DevicePayloadApplyStageHandler(DevicePropertyMapper devicePropertyMapper,
                                           DevicePropertyMetadataService devicePropertyMetadataService,
@@ -50,12 +76,16 @@ public class DevicePayloadApplyStageHandler {
                                           DeviceFileService deviceFileService,
                                           ProductMetricEvidenceService productMetricEvidenceService,
                                           VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService) {
-        this.devicePropertyMapper = devicePropertyMapper;
-        this.devicePropertyMetadataService = devicePropertyMetadataService;
-        this.commandRecordService = commandRecordService;
-        this.deviceFileService = deviceFileService;
-        this.productMetricEvidenceService = productMetricEvidenceService;
-        this.vendorMetricMappingRuntimeService = vendorMetricMappingRuntimeService;
+        this(
+                devicePropertyMapper,
+                devicePropertyMetadataService,
+                commandRecordService,
+                deviceFileService,
+                productMetricEvidenceService,
+                vendorMetricMappingRuntimeService,
+                null,
+                null
+        );
     }
 
     public DevicePayloadApplyResult apply(DeviceProcessingTarget target) {
@@ -175,14 +205,22 @@ public class DevicePayloadApplyStageHandler {
         if (product == null || upMessage == null) {
             return;
         }
-        Map<String, String> runtimeMappings = collectRuntimeMappings(product, upMessage);
+        PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(product);
+        Map<String, String> runtimeMappings = collectRuntimeMappings(product, upMessage, snapshot);
         if (upMessage.getProperties() == null || upMessage.getProperties().isEmpty()) {
             return;
         }
         Map<String, Object> normalizedProperties = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : upMessage.getProperties().entrySet()) {
-            String originalIdentifier = normalizeLookupKey(entry.getKey());
-            String targetIdentifier = resolveRuntimeTargetIdentifier(product, upMessage, originalIdentifier, runtimeMappings);
+            String lookupIdentifier = normalizeLookupKey(entry.getKey());
+            String targetIdentifier = resolveRuntimeTargetIdentifier(
+                    product,
+                    upMessage,
+                    entry.getKey(),
+                    lookupIdentifier,
+                    runtimeMappings,
+                    snapshot
+            );
             if (hasText(targetIdentifier)) {
                 Object existingValue = normalizedProperties.get(targetIdentifier);
                 if (existingValue == null || Objects.equals(existingValue, entry.getValue())) {
@@ -195,7 +233,9 @@ public class DevicePayloadApplyStageHandler {
         upMessage.setProperties(normalizedProperties);
     }
 
-    private Map<String, String> collectRuntimeMappings(Product product, DeviceUpMessage upMessage) {
+    private Map<String, String> collectRuntimeMappings(Product product,
+                                                       DeviceUpMessage upMessage,
+                                                       PublishedProductContractSnapshot snapshot) {
         Map<String, String> mappings = new LinkedHashMap<>();
         if (upMessage == null || upMessage.getProtocolMetadata() == null
                 || upMessage.getProtocolMetadata().getMetricEvidence() == null) {
@@ -205,17 +245,25 @@ public class DevicePayloadApplyStageHandler {
             if (evidence == null || !hasText(evidence.getRawIdentifier())) {
                 continue;
             }
-            VendorMetricMappingRuntimeService.MappingResolution resolution =
-                    vendorMetricMappingRuntimeService.resolveForRuntime(
-                            product,
-                            upMessage,
-                            evidence.getRawIdentifier(),
-                            evidence.getLogicalChannelCode()
-                    );
-            if (resolution == null || !hasText(resolution.targetNormativeIdentifier())) {
+            String targetIdentifier = resolvePublishedTargetIdentifier(snapshot, evidence.getRawIdentifier());
+            if (!hasText(targetIdentifier)) {
+                targetIdentifier = resolvePublishedTargetIdentifier(snapshot, evidence.getCanonicalIdentifier());
+            }
+            if (!hasText(targetIdentifier)) {
+                VendorMetricMappingRuntimeService.MappingResolution resolution =
+                        vendorMetricMappingRuntimeService.resolveForRuntime(
+                                product,
+                                upMessage,
+                                evidence.getRawIdentifier(),
+                                evidence.getLogicalChannelCode()
+                        );
+                if (resolution != null) {
+                    targetIdentifier = resolution.targetNormativeIdentifier();
+                }
+            }
+            if (!hasText(targetIdentifier)) {
                 continue;
             }
-            String targetIdentifier = resolution.targetNormativeIdentifier();
             mappings.put(normalizeLookupKey(evidence.getRawIdentifier()), targetIdentifier);
             if (hasText(evidence.getCanonicalIdentifier())) {
                 mappings.putIfAbsent(normalizeLookupKey(evidence.getCanonicalIdentifier()), targetIdentifier);
@@ -228,12 +276,21 @@ public class DevicePayloadApplyStageHandler {
     private String resolveRuntimeTargetIdentifier(Product product,
                                                   DeviceUpMessage upMessage,
                                                   String originalIdentifier,
-                                                  Map<String, String> runtimeMappings) {
+                                                  String lookupIdentifier,
+                                                  Map<String, String> runtimeMappings,
+                                                  PublishedProductContractSnapshot snapshot) {
         if (!hasText(originalIdentifier)) {
             return null;
         }
-        if (runtimeMappings != null && runtimeMappings.containsKey(originalIdentifier)) {
-            return runtimeMappings.get(originalIdentifier);
+        if (runtimeMappings != null && runtimeMappings.containsKey(lookupIdentifier)) {
+            return runtimeMappings.get(lookupIdentifier);
+        }
+        String publishedTargetIdentifier = resolvePublishedTargetIdentifier(snapshot, originalIdentifier);
+        if (hasText(publishedTargetIdentifier)) {
+            if (runtimeMappings != null && hasText(lookupIdentifier)) {
+                runtimeMappings.put(lookupIdentifier, publishedTargetIdentifier);
+            }
+            return publishedTargetIdentifier;
         }
         VendorMetricMappingRuntimeService.MappingResolution resolution =
                 vendorMetricMappingRuntimeService.resolveForRuntime(product, upMessage, originalIdentifier, null);
@@ -241,10 +298,32 @@ public class DevicePayloadApplyStageHandler {
             return null;
         }
         String targetIdentifier = resolution.targetNormativeIdentifier();
-        if (runtimeMappings != null) {
-            runtimeMappings.put(originalIdentifier, targetIdentifier);
+        if (runtimeMappings != null && hasText(lookupIdentifier)) {
+            runtimeMappings.put(lookupIdentifier, targetIdentifier);
         }
         return targetIdentifier;
+    }
+
+    private PublishedProductContractSnapshot loadPublishedSnapshot(Product product) {
+        if (product == null || product.getId() == null || snapshotService == null) {
+            return PublishedProductContractSnapshot.empty(product == null ? null : product.getId());
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(product.getId());
+        return snapshot == null ? PublishedProductContractSnapshot.empty(product.getId()) : snapshot;
+    }
+
+    private String resolvePublishedTargetIdentifier(PublishedProductContractSnapshot snapshot, String metricIdentifier) {
+        if (metricIdentifierResolver == null || !hasText(metricIdentifier)) {
+            return null;
+        }
+        MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForRuntime(snapshot, metricIdentifier);
+        if (resolution == null || !hasText(resolution.canonicalIdentifier())) {
+            return null;
+        }
+        if (MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER.equals(resolution.source())) {
+            return null;
+        }
+        return resolution.canonicalIdentifier();
     }
 
     private String normalizeLookupKey(String value) {

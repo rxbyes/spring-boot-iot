@@ -49,7 +49,8 @@
               <el-select
                 v-model="addForm.deviceId"
                 data-testid="binding-add-device"
-                placeholder="请选择设备"
+                filterable
+                placeholder="请输入设备编号或选择设备"
                 :disabled="bindableDevices.length === 0 || addSubmitting"
                 @change="handleAddDeviceChange"
               >
@@ -77,6 +78,12 @@
               </el-select>
             </el-form-item>
           </div>
+          <p
+            v-if="addForm.deviceId && !addSubmitting && addMetricOptions.length === 0"
+            class="risk-point-binding-maintenance-drawer__detail-tip"
+          >
+            当前设备所属产品暂无可用于风险绑定的正式目录字段。
+          </p>
           <div class="risk-point-binding-maintenance-drawer__actions">
             <button
               type="button"
@@ -207,12 +214,12 @@
 import { computed, reactive, ref, watch } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
-import { getDeviceMetricOptions } from '@/api/iot'
 import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api'
 import {
   bindDevice,
   listBindableDevices,
   listBindingGroups,
+  listFormalBindingMetricOptions,
   removeBinding,
   replaceBinding,
   unbindDevice,
@@ -344,10 +351,10 @@ const getMetricOptions = async (deviceId: IdType) => {
   if (!deviceIdKey) {
     return []
   }
-  if (metricOptionCache[deviceIdKey]?.length) {
+  if (Object.prototype.hasOwnProperty.call(metricOptionCache, deviceIdKey)) {
     return metricOptionCache[deviceIdKey]
   }
-  const res = await getDeviceMetricOptions(deviceIdKey)
+  const res = await listFormalBindingMetricOptions(deviceIdKey)
   if (res.code !== 200) {
     metricOptionCache[deviceIdKey] = []
     return []
@@ -705,6 +712,12 @@ watch(
 .risk-point-binding-maintenance-drawer__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.risk-point-binding-maintenance-drawer__detail-tip {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 .risk-point-binding-maintenance-drawer__button {

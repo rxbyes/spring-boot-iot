@@ -604,7 +604,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('待补阈值策略')
   })
 
-  it('routes supported governance todo items from /products into the governance task workbench', async () => {
+  it('routes supported governance todo items from /products into the correct domain workbench', async () => {
     mockPageProducts.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -644,7 +644,7 @@ describe('ProductWorkbenchView', () => {
       expect.arrayContaining([
         expect.objectContaining({
           key: 'pending-contract-release',
-          path: '/governance-task?productId=1001&workStatus=OPEN&workItemCode=PENDING_CONTRACT_RELEASE'
+          path: '/products?openProductId=1001&workbenchView=models'
         }),
         expect.objectContaining({
           key: 'pending-metric-publish',
@@ -658,7 +658,7 @@ describe('ProductWorkbenchView', () => {
     )
   })
 
-  it('records governance-task navigation before routing from the product notice panel', async () => {
+  it('records governance todo navigation before routing from the product notice panel', async () => {
     mockPageProducts.mockResolvedValueOnce({
       code: 200,
       msg: 'success',

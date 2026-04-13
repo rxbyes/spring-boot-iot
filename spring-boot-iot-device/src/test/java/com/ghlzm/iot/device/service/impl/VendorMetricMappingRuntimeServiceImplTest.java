@@ -5,8 +5,12 @@ import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -28,6 +32,10 @@ class VendorMetricMappingRuntimeServiceImplTest {
 
     @Mock
     private NormativeMetricDefinitionService normativeMetricDefinitionService;
+    @Mock
+    private PublishedProductContractSnapshotService snapshotService;
+    @Mock
+    private MetricIdentifierResolver metricIdentifierResolver;
 
     @Test
     void resolveForGovernanceShouldPreferLogicalChannelSpecificRule() {
@@ -75,6 +83,37 @@ class VendorMetricMappingRuntimeServiceImplTest {
                 service.resolveForRuntime(crackProduct(1001L), upMessage, "disp", null);
 
         assertNull(resolution);
+    }
+
+    @Test
+    void resolveForRuntimeShouldPreferPublishedCanonicalSnapshot() {
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(9001L)
+                .publishedIdentifier("value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .build();
+        VendorMetricMappingRuntimeServiceImpl service = new VendorMetricMappingRuntimeServiceImpl(
+                mapper,
+                normativeMetricDefinitionService,
+                snapshotService,
+                metricIdentifierResolver
+        );
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setProtocolCode("mqtt-json");
+        when(snapshotService.getRequiredSnapshot(1001L)).thenReturn(snapshot);
+        when(metricIdentifierResolver.resolveForRuntime(snapshot, "L1_LF_1.value"))
+                .thenReturn(MetricIdentifierResolution.of(
+                        "L1_LF_1.value",
+                        "value",
+                        MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT
+                ));
+
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                service.resolveForRuntime(crackProduct(1001L), upMessage, "L1_LF_1.value", "L1_LF_1");
+
+        assertEquals("value", resolution.targetNormativeIdentifier());
+        assertEquals("L1_LF_1", resolution.logicalChannelCode());
     }
 
     @Test

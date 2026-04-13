@@ -6,8 +6,12 @@ import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import java.util.Comparator;
 import java.util.List;
@@ -15,6 +19,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -29,12 +34,24 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
 
     private final VendorMetricMappingRuleMapper mapper;
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
+    private final PublishedProductContractSnapshotService snapshotService;
+    private final MetricIdentifierResolver metricIdentifierResolver;
     private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
+
+    @Autowired
+    public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                                 NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                                 PublishedProductContractSnapshotService snapshotService,
+                                                 MetricIdentifierResolver metricIdentifierResolver) {
+        this.mapper = mapper;
+        this.normativeMetricDefinitionService = normativeMetricDefinitionService;
+        this.snapshotService = snapshotService;
+        this.metricIdentifierResolver = metricIdentifierResolver;
+    }
 
     public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
                                                  NormativeMetricDefinitionService normativeMetricDefinitionService) {
-        this.mapper = mapper;
-        this.normativeMetricDefinitionService = normativeMetricDefinitionService;
+        this(mapper, normativeMetricDefinitionService, null, null);
     }
 
     @Override
@@ -47,6 +64,10 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                                                DeviceUpMessage upMessage,
                                                String rawIdentifier,
                                                String logicalChannelCode) {
+        MappingResolution snapshotResolution = resolvePublishedSnapshot(product, rawIdentifier, logicalChannelCode);
+        if (snapshotResolution != null) {
+            return snapshotResolution;
+        }
         return resolveInternal(
                 product,
                 normalizeLower(upMessage == null ? null : upMessage.getProtocolCode()),
@@ -58,12 +79,38 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
 
     @Override
     public String normalizeApplyIdentifier(Product product, String identifier) {
-        String normalizedIdentifier = normalizeLower(identifier);
-        if (normalizedIdentifier == null) {
+        String sanitizedIdentifier = normalizeText(identifier);
+        if (sanitizedIdentifier == null) {
             return null;
         }
-        MappingResolution resolution = resolveInternal(product, resolveProtocolCode(product), normalizedIdentifier, null, true);
-        return resolution == null ? normalizedIdentifier : resolution.targetNormativeIdentifier();
+        MappingResolution resolution = resolveInternal(product, resolveProtocolCode(product), sanitizedIdentifier, null, true);
+        return resolution == null ? sanitizedIdentifier : resolution.targetNormativeIdentifier();
+    }
+
+    private MappingResolution resolvePublishedSnapshot(Product product,
+                                                       String rawIdentifier,
+                                                       String logicalChannelCode) {
+        if (snapshotService == null || metricIdentifierResolver == null
+                || product == null || product.getId() == null || !StringUtils.hasText(rawIdentifier)) {
+            return null;
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(product.getId());
+        if (snapshot == null) {
+            return null;
+        }
+        MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForRuntime(snapshot, rawIdentifier);
+        if (resolution == null || !StringUtils.hasText(resolution.canonicalIdentifier())) {
+            return null;
+        }
+        if (MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER.equals(resolution.source())) {
+            return null;
+        }
+        return new MappingResolution(
+                null,
+                resolution.canonicalIdentifier(),
+                normalizeText(rawIdentifier),
+                normalizeUpper(logicalChannelCode)
+        );
     }
 
     private MappingResolution resolveInternal(Product product,

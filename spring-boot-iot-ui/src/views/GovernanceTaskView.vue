@@ -20,6 +20,23 @@
               >
             </label>
             <label class="governance-task-filter-field">
+              <span>任务视角</span>
+              <select
+                v-model="filters.taskView"
+                data-testid="governance-task-view-select"
+                class="governance-task-filter-input"
+                @change="handleTaskViewChange"
+              >
+                <option
+                  v-for="taskView in taskViewOptions"
+                  :key="taskView.key"
+                  :value="taskView.key"
+                >
+                  {{ taskView.label }}
+                </option>
+              </select>
+            </label>
+            <label class="governance-task-filter-field">
               <span>工作状态</span>
               <select v-model="filters.workStatus" class="governance-task-filter-input">
                 <option value="OPEN">待处理</option>
@@ -35,15 +52,6 @@
             <StandardButton action="reset" @click="handleReset">重置</StandardButton>
           </template>
         </StandardListFilterHeader>
-        <div class="governance-task-category-strip">
-          <StandardButton
-            v-for="preset in taskPresets"
-            :key="preset.key"
-            @click="handleSelectPreset(preset.key)"
-          >
-            {{ preset.label }}
-          </StandardButton>
-        </div>
       </template>
 
       <template #toolbar>
@@ -160,6 +168,12 @@
         <div v-else class="governance-task-empty">
           <strong>当前没有匹配的治理任务</strong>
           <span>可调整 query 条件或回到产品、风险对象、审批台继续排查。</span>
+          <span v-if="emptyStateDispatchLocation">
+            当前查询已带上 {{ emptyStateDispatchLabel }} 上下文，正式工作项可能仍在同步，可先进入对应领域工作台继续处理。
+          </span>
+          <div v-if="emptyStateDispatchLocation" class="governance-task-empty__actions">
+            <StandardButton @click="handleDispatchEmptyState">继续处理</StandardButton>
+          </div>
         </div>
       </div>
 
@@ -470,13 +484,25 @@ import { buildGovernanceTaskDispatchLocation } from '@/utils/governanceTaskDispa
 const route = useRoute()
 const router = useRouter()
 const { pagination, applyPageResult, setPageNum, setPageSize } = useServerPagination()
+const taskViewOptions = [
+  { key: 'all', label: '全部' },
+  { key: 'recommended', label: '推荐优先处理' },
+  { key: 'pending-approval', label: '待审批' },
+  { key: 'contract-release', label: '待发布合同' },
+  { key: 'risk-binding', label: '待绑定风险点' },
+  { key: 'threshold-policy', label: '待补阈值' },
+  { key: 'linkage-plan', label: '待补联动/预案' },
+  { key: 'replay', label: '待运营复盘' }
+] as const
+type GovernanceTaskViewKey = typeof taskViewOptions[number]['key']
 const filters = reactive({
   keyword: '',
+  taskView: 'all' as GovernanceTaskViewKey,
   workStatus: 'OPEN'
 })
 
 const taskList = ref<GovernanceWorkItem[]>([])
-const activeView = ref('all')
+const activeView = computed(() => (filters.taskView === 'recommended' ? 'recommended' : 'all'))
 const decisionContextVisible = ref(false)
 const decisionContextLoading = ref(false)
 const decisionContextErrorMessage = ref('')
@@ -503,16 +529,6 @@ if (initialPageNum != null) {
   setPageNum(initialPageNum)
 }
 
-const taskPresets = [
-  { key: 'all', label: '全部' },
-  { key: 'recommended', label: '推荐优先处理' },
-  { key: 'pending-approval', label: '待审批' },
-  { key: 'contract-release', label: '待发布合同' },
-  { key: 'risk-binding', label: '待绑定风险点' },
-  { key: 'threshold-policy', label: '待补阈值' },
-  { key: 'linkage-plan', label: '待补联动/预案' },
-  { key: 'replay', label: '待运营复盘' }
-] as const
 const queryState = computed(() => buildQueryFromRoute())
 const openCount = computed(() => taskList.value.filter((item) => item.workStatus === 'OPEN').length)
 const recommendedCount = computed(() => taskList.value.filter((item) =>
@@ -525,6 +541,32 @@ const displayTaskList = computed(() =>
     ? [...taskList.value].sort(compareRecommendedWorkItems)
     : taskList.value
 )
+const emptyStateDispatchCandidate = computed<GovernanceWorkItem | null>(() => {
+  if (displayTaskList.value.length) {
+    return null
+  }
+  const query = queryState.value
+  if (!query.workItemCode) {
+    return null
+  }
+  const candidate: GovernanceWorkItem = {
+    workItemCode: query.workItemCode,
+    workStatus: query.workStatus || 'OPEN',
+    subjectType: query.subjectType,
+    subjectId: query.subjectId,
+    productId: query.productId,
+    riskMetricId: query.riskMetricId
+  }
+  return buildGovernanceTaskDispatchLocation(candidate) ? candidate : null
+})
+const emptyStateDispatchLocation = computed(() =>
+  emptyStateDispatchCandidate.value ? buildGovernanceTaskDispatchLocation(emptyStateDispatchCandidate.value) : null
+)
+const emptyStateDispatchLabel = computed(() =>
+  emptyStateDispatchCandidate.value?.workItemCode
+    ? workItemCodeLabel(emptyStateDispatchCandidate.value.workItemCode)
+    : '当前治理事项'
+)
 const decisionReasonCodes = computed(() => decisionContextData.value?.reasonCodes ?? [])
 const decisionAffectedModules = computed(() => decisionContextData.value?.affectedModules ?? [])
 const replayRecommendedDecision = computed(() => normalizeText(replayFeedback.value.recommendedDecision) || '--')
@@ -535,19 +577,25 @@ const replayCanSubmit = computed(() =>
   && Boolean(normalizeText(replayFeedback.value.operatorSummary))
   && !replaySubmitting.value
 )
+const activeTaskViewLabel = computed(() =>
+  taskViewOptions.find((taskView) => taskView.key === filters.taskView)?.label || '全部'
+)
 const activeScopeLabel = computed(() => {
   const query = queryState.value
   if (activeView.value === 'recommended') {
-    return '推荐优先处理'
+    return activeTaskViewLabel.value
   }
-  if (query.executionStatus === 'PENDING_APPROVAL') {
-    return '待审批'
+  if (filters.taskView === 'pending-approval') {
+    return activeTaskViewLabel.value
   }
   if (query.productId != null) {
     return `产品 ${query.productId}`
   }
   if (query.subjectType || query.subjectId != null) {
     return `${query.subjectType || '主题'} ${query.subjectId ?? ''}`.trim()
+  }
+  if (filters.taskView !== 'all') {
+    return activeTaskViewLabel.value
   }
   if (query.workItemCode) {
     return workItemCodeLabel(query.workItemCode)
@@ -587,8 +635,8 @@ function buildQueryFromRoute(): GovernanceWorkItemPageQuery {
 
 function syncFiltersFromRoute() {
   filters.keyword = parseStringQuery(route.query.keyword) || ''
+  filters.taskView = resolveTaskViewFromRoute()
   filters.workStatus = parseStringQuery(route.query.workStatus) || 'OPEN'
-  activeView.value = parseStringQuery(route.query.view) || 'all'
 }
 
 async function loadWorkItems() {
@@ -642,8 +690,8 @@ function handleSearch() {
 
 function handleReset() {
   filters.keyword = ''
+  filters.taskView = 'all'
   filters.workStatus = 'OPEN'
-  activeView.value = 'all'
   setPageNum(1)
   void replaceTaskRouteQuery({
     ...persistentContextQuery(),
@@ -653,12 +701,11 @@ function handleReset() {
   })
 }
 
-function handleSelectPreset(key: typeof taskPresets[number]['key']) {
-  activeView.value = key === 'recommended' ? 'recommended' : 'all'
+function handleTaskViewChange() {
   setPageNum(1)
   void replaceTaskRouteQuery({
     ...persistentContextQuery(),
-    ...buildPresetQuery(key),
+    ...buildPresetQuery(filters.taskView),
     keyword: normalizeText(filters.keyword),
     workStatus: filters.workStatus || 'OPEN',
     pageNum: '1',
@@ -666,7 +713,7 @@ function handleSelectPreset(key: typeof taskPresets[number]['key']) {
   })
 }
 
-function buildPresetQuery(key: typeof taskPresets[number]['key']) {
+function buildPresetQuery(key: GovernanceTaskViewKey) {
   switch (key) {
     case 'recommended':
       return {
@@ -719,6 +766,31 @@ function buildPresetQuery(key: typeof taskPresets[number]['key']) {
   }
 }
 
+function resolveTaskViewFromRoute(): GovernanceTaskViewKey {
+  const view = parseStringQuery(route.query.view)
+  if (view === 'recommended') {
+    return 'recommended'
+  }
+  const executionStatus = parseStringQuery(route.query.executionStatus)
+  if (executionStatus === 'PENDING_APPROVAL') {
+    return 'pending-approval'
+  }
+  switch (parseStringQuery(route.query.workItemCode)) {
+    case 'PENDING_CONTRACT_RELEASE':
+      return 'contract-release'
+    case 'PENDING_RISK_BINDING':
+      return 'risk-binding'
+    case 'PENDING_THRESHOLD_POLICY':
+      return 'threshold-policy'
+    case 'PENDING_LINKAGE_PLAN':
+      return 'linkage-plan'
+    case 'PENDING_REPLAY':
+      return 'replay'
+    default:
+      return 'all'
+  }
+}
+
 function persistentContextQuery() {
   return {
     productId: parseStringQuery(route.query.productId),
@@ -730,11 +802,7 @@ function persistentContextQuery() {
 }
 
 function classificationQuery() {
-  return {
-    workItemCode: parseStringQuery(route.query.workItemCode),
-    executionStatus: parseStringQuery(route.query.executionStatus),
-    view: parseStringQuery(route.query.view)
-  }
+  return buildPresetQuery(filters.taskView)
 }
 
 async function replaceTaskRouteQuery(query: Record<string, string | undefined>) {
@@ -911,6 +979,13 @@ async function handleDispatchWorkItem(item: GovernanceWorkItem) {
     return
   }
   await router.push(location)
+}
+
+async function handleDispatchEmptyState() {
+  if (!emptyStateDispatchLocation.value) {
+    return
+  }
+  await router.push(emptyStateDispatchLocation.value)
 }
 
 async function handleOpenReplay(item: GovernanceWorkItem) {
@@ -1188,15 +1263,8 @@ function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) 
   gap: 0.75rem;
 }
 
-.governance-task-category-strip,
 .governance-task-filter-field {
   display: grid;
-}
-
-.governance-task-category-strip {
-  grid-template-columns: repeat(auto-fit, minmax(8rem, max-content));
-  gap: 0.5rem;
-  margin-top: 0.65rem;
 }
 
 .governance-task-filter-field {
@@ -1473,6 +1541,13 @@ function compactReplayFeedbackPayload(payload: GovernanceReplayFeedbackPayload) 
 .governance-task-empty {
   justify-items: start;
   gap: 0.35rem;
+}
+
+.governance-task-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
 }
 
 @media (max-width: 720px) {

@@ -11,6 +11,7 @@ import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
@@ -184,6 +185,18 @@ public class RiskPointController {
                     requireCurrentUserId(authentication)
             );
             return R.ok(groups);
+      }
+
+      /**
+       * 查询风险点正式绑定可选测点列表。
+       */
+      @GetMapping("/devices/{deviceId}/formal-metrics")
+      public R<List<DeviceMetricOptionVO>> listFormalBindingMetricOptions(@PathVariable Long deviceId,
+                                                                          Authentication authentication) {
+            return R.ok(bindingMaintenanceService.listFormalBindingMetricOptions(
+                    deviceId,
+                    requireCurrentUserId(authentication)
+            ));
       }
 
       /**

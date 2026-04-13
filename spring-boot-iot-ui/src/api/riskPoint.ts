@@ -1,6 +1,6 @@
 import { request } from './request';
 import { buildQueryString } from './query';
-import type { ApiEnvelope, DeviceOption, GovernanceSubmissionResult, IdType, PageResult } from '../types/api';
+import type { ApiEnvelope, DeviceMetricOption, DeviceOption, GovernanceSubmissionResult, IdType, PageResult } from '../types/api';
 
 /**
  * 风险点管理 API
@@ -259,6 +259,10 @@ export const listBindingSummaries = (riskPointIds: IdType[]): Promise<ApiEnvelop
 
 export const listBindingGroups = (riskPointId: IdType): Promise<ApiEnvelope<RiskPointBindingDeviceGroup[]>> => {
       return request<RiskPointBindingDeviceGroup[]>(`/api/risk-point/binding-groups/${riskPointId}`, { method: 'GET' });
+};
+
+export const listFormalBindingMetricOptions = (deviceId: IdType): Promise<ApiEnvelope<DeviceMetricOption[]>> => {
+      return request<DeviceMetricOption[]>(`/api/risk-point/devices/${deviceId}/formal-metrics`, { method: 'GET' });
 };
 
 export const removeBinding = (bindingId: IdType): Promise<ApiEnvelope<void>> => {

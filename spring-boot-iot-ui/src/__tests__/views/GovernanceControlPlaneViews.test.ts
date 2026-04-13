@@ -294,6 +294,43 @@ describe('governance control plane views', () => {
     )
   })
 
+  it('keeps a continue-processing action for empty governance task views with contract-release context', async () => {
+    mockRoute.query = {
+      productId: '9223372036854775807',
+      workItemCode: 'PENDING_CONTRACT_RELEASE',
+      workStatus: 'OPEN'
+    }
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前没有匹配的治理任务')
+    const continueButton = wrapper.findAll('button').find((button) => button.text() === '继续处理')
+    expect(continueButton).toBeTruthy()
+
+    await continueButton!.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products',
+      query: {
+        openProductId: '9223372036854775807',
+        workbenchView: 'models',
+        governanceSource: 'task',
+        workItemCode: 'PENDING_CONTRACT_RELEASE'
+      }
+    })
+  })
+
   it('loads governance task work items with keyword and executionStatus from route query', async () => {
     mockRoute.query = {
       keyword: '2043187508765708289',
@@ -350,7 +387,7 @@ describe('governance control plane views', () => {
     })
   })
 
-  it('maps the pending approval preset to executionStatus=PENDING_APPROVAL', async () => {
+  it('maps the task-view selector to executionStatus=PENDING_APPROVAL', async () => {
     mockPageWorkItems.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -365,9 +402,8 @@ describe('governance control plane views', () => {
     const wrapper = mountWithStubs(GovernanceTaskView)
     await flushPromises()
 
-    const pendingApprovalButton = wrapper.findAll('button').find((button) => button.text() === '待审批')
-    expect(pendingApprovalButton).toBeTruthy()
-    await pendingApprovalButton!.trigger('click')
+    const taskViewSelect = wrapper.get('select[data-testid="governance-task-view-select"]')
+    await taskViewSelect.setValue('pending-approval')
 
     expect(mockRouter.replace).toHaveBeenCalledWith({
       query: expect.objectContaining({
@@ -375,6 +411,30 @@ describe('governance control plane views', () => {
         workStatus: 'OPEN'
       })
     })
+  })
+
+  it('hydrates the task-view selector from workItemCode route query', async () => {
+    mockRoute.query = {
+      workItemCode: 'PENDING_LINKAGE_PLAN',
+      workStatus: 'OPEN'
+    }
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    const wrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+
+    const taskViewSelect = wrapper.get('select[data-testid="governance-task-view-select"]')
+    expect((taskViewSelect.element as HTMLSelectElement).value).toBe('linkage-plan')
+    expect(wrapper.text()).toContain('待补联动/预案')
   })
 
   it('renders approvalOrderId ahead of productKey in the task anchor and shows recommended counts', async () => {
