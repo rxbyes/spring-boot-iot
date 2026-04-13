@@ -601,7 +601,68 @@ describe('ProductWorkbenchView', () => {
 
     expect(wrapper.text()).not.toContain('待发布风险指标目录')
     expect(wrapper.text()).toContain('待绑定风险点')
-    expect(wrapper.text()).toContain('待补阈值策略')
+    expect(wrapper.text()).not.toContain('待补阈值策略')
+  })
+
+  it('treats downstream metric governance as not applicable when the product has no publishable catalog fields', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'demo-product',
+            productName: '演示产品',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 1,
+        records: [
+          {
+            id: 5001
+          }
+        ]
+      }
+    })
+    mockGetRiskGovernanceCoverageOverview.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        contractPropertyCount: 9,
+        publishableContractPropertyCount: 0,
+        publishedRiskMetricCount: 0,
+        boundRiskMetricCount: 0,
+        ruleCoveredRiskMetricCount: 0,
+        contractMetricCoverageRate: 0,
+        bindingCoverageRate: 0,
+        ruleCoverageRate: 0
+      } as any
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。')
+    expect(wrapper.text()).not.toContain('待发布风险指标目录')
+    expect(wrapper.text()).not.toContain('待绑定风险点')
+    expect(wrapper.text()).not.toContain('待补阈值策略')
   })
 
   it('routes supported governance todo items from /products into the correct domain workbench', async () => {

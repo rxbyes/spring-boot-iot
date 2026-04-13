@@ -56,6 +56,97 @@
           </article>
         </div>
 
+        <section class="product-model-designer__governance-steps" data-testid="contract-field-governance-steps">
+          <div class="product-model-designer__rollback-preview-head">
+            <div>
+              <strong>治理下一步</strong>
+              <p>把“合同发布 → 风险指标目录 → 风险点绑定 → 阈值策略”固定成显式路径；其中风险指标目录会随正式发布批次自动同步。</p>
+            </div>
+          </div>
+
+          <div class="product-model-designer__governance-step-grid">
+            <article class="product-model-designer__governance-step-card">
+              <span class="product-model-designer__governance-step-kicker">步骤 1</span>
+              <strong>合同发布</strong>
+              <span class="product-model-designer__governance-step-status">{{ contractStepStatusText }}</span>
+              <p>{{ contractStepDescription }}</p>
+              <div class="product-model-designer__governance-step-actions">
+                <StandardButton
+                  v-if="latestReleaseBatchId"
+                  action="query"
+                  link
+                  data-testid="contract-field-next-ledger"
+                  @click="focusVersionLedgerStage"
+                >
+                  查看版本台账
+                </StandardButton>
+                <StandardButton
+                  v-else
+                  action="query"
+                  link
+                  data-testid="contract-field-next-contract"
+                  @click="focusSampleStage"
+                >
+                  {{ entryActionText }}
+                </StandardButton>
+              </div>
+            </article>
+
+            <article class="product-model-designer__governance-step-card">
+              <span class="product-model-designer__governance-step-kicker">步骤 2</span>
+              <strong>风险指标目录</strong>
+              <span class="product-model-designer__governance-step-status">{{ metricCatalogStepStatusText }}</span>
+              <p>{{ metricCatalogStepDescription }}</p>
+              <div class="product-model-designer__governance-step-actions">
+                <StandardButton
+                  v-if="releaseLedgerRows.length"
+                  action="query"
+                  link
+                  @click="focusVersionLedgerStage"
+                >
+                  查看版本台账
+                </StandardButton>
+              </div>
+            </article>
+
+            <article class="product-model-designer__governance-step-card">
+              <span class="product-model-designer__governance-step-kicker">步骤 3</span>
+              <strong>风险点绑定</strong>
+              <span class="product-model-designer__governance-step-status">{{ riskPointStepStatusText }}</span>
+              <p>{{ riskPointStepDescription }}</p>
+              <div class="product-model-designer__governance-step-actions">
+                <StandardButton
+                  v-if="canOpenRiskPointWorkbench"
+                  action="query"
+                  link
+                  data-testid="contract-field-next-risk-point"
+                  @click="openRiskPointWorkbench"
+                >
+                  去风险对象中心
+                </StandardButton>
+              </div>
+            </article>
+
+            <article class="product-model-designer__governance-step-card">
+              <span class="product-model-designer__governance-step-kicker">步骤 4</span>
+              <strong>阈值策略</strong>
+              <span class="product-model-designer__governance-step-status">{{ ruleStepStatusText }}</span>
+              <p>{{ ruleStepDescription }}</p>
+              <div class="product-model-designer__governance-step-actions">
+                <StandardButton
+                  v-if="canOpenRuleWorkbench"
+                  action="query"
+                  link
+                  data-testid="contract-field-next-rule"
+                  @click="openRuleWorkbench"
+                >
+                  去阈值策略
+                </StandardButton>
+              </div>
+            </article>
+          </div>
+        </section>
+
         <section
           v-if="latestReleaseBatchId"
           class="product-model-designer__rollback-preview"
@@ -224,6 +315,7 @@
 
         <section
           v-if="releaseLedgerRows.length"
+          ref="versionLedgerStageRef"
           class="product-model-designer__version-ledger"
           data-testid="contract-version-ledger"
         >
@@ -1053,6 +1145,7 @@ const parentDeviceCode = ref('')
 const relationMappings = ref<RelationMappingRow[]>([createRelationRow()])
 const activeType = ref<ProductModelType>('property')
 const sampleStageRef = ref<HTMLElement | null>(null)
+const versionLedgerStageRef = ref<HTMLElement | null>(null)
 const applyApprovalLoading = ref(false)
 const rollbackApprovalLoading = ref(false)
 const applyResubmitLoading = ref(false)
@@ -1094,7 +1187,92 @@ const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() => sel
 const canRollbackCurrentBatch = computed(() =>
   Boolean(latestReleaseBatchId.value) && !applyLoading.value && !rollbackLoading.value && !rollbackApprovalLoading.value
 )
+const selectedLedgerMetricCount = computed(() => selectedLedgerMetrics.value.length)
+const singleSelectedLedgerMetric = computed(() =>
+  selectedLedgerMetrics.value.length === 1 ? selectedLedgerMetrics.value[0] ?? null : null
+)
+const canOpenRiskPointWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
+const canOpenRuleWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
 const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
+const contractStepStatusText = computed(() => (latestReleaseBatchId.value ? '已发布批次' : '待发布'))
+const contractStepDescription = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return `当前已形成正式发布批次 ${latestReleaseBatchId.value}，可继续查看版本台账与回滚试算。`
+  }
+  return '先完成样本提取、确认本次生效，再提交审批形成正式合同发布批次。'
+})
+const metricCatalogStepStatusText = computed(() => {
+  if (!latestReleaseBatchId.value) {
+    return '待合同发布'
+  }
+  if (versionLedgerLoading.value) {
+    return '同步中'
+  }
+  if (selectedLedgerMetricCount.value > 0) {
+    return '已随批次同步'
+  }
+  return '暂不适用'
+})
+const metricCatalogStepDescription = computed(() => {
+  if (!latestReleaseBatchId.value) {
+    return '合同发布后，风险指标目录会按正式批次自动同步，不需要单独找第二个发布入口。'
+  }
+  if (versionLedgerLoading.value) {
+    return '正在读取当前批次同步发布的风险指标目录...'
+  }
+  if (selectedLedgerMetricCount.value > 0) {
+    return `目录发布已随合同批次同步，当前批次已发布 ${selectedLedgerMetricCount.value} 项风险指标。`
+  }
+  return '当前批次暂无可入目录字段，目录发布后续暂不适用。'
+})
+const riskPointStepStatusText = computed(() => {
+  if (!latestReleaseBatchId.value) {
+    return '待合同发布'
+  }
+  if (versionLedgerLoading.value) {
+    return '等待目录读取'
+  }
+  if (canOpenRiskPointWorkbench.value) {
+    return '待绑定'
+  }
+  return '暂不适用'
+})
+const riskPointStepDescription = computed(() => {
+  if (!latestReleaseBatchId.value) {
+    return '先完成合同发布，再决定是否进入风险点绑定。'
+  }
+  if (versionLedgerLoading.value) {
+    return '正在判断当前批次是否已有可绑定的目录指标。'
+  }
+  if (canOpenRiskPointWorkbench.value) {
+    return '当前批次目录指标已可进入风险对象中心，下一步请完成风险点绑定。'
+  }
+  return '当前批次没有风险指标目录，风险点绑定暂不适用。'
+})
+const ruleStepStatusText = computed(() => {
+  if (!latestReleaseBatchId.value) {
+    return '待合同发布'
+  }
+  if (versionLedgerLoading.value) {
+    return '等待目录读取'
+  }
+  if (canOpenRuleWorkbench.value) {
+    return '待覆盖'
+  }
+  return '暂不适用'
+})
+const ruleStepDescription = computed(() => {
+  if (!latestReleaseBatchId.value) {
+    return '先完成合同发布，再继续补阈值策略。'
+  }
+  if (versionLedgerLoading.value) {
+    return '正在判断当前批次是否需要补阈值策略。'
+  }
+  if (canOpenRuleWorkbench.value) {
+    return '风险点绑定完成后，请继续到阈值策略页补齐覆盖。'
+  }
+  return '当前批次没有风险指标目录，阈值策略暂不适用。'
+})
 const footerSummaryText = computed(() => {
   if (showCollectorBoundaryEmpty.value) {
     return '采集器页只治理自身字段；子设备字段请到子产品治理后再确认并提交审批'
@@ -1723,6 +1901,38 @@ function focusSampleStage() {
   })
 }
 
+function focusVersionLedgerStage() {
+  nextTick(() => {
+    const stage = versionLedgerStageRef.value
+    if (stage && typeof stage.scrollIntoView === 'function') {
+      stage.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
+
+function openRiskPointWorkbench() {
+  void router.push({ path: '/risk-point' })
+}
+
+function openRuleWorkbench() {
+  const metric = singleSelectedLedgerMetric.value
+  if (metric) {
+    void router.push({
+      path: '/rule-definition',
+      query: {
+        governanceSource: 'task',
+        workItemCode: 'PENDING_THRESHOLD_POLICY',
+        governanceAction: 'create',
+        riskMetricId: metric.id ?? undefined,
+        metricIdentifier: metric.contractIdentifier ?? undefined,
+        metricName: metric.riskMetricName ?? undefined
+      }
+    })
+    return
+  }
+  void router.push({ path: '/rule-definition' })
+}
+
 function handleDeviceStructureChange(value: DeviceStructure) {
   deviceStructure.value = value
   samplePayloadError.value = ''
@@ -2229,6 +2439,8 @@ function inferRelationStrategies(
 .product-model-designer-workspace,
 .product-model-designer__summary-sheet,
 .product-model-designer__summary-grid,
+.product-model-designer__governance-steps,
+.product-model-designer__governance-step-grid,
 .product-model-designer__version-ledger,
 .product-model-designer__version-diff,
 .product-model-designer__version-ledger-grid,
@@ -2317,6 +2529,20 @@ function inferRelationStrategies(
 .product-model-designer__receipt {
   grid-column: 1 / -1;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.72rem;
+}
+
+.product-model-designer__governance-steps {
+  grid-column: 1 / -1;
+  gap: 0.72rem;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.78rem;
+  background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__governance-step-grid {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: 0.72rem;
 }
 
@@ -2411,6 +2637,7 @@ function inferRelationStrategies(
 }
 
 .product-model-designer__summary-card,
+.product-model-designer__governance-step-card,
 .product-model-designer__apply-card,
 .product-model-designer__formal-card,
 .product-model-designer__formal-tab {
@@ -2418,7 +2645,8 @@ function inferRelationStrategies(
   gap: 0.28rem;
 }
 
-.product-model-designer__summary-card {
+.product-model-designer__summary-card,
+.product-model-designer__governance-step-card {
   min-width: 0;
   padding: 0.8rem 0.88rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
@@ -2427,6 +2655,8 @@ function inferRelationStrategies(
 }
 
 .product-model-designer__summary-card span,
+.product-model-designer__governance-step-kicker,
+.product-model-designer__governance-step-status,
 .product-model-designer__field-label,
 .product-model-designer__formal-tab span,
 .product-model-designer__apply-card-meta,
@@ -2438,10 +2668,32 @@ function inferRelationStrategies(
 }
 
 .product-model-designer__summary-card strong,
+.product-model-designer__governance-step-card strong,
 .product-model-designer__formal-tab strong {
   color: var(--text-heading);
   font-size: 1.06rem;
   line-height: 1.38;
+}
+
+.product-model-designer__governance-step-status {
+  display: inline-flex;
+  width: max-content;
+  padding: 0.08rem 0.48rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand-light) 22%, white);
+}
+
+.product-model-designer__governance-step-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.64;
+}
+
+.product-model-designer__governance-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.56rem;
+  align-items: center;
 }
 
 .product-model-designer__stage-head {
@@ -2675,6 +2927,7 @@ function inferRelationStrategies(
   .product-model-designer__summary-sheet,
   .product-model-designer__sample-toolbar,
   .product-model-designer__summary-grid,
+  .product-model-designer__governance-step-grid,
   .product-model-designer__receipt,
   .product-model-designer__version-ledger-grid,
   .product-model-designer__formal-tabs {

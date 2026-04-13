@@ -41,6 +41,13 @@ function prependSectionHomeItem(groupKey: string, groupLabel: string, items: Wor
   return [overviewItem, ...items];
 }
 
+function normalizeNavItem(item: WorkspaceNavItem): WorkspaceNavItem {
+  return {
+    ...item,
+    to: normalizeRoutePath(item.to)
+  };
+}
+
 function buildShortLabel(label: string, fallback?: string): string {
   const short = (fallback || '').trim();
   if (short) {
@@ -76,28 +83,28 @@ function mergeDynamicGroupItems(
   hasRoutePermission: (path: string) => boolean
 ): WorkspaceNavItem[] {
   const canonicalItems = listCanonicalWorkspaceNavItems(groupKey, groupLabel, allowedPaths);
+  const dynamicItems = prependSectionHomeItem(groupKey, groupLabel, items)
+    .map(normalizeNavItem)
+    .filter((item) => !(canonicalItems.length > 0 && isCompatibilityWorkspacePath(item.to)));
   const mergedItems: WorkspaceNavItem[] = [];
   const seenPaths = new Set<string>();
+  const dynamicItemMap = new Map(dynamicItems.map((item) => [item.to, item] as const));
 
   const appendItem = (item: WorkspaceNavItem) => {
-    const normalizedPath = normalizeRoutePath(item.to);
-    if (seenPaths.has(normalizedPath) || !hasRoutePermission(normalizedPath)) {
+    const normalizedItem = normalizeNavItem(item);
+    if (seenPaths.has(normalizedItem.to) || !hasRoutePermission(normalizedItem.to)) {
       return;
     }
-    seenPaths.add(normalizedPath);
-    mergedItems.push({
-      ...item,
-      to: normalizedPath
-    });
+    seenPaths.add(normalizedItem.to);
+    mergedItems.push(normalizedItem);
   };
 
-  canonicalItems.forEach(appendItem);
-  prependSectionHomeItem(groupKey, groupLabel, items).forEach((item) => {
-    if (canonicalItems.length > 0 && isCompatibilityWorkspacePath(item.to)) {
-      return;
-    }
-    appendItem(item);
+  canonicalItems.forEach((item) => {
+    const normalizedItem = normalizeNavItem(item);
+    const dynamicItem = dynamicItemMap.get(normalizedItem.to);
+    appendItem(dynamicItem ? { ...normalizedItem, ...dynamicItem } : normalizedItem);
   });
+  dynamicItems.forEach(appendItem);
 
   return mergedItems;
 }

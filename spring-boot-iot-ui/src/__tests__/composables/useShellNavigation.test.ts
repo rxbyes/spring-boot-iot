@@ -115,6 +115,37 @@ function createLegacyQualityMenus(): MenuTreeNode[] {
   ];
 }
 
+function createRenamedGovernanceMenus(): MenuTreeNode[] {
+  return [
+    {
+      id: 93000003,
+      menuName: '平台治理',
+      menuCode: 'system-governance',
+      path: '',
+      type: 0,
+      meta: {
+        description: '组织、权限与治理控制面',
+        menuTitle: '平台治理',
+        menuHint: '覆盖组织、角色、菜单和治理控制面。'
+      },
+      children: [
+        {
+          id: 93003013,
+          parentId: 93000003,
+          menuName: '秘钥治理',
+          menuCode: 'system:governance-security',
+          path: '/governance-security',
+          type: 1,
+          meta: {
+            caption: '查看治理权限矩阵与设备密钥台账'
+          },
+          children: []
+        }
+      ]
+    }
+  ];
+}
+
 describe('useShellNavigation', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -218,5 +249,28 @@ describe('useShellNavigation', () => {
     expect(qualityGroup?.items.some((item) => item.to === '/automation-test')).toBe(false);
     expect(navigation.activeGroup.value.key).toBe('quality-workbench');
     expect(navigation.activeTitle.value).toBe('计划编排台');
+  });
+
+  it('prefers backend menu names over static workspace labels for renamed menu items', () => {
+    routeState.path = '/governance-security';
+    routeState.meta = { title: '秘钥治理' };
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['SUPER_ADMIN'],
+        roles: [{ id: 1, roleCode: 'SUPER_ADMIN', roleName: '超级管理员' }],
+        homePath: '/system-management',
+        superAdmin: true,
+        menus: createRenamedGovernanceMenus()
+      })
+    );
+
+    const navigation = useShellNavigation();
+    const governanceGroup = navigation.navigationGroups.value.find((group) => group.key === 'system-governance');
+    const securityItem = governanceGroup?.items.find((item) => item.to === '/governance-security');
+
+    expect(securityItem?.label).toBe('秘钥治理');
+    expect(navigation.activeTitle.value).toBe('秘钥治理');
   });
 });

@@ -639,6 +639,115 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('裂缝监测值')
   })
 
+  it('shows explicit downstream governance steps after contract release and routes to risk binding and threshold policy', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 99002,
+            scenarioCode: 'phase1-crack',
+            releaseStatus: 'RELEASED',
+            releasedFieldCount: 2,
+            createTime: '2026-04-10 18:00:00'
+          }
+        ]
+      }
+    })
+    mockPageRiskMetricCatalogs.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 9101,
+            releaseBatchId: 99002,
+            contractIdentifier: 'value',
+            riskMetricName: '裂缝监测值',
+            metricRole: 'PRIMARY',
+            lifecycleStatus: 'ACTIVE'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('治理下一步')
+    expect(wrapper.text()).toContain('目录发布已随合同批次同步')
+    expect(wrapper.text()).toContain('去风险对象中心')
+    expect(wrapper.text()).toContain('去阈值策略')
+
+    await wrapper.get('[data-testid="contract-field-next-risk-point"]').trigger('click')
+    expect(mockRouter.push).toHaveBeenCalledWith({ path: '/risk-point' })
+
+    mockRouter.push.mockClear()
+
+    await wrapper.get('[data-testid="contract-field-next-rule"]').trigger('click')
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/rule-definition',
+      query: {
+        governanceSource: 'task',
+        workItemCode: 'PENDING_THRESHOLD_POLICY',
+        governanceAction: 'create',
+        riskMetricId: 9101,
+        metricIdentifier: 'value',
+        metricName: '裂缝监测值'
+      }
+    })
+  })
+
+  it('marks downstream governance as not applicable when the latest release batch has no catalog metrics', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 20,
+        records: [
+          {
+            id: 99002,
+            scenarioCode: 'phase1-crack',
+            releaseStatus: 'RELEASED',
+            releasedFieldCount: 9,
+            createTime: '2026-04-10 18:00:00'
+          }
+        ]
+      }
+    })
+    mockPageRiskMetricCatalogs.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 20,
+        records: []
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('治理下一步')
+    expect(wrapper.text()).toContain('当前批次暂无可入目录字段')
+    expect(wrapper.text()).toContain('风险点绑定暂不适用')
+    expect(wrapper.text()).toContain('阈值策略暂不适用')
+    expect(wrapper.find('[data-testid="contract-field-next-risk-point"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="contract-field-next-rule"]').exists()).toBe(false)
+  })
+
   it('loads release batch diff against the previous batch and renders contract and metric deltas', async () => {
     mockPageProductContractReleaseBatches.mockResolvedValueOnce({
       code: 200,
