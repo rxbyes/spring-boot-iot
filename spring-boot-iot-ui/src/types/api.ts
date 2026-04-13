@@ -824,6 +824,9 @@ export interface DeviceOption {
   nodeType?: number | null;
   onlineStatus?: number | null;
   deviceStatus?: number | null;
+  deviceCapabilityType?: string | null;
+  supportsMetricBinding?: boolean | null;
+  aiEventExpandable?: boolean | null;
 }
 
 export interface DeviceMetricOption {

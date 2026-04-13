@@ -120,7 +120,7 @@ class RiskMetricCatalogServiceImplTest {
         product.setTenantId(1L);
         product.setProductKey("phase1-crack-product");
         when(productMapper.selectById(1001L)).thenReturn(product);
-        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+        org.mockito.Mockito.lenient().when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
                 normative("phase1-crack", "value", "mm", 1, "{\"thresholdKind\":\"absolute\"}")
         ));
 
@@ -248,9 +248,6 @@ class RiskMetricCatalogServiceImplTest {
                 .publishedIdentifier("value")
                 .canonicalAlias("L1_LF_1.value", "value")
                 .build());
-        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
-                normative("phase1-crack", "value", "mm", 1, "{\"thresholdKind\":\"absolute\"}")
-        ));
 
         ProductModel releasedAlias = new ProductModel();
         releasedAlias.setId(3101L);

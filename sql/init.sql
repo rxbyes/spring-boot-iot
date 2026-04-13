@@ -31,6 +31,8 @@ DROP TABLE IF EXISTS iot_device_property;
 DROP TABLE IF EXISTS iot_device_relation;
 DROP TABLE IF EXISTS iot_device_online_session;
 DROP TABLE IF EXISTS iot_device;
+DROP TABLE IF EXISTS iot_product_metric_resolver_snapshot;
+DROP TABLE IF EXISTS iot_product_contract_release_snapshot;
 DROP TABLE IF EXISTS iot_product_contract_release_batch;
 DROP TABLE IF EXISTS iot_vendor_metric_evidence;
 DROP TABLE IF EXISTS iot_normative_metric_definition;
@@ -757,6 +759,19 @@ CREATE TABLE iot_product_contract_release_snapshot (
     PRIMARY KEY (id),
     KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Product contract release snapshot';
+
+CREATE TABLE iot_product_metric_resolver_snapshot (
+    id BIGINT NOT NULL COMMENT 'Primary key',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT 'Tenant ID',
+    product_id BIGINT NOT NULL COMMENT 'Product ID',
+    release_batch_id BIGINT NOT NULL COMMENT 'Release batch ID',
+    snapshot_json JSON NOT NULL COMMENT 'Resolver snapshot payload JSON',
+    create_by BIGINT DEFAULT NULL COMMENT 'Operator user ID',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_metric_resolver_snapshot_batch (product_id, release_batch_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Product metric resolver snapshot';
 
 
 CREATE TABLE iot_device (

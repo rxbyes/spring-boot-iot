@@ -399,11 +399,8 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     public GovernanceSubmissionResultVO submitBindDeviceCapability(RiskPointDeviceCapabilityBindingRequest request,
                                                                    Long currentUserId) {
         if (request == null) {
-            throw new BizException("Risk point binding request cannot be null");
-/*
             throw new BizException("风险点绑定请求不能为空");
         }
-*/
         DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.normalize(request.getDeviceCapabilityType());
         String normalizedCapabilityType = capabilityType == DeviceBindingCapabilityType.UNKNOWN
                 ? normalize(request.getDeviceCapabilityType())

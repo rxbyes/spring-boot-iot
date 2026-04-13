@@ -486,25 +486,6 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     : deviceService.getRequiredById(currentUserId, deviceId);
       }
 
-/*      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
-            if (device.getOrgId() == null || device.getOrgId() <= 0) {
-                  throw new BizException("设备未归属组织，禁止绑定风险点");
-            }
-            if (!Objects.equals(riskPoint.getOrgId(), device.getOrgId())) {
-                  throw new BizException("设备所属组织与风险点所属组织不一致");
-            }
-            LambdaQueryWrapper<RiskPointDevice> occupiedWrapper = new LambdaQueryWrapper<>();
-            occupiedWrapper.eq(RiskPointDevice::getDeviceId, device.getId());
-            occupiedWrapper.eq(RiskPointDevice::getDeleted, 0);
-            occupiedWrapper.ne(currentRiskPointId != null, RiskPointDevice::getRiskPointId, currentRiskPointId);
-            if (!riskPointDeviceMapper.selectList(occupiedWrapper).isEmpty()) {
-                  throw new BizException("设备已绑定其他风险点，不能重复绑定");
-            }
-      }
-
-      }
-*/
-
       private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
             if (device.getOrgId() == null || device.getOrgId() <= 0) {
                   throw new BizException("设备未归属组织，禁止绑定风险点");

@@ -208,7 +208,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 continue;
             }
             NormativeMetricDefinition definition = normativeByIdentifier.get(identifier);
-            semanticByIdentifier.put(identifier, buildSemanticProfile(contract, definition, scenarioCode));
+            semanticByIdentifier.put(identifier, buildSemanticProfile(contract, definition, scenarioCode, identifier));
         }
         return semanticByIdentifier;
     }
@@ -234,7 +234,8 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     private MetricSemanticProfile buildSemanticProfile(ProductModel contract,
                                                        NormativeMetricDefinition definition,
-                                                       String fallbackScenarioCode) {
+                                                       String fallbackScenarioCode,
+                                                       String canonicalIdentifier) {
         Map<String, Object> specs = parseJsonObject(contract == null ? null : contract.getSpecsJson());
         Map<String, Object> metadata = parseJsonObject(definition == null ? null : definition.getMetadataJson());
 
@@ -244,7 +245,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         );
         String normativeIdentifier = firstNonBlank(
                 normalize(definition == null ? null : definition.getIdentifier()),
-                normalize(contract == null ? null : contract.getIdentifier())
+                normalize(canonicalIdentifier)
         );
         String metricUnit = firstNonBlank(
                 readString(specs, "unit"),

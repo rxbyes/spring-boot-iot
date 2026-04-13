@@ -1003,7 +1003,7 @@ class RiskPointServiceImplTest {
             RiskPointDeviceCapabilityBinding saved = invocation.getArgument(0);
             saved.setId(9901L);
             return 1;
-        }).when(capabilityBindingMapper).insert(any(RiskPointDeviceCapabilityBinding.class));
+        }).when(capabilityBindingMapper).insert((RiskPointDeviceCapabilityBinding) any(RiskPointDeviceCapabilityBinding.class));
 
         RiskPointDeviceCapabilityBinding saved = service.bindDeviceCapabilityAndReturn(request, 1001L);
 
@@ -1011,7 +1011,7 @@ class RiskPointServiceImplTest {
         assertEquals(DeviceBindingCapabilityType.VIDEO.name(), saved.getDeviceCapabilityType());
         assertEquals("AI_EVENT_RESERVED", saved.getExtensionStatus());
         assertEquals(0, saved.getDeleted());
-        verify(capabilityBindingMapper).insert(argThat(binding ->
+        verify(capabilityBindingMapper).insert(argThat((RiskPointDeviceCapabilityBinding binding) ->
                 Long.valueOf(12L).equals(binding.getRiskPointId())
                         && Long.valueOf(2002L).equals(binding.getDeviceId())
                         && "ops-video-01".equals(binding.getDeviceCode())

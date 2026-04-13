@@ -9,7 +9,6 @@ import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingPromotionService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
-import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.service.GovernanceApprovalActionExecutor;

@@ -201,7 +201,7 @@ describe('RiskPointDetailDrawer', () => {
     expect(mockListBindingGroups).toHaveBeenCalledWith(1)
     expect(wrapper.text()).toContain('示例风险点')
     expect(wrapper.text()).toContain('绑定概况')
-    expect(wrapper.text()).toContain('1 台已绑定设备')
+    expect(wrapper.text()).toContain('2 台已绑定设备')
     expect(wrapper.text()).toContain('2 个正式测点')
     expect(wrapper.text()).toContain('已绑定 / 待治理')
     expect(wrapper.text()).toContain('风险点档案')

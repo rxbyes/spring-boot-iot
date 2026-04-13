@@ -76,10 +76,20 @@ export interface RiskPointBindingMetric {
       createTime?: string | null;
 }
 
+export interface RiskPointDeviceCapabilityBindingRequest {
+      riskPointId: IdType;
+      deviceId: IdType;
+      deviceCapabilityType?: string | null;
+}
+
 export interface RiskPointBindingDeviceGroup {
       deviceId: IdType;
       deviceCode: string;
       deviceName: string;
+      bindingMode?: 'METRIC' | 'DEVICE_ONLY' | string;
+      deviceCapabilityType?: string | null;
+      aiEventExpandable?: boolean | null;
+      extensionStatus?: string | null;
       metricCount: number;
       metrics: RiskPointBindingMetric[];
 }
@@ -230,6 +240,12 @@ export const deleteRiskPoint = (id: IdType): Promise<ApiEnvelope<void>> => {
 // 绑定风险点与设备
 export const bindDevice = (data: Partial<RiskPointDevice>): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
       return request<GovernanceSubmissionResult>('/api/risk-point/bind-device', { method: 'POST', body: data });
+};
+
+export const bindDeviceCapability = (
+      data: RiskPointDeviceCapabilityBindingRequest
+): Promise<ApiEnvelope<GovernanceSubmissionResult>> => {
+      return request<GovernanceSubmissionResult>('/api/risk-point/bind-device-capability', { method: 'POST', body: data });
 };
 
 // 解绑风险点与设备

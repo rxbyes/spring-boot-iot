@@ -3,6 +3,8 @@ package com.ghlzm.iot.device.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -441,8 +443,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
         List<Device> devices = list(wrapper);
         Map<Long, Product> productMap = loadProductMap(resolveScopedTenantId(currentUserId), devices.stream().map(Device::getProductId).toList());
+        Set<Long> productsWithFormalMetrics = loadProductsWithFormalMetrics(devices.stream().map(Device::getProductId).toList());
         return devices.stream()
-                .map(device -> toDeviceOption(device, productMap.get(device.getProductId())))
+                .map(device -> toDeviceOption(
+                        device,
+                        productMap.get(device.getProductId()),
+                        productsWithFormalMetrics.contains(device.getProductId())
+                ))
                 .toList();
     }
 
@@ -1486,8 +1493,13 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return orgIds;
     }
 
-    private DeviceOptionVO toDeviceOption(Device device, Product product) {
+    private DeviceOptionVO toDeviceOption(Device device, Product product, boolean hasFormalMetrics) {
         DeviceOptionVO option = new DeviceOptionVO();
+        DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.resolve(
+                product == null ? null : product.getProductKey(),
+                product == null ? null : product.getProductName(),
+                hasFormalMetrics
+        );
         option.setId(device.getId());
         option.setProductId(device.getProductId());
         option.setOrgId(device.getOrgId());
@@ -1501,7 +1513,27 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         option.setNodeType(device.getNodeType());
         option.setOnlineStatus(device.getOnlineStatus());
         option.setDeviceStatus(device.getDeviceStatus());
+        option.setDeviceCapabilityType(capabilityType.name());
+        option.setSupportsMetricBinding(DeviceBindingCapabilitySupport.supportsMetricBinding(capabilityType, hasFormalMetrics));
+        option.setAiEventExpandable(DeviceBindingCapabilitySupport.isAiEventExpandable(capabilityType));
         return option;
+    }
+
+    private Set<Long> loadProductsWithFormalMetrics(List<Long> productIds) {
+        List<Long> normalizedProductIds = productIds == null
+                ? List.of()
+                : productIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (normalizedProductIds.isEmpty()) {
+            return Set.of();
+        }
+        return riskMetricCatalogReadMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalogReadModel>()
+                        .in(RiskMetricCatalogReadModel::getProductId, normalizedProductIds)
+                        .eq(RiskMetricCatalogReadModel::getEnabled, 1)
+                        .eq(RiskMetricCatalogReadModel::getDeleted, 0))
+                .stream()
+                .map(RiskMetricCatalogReadModel::getProductId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     private record DeviceOrganizationAssignment(Long orgId, String orgName) {
