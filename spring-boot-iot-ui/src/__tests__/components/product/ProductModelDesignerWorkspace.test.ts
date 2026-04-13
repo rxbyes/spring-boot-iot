@@ -131,6 +131,24 @@ const CompareTableStub = defineComponent({
   }
 })
 
+const SuggestionPanelStub = defineComponent({
+  name: 'ProductVendorMappingSuggestionPanel',
+  props: ['productId', 'refreshToken'],
+  emits: ['accepted'],
+  template: `
+    <section class="vendor-suggestion-panel-stub" data-testid="vendor-suggestion-panel-stub">
+      <span data-testid="vendor-suggestion-panel-props">{{ productId }}|{{ refreshToken }}</span>
+      <button
+        type="button"
+        data-testid="vendor-suggestion-panel-accepted"
+        @click="$emit('accepted', { suggestion: { rawIdentifier: 'L1_LF_1.value' } })"
+      >
+        accept
+      </button>
+    </section>
+  `
+})
+
 const ElInputStub = defineComponent({
   name: 'ElInput',
   props: ['modelValue', 'type', 'rows', 'placeholder'],
@@ -190,6 +208,7 @@ function mountWorkspace(productOverrides?: Partial<{
       stubs: {
         StandardButton: StandardButtonStub,
         ProductModelGovernanceCompareTable: CompareTableStub,
+        ProductVendorMappingSuggestionPanel: SuggestionPanelStub,
         ElInput: ElInputStub,
         ElTag: true
       }
@@ -251,7 +270,26 @@ describe('ProductModelDesignerWorkspace', () => {
       msg: 'success',
       data: {
         productId: 1001,
-        summary: {},
+        summary: {
+          propertyCount: 1,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        manualSummary: {
+          propertyCandidateCount: 1,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        runtimeSummary: {
+          propertyCandidateCount: 0,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        formalSummary: {
+          propertyCount: 1,
+          eventCount: 0,
+          serviceCount: 0
+        },
         compareRows: [
           {
             modelType: 'property',
@@ -520,6 +558,49 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.find('[data-testid="contract-field-sample-input"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('自动提炼')
     expect(wrapper.text()).not.toContain('父设备样本归一到子产品')
+  })
+
+  it('renders the mapping suggestion section between compare and apply and bumps refresh token after accept', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    const pageText = wrapper.text()
+    expect(pageText.indexOf('识别结果')).toBeLessThan(pageText.indexOf('映射规则建议'))
+    expect(pageText.indexOf('映射规则建议')).toBeLessThan(pageText.indexOf('本次生效'))
+    expect(wrapper.get('[data-testid="vendor-suggestion-panel-props"]').text()).toContain('1001|0')
+
+    await wrapper.get('[data-testid="vendor-suggestion-panel-accepted"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="vendor-suggestion-panel-props"]').text()).toContain('1001|1')
+    expect(wrapper.get('[data-testid="contract-field-suggestion-refresh-hint"]').text()).toContain('映射规则草稿已创建')
+  })
+
+  it('clears the refresh hint and passes the new product id when switching products', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="vendor-suggestion-panel-accepted"]').trigger('click')
+    await nextTick()
+
+    await wrapper.setProps({
+      product: {
+        id: 2002,
+        productKey: 'north-tilt-sensor-v1',
+        productName: '北坡倾角传感器',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        deviceCount: 2,
+        metadataJson: null
+      }
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="vendor-suggestion-panel-props"]').text()).toContain('2002|0')
+    expect(wrapper.find('[data-testid="contract-field-suggestion-refresh-hint"]').exists()).toBe(false)
   })
 
   it('shows collector boundary note in composite collector mode', async () => {
@@ -1217,6 +1298,73 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('本次申请新增')
     expect(wrapper.text()).toContain('审批单')
     expect(wrapper.text()).toContain('88001')
+  })
+
+  it('separates sample identification counts from merged compare totals after compare', async () => {
+    mockCompareProductModelGovernance.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        summary: {
+          propertyCount: 27,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        manualSummary: {
+          sampleType: 'status',
+          propertyCandidateCount: 16,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0,
+          ignoredFieldCount: 9
+        },
+        runtimeSummary: {
+          propertyCandidateCount: 27,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        formalSummary: {
+          propertyCount: 9,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        compareRows: [
+          {
+            modelType: 'property',
+            identifier: 'temp',
+            compareStatus: 'runtime_only',
+            suggestedAction: '继续观察',
+            riskFlags: ['manual_missing'],
+            suspectedMatches: [],
+            runtimeCandidate: {
+              modelType: 'property',
+              identifier: 'temp',
+              modelName: '设备温度',
+              dataType: 'double'
+            }
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue(
+      '{"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-13T21:34:04.000Z":{"temp":19.94,"humidity":89.04}}}}'
+    )
+    await wrapper.get('[data-testid="sample-type-status"]').trigger('click')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="contract-field-compare-source-hint"]').text()).toContain('“合并对比”不是本次样本新增数')
+    expect(wrapper.get('[data-testid="contract-field-compare-source-merged"]').text()).toContain('27')
+    expect(wrapper.get('[data-testid="contract-field-compare-source-manual"]').text()).toContain('16')
+    expect(wrapper.get('[data-testid="contract-field-compare-source-runtime"]').text()).toContain('27')
+    expect(wrapper.get('[data-testid="contract-field-compare-source-formal"]').text()).toContain('9')
+    expect(wrapper.text()).toContain('当前合并对比 27 项，其中本次样本 16 项、运行态补证 27 项、正式字段 9 项')
   })
 
   it('loads apply approval detail and shows pending approval status after submit', async () => {

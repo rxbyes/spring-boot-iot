@@ -566,8 +566,27 @@
         <header class="product-model-designer__stage-head">
           <div>
             <h3>识别结果</h3>
+            <p v-if="compareResult" data-testid="contract-field-compare-source-hint">
+              识别结果会合并展示本次样本、运行态补证和当前正式字段；“合并对比”不是本次样本新增数。
+            </p>
           </div>
         </header>
+
+        <div
+          v-if="compareSourceSummaryCards.length"
+          class="product-model-designer__summary-grid"
+          data-testid="contract-field-compare-source-summary"
+        >
+          <article
+            v-for="item in compareSourceSummaryCards"
+            :key="item.key"
+            class="product-model-designer__summary-card"
+            :data-testid="`contract-field-compare-source-${item.key}`"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </article>
+        </div>
 
         <ProductModelGovernanceCompareTable
           v-if="compareRows.length"
@@ -588,6 +607,33 @@
         <div v-else class="product-model-designer__empty">
           <strong>暂无识别结果</strong>
           <p>贴上报数据并完成提取后，这里会展示本次识别出的字段。</p>
+        </div>
+      </section>
+
+      <section
+        class="product-model-designer__stage"
+        data-testid="contract-field-vendor-suggestions"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>映射规则建议</h3>
+            <p>基于运行态证据和现有规则，展示当前产品值得人工采纳的厂商字段映射建议。</p>
+          </div>
+        </header>
+
+        <ProductVendorMappingSuggestionPanel
+          :product-id="props.product?.id ?? null"
+          :refresh-token="vendorSuggestionRefreshToken"
+          @accepted="handleVendorSuggestionAccepted"
+        />
+
+        <div
+          v-if="showSuggestionRefreshHint"
+          class="product-model-designer__governance-note"
+          data-testid="contract-field-suggestion-refresh-hint"
+        >
+          <strong>映射规则草稿已创建</strong>
+          <p>若要让本次识别结果使用新规则，请重新执行识别。</p>
         </div>
       </section>
 
@@ -956,6 +1002,7 @@ import { useRouter } from 'vue-router'
 import StandardButton from '@/components/StandardButton.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
+import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
 import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'
 import {
@@ -986,7 +1033,9 @@ import type {
   IdType,
   Product,
   ProductAddPayload,
+  ProductModelCandidateSummary,
   ProductModel,
+  ProductModelGovernanceSummary,
   ProductModelGovernanceApplyItem,
   ProductModelGovernanceApplyResult,
   ProductModelGovernanceCompareResult,
@@ -1034,6 +1083,12 @@ interface GovernanceStepCard {
   actionLabel?: string
   actionKey?: GovernanceStepActionKey
   actionTestid?: string
+}
+
+interface CompareSourceSummaryCard {
+  key: 'merged' | 'manual' | 'runtime' | 'formal'
+  label: string
+  value: number
 }
 
 interface GovernanceApprovalPayloadExecution<TResult> {
@@ -1116,6 +1171,8 @@ const applyApprovalLoading = ref(false)
 const rollbackApprovalLoading = ref(false)
 const applyResubmitLoading = ref(false)
 const rollbackResubmitLoading = ref(false)
+const vendorSuggestionRefreshToken = ref(0)
+const showSuggestionRefreshHint = ref(false)
 const renamingModelId = ref<IdType | null>(null)
 const renamingModelName = ref('')
 const renamingModelUnit = ref('')
@@ -1415,6 +1472,30 @@ const governanceBoundaryNoteDescription = computed(() => {
   }
   return '本批次没有命中可进入风险闭环的目录指标，所以不会出现单独的目录发布、风险点绑定或阈值策略入口。'
 })
+const compareMergedCount = computed(() => {
+  const count = resolveGovernanceSummaryCount(compareResult.value?.summary ?? null)
+  return count > 0 ? count : compareRows.value.length
+})
+const compareManualCount = computed(() =>
+  resolveCandidateSummaryCount(compareResult.value?.manualSummary ?? null)
+)
+const compareRuntimeCount = computed(() =>
+  resolveCandidateSummaryCount(compareResult.value?.runtimeSummary ?? null)
+)
+const compareFormalCount = computed(() =>
+  resolveGovernanceSummaryCount(compareResult.value?.formalSummary ?? null)
+)
+const compareSourceSummaryCards = computed<CompareSourceSummaryCard[]>(() => {
+  if (!compareResult.value) {
+    return []
+  }
+  return [
+    { key: 'merged', label: '合并对比', value: compareMergedCount.value },
+    { key: 'manual', label: '本次样本识别', value: compareManualCount.value },
+    { key: 'runtime', label: '运行态补证', value: compareRuntimeCount.value },
+    { key: 'formal', label: '当前正式字段', value: compareFormalCount.value }
+  ]
+})
 const footerSummaryText = computed(() => {
   if (showCollectorBoundaryEmpty.value) {
     return '采集器页只治理自身字段；子设备字段请到子产品治理后再确认并提交审批'
@@ -1423,7 +1504,7 @@ const footerSummaryText = computed(() => {
     return `已选 ${selectedApplyItems.value.length} 项，确认后将提交审批`
   }
   if (compareRows.value.length) {
-    return `已识别 ${compareRows.value.length} 个字段，请选择需要生效的项`
+    return `当前合并对比 ${compareMergedCount.value} 项，其中本次样本 ${compareManualCount.value} 项、运行态补证 ${compareRuntimeCount.value} 项、正式字段 ${compareFormalCount.value} 项，请选择需要生效的项`
   }
   return '贴上报数据后，系统会提取契约字段'
 })
@@ -1604,6 +1685,28 @@ function resolveTrendMetricStateLabel(model: ProductModel) {
     return '当前未加入对象洞察趋势'
   }
   return `当前为${getObjectInsightMetricGroupLabel(metric.group)}重点`
+}
+
+function safeCount(value?: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function resolveCandidateSummaryCount(summary?: ProductModelCandidateSummary | null) {
+  return safeCount(summary?.propertyCandidateCount)
+    + safeCount(summary?.eventCandidateCount)
+    + safeCount(summary?.serviceCandidateCount)
+}
+
+function resolveGovernanceSummaryCount(summary?: ProductModelGovernanceSummary | null) {
+  const typedCount = safeCount(summary?.propertyCount)
+    + safeCount(summary?.eventCount)
+    + safeCount(summary?.serviceCount)
+  if (typedCount > 0) {
+    return typedCount
+  }
+  return safeCount(summary?.manualCount)
+    + safeCount(summary?.runtimeCount)
+    + safeCount(summary?.formalCount)
 }
 
 function isTrendMetricSubmitting(modelId: IdType, group: ProductObjectInsightMetricGroup | 'remove') {
@@ -2224,6 +2327,7 @@ async function handleCompare() {
     return
   }
   compareLoading.value = true
+  showSuggestionRefreshHint.value = false
   applyResult.value = null
   rollbackResult.value = null
   applyApprovalDetail.value = null
@@ -2475,6 +2579,11 @@ function clearReleaseBatchDiff() {
   releaseBatchDiff.value = null
 }
 
+function handleVendorSuggestionAccepted(_payload?: unknown) {
+  vendorSuggestionRefreshToken.value += 1
+  showSuggestionRefreshHint.value = true
+}
+
 function resetVersionLedger() {
   versionLedgerLoading.value = false
   versionLedgerErrorMessage.value = ''
@@ -2488,6 +2597,8 @@ function resetSession() {
   compareResult.value = null
   applyResult.value = null
   rollbackResult.value = null
+  vendorSuggestionRefreshToken.value = 0
+  showSuggestionRefreshHint.value = false
   resetRollbackPreview()
   releaseLedgerRows.value = []
   resetVersionLedger()
