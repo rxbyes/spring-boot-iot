@@ -5,16 +5,17 @@ export interface RequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
   body?: BodyInit | Record<string, unknown> | unknown | null;
   headers?: HeadersInit;
   errorHandler?: (error: Error) => void;
+  suppressErrorToast?: boolean;
 }
 
 export interface RequestInterceptor {
   onRequest?: (options: RequestOptions) => RequestOptions | Promise<RequestOptions>;
-  onerror?: (error: Error) => Error | Promise<Error>;
+  onerror?: (error: Error, options: RequestOptions) => Error | Promise<Error>;
 }
 
 export interface ResponseInterceptor<T = unknown> {
-  onsuccess?: (data: ApiEnvelope<T>) => ApiEnvelope<T> | Promise<ApiEnvelope<T>>;
-  onerror?: (error: Error) => Error | Promise<Error>;
+  onsuccess?: (data: ApiEnvelope<T>, options: RequestOptions) => ApiEnvelope<T> | Promise<ApiEnvelope<T>>;
+  onerror?: (error: Error, options: RequestOptions) => Error | Promise<Error>;
 }
 
 export interface RequestError extends Error {
@@ -110,28 +111,28 @@ class InterceptorManager {
     return result;
   }
 
-  async applyResponseInterceptors<T>(payload: ApiEnvelope<T>): Promise<ApiEnvelope<T>> {
+  async applyResponseInterceptors<T>(payload: ApiEnvelope<T>, options: RequestOptions): Promise<ApiEnvelope<T>> {
     let result = payload;
     for (const interceptor of this.responseInterceptors) {
       if (interceptor.onsuccess) {
-        result = await interceptor.onsuccess(result);
+        result = await interceptor.onsuccess(result, options);
       }
     }
     return result;
   }
 
-  async applyRequestErrorInterceptors(error: Error): Promise<void> {
+  async applyRequestErrorInterceptors(error: Error, options: RequestOptions): Promise<void> {
     for (const interceptor of this.requestInterceptors) {
       if (interceptor.onerror) {
-        await interceptor.onerror(error);
+        await interceptor.onerror(error, options);
       }
     }
   }
 
-  async applyResponseErrorInterceptors(error: Error): Promise<void> {
+  async applyResponseErrorInterceptors(error: Error, options: RequestOptions): Promise<void> {
     for (const interceptor of this.responseInterceptors) {
       if (interceptor.onerror) {
-        await interceptor.onerror(error);
+        await interceptor.onerror(error, options);
       }
     }
   }
@@ -152,24 +153,31 @@ function normalizeBody(body: RequestOptions['body'], headers: Headers): BodyInit
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
-  const { body, headers, errorHandler, ...rest } = options;
+  const { body, headers, errorHandler, suppressErrorToast, ...rest } = options;
   const requestHeaders = new Headers(headers);
 
   const url = `${runtimeState.apiBaseUrl}${path}`;
   const finalOptions = await interceptorManager.applyRequestInterceptors({
     ...rest,
     headers: requestHeaders,
-    body: normalizeBody(body, requestHeaders)
+    body: normalizeBody(body, requestHeaders),
+    errorHandler,
+    suppressErrorToast
   });
+  const {
+    errorHandler: finalErrorHandler,
+    suppressErrorToast: finalSuppressErrorToast,
+    ...fetchOptions
+  } = finalOptions;
 
   try {
-    const response = await fetch(url, finalOptions as RequestInit);
+    const response = await fetch(url, fetchOptions as RequestInit);
     const rawText = await response.text();
     const bodyText = rawText.trim();
     const payload = parseApiEnvelope<T>(bodyText);
 
     if (payload) {
-      const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
+      const processedPayload = await interceptorManager.applyResponseInterceptors(payload, finalOptions);
       if (!response.ok) {
         const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
         const message = processedPayload.msg || resolveHttpErrorMessage(response.status, bodyText, `请求失败: ${statusMessage}`);
@@ -189,11 +197,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
   } catch (error) {
     if (error instanceof Error) {
-      if (errorHandler) {
-        errorHandler(error);
+      if (finalSuppressErrorToast) {
+        (error as RequestError).handled = true;
       }
-      await interceptorManager.applyRequestErrorInterceptors(error);
-      await interceptorManager.applyResponseErrorInterceptors(error);
+      if (finalErrorHandler) {
+        finalErrorHandler(error);
+      }
+      await interceptorManager.applyRequestErrorInterceptors(error, finalOptions);
+      await interceptorManager.applyResponseErrorInterceptors(error, finalOptions);
     }
     throw error;
   }

@@ -89,7 +89,7 @@ export const loadingRequestInterceptor: RequestInterceptor = {
 };
 
 export const errorResponseInterceptor: ResponseInterceptor = {
-  async onsuccess(data) {
+  async onsuccess(data, options) {
     if (data.code !== 200) {
       const rawMessage = data.msg;
       const message = resolveResponseErrorMessage(data.code, rawMessage);
@@ -98,7 +98,9 @@ export const errorResponseInterceptor: ResponseInterceptor = {
         await handleUnauthorized();
         throw createRequestError(message, true, 401, rawMessage);
       }
-      showErrorMessage(message);
+      if (!options.suppressErrorToast) {
+        showErrorMessage(message);
+      }
       throw createRequestError(message, true, data.code, rawMessage);
     }
     return data;

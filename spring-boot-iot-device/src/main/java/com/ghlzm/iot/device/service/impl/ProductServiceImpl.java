@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -14,8 +15,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
@@ -28,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -45,11 +49,15 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     private static final int MAX_OBJECT_INSIGHT_TEMPLATE_LENGTH = 300;
 
     private final DeviceMapper deviceMapper;
+    private final ProductModelMapper productModelMapper;
     private final DeviceOnlineSessionService deviceOnlineSessionService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
-    public ProductServiceImpl(DeviceMapper deviceMapper, DeviceOnlineSessionService deviceOnlineSessionService) {
+    public ProductServiceImpl(DeviceMapper deviceMapper,
+                              ProductModelMapper productModelMapper,
+                              DeviceOnlineSessionService deviceOnlineSessionService) {
         this.deviceMapper = deviceMapper;
+        this.productModelMapper = productModelMapper;
         this.deviceOnlineSessionService = deviceOnlineSessionService;
     }
 
@@ -194,7 +202,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setDataFormat(resolveOptionalText(dto.getDataFormat(), "JSON"));
         product.setManufacturer(resolveOptionalText(dto.getManufacturer(), null));
         product.setDescription(resolveOptionalText(dto.getDescription(), null));
-        product.setMetadataJson(normalizeMetadataJson(dto.getMetadataJson()));
+        product.setMetadataJson(normalizeMetadataJson(product.getId(), dto.getMetadataJson()));
         product.setStatus(resolveProductStatus(dto.getStatus()));
     }
 
@@ -399,7 +407,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return value.trim();
     }
 
-    private String normalizeMetadataJson(String metadataJson) {
+    private String normalizeMetadataJson(Long productId, String metadataJson) {
         if (!StringUtils.hasText(metadataJson)) {
             return null;
         }
@@ -408,12 +416,63 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             if (root == null || !root.isObject()) {
                 throw new BizException("产品扩展元数据必须是合法JSON对象");
             }
+            Map<String, String> formalIdentifierMap = loadFormalPropertyIdentifierMap(productId);
+            normalizeObjectInsightIdentifiers(root.path("objectInsight"), formalIdentifierMap);
             validateObjectInsightConfig(root.path("objectInsight"));
             return objectMapper.writeValueAsString(root);
         } catch (BizException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new BizException("产品扩展元数据必须是合法JSON对象");
+        }
+    }
+
+    private Map<String, String> loadFormalPropertyIdentifierMap(Long productId) {
+        if (productId == null || productModelMapper == null) {
+            return Map.of();
+        }
+        List<ProductModel> productModels = productModelMapper.selectList(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, productId)
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+                        .orderByAsc(ProductModel::getSortNo)
+                        .orderByAsc(ProductModel::getIdentifier)
+        );
+        if (CollectionUtils.isEmpty(productModels)) {
+            return Map.of();
+        }
+        Map<String, String> formalIdentifierMap = new LinkedHashMap<>();
+        for (ProductModel productModel : productModels) {
+            if (productModel == null || !StringUtils.hasText(productModel.getIdentifier())) {
+                continue;
+            }
+            String identifier = productModel.getIdentifier().trim();
+            formalIdentifierMap.putIfAbsent(identifier.toLowerCase(Locale.ROOT), identifier);
+        }
+        return formalIdentifierMap;
+    }
+
+    private void normalizeObjectInsightIdentifiers(JsonNode objectInsightNode, Map<String, String> formalIdentifierMap) {
+        if (objectInsightNode == null
+                || objectInsightNode.isMissingNode()
+                || objectInsightNode.isNull()
+                || CollectionUtils.isEmpty(formalIdentifierMap)) {
+            return;
+        }
+        JsonNode customMetricsNode = objectInsightNode.path("customMetrics");
+        if (!customMetricsNode.isArray()) {
+            return;
+        }
+        for (JsonNode metricNode : customMetricsNode) {
+            if (!(metricNode instanceof ObjectNode metricObject)) {
+                continue;
+            }
+            String identifier = resolveMetricText(metricNode, "identifier");
+            if (!StringUtils.hasText(identifier)) {
+                continue;
+            }
+            metricObject.put("identifier", normalizeObjectInsightIdentifier(identifier, formalIdentifierMap));
         }
     }
 
@@ -454,6 +513,13 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 throw new BizException("对象洞察分析描述模板长度不能超过300");
             }
         }
+    }
+
+    private String normalizeObjectInsightIdentifier(String identifier, Map<String, String> formalIdentifierMap) {
+        if (!StringUtils.hasText(identifier) || CollectionUtils.isEmpty(formalIdentifierMap)) {
+            return identifier;
+        }
+        return formalIdentifierMap.getOrDefault(identifier.toLowerCase(Locale.ROOT), identifier);
     }
 
     private String requireMetricText(JsonNode metricNode, String fieldName, String message) {

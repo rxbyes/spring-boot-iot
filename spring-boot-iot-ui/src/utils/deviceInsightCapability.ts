@@ -389,23 +389,24 @@ function buildConfiguredMetricDefinition(
   if (!normalizedIdentifier) {
     return null;
   }
+  const resolvedIdentifier = resolveRuntimeMetricIdentifier(normalizedIdentifier, source.properties ?? []);
   const builtIn = BUILTIN_CUSTOM_METRIC_REGISTRY[normalizedIdentifier.toLowerCase()];
   const hasExplicitConfig = Object.keys(config).length > 0;
   const displayName = normalizeOptionalText(config.displayName)
     || builtIn?.displayName
-    || resolveConfiguredMetricDisplayName(normalizedIdentifier, source.properties ?? [])
-    || normalizedIdentifier;
-  const profileGroup = resolveMetricGroup(profile, normalizedIdentifier);
+    || resolveConfiguredMetricDisplayName(resolvedIdentifier, source.properties ?? [])
+    || resolvedIdentifier;
+  const profileGroup = resolveMetricGroup(profile, resolvedIdentifier);
   const fallbackGroup = builtIn?.group
     || profileGroup
-    || inferObjectInsightStatusGroup(normalizedIdentifier, displayName);
+    || inferObjectInsightStatusGroup(resolvedIdentifier, displayName);
   const group = config.group === undefined || config.group === null || config.group === ''
     ? fallbackGroup
-    : normalizeObjectInsightMetricGroup(config.group, normalizedIdentifier, displayName);
-  const existsInHero = profile.heroMetrics.some((item) => item.identifier === normalizedIdentifier);
+    : normalizeObjectInsightMetricGroup(config.group, resolvedIdentifier, displayName);
+  const existsInHero = profile.heroMetrics.some((item) => item.identifier === resolvedIdentifier);
   return {
-    parameterKey: normalizeOptionalText(config.parameterKey) || normalizedIdentifier,
-    identifier: normalizedIdentifier,
+    parameterKey: normalizeOptionalText(config.parameterKey) || resolvedIdentifier,
+    identifier: resolvedIdentifier,
     displayName,
     group,
     includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : hasExplicitConfig ? true : false,
@@ -497,6 +498,16 @@ function normalizeOptionalText(value: unknown) {
 function normalizeOptionalNumber(value: unknown) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function resolveRuntimeMetricIdentifier(identifier: string, properties: DeviceProperty[]) {
+  const exactMatch = properties.find((item) => item.identifier === identifier);
+  if (exactMatch?.identifier) {
+    return exactMatch.identifier;
+  }
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  const caseInsensitiveMatch = properties.find((item) => item.identifier?.trim().toLowerCase() === normalizedIdentifier);
+  return caseInsensitiveMatch?.identifier || identifier;
 }
 
 function toRuntimeCandidate(property: DeviceProperty): RuntimeMetricCandidate[] {

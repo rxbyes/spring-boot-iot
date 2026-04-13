@@ -31,10 +31,12 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -117,13 +119,24 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         Device device = requireDevice(request.getDeviceId());
         Product product = device.getProductId() == null ? null : productMapper.selectById(device.getProductId());
-        Map<String, DevicePropertyMetadata> metadataMap = buildHistoryMetadataMap(device, identifiers);
+        HistoryIdentifierContext identifierContext = resolveHistoryIdentifierContext(device, identifiers);
+        List<String> resolvedIdentifiers = identifierContext.identifiers();
+        Map<String, DevicePropertyMetadata> metadataMap = identifierContext.metadataMap();
         Map<String, TelemetryMetricMapping> mappingMap = device.getProductId() == null
                 ? Map.of()
                 : deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
         List<BucketSlot> slots = buildBucketSlots(queryWindow);
-        List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap, identifiers, queryWindow);
-        return buildHistoryBatchResponse(device.getId(), identifiers, request.getRangeCode(), queryWindow, slots, historyPoints, metadataMap);
+        List<TelemetryV2Point> historyPoints =
+                readHistoryPoints(device, product, metadataMap, mappingMap, resolvedIdentifiers, queryWindow);
+        return buildHistoryBatchResponse(
+                device.getId(),
+                resolvedIdentifiers,
+                request.getRangeCode(),
+                queryWindow,
+                slots,
+                historyPoints,
+                metadataMap
+        );
     }
 
     private Map<String, Object> buildTdengineResponse(Device device, Product product) {
@@ -201,32 +214,174 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return tdengineTelemetryFacade.listLatestPoints(device, product);
     }
 
-    private Map<String, DevicePropertyMetadata> buildHistoryMetadataMap(Device device, List<String> identifiers) {
+    private HistoryIdentifierContext resolveHistoryIdentifierContext(Device device, List<String> requestedIdentifiers) {
+        Map<String, DevicePropertyMetadata> productMetadataMap = loadProductHistoryMetadataMap(device);
+        Map<String, String> productMetadataCaseInsensitiveMap = buildCaseInsensitiveIdentifierMap(productMetadataMap.keySet());
+        List<DeviceProperty> currentProperties = loadCurrentProperties(device);
+        Map<String, DeviceProperty> currentPropertyMap = buildCurrentPropertyMap(currentProperties);
+        Map<String, String> currentPropertyCaseInsensitiveMap = buildCaseInsensitiveIdentifierMap(currentPropertyMap.keySet());
+        List<String> resolvedIdentifiers = new ArrayList<>();
+        Set<String> seenIdentifiers = new LinkedHashSet<>();
         Map<String, DevicePropertyMetadata> metadataMap = new LinkedHashMap<>();
-        if (device != null && device.getProductId() != null) {
-            metadataMap.putAll(devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId()));
+        for (String requestedIdentifier : requestedIdentifiers) {
+            String resolvedIdentifier = resolveHistoryIdentifier(
+                    requestedIdentifier,
+                    currentPropertyMap,
+                    currentPropertyCaseInsensitiveMap,
+                    productMetadataMap,
+                    productMetadataCaseInsensitiveMap
+            );
+            if (seenIdentifiers.add(resolvedIdentifier)) {
+                resolvedIdentifiers.add(resolvedIdentifier);
+            }
+            DevicePropertyMetadata metadata = buildResolvedHistoryMetadata(
+                    resolvedIdentifier,
+                    productMetadataMap,
+                    productMetadataCaseInsensitiveMap,
+                    currentPropertyMap,
+                    currentPropertyCaseInsensitiveMap
+            );
+            if (metadata != null) {
+                metadataMap.putIfAbsent(resolvedIdentifier, metadata);
+            }
         }
-        if (device == null || device.getId() == null || identifiers == null || identifiers.isEmpty()) {
-            return metadataMap;
+        return new HistoryIdentifierContext(resolvedIdentifiers, metadataMap);
+    }
+
+    private Map<String, DevicePropertyMetadata> loadProductHistoryMetadataMap(Device device) {
+        if (device == null || device.getProductId() == null) {
+            return Map.of();
+        }
+        Map<String, DevicePropertyMetadata> metadataMap =
+                devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId());
+        return metadataMap == null ? Map.of() : metadataMap;
+    }
+
+    private List<DeviceProperty> loadCurrentProperties(Device device) {
+        if (device == null || device.getId() == null) {
+            return List.of();
         }
         List<DeviceProperty> currentProperties = devicePropertyMapper.selectList(
                 new LambdaQueryWrapper<DeviceProperty>()
                         .eq(DeviceProperty::getDeviceId, device.getId())
-                        .in(DeviceProperty::getIdentifier, identifiers)
+                        .orderByAsc(DeviceProperty::getIdentifier)
         );
+        return currentProperties == null ? List.of() : currentProperties;
+    }
+
+    private Map<String, DeviceProperty> buildCurrentPropertyMap(List<DeviceProperty> currentProperties) {
+        Map<String, DeviceProperty> propertyMap = new LinkedHashMap<>();
         for (DeviceProperty currentProperty : currentProperties) {
             if (currentProperty == null || currentProperty.getIdentifier() == null || currentProperty.getIdentifier().isBlank()) {
                 continue;
             }
-            metadataMap.computeIfAbsent(currentProperty.getIdentifier(), key -> {
-                DevicePropertyMetadata metadata = new DevicePropertyMetadata();
-                metadata.setIdentifier(currentProperty.getIdentifier());
-                metadata.setPropertyName(currentProperty.getPropertyName());
-                metadata.setDataType(currentProperty.getValueType());
-                return metadata;
-            });
+            propertyMap.putIfAbsent(currentProperty.getIdentifier(), currentProperty);
         }
-        return metadataMap;
+        return propertyMap;
+    }
+
+    private Map<String, String> buildCaseInsensitiveIdentifierMap(Iterable<String> identifiers) {
+        Map<String, String> identifierMap = new LinkedHashMap<>();
+        if (identifiers == null) {
+            return identifierMap;
+        }
+        for (String identifier : identifiers) {
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            identifierMap.putIfAbsent(normalizeIdentifierKey(identifier), identifier);
+        }
+        return identifierMap;
+    }
+
+    private String resolveHistoryIdentifier(String requestedIdentifier,
+                                            Map<String, DeviceProperty> currentPropertyMap,
+                                            Map<String, String> currentPropertyCaseInsensitiveMap,
+                                            Map<String, DevicePropertyMetadata> productMetadataMap,
+                                            Map<String, String> productMetadataCaseInsensitiveMap) {
+        if (currentPropertyMap.containsKey(requestedIdentifier)) {
+            return requestedIdentifier;
+        }
+        String currentPropertyIdentifier = currentPropertyCaseInsensitiveMap.get(normalizeIdentifierKey(requestedIdentifier));
+        if (currentPropertyIdentifier != null) {
+            return currentPropertyIdentifier;
+        }
+        if (productMetadataMap.containsKey(requestedIdentifier)) {
+            return requestedIdentifier;
+        }
+        String productMetadataIdentifier = productMetadataCaseInsensitiveMap.get(normalizeIdentifierKey(requestedIdentifier));
+        if (productMetadataIdentifier != null) {
+            return productMetadataIdentifier;
+        }
+        return requestedIdentifier;
+    }
+
+    private DevicePropertyMetadata buildResolvedHistoryMetadata(String resolvedIdentifier,
+                                                               Map<String, DevicePropertyMetadata> productMetadataMap,
+                                                               Map<String, String> productMetadataCaseInsensitiveMap,
+                                                               Map<String, DeviceProperty> currentPropertyMap,
+                                                               Map<String, String> currentPropertyCaseInsensitiveMap) {
+        DevicePropertyMetadata metadata = copyMetadata(
+                findProductMetadata(resolvedIdentifier, productMetadataMap, productMetadataCaseInsensitiveMap)
+        );
+        DeviceProperty currentProperty =
+                findCurrentProperty(resolvedIdentifier, currentPropertyMap, currentPropertyCaseInsensitiveMap);
+        if (metadata == null && currentProperty == null) {
+            return null;
+        }
+        if (metadata == null) {
+            metadata = new DevicePropertyMetadata();
+        }
+        metadata.setIdentifier(resolvedIdentifier);
+        if ((metadata.getPropertyName() == null || metadata.getPropertyName().isBlank()) && currentProperty != null) {
+            metadata.setPropertyName(currentProperty.getPropertyName());
+        }
+        if ((metadata.getDataType() == null || metadata.getDataType().isBlank()) && currentProperty != null) {
+            metadata.setDataType(currentProperty.getValueType());
+        }
+        return metadata;
+    }
+
+    private DevicePropertyMetadata findProductMetadata(String identifier,
+                                                       Map<String, DevicePropertyMetadata> productMetadataMap,
+                                                       Map<String, String> productMetadataCaseInsensitiveMap) {
+        if (productMetadataMap.containsKey(identifier)) {
+            return productMetadataMap.get(identifier);
+        }
+        String resolvedIdentifier = productMetadataCaseInsensitiveMap.get(normalizeIdentifierKey(identifier));
+        if (resolvedIdentifier == null) {
+            return null;
+        }
+        return productMetadataMap.get(resolvedIdentifier);
+    }
+
+    private DeviceProperty findCurrentProperty(String identifier,
+                                               Map<String, DeviceProperty> currentPropertyMap,
+                                               Map<String, String> currentPropertyCaseInsensitiveMap) {
+        if (currentPropertyMap.containsKey(identifier)) {
+            return currentPropertyMap.get(identifier);
+        }
+        String resolvedIdentifier = currentPropertyCaseInsensitiveMap.get(normalizeIdentifierKey(identifier));
+        if (resolvedIdentifier == null) {
+            return null;
+        }
+        return currentPropertyMap.get(resolvedIdentifier);
+    }
+
+    private DevicePropertyMetadata copyMetadata(DevicePropertyMetadata metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        DevicePropertyMetadata copy = new DevicePropertyMetadata();
+        copy.setIdentifier(metadata.getIdentifier());
+        copy.setPropertyName(metadata.getPropertyName());
+        copy.setDataType(metadata.getDataType());
+        copy.setTdengineLegacyMapping(metadata.getTdengineLegacyMapping());
+        return copy;
+    }
+
+    private String normalizeIdentifierKey(String identifier) {
+        return identifier == null ? "" : identifier.trim().toLowerCase(Locale.ROOT);
     }
 
     private List<TelemetryV2Point> readHistoryPoints(Device device,
@@ -588,6 +743,9 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private Boolean parseBoolean(String value) {
         String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
         return "1".equals(normalized) || "true".equals(normalized) || "yes".equals(normalized);
+    }
+
+    private record HistoryIdentifierContext(List<String> identifiers, Map<String, DevicePropertyMetadata> metadataMap) {
     }
 
     private record HistoryWindowTemplate(String rangeCode, String bucketCode, ChronoUnit unit, int slotCount) {

@@ -12,7 +12,7 @@ export interface Role {
   status: number
   createTime?: string
   updateTime?: string
-  menuIds?: number[]
+  menuIds?: IdType[]
 }
 
 export interface RoleQueryParams {

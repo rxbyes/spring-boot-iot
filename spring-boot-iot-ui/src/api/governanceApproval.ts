@@ -1,4 +1,5 @@
 import { request } from './request'
+import type { RequestOptions } from './request'
 import { buildQueryString } from './query'
 import type {
   ApiEnvelope,
@@ -21,15 +22,23 @@ export const governanceApprovalApi = {
     })
   },
 
-  getOrderDetail(orderId: IdType): Promise<ApiEnvelope<GovernanceApprovalOrderDetail>> {
+  getOrderDetail(
+    orderId: IdType,
+    options: Pick<RequestOptions, 'signal' | 'suppressErrorToast'> = {}
+  ): Promise<ApiEnvelope<GovernanceApprovalOrderDetail>> {
     return request<GovernanceApprovalOrderDetail>(`/api/system/governance-approval/${orderId}`, {
-      method: 'GET'
+      method: 'GET',
+      ...options
     })
   },
 
-  simulateOrder(orderId: IdType): Promise<ApiEnvelope<GovernanceSimulationResult>> {
+  simulateOrder(
+    orderId: IdType,
+    options: Pick<RequestOptions, 'signal' | 'suppressErrorToast'> = {}
+  ): Promise<ApiEnvelope<GovernanceSimulationResult>> {
     return request<GovernanceSimulationResult>(`/api/system/governance-simulation/approval/${orderId}`, {
-      method: 'POST'
+      method: 'POST',
+      ...options
     })
   },
 

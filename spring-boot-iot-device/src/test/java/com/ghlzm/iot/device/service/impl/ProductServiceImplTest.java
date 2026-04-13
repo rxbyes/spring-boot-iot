@@ -11,7 +11,9 @@ import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
@@ -52,6 +54,8 @@ class ProductServiceImplTest {
     @Mock
     private ProductMapper productMapper;
     @Mock
+    private ProductModelMapper productModelMapper;
+    @Mock
     private DeviceOnlineSessionService deviceOnlineSessionService;
 
     private ProductServiceImpl productService;
@@ -64,7 +68,7 @@ class ProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        productService = spy(new ProductServiceImpl(deviceMapper, deviceOnlineSessionService));
+        productService = spy(new ProductServiceImpl(deviceMapper, productModelMapper, deviceOnlineSessionService));
     }
 
     @Test
@@ -451,6 +455,49 @@ class ProductServiceImplTest {
         assertTrue(captor.getValue().getMetadataJson().contains("S1_ZT_1.battery_dump_energy"));
     }
 
+    @Test
+    void updateProductShouldNormalizeObjectInsightIdentifiersToFormalModelCasing() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_JS_1.gX", "X轴加速度"),
+                buildProductModel(1001L, "S1_ZT_1.signal_4g", "4G信号")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "l1_js_1.gx",
+                        "displayName": "X轴加速度",
+                        "group": "measure",
+                        "includeInTrend": true
+                      },
+                      {
+                        "identifier": "s1_zt_1.signal_4g",
+                        "displayName": "4G信号",
+                        "group": "runtime",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_JS_1.gX\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"S1_ZT_1.signal_4g\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"l1_js_1.gx\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"s1_zt_1.signal_4g\""));
+    }
+
     private Product buildExistingProduct() {
         Product product = new Product();
         product.setId(1001L);
@@ -460,6 +507,16 @@ class ProductServiceImplTest {
         product.setNodeType(1);
         product.setStatus(ProductStatusEnum.ENABLED.getCode());
         return product;
+    }
+
+    private ProductModel buildProductModel(Long productId, String identifier, String modelName) {
+        ProductModel model = new ProductModel();
+        model.setProductId(productId);
+        model.setModelType("property");
+        model.setIdentifier(identifier);
+        model.setModelName(modelName);
+        model.setDeleted(0);
+        return model;
     }
 
     private ProductAddDTO buildProductDto() {

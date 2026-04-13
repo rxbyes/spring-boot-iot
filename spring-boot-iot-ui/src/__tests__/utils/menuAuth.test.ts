@@ -57,6 +57,35 @@ const menuTree: MenuTreeNode[] = [
   }
 ];
 
+const stringIdMenuTree = [
+  {
+    id: '1922974195260456961',
+    menuName: '平台治理',
+    menuCode: 'system-governance',
+    type: 0,
+    children: [
+      {
+        id: '1922974195260456962',
+        parentId: '1922974195260456961',
+        menuName: '角色权限',
+        menuCode: 'system:role',
+        path: '/role',
+        type: 1,
+        children: [
+          {
+            id: '1922974195260456963',
+            parentId: '1922974195260456962',
+            menuName: '新增角色',
+            menuCode: 'system:role:add',
+            type: 2,
+            children: []
+          }
+        ]
+      }
+    ]
+  }
+] as MenuTreeNode[];
+
 describe('menuAuth utils', () => {
   it('builds a flattened node map from tree data', () => {
     const nodeMap = buildMenuNodeMap(menuTree);
@@ -70,6 +99,20 @@ describe('menuAuth utils', () => {
 
   it('normalizes granted ids from leaf menus by auto-including ancestors', () => {
     expect(resolveGrantedMenuIds(menuTree, [5])).toEqual([1, 4, 5]);
+  });
+
+  it('keeps granted menu ids when real-environment menu ids are serialized as strings', () => {
+    expect(resolveGrantedMenuIds(stringIdMenuTree, ['1922974195260456963'])).toEqual([
+      '1922974195260456961',
+      '1922974195260456962',
+      '1922974195260456963'
+    ]);
+
+    const stateMap = buildMenuSelectionStateMap(stringIdMenuTree, ['1922974195260456962']);
+    expect(stateMap.get('1922974195260456962')).toMatchObject({
+      selfSelected: true,
+      indeterminate: true
+    });
   });
 
   it('marks a selected page without all buttons as half-selected', () => {

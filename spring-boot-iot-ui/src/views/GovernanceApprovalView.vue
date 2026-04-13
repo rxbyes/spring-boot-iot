@@ -512,7 +512,7 @@ import {
   type ProductContractReleaseRiskPointBindingDetail,
   type ProductContractReleaseRuleDetail
 } from '@/api/product'
-import { resolveRequestErrorMessage } from '@/api/request'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardButton from '@/components/StandardButton.vue'
@@ -787,7 +787,7 @@ async function loadOrders() {
     orderList.value = response.data?.records ?? []
   } catch (error) {
     orderList.value = []
-    ElMessage.error(resolveRequestErrorMessage(error, '治理审批单加载失败'))
+    showRequestErrorToast(error, '治理审批单加载失败')
   } finally {
     loading.value = false
   }
@@ -802,7 +802,7 @@ async function loadOrderDetail(orderId: IdType, silent = false) {
   resetDetailSimulation()
   resetDetailImpact()
   try {
-    const response = await governanceApprovalApi.getOrderDetail(orderId)
+    const response = await governanceApprovalApi.getOrderDetail(orderId, { suppressErrorToast: true })
     detailData.value = response.data ?? null
     await loadDetailSimulation(response.data?.order ?? null)
     await loadDetailImpact()
@@ -823,7 +823,7 @@ async function loadDetailImpact() {
   detailImpactLoading.value = true
   detailImpactErrorMessage.value = ''
   try {
-    const response = await productApi.getProductContractReleaseBatchImpact(batchId)
+    const response = await productApi.getProductContractReleaseBatchImpact(batchId, { suppressErrorToast: true })
     detailImpact.value = response.data ?? null
   } catch (error) {
     detailImpact.value = null
@@ -841,7 +841,7 @@ async function loadDetailSimulation(order: GovernanceApprovalOrder | null | unde
   detailSimulationLoading.value = true
   detailSimulationErrorMessage.value = ''
   try {
-    const response = await governanceApprovalApi.simulateOrder(order.id)
+    const response = await governanceApprovalApi.simulateOrder(order.id, { suppressErrorToast: true })
     detailSimulation.value = response.data ?? null
   } catch (error) {
     detailSimulation.value = null
@@ -859,7 +859,7 @@ async function loadActionSimulation(order: GovernanceApprovalOrder | null | unde
   actionSimulationLoading.value = true
   actionSimulationErrorMessage.value = ''
   try {
-    const response = await governanceApprovalApi.simulateOrder(order.id)
+    const response = await governanceApprovalApi.simulateOrder(order.id, { suppressErrorToast: true })
     actionSimulation.value = response.data ?? null
     if (!normalizeText(actionComment.value) && actionSimulation.value?.autoDraftEligible && actionSimulation.value.autoDraftComment) {
       actionComment.value = actionSimulation.value.autoDraftComment
@@ -1032,10 +1032,17 @@ async function executeActionWithConfirm(executor: () => Promise<void>) {
     if (isConfirmCancelled(error)) {
       return
     }
-    ElMessage.error(resolveRequestErrorMessage(error, `${actionDrawerTitle.value}失败`))
+    showRequestErrorToast(error, `${actionDrawerTitle.value}失败`)
   } finally {
     submitLoading.value = false
   }
+}
+
+function showRequestErrorToast(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
 }
 
 function sameId(left: IdType | null | undefined, right: IdType | null | undefined) {

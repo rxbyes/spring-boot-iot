@@ -397,4 +397,71 @@ describe('deviceInsightCapability', () => {
     expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers).not.toContain('S1_ZT_1.humidity');
     expect(profile.historyIdentifiers).not.toContain('S1_ZT_1.humidity');
   });
+
+  it('aligns metadata custom metric identifiers to runtime property casing before building history identifiers', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'SK11EB0D1308100AZ',
+      productName: '南方测绘 监测型 多维位移监测仪',
+      productMetadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'l1_js_1.gx',
+              displayName: '1号加速度测点gX',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            },
+            {
+              identifier: 'l1_lf_1.value',
+              displayName: '裂缝值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            },
+            {
+              identifier: 's1_zt_1.signal_4g',
+              displayName: '4G 信号',
+              group: 'runtime',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'L1_JS_1.gX',
+          propertyName: 'X轴加速度',
+          propertyValue: '0.1667',
+          valueType: 'double'
+        },
+        {
+          id: 2,
+          identifier: 'L1_LF_1.value',
+          propertyName: '裂缝值',
+          propertyValue: '0.2136',
+          valueType: 'double'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G信号',
+          propertyValue: '-55',
+          valueType: 'int'
+        }
+      ]
+    });
+
+    expect(profile.historyIdentifiers).toEqual(
+      expect.arrayContaining(['L1_JS_1.gX', 'L1_LF_1.value', 'S1_ZT_1.signal_4g'])
+    );
+    expect(profile.historyIdentifiers).not.toEqual(
+      expect.arrayContaining(['l1_js_1.gx', 'l1_lf_1.value', 's1_zt_1.signal_4g'])
+    );
+  });
 });

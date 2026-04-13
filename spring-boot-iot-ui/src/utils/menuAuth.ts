@@ -1,9 +1,10 @@
+import type { IdType } from '../types/api';
 import type { MenuTreeNode } from '../types/auth';
 
 export interface MenuRelationState {
-  ancestorIds: number[];
-  childIds: number[];
-  descendantIds: number[];
+  ancestorIds: IdType[];
+  childIds: IdType[];
+  descendantIds: IdType[];
 }
 
 export interface MenuSelectionState {
@@ -15,8 +16,8 @@ export interface MenuSelectionState {
 }
 
 export interface RoleAuthDetailItem {
-  id: number;
-  parentId?: number | null;
+  id: IdType;
+  parentId?: IdType | null;
   menuName: string;
   menuCode?: string;
   path?: string;
@@ -28,10 +29,17 @@ export interface RoleAuthDetailItem {
   childCount: number;
 }
 
+function isMenuId(value: unknown): value is IdType {
+  return (
+    (typeof value === 'string' && value.trim().length > 0) ||
+    (typeof value === 'number' && Number.isFinite(value))
+  );
+}
+
 function visitMenus(
   nodes: MenuTreeNode[],
-  visitor: (node: MenuTreeNode, ancestorIds: number[]) => void,
-  ancestorIds: number[] = []
+  visitor: (node: MenuTreeNode, ancestorIds: IdType[]) => void,
+  ancestorIds: IdType[] = []
 ): void {
   nodes.forEach((node) => {
     visitor(node, ancestorIds);
@@ -52,9 +60,9 @@ function matchesMenuKeyword(node: MenuTreeNode, keyword: string): boolean {
     .some((item) => item.toLowerCase().includes(normalizedKeyword));
 }
 
-function orderMenuIdsByTree(nodes: MenuTreeNode[], menuIds: Iterable<number>): number[] {
+function orderMenuIdsByTree(nodes: MenuTreeNode[], menuIds: Iterable<IdType>): IdType[] {
   const menuIdSet = new Set(menuIds);
-  const orderedIds: number[] = [];
+  const orderedIds: IdType[] = [];
   visitMenus(nodes, (node) => {
     if (menuIdSet.has(node.id)) {
       orderedIds.push(node.id);
@@ -73,20 +81,20 @@ function resolveNodeDescription(node: MenuTreeNode): string {
   );
 }
 
-export function buildMenuNodeMap(nodes: MenuTreeNode[]): Map<number, MenuTreeNode> {
-  const nodeMap = new Map<number, MenuTreeNode>();
+export function buildMenuNodeMap(nodes: MenuTreeNode[]): Map<IdType, MenuTreeNode> {
+  const nodeMap = new Map<IdType, MenuTreeNode>();
   visitMenus(nodes, (node) => {
     nodeMap.set(node.id, node);
   });
   return nodeMap;
 }
 
-export function buildMenuRelationMap(nodes: MenuTreeNode[]): Map<number, MenuRelationState> {
-  const relationMap = new Map<number, MenuRelationState>();
+export function buildMenuRelationMap(nodes: MenuTreeNode[]): Map<IdType, MenuRelationState> {
+  const relationMap = new Map<IdType, MenuRelationState>();
 
-  const walk = (node: MenuTreeNode, ancestorIds: number[]): number[] => {
+  const walk = (node: MenuTreeNode, ancestorIds: IdType[]): IdType[] => {
     const childIds = (node.children || []).map((child) => child.id);
-    const descendantIds: number[] = [];
+    const descendantIds: IdType[] = [];
 
     (node.children || []).forEach((child) => {
       descendantIds.push(child.id);
@@ -111,18 +119,18 @@ export function buildMenuRelationMap(nodes: MenuTreeNode[]): Map<number, MenuRel
 
 export function resolveGrantedMenuIds(
   nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>
-): number[] {
+  grantedIds: Array<IdType | undefined | null>
+): IdType[] {
   if (!grantedIds.length) {
     return [];
   }
 
   const nodeMap = buildMenuNodeMap(nodes);
   const relationMap = buildMenuRelationMap(nodes);
-  const grantedIdSet = new Set<number>();
+  const grantedIdSet = new Set<IdType>();
 
   grantedIds.forEach((menuId) => {
-    if (typeof menuId !== 'number' || !nodeMap.has(menuId)) {
+    if (!isMenuId(menuId) || !nodeMap.has(menuId)) {
       return;
     }
     grantedIdSet.add(menuId);
@@ -136,10 +144,10 @@ export function resolveGrantedMenuIds(
 
 export function toggleMenuGrant(
   nodes: MenuTreeNode[],
-  grantedIds: number[],
-  targetId: number,
+  grantedIds: IdType[],
+  targetId: IdType,
   checked: boolean
-): number[] {
+): IdType[] {
   const nodeMap = buildMenuNodeMap(nodes);
   if (!nodeMap.has(targetId)) {
     return resolveGrantedMenuIds(nodes, grantedIds);
@@ -151,7 +159,7 @@ export function toggleMenuGrant(
     return resolveGrantedMenuIds(nodes, grantedIds);
   }
 
-  const nextGrantedIdSet = new Set(resolveGrantedMenuIds(nodes, grantedIds));
+  const nextGrantedIdSet = new Set<IdType>(resolveGrantedMenuIds(nodes, grantedIds));
 
   if (checked) {
     [targetId, ...relation.ancestorIds, ...relation.descendantIds].forEach((menuId) => {
@@ -168,11 +176,11 @@ export function toggleMenuGrant(
 
 export function buildMenuSelectionStateMap(
   nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>
-): Map<number, MenuSelectionState> {
+  grantedIds: Array<IdType | undefined | null>
+): Map<IdType, MenuSelectionState> {
   const grantedIdSet = new Set(resolveGrantedMenuIds(nodes, grantedIds));
   const relationMap = buildMenuRelationMap(nodes);
-  const stateMap = new Map<number, MenuSelectionState>();
+  const stateMap = new Map<IdType, MenuSelectionState>();
 
   relationMap.forEach((relation, nodeId) => {
     const subtreeIds = [nodeId, ...relation.descendantIds];
@@ -218,7 +226,7 @@ export function filterPermissionTreeByKeyword(
   }, []);
 }
 
-export function resolveNodeAncestorIds(nodes: MenuTreeNode[], targetId: number | null): number[] {
+export function resolveNodeAncestorIds(nodes: MenuTreeNode[], targetId: IdType | null): IdType[] {
   if (targetId === null) {
     return [];
   }
@@ -227,9 +235,9 @@ export function resolveNodeAncestorIds(nodes: MenuTreeNode[], targetId: number |
 
 export function resolveNodeDetailItems(
   nodes: MenuTreeNode[],
-  targetId: number | null,
+  targetId: IdType | null,
   keyword = '',
-  selectionStateMap?: Map<number, MenuSelectionState>
+  selectionStateMap?: Map<IdType, MenuSelectionState>
 ): RoleAuthDetailItem[] {
   if (targetId === null) {
     return [];
@@ -280,18 +288,18 @@ export function buildRolePageTree(nodes: MenuTreeNode[]): MenuTreeNode[] {
 
 export function resolveRoleCheckedMenuIds(
   nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>
-): number[] {
+  grantedIds: Array<IdType | undefined | null>
+): IdType[] {
   if (!grantedIds.length) {
     return [];
   }
 
   const nodeMap = buildMenuNodeMap(nodes);
-  const checkedIds: number[] = [];
-  const seen = new Set<number>();
+  const checkedIds: IdType[] = [];
+  const seen = new Set<IdType>();
 
   grantedIds.forEach((menuId) => {
-    if (typeof menuId !== 'number' || seen.has(menuId)) {
+    if (!isMenuId(menuId) || seen.has(menuId)) {
       return;
     }
     const node = nodeMap.get(menuId);
@@ -307,17 +315,17 @@ export function resolveRoleCheckedMenuIds(
 
 export function resolveRoleSelectedPageIds(
   nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>
-): number[] {
+  grantedIds: Array<IdType | undefined | null>
+): IdType[] {
   if (!grantedIds.length) {
     return [];
   }
 
   const grantedSet = new Set(
-    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
+    grantedIds.filter((menuId): menuId is IdType => isMenuId(menuId))
   );
 
-  const selectedPageIds: number[] = [];
+  const selectedPageIds: IdType[] = [];
   visitMenus(nodes, (node) => {
     if (node.type === 1 && grantedSet.has(node.id)) {
       selectedPageIds.push(node.id);
@@ -328,26 +336,27 @@ export function resolveRoleSelectedPageIds(
 
 export function resolveRoleSelectedButtonIdsByPage(
   nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>
-): Record<number, number[]> {
+  grantedIds: Array<IdType | undefined | null>
+): Record<string, IdType[]> {
   if (!grantedIds.length) {
     return {};
   }
 
   const grantedSet = new Set(
-    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
+    grantedIds.filter((menuId): menuId is IdType => isMenuId(menuId))
   );
-  const selectedButtonIdsByPage: Record<number, number[]> = {};
+  const selectedButtonIdsByPage: Record<string, IdType[]> = {};
 
   visitMenus(nodes, (node) => {
-    if (node.type !== 2 || typeof node.parentId !== 'number' || !grantedSet.has(node.id)) {
+    if (node.type !== 2 || !isMenuId(node.parentId) || !grantedSet.has(node.id)) {
       return;
     }
 
-    if (!selectedButtonIdsByPage[node.parentId]) {
-      selectedButtonIdsByPage[node.parentId] = [];
+    const parentKey = String(node.parentId);
+    if (!selectedButtonIdsByPage[parentKey]) {
+      selectedButtonIdsByPage[parentKey] = [];
     }
-    selectedButtonIdsByPage[node.parentId].push(node.id);
+    selectedButtonIdsByPage[parentKey].push(node.id);
   });
 
   return selectedButtonIdsByPage;
@@ -355,26 +364,25 @@ export function resolveRoleSelectedButtonIdsByPage(
 
 export function composeRoleGrantedMenuIds(
   nodes: MenuTreeNode[],
-  selectedPageIds: number[],
-  selectedButtonIdsByPage: Record<number, number[]>
-): number[] {
+  selectedPageIds: IdType[],
+  selectedButtonIdsByPage: Record<string, IdType[]>
+): IdType[] {
   if (!selectedPageIds.length) {
     return [];
   }
 
-  const selectedPageIdSet = new Set(selectedPageIds);
+  const selectedPageIdSet = new Set(selectedPageIds.map((menuId) => String(menuId)));
   const nodeMap = buildMenuNodeMap(nodes);
-  const composedIds = new Set<number>(selectedPageIds);
+  const composedIds = new Set<IdType>(selectedPageIds);
 
   Object.entries(selectedButtonIdsByPage).forEach(([pageIdText, buttonIds]) => {
-    const pageId = Number(pageIdText);
-    if (!selectedPageIdSet.has(pageId)) {
+    if (!selectedPageIdSet.has(pageIdText)) {
       return;
     }
 
     buttonIds.forEach((buttonId) => {
       const node = nodeMap.get(buttonId);
-      if (node?.type === 2 && node.parentId === pageId) {
+      if (node?.type === 2 && String(node.parentId) === pageIdText) {
         composedIds.add(buttonId);
       }
     });
@@ -385,7 +393,7 @@ export function composeRoleGrantedMenuIds(
 
 export function resolveRoleMenuSummary(
   nodes: MenuTreeNode[],
-  grantedIds: Array<number | undefined | null>,
+  grantedIds: Array<IdType | undefined | null>,
   limit = 6
 ): string[] {
   if (!grantedIds.length || limit <= 0) {
@@ -393,7 +401,7 @@ export function resolveRoleMenuSummary(
   }
 
   const grantedSet = new Set(
-    grantedIds.filter((menuId): menuId is number => typeof menuId === 'number')
+    grantedIds.filter((menuId): menuId is IdType => isMenuId(menuId))
   );
 
   const labels: string[] = [];

@@ -101,6 +101,7 @@
 import { computed } from 'vue';
 
 import PanelCard from '@/components/PanelCard.vue';
+import type { IdType } from '@/types/api';
 import type { MenuTreeNode } from '@/types/auth';
 import type { MenuSelectionState, RoleAuthDetailItem } from '@/utils/menuAuth';
 
@@ -125,8 +126,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: 'update:keyword', value: string): void;
-  (event: 'toggle', menuId: number, checked: boolean): void;
-  (event: 'focus-child', menuId: number): void;
+  (event: 'toggle', menuId: IdType, checked: boolean): void;
+  (event: 'focus-child', menuId: IdType): void;
 }>();
 
 const isButtonNode = computed(() => props.currentNode?.type === 2);
@@ -186,7 +187,7 @@ function shouldShowPartialBadge(state: MenuSelectableState): boolean {
   return state.indeterminate && state.selfSelected && (state.childCount ?? state.totalChildCount ?? 0) > 0;
 }
 
-function handleToggle(menuId: number, value: string | number | boolean) {
+function handleToggle(menuId: IdType, value: string | number | boolean) {
   emit('toggle', menuId, Boolean(value));
 }
 </script>

@@ -35,9 +35,17 @@ describe('RoleView governance contract', () => {
   it('keeps all-level granted ids in a single local state and submits menuIds from that state', () => {
     const source = readSource();
 
-    expect(source).toContain('const grantedMenuIds = ref<number[]>([])');
+    expect(source).toContain('const grantedMenuIds = ref<IdType[]>([])');
     expect(source).toContain('toggleMenuGrant(');
     expect(source).toContain('resolveGrantedMenuIds(');
     expect(source).toContain('menuIds: [...grantedMenuIds.value]');
+  });
+
+  it('keeps role and menu ids as IdType values instead of coercing them into unsafe numbers', () => {
+    const source = readSource();
+
+    expect(source).not.toContain('id: Number(res.data.id)');
+    expect(source).not.toContain('typeof currentNode.value.parentId !== "number"');
+    expect(source).toContain('const currentNodeId = ref<IdType | null>(null)');
   });
 });

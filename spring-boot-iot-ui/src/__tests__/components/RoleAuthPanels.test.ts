@@ -146,6 +146,33 @@ describe('Role auth panels', () => {
     expect((checkboxInput.element as HTMLInputElement).checked).toBe(true);
   });
 
+  it('supports string menu ids from real environment responses', () => {
+    const wrapper = mount(RoleAuthPermissionTreePanel, {
+      props: {
+        treeData: [
+          {
+            id: '1922974195260456961',
+            menuName: '平台治理',
+            type: 0,
+            children: []
+          }
+        ],
+        currentNodeId: '1922974195260456961',
+        expandedKeys: ['1922974195260456961'],
+        selectionStateMap: new Map([
+          ['1922974195260456961', { checked: false, indeterminate: true, selfSelected: true, selectedChildCount: 0, totalChildCount: 1 }]
+        ]),
+        keyword: '',
+        loading: false
+      }
+    });
+
+    const checkboxInput = wrapper.find('input[type="checkbox"]');
+
+    expect(checkboxInput.exists()).toBe(true);
+    expect((checkboxInput.element as HTMLInputElement).checked).toBe(true);
+  });
+
   it('emits toggle when clicking a tree checkbox', async () => {
     const wrapper = mount(RoleAuthPermissionTreePanel, {
       props: {

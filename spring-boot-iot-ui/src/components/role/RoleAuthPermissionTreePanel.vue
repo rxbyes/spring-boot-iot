@@ -69,37 +69,46 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, type PropType } from 'vue';
 
 import PanelCard from '@/components/PanelCard.vue';
+import type { IdType } from '@/types/api';
 import type { MenuTreeNode } from '@/types/auth';
 import type { MenuSelectionState } from '@/utils/menuAuth';
 
-const props = withDefaults(
-  defineProps<{
-    treeData?: MenuTreeNode[];
-    currentNodeId?: number | null;
-    expandedKeys?: number[];
-    selectionStateMap?: Map<number, MenuSelectionState>;
-    keyword?: string;
-    loading?: boolean;
-  }>(),
-  {
-    treeData: () => [],
-    currentNodeId: null,
-    expandedKeys: () => [],
-    selectionStateMap: () => new Map<number, MenuSelectionState>(),
-    keyword: '',
-    loading: false
+const props = defineProps({
+  treeData: {
+    type: Array as PropType<MenuTreeNode[]>,
+    default: () => []
+  },
+  currentNodeId: {
+    type: [String, Number],
+    default: null
+  },
+  expandedKeys: {
+    type: Array as PropType<IdType[]>,
+    default: () => []
+  },
+  selectionStateMap: {
+    type: Object as PropType<Map<IdType, MenuSelectionState>>,
+    default: () => new Map<IdType, MenuSelectionState>()
+  },
+  keyword: {
+    type: String,
+    default: ''
+  },
+  loading: {
+    type: Boolean,
+    default: false
   }
-);
+});
 
 const emit = defineEmits<{
   (event: 'update:keyword', value: string): void;
-  (event: 'toggle', menuId: number, checked: boolean): void;
-  (event: 'select-node', menuId: number): void;
-  (event: 'expand', menuId: number): void;
-  (event: 'collapse', menuId: number): void;
+  (event: 'toggle', menuId: IdType, checked: boolean): void;
+  (event: 'select-node', menuId: IdType): void;
+  (event: 'expand', menuId: IdType): void;
+  (event: 'collapse', menuId: IdType): void;
   (event: 'refresh'): void;
 }>();
 
@@ -122,7 +131,7 @@ function resolveTypeLabel(type?: number) {
   return '目录';
 }
 
-function resolveSelectionState(menuId: number): MenuSelectionState {
+function resolveSelectionState(menuId: IdType): MenuSelectionState {
   return (
     props.selectionStateMap.get(menuId) || {
       checked: false,
@@ -150,7 +159,7 @@ function handleKeywordChange(value: string | number) {
   emit('update:keyword', String(value ?? ''));
 }
 
-function handleToggle(menuId: number, value: string | number | boolean) {
+function handleToggle(menuId: IdType, value: string | number | boolean) {
   emit('toggle', menuId, Boolean(value));
 }
 
@@ -202,8 +211,10 @@ function handleNodeCollapse(data: MenuTreeNode) {
 
 .role-auth-tree-panel__node-main {
   display: flex;
+  flex: 1;
   min-width: 0;
-  flex-wrap: wrap;
+  overflow: hidden;
+  flex-wrap: nowrap;
   gap: 0.45rem;
   align-items: center;
 }
@@ -215,11 +226,16 @@ function handleNodeCollapse(data: MenuTreeNode) {
 .role-auth-tree-panel__node-name {
   color: var(--text-primary);
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-auth-tree-panel__node-type,
 .role-auth-tree-panel__node-count {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   min-height: 1.35rem;
   padding: 0 0.45rem;
@@ -239,6 +255,7 @@ function handleNodeCollapse(data: MenuTreeNode) {
 
 .role-auth-tree-panel__node-partial {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   min-height: 1.35rem;
   padding: 0 0.45rem;

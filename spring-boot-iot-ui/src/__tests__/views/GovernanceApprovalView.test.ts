@@ -1,7 +1,9 @@
 import { computed, defineComponent, inject, provide } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ElMessage } from 'element-plus'
 
+import { createRequestError } from '@/api/request'
 import GovernanceApprovalView from '@/views/GovernanceApprovalView.vue'
 
 const {
@@ -349,6 +351,9 @@ describe('GovernanceApprovalView', () => {
     mockConfirmAction.mockReset()
     mockRouter.push.mockReset()
     mockRoute.query = {}
+    vi.mocked(ElMessage.success).mockReset()
+    vi.mocked(ElMessage.error).mockReset()
+    vi.mocked(ElMessage.warning).mockReset()
     mockConfirmAction.mockResolvedValue(undefined)
     mockPermissionStore.userInfo.id = 2002
 
@@ -529,6 +534,15 @@ describe('GovernanceApprovalView', () => {
     expect(wrapper.text()).toContain('待审批')
   })
 
+  it('does not show a second toast when the approval order page request error is already handled', async () => {
+    mockPageOrders.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    mountView()
+    await flushPromises()
+
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
+  })
+
   it('opens detail drawer and renders execution result from payloadJson', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -536,8 +550,8 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
     await flushPromises()
 
-    expect(mockGetOrderDetail).toHaveBeenCalledWith(88001)
-    expect(mockSimulateOrder).toHaveBeenCalledWith(88001)
+    expect(mockGetOrderDetail).toHaveBeenCalledWith(88001, { suppressErrorToast: true })
+    expect(mockSimulateOrder).toHaveBeenCalledWith(88001, { suppressErrorToast: true })
     expect(wrapper.text()).toContain('审批概览')
     expect(wrapper.text()).toContain('99001')
     expect(wrapper.text()).toContain('73001')
@@ -551,7 +565,7 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
     await flushPromises()
 
-    expect(mockSimulateOrder).toHaveBeenCalledWith(88001)
+    expect(mockSimulateOrder).toHaveBeenCalledWith(88001, { suppressErrorToast: true })
     expect(wrapper.text()).toContain('审批预演')
     expect(wrapper.text()).toContain('预计影响 1 项')
     expect(wrapper.text()).toContain('RISK_METRIC / RISK_POINT / RULE')
@@ -566,7 +580,7 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
     await flushPromises()
 
-    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001)
+    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001, { suppressErrorToast: true })
     expect(wrapper.text()).toContain('发布影响分析')
     expect(wrapper.text()).toContain('新增 1')
     expect(wrapper.text()).toContain('删除 1')
@@ -581,6 +595,26 @@ describe('GovernanceApprovalView', () => {
     expect(wrapper.text()).toContain('裂缝值应急预案')
     expect(wrapper.text()).toContain('value')
     expect(wrapper.text()).toContain('modelName')
+  })
+
+  it('keeps detail impact failures inline without adding a global busy toast', async () => {
+    mockGetProductContractReleaseBatchImpact.mockImplementationOnce((_batchId, options) => {
+      if (!options?.suppressErrorToast) {
+        ElMessage.error('系统繁忙，请稍后重试！')
+      }
+      return Promise.reject(createRequestError('系统繁忙，请稍后重试！', true, 500))
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001, { suppressErrorToast: true })
+    expect(wrapper.text()).toContain('发布影响分析')
+    expect(wrapper.text()).toContain('系统繁忙，请稍后重试！')
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
   })
 
   it('navigates to downstream context when dependency detail jump is clicked', async () => {
@@ -648,6 +682,25 @@ describe('GovernanceApprovalView', () => {
     expect(mockApproveOrder).toHaveBeenCalledWith(88001, {
       comment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。'
     })
+  })
+
+  it('does not add a second toast when approve submission fails with an already handled busy error', async () => {
+    mockApproveOrder.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('通过'))?.trigger('click')
+    await flushPromises()
+
+    const actionDrawer = wrapper.get('.governance-approval-form-drawer-stub')
+    await actionDrawer.findAll('button').find((button) => button.text().includes('确认通过'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockApproveOrder).toHaveBeenCalledWith(88001, {
+      comment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。'
+    })
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
   })
 
   it('supports resubmitting a rejected order for the original operator', async () => {

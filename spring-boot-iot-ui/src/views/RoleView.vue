@@ -412,6 +412,7 @@ import {
   updateRole,
   type Role,
 } from "@/api/role";
+import type { IdType } from "@/types/api";
 import type { MenuTreeNode } from "@/types/auth";
 import {
   loadCsvColumnSelection,
@@ -439,13 +440,13 @@ interface SearchFormState {
 }
 
 interface RoleFormData {
-  id: number | undefined;
+  id: IdType | undefined;
   roleName: string;
   roleCode: string;
   description: string;
   dataScopeType: string;
   status: number;
-  menuIds: number[];
+  menuIds: IdType[];
 }
 
 type RoleRowActionCommand = "edit" | "delete";
@@ -521,11 +522,11 @@ const roleActionColumnWidth = resolveWorkbenchActionColumnWidth({
 
 const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
-const grantedMenuIds = ref<number[]>([]);
-const currentNodeId = ref<number | null>(null);
+const grantedMenuIds = ref<IdType[]>([]);
+const currentNodeId = ref<IdType | null>(null);
 const treeKeyword = ref("");
 const detailKeyword = ref("");
-const expandedNodeKeys = ref<number[]>([]);
+const expandedNodeKeys = ref<IdType[]>([]);
 const dataScopeOptions = [
   { label: "全局", value: "ALL" },
   { label: "租户内全部", value: "TENANT" },
@@ -544,7 +545,7 @@ const displayTreeData = computed(() =>
 );
 const treePanelExpandedKeys = computed(() => {
   if (treeKeyword.value.trim()) {
-    const expandedKeySet = new Set<number>();
+    const expandedKeySet = new Set<IdType>();
     const visitVisibleNodes = (nodes: MenuTreeNode[]) => {
       nodes.forEach((node) => {
         if (node.children?.length) {
@@ -592,7 +593,7 @@ const currentNodeState = computed(() => {
   return menuSelectionStateMap.value.get(currentNodeId.value) || null;
 });
 const currentNodeParentLabel = computed(() => {
-  if (!currentNode.value || typeof currentNode.value.parentId !== "number") {
+  if (!currentNode.value || currentNode.value.parentId === null || currentNode.value.parentId === undefined) {
     return "";
   }
   return menuNodeMap.value.get(currentNode.value.parentId)?.menuName || "";
@@ -677,7 +678,7 @@ function syncGrantedMenuIdsToForm() {
   formData.value.menuIds = [...grantedMenuIds.value];
 }
 
-function ensureExpandedNode(menuId: number | null) {
+function ensureExpandedNode(menuId: IdType | null) {
   if (menuId === null) {
     return;
   }
@@ -687,7 +688,7 @@ function ensureExpandedNode(menuId: number | null) {
   );
 }
 
-function resolveDefaultCurrentNodeId(preferredNodeId: number | null = null) {
+function resolveDefaultCurrentNodeId(preferredNodeId: IdType | null = null) {
   if (
     preferredNodeId !== null &&
     menuNodeMap.value.has(preferredNodeId)
@@ -704,8 +705,8 @@ function resolveDefaultCurrentNodeId(preferredNodeId: number | null = null) {
 }
 
 function applyRoleGrantedMenuIds(
-  menuIds: Array<number | undefined | null>,
-  preferredNodeId: number | null = null,
+  menuIds: Array<IdType | undefined | null>,
+  preferredNodeId: IdType | null = null,
 ) {
   grantedMenuIds.value = resolveGrantedMenuIds(rawMenuTree.value, menuIds);
   syncGrantedMenuIdsToForm();
@@ -713,7 +714,7 @@ function applyRoleGrantedMenuIds(
   ensureExpandedNode(currentNodeId.value);
 }
 
-function handleToggleMenu(menuId: number, checked: boolean) {
+function handleToggleMenu(menuId: IdType, checked: boolean) {
   grantedMenuIds.value = toggleMenuGrant(
     rawMenuTree.value,
     grantedMenuIds.value,
@@ -727,7 +728,7 @@ function handleToggleMenu(menuId: number, checked: boolean) {
   ensureExpandedNode(menuId);
 }
 
-function handleSelectCurrentNode(menuId: number) {
+function handleSelectCurrentNode(menuId: IdType) {
   if (!menuNodeMap.value.has(menuId)) {
     return;
   }
@@ -736,14 +737,14 @@ function handleSelectCurrentNode(menuId: number) {
   ensureExpandedNode(menuId);
 }
 
-function handleExpandNode(menuId: number) {
+function handleExpandNode(menuId: IdType) {
   if (expandedNodeKeys.value.includes(menuId)) {
     return;
   }
   expandedNodeKeys.value = [...expandedNodeKeys.value, menuId];
 }
 
-function handleCollapseNode(menuId: number) {
+function handleCollapseNode(menuId: IdType) {
   expandedNodeKeys.value = expandedNodeKeys.value.filter(
     (expandedMenuId) => expandedMenuId !== menuId,
   );
@@ -917,11 +918,15 @@ async function handleAdd() {
 }
 
 async function handleEdit(row: Role) {
+  if (row.id === undefined || row.id === null) {
+    ElMessage.error("角色编号缺失，无法编辑");
+    return;
+  }
   try {
-    const res = await getRole(row.id as number);
+    const res = await getRole(row.id);
     if (res.code === 200 && res.data) {
       await openRoleDialog("编辑角色 / 菜单授权", {
-        id: Number(res.data.id),
+        id: res.data.id,
         roleName: res.data.roleName,
         roleCode: res.data.roleCode,
         description: res.data.description || "",
@@ -937,9 +942,13 @@ async function handleEdit(row: Role) {
 }
 
 async function handleDelete(row: Role) {
+  if (row.id === undefined || row.id === null) {
+    ElMessage.error("角色编号缺失，无法删除");
+    return;
+  }
   try {
     await confirmDelete("角色", row.roleName);
-    const res = await deleteRole(row.id as number);
+    const res = await deleteRole(row.id);
     if (res.code === 200) {
       ElMessage.success("删除成功");
       getRoles();

@@ -138,7 +138,7 @@ export interface ProductContractReleaseImpact {
   dependencySummary?: ProductContractReleaseDependencySummary | null
 }
 
-type ProductRequestOptions = Pick<RequestOptions, 'signal'>
+type ProductRequestOptions = Pick<RequestOptions, 'signal' | 'suppressErrorToast'>
 
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
@@ -261,8 +261,14 @@ export const productApi = {
     return request<ProductContractReleaseBatch>(`/api/device/product/contract-release-batches/${batchId}`, { method: 'GET' })
   },
 
-  getProductContractReleaseBatchImpact(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseImpact>> {
-    return request<ProductContractReleaseImpact>(`/api/device/product/contract-release-batches/${batchId}/impact`, { method: 'GET' })
+  getProductContractReleaseBatchImpact(
+    batchId: IdType,
+    options: ProductRequestOptions = {}
+  ): Promise<ApiEnvelope<ProductContractReleaseImpact>> {
+    return request<ProductContractReleaseImpact>(`/api/device/product/contract-release-batches/${batchId}/impact`, {
+      method: 'GET',
+      ...options
+    })
   },
 
   rollbackProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {

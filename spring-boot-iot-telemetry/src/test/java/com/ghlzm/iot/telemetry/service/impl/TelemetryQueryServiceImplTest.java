@@ -524,6 +524,60 @@ class TelemetryQueryServiceImplTest {
     }
 
     @Test
+    void getHistoryBatchShouldResolveRequestedIdentifiersIgnoringCaseBeforeQueryingHistory() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata formalMetadata = metadata("X轴加速度", "double");
+        DeviceProperty currentProperty = new DeviceProperty();
+        currentProperty.setDeviceId(2001L);
+        currentProperty.setIdentifier("L1_JS_1.gX");
+        currentProperty.setPropertyName("X轴加速度");
+        currentProperty.setValueType("double");
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "L1_JS_1.gX", formalMetadata
+        ));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(currentProperty));
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> metadataMap != null && metadataMap.containsKey("L1_JS_1.gX")),
+                eq(List.of("L1_JS_1.gX")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of(
+                historyPoint("L1_JS_1.gX", "X轴加速度", 0.1667D, LocalDateTime.of(2026, 4, 12, 21, 0))
+        ));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("l1_js_1.gx"));
+        request.setRangeCode("1d");
+        request.setFillPolicy("ZERO");
+
+        TelemetryHistoryBatchResponse result = telemetryQueryService.getHistoryBatch(request);
+
+        assertEquals("L1_JS_1.gX", result.getPoints().get(0).getIdentifier());
+        assertEquals("X轴加速度", result.getPoints().get(0).getDisplayName());
+        verify(telemetryRawHistoryReader).listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> metadataMap != null && metadataMap.containsKey("L1_JS_1.gX")),
+                eq(List.of("L1_JS_1.gX")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        );
+    }
+
+    @Test
     void shouldReadV2LatestBeforeLegacyFallback() {
         Device device = buildDevice();
         Product product = buildProduct();
