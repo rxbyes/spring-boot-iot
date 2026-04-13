@@ -10,7 +10,11 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.TelemetryQueryService;
 import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBatchRequest;
@@ -22,6 +26,7 @@ import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -62,6 +67,39 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader;
     private final LegacyTelemetryHistoryReader legacyTelemetryHistoryReader;
     private final TelemetryRawHistoryReader telemetryRawHistoryReader;
+    private final PublishedProductContractSnapshotService snapshotService;
+    private final MetricIdentifierResolver metricIdentifierResolver;
+
+    @Autowired
+    public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
+                                     ProductMapper productMapper,
+                                     DevicePropertyMapper devicePropertyMapper,
+                                     DevicePropertyMetadataService devicePropertyMetadataService,
+                                     DeviceTelemetryMappingService deviceTelemetryMappingService,
+                                     TdengineTelemetryFacade tdengineTelemetryFacade,
+                                     TelemetryStorageModeResolver storageModeResolver,
+                                     TelemetryReadRouter telemetryReadRouter,
+                                     TelemetryLatestProjectionRepository telemetryLatestProjectionRepository,
+                                     NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader,
+                                     LegacyTelemetryHistoryReader legacyTelemetryHistoryReader,
+                                     TelemetryRawHistoryReader telemetryRawHistoryReader,
+                                     PublishedProductContractSnapshotService snapshotService,
+                                     MetricIdentifierResolver metricIdentifierResolver) {
+        this.deviceMapper = deviceMapper;
+        this.productMapper = productMapper;
+        this.devicePropertyMapper = devicePropertyMapper;
+        this.devicePropertyMetadataService = devicePropertyMetadataService;
+        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
+        this.tdengineTelemetryFacade = tdengineTelemetryFacade;
+        this.storageModeResolver = storageModeResolver;
+        this.telemetryReadRouter = telemetryReadRouter;
+        this.telemetryLatestProjectionRepository = telemetryLatestProjectionRepository;
+        this.normalizedTelemetryHistoryReader = normalizedTelemetryHistoryReader;
+        this.legacyTelemetryHistoryReader = legacyTelemetryHistoryReader;
+        this.telemetryRawHistoryReader = telemetryRawHistoryReader;
+        this.snapshotService = snapshotService;
+        this.metricIdentifierResolver = metricIdentifierResolver;
+    }
 
     public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
                                      ProductMapper productMapper,
@@ -75,18 +113,22 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                                      NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader,
                                      LegacyTelemetryHistoryReader legacyTelemetryHistoryReader,
                                      TelemetryRawHistoryReader telemetryRawHistoryReader) {
-        this.deviceMapper = deviceMapper;
-        this.productMapper = productMapper;
-        this.devicePropertyMapper = devicePropertyMapper;
-        this.devicePropertyMetadataService = devicePropertyMetadataService;
-        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
-        this.tdengineTelemetryFacade = tdengineTelemetryFacade;
-        this.storageModeResolver = storageModeResolver;
-        this.telemetryReadRouter = telemetryReadRouter;
-        this.telemetryLatestProjectionRepository = telemetryLatestProjectionRepository;
-        this.normalizedTelemetryHistoryReader = normalizedTelemetryHistoryReader;
-        this.legacyTelemetryHistoryReader = legacyTelemetryHistoryReader;
-        this.telemetryRawHistoryReader = telemetryRawHistoryReader;
+        this(
+                deviceMapper,
+                productMapper,
+                devicePropertyMapper,
+                devicePropertyMetadataService,
+                deviceTelemetryMappingService,
+                tdengineTelemetryFacade,
+                storageModeResolver,
+                telemetryReadRouter,
+                telemetryLatestProjectionRepository,
+                normalizedTelemetryHistoryReader,
+                legacyTelemetryHistoryReader,
+                telemetryRawHistoryReader,
+                null,
+                null
+        );
     }
 
     @Override
@@ -215,6 +257,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     }
 
     private HistoryIdentifierContext resolveHistoryIdentifierContext(Device device, List<String> requestedIdentifiers) {
+        PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(device);
         Map<String, DevicePropertyMetadata> productMetadataMap = loadProductHistoryMetadataMap(device);
         Map<String, String> productMetadataCaseInsensitiveMap = buildCaseInsensitiveIdentifierMap(productMetadataMap.keySet());
         List<DeviceProperty> currentProperties = loadCurrentProperties(device);
@@ -226,6 +269,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         for (String requestedIdentifier : requestedIdentifiers) {
             String resolvedIdentifier = resolveHistoryIdentifier(
                     requestedIdentifier,
+                    snapshot,
                     currentPropertyMap,
                     currentPropertyCaseInsensitiveMap,
                     productMetadataMap,
@@ -295,10 +339,15 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     }
 
     private String resolveHistoryIdentifier(String requestedIdentifier,
+                                            PublishedProductContractSnapshot snapshot,
                                             Map<String, DeviceProperty> currentPropertyMap,
                                             Map<String, String> currentPropertyCaseInsensitiveMap,
                                             Map<String, DevicePropertyMetadata> productMetadataMap,
                                             Map<String, String> productMetadataCaseInsensitiveMap) {
+        String publishedIdentifier = resolvePublishedIdentifier(snapshot, requestedIdentifier);
+        if (publishedIdentifier != null) {
+            return publishedIdentifier;
+        }
         if (currentPropertyMap.containsKey(requestedIdentifier)) {
             return requestedIdentifier;
         }
@@ -314,6 +363,29 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             return productMetadataIdentifier;
         }
         return requestedIdentifier;
+    }
+
+    private PublishedProductContractSnapshot loadPublishedSnapshot(Device device) {
+        Long productId = device == null ? null : device.getProductId();
+        if (productId == null || snapshotService == null) {
+            return PublishedProductContractSnapshot.empty(productId);
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(productId);
+        return snapshot == null ? PublishedProductContractSnapshot.empty(productId) : snapshot;
+    }
+
+    private String resolvePublishedIdentifier(PublishedProductContractSnapshot snapshot, String requestedIdentifier) {
+        if (metricIdentifierResolver == null || requestedIdentifier == null || requestedIdentifier.isBlank()) {
+            return null;
+        }
+        MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForRead(snapshot, requestedIdentifier);
+        if (resolution == null || resolution.canonicalIdentifier() == null || resolution.canonicalIdentifier().isBlank()) {
+            return null;
+        }
+        if (MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER.equals(resolution.source())) {
+            return null;
+        }
+        return resolution.canonicalIdentifier();
     }
 
     private DevicePropertyMetadata buildResolvedHistoryMetadata(String resolvedIdentifier,

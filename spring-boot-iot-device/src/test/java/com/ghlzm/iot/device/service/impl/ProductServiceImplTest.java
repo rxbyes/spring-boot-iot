@@ -456,13 +456,43 @@ class ProductServiceImplTest {
     }
 
     @Test
-    void updateProductShouldNormalizeObjectInsightIdentifiersToFormalModelCasing() {
+    void updateProductShouldRejectObjectInsightMetricConfiguredWithUnpublishedAlias() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察指标必须使用已发布 canonical 标识符: L1_LF_1.value", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldNormalizeObjectInsightIdentifiersToPublishedCanonicalCasing() {
         Product existing = buildExistingProduct();
         doReturn(existing).when(productService).getRequiredById(1001L);
         doReturn(true).when(productService).updateById(any(Product.class));
         doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
         when(productModelMapper.selectList(any())).thenReturn(List.of(
-                buildProductModel(1001L, "L1_JS_1.gX", "X轴加速度"),
+                buildProductModel(1001L, "L1_GNSS_1.gpsTotalX", "GNSS X"),
                 buildProductModel(1001L, "S1_ZT_1.signal_4g", "4G信号")
         ));
 
@@ -472,13 +502,13 @@ class ProductServiceImplTest {
                   "objectInsight": {
                     "customMetrics": [
                       {
-                        "identifier": "l1_js_1.gx",
-                        "displayName": "X轴加速度",
+                        "identifier": "gpstotalx",
+                        "displayName": "GNSS X",
                         "group": "measure",
                         "includeInTrend": true
                       },
                       {
-                        "identifier": "s1_zt_1.signal_4g",
+                        "identifier": "SIGNAL_4G",
                         "displayName": "4G信号",
                         "group": "runtime",
                         "includeInTrend": true
@@ -492,10 +522,10 @@ class ProductServiceImplTest {
 
         ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
         verify(productService).updateById(captor.capture());
-        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_JS_1.gX\""));
-        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"S1_ZT_1.signal_4g\""));
-        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"l1_js_1.gx\""));
-        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"s1_zt_1.signal_4g\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"gpsTotalX\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"signal_4g\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"gpstotalx\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"SIGNAL_4G\""));
     }
 
     private Product buildExistingProduct() {

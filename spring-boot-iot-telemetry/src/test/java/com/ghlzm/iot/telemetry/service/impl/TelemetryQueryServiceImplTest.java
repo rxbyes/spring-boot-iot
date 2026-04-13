@@ -9,7 +9,11 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBatchRequest;
 import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBatchResponse;
 import com.ghlzm.iot.telemetry.service.model.TelemetryLatestPoint;
@@ -52,6 +56,10 @@ class TelemetryQueryServiceImplTest {
     @Mock
     private DeviceTelemetryMappingService deviceTelemetryMappingService;
     @Mock
+    private PublishedProductContractSnapshotService snapshotService;
+    @Mock
+    private MetricIdentifierResolver metricIdentifierResolver;
+    @Mock
     private TdengineTelemetryFacade tdengineTelemetryFacade;
     @Mock
     private TelemetryStorageModeResolver storageModeResolver;
@@ -82,7 +90,9 @@ class TelemetryQueryServiceImplTest {
                 telemetryLatestProjectionRepository,
                 normalizedTelemetryHistoryReader,
                 legacyTelemetryHistoryReader,
-                telemetryRawHistoryReader
+                telemetryRawHistoryReader,
+                snapshotService,
+                metricIdentifierResolver
         );
     }
 
@@ -120,7 +130,8 @@ class TelemetryQueryServiceImplTest {
         assertEquals(2, result.getPoints().size());
         assertEquals("day", result.getBucket());
         assertEquals(7, result.getPoints().get(0).getBuckets().size());
-        assertEquals(0D, result.getPoints().get(0).getBuckets().get(0).getValue());
+        assertEquals(true, result.getPoints().get(0).getBuckets().stream().anyMatch(item -> item.getValue() == 0D));
+        assertEquals(true, result.getPoints().get(0).getBuckets().stream().anyMatch(item -> item.getValue() == 2.6D));
         assertEquals("measure", result.getPoints().get(0).getSeriesType());
         assertEquals("status", result.getPoints().get(1).getSeriesType());
     }
@@ -571,6 +582,76 @@ class TelemetryQueryServiceImplTest {
                 eq(product),
                 argThat(metadataMap -> metadataMap != null && metadataMap.containsKey("L1_JS_1.gX")),
                 eq(List.of("L1_JS_1.gX")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        );
+    }
+
+    @Test
+    void getHistoryBatchShouldResolveRequestedAliasToPublishedCanonicalIdentifierBeforeHistoryQuery() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DevicePropertyMetadata canonicalMetadata = metadata("裂缝值", "double");
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(9001L)
+                .publishedIdentifier("value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .build();
+
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(snapshotService.getRequiredSnapshot(1001L)).thenReturn(snapshot);
+        when(metricIdentifierResolver.resolveForRead(snapshot, "L1_LF_1.value"))
+                .thenReturn(MetricIdentifierResolution.of(
+                        "L1_LF_1.value",
+                        "value",
+                        MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT
+                ));
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of(
+                "value", canonicalMetadata
+        ));
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(true);
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> metadataMap != null && metadataMap.containsKey("value")),
+                eq(List.of("value")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of());
+        when(normalizedTelemetryHistoryReader.listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> metadataMap != null && metadataMap.containsKey("value")),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                anyInt()
+        )).thenReturn(List.of(
+                historyPoint("value", "裂缝值", 0.2136D, LocalDateTime.of(2026, 4, 12, 21, 0))
+        ));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("L1_LF_1.value"));
+        request.setRangeCode("1d");
+        request.setFillPolicy("ZERO");
+
+        TelemetryHistoryBatchResponse result = telemetryQueryService.getHistoryBatch(request);
+
+        assertEquals("value", result.getPoints().get(0).getIdentifier());
+        assertEquals("裂缝值", result.getPoints().get(0).getDisplayName());
+        assertEquals(true, result.getPoints().get(0).getBuckets().stream().anyMatch(item -> item.getValue() == 0.2136D));
+        verify(telemetryRawHistoryReader).listHistory(
+                eq(device),
+                eq(product),
+                argThat(metadataMap -> metadataMap != null && metadataMap.containsKey("value")),
+                eq(List.of("value")),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class),
                 anyInt()

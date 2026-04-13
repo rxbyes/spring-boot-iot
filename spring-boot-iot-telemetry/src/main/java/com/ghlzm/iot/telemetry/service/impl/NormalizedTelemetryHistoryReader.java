@@ -2,9 +2,14 @@ package com.ghlzm.iot.telemetry.service.impl;
 
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -29,11 +34,23 @@ public class NormalizedTelemetryHistoryReader {
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final TdengineTelemetrySchemaSupport schemaSupport;
+    private final PublishedProductContractSnapshotService snapshotService;
+    private final MetricIdentifierResolver metricIdentifierResolver;
+
+    @Autowired
+    public NormalizedTelemetryHistoryReader(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
+                                            TdengineTelemetrySchemaSupport schemaSupport,
+                                            PublishedProductContractSnapshotService snapshotService,
+                                            MetricIdentifierResolver metricIdentifierResolver) {
+        this.jdbcTemplateProvider = jdbcTemplateProvider;
+        this.schemaSupport = schemaSupport;
+        this.snapshotService = snapshotService;
+        this.metricIdentifierResolver = metricIdentifierResolver;
+    }
 
     public NormalizedTelemetryHistoryReader(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
                                             TdengineTelemetrySchemaSupport schemaSupport) {
-        this.jdbcTemplateProvider = jdbcTemplateProvider;
-        this.schemaSupport = schemaSupport;
+        this(jdbcTemplateProvider, schemaSupport, null, null);
     }
 
     public boolean hasHistory(Long deviceId) {
@@ -76,7 +93,7 @@ public class NormalizedTelemetryHistoryReader {
         return jdbcTemplate.query(sql, rs -> {
             List<TelemetryV2Point> points = new ArrayList<>();
             while (rs.next()) {
-                String metricCode = rs.getString("metric_code");
+                String metricCode = resolveMetricCode(product, rs.getString("metric_code"));
                 DevicePropertyMetadata metadata = metadataMap == null ? null : metadataMap.get(metricCode);
                 Object value = resolveValue(
                         rs.getString("value_type"),
@@ -124,6 +141,26 @@ public class NormalizedTelemetryHistoryReader {
             }
             return points;
         }, args.toArray());
+    }
+
+    private String resolveMetricCode(Product product, String metricCode) {
+        if (metricCode == null || metricCode.isBlank()
+                || product == null || product.getId() == null
+                || snapshotService == null || metricIdentifierResolver == null) {
+            return metricCode;
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(product.getId());
+        if (snapshot == null) {
+            return metricCode;
+        }
+        MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForRead(snapshot, metricCode);
+        if (resolution == null || resolution.canonicalIdentifier() == null || resolution.canonicalIdentifier().isBlank()) {
+            return metricCode;
+        }
+        if (MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER.equals(resolution.source())) {
+            return metricCode;
+        }
+        return resolution.canonicalIdentifier();
     }
 
     private String buildSelectSql(LocalDateTime windowStart,
