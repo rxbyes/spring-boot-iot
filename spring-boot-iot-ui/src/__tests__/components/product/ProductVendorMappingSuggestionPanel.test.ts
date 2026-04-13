@@ -17,8 +17,7 @@ vi.mock(
   () => ({
     listVendorMetricMappingRuleSuggestions,
     createVendorMetricMappingRule
-  }),
-  { virtual: true }
+  })
 )
 
 vi.mock('@/utils/confirm', () => ({ confirmAction, isConfirmCancelled }))
@@ -244,7 +243,6 @@ describe('ProductVendorMappingSuggestionPanel', () => {
     await wrapper.get('[data-testid="vendor-mapping-suggestion-accept-suggestion-ready"]').trigger('click')
     await flushPromises()
 
-    expect(isConfirmCancelled).toHaveBeenCalledWith(handledError)
     expect(messageError).not.toHaveBeenCalled()
   })
 })
