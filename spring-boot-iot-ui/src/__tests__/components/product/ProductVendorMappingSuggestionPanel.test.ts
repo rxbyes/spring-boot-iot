@@ -113,35 +113,44 @@ describe('ProductVendorMappingSuggestionPanel', () => {
 
   it('loads with the default filters and re-requests when covered, refreshToken, and productId change', async () => {
     const wrapper = await mountPanel()
-
-    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenNthCalledWith(1, 1001, {
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenCalledTimes(1)
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenCalledWith(1001, {
       includeCovered: false,
       includeIgnored: false,
       minEvidenceCount: 1
     })
 
+    const callCountAfterInitialLoad = listVendorMetricMappingRuleSuggestions.mock.calls.length
+
     await wrapper.get('[data-testid="vendor-mapping-suggestion-filter-covered"]').trigger('click')
     await flushPromises()
 
-    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenNthCalledWith(2, 1001, {
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenCalledTimes(callCountAfterInitialLoad + 1)
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenLastCalledWith(1001, {
       includeCovered: true,
       includeIgnored: false,
       minEvidenceCount: 1
     })
+    const callCountAfterCoveredToggle = listVendorMetricMappingRuleSuggestions.mock.calls.length
 
     await wrapper.setProps({ refreshToken: 1 })
     await flushPromises()
 
-    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenNthCalledWith(3, 1001, {
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenCalledTimes(
+      callCountAfterCoveredToggle + 1
+    )
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenLastCalledWith(1001, {
       includeCovered: true,
       includeIgnored: false,
       minEvidenceCount: 1
     })
+    const callCountAfterRefresh = listVendorMetricMappingRuleSuggestions.mock.calls.length
 
     await wrapper.setProps({ productId: 2002 })
     await flushPromises()
 
-    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenNthCalledWith(4, 2002, {
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenCalledTimes(callCountAfterRefresh + 1)
+    expect(listVendorMetricMappingRuleSuggestions).toHaveBeenLastCalledWith(2002, {
       includeCovered: true,
       includeIgnored: false,
       minEvidenceCount: 1
