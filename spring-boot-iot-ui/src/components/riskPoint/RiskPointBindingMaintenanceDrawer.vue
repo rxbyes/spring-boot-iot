@@ -455,7 +455,15 @@ const loadBindableDeviceOptions = async (riskPointId: IdType, requestId: number)
     return
   }
   bindableDevices.value = res.code === 200 ? res.data || [] : []
-  selectedAddDevice.value = bindableDevices.value.find((item) => isSameId(item.id, addForm.deviceId)) || null
+  const currentSelectedDevice = bindableDevices.value.find((item) => isSameId(item.id, addForm.deviceId))
+  if (currentSelectedDevice) {
+    selectedAddDevice.value = currentSelectedDevice
+    return
+  }
+  if (getIdKey(addForm.deviceId) && isSameId(selectedAddDevice.value?.id, addForm.deviceId)) {
+    return
+  }
+  selectedAddDevice.value = null
 }
 
 const loadDrawerData = async () => {
@@ -570,7 +578,6 @@ const handleAddBinding = async () => {
       return
     }
     await handleMutationSuccess(`${addSubmitLabel.value}成功`, () => {
-      addForm.deviceId = ''
       addForm.metricIdentifier = ''
       addMetricOptions.value = []
     })
