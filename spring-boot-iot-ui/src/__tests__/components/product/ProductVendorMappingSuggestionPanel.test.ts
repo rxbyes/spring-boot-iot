@@ -166,12 +166,16 @@ describe('ProductVendorMappingSuggestionPanel', () => {
     await wrapper.get('[data-testid="vendor-mapping-suggestion-accept-suggestion-ready"]').trigger('click')
     await flushPromises()
 
-    expect(createVendorMetricMappingRule).toHaveBeenCalledWith(1001, expect.objectContaining({
-      rawIdentifier: 'vendor.value',
-      targetNormativeIdentifier: 'value',
-      scopeType: 'PRODUCT',
-      lifecycleStatus: 'DRAFT'
-    }))
+    expect(createVendorMetricMappingRule).toHaveBeenCalledTimes(1)
+    expect(createVendorMetricMappingRule).toHaveBeenLastCalledWith(
+      1001,
+      expect.objectContaining({
+        rawIdentifier: 'vendor.value',
+        targetNormativeIdentifier: 'value',
+        scopeType: 'PRODUCT',
+        lifecycleStatus: 'DRAFT'
+      })
+    )
     expect(messageSuccess).toHaveBeenCalledTimes(1)
     expect(wrapper.emitted('accepted')).toEqual([[suggestion]])
   })
@@ -208,12 +212,16 @@ describe('ProductVendorMappingSuggestionPanel', () => {
     await acceptPromise
     await flushPromises()
 
-    expect(createVendorMetricMappingRule).toHaveBeenCalledWith(1001, expect.objectContaining({
-      rawIdentifier: 'vendor.value',
-      targetNormativeIdentifier: 'value',
-      scopeType: 'PRODUCT',
-      lifecycleStatus: 'DRAFT'
-    }))
+    expect(createVendorMetricMappingRule).toHaveBeenCalledTimes(1)
+    expect(createVendorMetricMappingRule).toHaveBeenLastCalledWith(
+      1001,
+      expect.objectContaining({
+        rawIdentifier: 'vendor.value',
+        targetNormativeIdentifier: 'value',
+        scopeType: 'PRODUCT',
+        lifecycleStatus: 'DRAFT'
+      })
+    )
     expect(wrapper.emitted('accepted')?.[0]?.[0]).toEqual(
       expect.objectContaining({
         id: 'suggestion-low-confidence',
