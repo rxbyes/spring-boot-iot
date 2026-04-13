@@ -4,14 +4,19 @@ import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.ghlzm.iot.common.event.governance.ProductContractReleasedEvent;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
@@ -53,6 +58,12 @@ class ProductModelServiceImplTest {
     @Mock
     private ProductModelMapper productModelMapper;
     @Mock
+    private DeviceMapper deviceMapper;
+    @Mock
+    private DevicePropertyMapper devicePropertyMapper;
+    @Mock
+    private VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
+    @Mock
     private NormativeMetricDefinitionService normativeMetricDefinitionService;
     @Mock
     private ProductMetricEvidenceService productMetricEvidenceService;
@@ -72,6 +83,9 @@ class ProductModelServiceImplTest {
         productModelService = new ProductModelServiceImpl(
                 productMapper,
                 productModelMapper,
+                deviceMapper,
+                devicePropertyMapper,
+                vendorMetricEvidenceMapper,
                 normativeMetricDefinitionService,
                 productMetricEvidenceService,
                 productContractReleaseService,
@@ -356,6 +370,82 @@ class ProductModelServiceImplTest {
                         .map(ProductModelGovernanceCompareRowVO::getIdentifier)
                         .toList()
         );
+    }
+
+    @Test
+    void compareGovernanceShouldReturnRuntimeOnlyRowFromDeviceProperties() {
+        when(productMapper.selectById(1001L)).thenReturn(product(1001L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(5001L, 1001L, "device-001")));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                deviceProperty(5001L, "humidity", "设备湿度", "61.2", "double", LocalDateTime.of(2026, 4, 13, 12, 30, 0))
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(1001L, dto);
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "humidity");
+
+        assertEquals("runtime_only", row.getCompareStatus());
+        assertNull(row.getManualCandidate());
+        assertNotNull(row.getRuntimeCandidate());
+        assertEquals("runtime", row.getRuntimeCandidate().getEvidenceOrigin());
+        assertEquals(1, row.getRuntimeCandidate().getEvidenceCount());
+        assertEquals(0, row.getRuntimeCandidate().getMessageEvidenceCount());
+        assertEquals(List.of("iot_device_property"), row.getRuntimeCandidate().getSourceTables());
+    }
+
+    @Test
+    void compareGovernanceShouldMergeRuntimeEvidenceAliasesIntoRuntimeCandidate() {
+        when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(5002L, 2002L, "device-002")));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                deviceProperty(5002L, "value", "裂缝值", "0.2136", "double", LocalDateTime.of(2026, 4, 12, 21, 30, 28))
+        ));
+        when(vendorMetricEvidenceMapper.selectList(any())).thenReturn(List.of(
+                runtimeEvidence(
+                        2002L,
+                        "L1_LF_1.value",
+                        "value",
+                        6,
+                        LocalDateTime.of(2026, 4, 12, 21, 31, 0),
+                        "0.2136",
+                        "double"
+                )
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-002":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(2002L, dto);
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "value");
+
+        assertEquals("runtime_only", row.getCompareStatus());
+        assertNotNull(row.getRuntimeCandidate());
+        assertEquals(List.of("value", "L1_LF_1.value"), row.getRuntimeCandidate().getRawIdentifiers());
+        assertEquals(6, row.getRuntimeCandidate().getEvidenceCount());
+        assertEquals(6, row.getRuntimeCandidate().getMessageEvidenceCount());
+        assertEquals(
+                List.of("iot_device_property", "iot_vendor_metric_evidence"),
+                row.getRuntimeCandidate().getSourceTables()
+        );
+        assertEquals(LocalDateTime.of(2026, 4, 12, 21, 31, 0), row.getRuntimeCandidate().getLastReportTime());
     }
 
     @Test
@@ -1087,6 +1177,52 @@ class ProductModelServiceImplTest {
         Product product = product(id, "nf-monitor-collector-v1", "南方测绘 监测型 采集器");
         product.setNodeType(2);
         return product;
+    }
+
+    private Device device(Long id, Long productId, String deviceCode) {
+        Device device = new Device();
+        device.setId(id);
+        device.setTenantId(1L);
+        device.setProductId(productId);
+        device.setDeviceCode(deviceCode);
+        device.setDeleted(0);
+        return device;
+    }
+
+    private DeviceProperty deviceProperty(Long deviceId,
+                                          String identifier,
+                                          String propertyName,
+                                          String propertyValue,
+                                          String valueType,
+                                          LocalDateTime reportTime) {
+        DeviceProperty property = new DeviceProperty();
+        property.setDeviceId(deviceId);
+        property.setIdentifier(identifier);
+        property.setPropertyName(propertyName);
+        property.setPropertyValue(propertyValue);
+        property.setValueType(valueType);
+        property.setReportTime(reportTime);
+        return property;
+    }
+
+    private VendorMetricEvidence runtimeEvidence(Long productId,
+                                                 String rawIdentifier,
+                                                 String canonicalIdentifier,
+                                                 int evidenceCount,
+                                                 LocalDateTime lastSeenTime,
+                                                 String sampleValue,
+                                                 String valueType) {
+        VendorMetricEvidence evidence = new VendorMetricEvidence();
+        evidence.setProductId(productId);
+        evidence.setRawIdentifier(rawIdentifier);
+        evidence.setCanonicalIdentifier(canonicalIdentifier);
+        evidence.setEvidenceOrigin("runtime_history");
+        evidence.setEvidenceCount(evidenceCount);
+        evidence.setLastSeenTime(lastSeenTime);
+        evidence.setSampleValue(sampleValue);
+        evidence.setValueType(valueType);
+        evidence.setDeleted(0);
+        return evidence;
     }
 
     private ProductModel existingModel(Long id, String identifier, Integer sortNo) {

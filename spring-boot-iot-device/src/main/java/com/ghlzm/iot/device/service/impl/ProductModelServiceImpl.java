@@ -8,12 +8,17 @@ import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductModelGovernanceReceiptStore;
@@ -174,6 +179,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final ProductMapper productMapper;
     private final ProductModelMapper productModelMapper;
+    private final DeviceMapper deviceMapper;
+    private final DevicePropertyMapper devicePropertyMapper;
+    private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
     private final ProductMetricEvidenceService productMetricEvidenceService;
     private final ProductContractReleaseService productContractReleaseService;
@@ -188,6 +196,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
+                                   DeviceMapper deviceMapper,
+                                   DevicePropertyMapper devicePropertyMapper,
+                                   VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                    NormativeMetricDefinitionService normativeMetricDefinitionService,
                                    ProductMetricEvidenceService productMetricEvidenceService,
                                    ProductContractReleaseService productContractReleaseService,
@@ -196,6 +207,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                    VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
+        this.deviceMapper = deviceMapper;
+        this.devicePropertyMapper = devicePropertyMapper;
+        this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.productMetricEvidenceService = productMetricEvidenceService;
         this.productContractReleaseService = productContractReleaseService;
@@ -236,7 +250,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         Product product = getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
         ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(product, existingModels.size(), dto);
-        ProductModelCandidateResultVO runtimeResult = emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
+        ProductModelCandidateResultVO runtimeResult = buildRuntimeGovernanceCandidates(product, existingModels.size());
         ProductModelGovernanceCompareVO compareResult =
                 governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
         decorateCompareResultWithNormativeMetadata(product, compareResult);
@@ -398,6 +412,22 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(product, existingModelCount, dto.getManualExtract());
         refreshCandidateSummary(result, existingModelCount);
         return result;
+    }
+
+    private ProductModelCandidateResultVO buildRuntimeGovernanceCandidates(Product product,
+                                                                           int existingModelCount) {
+        PropertyEvidenceBundle propertyBundle = collectRuntimePropertyCandidates(product);
+        return buildCandidateResult(
+                product == null ? null : product.getId(),
+                existingModelCount,
+                propertyBundle,
+                new EventEvidenceBundle(List.of(), 0, "运行时提炼当前仅生成属性候选，事件请继续走正式模型治理。"),
+                new ServiceEvidenceBundle(List.of(), 0, "运行时提炼当前仅生成属性候选，服务请继续走正式模型治理。"),
+                EXTRACTION_MODE_RUNTIME,
+                null,
+                null,
+                0
+        );
     }
 
     private void decorateCompareResultWithNormativeMetadata(Product product,
@@ -652,6 +682,68 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 snapshot.deviceCode(),
                 snapshot.ignoredFieldCount()
         );
+    }
+
+    private PropertyEvidenceBundle collectRuntimePropertyCandidates(Product product) {
+        if (product == null || product.getId() == null) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        List<Device> devices = deviceMapper.selectList(new LambdaQueryWrapper<Device>()
+                .eq(Device::getProductId, product.getId())
+                .eq(Device::getDeleted, 0));
+        if (devices == null || devices.isEmpty()) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        List<Long> deviceIds = devices.stream()
+                .map(Device::getId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        if (deviceIds.isEmpty()) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        List<DeviceProperty> properties = devicePropertyMapper.selectList(new LambdaQueryWrapper<DeviceProperty>()
+                .in(DeviceProperty::getDeviceId, deviceIds));
+        if (properties == null || properties.isEmpty()) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        Map<String, RuntimeEvidenceSnapshot> runtimeEvidenceByIdentifier = loadRuntimeEvidenceByIdentifier(product.getId());
+        Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
+        int evidenceCount = 0;
+        for (DeviceProperty property : properties) {
+            String propertyIdentifier = normalizeOptional(property == null ? null : property.getIdentifier());
+            if (propertyIdentifier == null) {
+                continue;
+            }
+            evidenceCount++;
+            ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
+                    propertyCandidateFilter.normalizeIdentifier(propertyIdentifier);
+            List<String> observedRawIdentifiers = mergeRawIdentifiers(
+                    List.of(propertyIdentifier),
+                    normalizedIdentifier.rawIdentifiers()
+            );
+            String identifier = resolveGovernanceCandidateIdentifier(product, normalizedIdentifier.identifier(), observedRawIdentifiers);
+            if (identifier == null) {
+                continue;
+            }
+            accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
+                    .acceptRuntimeProperty(property, observedRawIdentifiers);
+        }
+        for (Map.Entry<String, PropertyAccumulator> entry : accumulators.entrySet()) {
+            RuntimeEvidenceSnapshot runtimeEvidence = runtimeEvidenceByIdentifier.get(entry.getKey());
+            if (runtimeEvidence != null) {
+                entry.getValue().enrichRuntimeEvidence(runtimeEvidence);
+            }
+        }
+        List<ProductModelCandidateVO> candidates = accumulators.values().stream()
+                .map(accumulator -> toPropertyCandidate(product, accumulator))
+                .sorted(Comparator
+                        .comparing(ProductModelCandidateVO::getNeedsReview)
+                        .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getSortNo, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getIdentifier))
+                .toList();
+        return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
     }
 
     private ProductModelCandidateResultVO emptyCandidateResult(Long productId, int existingModelCount, String extractionMode) {
@@ -1308,6 +1400,29 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 .count();
     }
 
+    private Map<String, RuntimeEvidenceSnapshot> loadRuntimeEvidenceByIdentifier(Long productId) {
+        if (productId == null) {
+            return Map.of();
+        }
+        List<VendorMetricEvidence> evidences = vendorMetricEvidenceMapper.selectList(new LambdaQueryWrapper<VendorMetricEvidence>()
+                .eq(VendorMetricEvidence::getProductId, productId)
+                .eq(VendorMetricEvidence::getDeleted, 0)
+                .ne(VendorMetricEvidence::getEvidenceOrigin, "manual_compare"));
+        if (evidences == null || evidences.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, RuntimeEvidenceSnapshot> result = new LinkedHashMap<>();
+        for (VendorMetricEvidence evidence : evidences) {
+            String identifier = normalizeOptional(evidence == null ? null : evidence.getCanonicalIdentifier());
+            if (identifier == null) {
+                continue;
+            }
+            RuntimeEvidenceSnapshot current = result.get(identifier);
+            result.put(identifier, RuntimeEvidenceSnapshot.merge(current, evidence));
+        }
+        return result;
+    }
+
     private String classifyPropertyGroup(String identifier) {
         String normalized = identifier.toLowerCase(Locale.ROOT);
         String lastSegment = lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT);
@@ -1635,6 +1750,66 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                         int ignoredFieldCount) {
     }
 
+    private record RuntimeEvidenceSnapshot(List<String> rawIdentifiers,
+                                           Integer evidenceCount,
+                                           Integer messageEvidenceCount,
+                                           LocalDateTime lastSeenTime,
+                                           String sampleValue,
+                                           String valueType) {
+
+        private static RuntimeEvidenceSnapshot merge(RuntimeEvidenceSnapshot current, VendorMetricEvidence evidence) {
+            List<String> rawIdentifiers = current == null
+                    ? new ArrayList<>()
+                    : new ArrayList<>(current.rawIdentifiers());
+            String rawIdentifier = normalizeText(evidence == null ? null : evidence.getRawIdentifier());
+            if (rawIdentifier != null && !rawIdentifiers.contains(rawIdentifier)) {
+                rawIdentifiers.add(rawIdentifier);
+            }
+            int currentEvidenceCount = current == null || current.evidenceCount() == null ? 0 : current.evidenceCount();
+            int increment = evidence == null || evidence.getEvidenceCount() == null ? 0 : Math.max(evidence.getEvidenceCount(), 0);
+            LocalDateTime lastSeenTime = firstLater(
+                    current == null ? null : current.lastSeenTime(),
+                    evidence == null ? null : evidence.getLastSeenTime()
+            );
+            return new RuntimeEvidenceSnapshot(
+                    List.copyOf(rawIdentifiers),
+                    currentEvidenceCount + increment,
+                    currentEvidenceCount + increment,
+                    lastSeenTime,
+                    firstNonBlank(
+                            current == null ? null : current.sampleValue(),
+                            evidence == null ? null : evidence.getSampleValue()
+                    ),
+                    firstNonBlank(
+                            current == null ? null : current.valueType(),
+                            evidence == null ? null : evidence.getValueType()
+                    )
+            );
+        }
+
+        private static String normalizeText(String value) {
+            if (value == null) {
+                return null;
+            }
+            String normalized = value.trim();
+            return normalized.isEmpty() ? null : normalized;
+        }
+
+        private static LocalDateTime firstLater(LocalDateTime left, LocalDateTime right) {
+            if (left == null) {
+                return right;
+            }
+            if (right == null) {
+                return left;
+            }
+            return right.isAfter(left) ? right : left;
+        }
+
+        private static String firstNonBlank(String left, String right) {
+            return normalizeText(left) != null ? normalizeText(left) : normalizeText(right);
+        }
+    }
+
     private List<NormativeMetricDefinition> safeNormativeDefinitions(List<NormativeMetricDefinition> definitions) {
         return definitions == null ? List.of() : definitions;
     }
@@ -1803,6 +1978,48 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 sampleValue = normalizeText(evidence.sampleValue());
             }
             updateLastReportTime(reportTime);
+        }
+
+        private void acceptRuntimeProperty(DeviceProperty property, List<String> observedRawIdentifiers) {
+            evidenceCount++;
+            sourceTables.add("iot_device_property");
+            appendRawIdentifiers(observedRawIdentifiers);
+            String candidatePropertyName = normalizeText(property == null ? null : property.getPropertyName());
+            if (candidatePropertyName != null) {
+                propertyName = candidatePropertyName;
+            }
+            String candidateValueType = normalizeText(property == null ? null : property.getValueType());
+            if (candidateValueType != null) {
+                valueType = candidateValueType;
+            }
+            String candidateSampleValue = normalizeText(property == null ? null : property.getPropertyValue());
+            if (candidateSampleValue != null) {
+                sampleValue = candidateSampleValue;
+            }
+            updateLastReportTime(property == null ? null : property.getReportTime());
+        }
+
+        private void enrichRuntimeEvidence(RuntimeEvidenceSnapshot runtimeEvidence) {
+            if (runtimeEvidence == null) {
+                return;
+            }
+            sourceTables.add("iot_vendor_metric_evidence");
+            appendRawIdentifiers(runtimeEvidence.rawIdentifiers());
+            if (runtimeEvidence.evidenceCount() != null) {
+                evidenceCount = Math.max(evidenceCount, runtimeEvidence.evidenceCount());
+            }
+            if (runtimeEvidence.messageEvidenceCount() != null) {
+                messageEvidenceCount = Math.max(messageEvidenceCount, runtimeEvidence.messageEvidenceCount());
+            }
+            String candidateValueType = normalizeText(runtimeEvidence.valueType());
+            if (candidateValueType != null) {
+                valueType = candidateValueType;
+            }
+            String candidateSampleValue = normalizeText(runtimeEvidence.sampleValue());
+            if (candidateSampleValue != null) {
+                sampleValue = candidateSampleValue;
+            }
+            updateLastReportTime(runtimeEvidence.lastSeenTime());
         }
 
         private void updateLastReportTime(LocalDateTime candidateTime) {

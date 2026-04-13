@@ -1202,18 +1202,38 @@ const singleSelectedLedgerMetric = computed(() =>
 )
 const canOpenRiskPointWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
 const canOpenRuleWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
+const hasFormalFieldsWithoutReleaseBatch = computed(() => !latestReleaseBatchId.value && models.value.length > 0)
 const showDownstreamGovernanceBoundaryNote = computed(
   () => Boolean(latestReleaseBatchId.value) && !versionLedgerLoading.value && selectedLedgerMetricCount.value === 0
 )
-const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
-const contractStepStatusText = computed(() => (latestReleaseBatchId.value ? '已发布批次' : '待发布'))
+const entryActionText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '重新提取字段'
+  }
+  return models.value.length ? '继续核对字段' : '开始补齐契约'
+})
+const contractStepStatusText = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return '已发布批次'
+  }
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
+  return '待发布'
+})
 const contractStepDescription = computed(() => {
   if (latestReleaseBatchId.value) {
     return `当前已形成正式发布批次 ${latestReleaseBatchId.value}，可继续查看版本台账与回滚试算。`
   }
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return `当前已存在 ${models.value.length} 项正式字段，但尚未查到正式发布批次；底部“当前已生效字段”已是当前正式真相，如需补做首个批次，请重新提取字段并完成 compare/apply。`
+  }
   return '先完成样本提取、确认本次生效，再提交审批形成正式合同发布批次。'
 })
 const metricCatalogStepStatusText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
   if (!latestReleaseBatchId.value) {
     return '待合同发布'
   }
@@ -1226,6 +1246,9 @@ const metricCatalogStepStatusText = computed(() => {
   return '暂不适用'
 })
 const metricCatalogStepDescription = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '当前尚未查到可追溯的正式发布批次，暂时无法判断是否存在目录指标；如需补做首个批次，请先重新提取字段。'
+  }
   if (!latestReleaseBatchId.value) {
     return '合同发布后，风险指标目录会按正式批次自动同步，不需要单独找第二个发布入口。'
   }
@@ -1238,6 +1261,9 @@ const metricCatalogStepDescription = computed(() => {
   return '当前批次暂无可入目录字段，目录发布后续暂不适用。'
 })
 const riskPointStepStatusText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
   if (!latestReleaseBatchId.value) {
     return '待合同发布'
   }
@@ -1250,6 +1276,9 @@ const riskPointStepStatusText = computed(() => {
   return '暂不适用'
 })
 const riskPointStepDescription = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '当前尚未查到可追溯的正式发布批次，暂时不进入风险点绑定；若需补做首个批次，请先回到契约字段重新 compare/apply。'
+  }
   if (!latestReleaseBatchId.value) {
     return '先完成合同发布，再决定是否进入风险点绑定。'
   }
@@ -1262,6 +1291,9 @@ const riskPointStepDescription = computed(() => {
   return '当前批次没有风险指标目录，风险点绑定暂不适用。'
 })
 const ruleStepStatusText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
   if (!latestReleaseBatchId.value) {
     return '待合同发布'
   }
@@ -1274,6 +1306,9 @@ const ruleStepStatusText = computed(() => {
   return '暂不适用'
 })
 const ruleStepDescription = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '当前尚未查到可追溯的正式发布批次，暂时不进入阈值策略；若需补做首个批次，请先回到契约字段重新 compare/apply。'
+  }
   if (!latestReleaseBatchId.value) {
     return '先完成合同发布，再继续补阈值策略。'
   }

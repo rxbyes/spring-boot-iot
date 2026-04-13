@@ -750,6 +750,32 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.find('[data-testid="contract-field-next-rule"]').exists()).toBe(false)
   })
 
+  it('separates existing formal fields from release-batch state when no batch is found', async () => {
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 20,
+        records: []
+      }
+    })
+
+    const wrapper = mountWorkspace({
+      productKey: 'zhd-warning-siren-v1',
+      productName: '中海达 预警型 声光报警器'
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('未查到批次')
+    expect(wrapper.text()).toContain('当前已存在 1 项正式字段，但尚未查到正式发布批次')
+    expect(wrapper.text()).toContain('重新提取字段')
+    expect(wrapper.text()).not.toContain('继续核对字段')
+    expect(wrapper.text()).toContain('当前已生效字段')
+  })
+
   it('loads release batch diff against the previous batch and renders contract and metric deltas', async () => {
     mockPageProductContractReleaseBatches.mockResolvedValueOnce({
       code: 200,

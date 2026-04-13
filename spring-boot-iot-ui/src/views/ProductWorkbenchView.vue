@@ -820,12 +820,15 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
   const coverage = governanceCoverageOverview.value
   const productId = governanceFocusProduct.value.id
   const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+  const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
   const publishedRiskMetricCount = resolveGovernanceCount(coverage.publishedRiskMetricCount)
   const boundRiskMetricCount = resolveGovernanceCount(coverage.boundRiskMetricCount)
   const ruleCoveredRiskMetricCount = resolveGovernanceCount(coverage.ruleCoveredRiskMetricCount)
+  const hasFormalFieldsWithoutReleaseBatch =
+    !hasReleaseBatch && publishableContractPropertyCount === 0 && contractPropertyCount > 0
 
-  if (!hasReleaseBatch) {
+  if (!hasReleaseBatch && !hasFormalFieldsWithoutReleaseBatch) {
     tasks.push({
       key: 'pending-contract-release',
       title: '待发布合同',
@@ -879,8 +882,12 @@ const governanceSummaryTitle = computed(() => {
   }
 
   const coverage = governanceCoverageOverview.value
+  const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
   if (publishableContractPropertyCount === 0) {
+    if (!latestContractReleaseBatch.value?.id && contractPropertyCount > 0) {
+      return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。当前已存在正式字段，但尚未查到正式发布批次；当前已生效字段已是正式真相，如需补做首个批次，请回到产品经营工作台的“契约字段”重新 compare/apply。`
+    }
     return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。合同发布入口在产品经营工作台的“契约字段”。`
   }
   const summarySegments = [
@@ -899,8 +906,13 @@ const governanceClosedoutTitle = computed(() => {
   if (!governanceFocusProduct.value || !governanceCoverageOverview.value) {
     return '当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。'
   }
-  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(governanceCoverageOverview.value)
+  const coverage = governanceCoverageOverview.value
+  const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
+  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
   if (publishableContractPropertyCount === 0) {
+    if (!latestContractReleaseBatch.value?.id && contractPropertyCount > 0) {
+      return '当前已生效字段已是正式真相；若后续仍需补做首个正式发布批次，请回到“契约字段”重新 compare/apply。'
+    }
     return '当前产品暂无可入目录字段；请仅在“契约字段”完成合同发布与版本台账核对，无需继续目录发布、风险点绑定与策略覆盖流程。'
   }
   return '当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。'

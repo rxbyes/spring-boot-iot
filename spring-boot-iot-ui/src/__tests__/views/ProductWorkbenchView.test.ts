@@ -665,7 +665,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).not.toContain('待补阈值策略')
   })
 
-  it('explains that zero-publishable products only need contract release when no batch exists yet', async () => {
+  it('does not force a pending contract release when zero-publishable products already have formal fields but no batch', async () => {
     mockPageProducts.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -716,9 +716,9 @@ describe('ProductWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.text()).toContain('合同发布入口在产品经营工作台的“契约字段”')
-    expect(wrapper.text()).toContain('发布后不会进入目录发布、风险点绑定与策略覆盖流程')
-    expect(wrapper.text()).toContain('待发布合同')
+    expect(wrapper.text()).toContain('当前已存在正式字段，但尚未查到正式发布批次')
+    expect(wrapper.text()).toContain('当前已生效字段已是正式真相')
+    expect(wrapper.text()).not.toContain('待发布合同')
     expect(wrapper.text()).not.toContain('待发布风险指标目录')
     expect(wrapper.text()).not.toContain('待绑定风险点')
     expect(wrapper.text()).not.toContain('待补阈值策略')
