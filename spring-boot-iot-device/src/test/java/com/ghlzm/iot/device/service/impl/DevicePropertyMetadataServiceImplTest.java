@@ -65,6 +65,19 @@ class DevicePropertyMetadataServiceImplTest {
         assertNull(metadataMap.get("status").getTdengineLegacyMapping());
     }
 
+    @Test
+    void listPropertyMetadataMapShouldKeepPublishedMixedCaseCanonicalIdentifier() {
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                productModel("L1_GNSS_1.gpsTotalX", "GNSS X", "double",
+                        "{\"tdengineLegacy\":{\"enabled\":true,\"stable\":\"s1_zt_1\",\"column\":\"gpsx\"}}")
+        ));
+
+        Map<String, DevicePropertyMetadata> metadataMap = devicePropertyMetadataService.listPropertyMetadataMap(1001L);
+
+        assertNotNull(metadataMap.get("gpsTotalX"));
+        assertNull(metadataMap.get("gpstotalx"));
+    }
+
     private ProductModel productModel(String identifier, String modelName, String dataType, String specsJson) {
         ProductModel productModel = new ProductModel();
         productModel.setIdentifier(identifier);

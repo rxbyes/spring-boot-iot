@@ -78,14 +78,14 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         if (identifier == null) {
             return null;
         }
-        String normalized = identifier.trim().toLowerCase();
-        if (normalized.isEmpty()) {
+        String trimmed = identifier.trim();
+        if (trimmed.isEmpty()) {
             return null;
         }
-        int idx = normalized.lastIndexOf('.');
-        if (idx >= 0 && idx < normalized.length() - 1) {
-            return normalized.substring(idx + 1);
+        int idx = trimmed.lastIndexOf('.');
+        if (idx >= 0 && idx < trimmed.length() - 1) {
+            return trimmed.substring(idx + 1);
         }
-        return normalized;
+        return trimmed;
     }
 }

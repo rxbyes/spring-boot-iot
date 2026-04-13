@@ -24,4 +24,18 @@ class DefaultMetricIdentifierResolverTest {
         assertEquals("value", resolution.canonicalIdentifier());
         assertEquals(MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT, resolution.source());
     }
+
+    @Test
+    void shouldKeepMixedCaseCanonicalIdentifierWhenAliasMatchesCaseInsensitively() {
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(9001L)
+                .canonicalAlias("L1_GNSS_1.gpsTotalX", "gpsTotalX")
+                .build();
+
+        MetricIdentifierResolution resolution = resolver.resolveForRead(snapshot, "l1_gnss_1.GPSTOTALX");
+
+        assertEquals("gpsTotalX", resolution.canonicalIdentifier());
+        assertEquals(MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT, resolution.source());
+    }
 }

@@ -16,13 +16,16 @@ public final class PublishedProductContractSnapshot {
     private final Long productId;
     private final Long releaseBatchId;
     private final Set<String> publishedIdentifiers;
+    private final Set<String> normalizedPublishedIdentifiers;
     private final Map<String, String> canonicalAliases;
 
     private PublishedProductContractSnapshot(Builder builder) {
         this.productId = builder.productId;
         this.releaseBatchId = builder.releaseBatchId;
-        this.publishedIdentifiers = Collections.unmodifiableSet(new LinkedHashSet<>(builder.publishedIdentifiers));
-        this.canonicalAliases = Collections.unmodifiableMap(new LinkedHashMap<>(builder.canonicalAliases));
+        this.publishedIdentifiers = Collections.unmodifiableSet(new LinkedHashSet<>(builder.publishedIdentifiersByNormalized.values()));
+        this.normalizedPublishedIdentifiers =
+                Collections.unmodifiableSet(new LinkedHashSet<>(builder.publishedIdentifiersByNormalized.keySet()));
+        this.canonicalAliases = Collections.unmodifiableMap(new LinkedHashMap<>(builder.canonicalAliasesByNormalized));
     }
 
     public static Builder builder() {
@@ -55,15 +58,15 @@ public final class PublishedProductContractSnapshot {
 
     public boolean containsPublishedIdentifier(String identifier) {
         String normalized = normalize(identifier);
-        return normalized != null && publishedIdentifiers.contains(normalized);
+        return normalized != null && normalizedPublishedIdentifiers.contains(normalized);
     }
 
     public static final class Builder {
 
         private Long productId;
         private Long releaseBatchId;
-        private final Set<String> publishedIdentifiers = new LinkedHashSet<>();
-        private final Map<String, String> canonicalAliases = new LinkedHashMap<>();
+        private final Map<String, String> publishedIdentifiersByNormalized = new LinkedHashMap<>();
+        private final Map<String, String> canonicalAliasesByNormalized = new LinkedHashMap<>();
 
         public Builder productId(Long productId) {
             this.productId = productId;
@@ -76,10 +79,11 @@ public final class PublishedProductContractSnapshot {
         }
 
         public Builder publishedIdentifier(String identifier) {
-            String normalized = normalize(identifier);
-            if (normalized != null) {
-                this.publishedIdentifiers.add(normalized);
-                this.canonicalAliases.putIfAbsent(normalized, normalized);
+            String canonicalIdentifier = sanitizeCanonicalIdentifier(identifier);
+            String normalized = normalize(canonicalIdentifier);
+            if (canonicalIdentifier != null && normalized != null) {
+                this.publishedIdentifiersByNormalized.putIfAbsent(normalized, canonicalIdentifier);
+                this.canonicalAliasesByNormalized.putIfAbsent(normalized, canonicalIdentifier);
             }
             return this;
         }
@@ -97,10 +101,12 @@ public final class PublishedProductContractSnapshot {
         public Builder canonicalAlias(String alias, String canonicalIdentifier) {
             String normalizedAlias = normalize(alias);
             String normalizedCanonical = normalize(canonicalIdentifier);
-            if (normalizedAlias == null || normalizedCanonical == null) {
+            String canonical = sanitizeCanonicalIdentifier(canonicalIdentifier);
+            if (normalizedAlias == null || normalizedCanonical == null || canonical == null) {
                 return this;
             }
-            this.canonicalAliases.put(normalizedAlias, normalizedCanonical);
+            String publishedCanonical = publishedIdentifiersByNormalized.getOrDefault(normalizedCanonical, canonical);
+            this.canonicalAliasesByNormalized.put(normalizedAlias, publishedCanonical);
             return this;
         }
 
@@ -118,5 +124,13 @@ public final class PublishedProductContractSnapshot {
             return null;
         }
         return trimmed.toLowerCase();
+    }
+
+    private static String sanitizeCanonicalIdentifier(String identifier) {
+        if (identifier == null) {
+            return null;
+        }
+        String trimmed = identifier.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

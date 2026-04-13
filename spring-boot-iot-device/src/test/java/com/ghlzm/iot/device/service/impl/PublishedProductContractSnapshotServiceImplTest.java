@@ -38,7 +38,9 @@ class PublishedProductContractSnapshotServiceImplTest {
     void shouldExposeOnlyPublishedPropertyIdentifiersForObjectInsight() {
         when(productModelMapper.selectList(any())).thenReturn(List.of(
                 property("L1_LF_1.value"),
-                property("value")
+                property("L1_GNSS_1.gpsTotalX"),
+                property("value"),
+                property("gpsTotalX")
         ));
         ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
         latestBatch.setId(9001L);
@@ -46,7 +48,9 @@ class PublishedProductContractSnapshotServiceImplTest {
 
         PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(1001L);
         assertTrue(snapshot.publishedIdentifiers().contains("value"));
-        assertFalse(snapshot.publishedIdentifiers().contains("L1_LF_1.value"));
+        assertTrue(snapshot.publishedIdentifiers().contains("gpsTotalX"));
+        assertFalse(snapshot.publishedIdentifiers().contains("L1_GNSS_1.gpsTotalX"));
+        assertFalse(snapshot.publishedIdentifiers().contains("gpstotalx"));
     }
 
     private ProductModel property(String identifier) {
