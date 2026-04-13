@@ -158,6 +158,10 @@ describe('RiskPointDetailDrawer', () => {
           deviceId: 21,
           deviceCode: 'DEVICE-021',
           deviceName: '一号倾角仪',
+          bindingMode: 'METRIC',
+          deviceCapabilityType: 'MONITORING',
+          aiEventExpandable: false,
+          extensionStatus: null,
           metricCount: 2,
           metrics: [
             {
@@ -173,6 +177,17 @@ describe('RiskPointDetailDrawer', () => {
               bindingSource: 'PENDING_PROMOTION'
             }
           ]
+        },
+        {
+          deviceId: 22,
+          deviceCode: 'DEVICE-022',
+          deviceName: '北坡视频设备',
+          bindingMode: 'DEVICE_ONLY',
+          deviceCapabilityType: 'VIDEO',
+          aiEventExpandable: true,
+          extensionStatus: 'AI_EVENT_RESERVED',
+          metricCount: 0,
+          metrics: []
         }
       ]
     })
@@ -192,6 +207,9 @@ describe('RiskPointDetailDrawer', () => {
     expect(wrapper.text()).toContain('风险点档案')
     expect(wrapper.text()).toContain('一号倾角仪')
     expect(wrapper.text()).toContain('L1_QJ_1.AZI')
+    expect(wrapper.text()).toContain('北坡视频设备')
+    expect(wrapper.text()).toContain('设备级正式绑定')
+    expect(wrapper.text()).toContain('AI 事件扩展预留')
     expect(wrapper.text()).toContain('待治理 1 条')
     expect(wrapper.text()).toContain('最新描述')
   })

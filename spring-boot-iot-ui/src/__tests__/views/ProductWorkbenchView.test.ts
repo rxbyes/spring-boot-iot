@@ -665,6 +665,65 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).not.toContain('待补阈值策略')
   })
 
+  it('explains that zero-publishable products only need contract release when no batch exists yet', async () => {
+    mockPageProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1001,
+            productKey: 'zhd-warning-siren-v1',
+            productName: '中海达 预警型 声光报警器',
+            protocolCode: 'mqtt-json',
+            nodeType: 1,
+            dataFormat: 'JSON',
+            status: 1
+          }
+        ]
+      }
+    })
+    mockPageProductContractReleaseBatches.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 1,
+        records: []
+      }
+    })
+    mockGetRiskGovernanceCoverageOverview.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        contractPropertyCount: 9,
+        publishableContractPropertyCount: 0,
+        publishedRiskMetricCount: 0,
+        boundRiskMetricCount: 0,
+        ruleCoveredRiskMetricCount: 0,
+        contractMetricCoverageRate: 0,
+        bindingCoverageRate: 0,
+        ruleCoverageRate: 0
+      } as any
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('合同发布入口在产品经营工作台的“契约字段”')
+    expect(wrapper.text()).toContain('发布后不会进入目录发布、风险点绑定与策略覆盖流程')
+    expect(wrapper.text()).toContain('待发布合同')
+    expect(wrapper.text()).not.toContain('待发布风险指标目录')
+    expect(wrapper.text()).not.toContain('待绑定风险点')
+    expect(wrapper.text()).not.toContain('待补阈值策略')
+  })
+
   it('routes supported governance todo items from /products into the correct domain workbench', async () => {
     mockPageProducts.mockResolvedValueOnce({
       code: 200,

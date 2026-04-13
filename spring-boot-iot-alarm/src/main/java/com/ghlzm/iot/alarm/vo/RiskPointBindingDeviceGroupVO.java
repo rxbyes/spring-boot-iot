@@ -16,6 +16,14 @@ public class RiskPointBindingDeviceGroupVO {
 
     private String deviceName;
 
+    private String bindingMode;
+
+    private String deviceCapabilityType;
+
+    private Boolean aiEventExpandable;
+
+    private String extensionStatus;
+
     private Integer metricCount;
 
     private List<RiskPointBindingMetricVO> metrics;

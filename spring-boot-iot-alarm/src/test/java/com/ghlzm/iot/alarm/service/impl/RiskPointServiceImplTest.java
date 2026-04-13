@@ -680,6 +680,70 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void listBindableDevicesShouldExcludeCurrentDeviceOnlyBindingsAndOtherCapabilityOccupancy() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper = mock(RiskPointDeviceCapabilityBindingMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        PermissionService permissionService = mock(PermissionService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                capabilityBindingMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                permissionService,
+                deviceService
+        ));
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setTenantId(1L);
+        riskPoint.setOrgId(7101L);
+
+        DeviceOptionVO currentMetricDevice = deviceOption(2001L, 7101L, "device-a");
+        DeviceOptionVO currentDeviceOnly = deviceOption(2002L, 7101L, "device-b");
+        DeviceOptionVO otherRiskPointDeviceOnly = deviceOption(2003L, 7101L, "device-c");
+        DeviceOptionVO sameOrgUnboundDevice = deviceOption(2004L, 7101L, "device-d");
+
+        RiskPointDevice currentMetricBinding = new RiskPointDevice();
+        currentMetricBinding.setRiskPointId(12L);
+        currentMetricBinding.setDeviceId(2001L);
+        currentMetricBinding.setDeleted(0);
+
+        RiskPointDeviceCapabilityBinding currentDeviceOnlyBinding = new RiskPointDeviceCapabilityBinding();
+        currentDeviceOnlyBinding.setRiskPointId(12L);
+        currentDeviceOnlyBinding.setDeviceId(2002L);
+        currentDeviceOnlyBinding.setDeleted(0);
+
+        RiskPointDeviceCapabilityBinding otherRiskPointDeviceOnlyBinding = new RiskPointDeviceCapabilityBinding();
+        otherRiskPointDeviceOnlyBinding.setRiskPointId(13L);
+        otherRiskPointDeviceOnlyBinding.setDeviceId(2003L);
+        otherRiskPointDeviceOnlyBinding.setDeleted(0);
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 1L, 7101L, DataScopeType.ORG_AND_CHILDREN, false));
+        when(permissionService.listAccessibleOrganizationIds(99L)).thenReturn(Set.of(7101L));
+        doReturn(riskPoint).when(service).getById(12L, 99L);
+        when(deviceService.listDeviceOptions(99L, false)).thenReturn(List.of(
+                currentMetricDevice,
+                currentDeviceOnly,
+                otherRiskPointDeviceOnly,
+                sameOrgUnboundDevice
+        ));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(currentMetricBinding));
+        when(capabilityBindingMapper.selectList(any())).thenReturn(List.of(currentDeviceOnlyBinding, otherRiskPointDeviceOnlyBinding));
+
+        List<DeviceOptionVO> result = service.listBindableDevices(12L, 99L);
+
+        assertEquals(List.of(2001L, 2004L), result.stream().map(DeviceOptionVO::getId).toList());
+    }
+
+    @Test
     void bindDeviceAndReturnShouldPersistAndReturnBinding() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);
@@ -835,6 +899,126 @@ class RiskPointServiceImplTest {
 
         assertEquals("风险指标目录当前不可绑定: 9102", error.getMessage());
         verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
+    }
+
+    @Test
+    void bindDeviceCapabilityAndReturnShouldRejectMonitoringDevice() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper = mock(RiskPointDeviceCapabilityBindingMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductService productService = mock(ProductService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                capabilityBindingMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                null,
+                productService
+        ));
+
+        RiskPointDeviceCapabilityBindingRequest request = new RiskPointDeviceCapabilityBindingRequest();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setDeviceCapabilityType(DeviceBindingCapabilityType.WARNING.name());
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+        device.setProductId(5001L);
+        Product product = new Product();
+        product.setId(5001L);
+        product.setProductKey("monitor-tilt-v1");
+        product.setProductName("监测型倾角仪");
+
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        when(deviceService.getRequiredById(1001L, 2001L)).thenReturn(device);
+        when(productService.getRequiredById(5001L)).thenReturn(product);
+        when(deviceService.listMetricOptions(1001L, 2001L)).thenReturn(List.of(deviceMetricOption("tiltX", 6101L)));
+
+        BizException error = assertThrows(BizException.class, () -> service.bindDeviceCapabilityAndReturn(request, 1001L));
+
+        assertEquals("监测型设备必须选择正式测点，不能按设备级绑定", error.getMessage());
+        verify(capabilityBindingMapper, never()).insert(any(RiskPointDeviceCapabilityBinding.class));
+    }
+
+    @Test
+    void bindDeviceCapabilityAndReturnShouldPersistVideoBindingWithReservedExtension() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper = mock(RiskPointDeviceCapabilityBindingMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductService productService = mock(ProductService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                capabilityBindingMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                null,
+                productService
+        ));
+
+        RiskPointDeviceCapabilityBindingRequest request = new RiskPointDeviceCapabilityBindingRequest();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2002L);
+        request.setDeviceCapabilityType(DeviceBindingCapabilityType.VIDEO.name());
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+
+        Device device = activeDevice(2002L, 7101L, "ops-video-01");
+        device.setDeviceName("北坡视频设备");
+        device.setProductId(5002L);
+        Product product = new Product();
+        product.setId(5002L);
+        product.setProductKey("ipc-camera-v1");
+        product.setProductName("视频摄像机");
+
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        when(deviceService.getRequiredById(1001L, 2002L)).thenReturn(device);
+        when(productService.getRequiredById(5002L)).thenReturn(product);
+        when(deviceService.listMetricOptions(1001L, 2002L)).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(capabilityBindingMapper.selectList(any())).thenReturn(List.of());
+        doAnswer(invocation -> {
+            RiskPointDeviceCapabilityBinding saved = invocation.getArgument(0);
+            saved.setId(9901L);
+            return 1;
+        }).when(capabilityBindingMapper).insert(any(RiskPointDeviceCapabilityBinding.class));
+
+        RiskPointDeviceCapabilityBinding saved = service.bindDeviceCapabilityAndReturn(request, 1001L);
+
+        assertEquals(9901L, saved.getId());
+        assertEquals(DeviceBindingCapabilityType.VIDEO.name(), saved.getDeviceCapabilityType());
+        assertEquals("AI_EVENT_RESERVED", saved.getExtensionStatus());
+        assertEquals(0, saved.getDeleted());
+        verify(capabilityBindingMapper).insert(argThat(binding ->
+                Long.valueOf(12L).equals(binding.getRiskPointId())
+                        && Long.valueOf(2002L).equals(binding.getDeviceId())
+                        && "ops-video-01".equals(binding.getDeviceCode())
+                        && "北坡视频设备".equals(binding.getDeviceName())
+                        && DeviceBindingCapabilityType.VIDEO.name().equals(binding.getDeviceCapabilityType())
+                        && "AI_EVENT_RESERVED".equals(binding.getExtensionStatus())
+        ));
     }
 
     @Test
@@ -1126,6 +1310,14 @@ class RiskPointServiceImplTest {
         option.setOrgName(orgId == null ? null : "org-" + orgId);
         option.setDeviceCode(deviceCode);
         option.setDeviceName(deviceCode);
+        return option;
+    }
+
+    private DeviceMetricOptionVO deviceMetricOption(String identifier, Long riskMetricId) {
+        DeviceMetricOptionVO option = new DeviceMetricOptionVO();
+        option.setIdentifier(identifier);
+        option.setName(identifier);
+        option.setRiskMetricId(riskMetricId);
         return option;
     }
 }

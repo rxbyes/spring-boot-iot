@@ -545,18 +545,16 @@ def collector_child_device_seeds() -> List[Tuple[int, int, str, str, str, str]]:
     return list(unique_by_id.values())
 
 
-def collector_child_relation_seeds() -> List[Tuple[int, int, str, str, int, str, int, str, str, str]]:
-    seeds: List[Tuple[int, int, str, str, int, str, int, str, str, str]] = []
+def collector_child_relation_seeds() -> List[Tuple[int, str, str, str, int, str, str, str]]:
+    seeds: List[Tuple[int, str, str, str, int, str, str, str]] = []
     relation_id = 202604110500001
     for parent_code, mappings in LASER_RELATION_MAPPINGS.items():
         for logical_code, child_code in mappings.items():
             seeds.append(
                 (
                     relation_id,
-                    LASER_COLLECTOR_DEVICE_IDS[parent_code],
                     parent_code,
                     logical_code,
-                    int(child_code),
                     child_code,
                     202603192100560258,
                     "nf-monitor-laser-rangefinder-v1",
@@ -570,10 +568,8 @@ def collector_child_relation_seeds() -> List[Tuple[int, int, str, str, int, str,
             seeds.append(
                 (
                     relation_id,
-                    DEEP_COLLECTOR_DEVICE_IDS[parent_code],
                     parent_code,
                     logical_code,
-                    int(child_code),
                     child_code,
                     202603192100560250,
                     "nf-monitor-deep-displacement-v1",
@@ -585,33 +581,33 @@ def collector_child_relation_seeds() -> List[Tuple[int, int, str, str, int, str,
     return seeds
 
 
-def collector_child_property_seeds() -> List[Tuple[int, int, str, str, str, str]]:
-    seeds: List[Tuple[int, int, str, str, str, str]] = []
+def collector_child_property_seeds() -> List[Tuple[int, str, str, str, str, str]]:
+    seeds: List[Tuple[int, str, str, str, str, str]] = []
     property_id = 202604110700001
-    for device_id, identifier, property_name, property_value, value_type in (
-        (LASER_COLLECTOR_DEVICE_IDS["SK00EA0D1307986"], "temp", "温度", "20.31", "double"),
-        (LASER_COLLECTOR_DEVICE_IDS["SK00EA0D1307986"], "humidity", "湿度", "89.04", "double"),
-        (LASER_COLLECTOR_DEVICE_IDS["SK00EA0D1307986"], "signal_4g", "4G信号强度", "-71", "int"),
-        (DEEP_COLLECTOR_DEVICE_IDS["SK00FB0D1310195"], "temp", "温度", "19.82", "double"),
-        (DEEP_COLLECTOR_DEVICE_IDS["SK00FB0D1310195"], "humidity", "湿度", "71.55", "double"),
-        (DEEP_COLLECTOR_DEVICE_IDS["SK00FB0D1310195"], "signal_4g", "4G信号强度", "-69", "int"),
-        (SINGLE_DEEP_DEVICE_ID, "dispsX", "顺滑动方向累计变形量", "-0.0166", "double"),
-        (SINGLE_DEEP_DEVICE_ID, "dispsY", "垂直坡面方向累计变形量", "-0.0368", "double"),
-        (SINGLE_DEEP_DEVICE_ID, "sensor_state", "传感器状态", "0", "int"),
+    for device_code, identifier, property_name, property_value, value_type in (
+        ("SK00EA0D1307986", "temp", "温度", "20.31", "double"),
+        ("SK00EA0D1307986", "humidity", "湿度", "89.04", "double"),
+        ("SK00EA0D1307986", "signal_4g", "4G信号强度", "-71", "int"),
+        ("SK00FB0D1310195", "temp", "温度", "19.82", "double"),
+        ("SK00FB0D1310195", "humidity", "湿度", "71.55", "double"),
+        ("SK00FB0D1310195", "signal_4g", "4G信号强度", "-69", "int"),
+        ("SK00EB0D1308310", "dispsX", "顺滑动方向累计变形量", "-0.0166", "double"),
+        ("SK00EB0D1308310", "dispsY", "垂直坡面方向累计变形量", "-0.0368", "double"),
+        ("SK00EB0D1308310", "sensor_state", "传感器状态", "0", "int"),
     ):
-        seeds.append((property_id, device_id, identifier, property_name, property_value, value_type))
+        seeds.append((property_id, device_code, identifier, property_name, property_value, value_type))
         property_id += 1
     for child_code, value in LASER_SAMPLE_LATEST.items():
-        seeds.append((property_id, int(child_code), "value", "激光测距值", str(value), "double"))
+        seeds.append((property_id, child_code, "value", "激光测距值", str(value), "double"))
         property_id += 1
-        seeds.append((property_id, int(child_code), "sensor_state", "传感器状态", "0", "int"))
+        seeds.append((property_id, child_code, "sensor_state", "传感器状态", "0", "int"))
         property_id += 1
     for child_code, (disps_x, disps_y) in DEEP_SAMPLE_LATEST.items():
-        seeds.append((property_id, int(child_code), "dispsX", "顺滑动方向累计变形量", str(disps_x), "double"))
+        seeds.append((property_id, child_code, "dispsX", "顺滑动方向累计变形量", str(disps_x), "double"))
         property_id += 1
-        seeds.append((property_id, int(child_code), "dispsY", "垂直坡面方向累计变形量", str(disps_y), "double"))
+        seeds.append((property_id, child_code, "dispsY", "垂直坡面方向累计变形量", str(disps_y), "double"))
         property_id += 1
-        seeds.append((property_id, int(child_code), "sensor_state", "传感器状态", "0", "int"))
+        seeds.append((property_id, child_code, "sensor_state", "传感器状态", "0", "int"))
         property_id += 1
     return seeds
 
@@ -640,6 +636,7 @@ CREATE TABLE IF NOT EXISTS iot_device_relation (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_relation_parent_channel (tenant_id, parent_device_id, logical_channel_code, deleted),
+    UNIQUE KEY uk_relation_parent_code_channel (tenant_id, parent_device_code, logical_channel_code, deleted),
     KEY idx_relation_parent_code (tenant_id, parent_device_code, enabled, deleted),
     KEY idx_relation_child_code (tenant_id, child_device_code, enabled, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备逻辑通道关系表'
@@ -1465,6 +1462,12 @@ INDEXES_TO_ADD: IndexSpecMap = {
             "ALTER TABLE `iot_governance_ops_alert` ADD UNIQUE INDEX `uk_governance_ops_alert_code` (`tenant_id`, `alert_type`, `alert_code`, `deleted`)",
         ),
     ],
+    "iot_device_relation": [
+        (
+            "uk_relation_parent_code_channel",
+            "ALTER TABLE `iot_device_relation` ADD UNIQUE INDEX `uk_relation_parent_code_channel` (`tenant_id`, `parent_device_code`, `logical_channel_code`, `deleted`)",
+        ),
+    ],
 }
 
 UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
@@ -1484,6 +1487,12 @@ UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = {
         "tenant_id",
         "alert_type",
         "alert_code",
+        "deleted",
+    ),
+    ("iot_device_relation", "uk_relation_parent_code_channel"): (
+        "tenant_id",
+        "parent_device_code",
+        "logical_channel_code",
         "deleted",
     ),
 }
@@ -1512,6 +1521,10 @@ EXPECTED_INDEX_SHAPES: IndexShapeMap = {
     ("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric"): (
         False,
         ("risk_metric_id", "binding_status", "deleted"),
+    ),
+    ("iot_device_relation", "uk_relation_parent_code_channel"): (
+        True,
+        ("tenant_id", "parent_device_code", "logical_channel_code", "deleted"),
     ),
     ("iot_governance_work_item", "idx_governance_work_item_subject"): (
         False,
@@ -1661,6 +1674,94 @@ def next_preferred_id(cur: pymysql.cursors.Cursor, table: str, preferred_id: int
     if int(cur.fetchone()[0]) == 0:
         return preferred_id
     return next_table_id(cur, table)
+
+
+def ensure_device_relation_integrity(cur: pymysql.cursors.Cursor, db: str) -> None:
+    required_tables = ("iot_device_relation", "iot_device", "iot_product")
+    for table in required_tables:
+        if not table_exists(cur, db, table):
+            print(f"[skip] device relation integrity: table missing {table}")
+            return
+
+    cur.execute(
+        """
+        DELETE rel
+        FROM iot_device_relation rel
+        INNER JOIN iot_device_relation newer
+            ON newer.tenant_id = rel.tenant_id
+           AND newer.parent_device_code = rel.parent_device_code
+           AND newer.logical_channel_code = rel.logical_channel_code
+           AND newer.deleted = rel.deleted
+           AND rel.deleted = 0
+           AND (
+               COALESCE(rel.update_time, '1970-01-01 00:00:00') < COALESCE(newer.update_time, '1970-01-01 00:00:00')
+               OR (
+                   COALESCE(rel.update_time, '1970-01-01 00:00:00') = COALESCE(newer.update_time, '1970-01-01 00:00:00')
+                   AND COALESCE(rel.create_time, '1970-01-01 00:00:00') < COALESCE(newer.create_time, '1970-01-01 00:00:00')
+               )
+               OR (
+                   COALESCE(rel.update_time, '1970-01-01 00:00:00') = COALESCE(newer.update_time, '1970-01-01 00:00:00')
+                   AND COALESCE(rel.create_time, '1970-01-01 00:00:00') = COALESCE(newer.create_time, '1970-01-01 00:00:00')
+                   AND rel.id < newer.id
+               )
+           )
+        """
+    )
+    print(f"[repair] iot_device_relation duplicate rows deleted: {cur.rowcount}")
+
+    cur.execute(
+        """
+        UPDATE iot_device_relation rel
+        INNER JOIN iot_device parent_device
+            ON parent_device.tenant_id = rel.tenant_id
+           AND parent_device.device_code = rel.parent_device_code
+           AND parent_device.deleted = 0
+        INNER JOIN iot_device child_device
+            ON child_device.tenant_id = rel.tenant_id
+           AND child_device.device_code = rel.child_device_code
+           AND child_device.deleted = 0
+        LEFT JOIN iot_product child_product
+            ON child_product.id = child_device.product_id
+           AND child_product.deleted = 0
+        SET rel.parent_device_id = parent_device.id,
+            rel.child_device_id = child_device.id,
+            rel.child_product_id = child_device.product_id,
+            rel.child_product_key = child_product.product_key,
+            rel.update_by = 1,
+            rel.update_time = NOW()
+        WHERE rel.deleted = 0
+          AND (
+              rel.parent_device_id <> parent_device.id
+              OR rel.child_device_id <> child_device.id
+              OR COALESCE(rel.child_product_id, -1) <> COALESCE(child_device.product_id, -1)
+              OR COALESCE(rel.child_product_key, '') <> COALESCE(child_product.product_key, '')
+          )
+        """
+    )
+    print(f"[repair] iot_device_relation device references realigned: {cur.rowcount}")
+
+    cur.execute(
+        """
+        SELECT COUNT(1)
+        FROM iot_device_relation rel
+        LEFT JOIN iot_device parent_device
+            ON parent_device.tenant_id = rel.tenant_id
+           AND parent_device.device_code = rel.parent_device_code
+           AND parent_device.deleted = 0
+        LEFT JOIN iot_device child_device
+            ON child_device.tenant_id = rel.tenant_id
+           AND child_device.device_code = rel.child_device_code
+           AND child_device.deleted = 0
+        WHERE rel.deleted = 0
+          AND (parent_device.id IS NULL OR child_device.id IS NULL)
+        """
+    )
+    unresolved_count = int(cur.fetchone()[0])
+    if unresolved_count > 0:
+        raise RuntimeError(
+            f"iot_device_relation still contains {unresolved_count} active rows whose parent/child device_code "
+            "cannot be resolved to active iot_device records."
+        )
 
 
 def cleanup_duplicate_level_dicts(
@@ -3007,7 +3108,16 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
             ),
         )
 
-    for relation_id, parent_device_id, parent_device_code, logical_code, child_device_id, child_device_code, child_product_id, child_product_key, canonicalization_strategy, status_mirror_strategy in collector_child_relation_seeds():
+    for (
+        relation_id,
+        parent_device_code,
+        logical_code,
+        child_device_code,
+        child_product_id,
+        child_product_key,
+        canonicalization_strategy,
+        status_mirror_strategy,
+    ) in collector_child_relation_seeds():
         cur.execute(
             """
             INSERT INTO iot_device_relation (
@@ -3015,10 +3125,19 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
                 child_device_code, child_product_id, child_product_key, relation_type,
                 canonicalization_strategy, status_mirror_strategy, enabled, remark, create_by, create_time,
                 update_by, update_time, deleted
-            ) VALUES (
-                %s, 1, %s, %s, %s, %s, %s, %s, %s, 'collector_child', %s, %s,
-                1, 'shared dev collector child baseline', 1, NOW(), 1, NOW(), 0
             )
+            SELECT
+                %s, 1, parent_device.id, %s, %s, child_device.id,
+                %s, %s, %s, 'collector_child', %s, %s,
+                1, 'shared dev collector child baseline', 1, NOW(), 1, NOW(), 0
+            FROM iot_device parent_device
+            INNER JOIN iot_device child_device
+                ON child_device.tenant_id = parent_device.tenant_id
+               AND child_device.device_code = %s
+               AND child_device.deleted = 0
+            WHERE parent_device.tenant_id = 1
+              AND parent_device.device_code = %s
+              AND parent_device.deleted = 0
             ON DUPLICATE KEY UPDATE
                 parent_device_id = VALUES(parent_device_id),
                 parent_device_code = VALUES(parent_device_code),
@@ -3037,32 +3156,42 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
             """,
             (
                 int(relation_id),
-                int(parent_device_id),
                 parent_device_code,
                 logical_code,
-                int(child_device_id),
                 child_device_code,
                 int(child_product_id),
                 child_product_key,
                 canonicalization_strategy,
                 status_mirror_strategy,
+                child_device_code,
+                parent_device_code,
             ),
         )
 
-    for property_id, device_id, identifier, property_name, property_value, value_type in collector_child_property_seeds():
+    for property_id, device_code, identifier, property_name, property_value, value_type in collector_child_property_seeds():
         cur.execute(
             """
             INSERT INTO iot_device_property (
                 id, tenant_id, device_id, identifier, property_name, property_value, value_type, report_time, create_time, update_time
-            ) VALUES (%s, 1, %s, %s, %s, %s, %s, DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW())
+            )
+            SELECT COALESCE(existing_property.id, %s), 1, device.id, %s, %s, %s, %s, DATE_SUB(NOW(), INTERVAL 1 MINUTE), NOW(), NOW()
+            FROM iot_device device
+            LEFT JOIN iot_device_property existing_property
+                ON existing_property.device_id = device.id
+               AND existing_property.identifier = %s
+            WHERE device.tenant_id = 1
+              AND device.device_code = %s
+              AND device.deleted = 0
             ON DUPLICATE KEY UPDATE
+                device_id = VALUES(device_id),
+                identifier = VALUES(identifier),
                 property_name = VALUES(property_name),
                 property_value = VALUES(property_value),
                 value_type = VALUES(value_type),
                 report_time = VALUES(report_time),
                 update_time = NOW()
             """,
-            (int(property_id), int(device_id), identifier, property_name, property_value, value_type),
+            (int(property_id), identifier, property_name, property_value, value_type, identifier, device_code),
         )
 
 
@@ -3100,8 +3229,6 @@ def main() -> int:
                         cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}")
                         print(f"[column] {table}.{column} added")
 
-                ensure_indexes(cur, args.db)
-
                 if table_exists(cur, args.db, "sys_dict"):
                     if column_exists(cur, args.db, "sys_dict", "dict_value") and column_exists(
                         cur, args.db, "sys_dict", "dict_label"
@@ -3135,6 +3262,10 @@ def main() -> int:
                 print("[governance] fixed reviewer and approval policy seeds aligned")
                 ensure_collector_child_dev_baseline(cur, args.db)
                 print("[seed] collector-child shared dev baseline aligned")
+                ensure_device_relation_integrity(cur, args.db)
+                print("[repair] device relation duplicates and stale device references aligned")
+
+                ensure_indexes(cur, args.db)
 
                 for view_name, ddl in VIEW_SQL.items():
                     cur.execute(ddl)

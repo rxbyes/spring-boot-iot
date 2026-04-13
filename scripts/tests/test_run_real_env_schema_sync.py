@@ -52,6 +52,7 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         create_sql = schema_sync.CREATE_TABLE_SQL.get("iot_device_relation")
         self.assertIsNotNone(create_sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS iot_device_relation", create_sql)
+        self.assertIn("uk_relation_parent_code_channel", create_sql)
         self.assertIn("idx_relation_parent_code", create_sql)
         self.assertIn("idx_relation_child_code", create_sql)
 
@@ -175,6 +176,14 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertEqual(
             ops_alert_index_sql["uk_governance_ops_alert_code"],
             "ALTER TABLE `iot_governance_ops_alert` ADD UNIQUE INDEX `uk_governance_ops_alert_code` (`tenant_id`, `alert_type`, `alert_code`, `deleted`)",
+        )
+
+    def test_indexes_to_add_covers_device_relation_parent_code_uniqueness(self):
+        self.assertIn("iot_device_relation", schema_sync.INDEXES_TO_ADD)
+        relation_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_device_relation"])
+        self.assertEqual(
+            relation_index_sql["uk_relation_parent_code_channel"],
+            "ALTER TABLE `iot_device_relation` ADD UNIQUE INDEX `uk_relation_parent_code_channel` (`tenant_id`, `parent_device_code`, `logical_channel_code`, `deleted`)",
         )
 
     def test_governance_approval_policy_seeds_cover_fixed_reviewer_defaults(self):
@@ -572,7 +581,33 @@ class CollectorChildBaselineSeedCursor:
         self.executed.append((sql, params))
 
 
+class DeviceRelationIntegrityCursor:
+    def __init__(self):
+        self.executed = []
+        self.rowcount = 0
+
+    def execute(self, sql, params=None):
+        self.executed.append((sql, params))
+        self.rowcount = 1
+
+    def fetchone(self):
+        return (0,)
+
+
 class CollectorChildBaselineSeedTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_device_relation_integrity_cleanup_deduplicates_and_realigns_refs(self, _mock_table_exists):
+        cursor = DeviceRelationIntegrityCursor()
+
+        schema_sync.ensure_device_relation_integrity(cursor, "rm_iot")
+
+        combined_sql = "\n".join(sql for sql, _ in cursor.executed)
+        self.assertIn("DELETE rel", combined_sql)
+        self.assertIn("UPDATE iot_device_relation rel", combined_sql)
+        self.assertIn("parent_device.device_code = rel.parent_device_code", combined_sql)
+        self.assertIn("child_device.device_code = rel.child_device_code", combined_sql)
+        self.assertIn("SELECT COUNT(1)", combined_sql)
+
     @mock.patch.object(schema_sync, "column_exists", return_value=True)
     @mock.patch.object(schema_sync, "table_exists", return_value=True)
     def test_seed_aligns_collector_child_products_devices_relations_and_latest_properties(

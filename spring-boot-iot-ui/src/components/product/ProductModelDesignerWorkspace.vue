@@ -145,6 +145,15 @@
               </div>
             </article>
           </div>
+
+          <div
+            v-if="showDownstreamGovernanceBoundaryNote"
+            class="product-model-designer__governance-note"
+            data-testid="contract-field-downstream-boundary-note"
+          >
+            <strong>当前只保留合同发布与版本台账语义</strong>
+            <p>本批次没有命中可进入风险闭环的目录指标，所以不会出现单独的目录发布、风险点绑定或阈值策略入口。</p>
+          </div>
         </section>
 
         <section
@@ -1193,6 +1202,9 @@ const singleSelectedLedgerMetric = computed(() =>
 )
 const canOpenRiskPointWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
 const canOpenRuleWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
+const showDownstreamGovernanceBoundaryNote = computed(
+  () => Boolean(latestReleaseBatchId.value) && !versionLedgerLoading.value && selectedLedgerMetricCount.value === 0
+)
 const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
 const contractStepStatusText = computed(() => (latestReleaseBatchId.value ? '已发布批次' : '待发布'))
 const contractStepDescription = computed(() => {

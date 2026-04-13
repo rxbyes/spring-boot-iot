@@ -361,6 +361,42 @@ class PermissionServiceImplTest {
     }
 
     @Test
+    void shouldReturnAllActiveMenuIdsForSuperAdminRoleWhenRoleMenuBindingsAreEmpty() {
+        Long roleId = 3009L;
+
+        Role role = new Role();
+        role.setId(roleId);
+        role.setTenantId(1L);
+        role.setRoleCode("SUPER_ADMIN");
+        role.setDeleted(0);
+
+        Menu rootMenu = new Menu();
+        rootMenu.setId(93000003L);
+        rootMenu.setTenantId(1L);
+        rootMenu.setParentId(0L);
+        rootMenu.setMenuName("平台治理");
+        rootMenu.setMenuCode("system-governance");
+        rootMenu.setStatus(1);
+        rootMenu.setSort(10);
+
+        Menu pageMenu = new Menu();
+        pageMenu.setId(93003003L);
+        pageMenu.setTenantId(1L);
+        pageMenu.setParentId(93000003L);
+        pageMenu.setMenuName("角色权限");
+        pageMenu.setMenuCode("system:role");
+        pageMenu.setStatus(1);
+        pageMenu.setSort(20);
+
+        when(roleMapper.selectById(roleId)).thenReturn(role);
+        when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(rootMenu, pageMenu));
+
+        List<Long> menuIds = permissionService.listRoleMenuIds(roleId);
+
+        assertEquals(List.of(93000003L, 93003003L), menuIds);
+    }
+
+    @Test
     void shouldFilterActiveMenusToCurrentUserTenantWhenBuildingAuthContext() {
         Long userId = 1009L;
         User user = new User();

@@ -1,5 +1,6 @@
 package com.ghlzm.iot.alarm.controller;
 
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
@@ -133,6 +134,15 @@ public class RiskPointController {
      @PostMapping("/bind-device")
       public R<GovernanceSubmissionResultVO> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
             return R.ok(bindingMaintenanceService.submitBindDevice(riskPointDevice, requireCurrentUserId(authentication)));
+      }
+
+      /**
+       * 绑定风险点与设备级能力。
+       */
+      @PostMapping("/bind-device-capability")
+      public R<GovernanceSubmissionResultVO> bindDeviceCapability(@RequestBody RiskPointDeviceCapabilityBindingRequest request,
+                                                                  Authentication authentication) {
+            return R.ok(bindingMaintenanceService.submitBindDeviceCapability(request, requireCurrentUserId(authentication)));
       }
 
       /**

@@ -6,6 +6,7 @@ import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointB
 
 const {
   mockBindDevice,
+  mockBindDeviceCapability,
   mockListBindableDevices,
   mockListBindingGroups,
   mockListFormalBindingMetricOptions,
@@ -16,6 +17,7 @@ const {
   mockIsConfirmCancelled
 } = vi.hoisted(() => ({
   mockBindDevice: vi.fn(),
+  mockBindDeviceCapability: vi.fn(),
   mockListBindableDevices: vi.fn(),
   mockListBindingGroups: vi.fn(),
   mockListFormalBindingMetricOptions: vi.fn(),
@@ -28,6 +30,7 @@ const {
 
 vi.mock('@/api/riskPoint', () => ({
   bindDevice: mockBindDevice,
+  bindDeviceCapability: mockBindDeviceCapability,
   listBindableDevices: mockListBindableDevices,
   listBindingGroups: mockListBindingGroups,
   listFormalBindingMetricOptions: mockListFormalBindingMetricOptions,
@@ -193,6 +196,10 @@ function createBindingGroups() {
       deviceId: 2001,
       deviceCode: 'DEV-2001',
       deviceName: '北坡一体机',
+      bindingMode: 'METRIC',
+      deviceCapabilityType: 'MONITORING',
+      aiEventExpandable: false,
+      extensionStatus: null,
       metricCount: 2,
       metrics: [
         {
@@ -212,6 +219,17 @@ function createBindingGroups() {
           createTime: '2026-04-04 09:10:00'
         }
       ]
+    },
+    {
+      deviceId: 2004,
+      deviceCode: 'DEV-2004',
+      deviceName: '北坡视频设备',
+      bindingMode: 'DEVICE_ONLY',
+      deviceCapabilityType: 'VIDEO',
+      aiEventExpandable: true,
+      extensionStatus: 'AI_EVENT_RESERVED',
+      metricCount: 0,
+      metrics: []
     }
   ]
 }
@@ -231,8 +249,39 @@ function createBindableDevices() {
       deviceCode: 'DEV-2002',
       deviceName: '南坡一体机',
       productId: 1102,
+      productKey: 'monitor-tilt-v2',
+      productName: '监测型倾角仪',
       orgId: 7102,
-      orgName: '南坡监测站'
+      orgName: '南坡监测站',
+      deviceCapabilityType: 'MONITORING',
+      supportsMetricBinding: true,
+      aiEventExpandable: false
+    },
+    {
+      id: 2003,
+      deviceCode: 'DEV-2003',
+      deviceName: '北坡声光告警器',
+      productId: 1103,
+      productKey: 'warning-horn-v1',
+      productName: '预警型声光告警器',
+      orgId: 7101,
+      orgName: '北坡监测站',
+      deviceCapabilityType: 'WARNING',
+      supportsMetricBinding: false,
+      aiEventExpandable: false
+    },
+    {
+      id: 2004,
+      deviceCode: 'DEV-2004',
+      deviceName: '北坡视频设备',
+      productId: 1104,
+      productKey: 'ipc-camera-v1',
+      productName: '视频摄像机',
+      orgId: 7101,
+      orgName: '北坡监测站',
+      deviceCapabilityType: 'VIDEO',
+      supportsMetricBinding: false,
+      aiEventExpandable: true
     }
   ]
 }
@@ -275,6 +324,7 @@ function mountDrawer(propOverrides: Record<string, unknown> = {}) {
 describe('RiskPointBindingMaintenanceDrawer', () => {
   beforeEach(() => {
     mockBindDevice.mockReset()
+    mockBindDeviceCapability.mockReset()
     mockListBindableDevices.mockReset()
     mockListBindingGroups.mockReset()
     mockListFormalBindingMetricOptions.mockReset()
@@ -301,6 +351,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       data: createMetricOptions()
     })
     mockBindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockBindDeviceCapability.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockRemoveBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockReplaceBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockUnbindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
@@ -319,6 +370,9 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.text()).toContain('北坡一体机')
     expect(wrapper.text()).toContain('X轴倾角')
     expect(wrapper.text()).toContain('裂缝宽度')
+    expect(wrapper.text()).toContain('北坡视频设备')
+    expect(wrapper.text()).toContain('设备级正式绑定')
+    expect(wrapper.text()).toContain('AI 事件扩展预留')
     expect(wrapper.text()).toContain('人工维护')
     expect(wrapper.text()).toContain('待治理转正')
     expect(wrapper.text()).toContain('目录指标 #6101')
@@ -354,6 +408,45 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       metricName: 'Y轴倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('switches warning devices to device-only binding and skips the metric picker', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2003')
+    await flushPromises()
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="binding-add-metric"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('该设备无正式测点能力，将按设备级正式绑定收口，仅参与被动处置关联。')
+    expect(wrapper.text()).toContain('新增设备级正式绑定')
+    expect(mockListFormalBindingMetricOptions).not.toHaveBeenCalledWith('2003')
+    expect(mockBindDeviceCapability).toHaveBeenCalledWith({
+      riskPointId: 1,
+      deviceId: 2003,
+      deviceCapabilityType: 'WARNING'
+    })
+    expect(mockBindDevice).not.toHaveBeenCalled()
+  })
+
+  it('shows the AI-event reserved hint for video devices and submits device-only binding', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2004')
+    await flushPromises()
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="binding-add-metric"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('该设备当前按设备级正式绑定收口，并预留 AI 事件分析扩展位。')
+    expect(mockBindDeviceCapability).toHaveBeenCalledWith({
+      riskPointId: 1,
+      deviceId: 2004,
+      deviceCapabilityType: 'VIDEO'
+    })
   })
 
   it('loads formal metric options from the risk-point API and keeps only published metrics', async () => {

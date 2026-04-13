@@ -12,6 +12,7 @@ import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.model.DeviceRelationRule;
 import com.ghlzm.iot.device.vo.DeviceRelationVO;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,7 +31,12 @@ public class DeviceRelationServiceImpl implements DeviceRelationService {
     private static final Set<String> SUPPORTED_RELATION_TYPES = Set.of("COLLECTOR_CHILD", "GATEWAY_CHILD");
     private static final Set<String> SUPPORTED_CANONICALIZATION_STRATEGIES = Set.of("LEGACY", "LF_VALUE");
     private static final Set<String> SUPPORTED_STATUS_MIRROR_STRATEGIES = Set.of("NONE", "SENSOR_STATE");
-    private static final Comparator<DeviceRelation> RELATION_ORDER = Comparator
+    private static final Comparator<DeviceRelation> RELATION_DEDUP_ORDER = Comparator
+            .comparing(DeviceRelation::getLogicalChannelCode, Comparator.nullsLast(String::compareTo))
+            .thenComparing(DeviceRelation::getUpdateTime, Comparator.nullsFirst(LocalDateTime::compareTo))
+            .thenComparing(DeviceRelation::getCreateTime, Comparator.nullsFirst(LocalDateTime::compareTo))
+            .thenComparing(DeviceRelation::getId, Comparator.nullsFirst(Long::compareTo));
+    private static final Comparator<DeviceRelation> RELATION_OUTPUT_ORDER = Comparator
             .comparing(DeviceRelation::getLogicalChannelCode, Comparator.nullsLast(String::compareTo))
             .thenComparing(DeviceRelation::getId, Comparator.nullsLast(Long::compareTo));
 
@@ -54,7 +60,7 @@ public class DeviceRelationServiceImpl implements DeviceRelationService {
         validateParentAndChild(parent, child);
 
         String logicalChannelCode = normalizeRequired(dto.getLogicalChannelCode(), "逻辑通道编码");
-        ensureUnique(parent.getTenantId(), parent.getId(), logicalChannelCode, null);
+        ensureUnique(parent.getTenantId(), parent.getDeviceCode(), logicalChannelCode, null);
 
         DeviceRelation relation = new DeviceRelation();
         fillRelation(relation, currentUserId, dto, parent, child, logicalChannelCode);
@@ -73,7 +79,7 @@ public class DeviceRelationServiceImpl implements DeviceRelationService {
         validateParentAndChild(parent, child);
 
         String logicalChannelCode = normalizeRequired(dto.getLogicalChannelCode(), "逻辑通道编码");
-        ensureUnique(parent.getTenantId(), parent.getId(), logicalChannelCode, relationId);
+        ensureUnique(parent.getTenantId(), parent.getDeviceCode(), logicalChannelCode, relationId);
 
         fillRelation(existing, currentUserId, dto, parent, child, logicalChannelCode);
         if (deviceRelationMapper.updateById(existing) <= 0) {
@@ -131,10 +137,10 @@ public class DeviceRelationServiceImpl implements DeviceRelationService {
         }
         Map<String, DeviceRelation> deduplicated = new LinkedHashMap<>();
         relations.stream()
-                .sorted(RELATION_ORDER)
+                .sorted(RELATION_DEDUP_ORDER)
                 .forEach(relation -> deduplicated.put(buildRelationDedupKey(relation), relation));
         return deduplicated.values().stream()
-                .sorted(RELATION_ORDER)
+                .sorted(RELATION_OUTPUT_ORDER)
                 .toList();
     }
 
@@ -203,10 +209,10 @@ public class DeviceRelationServiceImpl implements DeviceRelationService {
         }
     }
 
-    private void ensureUnique(Long tenantId, Long parentDeviceId, String logicalChannelCode, Long excludeRelationId) {
+    private void ensureUnique(Long tenantId, String parentDeviceCode, String logicalChannelCode, Long excludeRelationId) {
         DeviceRelation existing = deviceRelationMapper.selectOne(new LambdaQueryWrapper<DeviceRelation>()
                 .eq(DeviceRelation::getTenantId, tenantId)
-                .eq(DeviceRelation::getParentDeviceId, parentDeviceId)
+                .eq(DeviceRelation::getParentDeviceCode, parentDeviceCode)
                 .eq(DeviceRelation::getLogicalChannelCode, logicalChannelCode)
                 .eq(DeviceRelation::getDeleted, 0)
                 .ne(excludeRelationId != null, DeviceRelation::getId, excludeRelationId)

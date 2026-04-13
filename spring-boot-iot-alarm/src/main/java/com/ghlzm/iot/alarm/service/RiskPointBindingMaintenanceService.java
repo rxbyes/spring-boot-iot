@@ -1,6 +1,8 @@
 package com.ghlzm.iot.alarm.service;
 
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
@@ -23,9 +25,13 @@ public interface RiskPointBindingMaintenanceService {
 
     GovernanceSubmissionResultVO submitBindDevice(RiskPointDevice riskPointDevice, Long currentUserId);
 
+    GovernanceSubmissionResultVO submitBindDeviceCapability(RiskPointDeviceCapabilityBindingRequest request, Long currentUserId);
+
     GovernanceSubmissionResultVO submitUnbindDevice(Long riskPointId, Long deviceId, Long currentUserId);
 
     RiskPointDevice bindDevice(RiskPointDevice riskPointDevice, Long currentUserId);
+
+    RiskPointDeviceCapabilityBinding bindDeviceCapability(RiskPointDeviceCapabilityBindingRequest request, Long currentUserId);
 
     void unbindDevice(Long riskPointId, Long deviceId, Long currentUserId);
 

@@ -1,13 +1,19 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductMetricResolverSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductMetricResolverSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -19,11 +25,20 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
 
     private final ProductModelMapper productModelMapper;
     private final ProductContractReleaseBatchMapper releaseBatchMapper;
+    private final ProductMetricResolverSnapshotMapper snapshotMapper;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public PublishedProductContractSnapshotServiceImpl(ProductModelMapper productModelMapper,
                                                        ProductContractReleaseBatchMapper releaseBatchMapper) {
+        this(productModelMapper, releaseBatchMapper, null);
+    }
+
+    public PublishedProductContractSnapshotServiceImpl(ProductModelMapper productModelMapper,
+                                                       ProductContractReleaseBatchMapper releaseBatchMapper,
+                                                       ProductMetricResolverSnapshotMapper snapshotMapper) {
         this.productModelMapper = productModelMapper;
         this.releaseBatchMapper = releaseBatchMapper;
+        this.snapshotMapper = snapshotMapper;
     }
 
     @Override
@@ -31,9 +46,14 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         if (productId == null) {
             return PublishedProductContractSnapshot.empty(null);
         }
+        Long latestReleasedBatchId = resolveLatestReleasedBatchId(productId);
+        PublishedProductContractSnapshot persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
+        if (persistedSnapshot != null) {
+            return persistedSnapshot;
+        }
         PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
                 .productId(productId)
-                .releaseBatchId(resolveLatestReleasedBatchId(productId));
+                .releaseBatchId(latestReleasedBatchId);
         List<ProductModel> productModels = productModelMapper.selectList(
                 new LambdaQueryWrapper<ProductModel>()
                         .eq(ProductModel::getProductId, productId)
@@ -55,6 +75,25 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         return builder.build();
     }
 
+    private PublishedProductContractSnapshot loadPersistedSnapshot(Long productId, Long releaseBatchId) {
+        if (snapshotMapper == null || productId == null || releaseBatchId == null) {
+            return null;
+        }
+        List<ProductMetricResolverSnapshot> snapshots = snapshotMapper.selectList(
+                new LambdaQueryWrapper<ProductMetricResolverSnapshot>()
+                        .eq(ProductMetricResolverSnapshot::getProductId, productId)
+                        .eq(ProductMetricResolverSnapshot::getReleaseBatchId, releaseBatchId)
+                        .eq(ProductMetricResolverSnapshot::getDeleted, 0)
+                        .orderByDesc(ProductMetricResolverSnapshot::getCreateTime)
+                        .orderByDesc(ProductMetricResolverSnapshot::getId)
+                        .last("limit 1")
+        );
+        if (snapshots == null || snapshots.isEmpty()) {
+            return null;
+        }
+        return parseSnapshot(productId, releaseBatchId, snapshots.get(0).getSnapshotJson());
+    }
+
     private Long resolveLatestReleasedBatchId(Long productId) {
         if (releaseBatchMapper == null || productId == null) {
             return null;
@@ -72,6 +111,37 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return null;
         }
         return batches.get(0).getId();
+    }
+
+    private PublishedProductContractSnapshot parseSnapshot(Long productId, Long releaseBatchId, String snapshotJson) {
+        if (!StringUtils.hasText(snapshotJson)) {
+            return null;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(snapshotJson);
+            PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
+                    .productId(productId)
+                    .releaseBatchId(releaseBatchId);
+            JsonNode publishedIdentifiersNode = root.path("publishedIdentifiers");
+            if (publishedIdentifiersNode.isArray()) {
+                for (JsonNode identifierNode : publishedIdentifiersNode) {
+                    if (identifierNode != null && identifierNode.isTextual()) {
+                        builder.publishedIdentifier(identifierNode.asText());
+                    }
+                }
+            }
+            JsonNode canonicalAliasesNode = root.path("canonicalAliases");
+            if (canonicalAliasesNode.isObject()) {
+                canonicalAliasesNode.fields().forEachRemaining(entry -> {
+                    if (entry != null && entry.getValue() != null && entry.getValue().isTextual()) {
+                        builder.canonicalAlias(entry.getKey(), entry.getValue().asText());
+                    }
+                });
+            }
+            return builder.build();
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private String toCanonicalIdentifier(String identifier) {

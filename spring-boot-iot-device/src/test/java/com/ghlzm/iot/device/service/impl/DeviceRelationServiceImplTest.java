@@ -1,5 +1,8 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.DeviceRelationUpsertDTO;
 import com.ghlzm.iot.device.entity.Device;
@@ -9,6 +12,7 @@ import com.ghlzm.iot.device.mapper.DeviceRelationMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.model.DeviceRelationRule;
 import com.ghlzm.iot.device.vo.DeviceRelationVO;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +42,7 @@ class DeviceRelationServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        initializeTableInfo();
         service = new DeviceRelationServiceImpl(deviceRelationMapper, deviceMapper, productMapper);
     }
 
@@ -77,10 +82,11 @@ class DeviceRelationServiceImplTest {
                 device(20L, "84330701", 2002L)
         );
         when(deviceRelationMapper.selectOne(any())).thenAnswer(invocation -> {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> params = ((com.baomidou.mybatisplus.core.conditions.AbstractWrapper<?, ?, ?>) invocation.getArgument(0))
-                    .getParamNameValuePairs();
-            return params.containsValue(10L) ? null : existingRelation(9002L, "SK00FB0D1310195", "L1_SW_1");
+            AbstractWrapper<?, ?, ?> wrapper = invocation.getArgument(0);
+            String sqlSegment = wrapper.getSqlSegment();
+            return sqlSegment.contains("parent_device_code")
+                    ? existingRelation(9002L, "SK00FB0D1310195", "L1_SW_1")
+                    : null;
         });
 
         BizException ex = assertThrows(BizException.class, () -> service.createRelation(1L, dto));
@@ -195,5 +201,15 @@ class DeviceRelationServiceImplTest {
         relation.setCreateTime(createTime);
         relation.setUpdateTime(updateTime);
         return relation;
+    }
+
+    private void initializeTableInfo() {
+        if (TableInfoHelper.getTableInfo(DeviceRelation.class) != null) {
+            return;
+        }
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "deviceRelationServiceImplTest"),
+                DeviceRelation.class
+        );
     }
 }

@@ -3,11 +3,14 @@ package com.ghlzm.iot.alarm.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
 import com.ghlzm.iot.alarm.governance.RiskPointGovernanceApprovalExecutor;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
@@ -16,6 +19,8 @@ import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
@@ -55,6 +60,8 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     private static final String STATUS_PROMOTION_SUCCESS = "SUCCESS";
     private static final String SOURCE_PENDING_PROMOTION = "PENDING_PROMOTION";
     private static final String SOURCE_MANUAL = "MANUAL";
+    private static final String BINDING_MODE_METRIC = RiskPointGovernanceApprovalExecutor.BINDING_MODE_METRIC;
+    private static final String BINDING_MODE_DEVICE_ONLY = RiskPointGovernanceApprovalExecutor.BINDING_MODE_DEVICE_ONLY;
     private static final String WORK_ITEM_CODE_RISK_BINDING = "PENDING_RISK_BINDING";
     private static final String TASK_CATEGORY_RISK_BINDING = "RISK_BINDING";
     private static final String DOMAIN_CODE_ALARM = "ALARM";
@@ -64,6 +71,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     private final RiskPointService riskPointService;
     private final RiskPointDeviceMapper riskPointDeviceMapper;
+    private final RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
     private final RiskPointDevicePendingBindingMapper pendingBindingMapper;
     private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
     private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
@@ -79,6 +87,25 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         this(
                 riskPointService,
                 riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
+                                                  RiskPointDeviceMapper riskPointDeviceMapper,
+                                                  RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper,
+                                                  RiskPointDevicePendingBindingMapper pendingBindingMapper,
+                                                  RiskPointDevicePendingPromotionMapper pendingPromotionMapper) {
+        this(
+                riskPointService,
+                riskPointDeviceMapper,
+                capabilityBindingMapper,
                 pendingBindingMapper,
                 pendingPromotionMapper,
                 null,
@@ -98,6 +125,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         this(
                 riskPointService,
                 riskPointDeviceMapper,
+                null,
                 pendingBindingMapper,
                 pendingPromotionMapper,
                 governanceApprovalPolicyResolver,
@@ -107,9 +135,31 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         );
     }
 
+    public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
+                                                  RiskPointDeviceMapper riskPointDeviceMapper,
+                                                  RiskPointDevicePendingBindingMapper pendingBindingMapper,
+                                                  RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
+                                                  GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
+                                                  GovernanceApprovalService governanceApprovalService,
+                                                  GovernanceWorkItemService governanceWorkItemService,
+                                                  DeviceService deviceService) {
+        this(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                governanceApprovalPolicyResolver,
+                governanceApprovalService,
+                governanceWorkItemService,
+                deviceService
+        );
+    }
+
     @Autowired
     public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
                                                   RiskPointDeviceMapper riskPointDeviceMapper,
+                                                  RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper,
                                                   RiskPointDevicePendingBindingMapper pendingBindingMapper,
                                                   RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
                                                   GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
@@ -118,6 +168,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                                                   @Lazy DeviceService deviceService) {
         this.riskPointService = riskPointService;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
+        this.capabilityBindingMapper = capabilityBindingMapper;
         this.pendingBindingMapper = pendingBindingMapper;
         this.pendingPromotionMapper = pendingPromotionMapper;
         this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
@@ -154,6 +205,20 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
             }
             metricCountByRiskPointId.put(riskPointId, metricCountByRiskPointId.getOrDefault(riskPointId, 0) + 1);
         }
+        if (capabilityBindingMapper != null) {
+            List<RiskPointDeviceCapabilityBinding> capabilityBindings = capabilityBindingMapper.selectList(
+                    new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                            .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0)
+                            .in(RiskPointDeviceCapabilityBinding::getRiskPointId, normalizedRiskPointIds)
+            );
+            for (RiskPointDeviceCapabilityBinding binding : capabilityBindings) {
+                Long riskPointId = binding.getRiskPointId();
+                distinctDeviceIdsByRiskPointId.computeIfAbsent(riskPointId, key -> new LinkedHashSet<>());
+                if (binding.getDeviceId() != null) {
+                    distinctDeviceIdsByRiskPointId.get(riskPointId).add(binding.getDeviceId());
+                }
+            }
+        }
 
         List<RiskPointDevicePendingBinding> pendingRows = pendingBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDevicePendingBinding>()
                 .eq(RiskPointDevicePendingBinding::getDeleted, 0)
@@ -189,7 +254,13 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 .eq(RiskPointDevice::getRiskPointId, riskPointId)
                 .orderByAsc(RiskPointDevice::getDeviceCode)
                 .orderByAsc(RiskPointDevice::getMetricIdentifier));
-        if (bindings.isEmpty()) {
+        List<RiskPointDeviceCapabilityBinding> capabilityBindings = capabilityBindingMapper == null
+                ? List.of()
+                : capabilityBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0)
+                .eq(RiskPointDeviceCapabilityBinding::getRiskPointId, riskPointId)
+                .orderByAsc(RiskPointDeviceCapabilityBinding::getDeviceCode));
+        if (bindings.isEmpty() && capabilityBindings.isEmpty()) {
             return List.of();
         }
         bindings = new ArrayList<>(bindings);
@@ -222,6 +293,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 value.setDeviceId(binding.getDeviceId());
                 value.setDeviceCode(binding.getDeviceCode());
                 value.setDeviceName(binding.getDeviceName());
+                value.setBindingMode(BINDING_MODE_METRIC);
                 value.setMetrics(new ArrayList<>());
                 return value;
             });
@@ -235,8 +307,26 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
             metric.setCreateTime(binding.getCreateTime());
             group.getMetrics().add(metric);
         }
+        for (RiskPointDeviceCapabilityBinding binding : capabilityBindings) {
+            if (binding == null || binding.getDeviceId() == null || groups.containsKey(binding.getDeviceId())) {
+                continue;
+            }
+            RiskPointBindingDeviceGroupVO group = new RiskPointBindingDeviceGroupVO();
+            group.setDeviceId(binding.getDeviceId());
+            group.setDeviceCode(binding.getDeviceCode());
+            group.setDeviceName(binding.getDeviceName());
+            group.setBindingMode(BINDING_MODE_DEVICE_ONLY);
+            group.setDeviceCapabilityType(binding.getDeviceCapabilityType());
+            group.setAiEventExpandable(DeviceBindingCapabilitySupport.isAiEventExpandable(
+                    DeviceBindingCapabilitySupport.normalize(binding.getDeviceCapabilityType())
+            ));
+            group.setExtensionStatus(binding.getExtensionStatus());
+            group.setMetrics(new ArrayList<>());
+            groups.put(binding.getDeviceId(), group);
+        }
 
         List<RiskPointBindingDeviceGroupVO> result = new ArrayList<>(groups.values());
+        result.sort(Comparator.comparing(RiskPointBindingDeviceGroupVO::getDeviceCode, Comparator.nullsLast(String::compareTo)));
         for (RiskPointBindingDeviceGroupVO group : result) {
             group.setMetricCount(group.getMetrics() == null ? 0 : group.getMetrics().size());
         }
@@ -306,6 +396,64 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public GovernanceSubmissionResultVO submitBindDeviceCapability(RiskPointDeviceCapabilityBindingRequest request,
+                                                                   Long currentUserId) {
+        if (request == null) {
+            throw new BizException("Risk point binding request cannot be null");
+/*
+            throw new BizException("风险点绑定请求不能为空");
+        }
+*/
+        DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.normalize(request.getDeviceCapabilityType());
+        String normalizedCapabilityType = capabilityType == DeviceBindingCapabilityType.UNKNOWN
+                ? normalize(request.getDeviceCapabilityType())
+                : capabilityType.name();
+        String extensionStatus = DeviceBindingCapabilitySupport.resolveExtensionStatus(capabilityType);
+        Long subjectId = IdWorker.getId();
+        String snapshotJson = writeBindSnapshot(request, normalizedCapabilityType, extensionStatus);
+        Long approverUserId = resolveOptionalApproverUserId(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                currentUserId
+        );
+        if (approverUserId == null) {
+            Long workItemId = openWorkItem(
+                    RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                    subjectId,
+                    null,
+                    null,
+                    snapshotJson,
+                    EXECUTION_STATUS_IN_PROGRESS,
+                    currentUserId
+            );
+            bindDeviceCapability(request, currentUserId);
+            resolveWorkItem(RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE, subjectId, currentUserId);
+            return GovernanceSubmissionResultVO.directApplied(workItemId);
+        }
+        Long workItemId = openWorkItem(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                subjectId,
+                null,
+                null,
+                snapshotJson,
+                EXECUTION_STATUS_PENDING_APPROVAL,
+                currentUserId
+        );
+        Long approvalOrderId = requireGovernanceApprovalService().submitAction(new GovernanceApprovalActionCommand(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                "risk point bind device",
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
+                subjectId,
+                workItemId,
+                currentUserId,
+                approverUserId,
+                RiskPointGovernanceApprovalExecutor.writeBindPayload(request, normalizedCapabilityType, extensionStatus),
+                null
+        ));
+        return GovernanceSubmissionResultVO.pendingApproval(workItemId, approvalOrderId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public GovernanceSubmissionResultVO submitUnbindDevice(Long riskPointId, Long deviceId, Long currentUserId) {
         Long subjectId = IdWorker.getId();
         String snapshotJson = writeUnbindSnapshot(riskPointId, deviceId);
@@ -358,6 +506,13 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public RiskPointDeviceCapabilityBinding bindDeviceCapability(RiskPointDeviceCapabilityBindingRequest request,
+                                                                 Long currentUserId) {
+        return riskPointService.bindDeviceCapabilityAndReturn(request, currentUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void unbindDevice(Long riskPointId, Long deviceId, Long currentUserId) {
         riskPointService.unbindDevice(riskPointId, deviceId, currentUserId);
     }
@@ -401,7 +556,6 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         if (duplicate != null) {
             throw new BizException("目标测点已存在绑定记录");
         }
-
         RiskPointDevice replacement = new RiskPointDevice();
         replacement.setRiskPointId(oldBinding.getRiskPointId());
         replacement.setDeviceId(oldBinding.getDeviceId());
@@ -549,6 +703,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     private String writeBindSnapshot(RiskPointDevice riskPointDevice) {
         ObjectNode root = objectMapper.createObjectNode();
+        writeNullableText(root, "bindingMode", BINDING_MODE_METRIC);
         writeNullableLong(root, "riskPointId", riskPointDevice == null ? null : riskPointDevice.getRiskPointId());
         writeNullableLong(root, "deviceId", riskPointDevice == null ? null : riskPointDevice.getDeviceId());
         writeNullableLong(root, "riskMetricId", riskPointDevice == null ? null : riskPointDevice.getRiskMetricId());
@@ -556,6 +711,18 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         writeNullableText(root, "deviceName", riskPointDevice == null ? null : riskPointDevice.getDeviceName());
         writeNullableText(root, "metricIdentifier", riskPointDevice == null ? null : riskPointDevice.getMetricIdentifier());
         writeNullableText(root, "metricName", riskPointDevice == null ? null : riskPointDevice.getMetricName());
+        return root.toString();
+    }
+
+    private String writeBindSnapshot(RiskPointDeviceCapabilityBindingRequest request,
+                                     String deviceCapabilityType,
+                                     String extensionStatus) {
+        ObjectNode root = objectMapper.createObjectNode();
+        writeNullableText(root, "bindingMode", BINDING_MODE_DEVICE_ONLY);
+        writeNullableLong(root, "riskPointId", request == null ? null : request.getRiskPointId());
+        writeNullableLong(root, "deviceId", request == null ? null : request.getDeviceId());
+        writeNullableText(root, "deviceCapabilityType", deviceCapabilityType);
+        writeNullableText(root, "extensionStatus", extensionStatus);
         return root.toString();
     }
 

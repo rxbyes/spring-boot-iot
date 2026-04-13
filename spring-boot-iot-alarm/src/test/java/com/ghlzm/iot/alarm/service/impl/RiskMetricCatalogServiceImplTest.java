@@ -10,6 +10,8 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,9 @@ class RiskMetricCatalogServiceImplTest {
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
 
+    @Mock
+    private PublishedProductContractSnapshotService snapshotService;
+
     @Test
     void publishFromReleasedContractShouldPersistSemanticMetadataForRiskEnabledMetric() {
         RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
@@ -45,7 +50,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(1001L);
@@ -106,7 +112,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(1001L);
@@ -140,7 +147,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(3003L);
@@ -187,7 +195,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(customResolver, new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(4004L);
@@ -215,6 +224,49 @@ class RiskMetricCatalogServiceImplTest {
                         && "value".equals(row.getNormativeIdentifier())
                         && "ratio".equals(row.getThresholdType())
                         && "cm".equals(row.getMetricUnit())
+        ));
+    }
+
+    @Test
+    void publishFromReleasedContractsShouldUseCanonicalIdentifiersFromResolverSnapshot() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher,
+                snapshotService
+        );
+        Product product = new Product();
+        product.setId(1001L);
+        product.setTenantId(1L);
+        product.setProductKey("nf-monitor-laser-rangefinder-v1");
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(snapshotService.getRequiredSnapshot(1001L)).thenReturn(PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(7001L)
+                .publishedIdentifier("value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .build());
+        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+                normative("phase1-crack", "value", "mm", 1, "{\"thresholdKind\":\"absolute\"}")
+        ));
+
+        ProductModel releasedAlias = new ProductModel();
+        releasedAlias.setId(3101L);
+        releasedAlias.setProductId(1001L);
+        releasedAlias.setIdentifier("L1_LF_1.value");
+        releasedAlias.setModelName("激光测距值");
+        releasedAlias.setDataType("double");
+
+        service.publishFromReleasedContracts(1001L, 7001L, List.of(releasedAlias), Set.of("value"));
+
+        verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
+                Long.valueOf(7001L).equals(row.getReleaseBatchId())
+                        && "value".equals(row.getNormativeIdentifier())
+                        && "value".equals(row.getContractIdentifier())
+                        && "RM_1001_VALUE".equals(row.getRiskMetricCode())
+                        && "激光测距值".equals(row.getRiskMetricName())
         ));
     }
 

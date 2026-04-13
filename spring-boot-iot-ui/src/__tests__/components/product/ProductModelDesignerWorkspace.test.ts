@@ -744,6 +744,8 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('当前批次暂无可入目录字段')
     expect(wrapper.text()).toContain('风险点绑定暂不适用')
     expect(wrapper.text()).toContain('阈值策略暂不适用')
+    expect(wrapper.text()).toContain('当前只保留合同发布与版本台账语义')
+    expect(wrapper.text()).toContain('不会出现单独的目录发布、风险点绑定或阈值策略入口')
     expect(wrapper.find('[data-testid="contract-field-next-risk-point"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="contract-field-next-rule"]').exists()).toBe(false)
   })

@@ -1951,6 +1951,49 @@ ON DUPLICATE KEY UPDATE
     update_time = NOW(),
     deleted = 0;
 
+-- 共享环境重复执行时，按父设备编码 + 逻辑通道只保留最新一条关系，避免历史假 ID 继续产出重复映射。
+DELETE rel
+FROM iot_device_relation rel
+INNER JOIN iot_device_relation newer
+    ON newer.tenant_id = rel.tenant_id
+   AND newer.parent_device_code = rel.parent_device_code
+   AND newer.logical_channel_code = rel.logical_channel_code
+   AND newer.deleted = rel.deleted
+   AND rel.deleted = 0
+   AND (
+       COALESCE(rel.update_time, '1970-01-01 00:00:00') < COALESCE(newer.update_time, '1970-01-01 00:00:00')
+       OR (
+           COALESCE(rel.update_time, '1970-01-01 00:00:00') = COALESCE(newer.update_time, '1970-01-01 00:00:00')
+           AND COALESCE(rel.create_time, '1970-01-01 00:00:00') < COALESCE(newer.create_time, '1970-01-01 00:00:00')
+       )
+       OR (
+           COALESCE(rel.update_time, '1970-01-01 00:00:00') = COALESCE(newer.update_time, '1970-01-01 00:00:00')
+           AND COALESCE(rel.create_time, '1970-01-01 00:00:00') = COALESCE(newer.create_time, '1970-01-01 00:00:00')
+           AND rel.id < newer.id
+       )
+   );
+
+-- 再按设备编码回填真实设备 ID / 子产品信息，避免 ON DUPLICATE 命中旧设备后关系表继续保留脏引用。
+UPDATE iot_device_relation rel
+INNER JOIN iot_device parent_device
+    ON parent_device.tenant_id = rel.tenant_id
+   AND parent_device.device_code = rel.parent_device_code
+   AND parent_device.deleted = 0
+INNER JOIN iot_device child_device
+    ON child_device.tenant_id = rel.tenant_id
+   AND child_device.device_code = rel.child_device_code
+   AND child_device.deleted = 0
+LEFT JOIN iot_product child_product
+    ON child_product.id = child_device.product_id
+   AND child_product.deleted = 0
+SET rel.parent_device_id = parent_device.id,
+    rel.child_device_id = child_device.id,
+    rel.child_product_id = child_device.product_id,
+    rel.child_product_key = child_product.product_key,
+    rel.update_by = 1,
+    rel.update_time = NOW()
+WHERE rel.deleted = 0;
+
 INSERT INTO iot_device_property (
     id, tenant_id, device_id, identifier, property_name, property_value, value_type, report_time, create_time, update_time
 ) VALUES

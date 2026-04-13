@@ -829,7 +829,10 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
     tasks.push({
       key: 'pending-contract-release',
       title: '待发布合同',
-      detail: '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
+      detail:
+        publishableContractPropertyCount === 0
+          ? '当前产品还没有正式合同发布批次，请先在产品经营工作台的“契约字段”完成 compare/apply 并发布；该产品当前暂无可入目录字段，发布后不会进入目录发布、风险点绑定与策略覆盖流程。'
+          : '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
       path: buildProductWorkbenchPath(productId, 'models')
     })
   }
@@ -878,7 +881,7 @@ const governanceSummaryTitle = computed(() => {
   const coverage = governanceCoverageOverview.value
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
   if (publishableContractPropertyCount === 0) {
-    return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。`
+    return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。合同发布入口在产品经营工作台的“契约字段”。`
   }
   const summarySegments = [
     `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}`,
@@ -898,7 +901,7 @@ const governanceClosedoutTitle = computed(() => {
   }
   const publishableContractPropertyCount = resolvePublishableContractPropertyCount(governanceCoverageOverview.value)
   if (publishableContractPropertyCount === 0) {
-    return '当前产品暂无可入目录字段；完成合同发布后，无需继续目录发布、风险点绑定与策略覆盖流程。'
+    return '当前产品暂无可入目录字段；请仅在“契约字段”完成合同发布与版本台账核对，无需继续目录发布、风险点绑定与策略覆盖流程。'
   }
   return '当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。'
 })

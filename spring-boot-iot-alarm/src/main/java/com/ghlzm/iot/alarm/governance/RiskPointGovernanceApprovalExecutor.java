@@ -2,11 +2,14 @@ package com.ghlzm.iot.alarm.governance;
 
 import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingPromotionService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.service.GovernanceApprovalActionExecutor;
@@ -32,6 +35,8 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
     public static final String ACTION_RISK_POINT_BIND_DEVICE = "RISK_POINT_BIND_DEVICE";
     public static final String ACTION_RISK_POINT_UNBIND_DEVICE = "RISK_POINT_UNBIND_DEVICE";
     public static final String ACTION_RISK_POINT_PENDING_PROMOTION = "RISK_POINT_PENDING_PROMOTION";
+    public static final String BINDING_MODE_METRIC = "METRIC";
+    public static final String BINDING_MODE_DEVICE_ONLY = "DEVICE_ONLY";
 
     private static final String STATUS_SUCCESS = "SUCCESS";
     private static final List<String> RISK_BINDING_AFFECTED_TYPES = List.of("RISK_POINT", "DEVICE", "RISK_BINDING");
@@ -92,6 +97,7 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         }
         ObjectNode root = JsonMapper.builder().findAndAddModules().build().createObjectNode();
         ObjectNode requestNode = root.putObject("request");
+        writeNullableText(requestNode, "bindingMode", BINDING_MODE_METRIC);
         writeNullableLong(requestNode, "riskPointId", request.getRiskPointId());
         writeNullableLong(requestNode, "deviceId", request.getDeviceId());
         writeNullableLong(requestNode, "riskMetricId", request.getRiskMetricId());
@@ -99,6 +105,22 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         writeNullableText(requestNode, "deviceName", request.getDeviceName());
         writeNullableText(requestNode, "metricIdentifier", request.getMetricIdentifier());
         writeNullableText(requestNode, "metricName", request.getMetricName());
+        return root.toString();
+    }
+
+    public static String writeBindPayload(RiskPointDeviceCapabilityBindingRequest request,
+                                          String deviceCapabilityType,
+                                          String extensionStatus) {
+        if (request == null) {
+            throw new BizException("风险点绑定审批载荷不能为空");
+        }
+        ObjectNode root = JsonMapper.builder().findAndAddModules().build().createObjectNode();
+        ObjectNode requestNode = root.putObject("request");
+        writeNullableText(requestNode, "bindingMode", BINDING_MODE_DEVICE_ONLY);
+        writeNullableLong(requestNode, "riskPointId", request.getRiskPointId());
+        writeNullableLong(requestNode, "deviceId", request.getDeviceId());
+        writeNullableText(requestNode, "deviceCapabilityType", deviceCapabilityType);
+        writeNullableText(requestNode, "extensionStatus", extensionStatus);
         return root.toString();
     }
 
@@ -151,6 +173,30 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
 
     private GovernanceApprovalActionExecutionResult executeBind(GovernanceApprovalOrder order) {
         JsonNode requestNode = readRequiredRequestNode(order.getPayloadJson(), "风险点绑定审批载荷缺少请求体");
+        String bindingMode = readOptionalText(requestNode, "bindingMode");
+        if (BINDING_MODE_DEVICE_ONLY.equalsIgnoreCase(bindingMode)) {
+            RiskPointDeviceCapabilityBindingRequest request = new RiskPointDeviceCapabilityBindingRequest();
+            request.setRiskPointId(readRequiredLong(requestNode, "riskPointId", "风险点绑定审批载荷缺少风险点 ID"));
+            request.setDeviceId(readRequiredLong(requestNode, "deviceId", "风险点绑定审批载荷缺少设备 ID"));
+            request.setDeviceCapabilityType(readOptionalText(requestNode, "deviceCapabilityType"));
+            RiskPointDeviceCapabilityBinding saved = bindingMaintenanceService.bindDeviceCapability(request, order.getOperatorUserId());
+            String payloadJson = appendExecutionResult(order.getPayloadJson(), buildDeviceOnlyBindExecutionResult(saved));
+            String impactSnapshotJson = buildImpactSnapshot(
+                    readOptionalLong(requestNode, "riskPointId"),
+                    readOptionalLong(requestNode, "deviceId"),
+                    null,
+                    1,
+                    true,
+                    "可通过风险点解绑撤回本次设备级正式绑定"
+            );
+            String rollbackSnapshotJson = buildRollbackSnapshot(
+                    readOptionalLong(requestNode, "riskPointId"),
+                    readOptionalLong(requestNode, "deviceId"),
+                    null,
+                    true
+            );
+            return new GovernanceApprovalActionExecutionResult(payloadJson, impactSnapshotJson, rollbackSnapshotJson);
+        }
         RiskPointDevice request = new RiskPointDevice();
         request.setRiskPointId(readRequiredLong(requestNode, "riskPointId", "风险点绑定审批载荷缺少风险点 ID"));
         request.setDeviceId(readRequiredLong(requestNode, "deviceId", "风险点绑定审批载荷缺少设备 ID"));
@@ -238,7 +284,10 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         JsonNode requestNode = readRequiredRequestNode(order.getPayloadJson(), "风险点绑定审批载荷缺少请求体");
         readRequiredLong(requestNode, "riskPointId", "风险点绑定审批载荷缺少风险点 ID");
         readRequiredLong(requestNode, "deviceId", "风险点绑定审批载荷缺少设备 ID");
-        readRequiredText(requestNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识");
+        String bindingMode = readOptionalText(requestNode, "bindingMode");
+        if (!BINDING_MODE_DEVICE_ONLY.equalsIgnoreCase(bindingMode)) {
+            readRequiredText(requestNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识");
+        }
         GovernanceImpactSnapshot impact = buildImpactSnapshotObject(1L, RISK_BINDING_AFFECTED_TYPES, true, "可通过风险点解绑撤回本次正式绑定");
         GovernanceRollbackSnapshot rollback = buildRollbackSnapshotObject(true, "可通过风险点解绑撤回本次正式绑定");
         return buildSimulationResult(order, impact, rollback);
@@ -304,6 +353,17 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         writeNullableLong(result, "riskMetricId", saved == null ? null : saved.getRiskMetricId());
         writeNullableText(result, "metricIdentifier", saved == null ? null : saved.getMetricIdentifier());
         writeNullableText(result, "metricName", saved == null ? null : saved.getMetricName());
+        return result;
+    }
+
+    private ObjectNode buildDeviceOnlyBindExecutionResult(RiskPointDeviceCapabilityBinding saved) {
+        ObjectNode result = objectMapper.createObjectNode();
+        writeNullableLong(result, "bindingId", saved == null ? null : saved.getId());
+        writeNullableLong(result, "riskPointId", saved == null ? null : saved.getRiskPointId());
+        writeNullableLong(result, "deviceId", saved == null ? null : saved.getDeviceId());
+        writeNullableText(result, "bindingMode", BINDING_MODE_DEVICE_ONLY);
+        writeNullableText(result, "deviceCapabilityType", saved == null ? null : saved.getDeviceCapabilityType());
+        writeNullableText(result, "extensionStatus", saved == null ? null : saved.getExtensionStatus());
         return result;
     }
 

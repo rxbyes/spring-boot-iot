@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS risk_metric_catalog;
 DROP TABLE IF EXISTS risk_point_highway_detail;
 DROP TABLE IF EXISTS risk_point_device_pending_promotion;
 DROP TABLE IF EXISTS risk_point_device_pending_binding;
+DROP TABLE IF EXISTS risk_point_device_capability_binding;
 DROP TABLE IF EXISTS risk_point_device;
 DROP TABLE IF EXISTS risk_point;
 
@@ -820,6 +821,7 @@ CREATE TABLE iot_device_relation (
     deleted TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_relation_parent_channel (tenant_id, parent_device_id, logical_channel_code, deleted),
+    UNIQUE KEY uk_relation_parent_code_channel (tenant_id, parent_device_code, logical_channel_code, deleted),
     KEY idx_relation_parent_code (tenant_id, parent_device_code, enabled, deleted),
     KEY idx_relation_child_code (tenant_id, child_device_code, enabled, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备逻辑通道关系表';
@@ -1265,6 +1267,26 @@ CREATE TABLE risk_point_device (
     KEY idx_risk_device (risk_point_id, device_id),
     KEY idx_risk_point_device_metric_catalog (risk_metric_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备绑定表';
+
+CREATE TABLE risk_point_device_capability_binding (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    risk_point_id BIGINT NOT NULL COMMENT '风险点ID',
+    device_id BIGINT NOT NULL COMMENT '设备ID',
+    device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
+    device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',
+    device_capability_type VARCHAR(32) NOT NULL COMMENT '设备能力类型',
+    extension_status VARCHAR(64) DEFAULT NULL COMMENT '扩展能力状态',
+    tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+    create_by BIGINT DEFAULT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT DEFAULT NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_risk_point_device_only (risk_point_id, device_id),
+    KEY idx_risk_point_device_only (risk_point_id, device_id),
+    KEY idx_risk_device_capability_type (tenant_id, device_capability_type, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险点设备级正式绑定表';
 
 CREATE TABLE risk_point_device_pending_binding (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',

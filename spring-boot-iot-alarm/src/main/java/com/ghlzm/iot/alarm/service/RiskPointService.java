@@ -1,7 +1,9 @@
 package com.ghlzm.iot.alarm.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
@@ -59,6 +61,8 @@ public interface RiskPointService extends IService<RiskPoint> {
       void bindDevice(RiskPointDevice riskPointDevice, Long currentUserId);
 
       RiskPointDevice bindDeviceAndReturn(RiskPointDevice riskPointDevice, Long currentUserId);
+
+      RiskPointDeviceCapabilityBinding bindDeviceCapabilityAndReturn(RiskPointDeviceCapabilityBindingRequest request, Long currentUserId);
 
       /**
        * 解绑风险点与设备

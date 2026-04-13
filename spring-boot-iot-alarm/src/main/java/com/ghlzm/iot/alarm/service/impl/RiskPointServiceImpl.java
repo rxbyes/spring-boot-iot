@@ -1,19 +1,27 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
+import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.entity.Dict;
@@ -50,6 +58,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       private static final String RISK_POINT_LEVEL_DICT_CODE = "risk_point_level";
       private static final String DEFAULT_CURRENT_RISK_LEVEL = "blue";
       private final RiskPointDeviceMapper riskPointDeviceMapper;
+      private final RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
       private final OrganizationService organizationService;
       private final RegionService regionService;
       private final UserService userService;
@@ -57,13 +66,14 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
       private final PermissionService permissionService;
       private final DeviceService deviceService;
       private final RiskMetricCatalogService riskMetricCatalogService;
+      private final ProductService productService;
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
                                   OrganizationService organizationService,
                                   RegionService regionService,
                                   UserService userService,
                                   DictService dictService) {
-            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, null, null, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, null, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -72,7 +82,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   UserService userService,
                                   DictService dictService,
                                   PermissionService permissionService) {
-            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, permissionService, null, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, null, null, null);
       }
 
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
@@ -82,10 +92,9 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   DictService dictService,
                                   PermissionService permissionService,
                                   DeviceService deviceService) {
-            this(riskPointDeviceMapper, organizationService, regionService, userService, dictService, permissionService, deviceService, null);
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, deviceService, null, null);
       }
 
-      @Autowired
       public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
                                   OrganizationService organizationService,
                                   RegionService regionService,
@@ -94,7 +103,33 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                                   PermissionService permissionService,
                                   DeviceService deviceService,
                                   RiskMetricCatalogService riskMetricCatalogService) {
+            this(riskPointDeviceMapper, null, organizationService, regionService, userService, dictService, permissionService, deviceService, riskMetricCatalogService, null);
+      }
+
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper,
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService,
+                                  PermissionService permissionService,
+                                  DeviceService deviceService) {
+            this(riskPointDeviceMapper, capabilityBindingMapper, organizationService, regionService, userService, dictService, permissionService, deviceService, null, null);
+      }
+
+      @Autowired
+      public RiskPointServiceImpl(RiskPointDeviceMapper riskPointDeviceMapper,
+                                  RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper,
+                                  OrganizationService organizationService,
+                                  RegionService regionService,
+                                  UserService userService,
+                                  DictService dictService,
+                                  PermissionService permissionService,
+                                  DeviceService deviceService,
+                                  RiskMetricCatalogService riskMetricCatalogService,
+                                  ProductService productService) {
             this.riskPointDeviceMapper = riskPointDeviceMapper;
+            this.capabilityBindingMapper = capabilityBindingMapper;
             this.organizationService = organizationService;
             this.regionService = regionService;
             this.userService = userService;
@@ -102,6 +137,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             this.permissionService = permissionService;
             this.deviceService = deviceService;
             this.riskMetricCatalogService = riskMetricCatalogService;
+            this.productService = productService;
       }
 
       @Override
@@ -243,6 +279,10 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                   throw new BizException("请选择测点");
             }
 
+            if (hasActiveCapabilityBinding(riskPointDevice.getRiskPointId(), riskPointDevice.getDeviceId())) {
+                  throw new BizException("当前设备已存在设备级正式绑定，请先整机解绑后再切换为正式测点绑定");
+            }
+
             LambdaQueryWrapper<RiskPointDevice> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(RiskPointDevice::getRiskPointId, riskPointDevice.getRiskPointId());
             queryWrapper.eq(RiskPointDevice::getDeviceId, riskPointDevice.getDeviceId());
@@ -268,6 +308,56 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
 
       @Override
       @Transactional(rollbackFor = Exception.class)
+      public RiskPointDeviceCapabilityBinding bindDeviceCapabilityAndReturn(RiskPointDeviceCapabilityBindingRequest request,
+                                                                           Long currentUserId) {
+            if (request == null || request.getRiskPointId() == null) {
+                  throw new BizException("风险点不存在");
+            }
+            if (request.getDeviceId() == null) {
+                  throw new BizException("请选择设备");
+            }
+            if (capabilityBindingMapper == null) {
+                  throw new BizException("设备级正式绑定未启用");
+            }
+            RiskPoint riskPoint = currentUserId == null
+                    ? getById(request.getRiskPointId())
+                    : getById(request.getRiskPointId(), currentUserId);
+            Device device = resolveRequiredDevice(currentUserId, request.getDeviceId());
+            DeviceBindingCapabilityContext capabilityContext = resolveDeviceBindingCapability(
+                    currentUserId,
+                    device,
+                    request.getDeviceCapabilityType()
+            );
+            if (capabilityContext.supportsMetricBinding()) {
+                  throw new BizException("监测型设备必须选择正式测点，不能按设备级绑定");
+            }
+            if (hasActiveMetricBinding(request.getRiskPointId(), request.getDeviceId())) {
+                  throw new BizException("当前设备已存在测点绑定，请先整机解绑后再切换为设备级正式绑定");
+            }
+            if (hasActiveCapabilityBinding(request.getRiskPointId(), request.getDeviceId())) {
+                  throw new BizException("设备已绑定到该风险点");
+            }
+
+            validateRiskPointDeviceBinding(riskPoint, device, request.getRiskPointId());
+            RiskPointDeviceCapabilityBinding binding = new RiskPointDeviceCapabilityBinding();
+            binding.setRiskPointId(request.getRiskPointId());
+            binding.setDeviceId(request.getDeviceId());
+            binding.setDeviceCode(device.getDeviceCode());
+            binding.setDeviceName(device.getDeviceName());
+            binding.setDeviceCapabilityType(capabilityContext.capabilityType().name());
+            binding.setExtensionStatus(DeviceBindingCapabilitySupport.resolveExtensionStatus(capabilityContext.capabilityType()));
+            binding.setTenantId(riskPoint.getTenantId() != null ? riskPoint.getTenantId() : device.getTenantId());
+            binding.setCreateTime(new Date());
+            binding.setUpdateTime(new Date());
+            binding.setCreateBy(currentUserId);
+            binding.setUpdateBy(currentUserId);
+            binding.setDeleted(0);
+            capabilityBindingMapper.insert(binding);
+            return binding;
+      }
+
+      @Override
+      @Transactional(rollbackFor = Exception.class)
       public void unbindDevice(Long riskPointId, Long deviceId) {
             unbindDevice(riskPointId, deviceId, null);
       }
@@ -283,11 +373,23 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             queryWrapper.eq(RiskPointDevice::getDeviceId, deviceId);
             queryWrapper.eq(RiskPointDevice::getDeleted, 0);
             Long activeBindingCount = riskPointDeviceMapper.selectCount(queryWrapper);
-            if (activeBindingCount == null || activeBindingCount <= 0) {
+            LambdaQueryWrapper<RiskPointDeviceCapabilityBinding> capabilityQueryWrapper = new LambdaQueryWrapper<>();
+            capabilityQueryWrapper.eq(RiskPointDeviceCapabilityBinding::getRiskPointId, riskPointId);
+            capabilityQueryWrapper.eq(RiskPointDeviceCapabilityBinding::getDeviceId, deviceId);
+            capabilityQueryWrapper.eq(RiskPointDeviceCapabilityBinding::getDeleted, 0);
+            Long activeCapabilityBindingCount = capabilityBindingMapper == null
+                    ? 0L
+                    : capabilityBindingMapper.selectCount(capabilityQueryWrapper);
+            long totalActiveBindingCount = (activeBindingCount == null ? 0L : activeBindingCount)
+                    + (activeCapabilityBindingCount == null ? 0L : activeCapabilityBindingCount);
+            if (totalActiveBindingCount <= 0) {
                   throw new BizException("设备未绑定到该风险点");
             }
 
             int deletedRows = riskPointDeviceMapper.delete(queryWrapper);
+            if (capabilityBindingMapper != null) {
+                  deletedRows += capabilityBindingMapper.delete(capabilityQueryWrapper);
+            }
             if (deletedRows <= 0) {
                   throw new BizException("设备解绑失败");
             }
@@ -332,6 +434,10 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             }
             List<RiskPointDevice> activeBindings = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
                     .eq(RiskPointDevice::getDeleted, 0));
+            List<RiskPointDeviceCapabilityBinding> activeCapabilityBindings = capabilityBindingMapper == null
+                    ? List.of()
+                    : capabilityBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                    .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0));
             Set<Long> currentRiskPointDeviceIds = activeBindings.stream()
                     .filter(binding -> Objects.equals(riskPointId, binding.getRiskPointId()))
                     .map(RiskPointDevice::getDeviceId)
@@ -341,7 +447,12 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     .filter(binding -> !Objects.equals(riskPointId, binding.getRiskPointId()))
                     .map(RiskPointDevice::getDeviceId)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            activeCapabilityBindings.stream()
+                    .filter(binding -> !isDeleted(binding.getDeleted()))
+                    .map(RiskPointDeviceCapabilityBinding::getDeviceId)
+                    .filter(Objects::nonNull)
+                    .forEach(occupiedDeviceIds::add);
             return deviceOptions.stream()
                     .filter(device -> Objects.equals(riskPoint.getOrgId(), device.getOrgId()))
                     .filter(device -> currentRiskPointDeviceIds.contains(device.getId()) || !occupiedDeviceIds.contains(device.getId()))
@@ -375,7 +486,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
                     : deviceService.getRequiredById(currentUserId, deviceId);
       }
 
-      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
+/*      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
             if (device.getOrgId() == null || device.getOrgId() <= 0) {
                   throw new BizException("设备未归属组织，禁止绑定风险点");
             }
@@ -389,6 +500,111 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (!riskPointDeviceMapper.selectList(occupiedWrapper).isEmpty()) {
                   throw new BizException("设备已绑定其他风险点，不能重复绑定");
             }
+      }
+
+      }
+*/
+
+      private void validateRiskPointDeviceBinding(RiskPoint riskPoint, Device device, Long currentRiskPointId) {
+            if (device.getOrgId() == null || device.getOrgId() <= 0) {
+                  throw new BizException("设备未归属组织，禁止绑定风险点");
+            }
+            if (!Objects.equals(riskPoint.getOrgId(), device.getOrgId())) {
+                  throw new BizException("设备所属组织与风险点所属组织不一致");
+            }
+            if (hasBindingOnOtherRiskPoint(device.getId(), currentRiskPointId)) {
+                  throw new BizException("设备已绑定其他风险点，不能重复绑定");
+            }
+      }
+
+      private boolean hasBindingOnOtherRiskPoint(Long deviceId, Long currentRiskPointId) {
+            if (deviceId == null) {
+                  return false;
+            }
+            boolean occupiedByMetric = riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                            .eq(RiskPointDevice::getDeviceId, deviceId)
+                            .eq(RiskPointDevice::getDeleted, 0)).stream()
+                    .anyMatch(binding -> !isDeleted(binding.getDeleted())
+                            && Objects.equals(deviceId, binding.getDeviceId())
+                            && !Objects.equals(currentRiskPointId, binding.getRiskPointId()));
+            if (occupiedByMetric) {
+                  return true;
+            }
+            if (capabilityBindingMapper == null) {
+                  return false;
+            }
+            return capabilityBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                            .eq(RiskPointDeviceCapabilityBinding::getDeviceId, deviceId)
+                            .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0)).stream()
+                    .anyMatch(binding -> !isDeleted(binding.getDeleted())
+                            && Objects.equals(deviceId, binding.getDeviceId())
+                            && !Objects.equals(currentRiskPointId, binding.getRiskPointId()));
+      }
+
+      private boolean hasActiveMetricBinding(Long riskPointId, Long deviceId) {
+            if (riskPointId == null || deviceId == null) {
+                  return false;
+            }
+            return riskPointDeviceMapper.selectList(new LambdaQueryWrapper<RiskPointDevice>()
+                            .eq(RiskPointDevice::getRiskPointId, riskPointId)
+                            .eq(RiskPointDevice::getDeviceId, deviceId)
+                            .eq(RiskPointDevice::getDeleted, 0)).stream()
+                    .anyMatch(binding -> !isDeleted(binding.getDeleted())
+                            && Objects.equals(riskPointId, binding.getRiskPointId())
+                            && Objects.equals(deviceId, binding.getDeviceId()));
+      }
+
+      private boolean hasActiveCapabilityBinding(Long riskPointId, Long deviceId) {
+            if (capabilityBindingMapper == null || riskPointId == null || deviceId == null) {
+                  return false;
+            }
+            return capabilityBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                            .eq(RiskPointDeviceCapabilityBinding::getRiskPointId, riskPointId)
+                            .eq(RiskPointDeviceCapabilityBinding::getDeviceId, deviceId)
+                            .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0)).stream()
+                    .anyMatch(binding -> !isDeleted(binding.getDeleted())
+                            && Objects.equals(riskPointId, binding.getRiskPointId())
+                            && Objects.equals(deviceId, binding.getDeviceId()));
+      }
+
+      private DeviceBindingCapabilityContext resolveDeviceBindingCapability(Long currentUserId,
+                                                                           Device device,
+                                                                           String requestedCapabilityType) {
+            List<DeviceMetricOptionVO> metricOptions = deviceService == null || device == null || device.getId() == null
+                    ? List.of()
+                    : deviceService.listMetricOptions(currentUserId, device.getId());
+            boolean hasFormalMetrics = metricOptions.stream().anyMatch(option -> option != null && option.getRiskMetricId() != null);
+
+            String productKey = null;
+            String productName = null;
+            if (productService != null && device != null && device.getProductId() != null) {
+                  Product product = productService.getRequiredById(device.getProductId());
+                  productKey = product.getProductKey();
+                  productName = product.getProductName();
+            }
+            DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.resolve(productKey, productName, hasFormalMetrics);
+            if (capabilityType == DeviceBindingCapabilityType.UNKNOWN) {
+                  DeviceBindingCapabilityType requestedType = DeviceBindingCapabilitySupport.normalize(requestedCapabilityType);
+                  if (requestedType != DeviceBindingCapabilityType.UNKNOWN) {
+                        capabilityType = requestedType;
+                  }
+            }
+            return new DeviceBindingCapabilityContext(
+                    capabilityType,
+                    DeviceBindingCapabilitySupport.supportsMetricBinding(capabilityType, hasFormalMetrics)
+            );
+      }
+
+      private boolean isDeleted(Integer deleted) {
+            return deleted != null && deleted != 0;
+      }
+
+      private boolean hasDataPermissionSupport() {
+            return permissionService != null;
+      }
+
+      private record DeviceBindingCapabilityContext(DeviceBindingCapabilityType capabilityType,
+                                                    boolean supportsMetricBinding) {
       }
 
       private List<RiskPoint> queryRiskPoints(Long currentUserId, String keyword, String riskPointLevel, Integer status) {
@@ -619,10 +835,6 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             if (riskPoint.getOrgId() == null || !permissionService.listAccessibleOrganizationIds(currentUserId).contains(riskPoint.getOrgId())) {
                   throw new BizException("风险点不存在或无权访问");
             }
-      }
-
-      private boolean hasDataPermissionSupport() {
-            return permissionService != null;
       }
 
       private Long normalizeResponsibleUser(Long responsibleUserId) {

@@ -12,6 +12,8 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -37,6 +39,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
     private final List<RiskMetricScenarioResolver> scenarioResolvers;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final PublishedProductContractSnapshotService snapshotService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper,
@@ -44,11 +47,28 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                                         NormativeMetricDefinitionService normativeMetricDefinitionService,
                                         List<RiskMetricScenarioResolver> scenarioResolvers,
                                         ApplicationEventPublisher applicationEventPublisher) {
+        this(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                scenarioResolvers,
+                applicationEventPublisher,
+                null
+        );
+    }
+
+    public RiskMetricCatalogServiceImpl(RiskMetricCatalogMapper riskMetricCatalogMapper,
+                                        ProductMapper productMapper,
+                                        NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                        List<RiskMetricScenarioResolver> scenarioResolvers,
+                                        ApplicationEventPublisher applicationEventPublisher,
+                                        PublishedProductContractSnapshotService snapshotService) {
         this.riskMetricCatalogMapper = riskMetricCatalogMapper;
         this.productMapper = productMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.scenarioResolvers = scenarioResolvers == null ? List.of() : List.copyOf(scenarioResolvers);
         this.applicationEventPublisher = applicationEventPublisher;
+        this.snapshotService = snapshotService;
     }
 
     @Override
@@ -59,20 +79,21 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         if (productId == null || releasedContracts == null || releasedContracts.isEmpty()) {
             return;
         }
-        Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers);
+        PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(productId);
+        Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers, snapshot);
         if (enabledIdentifiers.isEmpty()) {
             return;
         }
         Map<String, RiskMetricCatalog> existingByIdentifier = listAllByProduct(productId).stream()
                 .filter(row -> StringUtils.hasText(row.getContractIdentifier()))
-                .collect(LinkedHashMap::new, (map, row) -> map.put(row.getContractIdentifier(), row), Map::putAll);
+                .collect(LinkedHashMap::new, (map, row) -> map.put(normalizeIdentifier(row.getContractIdentifier(), snapshot), row), Map::putAll);
         Map<String, MetricSemanticProfile> semanticByIdentifier =
-                resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers);
+                resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers, snapshot);
         Set<String> publishedIdentifiers = new LinkedHashSet<>();
         List<Long> publishedRiskMetricIds = new ArrayList<>();
         List<Long> retiredRiskMetricIds = new ArrayList<>();
         for (ProductModel contract : releasedContracts) {
-            String identifier = normalize(contract == null ? null : contract.getIdentifier());
+            String identifier = normalizeIdentifier(contract == null ? null : contract.getIdentifier(), snapshot);
             if (!StringUtils.hasText(identifier) || !enabledIdentifiers.contains(identifier)) {
                 continue;
             }
@@ -83,10 +104,10 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
                 row.setProductId(productId);
                 row.setContractIdentifier(identifier);
                 row.setEnabled(1);
-                populateCatalogRow(row, releaseBatchId, contract, profile);
+                populateCatalogRow(row, releaseBatchId, contract, profile, identifier);
                 riskMetricCatalogMapper.insert(row);
             } else {
-                populateCatalogRow(row, releaseBatchId, contract, profile);
+                populateCatalogRow(row, releaseBatchId, contract, profile, identifier);
                 row.setEnabled(1);
                 row.setDeleted(0);
                 riskMetricCatalogMapper.updateById(row);
@@ -172,7 +193,8 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
 
     private Map<String, MetricSemanticProfile> resolveSemanticProfiles(Long productId,
                                                                        List<ProductModel> releasedContracts,
-                                                                       Set<String> enabledIdentifiers) {
+                                                                       Set<String> enabledIdentifiers,
+                                                                       PublishedProductContractSnapshot snapshot) {
         if (releasedContracts == null || releasedContracts.isEmpty() || enabledIdentifiers == null || enabledIdentifiers.isEmpty()) {
             return Map.of();
         }
@@ -181,7 +203,7 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         Map<String, NormativeMetricDefinition> normativeByIdentifier = loadNormativeByIdentifier(scenarioCode);
         Map<String, MetricSemanticProfile> semanticByIdentifier = new LinkedHashMap<>();
         for (ProductModel contract : releasedContracts) {
-            String identifier = normalize(contract == null ? null : contract.getIdentifier());
+            String identifier = normalizeIdentifier(contract == null ? null : contract.getIdentifier(), snapshot);
             if (!StringUtils.hasText(identifier) || !enabledIdentifiers.contains(identifier)) {
                 continue;
             }
@@ -318,8 +340,8 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
     private void populateCatalogRow(RiskMetricCatalog row,
                                     Long releaseBatchId,
                                     ProductModel contract,
-                                    MetricSemanticProfile profile) {
-        String identifier = normalize(contract == null ? null : contract.getIdentifier());
+                                    MetricSemanticProfile profile,
+                                    String identifier) {
         row.setReleaseBatchId(releaseBatchId);
         row.setProductModelId(contract == null ? null : contract.getId());
         row.setNormativeIdentifier(firstNonBlank(profile.normativeIdentifier(), identifier));
@@ -339,6 +361,14 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         row.setGisEnabled(profile.gisEnabled());
         row.setInsightEnabled(profile.insightEnabled());
         row.setAnalyticsEnabled(profile.analyticsEnabled());
+    }
+
+    private PublishedProductContractSnapshot loadPublishedSnapshot(Long productId) {
+        if (snapshotService == null || productId == null) {
+            return PublishedProductContractSnapshot.empty(productId);
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(productId);
+        return snapshot == null ? PublishedProductContractSnapshot.empty(productId) : snapshot;
     }
 
     private void publishCatalogEvent(Long productId,
@@ -421,18 +451,26 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return Set.of("double", "float", "int", "integer", "long", "short", "decimal").contains(lower);
     }
 
-    private Set<String> normalizeIdentifiers(Set<String> identifiers) {
+    private Set<String> normalizeIdentifiers(Set<String> identifiers, PublishedProductContractSnapshot snapshot) {
         if (identifiers == null || identifiers.isEmpty()) {
             return Set.of();
         }
         Set<String> normalized = new LinkedHashSet<>();
         for (String identifier : identifiers) {
-            String value = normalize(identifier);
+            String value = normalizeIdentifier(identifier, snapshot);
             if (StringUtils.hasText(value)) {
                 normalized.add(value);
             }
         }
         return normalized;
+    }
+
+    private String normalizeIdentifier(String identifier, PublishedProductContractSnapshot snapshot) {
+        String normalized = normalize(identifier);
+        if (!StringUtils.hasText(normalized) || snapshot == null) {
+            return normalized;
+        }
+        return snapshot.canonicalAliasOf(normalized).orElse(normalized);
     }
 
     private Map<String, Object> parseJsonObject(String json) {
