@@ -48,22 +48,6 @@ public final class PublishedProductContractSnapshot {
         return publishedIdentifiers;
     }
 
-    public void mergeAliasesTargetingCurrentFormal(Map<String, String> currentFormalByLower, Builder builder) {
-        if (currentFormalByLower == null || currentFormalByLower.isEmpty() || builder == null) {
-            return;
-        }
-        canonicalAliases.forEach((alias, target) -> {
-            String normalizedTarget = normalize(target);
-            if (normalizedTarget == null) {
-                return;
-            }
-            String currentFormalIdentifier = currentFormalByLower.get(normalizedTarget);
-            if (currentFormalIdentifier != null) {
-                builder.canonicalAlias(alias, currentFormalIdentifier);
-            }
-        });
-    }
-
     public Optional<String> canonicalAliasOf(String identifier) {
         String normalized = normalize(identifier);
         if (normalized == null) {

@@ -182,6 +182,35 @@ class PublishedProductContractSnapshotServiceImplTest {
     }
 
     @Test
+    void shouldInvalidateCacheWhenFormalIdentifierCasingChangesWithinSameReleasedBatch() {
+        when(productModelMapper.selectList(any()))
+                .thenReturn(List.of(property("S1_ZT_1.signal_4g")))
+                .thenReturn(List.of(property("S1_ZT_1.SIGNAL_4G")));
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(9001L);
+        when(releaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+
+        ProductMetricResolverSnapshot persisted = new ProductMetricResolverSnapshot();
+        persisted.setSnapshotJson("""
+                {
+                  "publishedIdentifiers": ["signal_4g"],
+                  "canonicalAliases": {
+                    "legacy_signal_alias": "S1_ZT_1.signal_4g"
+                  }
+                }
+                """);
+        when(snapshotMapper.selectList(any())).thenReturn(List.of(persisted));
+
+        PublishedProductContractSnapshot first = snapshotService.getRequiredSnapshot(1001L);
+        PublishedProductContractSnapshot second = snapshotService.getRequiredSnapshot(1001L);
+
+        assertEquals("S1_ZT_1.signal_4g", first.canonicalAliasOf("legacy_signal_alias").orElse(null));
+        assertEquals("S1_ZT_1.SIGNAL_4G", second.canonicalAliasOf("legacy_signal_alias").orElse(null));
+        assertFalse(second.publishedIdentifiers().contains("S1_ZT_1.signal_4g"));
+        assertTrue(second.publishedIdentifiers().contains("S1_ZT_1.SIGNAL_4G"));
+    }
+
+    @Test
     void shouldNotServePersistedSnapshotTruthWhenCurrentFormalIdentifiersAreEmpty() {
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();

@@ -65,14 +65,14 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
                 && Objects.equals(cachedSnapshot.currentFormalSignature(), currentFormalSignature)) {
             return cachedSnapshot.snapshot();
         }
-        PublishedProductContractSnapshot persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
+        PersistedSnapshotData persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
         PublishedProductContractSnapshot snapshot =
                 mergeSnapshotWithCurrentFormal(productId, latestReleasedBatchId, currentFormalByLower, persistedSnapshot);
         cacheSnapshot(productId, latestReleasedBatchId, currentFormalSignature, snapshot);
         return snapshot;
     }
 
-    private PublishedProductContractSnapshot loadPersistedSnapshot(Long productId, Long releaseBatchId) {
+    private PersistedSnapshotData loadPersistedSnapshot(Long productId, Long releaseBatchId) {
         if (snapshotMapper == null || productId == null || releaseBatchId == null) {
             return null;
         }
@@ -124,7 +124,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         latestSnapshotCache.put(productId, new CachedSnapshot(releaseBatchId, currentFormalSignature, snapshot));
     }
 
-    private PublishedProductContractSnapshot parseSnapshot(Long productId, Long releaseBatchId, String snapshotJson) {
+    private PersistedSnapshotData parseSnapshot(Long productId, Long releaseBatchId, String snapshotJson) {
         if (!StringUtils.hasText(snapshotJson)) {
             return null;
         }
@@ -133,6 +133,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
                     .productId(productId)
                     .releaseBatchId(releaseBatchId);
+            Map<String, String> canonicalAliases = new LinkedHashMap<>();
             JsonNode publishedIdentifiersNode = root.path("publishedIdentifiers");
             if (publishedIdentifiersNode.isArray()) {
                 for (JsonNode identifierNode : publishedIdentifiersNode) {
@@ -145,11 +146,12 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             if (canonicalAliasesNode.isObject()) {
                 canonicalAliasesNode.fields().forEachRemaining(entry -> {
                     if (entry != null && entry.getValue() != null && entry.getValue().isTextual()) {
+                        canonicalAliases.put(entry.getKey(), entry.getValue().asText());
                         builder.canonicalAlias(entry.getKey(), entry.getValue().asText());
                     }
                 });
             }
-            return builder.build();
+            return new PersistedSnapshotData(builder.build(), canonicalAliases);
         } catch (Exception ex) {
             return null;
         }
@@ -158,7 +160,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
     private PublishedProductContractSnapshot mergeSnapshotWithCurrentFormal(Long productId,
                                                                             Long releaseBatchId,
                                                                             Map<String, String> currentFormalByLower,
-                                                                            PublishedProductContractSnapshot persistedSnapshot) {
+                                                                            PersistedSnapshotData persistedSnapshot) {
         if (currentFormalByLower.isEmpty()) {
             return PublishedProductContractSnapshot.builder()
                     .productId(productId)
@@ -171,7 +173,16 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
                 .publishedIdentifiers(currentFormalByLower.values());
         currentFormalByLower.values().forEach(identifier -> builder.canonicalAlias(identifier, identifier));
         if (persistedSnapshot != null) {
-            persistedSnapshot.mergeAliasesTargetingCurrentFormal(currentFormalByLower, builder);
+            persistedSnapshot.canonicalAliases().forEach((alias, target) -> {
+                String normalizedTarget = normalizeIdentifier(target);
+                if (!StringUtils.hasText(normalizedTarget)) {
+                    return;
+                }
+                String currentFormalIdentifier = currentFormalByLower.get(normalizedTarget);
+                if (StringUtils.hasText(currentFormalIdentifier)) {
+                    builder.canonicalAlias(alias, currentFormalIdentifier);
+                }
+            });
         }
         return builder.build();
     }
@@ -180,7 +191,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         if (currentFormalByLower == null || currentFormalByLower.isEmpty()) {
             return "";
         }
-        return String.join("|", currentFormalByLower.keySet());
+        return String.join("|", currentFormalByLower.values());
     }
 
     private Map<String, String> loadCurrentFormalIdentifierMap(Long productId) {
@@ -212,6 +223,17 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         }
         String trimmed = identifier.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeIdentifier(String identifier) {
+        if (!StringUtils.hasText(identifier)) {
+            return null;
+        }
+        return identifier.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private record PersistedSnapshotData(PublishedProductContractSnapshot snapshot,
+                                         Map<String, String> canonicalAliases) {
     }
 
     private record CachedSnapshot(Long releaseBatchId,
