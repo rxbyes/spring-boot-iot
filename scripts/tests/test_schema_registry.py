@@ -1,6 +1,8 @@
 import importlib.util
+import json
 import pathlib
 import sys
+import tempfile
 import unittest
 
 
@@ -106,9 +108,218 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
         for field in view_obj.fields:
             self._assert_no_placeholder_text(field.comment_zh)
 
+    def test_load_registry_should_fail_on_duplicate_object_names(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            duplicate_name = "dup_object"
+            mysql_payload = {
+                "domain": "dup-domain",
+                "storageType": "mysql",
+                "objects": [self._build_mysql_object(name=duplicate_name)],
+            }
+            views_payload = {
+                "domain": "dup-view-domain",
+                "storageType": "mysql_view",
+                "objects": [
+                    self._build_view_object(
+                        name=duplicate_name,
+                        source_table="source_table_a",
+                    )
+                ],
+            }
+            tdengine_payload = {
+                "domain": "tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_on_invalid_lifecycle(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            mysql_payload = {
+                "domain": "invalid-lifecycle-domain",
+                "storageType": "mysql",
+                "objects": [
+                    self._build_mysql_object(
+                        name="invalid_lifecycle_obj",
+                        lifecycle="retired",
+                    )
+                ],
+            }
+            views_payload = {
+                "domain": "ok-view-domain",
+                "storageType": "mysql_view",
+                "objects": [
+                    self._build_view_object(
+                        name="view_ok",
+                        source_table="invalid_lifecycle_obj",
+                    )
+                ],
+            }
+            tdengine_payload = {
+                "domain": "ok-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_when_relation_target_missing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            mysql_payload = {
+                "domain": "relation-domain",
+                "storageType": "mysql",
+                "objects": [
+                    self._build_mysql_object(
+                        name="relation_source",
+                        relations=[
+                            {
+                                "type": "belongs_to",
+                                "target": "non_existent_target",
+                                "viaField": "tenant_id",
+                            }
+                        ],
+                    )
+                ],
+            }
+            views_payload = {
+                "domain": "relation-view-domain",
+                "storageType": "mysql_view",
+                "objects": [
+                    self._build_view_object(
+                        name="view_ok",
+                        source_table="relation_source",
+                    )
+                ],
+            }
+            tdengine_payload = {
+                "domain": "relation-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
     def _assert_no_placeholder_text(self, text: str):
         for pattern in PLACEHOLDER_PATTERNS:
             self.assertNotIn(pattern, text)
+
+    def _prepare_registry_dirs(self, root: pathlib.Path):
+        (root / "mysql").mkdir(parents=True, exist_ok=True)
+        (root / "views").mkdir(parents=True, exist_ok=True)
+        (root / "tdengine").mkdir(parents=True, exist_ok=True)
+
+    def _write_json(self, path: pathlib.Path, payload: dict):
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _build_mysql_object(
+        self,
+        name: str,
+        lifecycle: str = "active",
+        relations: list[dict] | None = None,
+    ) -> dict:
+        if relations is None:
+            relations = []
+        return {
+            "name": name,
+            "storageType": "mysql_table",
+            "ownerModule": "spring-boot-iot-device",
+            "lifecycle": lifecycle,
+            "includedInInit": True,
+            "includedInSchemaSync": True,
+            "runtimeBootstrapMode": "schema_sync_managed",
+            "tableCommentZh": "示例数据表",
+            "commentZh": "示例数据表",
+            "fields": [
+                {
+                    "name": "tenant_id",
+                    "type": "BIGINT NOT NULL",
+                    "commentZh": "租户ID",
+                }
+            ],
+            "indexes": [],
+            "relations": relations,
+            "lineageRole": "domain_master_data",
+            "businessBoundary": "用于示例校验的数据边界。",
+        }
+
+    def _build_view_object(self, name: str, source_table: str) -> dict:
+        return {
+            "name": name,
+            "storageType": "mysql_view",
+            "ownerModule": "spring-boot-iot-device",
+            "lifecycle": "active",
+            "includedInInit": True,
+            "includedInSchemaSync": True,
+            "runtimeBootstrapMode": "view_only",
+            "tableCommentZh": "示例兼容视图",
+            "commentZh": "示例兼容视图",
+            "fields": [
+                {
+                    "name": "tenant_id",
+                    "type": "VIEW_COLUMN",
+                    "commentZh": "租户ID",
+                }
+            ],
+            "indexes": [],
+            "relations": [
+                {
+                    "type": "derived_from",
+                    "target": source_table,
+                    "viaField": "view_select",
+                }
+            ],
+            "lineageRole": "compatibility_projection",
+            "businessBoundary": "用于示例视图兼容读取的边界。",
+            "sourceTables": [source_table],
+            "definitionSql": f"SELECT tenant_id FROM {source_table}",
+        }
+
+    def _build_tdengine_object(self, name: str) -> dict:
+        return {
+            "name": name,
+            "storageType": "tdengine_table",
+            "ownerModule": "spring-boot-iot-telemetry",
+            "lifecycle": "active",
+            "includedInInit": True,
+            "includedInSchemaSync": True,
+            "runtimeBootstrapMode": "auto_bootstrap",
+            "tableCommentZh": "示例时序表",
+            "commentZh": "示例时序表",
+            "fields": [
+                {
+                    "name": "tenant_id",
+                    "type": "BIGINT",
+                    "commentZh": "租户ID",
+                    "isTag": False,
+                }
+            ],
+            "indexes": [],
+            "relations": [],
+            "lineageRole": "telemetry_compatibility_fallback",
+            "businessBoundary": "用于示例时序写入边界。",
+        }
 
 
 if __name__ == "__main__":
