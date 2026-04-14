@@ -198,7 +198,21 @@ public class DevicePayloadApplyStageHandler {
                 property.setUpdateTime(LocalDateTime.now());
                 devicePropertyMapper.updateById(property);
             }
+            removeCollectorShortDuplicate(target.getDevice().getId(), property.getIdentifier());
         }
+    }
+
+    private void removeCollectorShortDuplicate(Long deviceId, String identifier) {
+        if (deviceId == null || !isCollectorParentFullPathIdentifier(identifier)) {
+            return;
+        }
+        String shortIdentifier = lastIdentifierSegment(identifier);
+        if (!hasText(shortIdentifier) || shortIdentifier.equalsIgnoreCase(identifier)) {
+            return;
+        }
+        devicePropertyMapper.delete(new LambdaQueryWrapper<DeviceProperty>()
+                .eq(DeviceProperty::getDeviceId, deviceId)
+                .eq(DeviceProperty::getIdentifier, shortIdentifier));
     }
 
     private void normalizeVendorMappedPayload(Product product, DeviceUpMessage upMessage) {
@@ -464,5 +478,22 @@ public class DevicePayloadApplyStageHandler {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean isCollectorParentFullPathIdentifier(String identifier) {
+        return hasText(identifier)
+                && identifier.startsWith("S1_ZT_1.")
+                && !identifier.startsWith("S1_ZT_1.sensor_state.");
+    }
+
+    private String lastIdentifierSegment(String identifier) {
+        if (!hasText(identifier)) {
+            return null;
+        }
+        int separatorIndex = identifier.lastIndexOf('.');
+        if (separatorIndex < 0 || separatorIndex >= identifier.length() - 1) {
+            return identifier;
+        }
+        return identifier.substring(separatorIndex + 1);
     }
 }

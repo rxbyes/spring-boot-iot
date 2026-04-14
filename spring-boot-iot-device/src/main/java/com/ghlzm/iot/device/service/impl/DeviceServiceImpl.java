@@ -53,6 +53,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -473,6 +474,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         .orderByAsc(ProductModel::getSortNo)
                         .orderByAsc(ProductModel::getIdentifier)
         );
+        Map<String, String> collectorParentFormalByLeaf = buildCollectorParentFormalByLeaf(productModels);
         for (ProductModel productModel : productModels) {
             DeviceMetricOptionVO option = new DeviceMetricOptionVO();
             option.setIdentifier(productModel.getIdentifier());
@@ -490,14 +492,18 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         .orderByAsc(DeviceProperty::getIdentifier)
         );
         for (DeviceProperty deviceProperty : deviceProperties) {
-            optionMap.computeIfAbsent(deviceProperty.getIdentifier(), key -> {
+            String resolvedIdentifier = resolveMetricOptionIdentifier(deviceProperty.getIdentifier(), collectorParentFormalByLeaf);
+            if (!StringUtils.hasText(resolvedIdentifier)) {
+                continue;
+            }
+            optionMap.computeIfAbsent(resolvedIdentifier, key -> {
                 DeviceMetricOptionVO option = new DeviceMetricOptionVO();
-                option.setIdentifier(deviceProperty.getIdentifier());
+                option.setIdentifier(resolvedIdentifier);
                 option.setName(deviceProperty.getPropertyName() == null || deviceProperty.getPropertyName().isBlank()
-                        ? deviceProperty.getIdentifier()
+                        ? resolvedIdentifier
                         : deviceProperty.getPropertyName());
                 option.setDataType(deviceProperty.getValueType());
-                option.setRiskMetricId(publishedRiskMetricIds.get(deviceProperty.getIdentifier()));
+                option.setRiskMetricId(publishedRiskMetricIds.get(resolvedIdentifier));
                 return option;
             });
         }
@@ -554,6 +560,58 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 property.setPropertyName(latestName);
             }
         });
+    }
+
+    private Map<String, String> buildCollectorParentFormalByLeaf(List<ProductModel> productModels) {
+        if (CollectionUtils.isEmpty(productModels)) {
+            return Map.of();
+        }
+        Map<String, String> collectorParentFormalByLeaf = new LinkedHashMap<>();
+        for (ProductModel productModel : productModels) {
+            String identifier = normalizeOptionalText(productModel == null ? null : productModel.getIdentifier());
+            if (!isCollectorParentFullPathIdentifier(identifier)) {
+                continue;
+            }
+            collectorParentFormalByLeaf.putIfAbsent(
+                    lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT),
+                    identifier
+            );
+        }
+        return collectorParentFormalByLeaf;
+    }
+
+    private String resolveMetricOptionIdentifier(String identifier, Map<String, String> collectorParentFormalByLeaf) {
+        String normalizedIdentifier = normalizeOptionalText(identifier);
+        if (!StringUtils.hasText(normalizedIdentifier)) {
+            return normalizedIdentifier;
+        }
+        if (normalizedIdentifier.contains(".")) {
+            return normalizedIdentifier;
+        }
+        if (collectorParentFormalByLeaf == null || collectorParentFormalByLeaf.isEmpty()) {
+            return normalizedIdentifier;
+        }
+        return collectorParentFormalByLeaf.getOrDefault(
+                normalizedIdentifier.toLowerCase(Locale.ROOT),
+                normalizedIdentifier
+        );
+    }
+
+    private boolean isCollectorParentFullPathIdentifier(String identifier) {
+        return StringUtils.hasText(identifier)
+                && identifier.startsWith("S1_ZT_1.")
+                && !identifier.startsWith("S1_ZT_1.sensor_state.");
+    }
+
+    private String lastIdentifierSegment(String identifier) {
+        if (!StringUtils.hasText(identifier)) {
+            return identifier;
+        }
+        int separatorIndex = identifier.lastIndexOf('.');
+        if (separatorIndex < 0 || separatorIndex >= identifier.length() - 1) {
+            return identifier;
+        }
+        return identifier.substring(separatorIndex + 1);
     }
 
     private Device createDeviceRecord(Long currentUserId, DeviceAddDTO dto) {

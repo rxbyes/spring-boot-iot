@@ -572,6 +572,46 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void listMetricOptionsShouldPreferFullPathFormalIdentifierOverShortLatestDuplicate() {
+        Device device = new Device();
+        device.setId(4001L);
+        device.setTenantId(8L);
+        device.setProductId(3004L);
+
+        ProductModel productModel = new ProductModel();
+        productModel.setId(3203L);
+        productModel.setProductId(3004L);
+        productModel.setModelType("property");
+        productModel.setIdentifier("S1_ZT_1.signal_4g");
+        productModel.setModelName("4G 信号强度");
+        productModel.setDataType("int");
+        productModel.setDeleted(0);
+
+        DeviceProperty shortProperty = new DeviceProperty();
+        shortProperty.setIdentifier("signal_4g");
+        shortProperty.setPropertyName("旧 4G 信号");
+        shortProperty.setValueType("int");
+        shortProperty.setPropertyValue("-82");
+
+        DeviceProperty fullPathProperty = new DeviceProperty();
+        fullPathProperty.setIdentifier("S1_ZT_1.signal_4g");
+        fullPathProperty.setPropertyName("4G 信号强度");
+        fullPathProperty.setValueType("int");
+        fullPathProperty.setPropertyValue("-81");
+
+        when(permissionService.getDataPermissionContext(99L))
+                .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
+        doReturn(device).when(deviceService).getRequiredById(4001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(productModel));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(shortProperty, fullPathProperty));
+        when(riskMetricCatalogReadMapper.selectList(any())).thenReturn(List.of());
+
+        List<DeviceMetricOptionVO> options = deviceService.listMetricOptions(99L, 4001L);
+
+        assertEquals(List.of("S1_ZT_1.signal_4g"), options.stream().map(DeviceMetricOptionVO::getIdentifier).toList());
+    }
+
+    @Test
     void addDeviceShouldResolveInvalidReportStateAfterArchiveCreate() {
         DeviceServiceImpl resolvingService = spy(new DeviceServiceImpl(
                 productService,

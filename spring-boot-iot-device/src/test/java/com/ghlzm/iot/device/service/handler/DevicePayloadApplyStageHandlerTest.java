@@ -164,6 +164,45 @@ class DevicePayloadApplyStageHandlerTest {
     }
 
     @Test
+    void applyShouldDeleteShortCollectorDuplicateWhenFullPathLatestPropertyIsWritten() {
+        DevicePayloadApplyStageHandler handler = new DevicePayloadApplyStageHandler(
+                devicePropertyMapper,
+                devicePropertyMetadataService,
+                commandRecordService,
+                deviceFileService,
+                productMetricEvidenceService,
+                vendorMetricMappingRuntimeService
+        );
+
+        Product product = new Product();
+        product.setId(2003L);
+        product.setProductKey("south-collector-v1");
+
+        Device device = new Device();
+        device.setId(3002L);
+        device.setTenantId(1L);
+        device.setProductId(2003L);
+        device.setDeviceCode("SK00FB0D1310195");
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setDeviceCode("SK00FB0D1310195");
+        upMessage.setTimestamp(LocalDateTime.of(2026, 4, 14, 10, 15, 0));
+        upMessage.setProperties(Map.of("S1_ZT_1.signal_4g", -71));
+
+        when(devicePropertyMetadataService.listPropertyMetadataMap(2003L)).thenReturn(Map.of());
+        when(devicePropertyMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(null);
+
+        DeviceProcessingTarget target = new DeviceProcessingTarget();
+        target.setDevice(device);
+        target.setProduct(product);
+        target.setMessage(upMessage);
+
+        handler.apply(target);
+
+        verify(devicePropertyMapper).delete(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void applyShouldNormalizeRuntimePropertiesAndMetricEvidenceByVendorMappingRule() {
         DevicePayloadApplyStageHandler handler = new DevicePayloadApplyStageHandler(
                 devicePropertyMapper,
