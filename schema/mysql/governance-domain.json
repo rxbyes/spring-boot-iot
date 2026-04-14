@@ -10,98 +10,98 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sys_governance_approval_order表说明",
-      "commentZh": "sys_governance_approval_order表说明",
+      "tableCommentZh": "sysgovernance审批工单表",
+      "commentZh": "sysgovernance审批工单表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "action_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "action_code字段说明"
+          "commentZh": "action编码"
         },
         {
           "name": "action_name",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "action_name字段说明"
+          "commentZh": "action名称"
         },
         {
           "name": "subject_type",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "subject_type字段说明"
+          "commentZh": "subject类型业务字段"
         },
         {
           "name": "subject_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "subject_id字段说明"
+          "commentZh": "审批对象ID"
         },
         {
           "name": "work_item_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "work_item_id字段说明"
+          "commentZh": "工作项ID"
         },
         {
           "name": "status",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "status字段说明"
+          "commentZh": "状态"
         },
         {
           "name": "operator_user_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "operator_user_id字段说明"
+          "commentZh": "操作人用户ID"
         },
         {
           "name": "approver_user_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "approver_user_id字段说明"
+          "commentZh": "复核人用户ID"
         },
         {
           "name": "payload_json",
           "type": "LONGTEXT DEFAULT NULL",
-          "commentZh": "payload_json字段说明"
+          "commentZh": "载荷JSON内容"
         },
         {
           "name": "approval_comment",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "approval_comment字段说明"
+          "commentZh": "审批意见"
         },
         {
           "name": "approved_time",
           "type": "DATETIME DEFAULT NULL",
-          "commentZh": "approved_time字段说明"
+          "commentZh": "审批时间"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -163,7 +163,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "sys_governance_approval_order对象业务边界说明。"
+      "businessBoundary": "用于sysgovernance审批工单表的数据持久化与查询，归属governance域并服务真实环境基线。"
     },
     {
       "name": "sys_governance_approval_transition",
@@ -173,58 +173,58 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sys_governance_approval_transition表说明",
-      "commentZh": "sys_governance_approval_transition表说明",
+      "tableCommentZh": "sysgovernance审批transition表",
+      "commentZh": "sysgovernance审批transition表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "order_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "order_id字段说明"
+          "commentZh": "工单ID"
         },
         {
           "name": "from_status",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "from_status字段说明"
+          "commentZh": "from状态业务字段"
         },
         {
           "name": "to_status",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "to_status字段说明"
+          "commentZh": "to状态业务字段"
         },
         {
           "name": "actor_user_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "actor_user_id字段说明"
+          "commentZh": "操作人用户ID"
         },
         {
           "name": "transition_comment",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "transition_comment字段说明"
+          "commentZh": "transitioncomment业务字段"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -272,7 +272,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "sys_governance_approval_transition对象业务边界说明。"
+      "businessBoundary": "用于sysgovernance审批transition表的数据持久化与查询，归属governance域并服务真实环境基线。"
     },
     {
       "name": "sys_governance_approval_policy",
@@ -282,73 +282,73 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sys_governance_approval_policy表说明",
-      "commentZh": "sys_governance_approval_policy表说明",
+      "tableCommentZh": "sysgovernance审批policy表",
+      "commentZh": "sysgovernance审批policy表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 0",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "scope_type",
           "type": "VARCHAR(16) NOT NULL",
-          "commentZh": "scope_type字段说明"
+          "commentZh": "scope类型业务字段"
         },
         {
           "name": "action_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "action_code字段说明"
+          "commentZh": "action编码"
         },
         {
           "name": "approver_mode",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "approver_mode字段说明"
+          "commentZh": "复核人mode业务字段"
         },
         {
           "name": "approver_user_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "approver_user_id字段说明"
+          "commentZh": "复核人用户ID"
         },
         {
           "name": "enabled",
           "type": "TINYINT NOT NULL DEFAULT 1",
-          "commentZh": "enabled字段说明"
+          "commentZh": "启用标记"
         },
         {
           "name": "remark",
           "type": "VARCHAR(255) DEFAULT NULL",
-          "commentZh": "remark字段说明"
+          "commentZh": "备注"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -398,7 +398,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "sys_governance_approval_policy对象业务边界说明。"
+      "businessBoundary": "用于sysgovernance审批policy表的数据持久化与查询，归属governance域并服务真实环境基线。"
     },
     {
       "name": "sys_governance_replay_feedback",
@@ -408,68 +408,68 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sys_governance_replay_feedback表说明",
-      "commentZh": "sys_governance_replay_feedback表说明",
+      "tableCommentZh": "sysgovernancereplayfeedback表",
+      "commentZh": "sysgovernancereplayfeedback表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "work_item_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "work_item_id字段说明"
+          "commentZh": "工作项ID"
         },
         {
           "name": "approval_order_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "approval_order_id字段说明"
+          "commentZh": "审批单ID"
         },
         {
           "name": "release_batch_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "release_batch_id字段说明"
+          "commentZh": "发布批次ID"
         },
         {
           "name": "adopted_decision",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "adopted_decision字段说明"
+          "commentZh": "adopteddecision业务字段"
         },
         {
           "name": "execution_outcome",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "execution_outcome字段说明"
+          "commentZh": "executionoutcome业务字段"
         },
         {
           "name": "root_cause_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "root_cause_code字段说明"
+          "commentZh": "rootcause编码"
         },
         {
           "name": "feedback_json",
           "type": "LONGTEXT DEFAULT NULL",
-          "commentZh": "feedback_json字段说明"
+          "commentZh": "feedbackJSON内容"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -517,7 +517,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "sys_governance_replay_feedback对象业务边界说明。"
+      "businessBoundary": "用于sysgovernancereplayfeedback表的数据持久化与查询，归属governance域并服务真实环境基线。"
     },
     {
       "name": "iot_governance_work_item",
@@ -593,12 +593,12 @@
         {
           "name": "work_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'OPEN'",
-          "commentZh": "work_status字段说明"
+          "commentZh": "工作状态业务字段"
         },
         {
           "name": "priority_level",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'P2'",
-          "commentZh": "priority_level字段说明"
+          "commentZh": "prioritylevel业务字段"
         },
         {
           "name": "assignee_user_id",
@@ -683,7 +683,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -693,7 +693,7 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
@@ -733,7 +733,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "治理与运营工作项表???governance????????iot_governance_work_item?????????????"
+      "businessBoundary": "用于治理与运营工作项表的数据持久化与查询，归属governance域并服务真实环境基线。"
     },
     {
       "name": "iot_governance_ops_alert",
@@ -809,12 +809,12 @@
         {
           "name": "alert_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'OPEN'",
-          "commentZh": "alert_status字段说明"
+          "commentZh": "alert状态业务字段"
         },
         {
           "name": "severity_level",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'WARN'",
-          "commentZh": "severity_level字段说明"
+          "commentZh": "severitylevel业务字段"
         },
         {
           "name": "affected_count",
@@ -884,7 +884,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -894,7 +894,7 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
@@ -929,7 +929,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "治理运维告警表???governance????????iot_governance_ops_alert?????????????"
+      "businessBoundary": "用于治理运维告警表的数据持久化与查询，归属governance域并服务真实环境基线。"
     }
   ]
 }

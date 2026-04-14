@@ -13,6 +13,8 @@ schema_registry_loader = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = schema_registry_loader
 SPEC.loader.exec_module(schema_registry_loader)
 
+PLACEHOLDER_PATTERNS = ("表说明", "字段说明", "业务边界说明", "对象业务边界说明", "???", "????")
+
 
 class SchemaRegistryBaselineTest(unittest.TestCase):
     def test_registry_contract_and_comment_compliance(self):
@@ -59,6 +61,10 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
         self.assertEqual(len(message_log.fields), 12)
         self.assertGreaterEqual(len(message_log.indexes), 5)
         self.assertGreaterEqual(len(message_log.relations), 2)
+        self._assert_no_placeholder_text(message_log.table_comment_zh)
+        self._assert_no_placeholder_text(message_log.business_boundary)
+        for field in message_log.fields:
+            self._assert_no_placeholder_text(field.comment_zh)
 
     def test_representative_governance_table_has_indexes_and_relations(self):
         registry = schema_registry_loader.load_registry(REPO_ROOT / "schema")
@@ -94,6 +100,15 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
         self.assertIn("SELECT", view_obj.definition_sql.upper())
         self.assertIn("FROM IOT_DEVICE_MESSAGE_LOG", view_obj.definition_sql.upper())
         self.assertGreaterEqual(len(view_obj.relations), 1)
+        self._assert_no_placeholder_text(view_obj.table_comment_zh)
+        self._assert_no_placeholder_text(view_obj.comment_zh)
+        self._assert_no_placeholder_text(view_obj.business_boundary)
+        for field in view_obj.fields:
+            self._assert_no_placeholder_text(field.comment_zh)
+
+    def _assert_no_placeholder_text(self, text: str):
+        for pattern in PLACEHOLDER_PATTERNS:
+            self.assertNotIn(pattern, text)
 
 
 if __name__ == "__main__":

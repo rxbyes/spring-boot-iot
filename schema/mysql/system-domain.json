@@ -61,17 +61,17 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -92,7 +92,7 @@
       ],
       "relations": [],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "租户表???system????????sys_tenant?????????????"
+      "businessBoundary": "用于租户表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_user",
@@ -183,27 +183,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -262,7 +262,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "系统用户表???system????????sys_user?????????????"
+      "businessBoundary": "用于系统用户表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_role",
@@ -313,27 +313,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -378,7 +378,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "角色表???system????????sys_role?????????????"
+      "businessBoundary": "用于角色表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_user_role",
@@ -419,7 +419,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -429,7 +429,7 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
@@ -487,7 +487,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用户角色关联表???system????????sys_user_role?????????????"
+      "businessBoundary": "用于用户角色关联表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_menu",
@@ -588,27 +588,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -670,7 +670,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "菜单表???system????????sys_menu?????????????"
+      "businessBoundary": "用于菜单表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_role_menu",
@@ -706,27 +706,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -779,7 +779,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "角色菜单关联表???system????????sys_role_menu?????????????"
+      "businessBoundary": "用于角色菜单关联表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_organization",
@@ -860,27 +860,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -935,7 +935,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "组织机构表???system????????sys_organization?????????????"
+      "businessBoundary": "用于组织机构表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_region",
@@ -1006,27 +1006,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1081,7 +1081,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "区域表???system????????sys_region?????????????"
+      "businessBoundary": "用于区域表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_dict",
@@ -1147,27 +1147,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1214,7 +1214,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "字典表???system????????sys_dict?????????????"
+      "businessBoundary": "用于字典表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_dict_item",
@@ -1275,27 +1275,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1336,7 +1336,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "字典项表???system????????sys_dict_item?????????????"
+      "businessBoundary": "用于字典项表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_notification_channel",
@@ -1397,27 +1397,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1464,7 +1464,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "通知渠道表???system????????sys_notification_channel?????????????"
+      "businessBoundary": "用于通知渠道表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message",
@@ -1575,7 +1575,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -1585,7 +1585,7 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
@@ -1657,7 +1657,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "站内消息表???system????????sys_in_app_message?????????????"
+      "businessBoundary": "用于站内消息表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message_read",
@@ -1698,12 +1698,12 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         }
       ],
       "indexes": [
@@ -1751,7 +1751,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "站内消息已读表???system????????sys_in_app_message_read?????????????"
+      "businessBoundary": "用于站内消息已读表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message_bridge_log",
@@ -1832,12 +1832,12 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         }
       ],
       "indexes": [
@@ -1893,7 +1893,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "站内消息未读桥接日志表???system????????sys_in_app_message_bridge_log?????????????"
+      "businessBoundary": "用于站内消息未读桥接日志表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message_bridge_attempt_log",
@@ -1974,7 +1974,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         }
       ],
       "indexes": [
@@ -2024,7 +2024,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "站内消息桥接尝试明细表???system????????sys_in_app_message_bridge_attempt_log?????????????"
+      "businessBoundary": "用于站内消息桥接尝试明细表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_help_document",
@@ -2100,7 +2100,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -2110,7 +2110,7 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
@@ -2155,7 +2155,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "帮助文档表???system????????sys_help_document?????????????"
+      "businessBoundary": "用于帮助文档表的数据持久化与查询，归属system域并服务真实环境基线。"
     },
     {
       "name": "sys_audit_log",
@@ -2251,37 +2251,37 @@
         {
           "name": "trace_id",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "trace_id字段说明"
+          "commentZh": "链路追踪ID"
         },
         {
           "name": "device_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "device_code字段说明"
+          "commentZh": "设备编码"
         },
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "product_key字段说明"
+          "commentZh": "产品标识"
         },
         {
           "name": "error_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "error_code字段说明"
+          "commentZh": "error编码"
         },
         {
           "name": "exception_class",
           "type": "VARCHAR(255) DEFAULT NULL",
-          "commentZh": "exception_class字段说明"
+          "commentZh": "exceptionclass业务字段"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2354,7 +2354,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "审计日志表???system????????sys_audit_log?????????????"
+      "businessBoundary": "用于审计日志表的数据持久化与查询，归属system域并服务真实环境基线。"
     }
   ]
 }

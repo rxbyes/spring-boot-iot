@@ -76,27 +76,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -124,7 +124,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "产品表???device????????iot_product?????????????"
+      "businessBoundary": "用于产品表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_product_model",
@@ -210,17 +210,17 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -254,7 +254,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "产品物模型表???device????????iot_product_model?????????????"
+      "businessBoundary": "用于产品物模型表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_normative_metric_definition",
@@ -375,17 +375,17 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -418,7 +418,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "规范字段定义表???device????????iot_normative_metric_definition?????????????"
+      "businessBoundary": "用于规范字段定义表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_vendor_metric_evidence",
@@ -504,17 +504,17 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -556,7 +556,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "厂商字段证据表???device????????iot_vendor_metric_evidence?????????????"
+      "businessBoundary": "用于厂商字段证据表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_vendor_metric_mapping_rule",
@@ -582,7 +582,7 @@
         {
           "name": "scope_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "scope_type字段说明"
+          "commentZh": "scope类型业务字段"
         },
         {
           "name": "product_id",
@@ -652,7 +652,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -662,12 +662,12 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -692,7 +692,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "厂商字段映射规则表???device????????iot_vendor_metric_mapping_rule?????????????"
+      "businessBoundary": "用于厂商字段映射规则表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_product_contract_release_batch",
@@ -702,78 +702,78 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot_product_contract_release_batch表说明",
-      "commentZh": "iot_product_contract_release_batch表说明",
+      "tableCommentZh": "iot产品contractrelease批次表",
+      "commentZh": "iot产品contractrelease批次表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "product_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "product_id字段说明"
+          "commentZh": "产品ID"
         },
         {
           "name": "scenario_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "scenario_code字段说明"
+          "commentZh": "scenario编码"
         },
         {
           "name": "release_source",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "release_source字段说明"
+          "commentZh": "releasesource业务字段"
         },
         {
           "name": "released_field_count",
           "type": "INT NOT NULL DEFAULT 0",
-          "commentZh": "released_field_count字段说明"
+          "commentZh": "releasedfieldcount业务字段"
         },
         {
           "name": "approval_order_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "approval_order_id字段说明"
+          "commentZh": "审批单ID"
         },
         {
           "name": "release_reason",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "release_reason字段说明"
+          "commentZh": "releasereason业务字段"
         },
         {
           "name": "release_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'RELEASED'",
-          "commentZh": "release_status字段说明"
+          "commentZh": "release状态业务字段"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "rollback_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "rollback_by字段说明"
+          "commentZh": "rollbackby业务字段"
         },
         {
           "name": "rollback_time",
           "type": "DATETIME DEFAULT NULL",
-          "commentZh": "rollback_time字段说明"
+          "commentZh": "rollback时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -811,7 +811,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "iot_product_contract_release_batch对象业务边界说明。"
+      "businessBoundary": "用于iot产品contractrelease批次表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_product_contract_release_snapshot",
@@ -821,53 +821,53 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot_product_contract_release_snapshot表说明",
-      "commentZh": "iot_product_contract_release_snapshot表说明",
+      "tableCommentZh": "iot产品contractrelease快照表",
+      "commentZh": "iot产品contractrelease快照表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "batch_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "batch_id字段说明"
+          "commentZh": "批次ID"
         },
         {
           "name": "product_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "product_id字段说明"
+          "commentZh": "产品ID"
         },
         {
           "name": "snapshot_stage",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "snapshot_stage字段说明"
+          "commentZh": "快照stage业务字段"
         },
         {
           "name": "snapshot_json",
           "type": "JSON NOT NULL",
-          "commentZh": "snapshot_json字段说明"
+          "commentZh": "快照JSON内容"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -905,7 +905,7 @@
         }
       ],
       "lineageRole": "snapshot_baseline",
-      "businessBoundary": "iot_product_contract_release_snapshot对象业务边界说明。"
+      "businessBoundary": "用于iot产品contractrelease快照表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_product_metric_resolver_snapshot",
@@ -915,48 +915,48 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot_product_metric_resolver_snapshot表说明",
-      "commentZh": "iot_product_metric_resolver_snapshot表说明",
+      "tableCommentZh": "iot产品指标resolver快照表",
+      "commentZh": "iot产品指标resolver快照表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "product_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "product_id字段说明"
+          "commentZh": "产品ID"
         },
         {
           "name": "release_batch_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "release_batch_id字段说明"
+          "commentZh": "发布批次ID"
         },
         {
           "name": "snapshot_json",
           "type": "JSON NOT NULL",
-          "commentZh": "snapshot_json字段说明"
+          "commentZh": "快照JSON内容"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -995,7 +995,7 @@
         }
       ],
       "lineageRole": "snapshot_baseline",
-      "businessBoundary": "iot_product_metric_resolver_snapshot对象业务边界说明。"
+      "businessBoundary": "用于iot产品指标resolver快照表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device",
@@ -1151,27 +1151,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1230,7 +1230,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "设备表???device????????iot_device?????????????"
+      "businessBoundary": "用于设备表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_relation",
@@ -1316,27 +1316,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1406,7 +1406,7 @@
         }
       ],
       "lineageRole": "relationship_mapping",
-      "businessBoundary": "设备逻辑通道关系表???device????????iot_device_relation?????????????"
+      "businessBoundary": "用于设备逻辑通道关系表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_online_session",
@@ -1472,27 +1472,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1536,7 +1536,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "设备在线会话表???device????????iot_device_online_session?????????????"
+      "businessBoundary": "用于设备在线会话表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_property",
@@ -1592,12 +1592,12 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         }
       ],
       "indexes": [
@@ -1635,7 +1635,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "设备最新属性表???device????????iot_device_property?????????????"
+      "businessBoundary": "用于设备最新属性表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_metric_latest",
@@ -1726,7 +1726,7 @@
         {
           "name": "trace_id",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "trace_id字段说明"
+          "commentZh": "链路追踪ID"
         },
         {
           "name": "update_time",
@@ -1778,7 +1778,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "telemetry v2 latest投影表???device????????iot_device_metric_latest?????????????"
+      "businessBoundary": "用于telemetry v2 latest投影表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_message_log",
@@ -1834,22 +1834,22 @@
         {
           "name": "trace_id",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "trace_id字段说明"
+          "commentZh": "链路追踪ID"
         },
         {
           "name": "device_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "device_code字段说明"
+          "commentZh": "设备编码"
         },
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "product_key字段说明"
+          "commentZh": "产品标识"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "日志创建时间"
         }
       ],
       "indexes": [
@@ -1909,7 +1909,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "设备消息日志表???device????????iot_device_message_log?????????????"
+      "businessBoundary": "承载设备上报报文的原始日志留痕，用于链路追踪、问题排查与兼容视图读取。"
     },
     {
       "name": "iot_device_access_error_log",
@@ -1935,7 +1935,7 @@
         {
           "name": "trace_id",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "trace_id字段说明"
+          "commentZh": "链路追踪ID"
         },
         {
           "name": "protocol_code",
@@ -1985,7 +1985,7 @@
         {
           "name": "topic",
           "type": "VARCHAR(255) DEFAULT NULL",
-          "commentZh": "topic字段说明"
+          "commentZh": "消息主题"
         },
         {
           "name": "client_id",
@@ -2035,12 +2035,12 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2093,7 +2093,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "设备接入失败归档表???device????????iot_device_access_error_log?????????????"
+      "businessBoundary": "用于设备接入失败归档表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_invalid_report_state",
@@ -2239,7 +2239,7 @@
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2289,7 +2289,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "无效 MQTT 上报最新态表???device????????iot_device_invalid_report_state?????????????"
+      "businessBoundary": "用于无效 MQTT 上报最新态表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_command_record",
@@ -2370,7 +2370,7 @@
         {
           "name": "qos",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "qos字段说明"
+          "commentZh": "qos业务字段"
         },
         {
           "name": "retained",
@@ -2410,27 +2410,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2483,7 +2483,7 @@
         }
       ],
       "lineageRole": "transaction_record",
-      "businessBoundary": "设备命令记录表???device????????iot_command_record?????????????"
+      "businessBoundary": "用于设备命令记录表的数据持久化与查询，归属device域并服务真实环境基线。"
     },
     {
       "name": "iot_device_secret_rotation_log",
@@ -2493,93 +2493,93 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot_device_secret_rotation_log表说明",
-      "commentZh": "iot_device_secret_rotation_log表说明",
+      "tableCommentZh": "iot设备密钥轮换log表",
+      "commentZh": "iot设备密钥轮换log表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "device_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "device_id字段说明"
+          "commentZh": "设备ID"
         },
         {
           "name": "device_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "device_code字段说明"
+          "commentZh": "设备编码"
         },
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "product_key字段说明"
+          "commentZh": "产品标识"
         },
         {
           "name": "rotation_batch_id",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "rotation_batch_id字段说明"
+          "commentZh": "轮换批次ID"
         },
         {
           "name": "reason",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "reason字段说明"
+          "commentZh": "reason业务字段"
         },
         {
           "name": "previous_secret_digest",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "previous_secret_digest字段说明"
+          "commentZh": "previous密钥digest业务字段"
         },
         {
           "name": "current_secret_digest",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "current_secret_digest字段说明"
+          "commentZh": "current密钥digest业务字段"
         },
         {
           "name": "rotated_by",
           "type": "BIGINT NOT NULL",
-          "commentZh": "rotated_by字段说明"
+          "commentZh": "rotatedby业务字段"
         },
         {
           "name": "approved_by",
           "type": "BIGINT NOT NULL",
-          "commentZh": "approved_by字段说明"
+          "commentZh": "approvedby业务字段"
         },
         {
           "name": "rotate_time",
           "type": "DATETIME NOT NULL",
-          "commentZh": "rotate_time字段说明"
+          "commentZh": "rotate时间"
         },
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2629,7 +2629,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "iot_device_secret_rotation_log对象业务边界说明。"
+      "businessBoundary": "用于iot设备密钥轮换log表的数据持久化与查询，归属device域并服务真实环境基线。"
     }
   ]
 }

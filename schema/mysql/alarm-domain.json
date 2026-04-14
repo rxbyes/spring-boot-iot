@@ -151,27 +151,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -235,7 +235,7 @@
         }
       ],
       "lineageRole": "transaction_record",
-      "businessBoundary": "告警记录表???alarm????????iot_alarm_record?????????????"
+      "businessBoundary": "用于告警记录表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "iot_event_record",
@@ -411,27 +411,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -490,7 +490,7 @@
         }
       ],
       "lineageRole": "transaction_record",
-      "businessBoundary": "事件记录表???alarm????????iot_event_record?????????????"
+      "businessBoundary": "用于事件记录表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "iot_event_work_order",
@@ -581,27 +581,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -648,7 +648,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "事件工单表???alarm????????iot_event_work_order?????????????"
+      "businessBoundary": "用于事件工单表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_point",
@@ -759,27 +759,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -839,7 +839,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "风险点表???alarm????????risk_point?????????????"
+      "businessBoundary": "用于风险点表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_point_highway_detail",
@@ -925,27 +925,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -998,7 +998,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "高速公路风险点扩展表???alarm????????risk_point_highway_detail?????????????"
+      "businessBoundary": "用于高速公路风险点扩展表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_metric_catalog",
@@ -1008,138 +1008,138 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "risk_metric_catalog表说明",
-      "commentZh": "risk_metric_catalog表说明",
+      "tableCommentZh": "风险指标目录表",
+      "commentZh": "风险指标目录表",
       "fields": [
         {
           "name": "id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "id字段说明"
+          "commentZh": "主键ID"
         },
         {
           "name": "tenant_id",
           "type": "BIGINT NOT NULL DEFAULT 1",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "product_id",
           "type": "BIGINT NOT NULL",
-          "commentZh": "product_id字段说明"
+          "commentZh": "产品ID"
         },
         {
           "name": "release_batch_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "release_batch_id字段说明"
+          "commentZh": "发布批次ID"
         },
         {
           "name": "product_model_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "product_model_id字段说明"
+          "commentZh": "产品modelID"
         },
         {
           "name": "normative_identifier",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "normative_identifier字段说明"
+          "commentZh": "normativeidentifier业务字段"
         },
         {
           "name": "contract_identifier",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "contract_identifier字段说明"
+          "commentZh": "contractidentifier业务字段"
         },
         {
           "name": "risk_metric_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "risk_metric_code字段说明"
+          "commentZh": "风险指标编码"
         },
         {
           "name": "risk_metric_name",
           "type": "VARCHAR(128) NOT NULL",
-          "commentZh": "risk_metric_name字段说明"
+          "commentZh": "风险指标名称"
         },
         {
           "name": "risk_category",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "risk_category字段说明"
+          "commentZh": "风险category业务字段"
         },
         {
           "name": "metric_role",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "metric_role字段说明"
+          "commentZh": "指标role业务字段"
         },
         {
           "name": "lifecycle_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
-          "commentZh": "lifecycle_status字段说明"
+          "commentZh": "lifecycle状态业务字段"
         },
         {
           "name": "source_scenario_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "source_scenario_code字段说明"
+          "commentZh": "sourcescenario编码"
         },
         {
           "name": "metric_unit",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "metric_unit字段说明"
+          "commentZh": "指标unit业务字段"
         },
         {
           "name": "metric_dimension",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "metric_dimension字段说明"
+          "commentZh": "指标dimension业务字段"
         },
         {
           "name": "threshold_type",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "threshold_type字段说明"
+          "commentZh": "threshold类型业务字段"
         },
         {
           "name": "semantic_direction",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "semantic_direction字段说明"
+          "commentZh": "semanticdirection业务字段"
         },
         {
           "name": "threshold_direction",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "threshold_direction字段说明"
+          "commentZh": "thresholddirection业务字段"
         },
         {
           "name": "trend_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "trend_enabled字段说明"
+          "commentZh": "trend标记"
         },
         {
           "name": "gis_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "gis_enabled字段说明"
+          "commentZh": "gis标记"
         },
         {
           "name": "insight_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "insight_enabled字段说明"
+          "commentZh": "insight标记"
         },
         {
           "name": "analytics_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "analytics_enabled字段说明"
+          "commentZh": "analytics标记"
         },
         {
           "name": "enabled",
           "type": "TINYINT NOT NULL DEFAULT 1",
-          "commentZh": "enabled字段说明"
+          "commentZh": "启用标记"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1177,7 +1177,7 @@
         }
       ],
       "lineageRole": "catalog_registry",
-      "businessBoundary": "risk_metric_catalog对象业务边界说明。"
+      "businessBoundary": "用于风险指标目录表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_metric_linkage_binding",
@@ -1213,12 +1213,12 @@
         {
           "name": "binding_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
-          "commentZh": "binding_status字段说明"
+          "commentZh": "绑定状态业务字段"
         },
         {
           "name": "binding_origin",
           "type": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
-          "commentZh": "binding_origin字段说明"
+          "commentZh": "绑定origin业务字段"
         },
         {
           "name": "create_by",
@@ -1228,7 +1228,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -1238,12 +1238,12 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1301,7 +1301,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "风险指标与联动规则绑定表???alarm????????risk_metric_linkage_binding?????????????"
+      "businessBoundary": "用于风险指标与联动规则绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_metric_emergency_plan_binding",
@@ -1337,12 +1337,12 @@
         {
           "name": "binding_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
-          "commentZh": "binding_status字段说明"
+          "commentZh": "绑定状态业务字段"
         },
         {
           "name": "binding_origin",
           "type": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
-          "commentZh": "binding_origin字段说明"
+          "commentZh": "绑定origin业务字段"
         },
         {
           "name": "create_by",
@@ -1352,7 +1352,7 @@
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
@@ -1362,12 +1362,12 @@
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1425,7 +1425,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "风险指标与应急预案绑定表???alarm????????risk_metric_emergency_plan_binding?????????????"
+      "businessBoundary": "用于风险指标与应急预案绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device",
@@ -1496,27 +1496,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1575,7 +1575,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "风险点设备绑定表???alarm????????risk_point_device?????????????"
+      "businessBoundary": "用于风险点设备绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device_capability_binding",
@@ -1631,27 +1631,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1711,7 +1711,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "风险点设备级正式绑定表???alarm????????risk_point_device_capability_binding?????????????"
+      "businessBoundary": "用于风险点设备级正式绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device_pending_binding",
@@ -1812,27 +1812,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -1903,7 +1903,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "风险点设备待治理导入表???alarm????????risk_point_device_pending_binding?????????????"
+      "businessBoundary": "用于风险点设备待治理导入表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device_pending_promotion",
@@ -2004,27 +2004,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2077,7 +2077,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "风险点设备待治理转正明细表???alarm????????risk_point_device_pending_promotion?????????????"
+      "businessBoundary": "用于风险点设备待治理转正明细表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "rule_definition",
@@ -2153,27 +2153,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2217,7 +2217,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "阈值规则表???alarm????????rule_definition?????????????"
+      "businessBoundary": "用于阈值规则表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "linkage_rule",
@@ -2268,27 +2268,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2313,7 +2313,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "联动规则表???alarm????????linkage_rule?????????????"
+      "businessBoundary": "用于联动规则表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     },
     {
       "name": "emergency_plan",
@@ -2374,27 +2374,27 @@
         {
           "name": "create_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "create_by字段说明"
+          "commentZh": "创建人用户ID"
         },
         {
           "name": "create_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "commentZh": "create_time字段说明"
+          "commentZh": "创建时间"
         },
         {
           "name": "update_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "update_by字段说明"
+          "commentZh": "更新人用户ID"
         },
         {
           "name": "update_time",
           "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "commentZh": "update_time字段说明"
+          "commentZh": "更新时间"
         },
         {
           "name": "deleted",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "deleted字段说明"
+          "commentZh": "逻辑删除标记"
         }
       ],
       "indexes": [
@@ -2419,7 +2419,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "应急预案表???alarm????????emergency_plan?????????????"
+      "businessBoundary": "用于应急预案表的数据持久化与查询，归属alarm域并服务真实环境基线。"
     }
   ]
 }

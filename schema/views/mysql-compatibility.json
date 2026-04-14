@@ -10,68 +10,68 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "view_only",
-      "tableCommentZh": "iot_message_log表说明",
-      "commentZh": "iot_message_log表说明",
+      "tableCommentZh": "设备消息日志兼容视图",
+      "commentZh": "设备消息日志兼容视图",
       "fields": [
         {
           "name": "id",
           "type": "VIEW_COLUMN",
-          "commentZh": "id字段说明"
+          "commentZh": "日志主键ID"
         },
         {
           "name": "tenant_id",
           "type": "VIEW_COLUMN",
-          "commentZh": "tenant_id字段说明"
+          "commentZh": "租户ID"
         },
         {
           "name": "device_id",
           "type": "VIEW_COLUMN",
-          "commentZh": "device_id字段说明"
+          "commentZh": "设备ID"
         },
         {
           "name": "product_id",
           "type": "VIEW_COLUMN",
-          "commentZh": "product_id字段说明"
+          "commentZh": "产品ID"
         },
         {
           "name": "trace_id",
           "type": "VIEW_COLUMN",
-          "commentZh": "trace_id字段说明"
+          "commentZh": "链路追踪ID"
         },
         {
           "name": "device_code",
           "type": "VIEW_COLUMN",
-          "commentZh": "device_code字段说明"
+          "commentZh": "设备编码"
         },
         {
           "name": "product_key",
           "type": "VIEW_COLUMN",
-          "commentZh": "product_key字段说明"
+          "commentZh": "产品标识"
         },
         {
           "name": "message_type",
           "type": "VIEW_COLUMN",
-          "commentZh": "message_type字段说明"
+          "commentZh": "消息类型"
         },
         {
           "name": "topic",
           "type": "VIEW_COLUMN",
-          "commentZh": "topic字段说明"
+          "commentZh": "消息主题"
         },
         {
           "name": "payload",
           "type": "VIEW_COLUMN",
-          "commentZh": "payload字段说明"
+          "commentZh": "原始报文内容"
         },
         {
           "name": "report_time",
           "type": "VIEW_COLUMN",
-          "commentZh": "report_time字段说明"
+          "commentZh": "设备上报时间"
         },
         {
           "name": "create_time",
           "type": "VIEW_COLUMN",
-          "commentZh": "create_time字段说明"
+          "commentZh": "日志创建时间"
         }
       ],
       "indexes": [],
@@ -88,7 +88,7 @@
         }
       ],
       "lineageRole": "compatibility_projection",
-      "businessBoundary": "iot_message_log对象业务边界说明。",
+      "businessBoundary": "提供历史兼容读取入口，统一暴露设备消息日志字段，真实写入边界仍归属iot_device_message_log。",
       "sourceTables": [
         "iot_device_message_log"
       ],

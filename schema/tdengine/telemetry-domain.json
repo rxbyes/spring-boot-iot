@@ -10,115 +10,115 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iot_device_telemetry_point表说明",
-      "commentZh": "iot_device_telemetry_point表说明",
+      "tableCommentZh": "iot设备telemetry点位表",
+      "commentZh": "iot设备telemetry点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts字段说明",
+          "commentZh": "ts业务字段",
           "isTag": false
         },
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported_at字段说明",
+          "commentZh": "reported时间",
           "isTag": false
         },
         {
           "name": "tenant_id",
           "type": "BIGINT",
-          "commentZh": "tenant_id字段说明",
+          "commentZh": "租户ID",
           "isTag": false
         },
         {
           "name": "device_id",
           "type": "BIGINT",
-          "commentZh": "device_id字段说明",
+          "commentZh": "设备ID",
           "isTag": false
         },
         {
           "name": "device_code",
           "type": "BINARY(128)",
-          "commentZh": "device_code字段说明",
+          "commentZh": "设备编码",
           "isTag": false
         },
         {
           "name": "product_id",
           "type": "BIGINT",
-          "commentZh": "product_id字段说明",
+          "commentZh": "产品ID",
           "isTag": false
         },
         {
           "name": "product_key",
           "type": "BINARY(128)",
-          "commentZh": "product_key字段说明",
+          "commentZh": "产品标识",
           "isTag": false
         },
         {
           "name": "protocol_code",
           "type": "BINARY(64)",
-          "commentZh": "protocol_code字段说明",
+          "commentZh": "protocol编码",
           "isTag": false
         },
         {
           "name": "message_type",
           "type": "BINARY(32)",
-          "commentZh": "message_type字段说明",
+          "commentZh": "消息类型",
           "isTag": false
         },
         {
           "name": "mqtt_topic",
           "type": "BINARY(512)",
-          "commentZh": "mqtt_topic字段说明",
+          "commentZh": "mqtt主题业务字段",
           "isTag": false
         },
         {
           "name": "trace_id",
           "type": "BINARY(64)",
-          "commentZh": "trace_id字段说明",
+          "commentZh": "链路追踪ID",
           "isTag": false
         },
         {
           "name": "metric_code",
           "type": "BINARY(128)",
-          "commentZh": "metric_code字段说明",
+          "commentZh": "指标编码",
           "isTag": false
         },
         {
           "name": "metric_name",
           "type": "NCHAR(128)",
-          "commentZh": "metric_name字段说明",
+          "commentZh": "指标名称",
           "isTag": false
         },
         {
           "name": "value_type",
           "type": "BINARY(32)",
-          "commentZh": "value_type字段说明",
+          "commentZh": "value类型业务字段",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "value_text字段说明",
+          "commentZh": "valuetext业务字段",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "value_long字段说明",
+          "commentZh": "valuelong业务字段",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "value_double字段说明",
+          "commentZh": "valuedouble业务字段",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "value_bool字段说明",
+          "commentZh": "valuebool业务字段",
           "isTag": false
         }
       ],
@@ -141,7 +141,7 @@
         }
       ],
       "lineageRole": "telemetry_compatibility_fallback",
-      "businessBoundary": "iot_device_telemetry_point对象业务边界说明。"
+      "businessBoundary": "用于iot设备telemetry点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
     },
     {
       "name": "iot_raw_measure_point",
@@ -151,121 +151,121 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iot_raw_measure_point表说明",
-      "commentZh": "iot_raw_measure_point表说明",
+      "tableCommentZh": "iotrawmeasure点位表",
+      "commentZh": "iotrawmeasure点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts字段说明",
+          "commentZh": "ts业务字段",
           "isTag": false
         },
         {
           "name": "metric_id",
           "type": "BINARY(128)",
-          "commentZh": "metric_id字段说明",
+          "commentZh": "指标ID",
           "isTag": false
         },
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported_at字段说明",
+          "commentZh": "reported时间",
           "isTag": false
         },
         {
           "name": "ingested_at",
           "type": "TIMESTAMP",
-          "commentZh": "ingested_at字段说明",
+          "commentZh": "ingested时间",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "value_double字段说明",
+          "commentZh": "valuedouble业务字段",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "value_long字段说明",
+          "commentZh": "valuelong业务字段",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "value_bool字段说明",
+          "commentZh": "valuebool业务字段",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "value_text字段说明",
+          "commentZh": "valuetext业务字段",
           "isTag": false
         },
         {
           "name": "quality_code",
           "type": "BINARY(32)",
-          "commentZh": "quality_code字段说明",
+          "commentZh": "quality编码",
           "isTag": false
         },
         {
           "name": "alarm_flag",
           "type": "BOOL",
-          "commentZh": "alarm_flag字段说明",
+          "commentZh": "告警标记",
           "isTag": false
         },
         {
           "name": "trace_id",
           "type": "BINARY(64)",
-          "commentZh": "trace_id字段说明",
+          "commentZh": "链路追踪ID",
           "isTag": false
         },
         {
           "name": "session_id",
           "type": "BINARY(64)",
-          "commentZh": "session_id字段说明",
+          "commentZh": "会话ID",
           "isTag": false
         },
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source_message_type字段说明",
+          "commentZh": "source消息类型业务字段",
           "isTag": false
         },
         {
           "name": "tenant_id",
           "type": "BIGINT",
-          "commentZh": "tenant_id字段说明",
+          "commentZh": "租户ID",
           "isTag": true
         },
         {
           "name": "device_id",
           "type": "BIGINT",
-          "commentZh": "device_id字段说明",
+          "commentZh": "设备ID",
           "isTag": true
         },
         {
           "name": "product_id",
           "type": "BIGINT",
-          "commentZh": "product_id字段说明",
+          "commentZh": "产品ID",
           "isTag": true
         },
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensor_group字段说明",
+          "commentZh": "sensorgroup业务字段",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location_code字段说明",
+          "commentZh": "location编码",
           "isTag": true
         },
         {
           "name": "risk_point_id",
           "type": "BIGINT",
-          "commentZh": "risk_point_id字段说明",
+          "commentZh": "风险点ID",
           "isTag": true
         }
       ],
@@ -293,7 +293,7 @@
         }
       ],
       "lineageRole": "telemetry_raw_timeseries",
-      "businessBoundary": "iot_raw_measure_point对象业务边界说明。"
+      "businessBoundary": "用于iotrawmeasure点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
     },
     {
       "name": "iot_raw_status_point",
@@ -303,121 +303,121 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iot_raw_status_point表说明",
-      "commentZh": "iot_raw_status_point表说明",
+      "tableCommentZh": "iotraw状态点位表",
+      "commentZh": "iotraw状态点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts字段说明",
+          "commentZh": "ts业务字段",
           "isTag": false
         },
         {
           "name": "metric_id",
           "type": "BINARY(128)",
-          "commentZh": "metric_id字段说明",
+          "commentZh": "指标ID",
           "isTag": false
         },
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported_at字段说明",
+          "commentZh": "reported时间",
           "isTag": false
         },
         {
           "name": "ingested_at",
           "type": "TIMESTAMP",
-          "commentZh": "ingested_at字段说明",
+          "commentZh": "ingested时间",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "value_double字段说明",
+          "commentZh": "valuedouble业务字段",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "value_long字段说明",
+          "commentZh": "valuelong业务字段",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "value_bool字段说明",
+          "commentZh": "valuebool业务字段",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "value_text字段说明",
+          "commentZh": "valuetext业务字段",
           "isTag": false
         },
         {
           "name": "quality_code",
           "type": "BINARY(32)",
-          "commentZh": "quality_code字段说明",
+          "commentZh": "quality编码",
           "isTag": false
         },
         {
           "name": "alarm_flag",
           "type": "BOOL",
-          "commentZh": "alarm_flag字段说明",
+          "commentZh": "告警标记",
           "isTag": false
         },
         {
           "name": "trace_id",
           "type": "BINARY(64)",
-          "commentZh": "trace_id字段说明",
+          "commentZh": "链路追踪ID",
           "isTag": false
         },
         {
           "name": "session_id",
           "type": "BINARY(64)",
-          "commentZh": "session_id字段说明",
+          "commentZh": "会话ID",
           "isTag": false
         },
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source_message_type字段说明",
+          "commentZh": "source消息类型业务字段",
           "isTag": false
         },
         {
           "name": "tenant_id",
           "type": "BIGINT",
-          "commentZh": "tenant_id字段说明",
+          "commentZh": "租户ID",
           "isTag": true
         },
         {
           "name": "device_id",
           "type": "BIGINT",
-          "commentZh": "device_id字段说明",
+          "commentZh": "设备ID",
           "isTag": true
         },
         {
           "name": "product_id",
           "type": "BIGINT",
-          "commentZh": "product_id字段说明",
+          "commentZh": "产品ID",
           "isTag": true
         },
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensor_group字段说明",
+          "commentZh": "sensorgroup业务字段",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location_code字段说明",
+          "commentZh": "location编码",
           "isTag": true
         },
         {
           "name": "risk_point_id",
           "type": "BIGINT",
-          "commentZh": "risk_point_id字段说明",
+          "commentZh": "风险点ID",
           "isTag": true
         }
       ],
@@ -445,7 +445,7 @@
         }
       ],
       "lineageRole": "telemetry_raw_timeseries",
-      "businessBoundary": "iot_raw_status_point对象业务边界说明。"
+      "businessBoundary": "用于iotraw状态点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
     },
     {
       "name": "iot_raw_event_point",
@@ -455,121 +455,121 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iot_raw_event_point表说明",
-      "commentZh": "iot_raw_event_point表说明",
+      "tableCommentZh": "iotraw事件点位表",
+      "commentZh": "iotraw事件点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts字段说明",
+          "commentZh": "ts业务字段",
           "isTag": false
         },
         {
           "name": "metric_id",
           "type": "BINARY(128)",
-          "commentZh": "metric_id字段说明",
+          "commentZh": "指标ID",
           "isTag": false
         },
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported_at字段说明",
+          "commentZh": "reported时间",
           "isTag": false
         },
         {
           "name": "ingested_at",
           "type": "TIMESTAMP",
-          "commentZh": "ingested_at字段说明",
+          "commentZh": "ingested时间",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "value_double字段说明",
+          "commentZh": "valuedouble业务字段",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "value_long字段说明",
+          "commentZh": "valuelong业务字段",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "value_bool字段说明",
+          "commentZh": "valuebool业务字段",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "value_text字段说明",
+          "commentZh": "valuetext业务字段",
           "isTag": false
         },
         {
           "name": "quality_code",
           "type": "BINARY(32)",
-          "commentZh": "quality_code字段说明",
+          "commentZh": "quality编码",
           "isTag": false
         },
         {
           "name": "alarm_flag",
           "type": "BOOL",
-          "commentZh": "alarm_flag字段说明",
+          "commentZh": "告警标记",
           "isTag": false
         },
         {
           "name": "trace_id",
           "type": "BINARY(64)",
-          "commentZh": "trace_id字段说明",
+          "commentZh": "链路追踪ID",
           "isTag": false
         },
         {
           "name": "session_id",
           "type": "BINARY(64)",
-          "commentZh": "session_id字段说明",
+          "commentZh": "会话ID",
           "isTag": false
         },
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source_message_type字段说明",
+          "commentZh": "source消息类型业务字段",
           "isTag": false
         },
         {
           "name": "tenant_id",
           "type": "BIGINT",
-          "commentZh": "tenant_id字段说明",
+          "commentZh": "租户ID",
           "isTag": true
         },
         {
           "name": "device_id",
           "type": "BIGINT",
-          "commentZh": "device_id字段说明",
+          "commentZh": "设备ID",
           "isTag": true
         },
         {
           "name": "product_id",
           "type": "BIGINT",
-          "commentZh": "product_id字段说明",
+          "commentZh": "产品ID",
           "isTag": true
         },
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensor_group字段说明",
+          "commentZh": "sensorgroup业务字段",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location_code字段说明",
+          "commentZh": "location编码",
           "isTag": true
         },
         {
           "name": "risk_point_id",
           "type": "BIGINT",
-          "commentZh": "risk_point_id字段说明",
+          "commentZh": "风险点ID",
           "isTag": true
         }
       ],
@@ -597,7 +597,7 @@
         }
       ],
       "lineageRole": "telemetry_raw_timeseries",
-      "businessBoundary": "iot_raw_event_point对象业务边界说明。"
+      "businessBoundary": "用于iotraw事件点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
     },
     {
       "name": "iot_agg_measure_hour",
@@ -607,127 +607,127 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "manual_bootstrap_required",
-      "tableCommentZh": "iot_agg_measure_hour表说明",
-      "commentZh": "iot_agg_measure_hour表说明",
+      "tableCommentZh": "iotaggmeasurehour表",
+      "commentZh": "iotaggmeasurehour表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts字段说明",
+          "commentZh": "ts业务字段",
           "isTag": false
         },
         {
           "name": "metric_id",
           "type": "BINARY(128)",
-          "commentZh": "metric_id字段说明",
+          "commentZh": "指标ID",
           "isTag": false
         },
         {
           "name": "metric_code",
           "type": "BINARY(128)",
-          "commentZh": "metric_code字段说明",
+          "commentZh": "指标编码",
           "isTag": false
         },
         {
           "name": "metric_name",
           "type": "NCHAR(128)",
-          "commentZh": "metric_name字段说明",
+          "commentZh": "指标名称",
           "isTag": false
         },
         {
           "name": "value_type",
           "type": "BINARY(32)",
-          "commentZh": "value_type字段说明",
+          "commentZh": "value类型业务字段",
           "isTag": false
         },
         {
           "name": "first_reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "first_reported_at字段说明",
+          "commentZh": "firstreported时间",
           "isTag": false
         },
         {
           "name": "last_reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "last_reported_at字段说明",
+          "commentZh": "lastreported时间",
           "isTag": false
         },
         {
           "name": "min_value_double",
           "type": "DOUBLE",
-          "commentZh": "min_value_double字段说明",
+          "commentZh": "minvaluedouble业务字段",
           "isTag": false
         },
         {
           "name": "max_value_double",
           "type": "DOUBLE",
-          "commentZh": "max_value_double字段说明",
+          "commentZh": "maxvaluedouble业务字段",
           "isTag": false
         },
         {
           "name": "sum_value_double",
           "type": "DOUBLE",
-          "commentZh": "sum_value_double字段说明",
+          "commentZh": "sumvaluedouble业务字段",
           "isTag": false
         },
         {
           "name": "last_value_double",
           "type": "DOUBLE",
-          "commentZh": "last_value_double字段说明",
+          "commentZh": "lastvaluedouble业务字段",
           "isTag": false
         },
         {
           "name": "sample_count",
           "type": "BIGINT",
-          "commentZh": "sample_count字段说明",
+          "commentZh": "samplecount业务字段",
           "isTag": false
         },
         {
           "name": "trace_id",
           "type": "BINARY(64)",
-          "commentZh": "trace_id字段说明",
+          "commentZh": "链路追踪ID",
           "isTag": false
         },
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source_message_type字段说明",
+          "commentZh": "source消息类型业务字段",
           "isTag": false
         },
         {
           "name": "tenant_id",
           "type": "BIGINT",
-          "commentZh": "tenant_id字段说明",
+          "commentZh": "租户ID",
           "isTag": true
         },
         {
           "name": "device_id",
           "type": "BIGINT",
-          "commentZh": "device_id字段说明",
+          "commentZh": "设备ID",
           "isTag": true
         },
         {
           "name": "product_id",
           "type": "BIGINT",
-          "commentZh": "product_id字段说明",
+          "commentZh": "产品ID",
           "isTag": true
         },
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensor_group字段说明",
+          "commentZh": "sensorgroup业务字段",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location_code字段说明",
+          "commentZh": "location编码",
           "isTag": true
         },
         {
           "name": "risk_point_id",
           "type": "BIGINT",
-          "commentZh": "risk_point_id字段说明",
+          "commentZh": "风险点ID",
           "isTag": true
         }
       ],
@@ -755,7 +755,7 @@
         }
       ],
       "lineageRole": "telemetry_hourly_aggregate",
-      "businessBoundary": "iot_agg_measure_hour对象业务边界说明。"
+      "businessBoundary": "用于iotaggmeasurehour表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
     }
   ]
 }

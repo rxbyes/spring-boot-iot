@@ -11,6 +11,14 @@ from typing import Iterable
 VALID_LIFECYCLES = {"active", "archived", "pending_delete"}
 CHINESE_RE = re.compile(r"[\u4e00-\u9fff]")
 ENGLISH_ALPHA_RE = re.compile(r"[A-Za-z]")
+PLACEHOLDER_PATTERNS = (
+    "表说明",
+    "字段说明",
+    "业务边界说明",
+    "对象业务边界说明",
+    "???",
+    "????",
+)
 
 REQUIRED_OBJECT_KEYS = {
     "name",
@@ -89,10 +97,19 @@ class SchemaRegistry:
     def find_missing_comments(self) -> list[str]:
         missing: list[str] = []
         for obj in self.all_objects:
-            if _is_blank(obj.comment_zh):
+            if _is_missing_or_placeholder(obj.comment_zh):
                 missing.append(f"{obj.storage_type}:{obj.name}")
+            if _is_missing_or_placeholder(obj.table_comment_zh):
+                missing.append(f"{obj.storage_type}:{obj.name}#tableCommentZh")
+            if _is_missing_or_placeholder(obj.business_boundary):
+                missing.append(f"{obj.storage_type}:{obj.name}#businessBoundary")
+            if obj.storage_type == "mysql_view":
+                if not obj.source_tables:
+                    missing.append(f"{obj.storage_type}:{obj.name}#sourceTables")
+                if _is_missing_or_placeholder(obj.definition_sql):
+                    missing.append(f"{obj.storage_type}:{obj.name}#definitionSql")
             for field in obj.fields:
-                if _is_blank(field.comment_zh):
+                if _is_missing_or_placeholder(field.comment_zh):
                     missing.append(f"{obj.storage_type}:{obj.name}.{field.name}")
         return missing
 
@@ -101,6 +118,10 @@ class SchemaRegistry:
         for obj in self.all_objects:
             if _is_english_only(obj.comment_zh):
                 english_only.append(f"{obj.storage_type}:{obj.name}")
+            if _is_english_only(obj.table_comment_zh):
+                english_only.append(f"{obj.storage_type}:{obj.name}#tableCommentZh")
+            if _is_english_only(obj.business_boundary):
+                english_only.append(f"{obj.storage_type}:{obj.name}#businessBoundary")
             for field in obj.fields:
                 if _is_english_only(field.comment_zh):
                     english_only.append(f"{obj.storage_type}:{obj.name}.{field.name}")
@@ -205,9 +226,9 @@ def _build_object(
     owner_module = _required_non_blank_string(raw_obj, "ownerModule", path=path, context=name)
     runtime_bootstrap_mode = _required_non_blank_string(raw_obj, "runtimeBootstrapMode", path=path, context=name)
     lineage_role = _required_non_blank_string(raw_obj, "lineageRole", path=path, context=name)
-    business_boundary = _required_non_blank_string(raw_obj, "businessBoundary", path=path, context=name)
-    table_comment_zh = _required_non_blank_string(raw_obj, "tableCommentZh", path=path, context=name)
-    comment_zh = _required_non_blank_string(raw_obj, "commentZh", path=path, context=name)
+    business_boundary = _required_meaningful_text(raw_obj, "businessBoundary", path=path, context=name)
+    table_comment_zh = _required_meaningful_text(raw_obj, "tableCommentZh", path=path, context=name)
+    comment_zh = _required_meaningful_text(raw_obj, "commentZh", path=path, context=name)
 
     included_in_init = _required_bool(raw_obj, "includedInInit", path=path, context=name)
     included_in_schema_sync = _required_bool(raw_obj, "includedInSchemaSync", path=path, context=name)
@@ -221,7 +242,7 @@ def _build_object(
     if storage_type == "mysql_view":
         if not source_tables:
             raise ValueError(f"View object {name!r} in {path} must provide non-empty sourceTables")
-        if not definition_sql:
+        if _is_missing_or_placeholder(definition_sql):
             raise ValueError(f"View object {name!r} in {path} must provide non-empty definitionSql")
 
     return RegistryObject(
@@ -265,7 +286,7 @@ def _parse_fields(raw_fields: object, object_name: str, path: Path) -> tuple[Reg
             raise ValueError(f"Duplicate field {name!r} in object {object_name!r} of {path}")
         seen_names.add(name)
         data_type = _required_non_blank_string(item, "type", path=path, context=f"{object_name}.{name}")
-        comment_zh = _required_non_blank_string(item, "commentZh", path=path, context=f"{object_name}.{name}")
+        comment_zh = _required_meaningful_text(item, "commentZh", path=path, context=f"{object_name}.{name}")
         is_tag = bool(item.get("isTag", False))
         parsed.append(RegistryField(name=name, data_type=data_type, comment_zh=comment_zh, is_tag=is_tag))
     return tuple(parsed)
@@ -349,6 +370,13 @@ def _required_non_blank_string(container: dict, key: str, path: Path, context: s
     return text
 
 
+def _required_meaningful_text(container: dict, key: str, path: Path, context: str) -> str:
+    text = _required_non_blank_string(container, key, path, context)
+    if _is_placeholder_text(text):
+        raise ValueError(f"Placeholder value for key {key!r} in {context} ({path}): {text!r}")
+    return text
+
+
 def _required_bool(container: dict, key: str, path: Path, context: str) -> bool:
     value = container.get(key, None)
     if not isinstance(value, bool):
@@ -358,6 +386,17 @@ def _required_bool(container: dict, key: str, path: Path, context: str) -> bool:
 
 def _is_blank(text: str) -> bool:
     return not str(text).strip()
+
+
+def _is_placeholder_text(text: str) -> bool:
+    normalized = str(text).strip()
+    if not normalized:
+        return False
+    return any(marker in normalized for marker in PLACEHOLDER_PATTERNS)
+
+
+def _is_missing_or_placeholder(text: str) -> bool:
+    return _is_blank(text) or _is_placeholder_text(text)
 
 
 def _is_english_only(text: str) -> bool:
