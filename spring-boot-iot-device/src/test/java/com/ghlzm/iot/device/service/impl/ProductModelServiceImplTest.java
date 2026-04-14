@@ -564,7 +564,7 @@ class ProductModelServiceImplTest {
         ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6006L, dto);
 
         assertEquals(
-                List.of("humidity", "signal_4g", "temp"),
+                List.of("S1_ZT_1.humidity", "S1_ZT_1.signal_4g", "S1_ZT_1.temp"),
                 result.getCompareRows().stream()
                         .map(ProductModelGovernanceCompareRowVO::getIdentifier)
                         .sorted()
@@ -595,22 +595,22 @@ class ProductModelServiceImplTest {
 
         assertEquals(
                 List.of(
-                        "battery_dump_energy",
-                        "battery_volt",
-                        "consume_power",
-                        "ext_power_volt",
-                        "humidity",
-                        "humidity_out",
-                        "lat",
-                        "lon",
-                        "signal_4g",
-                        "signal_NB",
-                        "signal_db",
-                        "solar_volt",
-                        "supply_power",
-                        "sw_version",
-                        "temp",
-                        "temp_out"
+                        "S1_ZT_1.battery_dump_energy",
+                        "S1_ZT_1.battery_volt",
+                        "S1_ZT_1.consume_power",
+                        "S1_ZT_1.ext_power_volt",
+                        "S1_ZT_1.humidity",
+                        "S1_ZT_1.humidity_out",
+                        "S1_ZT_1.lat",
+                        "S1_ZT_1.lon",
+                        "S1_ZT_1.signal_4g",
+                        "S1_ZT_1.signal_NB",
+                        "S1_ZT_1.signal_db",
+                        "S1_ZT_1.solar_volt",
+                        "S1_ZT_1.supply_power",
+                        "S1_ZT_1.sw_version",
+                        "S1_ZT_1.temp",
+                        "S1_ZT_1.temp_out"
                 ),
                 result.getCompareRows().stream()
                         .map(ProductModelGovernanceCompareRowVO::getIdentifier)
@@ -1227,7 +1227,7 @@ class ProductModelServiceImplTest {
     }
 
     @Test
-    void applyGovernanceShouldAllowDirectCollectorRtuRuntimeStatusFields() {
+    void applyGovernanceShouldAllowDirectCollectorRtuRuntimeStatusFieldsLegacyIdentifiers() {
         Product collector = directCollectorRtuProduct(6007L);
         when(productMapper.selectById(6007L)).thenReturn(collector);
         ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
@@ -1244,6 +1244,23 @@ class ProductModelServiceImplTest {
         assertEquals(0, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
         verify(productModelMapper, times(4)).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldAllowDirectCollectorRtuRuntimeStatusFields() {
+        Product collector = directCollectorRtuProduct(6007L);
+        when(productMapper.selectById(6007L)).thenReturn(collector);
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "S1_ZT_1.ext_power_volt", "ext-power-volt"),
+                applyItem("create", null, "property", "S1_ZT_1.lat", "lat"),
+                applyItem("create", null, "property", "S1_ZT_1.signal_NB", "signal-nb"),
+                applyItem("create", null, "property", "S1_ZT_1.sw_version", "sw-version")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6007L, dto, 10001L);
+
+        assertEquals(4, result.getCreatedCount());
     }
 
     @Test
