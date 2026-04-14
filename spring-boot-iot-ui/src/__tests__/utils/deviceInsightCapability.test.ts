@@ -275,6 +275,37 @@ describe('deviceInsightCapability', () => {
     expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('signal_4g');
   });
 
+  it('prefers full-path collector runtime metrics when short latest aliases still coexist', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'COLLECT-DEDUP-001',
+      productName: '雨量采集终端',
+      properties: [
+        {
+          id: 1,
+          identifier: 'signal_4g',
+          propertyName: '旧 4G 信号',
+          propertyValue: '-82',
+          valueType: 'int'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-81',
+          valueType: 'int'
+        }
+      ]
+    });
+
+    const runtimeIdentifiers = [
+      ...profile.heroMetrics.map((item) => item.identifier),
+      ...profile.extensionParameters.map((item) => item.identifier)
+    ];
+
+    expect(runtimeIdentifiers).toContain('S1_ZT_1.signal_4g');
+    expect(runtimeIdentifiers).not.toContain('signal_4g');
+  });
+
   it('prefers device metadata over product metadata while preserving product-level fallback metrics', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-003',

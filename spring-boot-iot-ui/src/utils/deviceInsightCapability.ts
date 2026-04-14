@@ -188,12 +188,16 @@ export function getInsightCapabilityProfile(source: {
   productMetadataJson?: string | null;
   metadataJson?: string | null;
 }): InsightCapabilityProfile {
-  const deviceCode = source.deviceCode?.trim();
-  const productName = source.productName?.trim() ?? '';
+  const normalizedSource: InsightCapabilitySource = {
+    ...source,
+    properties: dedupeCollectorParentShortAliases(source.properties ?? [])
+  };
+  const deviceCode = normalizedSource.deviceCode?.trim();
+  const productName = normalizedSource.productName?.trim() ?? '';
   const baseProfile = deviceCode === 'SK00EB0D1308313' || /泥水位/.test(productName)
     ? MUDDY_WATER_PROFILE
-    : buildRuntimeProfile(source);
-  return applyCustomMetrics(baseProfile, source);
+    : buildRuntimeProfile(normalizedSource);
+  return applyCustomMetrics(baseProfile, normalizedSource);
 }
 
 export function buildInsightHistoryRequest(
@@ -500,6 +504,23 @@ function normalizeOptionalNumber(value: unknown) {
   return Number.isFinite(numeric) ? numeric : undefined;
 }
 
+export function dedupeCollectorParentShortAliases(properties: DeviceProperty[] | null | undefined): DeviceProperty[] {
+  if (!properties?.length) {
+    return [];
+  }
+  const collectorParentFullPathByLeaf = buildCollectorParentFullPathByLeaf(properties);
+  if (!collectorParentFullPathByLeaf.size) {
+    return properties;
+  }
+  return properties.filter((item) => {
+    const identifier = normalizeOptionalText(item.identifier);
+    if (!identifier || identifier.includes('.')) {
+      return true;
+    }
+    return !collectorParentFullPathByLeaf.has(identifier.toLowerCase());
+  });
+}
+
 function resolveRuntimeMetricIdentifier(identifier: string, properties: DeviceProperty[]) {
   const exactMatch = properties.find((item) => item.identifier === identifier);
   if (exactMatch?.identifier) {
@@ -577,6 +598,32 @@ function scoreCandidate(candidate: RuntimeMetricCandidate, priorityKeywords: str
 
 function uniqueIdentifiers(values: string[]) {
   return values.filter((value, index) => Boolean(value) && values.indexOf(value) === index);
+}
+
+function buildCollectorParentFullPathByLeaf(properties: DeviceProperty[]) {
+  const collectorParentFullPathByLeaf = new Map<string, string>();
+  properties.forEach((item) => {
+    const identifier = normalizeOptionalText(item.identifier);
+    if (!isCollectorParentFullPathIdentifier(identifier)) {
+      return;
+    }
+    collectorParentFullPathByLeaf.set(lastIdentifierSegment(identifier).toLowerCase(), identifier);
+  });
+  return collectorParentFullPathByLeaf;
+}
+
+function isCollectorParentFullPathIdentifier(identifier: string) {
+  return Boolean(identifier)
+    && identifier.startsWith('S1_ZT_1.')
+    && !identifier.startsWith('S1_ZT_1.sensor_state.');
+}
+
+function lastIdentifierSegment(identifier: string) {
+  const separatorIndex = identifier.lastIndexOf('.');
+  if (separatorIndex < 0 || separatorIndex >= identifier.length - 1) {
+    return identifier;
+  }
+  return identifier.slice(separatorIndex + 1);
 }
 
 function prioritizeTrendGroupIdentifiers(
