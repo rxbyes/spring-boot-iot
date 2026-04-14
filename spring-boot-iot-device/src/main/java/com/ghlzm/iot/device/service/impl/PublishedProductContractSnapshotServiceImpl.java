@@ -17,7 +17,10 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -60,31 +63,11 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         }
         PublishedProductContractSnapshot persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
         if (persistedSnapshot != null) {
-            cacheSnapshot(productId, latestReleasedBatchId, persistedSnapshot);
-            return persistedSnapshot;
+            PublishedProductContractSnapshot merged = mergeSnapshotWithCurrentFormal(productId, latestReleasedBatchId, persistedSnapshot);
+            cacheSnapshot(productId, latestReleasedBatchId, merged);
+            return merged;
         }
-        PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
-                .productId(productId)
-                .releaseBatchId(latestReleasedBatchId);
-        List<ProductModel> productModels = productModelMapper.selectList(
-                new LambdaQueryWrapper<ProductModel>()
-                        .eq(ProductModel::getProductId, productId)
-                        .eq(ProductModel::getModelType, "property")
-                        .eq(ProductModel::getDeleted, 0)
-                        .orderByAsc(ProductModel::getSortNo)
-                        .orderByAsc(ProductModel::getIdentifier)
-        );
-        for (ProductModel productModel : productModels) {
-            String identifier = productModel.getIdentifier();
-            String canonicalIdentifier = toCanonicalIdentifier(identifier);
-            if (canonicalIdentifier == null) {
-                continue;
-            }
-            builder.publishedIdentifier(canonicalIdentifier);
-            builder.canonicalAlias(identifier, canonicalIdentifier);
-            builder.canonicalAlias(canonicalIdentifier, canonicalIdentifier);
-        }
-        PublishedProductContractSnapshot snapshot = builder.build();
+        PublishedProductContractSnapshot snapshot = mergeSnapshotWithCurrentFormal(productId, latestReleasedBatchId, null);
         cacheSnapshot(productId, latestReleasedBatchId, snapshot);
         return snapshot;
     }
@@ -169,6 +152,55 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private PublishedProductContractSnapshot mergeSnapshotWithCurrentFormal(Long productId,
+                                                                            Long releaseBatchId,
+                                                                            PublishedProductContractSnapshot persistedSnapshot) {
+        Map<String, String> currentFormalByLower = loadCurrentFormalIdentifierMap(productId);
+        if (currentFormalByLower.isEmpty()) {
+            return persistedSnapshot == null ? PublishedProductContractSnapshot.empty(productId) : persistedSnapshot;
+        }
+        PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
+                .productId(productId)
+                .releaseBatchId(releaseBatchId)
+                .publishedIdentifiers(currentFormalByLower.values());
+        currentFormalByLower.values().forEach(identifier -> builder.canonicalAlias(identifier, identifier));
+        if (persistedSnapshot != null) {
+            persistedSnapshot.canonicalAliases().forEach((alias, target) -> {
+                if (!StringUtils.hasText(target)) {
+                    return;
+                }
+                String currentFormal = currentFormalByLower.get(target.trim().toLowerCase(Locale.ROOT));
+                if (StringUtils.hasText(currentFormal)) {
+                    builder.canonicalAlias(alias, currentFormal);
+                }
+            });
+        }
+        return builder.build();
+    }
+
+    private Map<String, String> loadCurrentFormalIdentifierMap(Long productId) {
+        if (productId == null) {
+            return Map.of();
+        }
+        List<ProductModel> productModels = productModelMapper.selectList(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, productId)
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+                        .orderByAsc(ProductModel::getSortNo)
+                        .orderByAsc(ProductModel::getIdentifier)
+        );
+        Map<String, String> currentFormalByLower = new LinkedHashMap<>();
+        for (ProductModel productModel : productModels) {
+            String canonicalIdentifier = toCanonicalIdentifier(productModel.getIdentifier());
+            if (!StringUtils.hasText(canonicalIdentifier)) {
+                continue;
+            }
+            currentFormalByLower.putIfAbsent(canonicalIdentifier.toLowerCase(Locale.ROOT), canonicalIdentifier);
+        }
+        return currentFormalByLower;
     }
 
     private String toCanonicalIdentifier(String identifier) {

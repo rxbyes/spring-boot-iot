@@ -48,6 +48,10 @@ public final class PublishedProductContractSnapshot {
         return publishedIdentifiers;
     }
 
+    public Map<String, String> canonicalAliases() {
+        return canonicalAliases;
+    }
+
     public Optional<String> canonicalAliasOf(String identifier) {
         String normalized = normalize(identifier);
         if (normalized == null) {
