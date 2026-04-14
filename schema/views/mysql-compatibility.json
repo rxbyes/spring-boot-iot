@@ -79,12 +79,12 @@
         {
           "type": "derived_from",
           "target": "iot_device_message_log",
-          "viaField": "view_select"
+          "viaField": "id"
         },
         {
           "type": "compatible_alias",
           "target": "iot_device_message_log",
-          "viaField": "compatibility_view"
+          "viaField": "trace_id"
         }
       ],
       "lineageRole": "compatibility_projection",

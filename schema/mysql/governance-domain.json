@@ -258,12 +258,12 @@
         {
           "type": "belongs_to",
           "target": "sys_governance_approval_order",
-          "viaField": "approval_order_id"
+          "viaField": "order_id"
         },
         {
           "type": "belongs_to",
           "target": "sys_user",
-          "viaField": "operator_user_id"
+          "viaField": "actor_user_id"
         },
         {
           "type": "belongs_to",

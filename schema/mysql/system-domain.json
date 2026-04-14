@@ -1884,7 +1884,7 @@
         {
           "type": "belongs_to",
           "target": "sys_notification_channel",
-          "viaField": "channel_id"
+          "viaField": "channel_code"
         },
         {
           "type": "belongs_to",

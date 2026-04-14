@@ -15,7 +15,18 @@ schema_registry_loader = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = schema_registry_loader
 SPEC.loader.exec_module(schema_registry_loader)
 
-PLACEHOLDER_PATTERNS = ("表说明", "字段说明", "业务边界说明", "对象业务边界说明", "???", "????")
+PLACEHOLDER_PATTERNS = (
+    "表说明",
+    "字段说明",
+    "业务边界说明",
+    "对象业务边界说明",
+    "???",
+    "????",
+    "TODO",
+    "TBD",
+    "待补充",
+    "N/A",
+)
 
 
 class SchemaRegistryBaselineTest(unittest.TestCase):
@@ -211,6 +222,138 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
             }
             tdengine_payload = {
                 "domain": "relation-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_when_relation_via_field_missing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            mysql_payload = {
+                "domain": "relation-via-field-domain",
+                "storageType": "mysql",
+                "objects": [
+                    self._build_mysql_object(
+                        name="relation_source",
+                        relations=[
+                            {
+                                "type": "belongs_to",
+                                "target": "relation_target",
+                                "viaField": "missing_field",
+                            }
+                        ],
+                    ),
+                    self._build_mysql_object(name="relation_target"),
+                ],
+            }
+            views_payload = {
+                "domain": "ok-view-domain",
+                "storageType": "mysql_view",
+                "objects": [self._build_view_object(name="view_ok", source_table="relation_source")],
+            }
+            tdengine_payload = {
+                "domain": "ok-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_when_index_column_missing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            broken = self._build_mysql_object(name="indexed_source")
+            broken["indexes"] = [
+                {
+                    "name": "idx_missing_column",
+                    "kind": "INDEX",
+                    "columns": ["missing_field"],
+                }
+            ]
+            mysql_payload = {
+                "domain": "index-column-domain",
+                "storageType": "mysql",
+                "objects": [broken],
+            }
+            views_payload = {
+                "domain": "ok-view-domain",
+                "storageType": "mysql_view",
+                "objects": [self._build_view_object(name="view_ok", source_table="indexed_source")],
+            }
+            tdengine_payload = {
+                "domain": "ok-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_on_malformed_source_tables_type(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            mysql_payload = {
+                "domain": "source-table-domain",
+                "storageType": "mysql",
+                "objects": [self._build_mysql_object(name="source_table")],
+            }
+            broken_view = self._build_view_object(name="view_bad", source_table="source_table")
+            broken_view["sourceTables"] = "source_table"
+            views_payload = {
+                "domain": "broken-view-domain",
+                "storageType": "mysql_view",
+                "objects": [broken_view],
+            }
+            tdengine_payload = {
+                "domain": "ok-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_on_placeholder_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            broken = self._build_mysql_object(name="placeholder_object")
+            broken["tableCommentZh"] = "TODO"
+            mysql_payload = {
+                "domain": "placeholder-domain",
+                "storageType": "mysql",
+                "objects": [broken],
+            }
+            views_payload = {
+                "domain": "ok-view-domain",
+                "storageType": "mysql_view",
+                "objects": [self._build_view_object(name="view_ok", source_table="placeholder_object")],
+            }
+            tdengine_payload = {
+                "domain": "ok-tdengine-domain",
                 "storageType": "tdengine",
                 "objects": [self._build_tdengine_object(name="td_ok")],
             }

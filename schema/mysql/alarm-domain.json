@@ -225,11 +225,6 @@
         },
         {
           "type": "belongs_to",
-          "target": "risk_metric_catalog",
-          "viaField": "risk_metric_id"
-        },
-        {
-          "type": "belongs_to",
           "target": "sys_tenant",
           "viaField": "tenant_id"
         }
@@ -1565,11 +1560,6 @@
         },
         {
           "type": "belongs_to",
-          "target": "risk_metric_catalog",
-          "viaField": "risk_metric_id"
-        },
-        {
-          "type": "belongs_to",
           "target": "sys_tenant",
           "viaField": "tenant_id"
         }
@@ -1698,11 +1688,6 @@
           "type": "belongs_to",
           "target": "iot_device",
           "viaField": "device_id"
-        },
-        {
-          "type": "belongs_to",
-          "target": "risk_metric_catalog",
-          "viaField": "risk_metric_id"
         },
         {
           "type": "belongs_to",
@@ -1894,7 +1879,7 @@
         {
           "type": "belongs_to",
           "target": "risk_metric_catalog",
-          "viaField": "risk_metric_id"
+          "viaField": "metric_identifier"
         },
         {
           "type": "belongs_to",
@@ -2067,8 +2052,8 @@
         },
         {
           "type": "belongs_to",
-          "target": "risk_point_device_capability_binding",
-          "viaField": "capability_binding_id"
+          "target": "risk_point_device",
+          "viaField": "risk_point_device_id"
         },
         {
           "type": "belongs_to",
@@ -2207,11 +2192,6 @@
         },
         {
           "type": "belongs_to",
-          "target": "risk_point",
-          "viaField": "risk_point_id"
-        },
-        {
-          "type": "belongs_to",
           "target": "sys_tenant",
           "viaField": "tenant_id"
         }
@@ -2301,11 +2281,6 @@
         }
       ],
       "relations": [
-        {
-          "type": "belongs_to",
-          "target": "risk_point",
-          "viaField": "risk_point_id"
-        },
         {
           "type": "belongs_to",
           "target": "sys_tenant",
@@ -2407,11 +2382,6 @@
         }
       ],
       "relations": [
-        {
-          "type": "belongs_to",
-          "target": "risk_point",
-          "viaField": "risk_point_id"
-        },
         {
           "type": "belongs_to",
           "target": "sys_tenant",

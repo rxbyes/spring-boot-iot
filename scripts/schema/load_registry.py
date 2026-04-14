@@ -18,6 +18,10 @@ PLACEHOLDER_PATTERNS = (
     "对象业务边界说明",
     "???",
     "????",
+    "TODO",
+    "TBD",
+    "待补充",
+    "N/A",
 )
 
 REQUIRED_OBJECT_KEYS = {
@@ -151,6 +155,8 @@ def load_registry(schema_root: str | Path) -> SchemaRegistry:
 
     all_objects = mysql_objects + mysql_view_objects + tdengine_objects
     _validate_unique_names(all_objects)
+    _validate_relation_via_fields(all_objects)
+    _validate_index_columns(all_objects)
     invalid_relations = _validate_relation_targets(all_objects)
 
     return SchemaRegistry(
@@ -237,8 +243,8 @@ def _build_object(
     indexes = _parse_indexes(raw_obj.get("indexes"), object_name=name, path=path)
     relations = _parse_relations(raw_obj.get("relations"), object_name=name, path=path)
 
-    source_tables = tuple(str(v).strip() for v in raw_obj.get("sourceTables", []) if str(v).strip())
-    definition_sql = str(raw_obj.get("definitionSql", "")).strip()
+    source_tables = _parse_source_tables(raw_obj=raw_obj, object_name=name, path=path)
+    definition_sql = _required_meaningful_text(raw_obj, "definitionSql", path=path, context=name, required=False)
     if storage_type == "mysql_view":
         if not source_tables:
             raise ValueError(f"View object {name!r} in {path} must provide non-empty sourceTables")
@@ -360,17 +366,79 @@ def _validate_relation_targets(objects: list[RegistryObject]) -> list[str]:
     return invalid
 
 
+def _validate_relation_via_fields(objects: list[RegistryObject]) -> None:
+    errors: list[str] = []
+    for obj in objects:
+        field_names = {field.name for field in obj.fields}
+        for relation in obj.relations:
+            if relation.via_field not in field_names:
+                errors.append(f"{obj.name}:{relation.via_field}->{relation.target}")
+    if errors:
+        raise ValueError(
+            "Relation viaField not found in source object fields: " + ", ".join(sorted(errors))
+        )
+
+
+def _validate_index_columns(objects: list[RegistryObject]) -> None:
+    errors: list[str] = []
+    for obj in objects:
+        field_names = {field.name for field in obj.fields}
+        for index in obj.indexes:
+            for column in index.columns:
+                if column not in field_names:
+                    errors.append(f"{obj.name}:{index.name}.{column}")
+    if errors:
+        raise ValueError(
+            "Index columns not found in source object fields: " + ", ".join(sorted(errors))
+        )
+
+
+def _parse_source_tables(raw_obj: dict, object_name: str, path: Path) -> tuple[str, ...]:
+    raw_source_tables = raw_obj.get("sourceTables", [])
+    if raw_source_tables is None:
+        return ()
+    if not isinstance(raw_source_tables, list):
+        raise ValueError(
+            f"View object {object_name!r} in {path} must provide sourceTables as a list of non-empty strings"
+        )
+    parsed: list[str] = []
+    for idx, source in enumerate(raw_source_tables):
+        if not isinstance(source, str):
+            raise ValueError(
+                f"View object {object_name!r} in {path} has non-string sourceTables[{idx}]"
+            )
+        value = source.strip()
+        if not value:
+            raise ValueError(
+                f"View object {object_name!r} in {path} has blank sourceTables[{idx}]"
+            )
+        parsed.append(value)
+    return tuple(parsed)
+
+
 def _required_non_blank_string(container: dict, key: str, path: Path, context: str) -> str:
     value = container.get(key)
     if value is None:
         raise ValueError(f"Missing required key {key!r} in {context} ({path})")
-    text = str(value).strip()
+    if not isinstance(value, str):
+        raise ValueError(f"Key {key!r} in {context} ({path}) must be a string")
+    text = value.strip()
     if not text:
         raise ValueError(f"Blank value for key {key!r} in {context} ({path})")
     return text
 
 
-def _required_meaningful_text(container: dict, key: str, path: Path, context: str) -> str:
+def _required_meaningful_text(
+    container: dict,
+    key: str,
+    path: Path,
+    context: str,
+    required: bool = True,
+) -> str:
+    if key not in container or container.get(key) is None:
+        if required:
+            raise ValueError(f"Missing required key {key!r} in {context} ({path})")
+        return ""
     text = _required_non_blank_string(container, key, path, context)
     if _is_placeholder_text(text):
         raise ValueError(f"Placeholder value for key {key!r} in {context} ({path}): {text!r}")
@@ -392,7 +460,8 @@ def _is_placeholder_text(text: str) -> bool:
     normalized = str(text).strip()
     if not normalized:
         return False
-    return any(marker in normalized for marker in PLACEHOLDER_PATTERNS)
+    normalized_upper = normalized.upper()
+    return any(marker.upper() in normalized_upper for marker in PLACEHOLDER_PATTERNS)
 
 
 def _is_missing_or_placeholder(text: str) -> bool:

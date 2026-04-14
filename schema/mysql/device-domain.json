@@ -408,11 +408,6 @@
       "relations": [
         {
           "type": "belongs_to",
-          "target": "iot_product",
-          "viaField": "product_id"
-        },
-        {
-          "type": "belongs_to",
           "target": "sys_tenant",
           "viaField": "tenant_id"
         }
@@ -891,7 +886,7 @@
         {
           "type": "belongs_to",
           "target": "iot_product_contract_release_batch",
-          "viaField": "release_batch_id"
+          "viaField": "batch_id"
         },
         {
           "type": "belongs_to",
@@ -1625,11 +1620,6 @@
         },
         {
           "type": "belongs_to",
-          "target": "iot_product",
-          "viaField": "product_id"
-        },
-        {
-          "type": "belongs_to",
           "target": "sys_tenant",
           "viaField": "tenant_id"
         }
@@ -2079,12 +2069,12 @@
         {
           "type": "belongs_to",
           "target": "iot_device",
-          "viaField": "device_id"
+          "viaField": "device_code"
         },
         {
           "type": "belongs_to",
           "target": "iot_product",
-          "viaField": "product_id"
+          "viaField": "product_key"
         },
         {
           "type": "belongs_to",
@@ -2280,7 +2270,7 @@
         {
           "type": "belongs_to",
           "target": "iot_product",
-          "viaField": "product_id"
+          "viaField": "product_key"
         },
         {
           "type": "belongs_to",
@@ -2474,7 +2464,7 @@
         {
           "type": "belongs_to",
           "target": "iot_product",
-          "viaField": "product_id"
+          "viaField": "product_key"
         },
         {
           "type": "belongs_to",
@@ -2615,12 +2605,7 @@
         {
           "type": "belongs_to",
           "target": "iot_product",
-          "viaField": "product_id"
-        },
-        {
-          "type": "belongs_to",
-          "target": "sys_governance_approval_order",
-          "viaField": "approval_order_id"
+          "viaField": "product_key"
         },
         {
           "type": "belongs_to",
