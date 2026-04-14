@@ -1,0 +1,340 @@
+{
+  "objects": [
+    {
+      "name": "emergency_plan",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_alarm_record",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_event_record",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_event_work_order",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "linkage_rule",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_metric_catalog",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_metric_emergency_plan_binding",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_metric_linkage_binding",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_point",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_point_device",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_point_device_capability_binding",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_point_device_pending_binding",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "risk_point_device_pending_promotion",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "rule_definition",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_command_record",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_access_error_log",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_invalid_report_state",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_message_log",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_metric_latest",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_online_session",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_property",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_relation",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_device_secret_rotation_log",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_normative_metric_definition",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_product",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_product_contract_release_batch",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_product_contract_release_snapshot",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_product_metric_resolver_snapshot",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_product_model",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_vendor_metric_evidence",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_vendor_metric_mapping_rule",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_governance_ops_alert",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_governance_work_item",
+      "ownerModule": "spring-boot-iot-alarm",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_governance_approval_order",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_governance_approval_policy",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_governance_approval_transition",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_governance_replay_feedback",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "iot_message_log",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "view_only",
+      "storageType": "mysql_view"
+    },
+    {
+      "name": "sys_audit_log",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_dict",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_dict_item",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_help_document",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_in_app_message",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_in_app_message_bridge_attempt_log",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_in_app_message_bridge_log",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_in_app_message_read",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_menu",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_notification_channel",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_organization",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_region",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_role",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_role_menu",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_tenant",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_user",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "name": "sys_user_role",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    }
+  ]
+}

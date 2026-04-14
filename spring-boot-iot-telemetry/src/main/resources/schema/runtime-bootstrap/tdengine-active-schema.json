@@ -1,0 +1,34 @@
+{
+  "objects": [
+    {
+      "name": "iot_agg_measure_hour",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "manual_bootstrap_required",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "name": "iot_raw_event_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "name": "iot_raw_measure_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "name": "iot_raw_status_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "name": "iot_device_telemetry_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_table"
+    }
+  ]
+}

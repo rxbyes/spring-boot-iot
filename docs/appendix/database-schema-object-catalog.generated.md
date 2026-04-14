@@ -1,0 +1,68 @@
+# Database Schema Object Catalog
+
+Generated from the schema registry. Do not edit by hand.
+
+| Name | Storage | Lifecycle | In Init | In Schema Sync | Runtime Bootstrap | Owner Module | Comment |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| emergency_plan | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 应急预案表 |
+| iot_alarm_record | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 告警记录表 |
+| iot_event_record | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 事件记录表 |
+| iot_event_work_order | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 事件工单表 |
+| linkage_rule | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 联动规则表 |
+| risk_metric_catalog | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险指标目录表 |
+| risk_metric_emergency_plan_binding | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险指标与应急预案绑定表 |
+| risk_metric_linkage_binding | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险指标与联动规则绑定表 |
+| risk_point | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险点表 |
+| risk_point_device | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险点设备绑定表 |
+| risk_point_device_capability_binding | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险点设备级正式绑定表 |
+| risk_point_device_pending_binding | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险点设备待治理导入表 |
+| risk_point_device_pending_promotion | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 风险点设备待治理转正明细表 |
+| risk_point_highway_detail | mysql_table | archived | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 高速公路风险点扩展表 |
+| rule_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 阈值规则表 |
+| iot_command_record | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备命令记录表 |
+| iot_device | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备表 |
+| iot_device_access_error_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备接入失败归档表 |
+| iot_device_invalid_report_state | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 无效 MQTT 上报最新态表 |
+| iot_device_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
+| iot_device_metric_latest | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | telemetry v2 latest投影表 |
+| iot_device_online_session | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备在线会话表 |
+| iot_device_property | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备最新属性表 |
+| iot_device_relation | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备逻辑通道关系表 |
+| iot_device_secret_rotation_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | iot设备密钥轮换log表 |
+| iot_normative_metric_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 规范字段定义表 |
+| iot_product | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品表 |
+| iot_product_contract_release_batch | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | iot产品contractrelease批次表 |
+| iot_product_contract_release_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | iot产品contractrelease快照表 |
+| iot_product_metric_resolver_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | iot产品指标resolver快照表 |
+| iot_product_model | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品物模型表 |
+| iot_vendor_metric_evidence | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段证据表 |
+| iot_vendor_metric_mapping_rule | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段映射规则表 |
+| iot_governance_ops_alert | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 治理运维告警表 |
+| iot_governance_work_item | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 治理与运营工作项表 |
+| sys_governance_approval_order | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | sysgovernance审批工单表 |
+| sys_governance_approval_policy | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | sysgovernance审批policy表 |
+| sys_governance_approval_transition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | sysgovernance审批transition表 |
+| sys_governance_replay_feedback | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | sysgovernancereplayfeedback表 |
+| iot_message_log | mysql_view | active | yes | yes | view_only | spring-boot-iot-device | 设备消息日志兼容视图 |
+| sys_audit_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 审计日志表 |
+| sys_dict | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 字典表 |
+| sys_dict_item | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 字典项表 |
+| sys_help_document | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 帮助文档表 |
+| sys_in_app_message | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 站内消息表 |
+| sys_in_app_message_bridge_attempt_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 站内消息桥接尝试明细表 |
+| sys_in_app_message_bridge_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 站内消息未读桥接日志表 |
+| sys_in_app_message_read | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 站内消息已读表 |
+| sys_menu | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 菜单表 |
+| sys_notification_channel | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 通知渠道表 |
+| sys_organization | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 组织机构表 |
+| sys_region | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 区域表 |
+| sys_role | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 角色表 |
+| sys_role_menu | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 角色菜单关联表 |
+| sys_tenant | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 租户表 |
+| sys_user | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 系统用户表 |
+| sys_user_role | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 用户角色关联表 |
+| iot_agg_measure_hour | tdengine_stable | active | yes | yes | manual_bootstrap_required | spring-boot-iot-telemetry | iotaggmeasurehour表 |
+| iot_raw_event_point | tdengine_stable | active | yes | yes | auto_bootstrap | spring-boot-iot-telemetry | iotraw事件点位表 |
+| iot_raw_measure_point | tdengine_stable | active | yes | yes | auto_bootstrap | spring-boot-iot-telemetry | iotrawmeasure点位表 |
+| iot_raw_status_point | tdengine_stable | active | yes | yes | auto_bootstrap | spring-boot-iot-telemetry | iotraw状态点位表 |
+| iot_device_telemetry_point | tdengine_table | active | yes | yes | auto_bootstrap | spring-boot-iot-telemetry | iot设备telemetry点位表 |
