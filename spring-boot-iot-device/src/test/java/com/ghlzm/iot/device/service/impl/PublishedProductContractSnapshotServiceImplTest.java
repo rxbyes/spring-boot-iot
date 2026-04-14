@@ -150,6 +150,31 @@ class PublishedProductContractSnapshotServiceImplTest {
     }
 
     @Test
+    void shouldNotServePersistedSnapshotTruthWhenCurrentFormalIdentifiersAreEmpty() {
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(9001L);
+        when(releaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+
+        ProductMetricResolverSnapshot persisted = new ProductMetricResolverSnapshot();
+        persisted.setSnapshotJson("""
+                {
+                  "publishedIdentifiers": ["signal_4g"],
+                  "canonicalAliases": {
+                    "signal_4g": "signal_4g"
+                  }
+                }
+                """);
+        when(snapshotMapper.selectList(any())).thenReturn(List.of(persisted));
+
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(1001L);
+
+        assertTrue(snapshot.publishedIdentifiers().isEmpty());
+        assertFalse(snapshot.canonicalAliasOf("signal_4g").isPresent());
+        assertFalse(snapshot.containsPublishedIdentifier("signal_4g"));
+    }
+
+    @Test
     void springContextShouldInstantiatePublishedSnapshotServiceBean() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.registerBean(ProductModelMapper.class, () -> productModelMapper);

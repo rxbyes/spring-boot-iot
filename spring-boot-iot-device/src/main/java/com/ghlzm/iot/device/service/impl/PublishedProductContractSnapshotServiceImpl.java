@@ -159,7 +159,10 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
                                                                             PublishedProductContractSnapshot persistedSnapshot) {
         Map<String, String> currentFormalByLower = loadCurrentFormalIdentifierMap(productId);
         if (currentFormalByLower.isEmpty()) {
-            return persistedSnapshot == null ? PublishedProductContractSnapshot.empty(productId) : persistedSnapshot;
+            return PublishedProductContractSnapshot.builder()
+                    .productId(productId)
+                    .releaseBatchId(releaseBatchId)
+                    .build();
         }
         PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
                 .productId(productId)
@@ -167,7 +170,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
                 .publishedIdentifiers(currentFormalByLower.values());
         currentFormalByLower.values().forEach(identifier -> builder.canonicalAlias(identifier, identifier));
         if (persistedSnapshot != null) {
-            persistedSnapshot.canonicalAliases().forEach((alias, target) -> {
+            persistedSnapshot.forEachCanonicalAlias((alias, target) -> {
                 if (!StringUtils.hasText(target)) {
                     return;
                 }
