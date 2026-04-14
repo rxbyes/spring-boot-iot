@@ -570,7 +570,9 @@ class ProductModelServiceImplTest {
                         .sorted()
                         .toList()
         );
-        assertTrue(result.getCompareRows().stream().noneMatch(item -> "sensor_state".equals(item.getIdentifier())));
+        assertTrue(result.getCompareRows().stream()
+                .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                .noneMatch(identifier -> identifier != null && identifier.contains("sensor_state")));
     }
 
     @Test
@@ -617,7 +619,9 @@ class ProductModelServiceImplTest {
                         .sorted()
                         .toList()
         );
-        assertTrue(result.getCompareRows().stream().noneMatch(item -> "sensor_state".equals(item.getIdentifier())));
+        assertTrue(result.getCompareRows().stream()
+                .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                .noneMatch(identifier -> identifier != null && identifier.contains("sensor_state")));
     }
 
     @Test
@@ -1227,26 +1231,6 @@ class ProductModelServiceImplTest {
     }
 
     @Test
-    void applyGovernanceShouldAllowDirectCollectorRtuRuntimeStatusFieldsLegacyIdentifiers() {
-        Product collector = directCollectorRtuProduct(6007L);
-        when(productMapper.selectById(6007L)).thenReturn(collector);
-        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
-        dto.setItems(List.of(
-                applyItem("create", null, "property", "ext_power_volt", "外接电源电压"),
-                applyItem("create", null, "property", "lat", "纬度"),
-                applyItem("create", null, "property", "signal_NB", "NB 信号强度"),
-                applyItem("create", null, "property", "sw_version", "软件版本")
-        ));
-
-        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6007L, dto, 10001L);
-
-        assertEquals(4, result.getCreatedCount());
-        assertEquals(0, result.getUpdatedCount());
-        assertEquals(0, result.getSkippedCount());
-        verify(productModelMapper, times(4)).insert(any(ProductModel.class));
-    }
-
-    @Test
     void applyGovernanceShouldAllowDirectCollectorRtuRuntimeStatusFields() {
         Product collector = directCollectorRtuProduct(6007L);
         when(productMapper.selectById(6007L)).thenReturn(collector);
@@ -1261,6 +1245,17 @@ class ProductModelServiceImplTest {
         ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6007L, dto, 10001L);
 
         assertEquals(4, result.getCreatedCount());
+        assertEquals(
+                List.of("S1_ZT_1.ext_power_volt", "S1_ZT_1.lat", "S1_ZT_1.signal_NB", "S1_ZT_1.sw_version"),
+                result.getAppliedItems().stream()
+                        .map(ProductModelGovernanceAppliedItemVO::getIdentifier)
+                        .toList()
+        );
+        verify(productModelMapper, times(4)).insert(org.mockito.ArgumentMatchers.<ProductModel>argThat(model ->
+                model != null
+                        && model.getIdentifier() != null
+                        && model.getIdentifier().startsWith("S1_ZT_1.")
+        ));
     }
 
     @Test
