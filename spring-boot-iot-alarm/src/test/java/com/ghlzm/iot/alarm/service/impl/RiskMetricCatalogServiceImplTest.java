@@ -271,6 +271,43 @@ class RiskMetricCatalogServiceImplTest {
     }
 
     @Test
+    void publishFromReleasedContractsShouldRewriteShortCollectorCatalogRowToCurrentFullPathIdentifier() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher,
+                snapshotService
+        );
+        RiskMetricCatalog existing = new RiskMetricCatalog();
+        existing.setId(6103L);
+        existing.setProductId(6007L);
+        existing.setContractIdentifier("signal_4g");
+        existing.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(existing));
+        when(snapshotService.getRequiredSnapshot(6007L)).thenReturn(PublishedProductContractSnapshot.builder()
+                .productId(6007L)
+                .releaseBatchId(7001L)
+                .publishedIdentifier("S1_ZT_1.signal_4g")
+                .canonicalAlias("S1_ZT_1.signal_4g", "S1_ZT_1.signal_4g")
+                .build());
+
+        ProductModel released = new ProductModel();
+        released.setId(7103L);
+        released.setProductId(6007L);
+        released.setIdentifier("S1_ZT_1.signal_4g");
+        released.setModelName("4G 信号强度");
+
+        service.publishFromReleasedContracts(6007L, 7001L, List.of(released), Set.of("S1_ZT_1.signal_4g"));
+
+        verify(riskMetricCatalogMapper).updateById(argThat((RiskMetricCatalog row) ->
+                Long.valueOf(6103L).equals(row.getId())
+                        && "S1_ZT_1.signal_4g".equals(row.getContractIdentifier())
+        ));
+    }
+
+    @Test
     void springContextShouldInstantiateRiskMetricCatalogServiceBean() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.registerBean(RiskMetricCatalogMapper.class, () -> riskMetricCatalogMapper);

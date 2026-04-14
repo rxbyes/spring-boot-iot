@@ -1465,9 +1465,9 @@ INSERT INTO iot_product_model (
     id, tenant_id, product_id, model_type, identifier, model_name, data_type, specs_json,
     sort_no, required_flag, description, create_time, update_time, deleted
 ) VALUES
-    (202604110200001, 1, 202603192100560259, 'property', 'temp', '温度', 'double', JSON_OBJECT('unit', '℃', 'category', 'collector_status'), 1, 0, '采集器运行温度', NOW(), NOW(), 0),
-    (202604110200002, 1, 202603192100560259, 'property', 'humidity', '湿度', 'double', JSON_OBJECT('unit', '%', 'category', 'collector_status'), 2, 0, '采集器运行湿度', NOW(), NOW(), 0),
-    (202604110200003, 1, 202603192100560259, 'property', 'signal_4g', '4G信号强度', 'int', JSON_OBJECT('unit', 'dBm', 'category', 'collector_status'), 3, 0, '采集器 4G 信号强度', NOW(), NOW(), 0),
+    (202604110200001, 1, 202603192100560259, 'property', 'S1_ZT_1.temp', '温度', 'double', JSON_OBJECT('unit', '℃', 'category', 'collector_status'), 1, 0, '采集器运行温度', NOW(), NOW(), 0),
+    (202604110200002, 1, 202603192100560259, 'property', 'S1_ZT_1.humidity', '湿度', 'double', JSON_OBJECT('unit', '%', 'category', 'collector_status'), 2, 0, '采集器运行湿度', NOW(), NOW(), 0),
+    (202604110200003, 1, 202603192100560259, 'property', 'S1_ZT_1.signal_4g', '4G信号强度', 'int', JSON_OBJECT('unit', 'dBm', 'category', 'collector_status'), 3, 0, '采集器 4G 信号强度', NOW(), NOW(), 0),
     (202604110200011, 1, 202603192100560258, 'property', 'value', '激光测距值', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '激光测距监测值', NOW(), NOW(), 0),
     (202604110200012, 1, 202603192100560258, 'property', 'sensor_state', '传感器状态', 'int', JSON_OBJECT('category', 'state'), 2, 0, '激光测距传感器状态', NOW(), NOW(), 0),
     (202604110200021, 1, 202603192100560250, 'property', 'dispsX', '顺滑动方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '深部位移顺滑动方向累计变形量', NOW(), NOW(), 0),
@@ -1492,9 +1492,9 @@ SET metadata_json = JSON_SET(
         JSON_OBJECT(
             'customMetrics',
             JSON_ARRAY(
-                JSON_OBJECT('identifier', 'temp', 'displayName', '温度', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
-                JSON_OBJECT('identifier', 'humidity', 'displayName', '湿度', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20),
-                JSON_OBJECT('identifier', 'signal_4g', 'displayName', '4G信号强度', 'enabled', TRUE, 'includeInTrend', FALSE, 'includeInExtension', TRUE, 'sortNo', 30)
+                JSON_OBJECT('identifier', 'S1_ZT_1.temp', 'displayName', '温度', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
+                JSON_OBJECT('identifier', 'S1_ZT_1.humidity', 'displayName', '湿度', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20),
+                JSON_OBJECT('identifier', 'S1_ZT_1.signal_4g', 'displayName', '4G信号强度', 'enabled', TRUE, 'includeInTrend', FALSE, 'includeInExtension', TRUE, 'sortNo', 30)
             )
         )
     ),
@@ -1997,12 +1997,12 @@ WHERE rel.deleted = 0;
 INSERT INTO iot_device_property (
     id, tenant_id, device_id, identifier, property_name, property_value, value_type, report_time, create_time, update_time
 ) VALUES
-    (202604110700001, 1, 202604110300003, 'temp', '温度', '20.31', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (202604110700002, 1, 202604110300003, 'humidity', '湿度', '89.04', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (202604110700003, 1, 202604110300003, 'signal_4g', '4G信号强度', '-71', 'int', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (202604110700004, 1, 202604110300101, 'temp', '温度', '19.82', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (202604110700005, 1, 202604110300101, 'humidity', '湿度', '71.55', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
-    (202604110700006, 1, 202604110300101, 'signal_4g', '4G信号强度', '-69', 'int', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (202604110700001, 1, 202604110300003, 'S1_ZT_1.temp', '温度', '20.31', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (202604110700002, 1, 202604110300003, 'S1_ZT_1.humidity', '湿度', '89.04', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (202604110700003, 1, 202604110300003, 'S1_ZT_1.signal_4g', '4G信号强度', '-71', 'int', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (202604110700004, 1, 202604110300101, 'S1_ZT_1.temp', '温度', '19.82', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (202604110700005, 1, 202604110300101, 'S1_ZT_1.humidity', '湿度', '71.55', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
+    (202604110700006, 1, 202604110300101, 'S1_ZT_1.signal_4g', '4G信号强度', '-69', 'int', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
     (202604110700007, 1, 202604110300201, 'dispsX', '顺滑动方向累计变形量', '-0.0166', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
     (202604110700008, 1, 202604110300201, 'dispsY', '垂直坡面方向累计变形量', '-0.0368', 'double', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),
     (202604110700009, 1, 202604110300201, 'sensor_state', '传感器状态', '0', 'int', DATE_SUB(NOW(), INTERVAL 2 MINUTE), NOW(), NOW()),

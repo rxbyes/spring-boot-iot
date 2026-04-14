@@ -84,13 +84,23 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
             return;
         }
         PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(productId);
-        Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers, snapshot);
+        Map<String, String> collectorParentFormalByLeaf = buildCollectorParentFormalByLeaf(releasedContracts);
+        Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers, snapshot, collectorParentFormalByLeaf);
         if (enabledIdentifiers.isEmpty()) {
             return;
         }
         Map<String, RiskMetricCatalog> existingByIdentifier = listAllByProduct(productId).stream()
                 .filter(row -> StringUtils.hasText(row.getContractIdentifier()))
-                .collect(LinkedHashMap::new, (map, row) -> map.put(normalizeIdentifier(row.getContractIdentifier(), snapshot), row), Map::putAll);
+                .collect(LinkedHashMap::new,
+                        (map, row) -> map.put(
+                                normalizeExistingCatalogIdentifier(
+                                        row.getContractIdentifier(),
+                                        snapshot,
+                                        collectorParentFormalByLeaf
+                                ),
+                                row
+                        ),
+                        Map::putAll);
         Map<String, MetricSemanticProfile> semanticByIdentifier =
                 resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers, snapshot);
         Set<String> publishedIdentifiers = new LinkedHashSet<>();
@@ -456,18 +466,33 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return Set.of("double", "float", "int", "integer", "long", "short", "decimal").contains(lower);
     }
 
-    private Set<String> normalizeIdentifiers(Set<String> identifiers, PublishedProductContractSnapshot snapshot) {
+    private Set<String> normalizeIdentifiers(Set<String> identifiers,
+                                             PublishedProductContractSnapshot snapshot,
+                                             Map<String, String> collectorParentFormalByLeaf) {
         if (identifiers == null || identifiers.isEmpty()) {
             return Set.of();
         }
         Set<String> normalized = new LinkedHashSet<>();
         for (String identifier : identifiers) {
-            String value = normalizeIdentifier(identifier, snapshot);
+            String value = normalizeExistingCatalogIdentifier(identifier, snapshot, collectorParentFormalByLeaf);
             if (StringUtils.hasText(value)) {
                 normalized.add(value);
             }
         }
         return normalized;
+    }
+
+    private String normalizeExistingCatalogIdentifier(String identifier,
+                                                      PublishedProductContractSnapshot snapshot,
+                                                      Map<String, String> collectorParentFormalByLeaf) {
+        String normalized = normalizeIdentifier(identifier, snapshot);
+        if (!StringUtils.hasText(normalized)
+                || normalized.contains(".")
+                || collectorParentFormalByLeaf == null
+                || collectorParentFormalByLeaf.isEmpty()) {
+            return normalized;
+        }
+        return collectorParentFormalByLeaf.getOrDefault(normalized.toLowerCase(Locale.ROOT), normalized);
     }
 
     private String normalizeIdentifier(String identifier, PublishedProductContractSnapshot snapshot) {
@@ -476,6 +501,41 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
             return normalized;
         }
         return snapshot.canonicalAliasOf(normalized).orElse(normalized);
+    }
+
+    private Map<String, String> buildCollectorParentFormalByLeaf(List<ProductModel> releasedContracts) {
+        if (releasedContracts == null || releasedContracts.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> collectorParentFormalByLeaf = new LinkedHashMap<>();
+        for (ProductModel releasedContract : releasedContracts) {
+            String identifier = normalize(releasedContract == null ? null : releasedContract.getIdentifier());
+            if (!isCollectorParentFullPathIdentifier(identifier)) {
+                continue;
+            }
+            collectorParentFormalByLeaf.putIfAbsent(
+                    lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT),
+                    identifier
+            );
+        }
+        return collectorParentFormalByLeaf;
+    }
+
+    private boolean isCollectorParentFullPathIdentifier(String identifier) {
+        return StringUtils.hasText(identifier)
+                && identifier.startsWith("S1_ZT_1.")
+                && !identifier.startsWith("S1_ZT_1.sensor_state.");
+    }
+
+    private String lastIdentifierSegment(String identifier) {
+        if (!StringUtils.hasText(identifier)) {
+            return identifier;
+        }
+        int separatorIndex = identifier.lastIndexOf('.');
+        if (separatorIndex < 0 || separatorIndex >= identifier.length() - 1) {
+            return identifier;
+        }
+        return identifier.substring(separatorIndex + 1);
     }
 
     private Map<String, Object> parseJsonObject(String json) {
