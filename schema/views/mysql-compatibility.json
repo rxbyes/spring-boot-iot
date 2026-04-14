@@ -1,0 +1,98 @@
+{
+  "domain": "mysql-compatibility",
+  "storageType": "mysql_view",
+  "objects": [
+    {
+      "name": "iot_message_log",
+      "storageType": "mysql_view",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "view_only",
+      "tableCommentZh": "iot_message_log表说明",
+      "commentZh": "iot_message_log表说明",
+      "fields": [
+        {
+          "name": "id",
+          "type": "VIEW_COLUMN",
+          "commentZh": "id字段说明"
+        },
+        {
+          "name": "tenant_id",
+          "type": "VIEW_COLUMN",
+          "commentZh": "tenant_id字段说明"
+        },
+        {
+          "name": "device_id",
+          "type": "VIEW_COLUMN",
+          "commentZh": "device_id字段说明"
+        },
+        {
+          "name": "product_id",
+          "type": "VIEW_COLUMN",
+          "commentZh": "product_id字段说明"
+        },
+        {
+          "name": "trace_id",
+          "type": "VIEW_COLUMN",
+          "commentZh": "trace_id字段说明"
+        },
+        {
+          "name": "device_code",
+          "type": "VIEW_COLUMN",
+          "commentZh": "device_code字段说明"
+        },
+        {
+          "name": "product_key",
+          "type": "VIEW_COLUMN",
+          "commentZh": "product_key字段说明"
+        },
+        {
+          "name": "message_type",
+          "type": "VIEW_COLUMN",
+          "commentZh": "message_type字段说明"
+        },
+        {
+          "name": "topic",
+          "type": "VIEW_COLUMN",
+          "commentZh": "topic字段说明"
+        },
+        {
+          "name": "payload",
+          "type": "VIEW_COLUMN",
+          "commentZh": "payload字段说明"
+        },
+        {
+          "name": "report_time",
+          "type": "VIEW_COLUMN",
+          "commentZh": "report_time字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "VIEW_COLUMN",
+          "commentZh": "create_time字段说明"
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "derived_from",
+          "target": "iot_device_message_log",
+          "viaField": "view_select"
+        },
+        {
+          "type": "compatible_alias",
+          "target": "iot_device_message_log",
+          "viaField": "compatibility_view"
+        }
+      ],
+      "lineageRole": "compatibility_projection",
+      "businessBoundary": "iot_message_log对象业务边界说明。",
+      "sourceTables": [
+        "iot_device_message_log"
+      ],
+      "definitionSql": "SELECT id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time FROM iot_device_message_log"
+    }
+  ]
+}

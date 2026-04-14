@@ -1,0 +1,2635 @@
+{
+  "domain": "device",
+  "storageType": "mysql",
+  "objects": [
+    {
+      "name": "iot_product",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "产品表",
+      "commentZh": "产品表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "产品Key"
+        },
+        {
+          "name": "product_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "产品名称"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "node_type",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "节点类型 1直连设备 2网关设备 3网关子设备"
+        },
+        {
+          "name": "data_format",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'JSON'",
+          "commentZh": "数据格式"
+        },
+        {
+          "name": "manufacturer",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "厂商"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "描述"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "产品扩展元数据"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_product_key_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "product_key"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "产品表???device????????iot_product?????????????"
+    },
+    {
+      "name": "iot_product_model",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "产品物模型表",
+      "commentZh": "产品物模型表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "model_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "模型类型 property/event/service"
+        },
+        {
+          "name": "identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "标识符"
+        },
+        {
+          "name": "model_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "名称"
+        },
+        {
+          "name": "data_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "数据类型"
+        },
+        {
+          "name": "specs_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "规格JSON"
+        },
+        {
+          "name": "event_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "事件类型"
+        },
+        {
+          "name": "service_input_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "服务输入定义"
+        },
+        {
+          "name": "service_output_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "服务输出定义"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "required_flag",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否必填"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "描述"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_product_identifier",
+          "kind": "UNIQUE",
+          "columns": [
+            "product_id",
+            "model_type",
+            "identifier"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "产品物模型表???device????????iot_product_model?????????????"
+    },
+    {
+      "name": "iot_normative_metric_definition",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "规范字段定义表",
+      "commentZh": "规范字段定义表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "scenario_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "治理场景编码"
+        },
+        {
+          "name": "device_family",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备族编码"
+        },
+        {
+          "name": "identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "规范字段标识"
+        },
+        {
+          "name": "display_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "规范字段名称"
+        },
+        {
+          "name": "unit",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "单位"
+        },
+        {
+          "name": "precision_digits",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "精度"
+        },
+        {
+          "name": "monitor_content_code",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "监测内容编码"
+        },
+        {
+          "name": "monitor_type_code",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "监测类型编码"
+        },
+        {
+          "name": "risk_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否允许进入风险闭环"
+        },
+        {
+          "name": "trend_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否允许趋势分析"
+        },
+        {
+          "name": "metric_dimension",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "量纲"
+        },
+        {
+          "name": "threshold_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "阈值类型"
+        },
+        {
+          "name": "semantic_direction",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "语义方向"
+        },
+        {
+          "name": "gis_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否支持GIS"
+        },
+        {
+          "name": "insight_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否支持对象洞察"
+        },
+        {
+          "name": "analytics_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否支持运营分析"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "扩展元数据"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_normative_metric_scenario_identifier",
+          "kind": "UNIQUE",
+          "columns": [
+            "scenario_code",
+            "identifier"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "规范字段定义表???device????????iot_normative_metric_definition?????????????"
+    },
+    {
+      "name": "iot_vendor_metric_evidence",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "厂商字段证据表",
+      "commentZh": "厂商字段证据表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "parent_device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "父设备编码"
+        },
+        {
+          "name": "child_device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "子设备编码"
+        },
+        {
+          "name": "raw_identifier",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "原始字段标识"
+        },
+        {
+          "name": "canonical_identifier",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "建议规范字段标识"
+        },
+        {
+          "name": "logical_channel_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "逻辑通道编码"
+        },
+        {
+          "name": "evidence_origin",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "证据来源"
+        },
+        {
+          "name": "sample_value",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "样例值"
+        },
+        {
+          "name": "value_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "值类型"
+        },
+        {
+          "name": "evidence_count",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "命中次数"
+        },
+        {
+          "name": "last_seen_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "最后出现时间"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "扩展元数据"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_vendor_metric_evidence",
+          "kind": "UNIQUE",
+          "columns": [
+            "product_id",
+            "raw_identifier",
+            "logical_channel_code"
+          ]
+        },
+        {
+          "name": "idx_vendor_metric_product_seen",
+          "kind": "INDEX",
+          "columns": [
+            "product_id",
+            "last_seen_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "厂商字段证据表???device????????iot_vendor_metric_evidence?????????????"
+    },
+    {
+      "name": "iot_vendor_metric_mapping_rule",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "厂商字段映射规则表",
+      "commentZh": "厂商字段映射规则表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "scope_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "scope_type字段说明"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "scenario_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "治理场景编码"
+        },
+        {
+          "name": "device_family",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备族编码"
+        },
+        {
+          "name": "raw_identifier",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "原始字段标识"
+        },
+        {
+          "name": "logical_channel_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "逻辑通道编码"
+        },
+        {
+          "name": "relation_condition_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "关系条件JSON"
+        },
+        {
+          "name": "normalization_rule_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "归一化规则JSON"
+        },
+        {
+          "name": "target_normative_identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "目标规范字段标识"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'DRAFT'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批单ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "厂商字段映射规则表???device????????iot_vendor_metric_mapping_rule?????????????"
+    },
+    {
+      "name": "iot_product_contract_release_batch",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "iot_product_contract_release_batch表说明",
+      "commentZh": "iot_product_contract_release_batch表说明",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "id字段说明"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "tenant_id字段说明"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "product_id字段说明"
+        },
+        {
+          "name": "scenario_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "scenario_code字段说明"
+        },
+        {
+          "name": "release_source",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "release_source字段说明"
+        },
+        {
+          "name": "released_field_count",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "released_field_count字段说明"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "approval_order_id字段说明"
+        },
+        {
+          "name": "release_reason",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "release_reason字段说明"
+        },
+        {
+          "name": "release_status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'RELEASED'",
+          "commentZh": "release_status字段说明"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "rollback_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "rollback_by字段说明"
+        },
+        {
+          "name": "rollback_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "rollback_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_product_contract_release_product_time",
+          "kind": "INDEX",
+          "columns": [
+            "product_id",
+            "create_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "iot_product_contract_release_batch对象业务边界说明。"
+    },
+    {
+      "name": "iot_product_contract_release_snapshot",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "iot_product_contract_release_snapshot表说明",
+      "commentZh": "iot_product_contract_release_snapshot表说明",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "id字段说明"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "tenant_id字段说明"
+        },
+        {
+          "name": "batch_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "batch_id字段说明"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "product_id字段说明"
+        },
+        {
+          "name": "snapshot_stage",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "snapshot_stage字段说明"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "JSON NOT NULL",
+          "commentZh": "snapshot_json字段说明"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_release_snapshot_batch_stage",
+          "kind": "INDEX",
+          "columns": [
+            "batch_id",
+            "snapshot_stage"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product_contract_release_batch",
+          "viaField": "release_batch_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "snapshot_baseline",
+      "businessBoundary": "iot_product_contract_release_snapshot对象业务边界说明。"
+    },
+    {
+      "name": "iot_product_metric_resolver_snapshot",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "iot_product_metric_resolver_snapshot表说明",
+      "commentZh": "iot_product_metric_resolver_snapshot表说明",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "id字段说明"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "tenant_id字段说明"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "product_id字段说明"
+        },
+        {
+          "name": "release_batch_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "release_batch_id字段说明"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "JSON NOT NULL",
+          "commentZh": "snapshot_json字段说明"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_metric_resolver_snapshot_batch",
+          "kind": "UNIQUE",
+          "columns": [
+            "product_id",
+            "release_batch_id",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product_contract_release_batch",
+          "viaField": "release_batch_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "snapshot_baseline",
+      "businessBoundary": "iot_product_metric_resolver_snapshot对象业务边界说明。"
+    },
+    {
+      "name": "iot_device",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备表",
+      "commentZh": "设备表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "org_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "所属机构ID"
+        },
+        {
+          "name": "org_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "所属机构名称"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "gateway_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "所属网关ID"
+        },
+        {
+          "name": "parent_device_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "父设备ID"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "设备名称"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "device_secret",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "设备密钥"
+        },
+        {
+          "name": "client_id",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "客户端ID"
+        },
+        {
+          "name": "username",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "接入用户名"
+        },
+        {
+          "name": "password",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "接入密码"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "node_type",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "节点类型 1直连设备 2网关设备 3子设备"
+        },
+        {
+          "name": "online_status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "在线状态 1在线 0离线"
+        },
+        {
+          "name": "activate_status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "激活状态 1已激活 0未激活"
+        },
+        {
+          "name": "device_status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "设备状态 1启用 0禁用"
+        },
+        {
+          "name": "firmware_version",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "固件版本"
+        },
+        {
+          "name": "ip_address",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备IP"
+        },
+        {
+          "name": "last_online_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "最后上线时间"
+        },
+        {
+          "name": "last_offline_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "最后离线时间"
+        },
+        {
+          "name": "last_report_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "最后上报时间"
+        },
+        {
+          "name": "longitude",
+          "type": "DECIMAL(10,6) DEFAULT NULL",
+          "commentZh": "经度"
+        },
+        {
+          "name": "latitude",
+          "type": "DECIMAL(10,6) DEFAULT NULL",
+          "commentZh": "纬度"
+        },
+        {
+          "name": "address",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "安装地址"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "设备扩展信息"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_device_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "device_code"
+          ]
+        },
+        {
+          "name": "idx_device_tenant_org_deleted",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "org_id",
+            "deleted",
+            "last_report_time",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_device_deleted_product_stats",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "product_id",
+            "last_report_time",
+            "online_status"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_organization",
+          "viaField": "org_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "设备表???device????????iot_device?????????????"
+    },
+    {
+      "name": "iot_device_relation",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备逻辑通道关系表",
+      "commentZh": "设备逻辑通道关系表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "parent_device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "父设备ID"
+        },
+        {
+          "name": "parent_device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "父设备编码"
+        },
+        {
+          "name": "logical_channel_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "逻辑通道编码"
+        },
+        {
+          "name": "child_device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "子设备ID"
+        },
+        {
+          "name": "child_device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "子设备编码"
+        },
+        {
+          "name": "child_product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "子产品ID"
+        },
+        {
+          "name": "child_product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "子产品 productKey"
+        },
+        {
+          "name": "relation_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "关系类型 collector_child/gateway_child"
+        },
+        {
+          "name": "canonicalization_strategy",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "归一化策略 LEGACY/LF_VALUE"
+        },
+        {
+          "name": "status_mirror_strategy",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'NONE'",
+          "commentZh": "状态镜像策略 NONE/SENSOR_STATE"
+        },
+        {
+          "name": "enabled",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "是否启用"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_relation_parent_channel",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "parent_device_id",
+            "logical_channel_code",
+            "deleted"
+          ]
+        },
+        {
+          "name": "uk_relation_parent_code_channel",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "parent_device_code",
+            "logical_channel_code",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_relation_parent_code",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "parent_device_code",
+            "enabled",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_relation_child_code",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "child_device_code",
+            "enabled",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "parent_device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "child_device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "relationship_mapping",
+      "businessBoundary": "设备逻辑通道关系表???device????????iot_device_relation?????????????"
+    },
+    {
+      "name": "iot_device_online_session",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备在线会话表",
+      "commentZh": "设备在线会话表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "online_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "会话开始时间"
+        },
+        {
+          "name": "last_seen_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "会话最后活跃时间"
+        },
+        {
+          "name": "offline_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "会话结束时间"
+        },
+        {
+          "name": "duration_minutes",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "在线时长（分钟）"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_online_session_device_active",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "device_id",
+            "offline_time"
+          ]
+        },
+        {
+          "name": "idx_online_session_product_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "product_id",
+            "online_time",
+            "offline_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "设备在线会话表???device????????iot_device_online_session?????????????"
+    },
+    {
+      "name": "iot_device_property",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备最新属性表",
+      "commentZh": "设备最新属性表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "属性标识"
+        },
+        {
+          "name": "property_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "属性名称"
+        },
+        {
+          "name": "property_value",
+          "type": "VARCHAR(1024) DEFAULT NULL",
+          "commentZh": "属性值"
+        },
+        {
+          "name": "value_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "值类型"
+        },
+        {
+          "name": "report_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "上报时间"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_device_identifier",
+          "kind": "UNIQUE",
+          "columns": [
+            "device_id",
+            "identifier"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "设备最新属性表???device????????iot_device_property?????????????"
+    },
+    {
+      "name": "iot_device_metric_latest",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "telemetry v2 latest投影表",
+      "commentZh": "telemetry v2 latest投影表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "metric_id",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "指标唯一键"
+        },
+        {
+          "name": "metric_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "指标编码"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "指标名称"
+        },
+        {
+          "name": "value_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "值类型"
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE DEFAULT NULL",
+          "commentZh": "浮点值"
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "整型值"
+        },
+        {
+          "name": "value_bool",
+          "type": "TINYINT(1) DEFAULT NULL",
+          "commentZh": "布尔值"
+        },
+        {
+          "name": "value_text",
+          "type": "TEXT DEFAULT NULL",
+          "commentZh": "文本值"
+        },
+        {
+          "name": "quality_code",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "质量码"
+        },
+        {
+          "name": "alarm_flag",
+          "type": "TINYINT(1) DEFAULT NULL",
+          "commentZh": "告警标记"
+        },
+        {
+          "name": "reported_at",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "实际上报时间"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "trace_id字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_tel_latest_tenant_device_metric",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "device_id",
+            "metric_id"
+          ]
+        },
+        {
+          "name": "idx_tel_latest_device_reported",
+          "kind": "INDEX",
+          "columns": [
+            "device_id",
+            "reported_at"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "telemetry v2 latest投影表???device????????iot_device_metric_latest?????????????"
+    },
+    {
+      "name": "iot_device_message_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备消息日志表",
+      "commentZh": "设备消息日志表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "message_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "消息类型 telemetry/event/property/reply"
+        },
+        {
+          "name": "topic",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "主题"
+        },
+        {
+          "name": "payload",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "原始消息"
+        },
+        {
+          "name": "report_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "上报时间"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "trace_id字段说明"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "device_code字段说明"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "product_key字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_device_time",
+          "kind": "INDEX",
+          "columns": [
+            "device_id",
+            "report_time"
+          ]
+        },
+        {
+          "name": "idx_message_type",
+          "kind": "INDEX",
+          "columns": [
+            "message_type"
+          ]
+        },
+        {
+          "name": "idx_trace_id",
+          "kind": "INDEX",
+          "columns": [
+            "trace_id"
+          ]
+        },
+        {
+          "name": "idx_device_code_time",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "report_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "operation_log",
+      "businessBoundary": "设备消息日志表???device????????iot_device_message_log?????????????"
+    },
+    {
+      "name": "iot_device_access_error_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备接入失败归档表",
+      "commentZh": "设备接入失败归档表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "trace_id字段说明"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "request_method",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "请求方式"
+        },
+        {
+          "name": "failure_stage",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "失败阶段"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "产品Key"
+        },
+        {
+          "name": "gateway_device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "网关设备编码"
+        },
+        {
+          "name": "sub_device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "子设备编码"
+        },
+        {
+          "name": "topic_route_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "topic 路由类型"
+        },
+        {
+          "name": "message_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "消息类型"
+        },
+        {
+          "name": "topic",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "topic字段说明"
+        },
+        {
+          "name": "client_id",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "客户端ID"
+        },
+        {
+          "name": "payload_size",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "payload 大小"
+        },
+        {
+          "name": "payload_encoding",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "payload 编码"
+        },
+        {
+          "name": "payload_truncated",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "payload 是否截断"
+        },
+        {
+          "name": "raw_payload",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "原始 payload"
+        },
+        {
+          "name": "error_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "错误码"
+        },
+        {
+          "name": "exception_class",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "异常类型"
+        },
+        {
+          "name": "error_message",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "错误消息"
+        },
+        {
+          "name": "contract_snapshot",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "设备契约快照"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_access_error_trace",
+          "kind": "INDEX",
+          "columns": [
+            "trace_id"
+          ]
+        },
+        {
+          "name": "idx_access_error_device_time",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "create_time"
+          ]
+        },
+        {
+          "name": "idx_access_error_stage_time",
+          "kind": "INDEX",
+          "columns": [
+            "failure_stage",
+            "create_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "operation_log",
+      "businessBoundary": "设备接入失败归档表???device????????iot_device_access_error_log?????????????"
+    },
+    {
+      "name": "iot_device_invalid_report_state",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "无效 MQTT 上报最新态表",
+      "commentZh": "无效 MQTT 上报最新态表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "governance_key",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "治理唯一键"
+        },
+        {
+          "name": "reason_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "治理原因编码"
+        },
+        {
+          "name": "request_method",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "请求方式"
+        },
+        {
+          "name": "failure_stage",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "失败阶段"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "产品Key"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "topic_route_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "topic 路由类型"
+        },
+        {
+          "name": "topic",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "最近 topic"
+        },
+        {
+          "name": "client_id",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "最近 clientId"
+        },
+        {
+          "name": "payload_size",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "最近 payload 大小"
+        },
+        {
+          "name": "payload_encoding",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "最近 payload 编码"
+        },
+        {
+          "name": "last_payload",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "最近 payload"
+        },
+        {
+          "name": "last_trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "最近 traceId"
+        },
+        {
+          "name": "sample_error_message",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "样本错误消息"
+        },
+        {
+          "name": "sample_exception_class",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "样本异常类"
+        },
+        {
+          "name": "first_seen_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "首次命中时间"
+        },
+        {
+          "name": "last_seen_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "最近命中时间"
+        },
+        {
+          "name": "hit_count",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "总命中次数"
+        },
+        {
+          "name": "sampled_count",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "已采样次数"
+        },
+        {
+          "name": "suppressed_count",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "被抑制次数"
+        },
+        {
+          "name": "suppressed_until",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "抑制截止时间"
+        },
+        {
+          "name": "resolved",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否已解封"
+        },
+        {
+          "name": "resolved_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "解封时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_invalid_report_state_governance_key",
+          "kind": "UNIQUE",
+          "columns": [
+            "governance_key"
+          ]
+        },
+        {
+          "name": "idx_invalid_report_device_resolved",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "product_key",
+            "resolved",
+            "last_seen_time"
+          ]
+        },
+        {
+          "name": "idx_invalid_report_reason_time",
+          "kind": "INDEX",
+          "columns": [
+            "reason_code",
+            "last_seen_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "无效 MQTT 上报最新态表???device????????iot_device_invalid_report_state?????????????"
+    },
+    {
+      "name": "iot_command_record",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备命令记录表",
+      "commentZh": "设备命令记录表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "command_id",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "业务命令ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "产品Key"
+        },
+        {
+          "name": "gateway_device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "网关设备编码"
+        },
+        {
+          "name": "sub_device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "子设备编码"
+        },
+        {
+          "name": "topic",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "下发Topic"
+        },
+        {
+          "name": "command_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "命令类型 property/service"
+        },
+        {
+          "name": "service_identifier",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "服务标识"
+        },
+        {
+          "name": "request_payload",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "下发请求报文"
+        },
+        {
+          "name": "reply_payload",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "设备回执报文"
+        },
+        {
+          "name": "qos",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "qos字段说明"
+        },
+        {
+          "name": "retained",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否保留消息 1是 0否"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "命令状态 CREATED/SENT/SUCCESS/FAILED/TIMEOUT"
+        },
+        {
+          "name": "send_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "发送时间"
+        },
+        {
+          "name": "ack_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "回执时间"
+        },
+        {
+          "name": "timeout_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "超时时间"
+        },
+        {
+          "name": "error_message",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "错误信息"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_command_id",
+          "kind": "UNIQUE",
+          "columns": [
+            "command_id"
+          ]
+        },
+        {
+          "name": "idx_device_status",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_status_timeout",
+          "kind": "INDEX",
+          "columns": [
+            "status",
+            "timeout_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "transaction_record",
+      "businessBoundary": "设备命令记录表???device????????iot_command_record?????????????"
+    },
+    {
+      "name": "iot_device_secret_rotation_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "iot_device_secret_rotation_log表说明",
+      "commentZh": "iot_device_secret_rotation_log表说明",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "id字段说明"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "tenant_id字段说明"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "device_id字段说明"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "device_code字段说明"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "product_key字段说明"
+        },
+        {
+          "name": "rotation_batch_id",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "rotation_batch_id字段说明"
+        },
+        {
+          "name": "reason",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "reason字段说明"
+        },
+        {
+          "name": "previous_secret_digest",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "previous_secret_digest字段说明"
+        },
+        {
+          "name": "current_secret_digest",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "current_secret_digest字段说明"
+        },
+        {
+          "name": "rotated_by",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "rotated_by字段说明"
+        },
+        {
+          "name": "approved_by",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "approved_by字段说明"
+        },
+        {
+          "name": "rotate_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "rotate_time字段说明"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_device_rotation_device_time",
+          "kind": "INDEX",
+          "columns": [
+            "device_id",
+            "rotate_time"
+          ]
+        },
+        {
+          "name": "idx_device_rotation_batch",
+          "kind": "INDEX",
+          "columns": [
+            "rotation_batch_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "operation_log",
+      "businessBoundary": "iot_device_secret_rotation_log对象业务边界说明。"
+    }
+  ]
+}

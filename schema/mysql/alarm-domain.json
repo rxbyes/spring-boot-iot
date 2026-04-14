@@ -1,0 +1,2425 @@
+{
+  "domain": "alarm",
+  "storageType": "mysql",
+  "objects": [
+    {
+      "name": "iot_alarm_record",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "告警记录表",
+      "commentZh": "告警记录表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "alarm_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "告警编号"
+        },
+        {
+          "name": "alarm_title",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "告警标题"
+        },
+        {
+          "name": "alarm_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "告警类型"
+        },
+        {
+          "name": "alarm_level",
+          "type": "VARCHAR(16) NOT NULL",
+          "commentZh": "告警等级"
+        },
+        {
+          "name": "region_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "区域ID"
+        },
+        {
+          "name": "region_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "区域名称"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险点ID"
+        },
+        {
+          "name": "risk_point_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "风险点名称"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "设备名称"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "测点名称"
+        },
+        {
+          "name": "current_value",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "当前值"
+        },
+        {
+          "name": "threshold_value",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "阈值"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0-未确认 1-已确认 2-已抑制 3-已关闭"
+        },
+        {
+          "name": "trigger_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "触发时间"
+        },
+        {
+          "name": "confirm_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "确认时间"
+        },
+        {
+          "name": "confirm_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "确认用户"
+        },
+        {
+          "name": "suppress_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "抑制时间"
+        },
+        {
+          "name": "suppress_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "抑制用户"
+        },
+        {
+          "name": "close_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "关闭时间"
+        },
+        {
+          "name": "close_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "关闭用户"
+        },
+        {
+          "name": "rule_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "规则ID"
+        },
+        {
+          "name": "rule_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "规则名称"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_alarm_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "alarm_code"
+          ]
+        },
+        {
+          "name": "idx_device_status",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_trigger_time",
+          "kind": "INDEX",
+          "columns": [
+            "trigger_time"
+          ]
+        },
+        {
+          "name": "idx_status",
+          "kind": "INDEX",
+          "columns": [
+            "status"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "transaction_record",
+      "businessBoundary": "告警记录表???alarm????????iot_alarm_record?????????????"
+    },
+    {
+      "name": "iot_event_record",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "事件记录表",
+      "commentZh": "事件记录表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "event_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "事件编号"
+        },
+        {
+          "name": "event_title",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "事件标题"
+        },
+        {
+          "name": "alarm_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "告警ID"
+        },
+        {
+          "name": "alarm_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "告警编号"
+        },
+        {
+          "name": "alarm_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "告警等级"
+        },
+        {
+          "name": "risk_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "风险等级"
+        },
+        {
+          "name": "region_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "区域ID"
+        },
+        {
+          "name": "region_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "区域名称"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险点ID"
+        },
+        {
+          "name": "risk_point_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "风险点名称"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "设备名称"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "测点名称"
+        },
+        {
+          "name": "current_value",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "当前值"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0-待派发 1-已派发 2-处理中 3-待验收 4-已关闭 5-已取消"
+        },
+        {
+          "name": "responsible_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "责任人"
+        },
+        {
+          "name": "urgency_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "紧急程度"
+        },
+        {
+          "name": "arrival_time_limit",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "到场时限（分钟）"
+        },
+        {
+          "name": "completion_time_limit",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "完成时限（分钟）"
+        },
+        {
+          "name": "trigger_time",
+          "type": "DATETIME NOT NULL",
+          "commentZh": "触发时间"
+        },
+        {
+          "name": "dispatch_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "派发时间"
+        },
+        {
+          "name": "dispatch_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "派发用户"
+        },
+        {
+          "name": "start_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "处理开始时间"
+        },
+        {
+          "name": "complete_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "处理完成时间"
+        },
+        {
+          "name": "close_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "关闭时间"
+        },
+        {
+          "name": "close_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "关闭用户"
+        },
+        {
+          "name": "close_reason",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "关闭原因"
+        },
+        {
+          "name": "review_notes",
+          "type": "TEXT DEFAULT NULL",
+          "commentZh": "复盘记录"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_event_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "event_code"
+          ]
+        },
+        {
+          "name": "idx_device_status",
+          "kind": "INDEX",
+          "columns": [
+            "device_code",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_trigger_time",
+          "kind": "INDEX",
+          "columns": [
+            "trigger_time"
+          ]
+        },
+        {
+          "name": "idx_status",
+          "kind": "INDEX",
+          "columns": [
+            "status"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_alarm_record",
+          "viaField": "alarm_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "transaction_record",
+      "businessBoundary": "事件记录表???alarm????????iot_event_record?????????????"
+    },
+    {
+      "name": "iot_event_work_order",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "事件工单表",
+      "commentZh": "事件工单表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "event_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "事件ID"
+        },
+        {
+          "name": "event_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "事件编号"
+        },
+        {
+          "name": "work_order_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "工单编号"
+        },
+        {
+          "name": "work_order_type",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'event-dispatch'",
+          "commentZh": "工单类型"
+        },
+        {
+          "name": "assign_user",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "派发用户"
+        },
+        {
+          "name": "receive_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "接收用户"
+        },
+        {
+          "name": "receive_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "接收时间"
+        },
+        {
+          "name": "start_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "开始时间"
+        },
+        {
+          "name": "complete_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "完成时间"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0-待接收 1-已接收 2-处理中 3-已完成 4-已取消"
+        },
+        {
+          "name": "feedback",
+          "type": "TEXT DEFAULT NULL",
+          "commentZh": "现场反馈"
+        },
+        {
+          "name": "photos",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "照片URL（JSON数组）"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_work_order_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "work_order_code"
+          ]
+        },
+        {
+          "name": "idx_event_status",
+          "kind": "INDEX",
+          "columns": [
+            "event_id",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_receive_time",
+          "kind": "INDEX",
+          "columns": [
+            "receive_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_event_record",
+          "viaField": "event_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "事件工单表???alarm????????iot_event_work_order?????????????"
+    },
+    {
+      "name": "risk_point",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险点表",
+      "commentZh": "风险点表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "risk_point_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "风险点编号"
+        },
+        {
+          "name": "risk_point_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "风险点名称"
+        },
+        {
+          "name": "org_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "所属组织ID"
+        },
+        {
+          "name": "org_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "所属组织名称"
+        },
+        {
+          "name": "region_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "区域ID"
+        },
+        {
+          "name": "region_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "区域名称"
+        },
+        {
+          "name": "responsible_user",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "负责人"
+        },
+        {
+          "name": "responsible_phone",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "负责人电话"
+        },
+        {
+          "name": "risk_point_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "风险点档案等级 level_1/level_2/level_3"
+        },
+        {
+          "name": "current_risk_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "当前风险态势等级 red/orange/yellow/blue"
+        },
+        {
+          "name": "risk_level",
+          "type": "VARCHAR(20) DEFAULT NULL",
+          "commentZh": "历史风险等级兼容字段"
+        },
+        {
+          "name": "risk_type",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'GENERAL'",
+          "commentZh": "风险点类型 SLOPE/BRIDGE/TUNNEL/GENERAL"
+        },
+        {
+          "name": "location_text",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "位置描述/桩号/区间"
+        },
+        {
+          "name": "longitude",
+          "type": "DECIMAL(10,6) DEFAULT NULL",
+          "commentZh": "风险点经度"
+        },
+        {
+          "name": "latitude",
+          "type": "DECIMAL(10,6) DEFAULT NULL",
+          "commentZh": "风险点纬度"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(1000) DEFAULT NULL",
+          "commentZh": "描述"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0-启用 1-停用"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_point_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "risk_point_code"
+          ]
+        },
+        {
+          "name": "idx_region",
+          "kind": "INDEX",
+          "columns": [
+            "region_id"
+          ]
+        },
+        {
+          "name": "idx_status",
+          "kind": "INDEX",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_risk_type_status",
+          "kind": "INDEX",
+          "columns": [
+            "risk_type",
+            "status"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_organization",
+          "viaField": "org_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_region",
+          "viaField": "region_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "风险点表???alarm????????risk_point?????????????"
+    },
+    {
+      "name": "risk_point_highway_detail",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "archived",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "高速公路风险点扩展表",
+      "commentZh": "高速公路风险点扩展表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "风险点ID"
+        },
+        {
+          "name": "project_name",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "项目名称"
+        },
+        {
+          "name": "project_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "项目类型"
+        },
+        {
+          "name": "project_summary",
+          "type": "TEXT DEFAULT NULL",
+          "commentZh": "项目简介"
+        },
+        {
+          "name": "route_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "路线编号"
+        },
+        {
+          "name": "route_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "路线名称"
+        },
+        {
+          "name": "road_level",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "公路等级"
+        },
+        {
+          "name": "project_risk_level",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "项目风险等级原始值"
+        },
+        {
+          "name": "admin_region_code",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "行政区域末级编码"
+        },
+        {
+          "name": "admin_region_path_json",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "行政区域路径JSON"
+        },
+        {
+          "name": "maintenance_org_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "管养单位名称"
+        },
+        {
+          "name": "source_row_no",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "Excel来源行号"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_point_highway",
+          "kind": "UNIQUE",
+          "columns": [
+            "risk_point_id"
+          ]
+        },
+        {
+          "name": "idx_route_code",
+          "kind": "INDEX",
+          "columns": [
+            "route_code"
+          ]
+        },
+        {
+          "name": "idx_admin_region_code",
+          "kind": "INDEX",
+          "columns": [
+            "admin_region_code"
+          ]
+        },
+        {
+          "name": "idx_project_type",
+          "kind": "INDEX",
+          "columns": [
+            "project_type"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "高速公路风险点扩展表???alarm????????risk_point_highway_detail?????????????"
+    },
+    {
+      "name": "risk_metric_catalog",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "risk_metric_catalog表说明",
+      "commentZh": "risk_metric_catalog表说明",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "id字段说明"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "tenant_id字段说明"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "product_id字段说明"
+        },
+        {
+          "name": "release_batch_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "release_batch_id字段说明"
+        },
+        {
+          "name": "product_model_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "product_model_id字段说明"
+        },
+        {
+          "name": "normative_identifier",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "normative_identifier字段说明"
+        },
+        {
+          "name": "contract_identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "contract_identifier字段说明"
+        },
+        {
+          "name": "risk_metric_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "risk_metric_code字段说明"
+        },
+        {
+          "name": "risk_metric_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "risk_metric_name字段说明"
+        },
+        {
+          "name": "risk_category",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "risk_category字段说明"
+        },
+        {
+          "name": "metric_role",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "metric_role字段说明"
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
+          "commentZh": "lifecycle_status字段说明"
+        },
+        {
+          "name": "source_scenario_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "source_scenario_code字段说明"
+        },
+        {
+          "name": "metric_unit",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "metric_unit字段说明"
+        },
+        {
+          "name": "metric_dimension",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "metric_dimension字段说明"
+        },
+        {
+          "name": "threshold_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "threshold_type字段说明"
+        },
+        {
+          "name": "semantic_direction",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "semantic_direction字段说明"
+        },
+        {
+          "name": "threshold_direction",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "threshold_direction字段说明"
+        },
+        {
+          "name": "trend_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "trend_enabled字段说明"
+        },
+        {
+          "name": "gis_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "gis_enabled字段说明"
+        },
+        {
+          "name": "insight_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "insight_enabled字段说明"
+        },
+        {
+          "name": "analytics_enabled",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "analytics_enabled字段说明"
+        },
+        {
+          "name": "enabled",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "enabled字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_metric_catalog",
+          "kind": "UNIQUE",
+          "columns": [
+            "product_id",
+            "contract_identifier"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product_contract_release_batch",
+          "viaField": "release_batch_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "catalog_registry",
+      "businessBoundary": "risk_metric_catalog对象业务边界说明。"
+    },
+    {
+      "name": "risk_metric_linkage_binding",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险指标与联动规则绑定表",
+      "commentZh": "风险指标与联动规则绑定表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "risk_metric_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "风险指标ID"
+        },
+        {
+          "name": "linkage_rule_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "联动规则ID"
+        },
+        {
+          "name": "binding_status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
+          "commentZh": "binding_status字段说明"
+        },
+        {
+          "name": "binding_origin",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
+          "commentZh": "binding_origin字段说明"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_metric_linkage_active",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "risk_metric_id",
+            "linkage_rule_id",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_risk_metric_linkage_rule",
+          "kind": "INDEX",
+          "columns": [
+            "linkage_rule_id",
+            "binding_status",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_risk_metric_linkage_metric",
+          "kind": "INDEX",
+          "columns": [
+            "risk_metric_id",
+            "binding_status",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "linkage_rule",
+          "viaField": "linkage_rule_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "binding_registry",
+      "businessBoundary": "风险指标与联动规则绑定表???alarm????????risk_metric_linkage_binding?????????????"
+    },
+    {
+      "name": "risk_metric_emergency_plan_binding",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险指标与应急预案绑定表",
+      "commentZh": "风险指标与应急预案绑定表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "risk_metric_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "风险指标ID"
+        },
+        {
+          "name": "emergency_plan_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "应急预案ID"
+        },
+        {
+          "name": "binding_status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
+          "commentZh": "binding_status字段说明"
+        },
+        {
+          "name": "binding_origin",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
+          "commentZh": "binding_origin字段说明"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_metric_plan_active",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "risk_metric_id",
+            "emergency_plan_id",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_risk_metric_plan_rule",
+          "kind": "INDEX",
+          "columns": [
+            "emergency_plan_id",
+            "binding_status",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_risk_metric_plan_metric",
+          "kind": "INDEX",
+          "columns": [
+            "risk_metric_id",
+            "binding_status",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "emergency_plan",
+          "viaField": "emergency_plan_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "binding_registry",
+      "businessBoundary": "风险指标与应急预案绑定表???alarm????????risk_metric_emergency_plan_binding?????????????"
+    },
+    {
+      "name": "risk_point_device",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险点设备绑定表",
+      "commentZh": "风险点设备绑定表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "风险点ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "设备名称"
+        },
+        {
+          "name": "risk_metric_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险指标ID"
+        },
+        {
+          "name": "metric_identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "测点标识符"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "测点名称"
+        },
+        {
+          "name": "default_threshold",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "默认阈值"
+        },
+        {
+          "name": "threshold_unit",
+          "type": "VARCHAR(20) DEFAULT NULL",
+          "commentZh": "阈值单位"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_point_metric",
+          "kind": "UNIQUE",
+          "columns": [
+            "risk_point_id",
+            "device_id",
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_risk_device",
+          "kind": "INDEX",
+          "columns": [
+            "risk_point_id",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_risk_point_device_metric_catalog",
+          "kind": "INDEX",
+          "columns": [
+            "risk_metric_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "风险点设备绑定表???alarm????????risk_point_device?????????????"
+    },
+    {
+      "name": "risk_point_device_capability_binding",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险点设备级正式绑定表",
+      "commentZh": "风险点设备级正式绑定表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "风险点ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "设备名称"
+        },
+        {
+          "name": "device_capability_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "设备能力类型"
+        },
+        {
+          "name": "extension_status",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "扩展能力状态"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_risk_point_device_only",
+          "kind": "UNIQUE",
+          "columns": [
+            "risk_point_id",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_risk_point_device_only",
+          "kind": "INDEX",
+          "columns": [
+            "risk_point_id",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_risk_device_capability_type",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "device_capability_type",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "binding_registry",
+      "businessBoundary": "风险点设备级正式绑定表???alarm????????risk_point_device_capability_binding?????????????"
+    },
+    {
+      "name": "risk_point_device_pending_binding",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险点设备待治理导入表",
+      "commentZh": "风险点设备待治理导入表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "batch_no",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "导入批次号"
+        },
+        {
+          "name": "source_file_name",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "来源文件名"
+        },
+        {
+          "name": "source_row_no",
+          "type": "INT NOT NULL",
+          "commentZh": "来源行号"
+        },
+        {
+          "name": "risk_point_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "来源风险点名称"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "匹配到的风险点ID"
+        },
+        {
+          "name": "risk_point_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "匹配到的风险点编号"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "来源设备编码"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "匹配到的设备ID"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "匹配到的设备名称"
+        },
+        {
+          "name": "resolution_status",
+          "type": "VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE'",
+          "commentZh": "治理状态"
+        },
+        {
+          "name": "resolution_note",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "治理说明"
+        },
+        {
+          "name": "metric_identifier",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "后续补录测点标识"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "后续补录测点名称"
+        },
+        {
+          "name": "promoted_binding_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "转正后的正式绑定ID"
+        },
+        {
+          "name": "promoted_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "转正时间"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_pending_binding_batch_row",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "batch_no",
+            "source_row_no"
+          ]
+        },
+        {
+          "name": "idx_pending_binding_status",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "resolution_status",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_pending_binding_risk_device",
+          "kind": "INDEX",
+          "columns": [
+            "risk_point_id",
+            "device_id",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_pending_binding_device_code",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "device_code",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "binding_registry",
+      "businessBoundary": "风险点设备待治理导入表???alarm????????risk_point_device_pending_binding?????????????"
+    },
+    {
+      "name": "risk_point_device_pending_promotion",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "风险点设备待治理转正明细表",
+      "commentZh": "风险点设备待治理转正明细表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "pending_binding_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "来源待治理记录ID"
+        },
+        {
+          "name": "risk_point_device_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "正式绑定ID"
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "风险点ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "device_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "设备名称"
+        },
+        {
+          "name": "metric_identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "测点标识"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "测点名称"
+        },
+        {
+          "name": "promotion_status",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "转正结果"
+        },
+        {
+          "name": "recommendation_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "推荐等级"
+        },
+        {
+          "name": "recommendation_score",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "推荐评分"
+        },
+        {
+          "name": "evidence_snapshot_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "证据快照"
+        },
+        {
+          "name": "promotion_note",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "治理说明"
+        },
+        {
+          "name": "operator_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "操作人ID"
+        },
+        {
+          "name": "operator_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "操作人姓名"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_pending_promotion_pending_id",
+          "kind": "INDEX",
+          "columns": [
+            "pending_binding_id"
+          ]
+        },
+        {
+          "name": "idx_pending_promotion_binding_id",
+          "kind": "INDEX",
+          "columns": [
+            "risk_point_device_id"
+          ]
+        },
+        {
+          "name": "idx_pending_promotion_status",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "promotion_status",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point_device_pending_binding",
+          "viaField": "pending_binding_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point_device_capability_binding",
+          "viaField": "capability_binding_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "风险点设备待治理转正明细表???alarm????????risk_point_device_pending_promotion?????????????"
+    },
+    {
+      "name": "rule_definition",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "阈值规则表",
+      "commentZh": "阈值规则表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "rule_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "规则名称"
+        },
+        {
+          "name": "risk_metric_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险指标ID"
+        },
+        {
+          "name": "metric_identifier",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "测点标识符"
+        },
+        {
+          "name": "metric_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "测点名称"
+        },
+        {
+          "name": "expression",
+          "type": "VARCHAR(256) DEFAULT NULL",
+          "commentZh": "表达式"
+        },
+        {
+          "name": "duration",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "持续时间(秒)"
+        },
+        {
+          "name": "alarm_level",
+          "type": "VARCHAR(20) DEFAULT NULL",
+          "commentZh": "告警等级"
+        },
+        {
+          "name": "notification_methods",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "通知方式"
+        },
+        {
+          "name": "convert_to_event",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否转事件"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0启用 1停用"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_metric_identifier",
+          "kind": "INDEX",
+          "columns": [
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_metric_catalog",
+          "kind": "INDEX",
+          "columns": [
+            "risk_metric_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_metric_catalog",
+          "viaField": "risk_metric_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "阈值规则表???alarm????????rule_definition?????????????"
+    },
+    {
+      "name": "linkage_rule",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "联动规则表",
+      "commentZh": "联动规则表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "rule_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "规则名称"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(512) DEFAULT NULL",
+          "commentZh": "描述"
+        },
+        {
+          "name": "trigger_condition",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "触发条件(JSON)"
+        },
+        {
+          "name": "action_list",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "动作列表(JSON)"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0启用 1停用"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "联动规则表???alarm????????linkage_rule?????????????"
+    },
+    {
+      "name": "emergency_plan",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "应急预案表",
+      "commentZh": "应急预案表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL AUTO_INCREMENT",
+          "commentZh": "主键"
+        },
+        {
+          "name": "plan_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "预案名称"
+        },
+        {
+          "name": "alarm_level",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "适用告警等级 red/orange/yellow/blue"
+        },
+        {
+          "name": "risk_level",
+          "type": "VARCHAR(20) DEFAULT NULL",
+          "commentZh": "历史风险等级兼容字段"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(512) DEFAULT NULL",
+          "commentZh": "描述"
+        },
+        {
+          "name": "response_steps",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "响应步骤(JSON)"
+        },
+        {
+          "name": "contact_list",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "联系人列表(JSON)"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "状态 0启用 1停用"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "应急预案表???alarm????????emergency_plan?????????????"
+    }
+  ]
+}

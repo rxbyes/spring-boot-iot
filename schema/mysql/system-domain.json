@@ -1,0 +1,2360 @@
+{
+  "domain": "system",
+  "storageType": "mysql",
+  "objects": [
+    {
+      "name": "sys_tenant",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "租户表",
+      "commentZh": "租户表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "租户名称"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "租户编码"
+        },
+        {
+          "name": "contact_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "联系人"
+        },
+        {
+          "name": "contact_phone",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "联系电话"
+        },
+        {
+          "name": "contact_email",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "联系邮箱"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态"
+        },
+        {
+          "name": "expire_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "到期时间"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_tenant_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_code"
+          ]
+        }
+      ],
+      "relations": [],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "租户表???system????????sys_tenant?????????????"
+    },
+    {
+      "name": "sys_user",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "系统用户表",
+      "commentZh": "系统用户表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "org_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "主机构ID"
+        },
+        {
+          "name": "username",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "用户名"
+        },
+        {
+          "name": "password",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "密码"
+        },
+        {
+          "name": "nickname",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "昵称"
+        },
+        {
+          "name": "real_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "真实姓名"
+        },
+        {
+          "name": "phone",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "手机号"
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "邮箱"
+        },
+        {
+          "name": "avatar",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "头像"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0禁用"
+        },
+        {
+          "name": "is_admin",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "是否管理员 1是 0否"
+        },
+        {
+          "name": "last_login_ip",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "最后登录IP"
+        },
+        {
+          "name": "last_login_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "最后登录时间"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_username_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "username"
+          ]
+        },
+        {
+          "name": "idx_user_org_id",
+          "kind": "INDEX",
+          "columns": [
+            "org_id"
+          ]
+        },
+        {
+          "name": "idx_phone",
+          "kind": "INDEX",
+          "columns": [
+            "phone"
+          ]
+        },
+        {
+          "name": "idx_email",
+          "kind": "INDEX",
+          "columns": [
+            "email"
+          ]
+        },
+        {
+          "name": "idx_user_deleted_status_create_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "status",
+            "create_time",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "系统用户表???system????????sys_user?????????????"
+    },
+    {
+      "name": "sys_role",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "角色表",
+      "commentZh": "角色表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "role_name",
+          "type": "VARCHAR(100) NOT NULL",
+          "commentZh": "角色名称"
+        },
+        {
+          "name": "role_code",
+          "type": "VARCHAR(100) NOT NULL",
+          "commentZh": "角色编码"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "角色描述"
+        },
+        {
+          "name": "data_scope_type",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'TENANT'",
+          "commentZh": "数据范围类型"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_role_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "role_code"
+          ]
+        },
+        {
+          "name": "idx_role_code",
+          "kind": "INDEX",
+          "columns": [
+            "role_code"
+          ]
+        },
+        {
+          "name": "idx_role_deleted_status_create_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "status",
+            "create_time",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "角色表???system????????sys_role?????????????"
+    },
+    {
+      "name": "sys_user_role",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "用户角色关联表",
+      "commentZh": "用户角色关联表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "user_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "用户ID"
+        },
+        {
+          "name": "role_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "角色ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_user_role",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "user_id",
+            "role_id"
+          ]
+        },
+        {
+          "name": "idx_user_id",
+          "kind": "INDEX",
+          "columns": [
+            "user_id"
+          ]
+        },
+        {
+          "name": "idx_role_id",
+          "kind": "INDEX",
+          "columns": [
+            "role_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_user",
+          "viaField": "user_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_role",
+          "viaField": "role_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用户角色关联表???system????????sys_user_role?????????????"
+    },
+    {
+      "name": "sys_menu",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "菜单表",
+      "commentZh": "菜单表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "parent_id",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "父菜单ID"
+        },
+        {
+          "name": "menu_name",
+          "type": "VARCHAR(100) NOT NULL",
+          "commentZh": "菜单名称"
+        },
+        {
+          "name": "menu_code",
+          "type": "VARCHAR(100) DEFAULT NULL",
+          "commentZh": "菜单编码"
+        },
+        {
+          "name": "path",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "路由路径"
+        },
+        {
+          "name": "component",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "组件路径"
+        },
+        {
+          "name": "icon",
+          "type": "VARCHAR(100) DEFAULT NULL",
+          "commentZh": "图标"
+        },
+        {
+          "name": "meta_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "UI 元数据"
+        },
+        {
+          "name": "sort",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "type",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "类型 0目录 1菜单 2按钮"
+        },
+        {
+          "name": "menu_type",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "兼容历史菜单类型"
+        },
+        {
+          "name": "route_path",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "历史路由字段"
+        },
+        {
+          "name": "permission",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "历史权限标识字段"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "历史排序字段"
+        },
+        {
+          "name": "visible",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "是否显示"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_menu_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "menu_code"
+          ]
+        },
+        {
+          "name": "idx_parent_id",
+          "kind": "INDEX",
+          "columns": [
+            "parent_id"
+          ]
+        },
+        {
+          "name": "idx_status",
+          "kind": "INDEX",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_menu_deleted_parent_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "parent_id",
+            "sort",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_menu_deleted_status_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "status",
+            "sort",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "菜单表???system????????sys_menu?????????????"
+    },
+    {
+      "name": "sys_role_menu",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "角色菜单关联表",
+      "commentZh": "角色菜单关联表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "role_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "角色ID"
+        },
+        {
+          "name": "menu_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "菜单ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_role_menu",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "role_id",
+            "menu_id"
+          ]
+        },
+        {
+          "name": "idx_role_id",
+          "kind": "INDEX",
+          "columns": [
+            "role_id"
+          ]
+        },
+        {
+          "name": "idx_menu_id",
+          "kind": "INDEX",
+          "columns": [
+            "menu_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_role",
+          "viaField": "role_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_menu",
+          "viaField": "menu_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "角色菜单关联表???system????????sys_role_menu?????????????"
+    },
+    {
+      "name": "sys_organization",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "组织机构表",
+      "commentZh": "组织机构表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "parent_id",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "父ID"
+        },
+        {
+          "name": "org_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "组织名称"
+        },
+        {
+          "name": "org_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "组织编码"
+        },
+        {
+          "name": "org_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "组织类型 dept/position/team"
+        },
+        {
+          "name": "leader_user_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "负责人ID"
+        },
+        {
+          "name": "leader_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "负责人姓名"
+        },
+        {
+          "name": "phone",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "联系电话"
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "联系邮箱"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0禁用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_org_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "org_code"
+          ]
+        },
+        {
+          "name": "idx_parent_id",
+          "kind": "INDEX",
+          "columns": [
+            "parent_id"
+          ]
+        },
+        {
+          "name": "idx_org_deleted_parent_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "parent_id",
+            "sort_no",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_org_deleted_status_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "status",
+            "sort_no",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "组织机构表???system????????sys_organization?????????????"
+    },
+    {
+      "name": "sys_region",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "区域表",
+      "commentZh": "区域表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "region_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "区域名称"
+        },
+        {
+          "name": "region_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "区域编码"
+        },
+        {
+          "name": "parent_id",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "父ID"
+        },
+        {
+          "name": "region_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "区域类型 province/city/district/street"
+        },
+        {
+          "name": "longitude",
+          "type": "DECIMAL(10,6) DEFAULT NULL",
+          "commentZh": "经度"
+        },
+        {
+          "name": "latitude",
+          "type": "DECIMAL(10,6) DEFAULT NULL",
+          "commentZh": "纬度"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0禁用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_region_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "region_code"
+          ]
+        },
+        {
+          "name": "idx_parent_id",
+          "kind": "INDEX",
+          "columns": [
+            "parent_id"
+          ]
+        },
+        {
+          "name": "idx_region_deleted_parent_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "parent_id",
+            "sort_no",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_region_deleted_type_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "region_type",
+            "sort_no",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "区域表???system????????sys_region?????????????"
+    },
+    {
+      "name": "sys_dict",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "字典表",
+      "commentZh": "字典表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "dict_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "字典名称"
+        },
+        {
+          "name": "dict_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "字典编码"
+        },
+        {
+          "name": "dict_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "字典类型"
+        },
+        {
+          "name": "dict_value",
+          "type": "VARCHAR(255) NOT NULL DEFAULT ''",
+          "commentZh": "历史兼容字段"
+        },
+        {
+          "name": "dict_label",
+          "type": "VARCHAR(128) NOT NULL DEFAULT ''",
+          "commentZh": "历史兼容字段"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0禁用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_dict_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "dict_code"
+          ]
+        },
+        {
+          "name": "idx_dict_deleted_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "sort_no",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_dict_deleted_type_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "dict_type",
+            "sort_no",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "字典表???system????????sys_dict?????????????"
+    },
+    {
+      "name": "sys_dict_item",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "字典项表",
+      "commentZh": "字典项表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "dict_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "字典ID"
+        },
+        {
+          "name": "item_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "项名称"
+        },
+        {
+          "name": "item_value",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "项值"
+        },
+        {
+          "name": "item_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "项类型 string/number/boolean"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0禁用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_dict_value_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "dict_id",
+            "item_value"
+          ]
+        },
+        {
+          "name": "idx_dict_id",
+          "kind": "INDEX",
+          "columns": [
+            "dict_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_dict",
+          "viaField": "dict_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "字典项表???system????????sys_dict_item?????????????"
+    },
+    {
+      "name": "sys_notification_channel",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "通知渠道表",
+      "commentZh": "通知渠道表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "channel_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "渠道名称"
+        },
+        {
+          "name": "channel_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "渠道编码"
+        },
+        {
+          "name": "channel_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "渠道类型"
+        },
+        {
+          "name": "config",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "渠道配置(JSON)"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0禁用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "create_by字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "update_by字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_channel_code_tenant",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "channel_code"
+          ]
+        },
+        {
+          "name": "idx_channel_deleted_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "sort_no",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_channel_deleted_type_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "channel_type",
+            "sort_no",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "通知渠道表???system????????sys_notification_channel?????????????"
+    },
+    {
+      "name": "sys_in_app_message",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "站内消息表",
+      "commentZh": "站内消息表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "message_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "消息类型 system/business/error"
+        },
+        {
+          "name": "priority",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'medium'",
+          "commentZh": "优先级 critical/high/medium/low"
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "消息标题"
+        },
+        {
+          "name": "summary",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "消息摘要"
+        },
+        {
+          "name": "content",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "消息正文"
+        },
+        {
+          "name": "target_type",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'all'",
+          "commentZh": "推送范围 all/role/user"
+        },
+        {
+          "name": "target_role_codes",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "目标角色编码，逗号分隔"
+        },
+        {
+          "name": "target_user_ids",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "目标用户ID，逗号分隔"
+        },
+        {
+          "name": "related_path",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "关联页面路径"
+        },
+        {
+          "name": "source_type",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "来源类型"
+        },
+        {
+          "name": "source_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "来源业务ID"
+        },
+        {
+          "name": "dedup_key",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "去重键"
+        },
+        {
+          "name": "publish_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "发布时间"
+        },
+        {
+          "name": "expire_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "过期时间"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1发布中 0停用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_deleted_status_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "status",
+            "publish_time",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_deleted_type_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "message_type",
+            "publish_time",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_deleted_target_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "target_type",
+            "sort_no",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_source",
+          "kind": "INDEX",
+          "columns": [
+            "source_type",
+            "source_id"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_tenant_dedup",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "dedup_key",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "站内消息表???system????????sys_in_app_message?????????????"
+    },
+    {
+      "name": "sys_in_app_message_read",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "站内消息已读表",
+      "commentZh": "站内消息已读表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "message_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "消息ID"
+        },
+        {
+          "name": "user_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "用户ID"
+        },
+        {
+          "name": "read_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "已读时间"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_in_app_message_read_user",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "message_id",
+            "user_id"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_read_user_time",
+          "kind": "INDEX",
+          "columns": [
+            "user_id",
+            "read_time",
+            "message_id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_in_app_message",
+          "viaField": "message_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_user",
+          "viaField": "user_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "站内消息已读表???system????????sys_in_app_message_read?????????????"
+    },
+    {
+      "name": "sys_in_app_message_bridge_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "站内消息未读桥接日志表",
+      "commentZh": "站内消息未读桥接日志表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "message_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "消息ID"
+        },
+        {
+          "name": "channel_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "渠道编码"
+        },
+        {
+          "name": "bridge_scene",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "桥接场景"
+        },
+        {
+          "name": "unread_count",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "最近一次桥接时的未读人数"
+        },
+        {
+          "name": "recipient_snapshot",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "未读对象摘要"
+        },
+        {
+          "name": "bridge_status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "桥接状态 0失败/待重试 1成功"
+        },
+        {
+          "name": "response_status_code",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "最近一次响应状态码"
+        },
+        {
+          "name": "response_body",
+          "type": "VARCHAR(1000) DEFAULT NULL",
+          "commentZh": "最近一次响应摘要"
+        },
+        {
+          "name": "last_attempt_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "最近一次尝试时间"
+        },
+        {
+          "name": "success_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "成功时间"
+        },
+        {
+          "name": "attempt_count",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "尝试次数"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_in_app_message_bridge_message_channel",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "message_id",
+            "channel_code",
+            "bridge_scene"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_bridge_status_time",
+          "kind": "INDEX",
+          "columns": [
+            "bridge_status",
+            "last_attempt_time"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_bridge_message",
+          "kind": "INDEX",
+          "columns": [
+            "message_id",
+            "channel_code"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_in_app_message",
+          "viaField": "message_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_notification_channel",
+          "viaField": "channel_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "站内消息未读桥接日志表???system????????sys_in_app_message_bridge_log?????????????"
+    },
+    {
+      "name": "sys_in_app_message_bridge_attempt_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "站内消息桥接尝试明细表",
+      "commentZh": "站内消息桥接尝试明细表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "bridge_log_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "桥接日志ID"
+        },
+        {
+          "name": "message_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "消息ID"
+        },
+        {
+          "name": "channel_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "渠道编码"
+        },
+        {
+          "name": "bridge_scene",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "桥接场景"
+        },
+        {
+          "name": "attempt_no",
+          "type": "INT NOT NULL",
+          "commentZh": "尝试序号"
+        },
+        {
+          "name": "bridge_status",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "桥接状态 0失败 1成功"
+        },
+        {
+          "name": "unread_count",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "本次桥接时的未读人数"
+        },
+        {
+          "name": "recipient_snapshot",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "本次桥接时的未读对象摘要"
+        },
+        {
+          "name": "response_status_code",
+          "type": "INT DEFAULT NULL",
+          "commentZh": "本次响应状态码"
+        },
+        {
+          "name": "response_body",
+          "type": "VARCHAR(1000) DEFAULT NULL",
+          "commentZh": "本次响应摘要"
+        },
+        {
+          "name": "attempt_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "尝试时间"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_in_app_message_bridge_attempt",
+          "kind": "UNIQUE",
+          "columns": [
+            "bridge_log_id",
+            "attempt_no"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_bridge_attempt_log_time",
+          "kind": "INDEX",
+          "columns": [
+            "bridge_log_id",
+            "attempt_time"
+          ]
+        },
+        {
+          "name": "idx_in_app_message_bridge_attempt_message",
+          "kind": "INDEX",
+          "columns": [
+            "message_id",
+            "channel_code",
+            "attempt_time"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_in_app_message_bridge_log",
+          "viaField": "bridge_log_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "站内消息桥接尝试明细表???system????????sys_in_app_message_bridge_attempt_log?????????????"
+    },
+    {
+      "name": "sys_help_document",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "帮助文档表",
+      "commentZh": "帮助文档表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "doc_category",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "文档分类 business/technical/faq"
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "文档标题"
+        },
+        {
+          "name": "summary",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "文档摘要"
+        },
+        {
+          "name": "content",
+          "type": "LONGTEXT NOT NULL",
+          "commentZh": "文档正文"
+        },
+        {
+          "name": "keywords",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "关键词，逗号分隔"
+        },
+        {
+          "name": "related_paths",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "关联页面路径，逗号分隔"
+        },
+        {
+          "name": "visible_role_codes",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "可见角色编码，逗号分隔"
+        },
+        {
+          "name": "status",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "状态 1启用 0停用"
+        },
+        {
+          "name": "sort_no",
+          "type": "INT NOT NULL DEFAULT 0",
+          "commentZh": "排序"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "update_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_help_document_deleted_category_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "doc_category",
+            "sort_no",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_help_document_deleted_status_sort",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "status",
+            "sort_no",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "帮助文档表???system????????sys_help_document?????????????"
+    },
+    {
+      "name": "sys_audit_log",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "审计日志表",
+      "commentZh": "审计日志表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "user_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "用户ID"
+        },
+        {
+          "name": "user_name",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "用户名"
+        },
+        {
+          "name": "operation_type",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "操作类型"
+        },
+        {
+          "name": "operation_module",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "操作模块"
+        },
+        {
+          "name": "operation_method",
+          "type": "VARCHAR(255) NOT NULL DEFAULT ''",
+          "commentZh": "操作方法"
+        },
+        {
+          "name": "request_url",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "请求URL"
+        },
+        {
+          "name": "request_method",
+          "type": "VARCHAR(16) DEFAULT NULL",
+          "commentZh": "请求方法"
+        },
+        {
+          "name": "request_params",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "请求参数"
+        },
+        {
+          "name": "response_result",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "响应结果"
+        },
+        {
+          "name": "ip_address",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "IP地址"
+        },
+        {
+          "name": "location",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "位置"
+        },
+        {
+          "name": "operation_result",
+          "type": "TINYINT DEFAULT NULL",
+          "commentZh": "操作结果 1成功 0失败"
+        },
+        {
+          "name": "result_message",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "结果消息"
+        },
+        {
+          "name": "operation_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "操作时间"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "trace_id字段说明"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "device_code字段说明"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "product_key字段说明"
+        },
+        {
+          "name": "error_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "error_code字段说明"
+        },
+        {
+          "name": "exception_class",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "exception_class字段说明"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "create_time字段说明"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "deleted字段说明"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_operation_time",
+          "kind": "INDEX",
+          "columns": [
+            "operation_time"
+          ]
+        },
+        {
+          "name": "idx_trace_id",
+          "kind": "INDEX",
+          "columns": [
+            "trace_id"
+          ]
+        },
+        {
+          "name": "idx_device_code",
+          "kind": "INDEX",
+          "columns": [
+            "device_code"
+          ]
+        },
+        {
+          "name": "idx_audit_deleted_operation_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "operation_time",
+            "create_time",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_audit_deleted_type_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "operation_type",
+            "operation_time",
+            "create_time",
+            "id"
+          ]
+        },
+        {
+          "name": "idx_audit_deleted_request_method_time",
+          "kind": "INDEX",
+          "columns": [
+            "deleted",
+            "request_method",
+            "operation_time",
+            "create_time",
+            "id"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "审计日志表???system????????sys_audit_log?????????????"
+    }
+  ]
+}

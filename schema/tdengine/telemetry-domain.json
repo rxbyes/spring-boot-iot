@@ -1,0 +1,761 @@
+{
+  "domain": "telemetry",
+  "storageType": "tdengine",
+  "objects": [
+    {
+      "name": "iot_device_telemetry_point",
+      "storageType": "tdengine_table",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "iot_device_telemetry_point表说明",
+      "commentZh": "iot_device_telemetry_point表说明",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "ts字段说明",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "reported_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "tenant_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "device_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "device_code",
+          "type": "BINARY(128)",
+          "commentZh": "device_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "product_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "product_key",
+          "type": "BINARY(128)",
+          "commentZh": "product_key字段说明",
+          "isTag": false
+        },
+        {
+          "name": "protocol_code",
+          "type": "BINARY(64)",
+          "commentZh": "protocol_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "message_type",
+          "type": "BINARY(32)",
+          "commentZh": "message_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "mqtt_topic",
+          "type": "BINARY(512)",
+          "commentZh": "mqtt_topic字段说明",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "trace_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_code",
+          "type": "BINARY(128)",
+          "commentZh": "metric_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_name",
+          "type": "NCHAR(128)",
+          "commentZh": "metric_name字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_type",
+          "type": "BINARY(32)",
+          "commentZh": "value_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "value_text字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "value_long字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "value_bool字段说明",
+          "isTag": false
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_compatibility_fallback",
+      "businessBoundary": "iot_device_telemetry_point对象业务边界说明。"
+    },
+    {
+      "name": "iot_raw_measure_point",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "iot_raw_measure_point表说明",
+      "commentZh": "iot_raw_measure_point表说明",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "ts字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "metric_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "reported_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "TIMESTAMP",
+          "commentZh": "ingested_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "value_long字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "value_bool字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "value_text字段说明",
+          "isTag": false
+        },
+        {
+          "name": "quality_code",
+          "type": "BINARY(32)",
+          "commentZh": "quality_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "alarm_flag",
+          "type": "BOOL",
+          "commentZh": "alarm_flag字段说明",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "trace_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "session_id",
+          "type": "BINARY(64)",
+          "commentZh": "session_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "source_message_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "tenant_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "device_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "product_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "sensor_group字段说明",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "location_code字段说明",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "risk_point_id字段说明",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_raw_timeseries",
+      "businessBoundary": "iot_raw_measure_point对象业务边界说明。"
+    },
+    {
+      "name": "iot_raw_status_point",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "iot_raw_status_point表说明",
+      "commentZh": "iot_raw_status_point表说明",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "ts字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "metric_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "reported_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "TIMESTAMP",
+          "commentZh": "ingested_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "value_long字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "value_bool字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "value_text字段说明",
+          "isTag": false
+        },
+        {
+          "name": "quality_code",
+          "type": "BINARY(32)",
+          "commentZh": "quality_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "alarm_flag",
+          "type": "BOOL",
+          "commentZh": "alarm_flag字段说明",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "trace_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "session_id",
+          "type": "BINARY(64)",
+          "commentZh": "session_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "source_message_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "tenant_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "device_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "product_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "sensor_group字段说明",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "location_code字段说明",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "risk_point_id字段说明",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_raw_timeseries",
+      "businessBoundary": "iot_raw_status_point对象业务边界说明。"
+    },
+    {
+      "name": "iot_raw_event_point",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "iot_raw_event_point表说明",
+      "commentZh": "iot_raw_event_point表说明",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "ts字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "metric_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "reported_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "TIMESTAMP",
+          "commentZh": "ingested_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "value_long字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "value_bool字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "value_text字段说明",
+          "isTag": false
+        },
+        {
+          "name": "quality_code",
+          "type": "BINARY(32)",
+          "commentZh": "quality_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "alarm_flag",
+          "type": "BOOL",
+          "commentZh": "alarm_flag字段说明",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "trace_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "session_id",
+          "type": "BINARY(64)",
+          "commentZh": "session_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "source_message_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "tenant_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "device_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "product_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "sensor_group字段说明",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "location_code字段说明",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "risk_point_id字段说明",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_raw_timeseries",
+      "businessBoundary": "iot_raw_event_point对象业务边界说明。"
+    },
+    {
+      "name": "iot_agg_measure_hour",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "manual_bootstrap_required",
+      "tableCommentZh": "iot_agg_measure_hour表说明",
+      "commentZh": "iot_agg_measure_hour表说明",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "ts字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "metric_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_code",
+          "type": "BINARY(128)",
+          "commentZh": "metric_code字段说明",
+          "isTag": false
+        },
+        {
+          "name": "metric_name",
+          "type": "NCHAR(128)",
+          "commentZh": "metric_name字段说明",
+          "isTag": false
+        },
+        {
+          "name": "value_type",
+          "type": "BINARY(32)",
+          "commentZh": "value_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "first_reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "first_reported_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "last_reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "last_reported_at字段说明",
+          "isTag": false
+        },
+        {
+          "name": "min_value_double",
+          "type": "DOUBLE",
+          "commentZh": "min_value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "max_value_double",
+          "type": "DOUBLE",
+          "commentZh": "max_value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "sum_value_double",
+          "type": "DOUBLE",
+          "commentZh": "sum_value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "last_value_double",
+          "type": "DOUBLE",
+          "commentZh": "last_value_double字段说明",
+          "isTag": false
+        },
+        {
+          "name": "sample_count",
+          "type": "BIGINT",
+          "commentZh": "sample_count字段说明",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "trace_id字段说明",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "source_message_type字段说明",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "tenant_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "device_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "product_id字段说明",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "sensor_group字段说明",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "location_code字段说明",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "risk_point_id字段说明",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_hourly_aggregate",
+      "businessBoundary": "iot_agg_measure_hour对象业务边界说明。"
+    }
+  ]
+}
