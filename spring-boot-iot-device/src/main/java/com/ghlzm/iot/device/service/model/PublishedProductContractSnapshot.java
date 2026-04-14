@@ -7,7 +7,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
 /**
  * 已发布产品合同快照（读侧聚合视图）。
@@ -49,11 +48,20 @@ public final class PublishedProductContractSnapshot {
         return publishedIdentifiers;
     }
 
-    public void forEachCanonicalAlias(BiConsumer<String, String> consumer) {
-        if (consumer == null) {
+    public void mergeAliasesTargetingCurrentFormal(Map<String, String> currentFormalByLower, Builder builder) {
+        if (currentFormalByLower == null || currentFormalByLower.isEmpty() || builder == null) {
             return;
         }
-        canonicalAliases.forEach(consumer);
+        canonicalAliases.forEach((alias, target) -> {
+            String normalizedTarget = normalize(target);
+            if (normalizedTarget == null) {
+                return;
+            }
+            String currentFormalIdentifier = currentFormalByLower.get(normalizedTarget);
+            if (currentFormalIdentifier != null) {
+                builder.canonicalAlias(alias, currentFormalIdentifier);
+            }
+        });
     }
 
     public Optional<String> canonicalAliasOf(String identifier) {

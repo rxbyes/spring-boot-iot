@@ -121,7 +121,7 @@ class PublishedProductContractSnapshotServiceImplTest {
         snapshotService.getRequiredSnapshot(1001L);
 
         verify(snapshotMapper, times(1)).selectList(any());
-        verify(productModelMapper, times(1)).selectList(any());
+        verify(productModelMapper, times(2)).selectList(any());
     }
 
     @Test
@@ -136,7 +136,8 @@ class PublishedProductContractSnapshotServiceImplTest {
                 {
                   "publishedIdentifiers": ["signal_4g"],
                   "canonicalAliases": {
-                    "signal_4g": "signal_4g"
+                    "signal_4g": "signal_4g",
+                    "legacy_signal_alias": "S1_ZT_1.signal_4g"
                   }
                 }
                 """);
@@ -147,6 +148,37 @@ class PublishedProductContractSnapshotServiceImplTest {
         assertTrue(snapshot.publishedIdentifiers().contains("S1_ZT_1.signal_4g"));
         assertFalse(snapshot.publishedIdentifiers().contains("signal_4g"));
         assertEquals("S1_ZT_1.signal_4g", snapshot.canonicalAliasOf("S1_ZT_1.signal_4g").orElse(null));
+        assertEquals("S1_ZT_1.signal_4g", snapshot.canonicalAliasOf("legacy_signal_alias").orElse(null));
+        assertFalse(snapshot.canonicalAliasOf("signal_4g").isPresent());
+    }
+
+    @Test
+    void shouldInvalidateCacheWhenFormalIdentifiersChangeWithinSameReleasedBatch() {
+        when(productModelMapper.selectList(any()))
+                .thenReturn(List.of(property("S1_ZT_1.signal_4g")))
+                .thenReturn(List.of(property("S1_ZT_1.signal_NB")));
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(9001L);
+        when(releaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+
+        ProductMetricResolverSnapshot persisted = new ProductMetricResolverSnapshot();
+        persisted.setSnapshotJson("""
+                {
+                  "publishedIdentifiers": ["signal_4g"],
+                  "canonicalAliases": {
+                    "legacy_signal_alias": "S1_ZT_1.signal_4g"
+                  }
+                }
+                """);
+        when(snapshotMapper.selectList(any())).thenReturn(List.of(persisted));
+
+        PublishedProductContractSnapshot first = snapshotService.getRequiredSnapshot(1001L);
+        PublishedProductContractSnapshot second = snapshotService.getRequiredSnapshot(1001L);
+
+        assertTrue(first.publishedIdentifiers().contains("S1_ZT_1.signal_4g"));
+        assertTrue(second.publishedIdentifiers().contains("S1_ZT_1.signal_NB"));
+        assertFalse(second.publishedIdentifiers().contains("S1_ZT_1.signal_4g"));
+        verify(productModelMapper, times(2)).selectList(any());
     }
 
     @Test
