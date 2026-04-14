@@ -1337,7 +1337,7 @@ describe('DeviceInsightView', () => {
     expect(displayNameColumn.text()).toContain('激光测距状态');
   });
 
-  it('uses the formal field name in the property snapshot when runtime identifiers are raw aliases', async () => {
+  it('does not use short formal aliases to override full-path runtime property names in the property snapshot', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1450,8 +1450,7 @@ describe('DeviceInsightView', () => {
     const displayNameColumn = wrapper.find('[data-label="属性名称"]');
 
     expect(displayNameColumn.exists()).toBe(true);
-    expect(displayNameColumn.text()).toContain('蜂窝信号强度');
-    expect(displayNameColumn.text()).not.toContain('现场信号读数');
+    expect(displayNameColumn.text()).toContain('现场信号读数');
   });
 
   it('keeps trend preview empty when no manual trend metric is configured', async () => {

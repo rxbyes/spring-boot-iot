@@ -16,6 +16,10 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
@@ -466,10 +470,10 @@ class ProductServiceImplTest {
         ProductAddDTO dto = buildProductDto();
         dto.setMetadataJson("""
                 {
-                  "objectInsight": {
-                    "customMetrics": [
-                      {
-                        "identifier": "L1_LF_1.value",
+                      "objectInsight": {
+                        "customMetrics": [
+                          {
+                        "identifier": "value",
                         "displayName": "裂缝值",
                         "group": "measure",
                         "includeInTrend": true
@@ -481,12 +485,12 @@ class ProductServiceImplTest {
 
         BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
 
-        assertEquals("对象洞察指标必须使用已发布 canonical 标识符: L1_LF_1.value", ex.getMessage());
+        assertEquals("对象洞察指标必须使用已发布合同标识符: value", ex.getMessage());
         verify(productService, never()).updateById(any(Product.class));
     }
 
     @Test
-    void updateProductShouldNormalizeObjectInsightIdentifiersToPublishedCanonicalCasing() {
+    void updateProductShouldNormalizeObjectInsightIdentifiersToPublishedContractIdentifierCasing() {
         Product existing = buildExistingProduct();
         doReturn(existing).when(productService).getRequiredById(1001L);
         doReturn(true).when(productService).updateById(any(Product.class));
@@ -502,13 +506,13 @@ class ProductServiceImplTest {
                   "objectInsight": {
                     "customMetrics": [
                       {
-                        "identifier": "gpstotalx",
+                        "identifier": "l1_gnss_1.gpstotalx",
                         "displayName": "GNSS X",
                         "group": "measure",
                         "includeInTrend": true
                       },
                       {
-                        "identifier": "SIGNAL_4G",
+                        "identifier": "s1_zt_1.SIGNAL_4G",
                         "displayName": "4G信号",
                         "group": "runtime",
                         "includeInTrend": true
@@ -522,10 +526,66 @@ class ProductServiceImplTest {
 
         ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
         verify(productService).updateById(captor.capture());
-        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"gpsTotalX\""));
-        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"signal_4g\""));
-        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"gpstotalx\""));
-        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"SIGNAL_4G\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_GNSS_1.gpsTotalX\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"S1_ZT_1.signal_4g\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"l1_gnss_1.gpstotalx\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"s1_zt_1.SIGNAL_4G\""));
+    }
+
+    @Test
+    void updateProductShouldKeepFullPathIdentifierWhenLegacyReleasedSnapshotStillUsesShortCanonicalAlias() {
+        PublishedProductContractSnapshotService snapshotService = org.mockito.Mockito.mock(PublishedProductContractSnapshotService.class);
+        MetricIdentifierResolver resolver = org.mockito.Mockito.mock(MetricIdentifierResolver.class);
+        ProductServiceImpl legacyCompatibleService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                deviceOnlineSessionService,
+                snapshotService,
+                resolver
+        ));
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(legacyCompatibleService).getRequiredById(1001L);
+        doReturn(true).when(legacyCompatibleService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(legacyCompatibleService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+        when(snapshotService.getRequiredSnapshot(1001L)).thenReturn(PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .publishedIdentifier("value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .canonicalAlias("value", "value")
+                .build());
+        when(resolver.resolveForGovernance(any(), eq("L1_LF_1.value"))).thenReturn(
+                MetricIdentifierResolution.of(
+                        "L1_LF_1.value",
+                        "value",
+                        MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT
+                )
+        );
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        legacyCompatibleService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(legacyCompatibleService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_LF_1.value\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"value\""));
     }
 
     private Product buildExistingProduct() {

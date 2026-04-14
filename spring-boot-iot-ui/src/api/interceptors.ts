@@ -4,6 +4,7 @@ import router from '../router';
 import { getStoredAccessToken, usePermissionStore } from '@/stores/permission';
 import { createRequestError } from './request';
 import { interceptorManager } from './request';
+import { resolveServerErrorMessage } from './request';
 import type { RequestError, RequestInterceptor, ResponseInterceptor } from './request';
 
 const ERROR_CODE_MAP: Record<number, string> = {
@@ -24,7 +25,7 @@ const ERROR_TOAST_DEDUPE_MS = 1200;
 
 function resolveResponseErrorMessage(code: number, rawMessage?: string) {
   if (code >= 500 && ERROR_CODE_MAP[code]) {
-    return ERROR_CODE_MAP[code];
+    return resolveServerErrorMessage(rawMessage, ERROR_CODE_MAP[code]);
   }
   return rawMessage || ERROR_CODE_MAP[code] || '请求失败';
 }

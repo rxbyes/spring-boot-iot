@@ -243,6 +243,38 @@ describe('deviceInsightCapability', () => {
     ).toBe('传输信号');
   });
 
+  it('does not rewrite short configured identifiers to full-path runtime identifiers', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'COLLECT-ALIAS-001',
+      productName: '雨量采集终端',
+      metadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'signal_4g',
+              displayName: '传输信号',
+              group: 'status',
+              includeInTrend: true,
+              includeInExtension: false
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-82',
+          valueType: 'int'
+        }
+      ]
+    });
+
+    expect(profile.historyIdentifiers).toEqual(['signal_4g']);
+    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('signal_4g');
+  });
+
   it('prefers device metadata over product metadata while preserving product-level fallback metrics', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-003',
@@ -465,7 +497,7 @@ describe('deviceInsightCapability', () => {
     );
   });
 
-  it('resolves canonical runtime custom metrics to raw property identifiers when the latest property uses an alias path', () => {
+  it('keeps short configured runtime custom metrics unchanged when the latest property uses a full-path identifier', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-CANONICAL-001',
       productName: '雨量采集终端',
@@ -494,7 +526,7 @@ describe('deviceInsightCapability', () => {
       ]
     });
 
-    expect(profile.historyIdentifiers).toEqual(['S1_ZT_1.signal_4g']);
-    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('S1_ZT_1.signal_4g');
+    expect(profile.historyIdentifiers).toEqual(['signal_4g']);
+    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('signal_4g');
   });
 });

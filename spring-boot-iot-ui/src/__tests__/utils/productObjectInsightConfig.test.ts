@@ -111,7 +111,7 @@ describe('productObjectInsightConfig', () => {
 
     expect(created).toEqual(
       expect.objectContaining({
-        identifier: 'value',
+        identifier: 'L1_LF_1.value',
         displayName: '裂缝量',
         group: 'measure',
         includeInTrend: true,
@@ -140,7 +140,7 @@ describe('productObjectInsightConfig', () => {
     )
 
     expect(updated).toHaveLength(1)
-    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.identifier).toBe('value')
+    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.identifier).toBe('L1_LF_1.value')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.group).toBe('measure')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.analysisTemplate).toBe('{{label}}来自旧配置')
     expect(removeProductObjectInsightMetric(updated, 'L1_LF_1.value')).toEqual([])

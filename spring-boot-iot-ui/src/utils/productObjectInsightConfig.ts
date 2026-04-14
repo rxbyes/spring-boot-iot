@@ -208,15 +208,7 @@ function normalizeText(value: unknown): string {
 }
 
 function normalizeMetricIdentifier(value: unknown): string {
-  const normalized = normalizeText(value)
-  if (!normalized) {
-    return ''
-  }
-  const lastDotIndex = normalized.lastIndexOf('.')
-  if (lastDotIndex < 0 || lastDotIndex === normalized.length - 1) {
-    return normalized
-  }
-  return normalized.slice(lastDotIndex + 1)
+  return normalizeText(value)
 }
 
 function serializeProductObjectInsightMetricGroup(group: ProductObjectInsightMetricGroup) {

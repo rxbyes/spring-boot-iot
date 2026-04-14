@@ -51,22 +51,20 @@ class PublishedProductContractSnapshotServiceImplTest {
     }
 
     @Test
-    void shouldExposeOnlyPublishedPropertyIdentifiersForObjectInsight() {
+    void shouldPreserveFullPathPublishedPropertyIdentifiersForObjectInsight() {
         when(productModelMapper.selectList(any())).thenReturn(List.of(
-                property("L1_LF_1.value"),
-                property("L1_GNSS_1.gpsTotalX"),
-                property("value"),
-                property("gpsTotalX")
+                property("S1_ZT_1.signal_4g"),
+                property("L1_JS_1.gX")
         ));
         ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
         latestBatch.setId(9001L);
         when(releaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
 
         PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(1001L);
-        assertTrue(snapshot.publishedIdentifiers().contains("value"));
-        assertTrue(snapshot.publishedIdentifiers().contains("gpsTotalX"));
-        assertFalse(snapshot.publishedIdentifiers().contains("L1_GNSS_1.gpsTotalX"));
-        assertFalse(snapshot.publishedIdentifiers().contains("gpstotalx"));
+        assertTrue(snapshot.publishedIdentifiers().contains("S1_ZT_1.signal_4g"));
+        assertTrue(snapshot.publishedIdentifiers().contains("L1_JS_1.gX"));
+        assertFalse(snapshot.publishedIdentifiers().contains("signal_4g"));
+        assertFalse(snapshot.publishedIdentifiers().contains("gX"));
     }
 
     @Test

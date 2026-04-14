@@ -855,22 +855,17 @@ function resolveMetricUnit(identifier: string, property?: DeviceProperty | null)
 }
 
 function resolveProductModelValue(map: Map<string, string>, identifier: string) {
-  return map.get(identifier) || map.get(normalizeMetricIdentifier(identifier)) || '';
-}
-
-function normalizeMetricIdentifier(identifier: string) {
-  const normalized = identifier.trim();
-  if (!normalized) {
-    return '';
+  const exactValue = map.get(identifier);
+  if (exactValue) {
+    return exactValue;
   }
-  if (/(^|[.])sensor_state([.]|$)/i.test(normalized)) {
-    return 'sensor_state';
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  for (const [key, value] of map.entries()) {
+    if (key.trim().toLowerCase() === normalizedIdentifier) {
+      return value;
+    }
   }
-  const lastDotIndex = normalized.lastIndexOf('.');
-  if (lastDotIndex < 0 || lastDotIndex === normalized.length - 1) {
-    return normalized;
-  }
-  return normalized.slice(lastDotIndex + 1);
+  return '';
 }
 
 function appendUnitToDisplayName(displayName: string, unit?: string) {

@@ -176,14 +176,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return null;
         }
         String trimmed = identifier.trim();
-        if (trimmed.isEmpty()) {
-            return null;
-        }
-        int idx = trimmed.lastIndexOf('.');
-        if (idx >= 0 && idx < trimmed.length() - 1) {
-            return trimmed.substring(idx + 1);
-        }
-        return trimmed;
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private record CachedSnapshot(Long releaseBatchId, PublishedProductContractSnapshot snapshot) {

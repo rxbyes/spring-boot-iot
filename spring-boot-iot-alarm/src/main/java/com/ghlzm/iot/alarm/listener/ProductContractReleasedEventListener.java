@@ -183,14 +183,7 @@ public class ProductContractReleasedEventListener {
 
     private String toCanonicalIdentifier(String identifier) {
         String normalized = normalize(identifier);
-        if (!StringUtils.hasText(normalized)) {
-            return null;
-        }
-        int idx = normalized.lastIndexOf('.');
-        if (idx >= 0 && idx < normalized.length() - 1) {
-            return normalized.substring(idx + 1);
-        }
-        return normalized;
+        return StringUtils.hasText(normalized) ? normalized : null;
     }
 
     private String normalize(String identifier) {

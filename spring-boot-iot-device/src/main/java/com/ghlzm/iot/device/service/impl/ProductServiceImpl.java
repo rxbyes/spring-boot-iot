@@ -547,21 +547,31 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (!StringUtils.hasText(identifier)) {
             return identifier;
         }
+        String normalizedIdentifier = identifier.trim();
+        String formalIdentifier = CollectionUtils.isEmpty(formalIdentifierMap)
+                ? normalizedIdentifier
+                : formalIdentifierMap.getOrDefault(normalizedIdentifier.toLowerCase(Locale.ROOT), normalizedIdentifier);
         if (snapshot != null
                 && !CollectionUtils.isEmpty(snapshot.publishedIdentifiers())
                 && metricIdentifierResolver != null) {
             MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForGovernance(snapshot, identifier);
-            if (resolution == null
-                    || !StringUtils.hasText(resolution.canonicalIdentifier())
-                    || !snapshot.containsPublishedIdentifier(identifier)) {
-                throw new BizException("对象洞察指标必须使用已发布 canonical 标识符: " + identifier);
+            if (resolution == null || !StringUtils.hasText(resolution.canonicalIdentifier())) {
+                throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
             }
-            return resolution.canonicalIdentifier();
+            if (snapshot.containsPublishedIdentifier(identifier)) {
+                return resolution.canonicalIdentifier();
+            }
+            if (StringUtils.hasText(formalIdentifier)
+                    && !formalIdentifier.equalsIgnoreCase(resolution.canonicalIdentifier())
+                    && snapshot.containsPublishedIdentifier(resolution.canonicalIdentifier())) {
+                return formalIdentifier;
+            }
+            throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
         }
         if (CollectionUtils.isEmpty(formalIdentifierMap)) {
-            return identifier;
+            return normalizedIdentifier;
         }
-        return formalIdentifierMap.getOrDefault(identifier.toLowerCase(Locale.ROOT), identifier);
+        return formalIdentifier;
     }
 
     private PublishedProductContractSnapshot loadObjectInsightSnapshot(Long productId) {

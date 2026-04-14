@@ -148,7 +148,7 @@ class ProductContractReleasedEventListenerTest {
                         && Long.valueOf(7001L).equals(row.getReleaseBatchId())
                         && row.getSnapshotJson() != null
                         && row.getSnapshotJson().contains("\"L1_LF_1.value\"")
-                        && row.getSnapshotJson().contains("\"value\"")
+                        && !row.getSnapshotJson().contains("\"L1_LF_1.value\":\"value\"")
         ));
     }
 
