@@ -690,6 +690,125 @@
       "businessBoundary": "用于厂商字段映射规则表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
+      "name": "iot_vendor_metric_mapping_rule_snapshot",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "厂商字段映射规则发布快照表",
+      "commentZh": "厂商字段映射规则发布快照表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "rule_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "规则ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "published_version_no",
+          "type": "INT NOT NULL",
+          "commentZh": "发布版本号"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "JSON NOT NULL",
+          "commentZh": "规则快照JSON"
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "commentZh": "生命周期状态"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_vendor_metric_rule_snapshot_rule_status",
+          "kind": "INDEX",
+          "columns": [
+            "rule_id",
+            "lifecycle_status",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_vendor_metric_rule_snapshot_product_status",
+          "kind": "INDEX",
+          "columns": [
+            "product_id",
+            "lifecycle_status",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_vendor_metric_mapping_rule",
+          "viaField": "rule_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "snapshot_baseline",
+      "businessBoundary": "用于厂商字段映射规则正式发布后的快照真相持久化，支撑审批后读取与运行时回放。"
+    },
+    {
       "name": "iot_product_contract_release_batch",
       "storageType": "mysql_table",
       "ownerModule": "spring-boot-iot-device",

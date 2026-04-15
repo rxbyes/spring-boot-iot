@@ -3052,6 +3052,69 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `rule_id` BIGINT NOT NULL COMMENT '规则ID'",
+          "name": "rule_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `product_id` BIGINT NOT NULL COMMENT '产品ID'",
+          "name": "product_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `approval_order_id` BIGINT NOT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `published_version_no` INT NOT NULL COMMENT '发布版本号'",
+          "name": "published_version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `snapshot_json` JSON NOT NULL COMMENT '规则快照JSON'",
+          "name": "snapshot_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `lifecycle_status` VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态'",
+          "name": "lifecycle_status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_vendor_metric_mapping_rule_snapshot\n-- 说明：厂商字段映射规则发布快照表\nCREATE TABLE IF NOT EXISTS iot_vendor_metric_mapping_rule_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  rule_id BIGINT NOT NULL COMMENT '规则ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json JSON NOT NULL COMMENT '规则快照JSON',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_vendor_metric_rule_snapshot_rule_status (rule_id, lifecycle_status, deleted),\n  KEY idx_vendor_metric_rule_snapshot_product_status (product_id, lifecycle_status, deleted)\n) COMMENT='厂商字段映射规则发布快照表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD INDEX `idx_vendor_metric_rule_snapshot_rule_status` (`rule_id`, `lifecycle_status`, `deleted`)",
+          "name": "idx_vendor_metric_rule_snapshot_rule_status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_vendor_metric_mapping_rule_snapshot` ADD INDEX `idx_vendor_metric_rule_snapshot_product_status` (`product_id`, `lifecycle_status`, `deleted`)",
+          "name": "idx_vendor_metric_rule_snapshot_product_status"
+        }
+      ],
+      "name": "iot_vendor_metric_mapping_rule_snapshot",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `iot_governance_ops_alert` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
           "name": "id"
         },

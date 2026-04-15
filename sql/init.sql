@@ -32,6 +32,7 @@ DROP TABLE IF EXISTS sys_governance_approval_policy;
 DROP TABLE IF EXISTS sys_governance_approval_order;
 DROP TABLE IF EXISTS iot_governance_work_item;
 DROP TABLE IF EXISTS iot_governance_ops_alert;
+DROP TABLE IF EXISTS iot_vendor_metric_mapping_rule_snapshot;
 DROP TABLE IF EXISTS iot_vendor_metric_mapping_rule;
 DROP TABLE IF EXISTS iot_vendor_metric_evidence;
 DROP TABLE IF EXISTS iot_product_model;
@@ -931,6 +932,25 @@ CREATE TABLE iot_vendor_metric_mapping_rule (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id)
 ) COMMENT='厂商字段映射规则表';
+
+-- 表：iot_vendor_metric_mapping_rule_snapshot
+-- 说明：厂商字段映射规则发布快照表
+CREATE TABLE iot_vendor_metric_mapping_rule_snapshot (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  rule_id BIGINT NOT NULL COMMENT '规则ID',
+  product_id BIGINT NOT NULL COMMENT '产品ID',
+  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',
+  published_version_no INT NOT NULL COMMENT '发布版本号',
+  snapshot_json JSON NOT NULL COMMENT '规则快照JSON',
+  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (id),
+  KEY idx_vendor_metric_rule_snapshot_rule_status (rule_id, lifecycle_status, deleted),
+  KEY idx_vendor_metric_rule_snapshot_product_status (product_id, lifecycle_status, deleted)
+) COMMENT='厂商字段映射规则发布快照表';
 
 -- 表：iot_governance_ops_alert
 -- 说明：治理运维告警表

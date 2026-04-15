@@ -3781,6 +3781,77 @@
     {
       "columns": [
         {
+          "commentZh": "主键ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "规则ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "rule_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "审批主单ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "approval_order_id"
+        },
+        {
+          "commentZh": "发布版本号",
+          "definition": "INT NOT NULL",
+          "isTag": false,
+          "name": "published_version_no"
+        },
+        {
+          "commentZh": "规则快照JSON",
+          "definition": "JSON NOT NULL",
+          "isTag": false,
+          "name": "snapshot_json"
+        },
+        {
+          "commentZh": "生命周期状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "isTag": false,
+          "name": "lifecycle_status"
+        },
+        {
+          "commentZh": "创建人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "逻辑删除标记",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_vendor_metric_mapping_rule_snapshot"
+    },
+    {
+      "columns": [
+        {
           "commentZh": "主键",
           "definition": "BIGINT NOT NULL",
           "isTag": false,
@@ -6286,6 +6357,10 @@
       "sql": "-- 表：iot_vendor_metric_mapping_rule\n-- 说明：厂商字段映射规则表\nCREATE TABLE iot_vendor_metric_mapping_rule (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scope_type VARCHAR(32) NOT NULL COMMENT '作用域类型',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',\n  raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',\n  logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',\n  relation_condition_json JSON DEFAULT NULL COMMENT '关系条件JSON',\n  normalization_rule_json JSON DEFAULT NULL COMMENT '归一化规则JSON',\n  target_normative_identifier VARCHAR(64) NOT NULL COMMENT '目标规范字段标识',\n  status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id)\n) COMMENT='厂商字段映射规则表';"
     },
     {
+      "name": "iot_vendor_metric_mapping_rule_snapshot",
+      "sql": "-- 表：iot_vendor_metric_mapping_rule_snapshot\n-- 说明：厂商字段映射规则发布快照表\nCREATE TABLE iot_vendor_metric_mapping_rule_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  rule_id BIGINT NOT NULL COMMENT '规则ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json JSON NOT NULL COMMENT '规则快照JSON',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_vendor_metric_rule_snapshot_rule_status (rule_id, lifecycle_status, deleted),\n  KEY idx_vendor_metric_rule_snapshot_product_status (product_id, lifecycle_status, deleted)\n) COMMENT='厂商字段映射规则发布快照表';"
+    },
+    {
       "name": "iot_governance_ops_alert",
       "sql": "-- 表：iot_governance_ops_alert\n-- 说明：治理运维告警表\nCREATE TABLE iot_governance_ops_alert (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  alert_type VARCHAR(64) NOT NULL COMMENT '告警类型',\n  alert_code VARCHAR(128) NOT NULL COMMENT '告警业务编码',\n  subject_type VARCHAR(64) NOT NULL COMMENT '审批主体类型',\n  subject_id BIGINT DEFAULT NULL COMMENT '主题ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '告警状态',\n  severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT '严重程度等级',\n  affected_count BIGINT NOT NULL DEFAULT 0 COMMENT '影响数量',\n  alert_title VARCHAR(255) NOT NULL COMMENT '告警标题',\n  alert_message VARCHAR(1000) DEFAULT NULL COMMENT '告警内容',\n  dimension_key VARCHAR(128) DEFAULT NULL COMMENT '维度键',\n  dimension_label VARCHAR(255) DEFAULT NULL COMMENT '维度标签',\n  source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',\n  snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',\n  assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',\n  first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次出现时间',\n  last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近出现时间',\n  resolved_time DATETIME DEFAULT NULL COMMENT '恢复时间',\n  closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_governance_ops_alert_code (tenant_id, alert_type, alert_code, deleted)\n) COMMENT='治理运维告警表';"
     },
@@ -7366,6 +7441,36 @@
         },
         {
           "columns": [
+            "rule_id",
+            "lifecycle_status",
+            "deleted"
+          ],
+          "kind": "INDEX",
+          "name": "idx_vendor_metric_rule_snapshot_rule_status"
+        },
+        {
+          "columns": [
+            "product_id",
+            "lifecycle_status",
+            "deleted"
+          ],
+          "kind": "INDEX",
+          "name": "idx_vendor_metric_rule_snapshot_product_status"
+        }
+      ],
+      "name": "iot_vendor_metric_mapping_rule_snapshot"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
             "tenant_id",
             "alert_type",
             "alert_code",
@@ -8258,6 +8363,7 @@
     "iot_product_model": "active",
     "iot_vendor_metric_evidence": "active",
     "iot_vendor_metric_mapping_rule": "active",
+    "iot_vendor_metric_mapping_rule_snapshot": "active",
     "linkage_rule": "active",
     "risk_metric_catalog": "active",
     "risk_metric_emergency_plan_binding": "active",

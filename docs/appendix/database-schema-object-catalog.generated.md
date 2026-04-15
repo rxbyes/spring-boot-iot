@@ -37,6 +37,7 @@ Generated from the schema registry. Do not edit by hand.
 | iot_product_model | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品物模型表 |
 | iot_vendor_metric_evidence | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段证据表 |
 | iot_vendor_metric_mapping_rule | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段映射规则表 |
+| iot_vendor_metric_mapping_rule_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段映射规则发布快照表 |
 | iot_governance_ops_alert | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 治理运维告警表 |
 | iot_governance_work_item | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-alarm | 治理与运营工作项表 |
 | sys_governance_approval_order | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批工单表 |
