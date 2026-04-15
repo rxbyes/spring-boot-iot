@@ -1197,7 +1197,7 @@ describe('ProductModelDesignerWorkspace', () => {
     )
   })
 
-  it('normalizes alias-style formal property identifiers before saving runtime trend metrics', async () => {
+  it('preserves full-path formal property identifiers when saving runtime trend metrics', async () => {
     mockListProductModels.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1224,13 +1224,13 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(mockUpdateProduct).toHaveBeenCalledWith(
       1001,
       expect.objectContaining({
-        metadataJson: expect.stringContaining('"identifier":"signal_4g"')
+        metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.signal_4g"')
       })
     )
     expect(mockUpdateProduct).not.toHaveBeenCalledWith(
       1001,
       expect.objectContaining({
-        metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.signal_4g"')
+        metadataJson: expect.stringContaining('"identifier":"signal_4g"')
       })
     )
   })
