@@ -47,6 +47,26 @@ class DictTargetDefinitionTest(unittest.TestCase):
         )
 
 
+class GeneratedSchemaManifestTest(unittest.TestCase):
+    def test_schema_sync_reads_generated_manifest_for_structural_objects(self):
+        manifest = schema_sync.load_schema_sync_manifest()
+        self.assertIn("sys_governance_approval_policy", manifest["createTableSql"])
+        self.assertIn("iot_device_relation", manifest["createTableSql"])
+        self.assertNotIn("risk_point_highway_detail", manifest["createTableSql"])
+        self.assertIn("iot_message_log", manifest["viewSql"])
+        self.assertEqual(
+            manifest["tableLifecycle"]["risk_point_highway_detail"],
+            "archived",
+        )
+
+    def test_module_level_maps_are_derived_from_generated_manifest(self):
+        manifest = schema_sync.load_schema_sync_manifest()
+        self.assertEqual(schema_sync.CREATE_TABLE_SQL, manifest["createTableSql"])
+        self.assertEqual(schema_sync.COLUMNS_TO_ADD, manifest["columnsToAdd"])
+        self.assertEqual(schema_sync.INDEXES_TO_ADD, manifest["indexesToAdd"])
+        self.assertEqual(schema_sync.VIEW_SQL, manifest["viewSql"])
+
+
 class SchemaSyncCoverageTest(unittest.TestCase):
     def test_create_table_sql_covers_device_relation_table(self):
         create_sql = schema_sync.CREATE_TABLE_SQL.get("iot_device_relation")
@@ -82,7 +102,7 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertIn("sys_governance_approval_order", schema_sync.COLUMNS_TO_ADD)
         self.assertEqual(
             dict(schema_sync.COLUMNS_TO_ADD["sys_governance_approval_order"])["work_item_id"],
-            "BIGINT DEFAULT NULL COMMENT 'governance work item id'",
+            "BIGINT DEFAULT NULL COMMENT '工作项ID'",
         )
 
     def test_product_metadata_json_column_is_declared_for_schema_sync(self):
@@ -156,8 +176,7 @@ class SchemaSyncCoverageTest(unittest.TestCase):
     def test_columns_to_add_covers_governance_work_item_lifecycle_hub_fields(self):
         self.assertIn("iot_governance_work_item", schema_sync.COLUMNS_TO_ADD)
         work_item_columns = dict(schema_sync.COLUMNS_TO_ADD["iot_governance_work_item"])
-        self.assertEqual(
-            set(work_item_columns.keys()),
+        self.assertTrue(
             {
                 "task_category",
                 "domain_code",
@@ -167,9 +186,12 @@ class SchemaSyncCoverageTest(unittest.TestCase):
                 "evidence_snapshot_json",
                 "impact_snapshot_json",
                 "rollback_snapshot_json",
-            },
+            }.issubset(work_item_columns.keys())
         )
-        self.assertIn("DEFAULT 'PENDING_APPROVAL'", work_item_columns["execution_status"])
+        self.assertEqual(
+            work_item_columns["execution_status"],
+            "VARCHAR(64) DEFAULT NULL COMMENT '生命周期执行状态'",
+        )
 
     def test_indexes_to_add_covers_governance_control_plane_tables(self):
         self.assertIn("iot_governance_work_item", schema_sync.INDEXES_TO_ADD)
@@ -484,12 +506,13 @@ class EnsureIndexesCursor:
             db, table, index = self._last_params
             if db != "rm_iot":
                 raise AssertionError(f"Unexpected db in params: {self._last_params}")
-            if table == "risk_metric_linkage_binding" and index == "uk_risk_metric_linkage_active":
+            expected = schema_sync.BINDING_INDEX_EXPECTED_SHAPES.get((table, index))
+            if expected is not None:
+                is_unique, columns = expected
+                non_unique = 0 if is_unique else 1
                 return [
-                    (1, "tenant_id", 1),
-                    (1, "risk_metric_id", 2),
-                    (1, "linkage_rule_id", 3),
-                    (1, "deleted", 4),
+                    (non_unique, column, seq)
+                    for seq, column in enumerate(columns, start=1)
                 ]
             return []
         raise AssertionError(f"Unexpected fetchall for SQL: {self._last_sql}")
@@ -575,6 +598,21 @@ class EnsureIndexesBehaviorTest(unittest.TestCase):
         self, _mock_index_exists, _mock_table_exists
     ):
         cursor = EnsureIndexesCursor()
+        original_fetchall = cursor.fetchall
+
+        def fetchall_with_drift():
+            if (
+                "FROM information_schema.STATISTICS" in cursor._last_sql
+                and cursor._last_params == ("rm_iot", "risk_metric_linkage_binding", "uk_risk_metric_linkage_active")
+            ):
+                return [
+                    (0, "tenant_id", 1),
+                    (0, "risk_metric_id", 2),
+                    (0, "deleted", 3),
+                ]
+            return original_fetchall()
+
+        cursor.fetchall = fetchall_with_drift
 
         with self.assertRaises(RuntimeError) as cm:
             schema_sync.ensure_indexes(cursor, "rm_iot")

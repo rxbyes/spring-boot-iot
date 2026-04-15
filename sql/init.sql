@@ -70,7 +70,7 @@ DROP TABLE IF EXISTS emergency_plan;
 CREATE TABLE emergency_plan (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   plan_name VARCHAR(128) NOT NULL COMMENT '预案名称',
-  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级 red/orange/yellow/blue',
+  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',
   risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',
   description VARCHAR(512) DEFAULT NULL COMMENT '描述',
   response_steps LONGTEXT DEFAULT NULL COMMENT '响应步骤(JSON)',
@@ -92,7 +92,7 @@ CREATE TABLE iot_alarm_record (
   alarm_code VARCHAR(64) NOT NULL COMMENT '告警编号',
   alarm_title VARCHAR(255) NOT NULL COMMENT '告警标题',
   alarm_type VARCHAR(32) NOT NULL COMMENT '告警类型',
-  alarm_level VARCHAR(16) NOT NULL COMMENT '告警等级',
+  alarm_level VARCHAR(16) NOT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',
   region_id BIGINT DEFAULT NULL COMMENT '区域ID',
   region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',
   risk_point_id BIGINT DEFAULT NULL COMMENT '风险点ID',
@@ -135,7 +135,7 @@ CREATE TABLE iot_event_record (
   event_title VARCHAR(255) NOT NULL COMMENT '事件标题',
   alarm_id BIGINT DEFAULT NULL COMMENT '告警ID',
   alarm_code VARCHAR(64) DEFAULT NULL COMMENT '告警编号',
-  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '告警等级',
+  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',
   risk_level VARCHAR(16) DEFAULT NULL COMMENT '风险等级',
   region_id BIGINT DEFAULT NULL COMMENT '区域ID',
   region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',
@@ -228,24 +228,24 @@ CREATE TABLE risk_metric_catalog (
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   product_id BIGINT NOT NULL COMMENT '产品ID',
   release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
-  product_model_id BIGINT DEFAULT NULL COMMENT '产品modelID',
-  normative_identifier VARCHAR(64) DEFAULT NULL COMMENT 'normativeidentifier业务字段',
-  contract_identifier VARCHAR(64) NOT NULL COMMENT 'contractidentifier业务字段',
+  product_model_id BIGINT DEFAULT NULL COMMENT '产品物模型ID',
+  normative_identifier VARCHAR(64) DEFAULT NULL COMMENT '规范指标标识',
+  contract_identifier VARCHAR(64) NOT NULL COMMENT '合同字段标识',
   risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',
   risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',
-  risk_category VARCHAR(64) DEFAULT NULL COMMENT '风险category业务字段',
-  metric_role VARCHAR(32) DEFAULT NULL COMMENT '指标role业务字段',
-  lifecycle_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'lifecycle状态业务字段',
-  source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT 'sourcescenario编码',
-  metric_unit VARCHAR(32) DEFAULT NULL COMMENT '指标unit业务字段',
-  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标dimension业务字段',
-  threshold_type VARCHAR(32) DEFAULT NULL COMMENT 'threshold类型业务字段',
-  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT 'semanticdirection业务字段',
-  threshold_direction VARCHAR(32) DEFAULT NULL COMMENT 'thresholddirection业务字段',
-  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'trend标记',
-  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'gis标记',
-  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'insight标记',
-  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'analytics标记',
+  risk_category VARCHAR(64) DEFAULT NULL COMMENT '风险类别',
+  metric_role VARCHAR(32) DEFAULT NULL COMMENT '指标角色',
+  lifecycle_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期状态',
+  source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT '来源场景编码',
+  metric_unit VARCHAR(32) DEFAULT NULL COMMENT '指标单位',
+  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',
+  threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',
+  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',
+  threshold_direction VARCHAR(32) DEFAULT NULL COMMENT '阈值方向',
+  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用趋势展示',
+  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用地图展示',
+  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用对象洞察',
+  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用运营分析',
   enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用标记',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -262,7 +262,7 @@ CREATE TABLE risk_metric_emergency_plan_binding (
   risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
   emergency_plan_id BIGINT NOT NULL COMMENT '应急预案ID',
   binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '绑定状态业务字段',
-  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定origin业务字段',
+  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定来源',
   create_by BIGINT DEFAULT NULL COMMENT '创建人',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_by BIGINT DEFAULT NULL COMMENT '更新人',
@@ -282,7 +282,7 @@ CREATE TABLE risk_metric_linkage_binding (
   risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',
   linkage_rule_id BIGINT NOT NULL COMMENT '联动规则ID',
   binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '绑定状态业务字段',
-  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定origin业务字段',
+  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定来源',
   create_by BIGINT DEFAULT NULL COMMENT '创建人',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_by BIGINT DEFAULT NULL COMMENT '更新人',
@@ -306,8 +306,8 @@ CREATE TABLE risk_point (
   region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',
   responsible_user BIGINT DEFAULT NULL COMMENT '负责人',
   responsible_phone VARCHAR(32) DEFAULT NULL COMMENT '负责人电话',
-  risk_point_level VARCHAR(16) DEFAULT NULL COMMENT '风险点档案等级 level_1/level_2/level_3',
-  current_risk_level VARCHAR(16) DEFAULT NULL COMMENT '当前风险态势等级 red/orange/yellow/blue',
+  risk_point_level VARCHAR(16) DEFAULT NULL COMMENT '风险点档案等级（一级/二级/三级）',
+  current_risk_level VARCHAR(16) DEFAULT NULL COMMENT '当前风险态势等级（红/橙/黄/蓝）',
   risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',
   risk_type VARCHAR(32) NOT NULL DEFAULT 'GENERAL' COMMENT '风险点类型 SLOPE/BRIDGE/TUNNEL/GENERAL',
   location_text VARCHAR(255) DEFAULT NULL COMMENT '位置描述/桩号/区间',
@@ -381,7 +381,7 @@ CREATE TABLE risk_point_device_pending_binding (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   batch_no VARCHAR(64) NOT NULL COMMENT '导入批次号',
   source_file_name VARCHAR(255) DEFAULT NULL COMMENT '来源文件名',
-  source_row_no INT NOT NULL COMMENT '来源行号',
+  source_row_no INT NOT NULL COMMENT '导入源行号',
   risk_point_name VARCHAR(128) NOT NULL COMMENT '来源风险点名称',
   risk_point_id BIGINT DEFAULT NULL COMMENT '匹配到的风险点ID',
   risk_point_code VARCHAR(64) DEFAULT NULL COMMENT '匹配到的风险点编号',
@@ -448,7 +448,7 @@ CREATE TABLE rule_definition (
   metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
   expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',
   duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',
-  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '告警等级',
+  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',
   notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',
   convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',
   status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',
@@ -471,15 +471,15 @@ CREATE TABLE iot_command_record (
   command_id VARCHAR(64) NOT NULL COMMENT '业务命令ID',
   device_id BIGINT NOT NULL COMMENT '设备ID',
   device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) NOT NULL COMMENT '产品Key',
+  product_key VARCHAR(64) NOT NULL COMMENT '产品标识',
   gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',
   sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
-  topic VARCHAR(255) NOT NULL COMMENT '下发Topic',
-  command_type VARCHAR(32) NOT NULL COMMENT '命令类型 property/service',
+  topic VARCHAR(255) NOT NULL COMMENT '下发主题',
+  command_type VARCHAR(32) NOT NULL COMMENT '命令类型（属性下发/服务调用）',
   service_identifier VARCHAR(64) DEFAULT NULL COMMENT '服务标识',
   request_payload LONGTEXT DEFAULT NULL COMMENT '下发请求报文',
   reply_payload LONGTEXT DEFAULT NULL COMMENT '设备回执报文',
-  qos TINYINT NOT NULL DEFAULT 0 COMMENT 'qos业务字段',
+  qos TINYINT NOT NULL DEFAULT 0 COMMENT '服务质量等级',
   retained TINYINT NOT NULL DEFAULT 0 COMMENT '是否保留消息 1是 0否',
   status VARCHAR(32) NOT NULL COMMENT '命令状态 CREATED/SENT/SUCCESS/FAILED/TIMEOUT',
   send_time DATETIME DEFAULT NULL COMMENT '发送时间',
@@ -550,18 +550,18 @@ CREATE TABLE iot_device_access_error_log (
   request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',
   failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',
   device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
   gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',
   sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',
-  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic 路由类型',
+  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT '主题路由类型',
   message_type VARCHAR(32) DEFAULT NULL COMMENT '消息类型',
   topic VARCHAR(255) DEFAULT NULL COMMENT '消息主题',
   client_id VARCHAR(128) DEFAULT NULL COMMENT '客户端ID',
-  payload_size INT DEFAULT NULL COMMENT 'payload 大小',
-  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT 'payload 编码',
-  payload_truncated TINYINT NOT NULL DEFAULT 0 COMMENT 'payload 是否截断',
-  raw_payload LONGTEXT DEFAULT NULL COMMENT '原始 payload',
-  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误码',
+  payload_size INT DEFAULT NULL COMMENT '载荷大小',
+  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '载荷编码',
+  payload_truncated TINYINT NOT NULL DEFAULT 0 COMMENT '载荷是否截断',
+  raw_payload LONGTEXT DEFAULT NULL COMMENT '原始载荷',
+  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',
   exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',
   error_message VARCHAR(500) DEFAULT NULL COMMENT '错误消息',
   contract_snapshot LONGTEXT DEFAULT NULL COMMENT '设备契约快照',
@@ -583,15 +583,15 @@ CREATE TABLE iot_device_invalid_report_state (
   request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',
   failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',
   device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
   protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
-  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic 路由类型',
-  topic VARCHAR(255) DEFAULT NULL COMMENT '最近 topic',
-  client_id VARCHAR(128) DEFAULT NULL COMMENT '最近 clientId',
-  payload_size INT DEFAULT NULL COMMENT '最近 payload 大小',
-  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '最近 payload 编码',
-  last_payload LONGTEXT DEFAULT NULL COMMENT '最近 payload',
-  last_trace_id VARCHAR(64) DEFAULT NULL COMMENT '最近 traceId',
+  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT '主题路由类型',
+  topic VARCHAR(255) DEFAULT NULL COMMENT '最近主题',
+  client_id VARCHAR(128) DEFAULT NULL COMMENT '最近客户端标识',
+  payload_size INT DEFAULT NULL COMMENT '载荷大小',
+  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '载荷编码',
+  last_payload LONGTEXT DEFAULT NULL COMMENT '最近载荷',
+  last_trace_id VARCHAR(64) DEFAULT NULL COMMENT '最近链路追踪ID',
   sample_error_message VARCHAR(500) DEFAULT NULL COMMENT '样本错误消息',
   sample_exception_class VARCHAR(255) DEFAULT NULL COMMENT '样本异常类',
   first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次命中时间',
@@ -616,7 +616,7 @@ CREATE TABLE iot_device_message_log (
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   device_id BIGINT NOT NULL COMMENT '设备ID',
   product_id BIGINT DEFAULT NULL COMMENT '产品ID',
-  message_type VARCHAR(32) NOT NULL COMMENT '消息类型 telemetry/event/property/reply',
+  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',
   topic VARCHAR(255) DEFAULT NULL COMMENT '主题',
   payload JSON DEFAULT NULL COMMENT '原始消息',
   report_time DATETIME NOT NULL COMMENT '上报时间',
@@ -632,7 +632,7 @@ CREATE TABLE iot_device_message_log (
 ) COMMENT='设备消息日志表';
 
 -- 表：iot_device_metric_latest
--- 说明：telemetry v2 latest投影表
+-- 说明：时序最新值投影表
 CREATE TABLE iot_device_metric_latest (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   tenant_id BIGINT NOT NULL COMMENT '租户ID',
@@ -642,19 +642,19 @@ CREATE TABLE iot_device_metric_latest (
   metric_code VARCHAR(128) NOT NULL COMMENT '指标编码',
   metric_name VARCHAR(128) DEFAULT NULL COMMENT '指标名称',
   value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',
-  value_double DOUBLE DEFAULT NULL COMMENT '浮点值',
-  value_long BIGINT DEFAULT NULL COMMENT '整型值',
+  value_double DOUBLE DEFAULT NULL COMMENT '数值',
+  value_long BIGINT DEFAULT NULL COMMENT '整数值',
   value_bool TINYINT(1) DEFAULT NULL COMMENT '布尔值',
   value_text TEXT DEFAULT NULL COMMENT '文本值',
-  quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量码',
+  quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量编码',
   alarm_flag TINYINT(1) DEFAULT NULL COMMENT '告警标记',
-  reported_at DATETIME DEFAULT NULL COMMENT '实际上报时间',
+  reported_at DATETIME DEFAULT NULL COMMENT '设备上报时间',
   trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
   UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),
   KEY idx_tel_latest_device_reported (device_id, reported_at)
-) COMMENT='telemetry v2 latest投影表';
+) COMMENT='时序最新值投影表';
 
 -- 表：iot_device_online_session
 -- 说明：设备在线会话表
@@ -707,8 +707,8 @@ CREATE TABLE iot_device_relation (
   child_device_id BIGINT NOT NULL COMMENT '子设备ID',
   child_device_code VARCHAR(64) NOT NULL COMMENT '子设备编码',
   child_product_id BIGINT DEFAULT NULL COMMENT '子产品ID',
-  child_product_key VARCHAR(64) DEFAULT NULL COMMENT '子产品 productKey',
-  relation_type VARCHAR(32) NOT NULL COMMENT '关系类型 collector_child/gateway_child',
+  child_product_key VARCHAR(64) DEFAULT NULL COMMENT '子产品标识',
+  relation_type VARCHAR(32) NOT NULL COMMENT '关系类型（采集器子设备/网关子设备）',
   canonicalization_strategy VARCHAR(32) NOT NULL COMMENT '归一化策略 LEGACY/LF_VALUE',
   status_mirror_strategy VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT '状态镜像策略 NONE/SENSOR_STATE',
   enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
@@ -726,7 +726,7 @@ CREATE TABLE iot_device_relation (
 ) COMMENT='设备逻辑通道关系表';
 
 -- 表：iot_device_secret_rotation_log
--- 说明：iot设备密钥轮换log表
+-- 说明：设备密钥轮换日志表
 CREATE TABLE iot_device_secret_rotation_log (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
@@ -734,12 +734,12 @@ CREATE TABLE iot_device_secret_rotation_log (
   device_code VARCHAR(64) NOT NULL COMMENT '设备编码',
   product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
   rotation_batch_id VARCHAR(64) NOT NULL COMMENT '轮换批次ID',
-  reason VARCHAR(500) DEFAULT NULL COMMENT 'reason业务字段',
-  previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT 'previous密钥digest业务字段',
-  current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT 'current密钥digest业务字段',
-  rotated_by BIGINT NOT NULL COMMENT 'rotatedby业务字段',
-  approved_by BIGINT NOT NULL COMMENT 'approvedby业务字段',
-  rotate_time DATETIME NOT NULL COMMENT 'rotate时间',
+  reason VARCHAR(500) DEFAULT NULL COMMENT '轮换原因',
+  previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '上一版密钥摘要',
+  current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '当前密钥摘要',
+  rotated_by BIGINT NOT NULL COMMENT '轮换执行人',
+  approved_by BIGINT NOT NULL COMMENT '审批人',
+  rotate_time DATETIME NOT NULL COMMENT '轮换时间',
   create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',
@@ -748,14 +748,14 @@ CREATE TABLE iot_device_secret_rotation_log (
   PRIMARY KEY (id),
   KEY idx_device_rotation_device_time (device_id, rotate_time),
   KEY idx_device_rotation_batch (rotation_batch_id)
-) COMMENT='iot设备密钥轮换log表';
+) COMMENT='设备密钥轮换日志表';
 
 -- 表：iot_normative_metric_definition
 -- 说明：规范字段定义表
 CREATE TABLE iot_normative_metric_definition (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',
+  scenario_code VARCHAR(64) NOT NULL COMMENT '场景编码',
   device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',
   identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',
   display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',
@@ -764,13 +764,13 @@ CREATE TABLE iot_normative_metric_definition (
   monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',
   monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',
   risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',
-  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许趋势分析',
-  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '量纲',
+  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用趋势展示',
+  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',
   threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',
   semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',
-  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持GIS',
-  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持对象洞察',
-  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持运营分析',
+  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用地图展示',
+  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用对象洞察',
+  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用运营分析',
   status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',
   version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
   metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',
@@ -786,7 +786,7 @@ CREATE TABLE iot_normative_metric_definition (
 CREATE TABLE iot_product (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  product_key VARCHAR(64) NOT NULL COMMENT '产品Key',
+  product_key VARCHAR(64) NOT NULL COMMENT '产品标识',
   product_name VARCHAR(128) NOT NULL COMMENT '产品名称',
   protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',
   node_type TINYINT NOT NULL DEFAULT 1 COMMENT '节点类型 1直连设备 2网关设备 3网关子设备',
@@ -806,44 +806,44 @@ CREATE TABLE iot_product (
 ) COMMENT='产品表';
 
 -- 表：iot_product_contract_release_batch
--- 说明：iot产品contractrelease批次表
+-- 说明：产品合同发布批次表
 CREATE TABLE iot_product_contract_release_batch (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   product_id BIGINT NOT NULL COMMENT '产品ID',
-  scenario_code VARCHAR(64) NOT NULL COMMENT 'scenario编码',
-  release_source VARCHAR(64) NOT NULL COMMENT 'releasesource业务字段',
-  released_field_count INT NOT NULL DEFAULT 0 COMMENT 'releasedfieldcount业务字段',
+  scenario_code VARCHAR(64) NOT NULL COMMENT '场景编码',
+  release_source VARCHAR(64) NOT NULL COMMENT '发布来源',
+  released_field_count INT NOT NULL DEFAULT 0 COMMENT '发布字段数量',
   approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
-  release_reason VARCHAR(500) DEFAULT NULL COMMENT 'releasereason业务字段',
-  release_status VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT 'release状态业务字段',
+  release_reason VARCHAR(500) DEFAULT NULL COMMENT '发布原因',
+  release_status VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT '发布状态',
   create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  rollback_by BIGINT DEFAULT NULL COMMENT 'rollbackby业务字段',
-  rollback_time DATETIME DEFAULT NULL COMMENT 'rollback时间',
+  rollback_by BIGINT DEFAULT NULL COMMENT '回滚执行人',
+  rollback_time DATETIME DEFAULT NULL COMMENT '回滚时间',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   KEY idx_product_contract_release_product_time (product_id, create_time)
-) COMMENT='iot产品contractrelease批次表';
+) COMMENT='产品合同发布批次表';
 
 -- 表：iot_product_contract_release_snapshot
--- 说明：iot产品contractrelease快照表
+-- 说明：产品合同发布快照表
 CREATE TABLE iot_product_contract_release_snapshot (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   batch_id BIGINT NOT NULL COMMENT '批次ID',
   product_id BIGINT NOT NULL COMMENT '产品ID',
-  snapshot_stage VARCHAR(32) NOT NULL COMMENT '快照stage业务字段',
+  snapshot_stage VARCHAR(32) NOT NULL COMMENT '快照阶段',
   snapshot_json JSON NOT NULL COMMENT '快照JSON内容',
   create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)
-) COMMENT='iot产品contractrelease快照表';
+) COMMENT='产品合同发布快照表';
 
 -- 表：iot_product_metric_resolver_snapshot
--- 说明：iot产品指标resolver快照表
+-- 说明：产品指标解析快照表
 CREATE TABLE iot_product_metric_resolver_snapshot (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
@@ -855,7 +855,7 @@ CREATE TABLE iot_product_metric_resolver_snapshot (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   UNIQUE KEY uk_metric_resolver_snapshot_batch (product_id, release_batch_id, deleted)
-) COMMENT='iot产品指标resolver快照表';
+) COMMENT='产品指标解析快照表';
 
 -- 表：iot_product_model
 -- 说明：产品物模型表
@@ -863,7 +863,7 @@ CREATE TABLE iot_product_model (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   product_id BIGINT NOT NULL COMMENT '产品ID',
-  model_type VARCHAR(32) NOT NULL COMMENT '模型类型 property/event/service',
+  model_type VARCHAR(32) NOT NULL COMMENT '模型类型（属性/事件/服务）',
   identifier VARCHAR(64) NOT NULL COMMENT '标识符',
   model_name VARCHAR(128) NOT NULL COMMENT '名称',
   data_type VARCHAR(32) NOT NULL COMMENT '数据类型',
@@ -911,10 +911,10 @@ CREATE TABLE iot_vendor_metric_evidence (
 CREATE TABLE iot_vendor_metric_mapping_rule (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  scope_type VARCHAR(32) NOT NULL COMMENT 'scope类型业务字段',
+  scope_type VARCHAR(32) NOT NULL COMMENT '作用域类型',
   product_id BIGINT DEFAULT NULL COMMENT '产品ID',
   protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
-  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '治理场景编码',
+  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',
   device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',
   raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',
   logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',
@@ -939,16 +939,16 @@ CREATE TABLE iot_governance_ops_alert (
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   alert_type VARCHAR(64) NOT NULL COMMENT '告警类型',
   alert_code VARCHAR(128) NOT NULL COMMENT '告警业务编码',
-  subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE',
+  subject_type VARCHAR(64) NOT NULL COMMENT '审批主体类型',
   subject_id BIGINT DEFAULT NULL COMMENT '主题ID',
   product_id BIGINT DEFAULT NULL COMMENT '产品ID',
   risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
   release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
   trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
   device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
-  alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'alert状态业务字段',
-  severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT 'severitylevel业务字段',
+  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
+  alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '告警状态',
+  severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT '严重程度等级',
   affected_count BIGINT NOT NULL DEFAULT 0 COMMENT '影响数量',
   alert_title VARCHAR(255) NOT NULL COMMENT '告警标题',
   alert_message VARCHAR(1000) DEFAULT NULL COMMENT '告警内容',
@@ -976,7 +976,7 @@ CREATE TABLE iot_governance_work_item (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   work_item_code VARCHAR(64) NOT NULL COMMENT '工作项编码',
-  subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE',
+  subject_type VARCHAR(64) NOT NULL COMMENT '审批主体类型',
   subject_id BIGINT NOT NULL COMMENT '主题ID',
   product_id BIGINT DEFAULT NULL COMMENT '产品ID',
   risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
@@ -984,16 +984,16 @@ CREATE TABLE iot_governance_work_item (
   approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
   trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
   device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',
+  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
   work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '工作状态业务字段',
-  priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT 'prioritylevel业务字段',
+  priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT '优先级等级',
   assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',
   source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',
   blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',
   snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',
   task_category VARCHAR(64) DEFAULT NULL COMMENT '生命周期任务分类',
   domain_code VARCHAR(64) DEFAULT NULL COMMENT '生命周期域编码',
-  action_code VARCHAR(128) DEFAULT NULL COMMENT '生命周期动作编码',
+  action_code VARCHAR(128) DEFAULT NULL COMMENT '操作编码',
   execution_status VARCHAR(64) DEFAULT NULL COMMENT '生命周期执行状态',
   recommendation_snapshot_json LONGTEXT DEFAULT NULL COMMENT '推荐快照',
   evidence_snapshot_json LONGTEXT DEFAULT NULL COMMENT '证据快照',
@@ -1012,13 +1012,13 @@ CREATE TABLE iot_governance_work_item (
 ) COMMENT='治理与运营工作项表';
 
 -- 表：sys_governance_approval_order
--- 说明：sysgovernance审批工单表
+-- 说明：治理审批工单表
 CREATE TABLE sys_governance_approval_order (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  action_code VARCHAR(64) NOT NULL COMMENT 'action编码',
-  action_name VARCHAR(128) DEFAULT NULL COMMENT 'action名称',
-  subject_type VARCHAR(64) DEFAULT NULL COMMENT 'subject类型业务字段',
+  action_code VARCHAR(64) NOT NULL COMMENT '操作编码',
+  action_name VARCHAR(128) DEFAULT NULL COMMENT '操作名称',
+  subject_type VARCHAR(64) DEFAULT NULL COMMENT '审批主体类型',
   subject_id BIGINT DEFAULT NULL COMMENT '审批对象ID',
   work_item_id BIGINT DEFAULT NULL COMMENT '工作项ID',
   status VARCHAR(32) NOT NULL COMMENT '状态',
@@ -1036,16 +1036,16 @@ CREATE TABLE sys_governance_approval_order (
   KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),
   KEY idx_governance_approval_order_status_time (status, create_time, deleted),
   KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)
-) COMMENT='sysgovernance审批工单表';
+) COMMENT='治理审批工单表';
 
 -- 表：sys_governance_approval_policy
--- 说明：sysgovernance审批policy表
+-- 说明：治理审批策略表
 CREATE TABLE sys_governance_approval_policy (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 0 COMMENT '租户ID',
-  scope_type VARCHAR(16) NOT NULL COMMENT 'scope类型业务字段',
-  action_code VARCHAR(64) NOT NULL COMMENT 'action编码',
-  approver_mode VARCHAR(32) NOT NULL COMMENT '复核人mode业务字段',
+  scope_type VARCHAR(16) NOT NULL COMMENT '作用域类型',
+  action_code VARCHAR(64) NOT NULL COMMENT '操作编码',
+  approver_mode VARCHAR(32) NOT NULL COMMENT '复核人模式',
   approver_user_id BIGINT NOT NULL COMMENT '复核人用户ID',
   enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用标记',
   remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
@@ -1058,45 +1058,45 @@ CREATE TABLE sys_governance_approval_policy (
   UNIQUE KEY uk_governance_approval_policy_scope_action (scope_type, tenant_id, action_code, deleted),
   KEY idx_governance_approval_policy_enabled (enabled, scope_type, tenant_id, action_code, deleted),
   KEY idx_governance_approval_policy_approver (approver_user_id, enabled, deleted)
-) COMMENT='sysgovernance审批policy表';
+) COMMENT='治理审批策略表';
 
 -- 表：sys_governance_approval_transition
--- 说明：sysgovernance审批transition表
+-- 说明：治理审批流转记录表
 CREATE TABLE sys_governance_approval_transition (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   order_id BIGINT NOT NULL COMMENT '工单ID',
-  from_status VARCHAR(32) DEFAULT NULL COMMENT 'from状态业务字段',
-  to_status VARCHAR(32) NOT NULL COMMENT 'to状态业务字段',
+  from_status VARCHAR(32) DEFAULT NULL COMMENT '原状态',
+  to_status VARCHAR(32) NOT NULL COMMENT '目标状态',
   actor_user_id BIGINT NOT NULL COMMENT '操作人用户ID',
-  transition_comment VARCHAR(500) DEFAULT NULL COMMENT 'transitioncomment业务字段',
+  transition_comment VARCHAR(500) DEFAULT NULL COMMENT '流转备注',
   create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   KEY idx_governance_approval_transition_order (order_id, create_time, deleted),
   KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)
-) COMMENT='sysgovernance审批transition表';
+) COMMENT='治理审批流转记录表';
 
 -- 表：sys_governance_replay_feedback
--- 说明：sysgovernancereplayfeedback表
+-- 说明：治理复盘反馈表
 CREATE TABLE sys_governance_replay_feedback (
   id BIGINT NOT NULL COMMENT '主键ID',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
   work_item_id BIGINT NOT NULL COMMENT '工作项ID',
   approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',
   release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',
-  adopted_decision VARCHAR(64) DEFAULT NULL COMMENT 'adopteddecision业务字段',
-  execution_outcome VARCHAR(64) DEFAULT NULL COMMENT 'executionoutcome业务字段',
-  root_cause_code VARCHAR(64) DEFAULT NULL COMMENT 'rootcause编码',
-  feedback_json LONGTEXT DEFAULT NULL COMMENT 'feedbackJSON内容',
+  adopted_decision VARCHAR(64) DEFAULT NULL COMMENT '采纳结论',
+  execution_outcome VARCHAR(64) DEFAULT NULL COMMENT '执行结果',
+  root_cause_code VARCHAR(64) DEFAULT NULL COMMENT '根因编码',
+  feedback_json LONGTEXT DEFAULT NULL COMMENT '复盘反馈内容',
   create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   KEY idx_governance_replay_feedback_work_item (work_item_id, create_time, deleted),
   KEY idx_governance_replay_feedback_release_batch (release_batch_id, create_time, deleted)
-) COMMENT='sysgovernancereplayfeedback表';
+) COMMENT='治理复盘反馈表';
 
 -- 表：sys_audit_log
 -- 说明：审计日志表
@@ -1120,8 +1120,8 @@ CREATE TABLE sys_audit_log (
   trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
   device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
   product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
-  error_code VARCHAR(64) DEFAULT NULL COMMENT 'error编码',
-  exception_class VARCHAR(255) DEFAULT NULL COMMENT 'exceptionclass业务字段',
+  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',
+  exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
@@ -1165,7 +1165,7 @@ CREATE TABLE sys_dict_item (
   dict_id BIGINT NOT NULL COMMENT '字典ID',
   item_name VARCHAR(128) NOT NULL COMMENT '项名称',
   item_value VARCHAR(255) NOT NULL COMMENT '项值',
-  item_type VARCHAR(32) DEFAULT NULL COMMENT '项类型 string/number/boolean',
+  item_type VARCHAR(32) DEFAULT NULL COMMENT '条目类型（字符串/数值/布尔）',
   status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',
   sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',
   remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
@@ -1184,7 +1184,7 @@ CREATE TABLE sys_dict_item (
 CREATE TABLE sys_help_document (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  doc_category VARCHAR(32) NOT NULL COMMENT '文档分类 business/technical/faq',
+  doc_category VARCHAR(32) NOT NULL COMMENT '文档分类（业务/技术/常见问题）',
   title VARCHAR(128) NOT NULL COMMENT '文档标题',
   summary VARCHAR(500) DEFAULT NULL COMMENT '文档摘要',
   content LONGTEXT NOT NULL COMMENT '文档正文',
@@ -1208,12 +1208,12 @@ CREATE TABLE sys_help_document (
 CREATE TABLE sys_in_app_message (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  message_type VARCHAR(32) NOT NULL COMMENT '消息类型 system/business/error',
-  priority VARCHAR(32) NOT NULL DEFAULT 'medium' COMMENT '优先级 critical/high/medium/low',
+  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（系统/业务/错误）',
+  priority VARCHAR(32) NOT NULL DEFAULT 'medium' COMMENT '优先级（紧急/高/中/低）',
   title VARCHAR(128) NOT NULL COMMENT '消息标题',
   summary VARCHAR(500) DEFAULT NULL COMMENT '消息摘要',
   content LONGTEXT DEFAULT NULL COMMENT '消息正文',
-  target_type VARCHAR(16) NOT NULL DEFAULT 'all' COMMENT '推送范围 all/role/user',
+  target_type VARCHAR(16) NOT NULL DEFAULT 'all' COMMENT '推送范围（全部/角色/用户）',
   target_role_codes VARCHAR(500) DEFAULT NULL COMMENT '目标角色编码，逗号分隔',
   target_user_ids VARCHAR(500) DEFAULT NULL COMMENT '目标用户ID，逗号分隔',
   related_path VARCHAR(255) DEFAULT NULL COMMENT '关联页面路径',
@@ -1363,7 +1363,7 @@ CREATE TABLE sys_organization (
   parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父ID',
   org_name VARCHAR(128) NOT NULL COMMENT '组织名称',
   org_code VARCHAR(64) NOT NULL COMMENT '组织编码',
-  org_type VARCHAR(32) DEFAULT NULL COMMENT '组织类型 dept/position/team',
+  org_type VARCHAR(32) DEFAULT NULL COMMENT '组织类型（部门/岗位/班组）',
   leader_user_id BIGINT DEFAULT NULL COMMENT '负责人ID',
   leader_name VARCHAR(64) DEFAULT NULL COMMENT '负责人姓名',
   phone VARCHAR(32) DEFAULT NULL COMMENT '联系电话',
@@ -1391,7 +1391,7 @@ CREATE TABLE sys_region (
   region_name VARCHAR(128) NOT NULL COMMENT '区域名称',
   region_code VARCHAR(64) NOT NULL COMMENT '区域编码',
   parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父ID',
-  region_type VARCHAR(32) NOT NULL COMMENT '区域类型 province/city/district/street',
+  region_type VARCHAR(32) NOT NULL COMMENT '区域类型（省/市/区县/街道）',
   longitude DECIMAL(10,6) DEFAULT NULL COMMENT '经度',
   latitude DECIMAL(10,6) DEFAULT NULL COMMENT '纬度',
   status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',

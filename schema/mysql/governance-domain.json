@@ -10,8 +10,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sysgovernance审批工单表",
-      "commentZh": "sysgovernance审批工单表",
+      "tableCommentZh": "治理审批工单表",
+      "commentZh": "治理审批工单表",
       "fields": [
         {
           "name": "id",
@@ -26,17 +26,17 @@
         {
           "name": "action_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "action编码"
+          "commentZh": "操作编码"
         },
         {
           "name": "action_name",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "action名称"
+          "commentZh": "操作名称"
         },
         {
           "name": "subject_type",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "subject类型业务字段"
+          "commentZh": "审批主体类型"
         },
         {
           "name": "subject_id",
@@ -163,7 +163,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于sysgovernance审批工单表的数据持久化与查询，归属governance域并服务真实环境基线。"
+      "businessBoundary": "用于治理审批工单表的数据持久化与查询，归属治理域并服务真实环境基线。"
     },
     {
       "name": "sys_governance_approval_transition",
@@ -173,8 +173,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sysgovernance审批transition表",
-      "commentZh": "sysgovernance审批transition表",
+      "tableCommentZh": "治理审批流转记录表",
+      "commentZh": "治理审批流转记录表",
       "fields": [
         {
           "name": "id",
@@ -194,12 +194,12 @@
         {
           "name": "from_status",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "from状态业务字段"
+          "commentZh": "原状态"
         },
         {
           "name": "to_status",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "to状态业务字段"
+          "commentZh": "目标状态"
         },
         {
           "name": "actor_user_id",
@@ -209,7 +209,7 @@
         {
           "name": "transition_comment",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "transitioncomment业务字段"
+          "commentZh": "流转备注"
         },
         {
           "name": "create_by",
@@ -272,7 +272,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于sysgovernance审批transition表的数据持久化与查询，归属governance域并服务真实环境基线。"
+      "businessBoundary": "用于治理审批流转记录表的数据持久化与查询，归属治理域并服务真实环境基线。"
     },
     {
       "name": "sys_governance_approval_policy",
@@ -282,8 +282,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sysgovernance审批policy表",
-      "commentZh": "sysgovernance审批policy表",
+      "tableCommentZh": "治理审批策略表",
+      "commentZh": "治理审批策略表",
       "fields": [
         {
           "name": "id",
@@ -298,17 +298,17 @@
         {
           "name": "scope_type",
           "type": "VARCHAR(16) NOT NULL",
-          "commentZh": "scope类型业务字段"
+          "commentZh": "作用域类型"
         },
         {
           "name": "action_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "action编码"
+          "commentZh": "操作编码"
         },
         {
           "name": "approver_mode",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "复核人mode业务字段"
+          "commentZh": "复核人模式"
         },
         {
           "name": "approver_user_id",
@@ -398,7 +398,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于sysgovernance审批policy表的数据持久化与查询，归属governance域并服务真实环境基线。"
+      "businessBoundary": "用于治理审批策略表的数据持久化与查询，归属治理域并服务真实环境基线。"
     },
     {
       "name": "sys_governance_replay_feedback",
@@ -408,8 +408,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "sysgovernancereplayfeedback表",
-      "commentZh": "sysgovernancereplayfeedback表",
+      "tableCommentZh": "治理复盘反馈表",
+      "commentZh": "治理复盘反馈表",
       "fields": [
         {
           "name": "id",
@@ -439,22 +439,22 @@
         {
           "name": "adopted_decision",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "adopteddecision业务字段"
+          "commentZh": "采纳结论"
         },
         {
           "name": "execution_outcome",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "executionoutcome业务字段"
+          "commentZh": "执行结果"
         },
         {
           "name": "root_cause_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "rootcause编码"
+          "commentZh": "根因编码"
         },
         {
           "name": "feedback_json",
           "type": "LONGTEXT DEFAULT NULL",
-          "commentZh": "feedbackJSON内容"
+          "commentZh": "复盘反馈内容"
         },
         {
           "name": "create_by",
@@ -517,7 +517,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于sysgovernancereplayfeedback表的数据持久化与查询，归属governance域并服务真实环境基线。"
+      "businessBoundary": "用于治理复盘反馈表的数据持久化与查询，归属治理域并服务真实环境基线。"
     },
     {
       "name": "iot_governance_work_item",
@@ -548,7 +548,7 @@
         {
           "name": "subject_type",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE"
+          "commentZh": "审批主体类型"
         },
         {
           "name": "subject_id",
@@ -588,7 +588,7 @@
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "产品Key"
+          "commentZh": "产品标识"
         },
         {
           "name": "work_status",
@@ -598,7 +598,7 @@
         {
           "name": "priority_level",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'P2'",
-          "commentZh": "prioritylevel业务字段"
+          "commentZh": "优先级等级"
         },
         {
           "name": "assignee_user_id",
@@ -633,7 +633,7 @@
         {
           "name": "action_code",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "生命周期动作编码"
+          "commentZh": "操作编码"
         },
         {
           "name": "execution_status",
@@ -733,7 +733,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于治理与运营工作项表的数据持久化与查询，归属governance域并服务真实环境基线。"
+      "businessBoundary": "用于治理与运营工作项表的数据持久化与查询，归属治理域并服务真实环境基线。"
     },
     {
       "name": "iot_governance_ops_alert",
@@ -769,7 +769,7 @@
         {
           "name": "subject_type",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE"
+          "commentZh": "审批主体类型"
         },
         {
           "name": "subject_id",
@@ -804,17 +804,17 @@
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "产品Key"
+          "commentZh": "产品标识"
         },
         {
           "name": "alert_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'OPEN'",
-          "commentZh": "alert状态业务字段"
+          "commentZh": "告警状态"
         },
         {
           "name": "severity_level",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'WARN'",
-          "commentZh": "severitylevel业务字段"
+          "commentZh": "严重程度等级"
         },
         {
           "name": "affected_count",
@@ -929,7 +929,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于治理运维告警表的数据持久化与查询，归属governance域并服务真实环境基线。"
+      "businessBoundary": "用于治理运维告警表的数据持久化与查询，归属治理域并服务真实环境基线。"
     }
   ]
 }

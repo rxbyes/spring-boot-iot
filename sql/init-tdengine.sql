@@ -6,27 +6,27 @@ USE iot;
 -- ========================================
 -- 对象：iot_agg_measure_hour
 -- 类型：tdengine_stable
--- 说明：iotaggmeasurehour表
+-- 说明：数值点位小时聚合表
 -- 字段字典：
--- - ts: ts业务字段
+-- - ts: 时序时间
 -- - metric_id: 指标ID
 -- - metric_code: 指标编码
 -- - metric_name: 指标名称
--- - value_type: value类型业务字段
--- - first_reported_at: firstreported时间
--- - last_reported_at: lastreported时间
--- - min_value_double: minvaluedouble业务字段
--- - max_value_double: maxvaluedouble业务字段
--- - sum_value_double: sumvaluedouble业务字段
--- - last_value_double: lastvaluedouble业务字段
--- - sample_count: samplecount业务字段
+-- - value_type: 值类型
+-- - first_reported_at: 首次上报时间
+-- - last_reported_at: 最后上报时间
+-- - min_value_double: 最小数值
+-- - max_value_double: 最大数值
+-- - sum_value_double: 累计数值
+-- - last_value_double: 最近数值
+-- - sample_count: 样本数量
 -- - trace_id: 链路追踪ID
--- - source_message_type: source消息类型业务字段
+-- - source_message_type: 来源消息类型
 -- - tenant_id: 租户ID（TAG）
 -- - device_id: 设备ID（TAG）
 -- - product_id: 产品ID（TAG）
--- - sensor_group: sensorgroup业务字段（TAG）
--- - location_code: location编码（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
 -- - risk_point_id: 风险点ID（TAG）
 CREATE STABLE IF NOT EXISTS iot_agg_measure_hour (
   ts TIMESTAMP,
@@ -56,26 +56,26 @@ TAGS (
 -- ========================================
 -- 对象：iot_raw_event_point
 -- 类型：tdengine_stable
--- 说明：iotraw事件点位表
+-- 说明：原始事件点位表
 -- 字段字典：
--- - ts: ts业务字段
+-- - ts: 时序时间
 -- - metric_id: 指标ID
--- - reported_at: reported时间
--- - ingested_at: ingested时间
--- - value_double: valuedouble业务字段
--- - value_long: valuelong业务字段
--- - value_bool: valuebool业务字段
--- - value_text: valuetext业务字段
--- - quality_code: quality编码
+-- - reported_at: 设备上报时间
+-- - ingested_at: 平台入库时间
+-- - value_double: 数值
+-- - value_long: 整数值
+-- - value_bool: 布尔值
+-- - value_text: 文本值
+-- - quality_code: 质量编码
 -- - alarm_flag: 告警标记
 -- - trace_id: 链路追踪ID
 -- - session_id: 会话ID
--- - source_message_type: source消息类型业务字段
+-- - source_message_type: 来源消息类型
 -- - tenant_id: 租户ID（TAG）
 -- - device_id: 设备ID（TAG）
 -- - product_id: 产品ID（TAG）
--- - sensor_group: sensorgroup业务字段（TAG）
--- - location_code: location编码（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
 -- - risk_point_id: 风险点ID（TAG）
 CREATE STABLE IF NOT EXISTS iot_raw_event_point (
   ts TIMESTAMP,
@@ -104,26 +104,26 @@ TAGS (
 -- ========================================
 -- 对象：iot_raw_measure_point
 -- 类型：tdengine_stable
--- 说明：iotrawmeasure点位表
+-- 说明：原始数值点位表
 -- 字段字典：
--- - ts: ts业务字段
+-- - ts: 时序时间
 -- - metric_id: 指标ID
--- - reported_at: reported时间
--- - ingested_at: ingested时间
--- - value_double: valuedouble业务字段
--- - value_long: valuelong业务字段
--- - value_bool: valuebool业务字段
--- - value_text: valuetext业务字段
--- - quality_code: quality编码
+-- - reported_at: 设备上报时间
+-- - ingested_at: 平台入库时间
+-- - value_double: 数值
+-- - value_long: 整数值
+-- - value_bool: 布尔值
+-- - value_text: 文本值
+-- - quality_code: 质量编码
 -- - alarm_flag: 告警标记
 -- - trace_id: 链路追踪ID
 -- - session_id: 会话ID
--- - source_message_type: source消息类型业务字段
+-- - source_message_type: 来源消息类型
 -- - tenant_id: 租户ID（TAG）
 -- - device_id: 设备ID（TAG）
 -- - product_id: 产品ID（TAG）
--- - sensor_group: sensorgroup业务字段（TAG）
--- - location_code: location编码（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
 -- - risk_point_id: 风险点ID（TAG）
 CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
   ts TIMESTAMP,
@@ -152,26 +152,26 @@ TAGS (
 -- ========================================
 -- 对象：iot_raw_status_point
 -- 类型：tdengine_stable
--- 说明：iotraw状态点位表
+-- 说明：原始状态点位表
 -- 字段字典：
--- - ts: ts业务字段
+-- - ts: 时序时间
 -- - metric_id: 指标ID
--- - reported_at: reported时间
--- - ingested_at: ingested时间
--- - value_double: valuedouble业务字段
--- - value_long: valuelong业务字段
--- - value_bool: valuebool业务字段
--- - value_text: valuetext业务字段
--- - quality_code: quality编码
+-- - reported_at: 设备上报时间
+-- - ingested_at: 平台入库时间
+-- - value_double: 数值
+-- - value_long: 整数值
+-- - value_bool: 布尔值
+-- - value_text: 文本值
+-- - quality_code: 质量编码
 -- - alarm_flag: 告警标记
 -- - trace_id: 链路追踪ID
 -- - session_id: 会话ID
--- - source_message_type: source消息类型业务字段
+-- - source_message_type: 来源消息类型
 -- - tenant_id: 租户ID（TAG）
 -- - device_id: 设备ID（TAG）
 -- - product_id: 产品ID（TAG）
--- - sensor_group: sensorgroup业务字段（TAG）
--- - location_code: location编码（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
 -- - risk_point_id: 风险点ID（TAG）
 CREATE STABLE IF NOT EXISTS iot_raw_status_point (
   ts TIMESTAMP,
@@ -200,26 +200,26 @@ TAGS (
 -- ========================================
 -- 对象：iot_device_telemetry_point
 -- 类型：tdengine_table
--- 说明：iot设备telemetry点位表
+-- 说明：设备时序兼容点位表
 -- 字段字典：
--- - ts: ts业务字段
--- - reported_at: reported时间
+-- - ts: 时序时间
+-- - reported_at: 设备上报时间
 -- - tenant_id: 租户ID
 -- - device_id: 设备ID
 -- - device_code: 设备编码
 -- - product_id: 产品ID
 -- - product_key: 产品标识
--- - protocol_code: protocol编码
+-- - protocol_code: 协议编码
 -- - message_type: 消息类型
--- - mqtt_topic: mqtt主题业务字段
+-- - mqtt_topic: MQTT主题
 -- - trace_id: 链路追踪ID
 -- - metric_code: 指标编码
 -- - metric_name: 指标名称
--- - value_type: value类型业务字段
--- - value_text: valuetext业务字段
--- - value_long: valuelong业务字段
--- - value_double: valuedouble业务字段
--- - value_bool: valuebool业务字段
+-- - value_type: 值类型
+-- - value_text: 文本值
+-- - value_long: 整数值
+-- - value_double: 数值
+-- - value_bool: 布尔值
 CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
   ts TIMESTAMP,
   reported_at TIMESTAMP,

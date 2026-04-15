@@ -92,7 +92,7 @@
       ],
       "relations": [],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于租户表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于租户表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_user",
@@ -262,7 +262,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于系统用户表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于系统用户表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_role",
@@ -378,7 +378,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于角色表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于角色表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_user_role",
@@ -487,7 +487,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于用户角色关联表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于用户角色关联表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_menu",
@@ -670,7 +670,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于菜单表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于菜单表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_role_menu",
@@ -779,7 +779,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于角色菜单关联表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于角色菜单关联表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_organization",
@@ -820,7 +820,7 @@
         {
           "name": "org_type",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "组织类型 dept/position/team"
+          "commentZh": "组织类型（部门/岗位/班组）"
         },
         {
           "name": "leader_user_id",
@@ -935,7 +935,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于组织机构表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于组织机构表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_region",
@@ -976,7 +976,7 @@
         {
           "name": "region_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "区域类型 province/city/district/street"
+          "commentZh": "区域类型（省/市/区县/街道）"
         },
         {
           "name": "longitude",
@@ -1081,7 +1081,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于区域表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于区域表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_dict",
@@ -1214,7 +1214,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于字典表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于字典表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_dict_item",
@@ -1255,7 +1255,7 @@
         {
           "name": "item_type",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "项类型 string/number/boolean"
+          "commentZh": "条目类型（字符串/数值/布尔）"
         },
         {
           "name": "status",
@@ -1336,7 +1336,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于字典项表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于字典项表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_notification_channel",
@@ -1464,7 +1464,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于通知渠道表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于通知渠道表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message",
@@ -1490,12 +1490,12 @@
         {
           "name": "message_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "消息类型 system/business/error"
+          "commentZh": "消息类型（系统/业务/错误）"
         },
         {
           "name": "priority",
           "type": "VARCHAR(32) NOT NULL DEFAULT 'medium'",
-          "commentZh": "优先级 critical/high/medium/low"
+          "commentZh": "优先级（紧急/高/中/低）"
         },
         {
           "name": "title",
@@ -1515,7 +1515,7 @@
         {
           "name": "target_type",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'all'",
-          "commentZh": "推送范围 all/role/user"
+          "commentZh": "推送范围（全部/角色/用户）"
         },
         {
           "name": "target_role_codes",
@@ -1657,7 +1657,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于站内消息表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于站内消息表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message_read",
@@ -1751,7 +1751,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于站内消息已读表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于站内消息已读表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message_bridge_log",
@@ -1893,7 +1893,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于站内消息未读桥接日志表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于站内消息未读桥接日志表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_in_app_message_bridge_attempt_log",
@@ -2024,7 +2024,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于站内消息桥接尝试明细表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于站内消息桥接尝试明细表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_help_document",
@@ -2050,7 +2050,7 @@
         {
           "name": "doc_category",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "文档分类 business/technical/faq"
+          "commentZh": "文档分类（业务/技术/常见问题）"
         },
         {
           "name": "title",
@@ -2155,7 +2155,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于帮助文档表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于帮助文档表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     },
     {
       "name": "sys_audit_log",
@@ -2266,12 +2266,12 @@
         {
           "name": "error_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "error编码"
+          "commentZh": "错误编码"
         },
         {
           "name": "exception_class",
           "type": "VARCHAR(255) DEFAULT NULL",
-          "commentZh": "exceptionclass业务字段"
+          "commentZh": "异常类型"
         },
         {
           "name": "create_time",
@@ -2354,7 +2354,7 @@
         }
       ],
       "lineageRole": "governance_master_data",
-      "businessBoundary": "用于审计日志表的数据持久化与查询，归属system域并服务真实环境基线。"
+      "businessBoundary": "用于审计日志表的数据持久化与查询，归属系统治理域并服务真实环境基线。"
     }
   ]
 }

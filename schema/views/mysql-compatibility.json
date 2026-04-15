@@ -88,7 +88,7 @@
         }
       ],
       "lineageRole": "compatibility_projection",
-      "businessBoundary": "提供历史兼容读取入口，统一暴露设备消息日志字段，真实写入边界仍归属iot_device_message_log。",
+      "businessBoundary": "提供历史兼容读取入口，统一暴露设备消息日志字段，真实写入边界仍归属设备消息日志表。",
       "sourceTables": [
         "iot_device_message_log"
       ],

@@ -10,19 +10,19 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iot设备telemetry点位表",
-      "commentZh": "iot设备telemetry点位表",
+      "tableCommentZh": "设备时序兼容点位表",
+      "commentZh": "设备时序兼容点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts业务字段",
+          "commentZh": "时序时间",
           "isTag": false
         },
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported时间",
+          "commentZh": "设备上报时间",
           "isTag": false
         },
         {
@@ -58,7 +58,7 @@
         {
           "name": "protocol_code",
           "type": "BINARY(64)",
-          "commentZh": "protocol编码",
+          "commentZh": "协议编码",
           "isTag": false
         },
         {
@@ -70,7 +70,7 @@
         {
           "name": "mqtt_topic",
           "type": "BINARY(512)",
-          "commentZh": "mqtt主题业务字段",
+          "commentZh": "MQTT主题",
           "isTag": false
         },
         {
@@ -94,31 +94,31 @@
         {
           "name": "value_type",
           "type": "BINARY(32)",
-          "commentZh": "value类型业务字段",
+          "commentZh": "值类型",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "valuetext业务字段",
+          "commentZh": "文本值",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "valuelong业务字段",
+          "commentZh": "整数值",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "valuedouble业务字段",
+          "commentZh": "数值",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "valuebool业务字段",
+          "commentZh": "布尔值",
           "isTag": false
         }
       ],
@@ -141,7 +141,7 @@
         }
       ],
       "lineageRole": "telemetry_compatibility_fallback",
-      "businessBoundary": "用于iot设备telemetry点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
+      "businessBoundary": "用于设备时序兼容点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
     },
     {
       "name": "iot_raw_measure_point",
@@ -151,13 +151,13 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iotrawmeasure点位表",
-      "commentZh": "iotrawmeasure点位表",
+      "tableCommentZh": "原始数值点位表",
+      "commentZh": "原始数值点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts业务字段",
+          "commentZh": "时序时间",
           "isTag": false
         },
         {
@@ -169,43 +169,43 @@
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported时间",
+          "commentZh": "设备上报时间",
           "isTag": false
         },
         {
           "name": "ingested_at",
           "type": "TIMESTAMP",
-          "commentZh": "ingested时间",
+          "commentZh": "平台入库时间",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "valuedouble业务字段",
+          "commentZh": "数值",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "valuelong业务字段",
+          "commentZh": "整数值",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "valuebool业务字段",
+          "commentZh": "布尔值",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "valuetext业务字段",
+          "commentZh": "文本值",
           "isTag": false
         },
         {
           "name": "quality_code",
           "type": "BINARY(32)",
-          "commentZh": "quality编码",
+          "commentZh": "质量编码",
           "isTag": false
         },
         {
@@ -229,7 +229,7 @@
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source消息类型业务字段",
+          "commentZh": "来源消息类型",
           "isTag": false
         },
         {
@@ -253,13 +253,13 @@
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensorgroup业务字段",
+          "commentZh": "传感器分组",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location编码",
+          "commentZh": "位置编码",
           "isTag": true
         },
         {
@@ -293,7 +293,7 @@
         }
       ],
       "lineageRole": "telemetry_raw_timeseries",
-      "businessBoundary": "用于iotrawmeasure点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
+      "businessBoundary": "用于原始数值点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
     },
     {
       "name": "iot_raw_status_point",
@@ -303,13 +303,13 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iotraw状态点位表",
-      "commentZh": "iotraw状态点位表",
+      "tableCommentZh": "原始状态点位表",
+      "commentZh": "原始状态点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts业务字段",
+          "commentZh": "时序时间",
           "isTag": false
         },
         {
@@ -321,43 +321,43 @@
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported时间",
+          "commentZh": "设备上报时间",
           "isTag": false
         },
         {
           "name": "ingested_at",
           "type": "TIMESTAMP",
-          "commentZh": "ingested时间",
+          "commentZh": "平台入库时间",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "valuedouble业务字段",
+          "commentZh": "数值",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "valuelong业务字段",
+          "commentZh": "整数值",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "valuebool业务字段",
+          "commentZh": "布尔值",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "valuetext业务字段",
+          "commentZh": "文本值",
           "isTag": false
         },
         {
           "name": "quality_code",
           "type": "BINARY(32)",
-          "commentZh": "quality编码",
+          "commentZh": "质量编码",
           "isTag": false
         },
         {
@@ -381,7 +381,7 @@
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source消息类型业务字段",
+          "commentZh": "来源消息类型",
           "isTag": false
         },
         {
@@ -405,13 +405,13 @@
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensorgroup业务字段",
+          "commentZh": "传感器分组",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location编码",
+          "commentZh": "位置编码",
           "isTag": true
         },
         {
@@ -445,7 +445,7 @@
         }
       ],
       "lineageRole": "telemetry_raw_timeseries",
-      "businessBoundary": "用于iotraw状态点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
+      "businessBoundary": "用于原始状态点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
     },
     {
       "name": "iot_raw_event_point",
@@ -455,13 +455,13 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "auto_bootstrap",
-      "tableCommentZh": "iotraw事件点位表",
-      "commentZh": "iotraw事件点位表",
+      "tableCommentZh": "原始事件点位表",
+      "commentZh": "原始事件点位表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts业务字段",
+          "commentZh": "时序时间",
           "isTag": false
         },
         {
@@ -473,43 +473,43 @@
         {
           "name": "reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "reported时间",
+          "commentZh": "设备上报时间",
           "isTag": false
         },
         {
           "name": "ingested_at",
           "type": "TIMESTAMP",
-          "commentZh": "ingested时间",
+          "commentZh": "平台入库时间",
           "isTag": false
         },
         {
           "name": "value_double",
           "type": "DOUBLE",
-          "commentZh": "valuedouble业务字段",
+          "commentZh": "数值",
           "isTag": false
         },
         {
           "name": "value_long",
           "type": "BIGINT",
-          "commentZh": "valuelong业务字段",
+          "commentZh": "整数值",
           "isTag": false
         },
         {
           "name": "value_bool",
           "type": "BOOL",
-          "commentZh": "valuebool业务字段",
+          "commentZh": "布尔值",
           "isTag": false
         },
         {
           "name": "value_text",
           "type": "NCHAR(1024)",
-          "commentZh": "valuetext业务字段",
+          "commentZh": "文本值",
           "isTag": false
         },
         {
           "name": "quality_code",
           "type": "BINARY(32)",
-          "commentZh": "quality编码",
+          "commentZh": "质量编码",
           "isTag": false
         },
         {
@@ -533,7 +533,7 @@
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source消息类型业务字段",
+          "commentZh": "来源消息类型",
           "isTag": false
         },
         {
@@ -557,13 +557,13 @@
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensorgroup业务字段",
+          "commentZh": "传感器分组",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location编码",
+          "commentZh": "位置编码",
           "isTag": true
         },
         {
@@ -597,7 +597,7 @@
         }
       ],
       "lineageRole": "telemetry_raw_timeseries",
-      "businessBoundary": "用于iotraw事件点位表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
+      "businessBoundary": "用于原始事件点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
     },
     {
       "name": "iot_agg_measure_hour",
@@ -605,15 +605,15 @@
       "ownerModule": "spring-boot-iot-telemetry",
       "lifecycle": "active",
       "includedInInit": true,
-      "includedInSchemaSync": true,
+      "includedInSchemaSync": false,
       "runtimeBootstrapMode": "manual_bootstrap_required",
-      "tableCommentZh": "iotaggmeasurehour表",
-      "commentZh": "iotaggmeasurehour表",
+      "tableCommentZh": "数值点位小时聚合表",
+      "commentZh": "数值点位小时聚合表",
       "fields": [
         {
           "name": "ts",
           "type": "TIMESTAMP",
-          "commentZh": "ts业务字段",
+          "commentZh": "时序时间",
           "isTag": false
         },
         {
@@ -637,49 +637,49 @@
         {
           "name": "value_type",
           "type": "BINARY(32)",
-          "commentZh": "value类型业务字段",
+          "commentZh": "值类型",
           "isTag": false
         },
         {
           "name": "first_reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "firstreported时间",
+          "commentZh": "首次上报时间",
           "isTag": false
         },
         {
           "name": "last_reported_at",
           "type": "TIMESTAMP",
-          "commentZh": "lastreported时间",
+          "commentZh": "最后上报时间",
           "isTag": false
         },
         {
           "name": "min_value_double",
           "type": "DOUBLE",
-          "commentZh": "minvaluedouble业务字段",
+          "commentZh": "最小数值",
           "isTag": false
         },
         {
           "name": "max_value_double",
           "type": "DOUBLE",
-          "commentZh": "maxvaluedouble业务字段",
+          "commentZh": "最大数值",
           "isTag": false
         },
         {
           "name": "sum_value_double",
           "type": "DOUBLE",
-          "commentZh": "sumvaluedouble业务字段",
+          "commentZh": "累计数值",
           "isTag": false
         },
         {
           "name": "last_value_double",
           "type": "DOUBLE",
-          "commentZh": "lastvaluedouble业务字段",
+          "commentZh": "最近数值",
           "isTag": false
         },
         {
           "name": "sample_count",
           "type": "BIGINT",
-          "commentZh": "samplecount业务字段",
+          "commentZh": "样本数量",
           "isTag": false
         },
         {
@@ -691,7 +691,7 @@
         {
           "name": "source_message_type",
           "type": "BINARY(32)",
-          "commentZh": "source消息类型业务字段",
+          "commentZh": "来源消息类型",
           "isTag": false
         },
         {
@@ -715,13 +715,13 @@
         {
           "name": "sensor_group",
           "type": "BINARY(64)",
-          "commentZh": "sensorgroup业务字段",
+          "commentZh": "传感器分组",
           "isTag": true
         },
         {
           "name": "location_code",
           "type": "BINARY(64)",
-          "commentZh": "location编码",
+          "commentZh": "位置编码",
           "isTag": true
         },
         {
@@ -755,7 +755,7 @@
         }
       ],
       "lineageRole": "telemetry_hourly_aggregate",
-      "businessBoundary": "用于iotaggmeasurehour表的数据持久化与查询，归属telemetry域并服务真实环境基线。"
+      "businessBoundary": "用于数值点位小时聚合表的数据持久化与查询，归属时序域并服务真实环境基线。"
     }
   ]
 }

@@ -26,7 +26,7 @@
         {
           "name": "product_key",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "产品Key"
+          "commentZh": "产品标识"
         },
         {
           "name": "product_name",
@@ -124,7 +124,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于产品表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于产品表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_product_model",
@@ -155,7 +155,7 @@
         {
           "name": "model_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "模型类型 property/event/service"
+          "commentZh": "模型类型（属性/事件/服务）"
         },
         {
           "name": "identifier",
@@ -254,7 +254,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于产品物模型表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于产品物模型表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_normative_metric_definition",
@@ -280,7 +280,7 @@
         {
           "name": "scenario_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "治理场景编码"
+          "commentZh": "场景编码"
         },
         {
           "name": "device_family",
@@ -325,12 +325,12 @@
         {
           "name": "trend_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "是否允许趋势分析"
+          "commentZh": "是否启用趋势展示"
         },
         {
           "name": "metric_dimension",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "量纲"
+          "commentZh": "指标量纲"
         },
         {
           "name": "threshold_type",
@@ -345,17 +345,17 @@
         {
           "name": "gis_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "是否支持GIS"
+          "commentZh": "是否启用地图展示"
         },
         {
           "name": "insight_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "是否支持对象洞察"
+          "commentZh": "是否启用对象洞察"
         },
         {
           "name": "analytics_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "是否支持运营分析"
+          "commentZh": "是否启用运营分析"
         },
         {
           "name": "status",
@@ -413,7 +413,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于规范字段定义表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于规范字段定义表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_vendor_metric_evidence",
@@ -551,7 +551,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于厂商字段证据表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于厂商字段证据表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_vendor_metric_mapping_rule",
@@ -577,7 +577,7 @@
         {
           "name": "scope_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "scope类型业务字段"
+          "commentZh": "作用域类型"
         },
         {
           "name": "product_id",
@@ -592,7 +592,7 @@
         {
           "name": "scenario_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "治理场景编码"
+          "commentZh": "场景编码"
         },
         {
           "name": "device_family",
@@ -687,7 +687,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于厂商字段映射规则表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于厂商字段映射规则表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_product_contract_release_batch",
@@ -697,8 +697,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot产品contractrelease批次表",
-      "commentZh": "iot产品contractrelease批次表",
+      "tableCommentZh": "产品合同发布批次表",
+      "commentZh": "产品合同发布批次表",
       "fields": [
         {
           "name": "id",
@@ -718,17 +718,17 @@
         {
           "name": "scenario_code",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "scenario编码"
+          "commentZh": "场景编码"
         },
         {
           "name": "release_source",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "releasesource业务字段"
+          "commentZh": "发布来源"
         },
         {
           "name": "released_field_count",
           "type": "INT NOT NULL DEFAULT 0",
-          "commentZh": "releasedfieldcount业务字段"
+          "commentZh": "发布字段数量"
         },
         {
           "name": "approval_order_id",
@@ -738,12 +738,12 @@
         {
           "name": "release_reason",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "releasereason业务字段"
+          "commentZh": "发布原因"
         },
         {
           "name": "release_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'RELEASED'",
-          "commentZh": "release状态业务字段"
+          "commentZh": "发布状态"
         },
         {
           "name": "create_by",
@@ -758,12 +758,12 @@
         {
           "name": "rollback_by",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "rollbackby业务字段"
+          "commentZh": "回滚执行人"
         },
         {
           "name": "rollback_time",
           "type": "DATETIME DEFAULT NULL",
-          "commentZh": "rollback时间"
+          "commentZh": "回滚时间"
         },
         {
           "name": "deleted",
@@ -806,7 +806,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于iot产品contractrelease批次表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于产品合同发布批次表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_product_contract_release_snapshot",
@@ -816,8 +816,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot产品contractrelease快照表",
-      "commentZh": "iot产品contractrelease快照表",
+      "tableCommentZh": "产品合同发布快照表",
+      "commentZh": "产品合同发布快照表",
       "fields": [
         {
           "name": "id",
@@ -842,7 +842,7 @@
         {
           "name": "snapshot_stage",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "快照stage业务字段"
+          "commentZh": "快照阶段"
         },
         {
           "name": "snapshot_json",
@@ -900,7 +900,7 @@
         }
       ],
       "lineageRole": "snapshot_baseline",
-      "businessBoundary": "用于iot产品contractrelease快照表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于产品合同发布快照表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_product_metric_resolver_snapshot",
@@ -910,8 +910,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot产品指标resolver快照表",
-      "commentZh": "iot产品指标resolver快照表",
+      "tableCommentZh": "产品指标解析快照表",
+      "commentZh": "产品指标解析快照表",
       "fields": [
         {
           "name": "id",
@@ -990,7 +990,7 @@
         }
       ],
       "lineageRole": "snapshot_baseline",
-      "businessBoundary": "用于iot产品指标resolver快照表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于产品指标解析快照表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device",
@@ -1225,7 +1225,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "用于设备表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_relation",
@@ -1281,12 +1281,12 @@
         {
           "name": "child_product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "子产品 productKey"
+          "commentZh": "子产品标识"
         },
         {
           "name": "relation_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "关系类型 collector_child/gateway_child"
+          "commentZh": "关系类型（采集器子设备/网关子设备）"
         },
         {
           "name": "canonicalization_strategy",
@@ -1401,7 +1401,7 @@
         }
       ],
       "lineageRole": "relationship_mapping",
-      "businessBoundary": "用于设备逻辑通道关系表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备逻辑通道关系表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_online_session",
@@ -1531,7 +1531,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "用于设备在线会话表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备在线会话表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_property",
@@ -1625,7 +1625,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "用于设备最新属性表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备最新属性表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_metric_latest",
@@ -1635,8 +1635,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "telemetry v2 latest投影表",
-      "commentZh": "telemetry v2 latest投影表",
+      "tableCommentZh": "时序最新值投影表",
+      "commentZh": "时序最新值投影表",
       "fields": [
         {
           "name": "id",
@@ -1681,12 +1681,12 @@
         {
           "name": "value_double",
           "type": "DOUBLE DEFAULT NULL",
-          "commentZh": "浮点值"
+          "commentZh": "数值"
         },
         {
           "name": "value_long",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "整型值"
+          "commentZh": "整数值"
         },
         {
           "name": "value_bool",
@@ -1701,7 +1701,7 @@
         {
           "name": "quality_code",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "质量码"
+          "commentZh": "质量编码"
         },
         {
           "name": "alarm_flag",
@@ -1711,7 +1711,7 @@
         {
           "name": "reported_at",
           "type": "DATETIME DEFAULT NULL",
-          "commentZh": "实际上报时间"
+          "commentZh": "设备上报时间"
         },
         {
           "name": "trace_id",
@@ -1768,7 +1768,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "用于telemetry v2 latest投影表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于时序最新值投影表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_message_log",
@@ -1804,7 +1804,7 @@
         {
           "name": "message_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "消息类型 telemetry/event/property/reply"
+          "commentZh": "消息类型（遥测/事件/属性/应答）"
         },
         {
           "name": "topic",
@@ -1899,7 +1899,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "承载设备上报报文的原始日志留痕，用于链路追踪、问题排查与兼容视图读取。"
+      "businessBoundary": "用于设备消息日志表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_access_error_log",
@@ -1950,7 +1950,7 @@
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "产品Key"
+          "commentZh": "产品标识"
         },
         {
           "name": "gateway_device_code",
@@ -1965,7 +1965,7 @@
         {
           "name": "topic_route_type",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "topic 路由类型"
+          "commentZh": "主题路由类型"
         },
         {
           "name": "message_type",
@@ -1985,27 +1985,27 @@
         {
           "name": "payload_size",
           "type": "INT DEFAULT NULL",
-          "commentZh": "payload 大小"
+          "commentZh": "载荷大小"
         },
         {
           "name": "payload_encoding",
           "type": "VARCHAR(16) DEFAULT NULL",
-          "commentZh": "payload 编码"
+          "commentZh": "载荷编码"
         },
         {
           "name": "payload_truncated",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "payload 是否截断"
+          "commentZh": "载荷是否截断"
         },
         {
           "name": "raw_payload",
           "type": "LONGTEXT DEFAULT NULL",
-          "commentZh": "原始 payload"
+          "commentZh": "原始载荷"
         },
         {
           "name": "error_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "错误码"
+          "commentZh": "错误编码"
         },
         {
           "name": "exception_class",
@@ -2083,7 +2083,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "用于设备接入失败归档表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备接入失败归档表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_invalid_report_state",
@@ -2134,7 +2134,7 @@
         {
           "name": "product_key",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "产品Key"
+          "commentZh": "产品标识"
         },
         {
           "name": "protocol_code",
@@ -2144,37 +2144,37 @@
         {
           "name": "topic_route_type",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "topic 路由类型"
+          "commentZh": "主题路由类型"
         },
         {
           "name": "topic",
           "type": "VARCHAR(255) DEFAULT NULL",
-          "commentZh": "最近 topic"
+          "commentZh": "最近主题"
         },
         {
           "name": "client_id",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "最近 clientId"
+          "commentZh": "最近客户端标识"
         },
         {
           "name": "payload_size",
           "type": "INT DEFAULT NULL",
-          "commentZh": "最近 payload 大小"
+          "commentZh": "载荷大小"
         },
         {
           "name": "payload_encoding",
           "type": "VARCHAR(16) DEFAULT NULL",
-          "commentZh": "最近 payload 编码"
+          "commentZh": "载荷编码"
         },
         {
           "name": "last_payload",
           "type": "LONGTEXT DEFAULT NULL",
-          "commentZh": "最近 payload"
+          "commentZh": "最近载荷"
         },
         {
           "name": "last_trace_id",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "最近 traceId"
+          "commentZh": "最近链路追踪ID"
         },
         {
           "name": "sample_error_message",
@@ -2279,7 +2279,7 @@
         }
       ],
       "lineageRole": "device_domain_state",
-      "businessBoundary": "用于无效 MQTT 上报最新态表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于无效 MQTT 上报最新态表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_command_record",
@@ -2320,7 +2320,7 @@
         {
           "name": "product_key",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "产品Key"
+          "commentZh": "产品标识"
         },
         {
           "name": "gateway_device_code",
@@ -2335,12 +2335,12 @@
         {
           "name": "topic",
           "type": "VARCHAR(255) NOT NULL",
-          "commentZh": "下发Topic"
+          "commentZh": "下发主题"
         },
         {
           "name": "command_type",
           "type": "VARCHAR(32) NOT NULL",
-          "commentZh": "命令类型 property/service"
+          "commentZh": "命令类型（属性下发/服务调用）"
         },
         {
           "name": "service_identifier",
@@ -2360,7 +2360,7 @@
         {
           "name": "qos",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "qos业务字段"
+          "commentZh": "服务质量等级"
         },
         {
           "name": "retained",
@@ -2473,7 +2473,7 @@
         }
       ],
       "lineageRole": "transaction_record",
-      "businessBoundary": "用于设备命令记录表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备命令记录表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
       "name": "iot_device_secret_rotation_log",
@@ -2483,8 +2483,8 @@
       "includedInInit": true,
       "includedInSchemaSync": true,
       "runtimeBootstrapMode": "schema_sync_managed",
-      "tableCommentZh": "iot设备密钥轮换log表",
-      "commentZh": "iot设备密钥轮换log表",
+      "tableCommentZh": "设备密钥轮换日志表",
+      "commentZh": "设备密钥轮换日志表",
       "fields": [
         {
           "name": "id",
@@ -2519,32 +2519,32 @@
         {
           "name": "reason",
           "type": "VARCHAR(500) DEFAULT NULL",
-          "commentZh": "reason业务字段"
+          "commentZh": "轮换原因"
         },
         {
           "name": "previous_secret_digest",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "previous密钥digest业务字段"
+          "commentZh": "上一版密钥摘要"
         },
         {
           "name": "current_secret_digest",
           "type": "VARCHAR(128) DEFAULT NULL",
-          "commentZh": "current密钥digest业务字段"
+          "commentZh": "当前密钥摘要"
         },
         {
           "name": "rotated_by",
           "type": "BIGINT NOT NULL",
-          "commentZh": "rotatedby业务字段"
+          "commentZh": "轮换执行人"
         },
         {
           "name": "approved_by",
           "type": "BIGINT NOT NULL",
-          "commentZh": "approvedby业务字段"
+          "commentZh": "审批人"
         },
         {
           "name": "rotate_time",
           "type": "DATETIME NOT NULL",
-          "commentZh": "rotate时间"
+          "commentZh": "轮换时间"
         },
         {
           "name": "create_by",
@@ -2614,7 +2614,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "用于iot设备密钥轮换log表的数据持久化与查询，归属device域并服务真实环境基线。"
+      "businessBoundary": "用于设备密钥轮换日志表的数据持久化与查询，归属设备域并服务真实环境基线。"
     }
   ]
 }

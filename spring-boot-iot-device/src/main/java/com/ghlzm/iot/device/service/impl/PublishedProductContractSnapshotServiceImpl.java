@@ -17,10 +17,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -57,22 +54,42 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return PublishedProductContractSnapshot.empty(null);
         }
         Long latestReleasedBatchId = resolveLatestReleasedBatchId(productId);
-        Map<String, String> currentFormalByLower = loadCurrentFormalIdentifierMap(productId);
-        String currentFormalSignature = buildCurrentFormalSignature(currentFormalByLower);
         CachedSnapshot cachedSnapshot = latestSnapshotCache.get(productId);
-        if (cachedSnapshot != null
-                && Objects.equals(cachedSnapshot.releaseBatchId(), latestReleasedBatchId)
-                && Objects.equals(cachedSnapshot.currentFormalSignature(), currentFormalSignature)) {
+        if (cachedSnapshot != null && Objects.equals(cachedSnapshot.releaseBatchId(), latestReleasedBatchId)) {
             return cachedSnapshot.snapshot();
         }
-        PersistedSnapshotData persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
-        PublishedProductContractSnapshot snapshot =
-                mergeSnapshotWithCurrentFormal(productId, latestReleasedBatchId, currentFormalByLower, persistedSnapshot);
-        cacheSnapshot(productId, latestReleasedBatchId, currentFormalSignature, snapshot);
+        PublishedProductContractSnapshot persistedSnapshot = loadPersistedSnapshot(productId, latestReleasedBatchId);
+        if (persistedSnapshot != null) {
+            cacheSnapshot(productId, latestReleasedBatchId, persistedSnapshot);
+            return persistedSnapshot;
+        }
+        PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
+                .productId(productId)
+                .releaseBatchId(latestReleasedBatchId);
+        List<ProductModel> productModels = productModelMapper.selectList(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, productId)
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+                        .orderByAsc(ProductModel::getSortNo)
+                        .orderByAsc(ProductModel::getIdentifier)
+        );
+        for (ProductModel productModel : productModels) {
+            String identifier = productModel.getIdentifier();
+            String canonicalIdentifier = toCanonicalIdentifier(identifier);
+            if (canonicalIdentifier == null) {
+                continue;
+            }
+            builder.publishedIdentifier(canonicalIdentifier);
+            builder.canonicalAlias(identifier, canonicalIdentifier);
+            builder.canonicalAlias(canonicalIdentifier, canonicalIdentifier);
+        }
+        PublishedProductContractSnapshot snapshot = builder.build();
+        cacheSnapshot(productId, latestReleasedBatchId, snapshot);
         return snapshot;
     }
 
-    private PersistedSnapshotData loadPersistedSnapshot(Long productId, Long releaseBatchId) {
+    private PublishedProductContractSnapshot loadPersistedSnapshot(Long productId, Long releaseBatchId) {
         if (snapshotMapper == null || productId == null || releaseBatchId == null) {
             return null;
         }
@@ -112,7 +129,6 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
 
     private void cacheSnapshot(Long productId,
                                Long releaseBatchId,
-                               String currentFormalSignature,
                                PublishedProductContractSnapshot snapshot) {
         if (productId == null) {
             return;
@@ -121,10 +137,10 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             latestSnapshotCache.remove(productId);
             return;
         }
-        latestSnapshotCache.put(productId, new CachedSnapshot(releaseBatchId, currentFormalSignature, snapshot));
+        latestSnapshotCache.put(productId, new CachedSnapshot(releaseBatchId, snapshot));
     }
 
-    private PersistedSnapshotData parseSnapshot(Long productId, Long releaseBatchId, String snapshotJson) {
+    private PublishedProductContractSnapshot parseSnapshot(Long productId, Long releaseBatchId, String snapshotJson) {
         if (!StringUtils.hasText(snapshotJson)) {
             return null;
         }
@@ -133,7 +149,6 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
                     .productId(productId)
                     .releaseBatchId(releaseBatchId);
-            Map<String, String> canonicalAliases = new LinkedHashMap<>();
             JsonNode publishedIdentifiersNode = root.path("publishedIdentifiers");
             if (publishedIdentifiersNode.isArray()) {
                 for (JsonNode identifierNode : publishedIdentifiersNode) {
@@ -146,75 +161,14 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             if (canonicalAliasesNode.isObject()) {
                 canonicalAliasesNode.fields().forEachRemaining(entry -> {
                     if (entry != null && entry.getValue() != null && entry.getValue().isTextual()) {
-                        canonicalAliases.put(entry.getKey(), entry.getValue().asText());
                         builder.canonicalAlias(entry.getKey(), entry.getValue().asText());
                     }
                 });
             }
-            return new PersistedSnapshotData(builder.build(), canonicalAliases);
+            return builder.build();
         } catch (Exception ex) {
             return null;
         }
-    }
-
-    private PublishedProductContractSnapshot mergeSnapshotWithCurrentFormal(Long productId,
-                                                                            Long releaseBatchId,
-                                                                            Map<String, String> currentFormalByLower,
-                                                                            PersistedSnapshotData persistedSnapshot) {
-        if (currentFormalByLower.isEmpty()) {
-            return PublishedProductContractSnapshot.builder()
-                    .productId(productId)
-                    .releaseBatchId(releaseBatchId)
-                    .build();
-        }
-        PublishedProductContractSnapshot.Builder builder = PublishedProductContractSnapshot.builder()
-                .productId(productId)
-                .releaseBatchId(releaseBatchId)
-                .publishedIdentifiers(currentFormalByLower.values());
-        currentFormalByLower.values().forEach(identifier -> builder.canonicalAlias(identifier, identifier));
-        if (persistedSnapshot != null) {
-            persistedSnapshot.canonicalAliases().forEach((alias, target) -> {
-                String normalizedTarget = normalizeIdentifier(target);
-                if (!StringUtils.hasText(normalizedTarget)) {
-                    return;
-                }
-                String currentFormalIdentifier = currentFormalByLower.get(normalizedTarget);
-                if (StringUtils.hasText(currentFormalIdentifier)) {
-                    builder.canonicalAlias(alias, currentFormalIdentifier);
-                }
-            });
-        }
-        return builder.build();
-    }
-
-    private String buildCurrentFormalSignature(Map<String, String> currentFormalByLower) {
-        if (currentFormalByLower == null || currentFormalByLower.isEmpty()) {
-            return "";
-        }
-        return String.join("|", currentFormalByLower.values());
-    }
-
-    private Map<String, String> loadCurrentFormalIdentifierMap(Long productId) {
-        if (productId == null) {
-            return Map.of();
-        }
-        List<ProductModel> productModels = productModelMapper.selectList(
-                new LambdaQueryWrapper<ProductModel>()
-                        .eq(ProductModel::getProductId, productId)
-                        .eq(ProductModel::getModelType, "property")
-                        .eq(ProductModel::getDeleted, 0)
-                        .orderByAsc(ProductModel::getSortNo)
-                        .orderByAsc(ProductModel::getIdentifier)
-        );
-        Map<String, String> currentFormalByLower = new LinkedHashMap<>();
-        for (ProductModel productModel : productModels) {
-            String canonicalIdentifier = toCanonicalIdentifier(productModel.getIdentifier());
-            if (!StringUtils.hasText(canonicalIdentifier)) {
-                continue;
-            }
-            currentFormalByLower.putIfAbsent(canonicalIdentifier.toLowerCase(Locale.ROOT), canonicalIdentifier);
-        }
-        return currentFormalByLower;
     }
 
     private String toCanonicalIdentifier(String identifier) {
@@ -225,19 +179,6 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String normalizeIdentifier(String identifier) {
-        if (!StringUtils.hasText(identifier)) {
-            return null;
-        }
-        return identifier.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private record PersistedSnapshotData(PublishedProductContractSnapshot snapshot,
-                                         Map<String, String> canonicalAliases) {
-    }
-
-    private record CachedSnapshot(Long releaseBatchId,
-                                  String currentFormalSignature,
-                                  PublishedProductContractSnapshot snapshot) {
+    private record CachedSnapshot(Long releaseBatchId, PublishedProductContractSnapshot snapshot) {
     }
 }

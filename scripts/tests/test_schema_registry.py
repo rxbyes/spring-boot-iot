@@ -36,6 +36,9 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
         # Task 1 baseline contract
         self.assertEqual(len(registry.mysql_objects), 56)
         self.assertEqual(registry.mysql["risk_point_highway_detail"].lifecycle, "archived")
+        self.assertFalse(registry.mysql["risk_point_highway_detail"].included_in_init)
+        self.assertFalse(registry.mysql["risk_point_highway_detail"].included_in_schema_sync)
+        self.assertEqual(registry.mysql["risk_point_highway_detail"].runtime_bootstrap_mode, "disabled")
         self.assertEqual(
             registry.mysql["risk_point_device_capability_binding"].lifecycle,
             "active",
@@ -54,9 +57,11 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
             registry.tdengine["iot_agg_measure_hour"].runtime_bootstrap_mode,
             "manual_bootstrap_required",
         )
+        self.assertFalse(registry.tdengine["iot_agg_measure_hour"].included_in_schema_sync)
         self.assertEqual(registry.find_invalid_relation_targets(), [])
         self.assertEqual(registry.find_missing_comments(), [])
         self.assertEqual(registry.find_english_only_comments(), [])
+        self.assertEqual(registry.find_suspicious_comment_fragments(), [])
 
     def test_representative_mysql_object_has_rich_metadata(self):
         registry = schema_registry_loader.load_registry(REPO_ROOT / "schema")
@@ -351,6 +356,34 @@ class SchemaRegistryBaselineTest(unittest.TestCase):
                 "domain": "ok-view-domain",
                 "storageType": "mysql_view",
                 "objects": [self._build_view_object(name="view_ok", source_table="placeholder_object")],
+            }
+            tdengine_payload = {
+                "domain": "ok-tdengine-domain",
+                "storageType": "tdengine",
+                "objects": [self._build_tdengine_object(name="td_ok")],
+            }
+            self._write_json(root / "mysql" / "a.json", mysql_payload)
+            self._write_json(root / "views" / "b.json", views_payload)
+            self._write_json(root / "tdengine" / "c.json", tdengine_payload)
+
+            with self.assertRaises(ValueError):
+                schema_registry_loader.load_registry(root)
+
+    def test_load_registry_should_fail_when_archived_object_keeps_active_flags(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = pathlib.Path(tmp_dir)
+            self._prepare_registry_dirs(root)
+
+            archived = self._build_mysql_object(name="archived_object", lifecycle="archived")
+            mysql_payload = {
+                "domain": "archived-domain",
+                "storageType": "mysql",
+                "objects": [archived],
+            }
+            views_payload = {
+                "domain": "ok-view-domain",
+                "storageType": "mysql_view",
+                "objects": [self._build_view_object(name="view_ok", source_table="archived_object")],
             }
             tdengine_payload = {
                 "domain": "ok-tdengine-domain",

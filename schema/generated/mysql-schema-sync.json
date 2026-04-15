@@ -15,7 +15,7 @@
           "name": "plan_name"
         },
         {
-          "commentZh": "适用告警等级 red/orange/yellow/blue",
+          "commentZh": "适用告警等级（红/橙/黄/蓝）",
           "definition": "VARCHAR(16) DEFAULT NULL",
           "isTag": false,
           "name": "alarm_level"
@@ -116,7 +116,7 @@
           "name": "alarm_type"
         },
         {
-          "commentZh": "告警等级",
+          "commentZh": "适用告警等级（红/橙/黄/蓝）",
           "definition": "VARCHAR(16) NOT NULL",
           "isTag": false,
           "name": "alarm_level"
@@ -319,7 +319,7 @@
           "name": "alarm_code"
         },
         {
-          "commentZh": "告警等级",
+          "commentZh": "适用告警等级（红/橙/黄/蓝）",
           "definition": "VARCHAR(16) DEFAULT NULL",
           "isTag": false,
           "name": "alarm_level"
@@ -742,19 +742,19 @@
           "name": "release_batch_id"
         },
         {
-          "commentZh": "产品modelID",
+          "commentZh": "产品物模型ID",
           "definition": "BIGINT DEFAULT NULL",
           "isTag": false,
           "name": "product_model_id"
         },
         {
-          "commentZh": "normativeidentifier业务字段",
+          "commentZh": "规范指标标识",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "normative_identifier"
         },
         {
-          "commentZh": "contractidentifier业务字段",
+          "commentZh": "合同字段标识",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "contract_identifier"
@@ -772,79 +772,79 @@
           "name": "risk_metric_name"
         },
         {
-          "commentZh": "风险category业务字段",
+          "commentZh": "风险类别",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "risk_category"
         },
         {
-          "commentZh": "指标role业务字段",
+          "commentZh": "指标角色",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "metric_role"
         },
         {
-          "commentZh": "lifecycle状态业务字段",
+          "commentZh": "生命周期状态",
           "definition": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
           "isTag": false,
           "name": "lifecycle_status"
         },
         {
-          "commentZh": "sourcescenario编码",
+          "commentZh": "来源场景编码",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "source_scenario_code"
         },
         {
-          "commentZh": "指标unit业务字段",
+          "commentZh": "指标单位",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "metric_unit"
         },
         {
-          "commentZh": "指标dimension业务字段",
+          "commentZh": "指标量纲",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "metric_dimension"
         },
         {
-          "commentZh": "threshold类型业务字段",
+          "commentZh": "阈值类型",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "threshold_type"
         },
         {
-          "commentZh": "semanticdirection业务字段",
+          "commentZh": "语义方向",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "semantic_direction"
         },
         {
-          "commentZh": "thresholddirection业务字段",
+          "commentZh": "阈值方向",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "threshold_direction"
         },
         {
-          "commentZh": "trend标记",
+          "commentZh": "是否启用趋势展示",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "trend_enabled"
         },
         {
-          "commentZh": "gis标记",
+          "commentZh": "是否启用地图展示",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "gis_enabled"
         },
         {
-          "commentZh": "insight标记",
+          "commentZh": "是否启用对象洞察",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "insight_enabled"
         },
         {
-          "commentZh": "analytics标记",
+          "commentZh": "是否启用运营分析",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "analytics_enabled"
@@ -909,7 +909,7 @@
           "name": "binding_status"
         },
         {
-          "commentZh": "绑定origin业务字段",
+          "commentZh": "绑定来源",
           "definition": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
           "isTag": false,
           "name": "binding_origin"
@@ -980,7 +980,7 @@
           "name": "binding_status"
         },
         {
-          "commentZh": "绑定origin业务字段",
+          "commentZh": "绑定来源",
           "definition": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
           "isTag": false,
           "name": "binding_origin"
@@ -1075,13 +1075,13 @@
           "name": "responsible_phone"
         },
         {
-          "commentZh": "风险点档案等级 level_1/level_2/level_3",
+          "commentZh": "风险点档案等级（一级/二级/三级）",
           "definition": "VARCHAR(16) DEFAULT NULL",
           "isTag": false,
           "name": "risk_point_level"
         },
         {
-          "commentZh": "当前风险态势等级 red/orange/yellow/blue",
+          "commentZh": "当前风险态势等级（红/橙/黄/蓝）",
           "definition": "VARCHAR(16) DEFAULT NULL",
           "isTag": false,
           "name": "current_risk_level"
@@ -1372,7 +1372,7 @@
           "name": "source_file_name"
         },
         {
-          "commentZh": "来源行号",
+          "commentZh": "导入源行号",
           "definition": "INT NOT NULL",
           "isTag": false,
           "name": "source_row_no"
@@ -1634,125 +1634,6 @@
           "name": "id"
         },
         {
-          "commentZh": "风险点ID",
-          "definition": "BIGINT NOT NULL",
-          "isTag": false,
-          "name": "risk_point_id"
-        },
-        {
-          "commentZh": "项目名称",
-          "definition": "VARCHAR(255) NOT NULL",
-          "isTag": false,
-          "name": "project_name"
-        },
-        {
-          "commentZh": "项目类型",
-          "definition": "VARCHAR(32) NOT NULL",
-          "isTag": false,
-          "name": "project_type"
-        },
-        {
-          "commentZh": "项目简介",
-          "definition": "TEXT DEFAULT NULL",
-          "isTag": false,
-          "name": "project_summary"
-        },
-        {
-          "commentZh": "路线编号",
-          "definition": "VARCHAR(64) NOT NULL",
-          "isTag": false,
-          "name": "route_code"
-        },
-        {
-          "commentZh": "路线名称",
-          "definition": "VARCHAR(128) DEFAULT NULL",
-          "isTag": false,
-          "name": "route_name"
-        },
-        {
-          "commentZh": "公路等级",
-          "definition": "VARCHAR(64) DEFAULT NULL",
-          "isTag": false,
-          "name": "road_level"
-        },
-        {
-          "commentZh": "项目风险等级原始值",
-          "definition": "VARCHAR(32) DEFAULT NULL",
-          "isTag": false,
-          "name": "project_risk_level"
-        },
-        {
-          "commentZh": "行政区域末级编码",
-          "definition": "VARCHAR(32) DEFAULT NULL",
-          "isTag": false,
-          "name": "admin_region_code"
-        },
-        {
-          "commentZh": "行政区域路径JSON",
-          "definition": "VARCHAR(255) DEFAULT NULL",
-          "isTag": false,
-          "name": "admin_region_path_json"
-        },
-        {
-          "commentZh": "管养单位名称",
-          "definition": "VARCHAR(128) DEFAULT NULL",
-          "isTag": false,
-          "name": "maintenance_org_name"
-        },
-        {
-          "commentZh": "Excel来源行号",
-          "definition": "INT DEFAULT NULL",
-          "isTag": false,
-          "name": "source_row_no"
-        },
-        {
-          "commentZh": "租户ID",
-          "definition": "BIGINT NOT NULL DEFAULT 1",
-          "isTag": false,
-          "name": "tenant_id"
-        },
-        {
-          "commentZh": "创建人用户ID",
-          "definition": "BIGINT DEFAULT NULL",
-          "isTag": false,
-          "name": "create_by"
-        },
-        {
-          "commentZh": "创建时间",
-          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-          "isTag": false,
-          "name": "create_time"
-        },
-        {
-          "commentZh": "更新人用户ID",
-          "definition": "BIGINT DEFAULT NULL",
-          "isTag": false,
-          "name": "update_by"
-        },
-        {
-          "commentZh": "更新时间",
-          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-          "isTag": false,
-          "name": "update_time"
-        },
-        {
-          "commentZh": "逻辑删除标记",
-          "definition": "TINYINT NOT NULL DEFAULT 0",
-          "isTag": false,
-          "name": "deleted"
-        }
-      ],
-      "name": "risk_point_highway_detail"
-    },
-    {
-      "columns": [
-        {
-          "commentZh": "主键",
-          "definition": "BIGINT NOT NULL AUTO_INCREMENT",
-          "isTag": false,
-          "name": "id"
-        },
-        {
           "commentZh": "规则名称",
           "definition": "VARCHAR(128) NOT NULL",
           "isTag": false,
@@ -1789,7 +1670,7 @@
           "name": "duration"
         },
         {
-          "commentZh": "告警等级",
+          "commentZh": "适用告警等级（红/橙/黄/蓝）",
           "definition": "VARCHAR(20) DEFAULT NULL",
           "isTag": false,
           "name": "alarm_level"
@@ -1884,7 +1765,7 @@
           "name": "device_code"
         },
         {
-          "commentZh": "产品Key",
+          "commentZh": "产品标识",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "product_key"
@@ -1902,13 +1783,13 @@
           "name": "sub_device_code"
         },
         {
-          "commentZh": "下发Topic",
+          "commentZh": "下发主题",
           "definition": "VARCHAR(255) NOT NULL",
           "isTag": false,
           "name": "topic"
         },
         {
-          "commentZh": "命令类型 property/service",
+          "commentZh": "命令类型（属性下发/服务调用）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "command_type"
@@ -1932,7 +1813,7 @@
           "name": "reply_payload"
         },
         {
-          "commentZh": "qos业务字段",
+          "commentZh": "服务质量等级",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "qos"
@@ -2260,7 +2141,7 @@
           "name": "device_code"
         },
         {
-          "commentZh": "产品Key",
+          "commentZh": "产品标识",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "product_key"
@@ -2278,7 +2159,7 @@
           "name": "sub_device_code"
         },
         {
-          "commentZh": "topic 路由类型",
+          "commentZh": "主题路由类型",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "topic_route_type"
@@ -2302,31 +2183,31 @@
           "name": "client_id"
         },
         {
-          "commentZh": "payload 大小",
+          "commentZh": "载荷大小",
           "definition": "INT DEFAULT NULL",
           "isTag": false,
           "name": "payload_size"
         },
         {
-          "commentZh": "payload 编码",
+          "commentZh": "载荷编码",
           "definition": "VARCHAR(16) DEFAULT NULL",
           "isTag": false,
           "name": "payload_encoding"
         },
         {
-          "commentZh": "payload 是否截断",
+          "commentZh": "载荷是否截断",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "payload_truncated"
         },
         {
-          "commentZh": "原始 payload",
+          "commentZh": "原始载荷",
           "definition": "LONGTEXT DEFAULT NULL",
           "isTag": false,
           "name": "raw_payload"
         },
         {
-          "commentZh": "错误码",
+          "commentZh": "错误编码",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "error_code"
@@ -2409,7 +2290,7 @@
           "name": "device_code"
         },
         {
-          "commentZh": "产品Key",
+          "commentZh": "产品标识",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "product_key"
@@ -2421,43 +2302,43 @@
           "name": "protocol_code"
         },
         {
-          "commentZh": "topic 路由类型",
+          "commentZh": "主题路由类型",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "topic_route_type"
         },
         {
-          "commentZh": "最近 topic",
+          "commentZh": "最近主题",
           "definition": "VARCHAR(255) DEFAULT NULL",
           "isTag": false,
           "name": "topic"
         },
         {
-          "commentZh": "最近 clientId",
+          "commentZh": "最近客户端标识",
           "definition": "VARCHAR(128) DEFAULT NULL",
           "isTag": false,
           "name": "client_id"
         },
         {
-          "commentZh": "最近 payload 大小",
+          "commentZh": "载荷大小",
           "definition": "INT DEFAULT NULL",
           "isTag": false,
           "name": "payload_size"
         },
         {
-          "commentZh": "最近 payload 编码",
+          "commentZh": "载荷编码",
           "definition": "VARCHAR(16) DEFAULT NULL",
           "isTag": false,
           "name": "payload_encoding"
         },
         {
-          "commentZh": "最近 payload",
+          "commentZh": "最近载荷",
           "definition": "LONGTEXT DEFAULT NULL",
           "isTag": false,
           "name": "last_payload"
         },
         {
-          "commentZh": "最近 traceId",
+          "commentZh": "最近链路追踪ID",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "last_trace_id"
@@ -2558,7 +2439,7 @@
           "name": "product_id"
         },
         {
-          "commentZh": "消息类型 telemetry/event/property/reply",
+          "commentZh": "消息类型（遥测/事件/属性/应答）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "message_type"
@@ -2659,13 +2540,13 @@
           "name": "value_type"
         },
         {
-          "commentZh": "浮点值",
+          "commentZh": "数值",
           "definition": "DOUBLE DEFAULT NULL",
           "isTag": false,
           "name": "value_double"
         },
         {
-          "commentZh": "整型值",
+          "commentZh": "整数值",
           "definition": "BIGINT DEFAULT NULL",
           "isTag": false,
           "name": "value_long"
@@ -2683,7 +2564,7 @@
           "name": "value_text"
         },
         {
-          "commentZh": "质量码",
+          "commentZh": "质量编码",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "quality_code"
@@ -2695,7 +2576,7 @@
           "name": "alarm_flag"
         },
         {
-          "commentZh": "实际上报时间",
+          "commentZh": "设备上报时间",
           "definition": "DATETIME DEFAULT NULL",
           "isTag": false,
           "name": "reported_at"
@@ -2926,13 +2807,13 @@
           "name": "child_product_id"
         },
         {
-          "commentZh": "子产品 productKey",
+          "commentZh": "子产品标识",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "child_product_key"
         },
         {
-          "commentZh": "关系类型 collector_child/gateway_child",
+          "commentZh": "关系类型（采集器子设备/网关子设备）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "relation_type"
@@ -3033,37 +2914,37 @@
           "name": "rotation_batch_id"
         },
         {
-          "commentZh": "reason业务字段",
+          "commentZh": "轮换原因",
           "definition": "VARCHAR(500) DEFAULT NULL",
           "isTag": false,
           "name": "reason"
         },
         {
-          "commentZh": "previous密钥digest业务字段",
+          "commentZh": "上一版密钥摘要",
           "definition": "VARCHAR(128) DEFAULT NULL",
           "isTag": false,
           "name": "previous_secret_digest"
         },
         {
-          "commentZh": "current密钥digest业务字段",
+          "commentZh": "当前密钥摘要",
           "definition": "VARCHAR(128) DEFAULT NULL",
           "isTag": false,
           "name": "current_secret_digest"
         },
         {
-          "commentZh": "rotatedby业务字段",
+          "commentZh": "轮换执行人",
           "definition": "BIGINT NOT NULL",
           "isTag": false,
           "name": "rotated_by"
         },
         {
-          "commentZh": "approvedby业务字段",
+          "commentZh": "审批人",
           "definition": "BIGINT NOT NULL",
           "isTag": false,
           "name": "approved_by"
         },
         {
-          "commentZh": "rotate时间",
+          "commentZh": "轮换时间",
           "definition": "DATETIME NOT NULL",
           "isTag": false,
           "name": "rotate_time"
@@ -3116,7 +2997,7 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "治理场景编码",
+          "commentZh": "场景编码",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "scenario_code"
@@ -3170,13 +3051,13 @@
           "name": "risk_enabled"
         },
         {
-          "commentZh": "是否允许趋势分析",
+          "commentZh": "是否启用趋势展示",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "trend_enabled"
         },
         {
-          "commentZh": "量纲",
+          "commentZh": "指标量纲",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "metric_dimension"
@@ -3194,19 +3075,19 @@
           "name": "semantic_direction"
         },
         {
-          "commentZh": "是否支持GIS",
+          "commentZh": "是否启用地图展示",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "gis_enabled"
         },
         {
-          "commentZh": "是否支持对象洞察",
+          "commentZh": "是否启用对象洞察",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "insight_enabled"
         },
         {
-          "commentZh": "是否支持运营分析",
+          "commentZh": "是否启用运营分析",
           "definition": "TINYINT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "analytics_enabled"
@@ -3265,7 +3146,7 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "产品Key",
+          "commentZh": "产品标识",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "product_key"
@@ -3378,19 +3259,19 @@
           "name": "product_id"
         },
         {
-          "commentZh": "scenario编码",
+          "commentZh": "场景编码",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "scenario_code"
         },
         {
-          "commentZh": "releasesource业务字段",
+          "commentZh": "发布来源",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "release_source"
         },
         {
-          "commentZh": "releasedfieldcount业务字段",
+          "commentZh": "发布字段数量",
           "definition": "INT NOT NULL DEFAULT 0",
           "isTag": false,
           "name": "released_field_count"
@@ -3402,13 +3283,13 @@
           "name": "approval_order_id"
         },
         {
-          "commentZh": "releasereason业务字段",
+          "commentZh": "发布原因",
           "definition": "VARCHAR(500) DEFAULT NULL",
           "isTag": false,
           "name": "release_reason"
         },
         {
-          "commentZh": "release状态业务字段",
+          "commentZh": "发布状态",
           "definition": "VARCHAR(16) NOT NULL DEFAULT 'RELEASED'",
           "isTag": false,
           "name": "release_status"
@@ -3426,13 +3307,13 @@
           "name": "create_time"
         },
         {
-          "commentZh": "rollbackby业务字段",
+          "commentZh": "回滚执行人",
           "definition": "BIGINT DEFAULT NULL",
           "isTag": false,
           "name": "rollback_by"
         },
         {
-          "commentZh": "rollback时间",
+          "commentZh": "回滚时间",
           "definition": "DATETIME DEFAULT NULL",
           "isTag": false,
           "name": "rollback_time"
@@ -3473,7 +3354,7 @@
           "name": "product_id"
         },
         {
-          "commentZh": "快照stage业务字段",
+          "commentZh": "快照阶段",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "snapshot_stage"
@@ -3579,7 +3460,7 @@
           "name": "product_id"
         },
         {
-          "commentZh": "模型类型 property/event/service",
+          "commentZh": "模型类型（属性/事件/服务）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "model_type"
@@ -3787,7 +3668,7 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "scope类型业务字段",
+          "commentZh": "作用域类型",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "scope_type"
@@ -3805,7 +3686,7 @@
           "name": "protocol_code"
         },
         {
-          "commentZh": "治理场景编码",
+          "commentZh": "场景编码",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "scenario_code"
@@ -3924,7 +3805,7 @@
           "name": "alert_code"
         },
         {
-          "commentZh": "主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE",
+          "commentZh": "审批主体类型",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "subject_type"
@@ -3966,19 +3847,19 @@
           "name": "device_code"
         },
         {
-          "commentZh": "产品Key",
+          "commentZh": "产品标识",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "product_key"
         },
         {
-          "commentZh": "alert状态业务字段",
+          "commentZh": "告警状态",
           "definition": "VARCHAR(16) NOT NULL DEFAULT 'OPEN'",
           "isTag": false,
           "name": "alert_status"
         },
         {
-          "commentZh": "severitylevel业务字段",
+          "commentZh": "严重程度等级",
           "definition": "VARCHAR(16) NOT NULL DEFAULT 'WARN'",
           "isTag": false,
           "name": "severity_level"
@@ -4109,7 +3990,7 @@
           "name": "work_item_code"
         },
         {
-          "commentZh": "主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE",
+          "commentZh": "审批主体类型",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "subject_type"
@@ -4157,7 +4038,7 @@
           "name": "device_code"
         },
         {
-          "commentZh": "产品Key",
+          "commentZh": "产品标识",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "product_key"
@@ -4169,7 +4050,7 @@
           "name": "work_status"
         },
         {
-          "commentZh": "prioritylevel业务字段",
+          "commentZh": "优先级等级",
           "definition": "VARCHAR(16) NOT NULL DEFAULT 'P2'",
           "isTag": false,
           "name": "priority_level"
@@ -4211,7 +4092,7 @@
           "name": "domain_code"
         },
         {
-          "commentZh": "生命周期动作编码",
+          "commentZh": "操作编码",
           "definition": "VARCHAR(128) DEFAULT NULL",
           "isTag": false,
           "name": "action_code"
@@ -4312,19 +4193,19 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "action编码",
+          "commentZh": "操作编码",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "action_code"
         },
         {
-          "commentZh": "action名称",
+          "commentZh": "操作名称",
           "definition": "VARCHAR(128) DEFAULT NULL",
           "isTag": false,
           "name": "action_name"
         },
         {
-          "commentZh": "subject类型业务字段",
+          "commentZh": "审批主体类型",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "subject_type"
@@ -4425,19 +4306,19 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "scope类型业务字段",
+          "commentZh": "作用域类型",
           "definition": "VARCHAR(16) NOT NULL",
           "isTag": false,
           "name": "scope_type"
         },
         {
-          "commentZh": "action编码",
+          "commentZh": "操作编码",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
           "name": "action_code"
         },
         {
-          "commentZh": "复核人mode业务字段",
+          "commentZh": "复核人模式",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "approver_mode"
@@ -4514,13 +4395,13 @@
           "name": "order_id"
         },
         {
-          "commentZh": "from状态业务字段",
+          "commentZh": "原状态",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "from_status"
         },
         {
-          "commentZh": "to状态业务字段",
+          "commentZh": "目标状态",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "to_status"
@@ -4532,7 +4413,7 @@
           "name": "actor_user_id"
         },
         {
-          "commentZh": "transitioncomment业务字段",
+          "commentZh": "流转备注",
           "definition": "VARCHAR(500) DEFAULT NULL",
           "isTag": false,
           "name": "transition_comment"
@@ -4591,25 +4472,25 @@
           "name": "release_batch_id"
         },
         {
-          "commentZh": "adopteddecision业务字段",
+          "commentZh": "采纳结论",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "adopted_decision"
         },
         {
-          "commentZh": "executionoutcome业务字段",
+          "commentZh": "执行结果",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "execution_outcome"
         },
         {
-          "commentZh": "rootcause编码",
+          "commentZh": "根因编码",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "root_cause_code"
         },
         {
-          "commentZh": "feedbackJSON内容",
+          "commentZh": "复盘反馈内容",
           "definition": "LONGTEXT DEFAULT NULL",
           "isTag": false,
           "name": "feedback_json"
@@ -4752,13 +4633,13 @@
           "name": "product_key"
         },
         {
-          "commentZh": "error编码",
+          "commentZh": "错误编码",
           "definition": "VARCHAR(64) DEFAULT NULL",
           "isTag": false,
           "name": "error_code"
         },
         {
-          "commentZh": "exceptionclass业务字段",
+          "commentZh": "异常类型",
           "definition": "VARCHAR(255) DEFAULT NULL",
           "isTag": false,
           "name": "exception_class"
@@ -4906,7 +4787,7 @@
           "name": "item_value"
         },
         {
-          "commentZh": "项类型 string/number/boolean",
+          "commentZh": "条目类型（字符串/数值/布尔）",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "item_type"
@@ -4977,7 +4858,7 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "文档分类 business/technical/faq",
+          "commentZh": "文档分类（业务/技术/常见问题）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "doc_category"
@@ -5078,13 +4959,13 @@
           "name": "tenant_id"
         },
         {
-          "commentZh": "消息类型 system/business/error",
+          "commentZh": "消息类型（系统/业务/错误）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "message_type"
         },
         {
-          "commentZh": "优先级 critical/high/medium/low",
+          "commentZh": "优先级（紧急/高/中/低）",
           "definition": "VARCHAR(32) NOT NULL DEFAULT 'medium'",
           "isTag": false,
           "name": "priority"
@@ -5108,7 +4989,7 @@
           "name": "content"
         },
         {
-          "commentZh": "推送范围 all/role/user",
+          "commentZh": "推送范围（全部/角色/用户）",
           "definition": "VARCHAR(16) NOT NULL DEFAULT 'all'",
           "isTag": false,
           "name": "target_type"
@@ -5696,7 +5577,7 @@
           "name": "org_code"
         },
         {
-          "commentZh": "组织类型 dept/position/team",
+          "commentZh": "组织类型（部门/岗位/班组）",
           "definition": "VARCHAR(32) DEFAULT NULL",
           "isTag": false,
           "name": "org_type"
@@ -5809,7 +5690,7 @@
           "name": "parent_id"
         },
         {
-          "commentZh": "区域类型 province/city/district/street",
+          "commentZh": "区域类型（省/市/区县/街道）",
           "definition": "VARCHAR(32) NOT NULL",
           "isTag": false,
           "name": "region_type"
@@ -6278,15 +6159,15 @@
   "createTableSql": [
     {
       "name": "emergency_plan",
-      "sql": "-- 表：emergency_plan\n-- 说明：应急预案表\nCREATE TABLE emergency_plan (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  plan_name VARCHAR(128) NOT NULL COMMENT '预案名称',\n  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级 red/orange/yellow/blue',\n  risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',\n  description VARCHAR(512) DEFAULT NULL COMMENT '描述',\n  response_steps LONGTEXT DEFAULT NULL COMMENT '响应步骤(JSON)',\n  contact_list LONGTEXT DEFAULT NULL COMMENT '联系人列表(JSON)',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id)\n) COMMENT='应急预案表';"
+      "sql": "-- 表：emergency_plan\n-- 说明：应急预案表\nCREATE TABLE emergency_plan (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  plan_name VARCHAR(128) NOT NULL COMMENT '预案名称',\n  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',\n  description VARCHAR(512) DEFAULT NULL COMMENT '描述',\n  response_steps LONGTEXT DEFAULT NULL COMMENT '响应步骤(JSON)',\n  contact_list LONGTEXT DEFAULT NULL COMMENT '联系人列表(JSON)',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id)\n) COMMENT='应急预案表';"
     },
     {
       "name": "iot_alarm_record",
-      "sql": "-- 表：iot_alarm_record\n-- 说明：告警记录表\nCREATE TABLE iot_alarm_record (\n  id BIGINT NOT NULL COMMENT '主键',\n  alarm_code VARCHAR(64) NOT NULL COMMENT '告警编号',\n  alarm_title VARCHAR(255) NOT NULL COMMENT '告警标题',\n  alarm_type VARCHAR(32) NOT NULL COMMENT '告警类型',\n  alarm_level VARCHAR(16) NOT NULL COMMENT '告警等级',\n  region_id BIGINT DEFAULT NULL COMMENT '区域ID',\n  region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',\n  risk_point_id BIGINT DEFAULT NULL COMMENT '风险点ID',\n  risk_point_name VARCHAR(128) DEFAULT NULL COMMENT '风险点名称',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  device_name VARCHAR(128) NOT NULL COMMENT '设备名称',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',\n  current_value VARCHAR(255) DEFAULT NULL COMMENT '当前值',\n  threshold_value VARCHAR(255) DEFAULT NULL COMMENT '阈值',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-未确认 1-已确认 2-已抑制 3-已关闭',\n  trigger_time DATETIME NOT NULL COMMENT '触发时间',\n  confirm_time DATETIME DEFAULT NULL COMMENT '确认时间',\n  confirm_user BIGINT DEFAULT NULL COMMENT '确认用户',\n  suppress_time DATETIME DEFAULT NULL COMMENT '抑制时间',\n  suppress_user BIGINT DEFAULT NULL COMMENT '抑制用户',\n  close_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  close_user BIGINT DEFAULT NULL COMMENT '关闭用户',\n  rule_id BIGINT DEFAULT NULL COMMENT '规则ID',\n  rule_name VARCHAR(128) DEFAULT NULL COMMENT '规则名称',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_alarm_code (alarm_code),\n  KEY idx_device_status (device_code, status),\n  KEY idx_trigger_time (trigger_time),\n  KEY idx_status (status)\n) COMMENT='告警记录表';"
+      "sql": "-- 表：iot_alarm_record\n-- 说明：告警记录表\nCREATE TABLE iot_alarm_record (\n  id BIGINT NOT NULL COMMENT '主键',\n  alarm_code VARCHAR(64) NOT NULL COMMENT '告警编号',\n  alarm_title VARCHAR(255) NOT NULL COMMENT '告警标题',\n  alarm_type VARCHAR(32) NOT NULL COMMENT '告警类型',\n  alarm_level VARCHAR(16) NOT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  region_id BIGINT DEFAULT NULL COMMENT '区域ID',\n  region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',\n  risk_point_id BIGINT DEFAULT NULL COMMENT '风险点ID',\n  risk_point_name VARCHAR(128) DEFAULT NULL COMMENT '风险点名称',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  device_name VARCHAR(128) NOT NULL COMMENT '设备名称',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',\n  current_value VARCHAR(255) DEFAULT NULL COMMENT '当前值',\n  threshold_value VARCHAR(255) DEFAULT NULL COMMENT '阈值',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-未确认 1-已确认 2-已抑制 3-已关闭',\n  trigger_time DATETIME NOT NULL COMMENT '触发时间',\n  confirm_time DATETIME DEFAULT NULL COMMENT '确认时间',\n  confirm_user BIGINT DEFAULT NULL COMMENT '确认用户',\n  suppress_time DATETIME DEFAULT NULL COMMENT '抑制时间',\n  suppress_user BIGINT DEFAULT NULL COMMENT '抑制用户',\n  close_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  close_user BIGINT DEFAULT NULL COMMENT '关闭用户',\n  rule_id BIGINT DEFAULT NULL COMMENT '规则ID',\n  rule_name VARCHAR(128) DEFAULT NULL COMMENT '规则名称',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_alarm_code (alarm_code),\n  KEY idx_device_status (device_code, status),\n  KEY idx_trigger_time (trigger_time),\n  KEY idx_status (status)\n) COMMENT='告警记录表';"
     },
     {
       "name": "iot_event_record",
-      "sql": "-- 表：iot_event_record\n-- 说明：事件记录表\nCREATE TABLE iot_event_record (\n  id BIGINT NOT NULL COMMENT '主键',\n  event_code VARCHAR(64) NOT NULL COMMENT '事件编号',\n  event_title VARCHAR(255) NOT NULL COMMENT '事件标题',\n  alarm_id BIGINT DEFAULT NULL COMMENT '告警ID',\n  alarm_code VARCHAR(64) DEFAULT NULL COMMENT '告警编号',\n  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '告警等级',\n  risk_level VARCHAR(16) DEFAULT NULL COMMENT '风险等级',\n  region_id BIGINT DEFAULT NULL COMMENT '区域ID',\n  region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',\n  risk_point_id BIGINT DEFAULT NULL COMMENT '风险点ID',\n  risk_point_name VARCHAR(128) DEFAULT NULL COMMENT '风险点名称',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  device_name VARCHAR(128) NOT NULL COMMENT '设备名称',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',\n  current_value VARCHAR(255) DEFAULT NULL COMMENT '当前值',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-待派发 1-已派发 2-处理中 3-待验收 4-已关闭 5-已取消',\n  responsible_user BIGINT DEFAULT NULL COMMENT '责任人',\n  urgency_level VARCHAR(16) DEFAULT NULL COMMENT '紧急程度',\n  arrival_time_limit INT DEFAULT NULL COMMENT '到场时限（分钟）',\n  completion_time_limit INT DEFAULT NULL COMMENT '完成时限（分钟）',\n  trigger_time DATETIME NOT NULL COMMENT '触发时间',\n  dispatch_time DATETIME DEFAULT NULL COMMENT '派发时间',\n  dispatch_user BIGINT DEFAULT NULL COMMENT '派发用户',\n  start_time DATETIME DEFAULT NULL COMMENT '处理开始时间',\n  complete_time DATETIME DEFAULT NULL COMMENT '处理完成时间',\n  close_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  close_user BIGINT DEFAULT NULL COMMENT '关闭用户',\n  close_reason VARCHAR(500) DEFAULT NULL COMMENT '关闭原因',\n  review_notes TEXT DEFAULT NULL COMMENT '复盘记录',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_event_code (event_code),\n  KEY idx_device_status (device_code, status),\n  KEY idx_trigger_time (trigger_time),\n  KEY idx_status (status)\n) COMMENT='事件记录表';"
+      "sql": "-- 表：iot_event_record\n-- 说明：事件记录表\nCREATE TABLE iot_event_record (\n  id BIGINT NOT NULL COMMENT '主键',\n  event_code VARCHAR(64) NOT NULL COMMENT '事件编号',\n  event_title VARCHAR(255) NOT NULL COMMENT '事件标题',\n  alarm_id BIGINT DEFAULT NULL COMMENT '告警ID',\n  alarm_code VARCHAR(64) DEFAULT NULL COMMENT '告警编号',\n  alarm_level VARCHAR(16) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  risk_level VARCHAR(16) DEFAULT NULL COMMENT '风险等级',\n  region_id BIGINT DEFAULT NULL COMMENT '区域ID',\n  region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',\n  risk_point_id BIGINT DEFAULT NULL COMMENT '风险点ID',\n  risk_point_name VARCHAR(128) DEFAULT NULL COMMENT '风险点名称',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  device_name VARCHAR(128) NOT NULL COMMENT '设备名称',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',\n  current_value VARCHAR(255) DEFAULT NULL COMMENT '当前值',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-待派发 1-已派发 2-处理中 3-待验收 4-已关闭 5-已取消',\n  responsible_user BIGINT DEFAULT NULL COMMENT '责任人',\n  urgency_level VARCHAR(16) DEFAULT NULL COMMENT '紧急程度',\n  arrival_time_limit INT DEFAULT NULL COMMENT '到场时限（分钟）',\n  completion_time_limit INT DEFAULT NULL COMMENT '完成时限（分钟）',\n  trigger_time DATETIME NOT NULL COMMENT '触发时间',\n  dispatch_time DATETIME DEFAULT NULL COMMENT '派发时间',\n  dispatch_user BIGINT DEFAULT NULL COMMENT '派发用户',\n  start_time DATETIME DEFAULT NULL COMMENT '处理开始时间',\n  complete_time DATETIME DEFAULT NULL COMMENT '处理完成时间',\n  close_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  close_user BIGINT DEFAULT NULL COMMENT '关闭用户',\n  close_reason VARCHAR(500) DEFAULT NULL COMMENT '关闭原因',\n  review_notes TEXT DEFAULT NULL COMMENT '复盘记录',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_event_code (event_code),\n  KEY idx_device_status (device_code, status),\n  KEY idx_trigger_time (trigger_time),\n  KEY idx_status (status)\n) COMMENT='事件记录表';"
     },
     {
       "name": "iot_event_work_order",
@@ -6298,19 +6179,19 @@
     },
     {
       "name": "risk_metric_catalog",
-      "sql": "-- 表：risk_metric_catalog\n-- 说明：风险指标目录表\nCREATE TABLE risk_metric_catalog (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  product_model_id BIGINT DEFAULT NULL COMMENT '产品modelID',\n  normative_identifier VARCHAR(64) DEFAULT NULL COMMENT 'normativeidentifier业务字段',\n  contract_identifier VARCHAR(64) NOT NULL COMMENT 'contractidentifier业务字段',\n  risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',\n  risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',\n  risk_category VARCHAR(64) DEFAULT NULL COMMENT '风险category业务字段',\n  metric_role VARCHAR(32) DEFAULT NULL COMMENT '指标role业务字段',\n  lifecycle_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT 'lifecycle状态业务字段',\n  source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT 'sourcescenario编码',\n  metric_unit VARCHAR(32) DEFAULT NULL COMMENT '指标unit业务字段',\n  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标dimension业务字段',\n  threshold_type VARCHAR(32) DEFAULT NULL COMMENT 'threshold类型业务字段',\n  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT 'semanticdirection业务字段',\n  threshold_direction VARCHAR(32) DEFAULT NULL COMMENT 'thresholddirection业务字段',\n  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'trend标记',\n  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'gis标记',\n  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'insight标记',\n  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT 'analytics标记',\n  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用标记',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)\n) COMMENT='风险指标目录表';"
+      "sql": "-- 表：risk_metric_catalog\n-- 说明：风险指标目录表\nCREATE TABLE risk_metric_catalog (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  product_model_id BIGINT DEFAULT NULL COMMENT '产品物模型ID',\n  normative_identifier VARCHAR(64) DEFAULT NULL COMMENT '规范指标标识',\n  contract_identifier VARCHAR(64) NOT NULL COMMENT '合同字段标识',\n  risk_metric_code VARCHAR(64) NOT NULL COMMENT '风险指标编码',\n  risk_metric_name VARCHAR(128) NOT NULL COMMENT '风险指标名称',\n  risk_category VARCHAR(64) DEFAULT NULL COMMENT '风险类别',\n  metric_role VARCHAR(32) DEFAULT NULL COMMENT '指标角色',\n  lifecycle_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期状态',\n  source_scenario_code VARCHAR(64) DEFAULT NULL COMMENT '来源场景编码',\n  metric_unit VARCHAR(32) DEFAULT NULL COMMENT '指标单位',\n  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',\n  threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',\n  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',\n  threshold_direction VARCHAR(32) DEFAULT NULL COMMENT '阈值方向',\n  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用趋势展示',\n  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用地图展示',\n  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用对象洞察',\n  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用运营分析',\n  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用标记',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_metric_catalog (product_id, contract_identifier)\n) COMMENT='风险指标目录表';"
     },
     {
       "name": "risk_metric_emergency_plan_binding",
-      "sql": "-- 表：risk_metric_emergency_plan_binding\n-- 说明：风险指标与应急预案绑定表\nCREATE TABLE risk_metric_emergency_plan_binding (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',\n  emergency_plan_id BIGINT NOT NULL COMMENT '应急预案ID',\n  binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '绑定状态业务字段',\n  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定origin业务字段',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_metric_plan_active (tenant_id, risk_metric_id, emergency_plan_id, deleted),\n  KEY idx_risk_metric_plan_rule (emergency_plan_id, binding_status, deleted),\n  KEY idx_risk_metric_plan_metric (risk_metric_id, binding_status, deleted)\n) COMMENT='风险指标与应急预案绑定表';"
+      "sql": "-- 表：risk_metric_emergency_plan_binding\n-- 说明：风险指标与应急预案绑定表\nCREATE TABLE risk_metric_emergency_plan_binding (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',\n  emergency_plan_id BIGINT NOT NULL COMMENT '应急预案ID',\n  binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '绑定状态业务字段',\n  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定来源',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_metric_plan_active (tenant_id, risk_metric_id, emergency_plan_id, deleted),\n  KEY idx_risk_metric_plan_rule (emergency_plan_id, binding_status, deleted),\n  KEY idx_risk_metric_plan_metric (risk_metric_id, binding_status, deleted)\n) COMMENT='风险指标与应急预案绑定表';"
     },
     {
       "name": "risk_metric_linkage_binding",
-      "sql": "-- 表：risk_metric_linkage_binding\n-- 说明：风险指标与联动规则绑定表\nCREATE TABLE risk_metric_linkage_binding (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',\n  linkage_rule_id BIGINT NOT NULL COMMENT '联动规则ID',\n  binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '绑定状态业务字段',\n  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定origin业务字段',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_metric_linkage_active (tenant_id, risk_metric_id, linkage_rule_id, deleted),\n  KEY idx_risk_metric_linkage_rule (linkage_rule_id, binding_status, deleted),\n  KEY idx_risk_metric_linkage_metric (risk_metric_id, binding_status, deleted)\n) COMMENT='风险指标与联动规则绑定表';"
+      "sql": "-- 表：risk_metric_linkage_binding\n-- 说明：风险指标与联动规则绑定表\nCREATE TABLE risk_metric_linkage_binding (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  risk_metric_id BIGINT NOT NULL COMMENT '风险指标ID',\n  linkage_rule_id BIGINT NOT NULL COMMENT '联动规则ID',\n  binding_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '绑定状态业务字段',\n  binding_origin VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED' COMMENT '绑定来源',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_metric_linkage_active (tenant_id, risk_metric_id, linkage_rule_id, deleted),\n  KEY idx_risk_metric_linkage_rule (linkage_rule_id, binding_status, deleted),\n  KEY idx_risk_metric_linkage_metric (risk_metric_id, binding_status, deleted)\n) COMMENT='风险指标与联动规则绑定表';"
     },
     {
       "name": "risk_point",
-      "sql": "-- 表：risk_point\n-- 说明：风险点表\nCREATE TABLE risk_point (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  risk_point_code VARCHAR(64) NOT NULL COMMENT '风险点编号',\n  risk_point_name VARCHAR(128) NOT NULL COMMENT '风险点名称',\n  org_id BIGINT DEFAULT NULL COMMENT '所属组织ID',\n  org_name VARCHAR(128) DEFAULT NULL COMMENT '所属组织名称',\n  region_id BIGINT DEFAULT NULL COMMENT '区域ID',\n  region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',\n  responsible_user BIGINT DEFAULT NULL COMMENT '负责人',\n  responsible_phone VARCHAR(32) DEFAULT NULL COMMENT '负责人电话',\n  risk_point_level VARCHAR(16) DEFAULT NULL COMMENT '风险点档案等级 level_1/level_2/level_3',\n  current_risk_level VARCHAR(16) DEFAULT NULL COMMENT '当前风险态势等级 red/orange/yellow/blue',\n  risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',\n  risk_type VARCHAR(32) NOT NULL DEFAULT 'GENERAL' COMMENT '风险点类型 SLOPE/BRIDGE/TUNNEL/GENERAL',\n  location_text VARCHAR(255) DEFAULT NULL COMMENT '位置描述/桩号/区间',\n  longitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点经度',\n  latitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点纬度',\n  description VARCHAR(1000) DEFAULT NULL COMMENT '描述',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-启用 1-停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_point_code_tenant (tenant_id, risk_point_code),\n  KEY idx_region (region_id),\n  KEY idx_status (status),\n  KEY idx_risk_type_status (risk_type, status)\n) COMMENT='风险点表';"
+      "sql": "-- 表：risk_point\n-- 说明：风险点表\nCREATE TABLE risk_point (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  risk_point_code VARCHAR(64) NOT NULL COMMENT '风险点编号',\n  risk_point_name VARCHAR(128) NOT NULL COMMENT '风险点名称',\n  org_id BIGINT DEFAULT NULL COMMENT '所属组织ID',\n  org_name VARCHAR(128) DEFAULT NULL COMMENT '所属组织名称',\n  region_id BIGINT DEFAULT NULL COMMENT '区域ID',\n  region_name VARCHAR(128) DEFAULT NULL COMMENT '区域名称',\n  responsible_user BIGINT DEFAULT NULL COMMENT '负责人',\n  responsible_phone VARCHAR(32) DEFAULT NULL COMMENT '负责人电话',\n  risk_point_level VARCHAR(16) DEFAULT NULL COMMENT '风险点档案等级（一级/二级/三级）',\n  current_risk_level VARCHAR(16) DEFAULT NULL COMMENT '当前风险态势等级（红/橙/黄/蓝）',\n  risk_level VARCHAR(20) DEFAULT NULL COMMENT '历史风险等级兼容字段',\n  risk_type VARCHAR(32) NOT NULL DEFAULT 'GENERAL' COMMENT '风险点类型 SLOPE/BRIDGE/TUNNEL/GENERAL',\n  location_text VARCHAR(255) DEFAULT NULL COMMENT '位置描述/桩号/区间',\n  longitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点经度',\n  latitude DECIMAL(10,6) DEFAULT NULL COMMENT '风险点纬度',\n  description VARCHAR(1000) DEFAULT NULL COMMENT '描述',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0-启用 1-停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_point_code_tenant (tenant_id, risk_point_code),\n  KEY idx_region (region_id),\n  KEY idx_status (status),\n  KEY idx_risk_type_status (risk_type, status)\n) COMMENT='风险点表';"
     },
     {
       "name": "risk_point_device",
@@ -6322,23 +6203,19 @@
     },
     {
       "name": "risk_point_device_pending_binding",
-      "sql": "-- 表：risk_point_device_pending_binding\n-- 说明：风险点设备待治理导入表\nCREATE TABLE risk_point_device_pending_binding (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  batch_no VARCHAR(64) NOT NULL COMMENT '导入批次号',\n  source_file_name VARCHAR(255) DEFAULT NULL COMMENT '来源文件名',\n  source_row_no INT NOT NULL COMMENT '来源行号',\n  risk_point_name VARCHAR(128) NOT NULL COMMENT '来源风险点名称',\n  risk_point_id BIGINT DEFAULT NULL COMMENT '匹配到的风险点ID',\n  risk_point_code VARCHAR(64) DEFAULT NULL COMMENT '匹配到的风险点编号',\n  device_code VARCHAR(64) NOT NULL COMMENT '来源设备编码',\n  device_id BIGINT DEFAULT NULL COMMENT '匹配到的设备ID',\n  device_name VARCHAR(128) DEFAULT NULL COMMENT '匹配到的设备名称',\n  resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE' COMMENT '治理状态',\n  resolution_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',\n  metric_identifier VARCHAR(64) DEFAULT NULL COMMENT '后续补录测点标识',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '后续补录测点名称',\n  promoted_binding_id BIGINT DEFAULT NULL COMMENT '转正后的正式绑定ID',\n  promoted_time DATETIME DEFAULT NULL COMMENT '转正时间',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no),\n  KEY idx_pending_binding_status (tenant_id, resolution_status, deleted),\n  KEY idx_pending_binding_risk_device (risk_point_id, device_id, deleted),\n  KEY idx_pending_binding_device_code (tenant_id, device_code, deleted)\n) COMMENT='风险点设备待治理导入表';"
+      "sql": "-- 表：risk_point_device_pending_binding\n-- 说明：风险点设备待治理导入表\nCREATE TABLE risk_point_device_pending_binding (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  batch_no VARCHAR(64) NOT NULL COMMENT '导入批次号',\n  source_file_name VARCHAR(255) DEFAULT NULL COMMENT '来源文件名',\n  source_row_no INT NOT NULL COMMENT '导入源行号',\n  risk_point_name VARCHAR(128) NOT NULL COMMENT '来源风险点名称',\n  risk_point_id BIGINT DEFAULT NULL COMMENT '匹配到的风险点ID',\n  risk_point_code VARCHAR(64) DEFAULT NULL COMMENT '匹配到的风险点编号',\n  device_code VARCHAR(64) NOT NULL COMMENT '来源设备编码',\n  device_id BIGINT DEFAULT NULL COMMENT '匹配到的设备ID',\n  device_name VARCHAR(128) DEFAULT NULL COMMENT '匹配到的设备名称',\n  resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE' COMMENT '治理状态',\n  resolution_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',\n  metric_identifier VARCHAR(64) DEFAULT NULL COMMENT '后续补录测点标识',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '后续补录测点名称',\n  promoted_binding_id BIGINT DEFAULT NULL COMMENT '转正后的正式绑定ID',\n  promoted_time DATETIME DEFAULT NULL COMMENT '转正时间',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no),\n  KEY idx_pending_binding_status (tenant_id, resolution_status, deleted),\n  KEY idx_pending_binding_risk_device (risk_point_id, device_id, deleted),\n  KEY idx_pending_binding_device_code (tenant_id, device_code, deleted)\n) COMMENT='风险点设备待治理导入表';"
     },
     {
       "name": "risk_point_device_pending_promotion",
       "sql": "-- 表：risk_point_device_pending_promotion\n-- 说明：风险点设备待治理转正明细表\nCREATE TABLE risk_point_device_pending_promotion (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  pending_binding_id BIGINT NOT NULL COMMENT '来源待治理记录ID',\n  risk_point_device_id BIGINT DEFAULT NULL COMMENT '正式绑定ID',\n  risk_point_id BIGINT NOT NULL COMMENT '风险点ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  device_name VARCHAR(128) DEFAULT NULL COMMENT '设备名称',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '测点名称',\n  promotion_status VARCHAR(32) NOT NULL COMMENT '转正结果',\n  recommendation_level VARCHAR(16) DEFAULT NULL COMMENT '推荐等级',\n  recommendation_score INT DEFAULT NULL COMMENT '推荐评分',\n  evidence_snapshot_json JSON DEFAULT NULL COMMENT '证据快照',\n  promotion_note VARCHAR(500) DEFAULT NULL COMMENT '治理说明',\n  operator_id BIGINT DEFAULT NULL COMMENT '操作人ID',\n  operator_name VARCHAR(128) DEFAULT NULL COMMENT '操作人姓名',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_pending_promotion_pending_id (pending_binding_id),\n  KEY idx_pending_promotion_binding_id (risk_point_device_id),\n  KEY idx_pending_promotion_status (tenant_id, promotion_status, deleted)\n) COMMENT='风险点设备待治理转正明细表';"
     },
     {
-      "name": "risk_point_highway_detail",
-      "sql": "-- 表：risk_point_highway_detail\n-- 说明：高速公路风险点扩展表\nCREATE TABLE risk_point_highway_detail (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  risk_point_id BIGINT NOT NULL COMMENT '风险点ID',\n  project_name VARCHAR(255) NOT NULL COMMENT '项目名称',\n  project_type VARCHAR(32) NOT NULL COMMENT '项目类型',\n  project_summary TEXT DEFAULT NULL COMMENT '项目简介',\n  route_code VARCHAR(64) NOT NULL COMMENT '路线编号',\n  route_name VARCHAR(128) DEFAULT NULL COMMENT '路线名称',\n  road_level VARCHAR(64) DEFAULT NULL COMMENT '公路等级',\n  project_risk_level VARCHAR(32) DEFAULT NULL COMMENT '项目风险等级原始值',\n  admin_region_code VARCHAR(32) DEFAULT NULL COMMENT '行政区域末级编码',\n  admin_region_path_json VARCHAR(255) DEFAULT NULL COMMENT '行政区域路径JSON',\n  maintenance_org_name VARCHAR(128) DEFAULT NULL COMMENT '管养单位名称',\n  source_row_no INT DEFAULT NULL COMMENT 'Excel来源行号',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_risk_point_highway (risk_point_id),\n  KEY idx_route_code (route_code),\n  KEY idx_admin_region_code (admin_region_code),\n  KEY idx_project_type (project_type)\n) COMMENT='高速公路风险点扩展表';"
-    },
-    {
       "name": "rule_definition",
-      "sql": "-- 表：rule_definition\n-- 说明：阈值规则表\nCREATE TABLE rule_definition (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',\n  metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',\n  expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',\n  duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',\n  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '告警等级',\n  notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',\n  convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_metric_identifier (metric_identifier),\n  KEY idx_rule_definition_metric_catalog (risk_metric_id)\n) COMMENT='阈值规则表';"
+      "sql": "-- 表：rule_definition\n-- 说明：阈值规则表\nCREATE TABLE rule_definition (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',\n  metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',\n  expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',\n  duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',\n  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',\n  convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_metric_identifier (metric_identifier),\n  KEY idx_rule_definition_metric_catalog (risk_metric_id)\n) COMMENT='阈值规则表';"
     },
     {
       "name": "iot_command_record",
-      "sql": "-- 表：iot_command_record\n-- 说明：设备命令记录表\nCREATE TABLE iot_command_record (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  command_id VARCHAR(64) NOT NULL COMMENT '业务命令ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) NOT NULL COMMENT '产品Key',\n  gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',\n  sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',\n  topic VARCHAR(255) NOT NULL COMMENT '下发Topic',\n  command_type VARCHAR(32) NOT NULL COMMENT '命令类型 property/service',\n  service_identifier VARCHAR(64) DEFAULT NULL COMMENT '服务标识',\n  request_payload LONGTEXT DEFAULT NULL COMMENT '下发请求报文',\n  reply_payload LONGTEXT DEFAULT NULL COMMENT '设备回执报文',\n  qos TINYINT NOT NULL DEFAULT 0 COMMENT 'qos业务字段',\n  retained TINYINT NOT NULL DEFAULT 0 COMMENT '是否保留消息 1是 0否',\n  status VARCHAR(32) NOT NULL COMMENT '命令状态 CREATED/SENT/SUCCESS/FAILED/TIMEOUT',\n  send_time DATETIME DEFAULT NULL COMMENT '发送时间',\n  ack_time DATETIME DEFAULT NULL COMMENT '回执时间',\n  timeout_time DATETIME DEFAULT NULL COMMENT '超时时间',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误信息',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_command_id (command_id),\n  KEY idx_device_status (device_code, status),\n  KEY idx_status_timeout (status, timeout_time)\n) COMMENT='设备命令记录表';"
+      "sql": "-- 表：iot_command_record\n-- 说明：设备命令记录表\nCREATE TABLE iot_command_record (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  command_id VARCHAR(64) NOT NULL COMMENT '业务命令ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) NOT NULL COMMENT '产品标识',\n  gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',\n  sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',\n  topic VARCHAR(255) NOT NULL COMMENT '下发主题',\n  command_type VARCHAR(32) NOT NULL COMMENT '命令类型（属性下发/服务调用）',\n  service_identifier VARCHAR(64) DEFAULT NULL COMMENT '服务标识',\n  request_payload LONGTEXT DEFAULT NULL COMMENT '下发请求报文',\n  reply_payload LONGTEXT DEFAULT NULL COMMENT '设备回执报文',\n  qos TINYINT NOT NULL DEFAULT 0 COMMENT '服务质量等级',\n  retained TINYINT NOT NULL DEFAULT 0 COMMENT '是否保留消息 1是 0否',\n  status VARCHAR(32) NOT NULL COMMENT '命令状态 CREATED/SENT/SUCCESS/FAILED/TIMEOUT',\n  send_time DATETIME DEFAULT NULL COMMENT '发送时间',\n  ack_time DATETIME DEFAULT NULL COMMENT '回执时间',\n  timeout_time DATETIME DEFAULT NULL COMMENT '超时时间',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误信息',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_command_id (command_id),\n  KEY idx_device_status (device_code, status),\n  KEY idx_status_timeout (status, timeout_time)\n) COMMENT='设备命令记录表';"
     },
     {
       "name": "iot_device",
@@ -6346,19 +6223,19 @@
     },
     {
       "name": "iot_device_access_error_log",
-      "sql": "-- 表：iot_device_access_error_log\n-- 说明：设备接入失败归档表\nCREATE TABLE iot_device_access_error_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',\n  failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',\n  gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',\n  sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',\n  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic 路由类型',\n  message_type VARCHAR(32) DEFAULT NULL COMMENT '消息类型',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '消息主题',\n  client_id VARCHAR(128) DEFAULT NULL COMMENT '客户端ID',\n  payload_size INT DEFAULT NULL COMMENT 'payload 大小',\n  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT 'payload 编码',\n  payload_truncated TINYINT NOT NULL DEFAULT 0 COMMENT 'payload 是否截断',\n  raw_payload LONGTEXT DEFAULT NULL COMMENT '原始 payload',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误码',\n  exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误消息',\n  contract_snapshot LONGTEXT DEFAULT NULL COMMENT '设备契约快照',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_access_error_trace (trace_id),\n  KEY idx_access_error_device_time (device_code, create_time),\n  KEY idx_access_error_stage_time (failure_stage, create_time)\n) COMMENT='设备接入失败归档表';"
+      "sql": "-- 表：iot_device_access_error_log\n-- 说明：设备接入失败归档表\nCREATE TABLE iot_device_access_error_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',\n  failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  gateway_device_code VARCHAR(64) DEFAULT NULL COMMENT '网关设备编码',\n  sub_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',\n  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT '主题路由类型',\n  message_type VARCHAR(32) DEFAULT NULL COMMENT '消息类型',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '消息主题',\n  client_id VARCHAR(128) DEFAULT NULL COMMENT '客户端ID',\n  payload_size INT DEFAULT NULL COMMENT '载荷大小',\n  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '载荷编码',\n  payload_truncated TINYINT NOT NULL DEFAULT 0 COMMENT '载荷是否截断',\n  raw_payload LONGTEXT DEFAULT NULL COMMENT '原始载荷',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',\n  exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误消息',\n  contract_snapshot LONGTEXT DEFAULT NULL COMMENT '设备契约快照',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_access_error_trace (trace_id),\n  KEY idx_access_error_device_time (device_code, create_time),\n  KEY idx_access_error_stage_time (failure_stage, create_time)\n) COMMENT='设备接入失败归档表';"
     },
     {
       "name": "iot_device_invalid_report_state",
-      "sql": "-- 表：iot_device_invalid_report_state\n-- 说明：无效 MQTT 上报最新态表\nCREATE TABLE iot_device_invalid_report_state (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  governance_key VARCHAR(255) NOT NULL COMMENT '治理唯一键',\n  reason_code VARCHAR(64) NOT NULL COMMENT '治理原因编码',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',\n  failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT 'topic 路由类型',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '最近 topic',\n  client_id VARCHAR(128) DEFAULT NULL COMMENT '最近 clientId',\n  payload_size INT DEFAULT NULL COMMENT '最近 payload 大小',\n  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '最近 payload 编码',\n  last_payload LONGTEXT DEFAULT NULL COMMENT '最近 payload',\n  last_trace_id VARCHAR(64) DEFAULT NULL COMMENT '最近 traceId',\n  sample_error_message VARCHAR(500) DEFAULT NULL COMMENT '样本错误消息',\n  sample_exception_class VARCHAR(255) DEFAULT NULL COMMENT '样本异常类',\n  first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次命中时间',\n  last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近命中时间',\n  hit_count BIGINT NOT NULL DEFAULT 0 COMMENT '总命中次数',\n  sampled_count BIGINT NOT NULL DEFAULT 0 COMMENT '已采样次数',\n  suppressed_count BIGINT NOT NULL DEFAULT 0 COMMENT '被抑制次数',\n  suppressed_until DATETIME DEFAULT NULL COMMENT '抑制截止时间',\n  resolved TINYINT NOT NULL DEFAULT 0 COMMENT '是否已解封',\n  resolved_time DATETIME DEFAULT NULL COMMENT '解封时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_invalid_report_state_governance_key (governance_key),\n  KEY idx_invalid_report_device_resolved (device_code, product_key, resolved, last_seen_time),\n  KEY idx_invalid_report_reason_time (reason_code, last_seen_time)\n) COMMENT='无效 MQTT 上报最新态表';"
+      "sql": "-- 表：iot_device_invalid_report_state\n-- 说明：无效 MQTT 上报最新态表\nCREATE TABLE iot_device_invalid_report_state (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  governance_key VARCHAR(255) NOT NULL COMMENT '治理唯一键',\n  reason_code VARCHAR(64) NOT NULL COMMENT '治理原因编码',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方式',\n  failure_stage VARCHAR(32) DEFAULT NULL COMMENT '失败阶段',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  topic_route_type VARCHAR(32) DEFAULT NULL COMMENT '主题路由类型',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '最近主题',\n  client_id VARCHAR(128) DEFAULT NULL COMMENT '最近客户端标识',\n  payload_size INT DEFAULT NULL COMMENT '载荷大小',\n  payload_encoding VARCHAR(16) DEFAULT NULL COMMENT '载荷编码',\n  last_payload LONGTEXT DEFAULT NULL COMMENT '最近载荷',\n  last_trace_id VARCHAR(64) DEFAULT NULL COMMENT '最近链路追踪ID',\n  sample_error_message VARCHAR(500) DEFAULT NULL COMMENT '样本错误消息',\n  sample_exception_class VARCHAR(255) DEFAULT NULL COMMENT '样本异常类',\n  first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次命中时间',\n  last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近命中时间',\n  hit_count BIGINT NOT NULL DEFAULT 0 COMMENT '总命中次数',\n  sampled_count BIGINT NOT NULL DEFAULT 0 COMMENT '已采样次数',\n  suppressed_count BIGINT NOT NULL DEFAULT 0 COMMENT '被抑制次数',\n  suppressed_until DATETIME DEFAULT NULL COMMENT '抑制截止时间',\n  resolved TINYINT NOT NULL DEFAULT 0 COMMENT '是否已解封',\n  resolved_time DATETIME DEFAULT NULL COMMENT '解封时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_invalid_report_state_governance_key (governance_key),\n  KEY idx_invalid_report_device_resolved (device_code, product_key, resolved, last_seen_time),\n  KEY idx_invalid_report_reason_time (reason_code, last_seen_time)\n) COMMENT='无效 MQTT 上报最新态表';"
     },
     {
       "name": "iot_device_message_log",
-      "sql": "-- 表：iot_device_message_log\n-- 说明：设备消息日志表\nCREATE TABLE iot_device_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型 telemetry/event/property/reply',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';"
+      "sql": "-- 表：iot_device_message_log\n-- 说明：设备消息日志表\nCREATE TABLE iot_device_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';"
     },
     {
       "name": "iot_device_metric_latest",
-      "sql": "-- 表：iot_device_metric_latest\n-- 说明：telemetry v2 latest投影表\nCREATE TABLE iot_device_metric_latest (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  tenant_id BIGINT NOT NULL COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  metric_id VARCHAR(128) NOT NULL COMMENT '指标唯一键',\n  metric_code VARCHAR(128) NOT NULL COMMENT '指标编码',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '指标名称',\n  value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',\n  value_double DOUBLE DEFAULT NULL COMMENT '浮点值',\n  value_long BIGINT DEFAULT NULL COMMENT '整型值',\n  value_bool TINYINT(1) DEFAULT NULL COMMENT '布尔值',\n  value_text TEXT DEFAULT NULL COMMENT '文本值',\n  quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量码',\n  alarm_flag TINYINT(1) DEFAULT NULL COMMENT '告警标记',\n  reported_at DATETIME DEFAULT NULL COMMENT '实际上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),\n  KEY idx_tel_latest_device_reported (device_id, reported_at)\n) COMMENT='telemetry v2 latest投影表';"
+      "sql": "-- 表：iot_device_metric_latest\n-- 说明：时序最新值投影表\nCREATE TABLE iot_device_metric_latest (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  tenant_id BIGINT NOT NULL COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  metric_id VARCHAR(128) NOT NULL COMMENT '指标唯一键',\n  metric_code VARCHAR(128) NOT NULL COMMENT '指标编码',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '指标名称',\n  value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',\n  value_double DOUBLE DEFAULT NULL COMMENT '数值',\n  value_long BIGINT DEFAULT NULL COMMENT '整数值',\n  value_bool TINYINT(1) DEFAULT NULL COMMENT '布尔值',\n  value_text TEXT DEFAULT NULL COMMENT '文本值',\n  quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量编码',\n  alarm_flag TINYINT(1) DEFAULT NULL COMMENT '告警标记',\n  reported_at DATETIME DEFAULT NULL COMMENT '设备上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),\n  KEY idx_tel_latest_device_reported (device_id, reported_at)\n) COMMENT='时序最新值投影表';"
     },
     {
       "name": "iot_device_online_session",
@@ -6370,35 +6247,35 @@
     },
     {
       "name": "iot_device_relation",
-      "sql": "-- 表：iot_device_relation\n-- 说明：设备逻辑通道关系表\nCREATE TABLE iot_device_relation (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  parent_device_id BIGINT NOT NULL COMMENT '父设备ID',\n  parent_device_code VARCHAR(64) NOT NULL COMMENT '父设备编码',\n  logical_channel_code VARCHAR(64) NOT NULL COMMENT '逻辑通道编码',\n  child_device_id BIGINT NOT NULL COMMENT '子设备ID',\n  child_device_code VARCHAR(64) NOT NULL COMMENT '子设备编码',\n  child_product_id BIGINT DEFAULT NULL COMMENT '子产品ID',\n  child_product_key VARCHAR(64) DEFAULT NULL COMMENT '子产品 productKey',\n  relation_type VARCHAR(32) NOT NULL COMMENT '关系类型 collector_child/gateway_child',\n  canonicalization_strategy VARCHAR(32) NOT NULL COMMENT '归一化策略 LEGACY/LF_VALUE',\n  status_mirror_strategy VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT '状态镜像策略 NONE/SENSOR_STATE',\n  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_relation_parent_channel (tenant_id, parent_device_id, logical_channel_code, deleted),\n  UNIQUE KEY uk_relation_parent_code_channel (tenant_id, parent_device_code, logical_channel_code, deleted),\n  KEY idx_relation_parent_code (tenant_id, parent_device_code, enabled, deleted),\n  KEY idx_relation_child_code (tenant_id, child_device_code, enabled, deleted)\n) COMMENT='设备逻辑通道关系表';"
+      "sql": "-- 表：iot_device_relation\n-- 说明：设备逻辑通道关系表\nCREATE TABLE iot_device_relation (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  parent_device_id BIGINT NOT NULL COMMENT '父设备ID',\n  parent_device_code VARCHAR(64) NOT NULL COMMENT '父设备编码',\n  logical_channel_code VARCHAR(64) NOT NULL COMMENT '逻辑通道编码',\n  child_device_id BIGINT NOT NULL COMMENT '子设备ID',\n  child_device_code VARCHAR(64) NOT NULL COMMENT '子设备编码',\n  child_product_id BIGINT DEFAULT NULL COMMENT '子产品ID',\n  child_product_key VARCHAR(64) DEFAULT NULL COMMENT '子产品标识',\n  relation_type VARCHAR(32) NOT NULL COMMENT '关系类型（采集器子设备/网关子设备）',\n  canonicalization_strategy VARCHAR(32) NOT NULL COMMENT '归一化策略 LEGACY/LF_VALUE',\n  status_mirror_strategy VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT '状态镜像策略 NONE/SENSOR_STATE',\n  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_relation_parent_channel (tenant_id, parent_device_id, logical_channel_code, deleted),\n  UNIQUE KEY uk_relation_parent_code_channel (tenant_id, parent_device_code, logical_channel_code, deleted),\n  KEY idx_relation_parent_code (tenant_id, parent_device_code, enabled, deleted),\n  KEY idx_relation_child_code (tenant_id, child_device_code, enabled, deleted)\n) COMMENT='设备逻辑通道关系表';"
     },
     {
       "name": "iot_device_secret_rotation_log",
-      "sql": "-- 表：iot_device_secret_rotation_log\n-- 说明：iot设备密钥轮换log表\nCREATE TABLE iot_device_secret_rotation_log (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  rotation_batch_id VARCHAR(64) NOT NULL COMMENT '轮换批次ID',\n  reason VARCHAR(500) DEFAULT NULL COMMENT 'reason业务字段',\n  previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT 'previous密钥digest业务字段',\n  current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT 'current密钥digest业务字段',\n  rotated_by BIGINT NOT NULL COMMENT 'rotatedby业务字段',\n  approved_by BIGINT NOT NULL COMMENT 'approvedby业务字段',\n  rotate_time DATETIME NOT NULL COMMENT 'rotate时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_device_rotation_device_time (device_id, rotate_time),\n  KEY idx_device_rotation_batch (rotation_batch_id)\n) COMMENT='iot设备密钥轮换log表';"
+      "sql": "-- 表：iot_device_secret_rotation_log\n-- 说明：设备密钥轮换日志表\nCREATE TABLE iot_device_secret_rotation_log (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  rotation_batch_id VARCHAR(64) NOT NULL COMMENT '轮换批次ID',\n  reason VARCHAR(500) DEFAULT NULL COMMENT '轮换原因',\n  previous_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '上一版密钥摘要',\n  current_secret_digest VARCHAR(128) DEFAULT NULL COMMENT '当前密钥摘要',\n  rotated_by BIGINT NOT NULL COMMENT '轮换执行人',\n  approved_by BIGINT NOT NULL COMMENT '审批人',\n  rotate_time DATETIME NOT NULL COMMENT '轮换时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_device_rotation_device_time (device_id, rotate_time),\n  KEY idx_device_rotation_batch (rotation_batch_id)\n) COMMENT='设备密钥轮换日志表';"
     },
     {
       "name": "iot_normative_metric_definition",
-      "sql": "-- 表：iot_normative_metric_definition\n-- 说明：规范字段定义表\nCREATE TABLE iot_normative_metric_definition (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scenario_code VARCHAR(64) NOT NULL COMMENT '治理场景编码',\n  device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',\n  identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',\n  display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',\n  unit VARCHAR(32) DEFAULT NULL COMMENT '单位',\n  precision_digits INT DEFAULT NULL COMMENT '精度',\n  monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',\n  monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',\n  risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',\n  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许趋势分析',\n  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '量纲',\n  threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',\n  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',\n  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持GIS',\n  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持对象洞察',\n  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否支持运营分析',\n  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)\n) COMMENT='规范字段定义表';"
+      "sql": "-- 表：iot_normative_metric_definition\n-- 说明：规范字段定义表\nCREATE TABLE iot_normative_metric_definition (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scenario_code VARCHAR(64) NOT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',\n  identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',\n  display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',\n  unit VARCHAR(32) DEFAULT NULL COMMENT '单位',\n  precision_digits INT DEFAULT NULL COMMENT '精度',\n  monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',\n  monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',\n  risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',\n  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用趋势展示',\n  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',\n  threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',\n  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',\n  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用地图展示',\n  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用对象洞察',\n  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用运营分析',\n  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)\n) COMMENT='规范字段定义表';"
     },
     {
       "name": "iot_product",
-      "sql": "-- 表：iot_product\n-- 说明：产品表\nCREATE TABLE iot_product (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_key VARCHAR(64) NOT NULL COMMENT '产品Key',\n  product_name VARCHAR(128) NOT NULL COMMENT '产品名称',\n  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',\n  node_type TINYINT NOT NULL DEFAULT 1 COMMENT '节点类型 1直连设备 2网关设备 3网关子设备',\n  data_format VARCHAR(32) NOT NULL DEFAULT 'JSON' COMMENT '数据格式',\n  manufacturer VARCHAR(128) DEFAULT NULL COMMENT '厂商',\n  description VARCHAR(500) DEFAULT NULL COMMENT '描述',\n  metadata_json JSON DEFAULT NULL COMMENT '产品扩展元数据',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_product_key_tenant (tenant_id, product_key)\n) COMMENT='产品表';"
+      "sql": "-- 表：iot_product\n-- 说明：产品表\nCREATE TABLE iot_product (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_key VARCHAR(64) NOT NULL COMMENT '产品标识',\n  product_name VARCHAR(128) NOT NULL COMMENT '产品名称',\n  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',\n  node_type TINYINT NOT NULL DEFAULT 1 COMMENT '节点类型 1直连设备 2网关设备 3网关子设备',\n  data_format VARCHAR(32) NOT NULL DEFAULT 'JSON' COMMENT '数据格式',\n  manufacturer VARCHAR(128) DEFAULT NULL COMMENT '厂商',\n  description VARCHAR(500) DEFAULT NULL COMMENT '描述',\n  metadata_json JSON DEFAULT NULL COMMENT '产品扩展元数据',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_product_key_tenant (tenant_id, product_key)\n) COMMENT='产品表';"
     },
     {
       "name": "iot_product_contract_release_batch",
-      "sql": "-- 表：iot_product_contract_release_batch\n-- 说明：iot产品contractrelease批次表\nCREATE TABLE iot_product_contract_release_batch (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  scenario_code VARCHAR(64) NOT NULL COMMENT 'scenario编码',\n  release_source VARCHAR(64) NOT NULL COMMENT 'releasesource业务字段',\n  released_field_count INT NOT NULL DEFAULT 0 COMMENT 'releasedfieldcount业务字段',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  release_reason VARCHAR(500) DEFAULT NULL COMMENT 'releasereason业务字段',\n  release_status VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT 'release状态业务字段',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  rollback_by BIGINT DEFAULT NULL COMMENT 'rollbackby业务字段',\n  rollback_time DATETIME DEFAULT NULL COMMENT 'rollback时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_product_contract_release_product_time (product_id, create_time)\n) COMMENT='iot产品contractrelease批次表';"
+      "sql": "-- 表：iot_product_contract_release_batch\n-- 说明：产品合同发布批次表\nCREATE TABLE iot_product_contract_release_batch (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  scenario_code VARCHAR(64) NOT NULL COMMENT '场景编码',\n  release_source VARCHAR(64) NOT NULL COMMENT '发布来源',\n  released_field_count INT NOT NULL DEFAULT 0 COMMENT '发布字段数量',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  release_reason VARCHAR(500) DEFAULT NULL COMMENT '发布原因',\n  release_status VARCHAR(16) NOT NULL DEFAULT 'RELEASED' COMMENT '发布状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  rollback_by BIGINT DEFAULT NULL COMMENT '回滚执行人',\n  rollback_time DATETIME DEFAULT NULL COMMENT '回滚时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_product_contract_release_product_time (product_id, create_time)\n) COMMENT='产品合同发布批次表';"
     },
     {
       "name": "iot_product_contract_release_snapshot",
-      "sql": "-- 表：iot_product_contract_release_snapshot\n-- 说明：iot产品contractrelease快照表\nCREATE TABLE iot_product_contract_release_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  batch_id BIGINT NOT NULL COMMENT '批次ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  snapshot_stage VARCHAR(32) NOT NULL COMMENT '快照stage业务字段',\n  snapshot_json JSON NOT NULL COMMENT '快照JSON内容',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)\n) COMMENT='iot产品contractrelease快照表';"
+      "sql": "-- 表：iot_product_contract_release_snapshot\n-- 说明：产品合同发布快照表\nCREATE TABLE iot_product_contract_release_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  batch_id BIGINT NOT NULL COMMENT '批次ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  snapshot_stage VARCHAR(32) NOT NULL COMMENT '快照阶段',\n  snapshot_json JSON NOT NULL COMMENT '快照JSON内容',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_release_snapshot_batch_stage (batch_id, snapshot_stage)\n) COMMENT='产品合同发布快照表';"
     },
     {
       "name": "iot_product_metric_resolver_snapshot",
-      "sql": "-- 表：iot_product_metric_resolver_snapshot\n-- 说明：iot产品指标resolver快照表\nCREATE TABLE iot_product_metric_resolver_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  release_batch_id BIGINT NOT NULL COMMENT '发布批次ID',\n  snapshot_json JSON NOT NULL COMMENT '快照JSON内容',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_metric_resolver_snapshot_batch (product_id, release_batch_id, deleted)\n) COMMENT='iot产品指标resolver快照表';"
+      "sql": "-- 表：iot_product_metric_resolver_snapshot\n-- 说明：产品指标解析快照表\nCREATE TABLE iot_product_metric_resolver_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  release_batch_id BIGINT NOT NULL COMMENT '发布批次ID',\n  snapshot_json JSON NOT NULL COMMENT '快照JSON内容',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_metric_resolver_snapshot_batch (product_id, release_batch_id, deleted)\n) COMMENT='产品指标解析快照表';"
     },
     {
       "name": "iot_product_model",
-      "sql": "-- 表：iot_product_model\n-- 说明：产品物模型表\nCREATE TABLE iot_product_model (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  model_type VARCHAR(32) NOT NULL COMMENT '模型类型 property/event/service',\n  identifier VARCHAR(64) NOT NULL COMMENT '标识符',\n  model_name VARCHAR(128) NOT NULL COMMENT '名称',\n  data_type VARCHAR(32) NOT NULL COMMENT '数据类型',\n  specs_json JSON DEFAULT NULL COMMENT '规格JSON',\n  event_type VARCHAR(32) DEFAULT NULL COMMENT '事件类型',\n  service_input_json JSON DEFAULT NULL COMMENT '服务输入定义',\n  service_output_json JSON DEFAULT NULL COMMENT '服务输出定义',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  required_flag TINYINT NOT NULL DEFAULT 0 COMMENT '是否必填',\n  description VARCHAR(500) DEFAULT NULL COMMENT '描述',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_product_identifier (product_id, model_type, identifier)\n) COMMENT='产品物模型表';"
+      "sql": "-- 表：iot_product_model\n-- 说明：产品物模型表\nCREATE TABLE iot_product_model (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  model_type VARCHAR(32) NOT NULL COMMENT '模型类型（属性/事件/服务）',\n  identifier VARCHAR(64) NOT NULL COMMENT '标识符',\n  model_name VARCHAR(128) NOT NULL COMMENT '名称',\n  data_type VARCHAR(32) NOT NULL COMMENT '数据类型',\n  specs_json JSON DEFAULT NULL COMMENT '规格JSON',\n  event_type VARCHAR(32) DEFAULT NULL COMMENT '事件类型',\n  service_input_json JSON DEFAULT NULL COMMENT '服务输入定义',\n  service_output_json JSON DEFAULT NULL COMMENT '服务输出定义',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  required_flag TINYINT NOT NULL DEFAULT 0 COMMENT '是否必填',\n  description VARCHAR(500) DEFAULT NULL COMMENT '描述',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_product_identifier (product_id, model_type, identifier)\n) COMMENT='产品物模型表';"
     },
     {
       "name": "iot_vendor_metric_evidence",
@@ -6406,35 +6283,35 @@
     },
     {
       "name": "iot_vendor_metric_mapping_rule",
-      "sql": "-- 表：iot_vendor_metric_mapping_rule\n-- 说明：厂商字段映射规则表\nCREATE TABLE iot_vendor_metric_mapping_rule (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scope_type VARCHAR(32) NOT NULL COMMENT 'scope类型业务字段',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '治理场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',\n  raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',\n  logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',\n  relation_condition_json JSON DEFAULT NULL COMMENT '关系条件JSON',\n  normalization_rule_json JSON DEFAULT NULL COMMENT '归一化规则JSON',\n  target_normative_identifier VARCHAR(64) NOT NULL COMMENT '目标规范字段标识',\n  status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id)\n) COMMENT='厂商字段映射规则表';"
+      "sql": "-- 表：iot_vendor_metric_mapping_rule\n-- 说明：厂商字段映射规则表\nCREATE TABLE iot_vendor_metric_mapping_rule (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scope_type VARCHAR(32) NOT NULL COMMENT '作用域类型',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',\n  raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',\n  logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',\n  relation_condition_json JSON DEFAULT NULL COMMENT '关系条件JSON',\n  normalization_rule_json JSON DEFAULT NULL COMMENT '归一化规则JSON',\n  target_normative_identifier VARCHAR(64) NOT NULL COMMENT '目标规范字段标识',\n  status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id)\n) COMMENT='厂商字段映射规则表';"
     },
     {
       "name": "iot_governance_ops_alert",
-      "sql": "-- 表：iot_governance_ops_alert\n-- 说明：治理运维告警表\nCREATE TABLE iot_governance_ops_alert (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  alert_type VARCHAR(64) NOT NULL COMMENT '告警类型',\n  alert_code VARCHAR(128) NOT NULL COMMENT '告警业务编码',\n  subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/DEVICE',\n  subject_id BIGINT DEFAULT NULL COMMENT '主题ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',\n  alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT 'alert状态业务字段',\n  severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT 'severitylevel业务字段',\n  affected_count BIGINT NOT NULL DEFAULT 0 COMMENT '影响数量',\n  alert_title VARCHAR(255) NOT NULL COMMENT '告警标题',\n  alert_message VARCHAR(1000) DEFAULT NULL COMMENT '告警内容',\n  dimension_key VARCHAR(128) DEFAULT NULL COMMENT '维度键',\n  dimension_label VARCHAR(255) DEFAULT NULL COMMENT '维度标签',\n  source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',\n  snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',\n  assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',\n  first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次出现时间',\n  last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近出现时间',\n  resolved_time DATETIME DEFAULT NULL COMMENT '恢复时间',\n  closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_governance_ops_alert_code (tenant_id, alert_type, alert_code, deleted)\n) COMMENT='治理运维告警表';"
+      "sql": "-- 表：iot_governance_ops_alert\n-- 说明：治理运维告警表\nCREATE TABLE iot_governance_ops_alert (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  alert_type VARCHAR(64) NOT NULL COMMENT '告警类型',\n  alert_code VARCHAR(128) NOT NULL COMMENT '告警业务编码',\n  subject_type VARCHAR(64) NOT NULL COMMENT '审批主体类型',\n  subject_id BIGINT DEFAULT NULL COMMENT '主题ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  alert_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '告警状态',\n  severity_level VARCHAR(16) NOT NULL DEFAULT 'WARN' COMMENT '严重程度等级',\n  affected_count BIGINT NOT NULL DEFAULT 0 COMMENT '影响数量',\n  alert_title VARCHAR(255) NOT NULL COMMENT '告警标题',\n  alert_message VARCHAR(1000) DEFAULT NULL COMMENT '告警内容',\n  dimension_key VARCHAR(128) DEFAULT NULL COMMENT '维度键',\n  dimension_label VARCHAR(255) DEFAULT NULL COMMENT '维度标签',\n  source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',\n  snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',\n  assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',\n  first_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次出现时间',\n  last_seen_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近出现时间',\n  resolved_time DATETIME DEFAULT NULL COMMENT '恢复时间',\n  closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_governance_ops_alert_code (tenant_id, alert_type, alert_code, deleted)\n) COMMENT='治理运维告警表';"
     },
     {
       "name": "iot_governance_work_item",
-      "sql": "-- 表：iot_governance_work_item\n-- 说明：治理与运营工作项表\nCREATE TABLE iot_governance_work_item (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  work_item_code VARCHAR(64) NOT NULL COMMENT '工作项编码',\n  subject_type VARCHAR(64) NOT NULL COMMENT '主题类型 PRODUCT/RISK_METRIC/RELEASE_BATCH/REPLAY_CASE',\n  subject_id BIGINT NOT NULL COMMENT '主题ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品Key',\n  work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '工作状态业务字段',\n  priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT 'prioritylevel业务字段',\n  assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',\n  source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',\n  blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',\n  snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',\n  task_category VARCHAR(64) DEFAULT NULL COMMENT '生命周期任务分类',\n  domain_code VARCHAR(64) DEFAULT NULL COMMENT '生命周期域编码',\n  action_code VARCHAR(128) DEFAULT NULL COMMENT '生命周期动作编码',\n  execution_status VARCHAR(64) DEFAULT NULL COMMENT '生命周期执行状态',\n  recommendation_snapshot_json LONGTEXT DEFAULT NULL COMMENT '推荐快照',\n  evidence_snapshot_json LONGTEXT DEFAULT NULL COMMENT '证据快照',\n  impact_snapshot_json LONGTEXT DEFAULT NULL COMMENT '影响快照',\n  rollback_snapshot_json LONGTEXT DEFAULT NULL COMMENT '回滚快照',\n  due_time DATETIME DEFAULT NULL COMMENT '截止时间',\n  resolved_time DATETIME DEFAULT NULL COMMENT '解决时间',\n  closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_governance_work_item_subject (subject_type, subject_id, work_status, deleted)\n) COMMENT='治理与运营工作项表';"
+      "sql": "-- 表：iot_governance_work_item\n-- 说明：治理与运营工作项表\nCREATE TABLE iot_governance_work_item (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  work_item_code VARCHAR(64) NOT NULL COMMENT '工作项编码',\n  subject_type VARCHAR(64) NOT NULL COMMENT '审批主体类型',\n  subject_id BIGINT NOT NULL COMMENT '主题ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '工作状态业务字段',\n  priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT '优先级等级',\n  assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',\n  source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',\n  blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',\n  snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',\n  task_category VARCHAR(64) DEFAULT NULL COMMENT '生命周期任务分类',\n  domain_code VARCHAR(64) DEFAULT NULL COMMENT '生命周期域编码',\n  action_code VARCHAR(128) DEFAULT NULL COMMENT '操作编码',\n  execution_status VARCHAR(64) DEFAULT NULL COMMENT '生命周期执行状态',\n  recommendation_snapshot_json LONGTEXT DEFAULT NULL COMMENT '推荐快照',\n  evidence_snapshot_json LONGTEXT DEFAULT NULL COMMENT '证据快照',\n  impact_snapshot_json LONGTEXT DEFAULT NULL COMMENT '影响快照',\n  rollback_snapshot_json LONGTEXT DEFAULT NULL COMMENT '回滚快照',\n  due_time DATETIME DEFAULT NULL COMMENT '截止时间',\n  resolved_time DATETIME DEFAULT NULL COMMENT '解决时间',\n  closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_governance_work_item_subject (subject_type, subject_id, work_status, deleted)\n) COMMENT='治理与运营工作项表';"
     },
     {
       "name": "sys_governance_approval_order",
-      "sql": "-- 表：sys_governance_approval_order\n-- 说明：sysgovernance审批工单表\nCREATE TABLE sys_governance_approval_order (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  action_code VARCHAR(64) NOT NULL COMMENT 'action编码',\n  action_name VARCHAR(128) DEFAULT NULL COMMENT 'action名称',\n  subject_type VARCHAR(64) DEFAULT NULL COMMENT 'subject类型业务字段',\n  subject_id BIGINT DEFAULT NULL COMMENT '审批对象ID',\n  work_item_id BIGINT DEFAULT NULL COMMENT '工作项ID',\n  status VARCHAR(32) NOT NULL COMMENT '状态',\n  operator_user_id BIGINT NOT NULL COMMENT '操作人用户ID',\n  approver_user_id BIGINT NOT NULL COMMENT '复核人用户ID',\n  payload_json LONGTEXT DEFAULT NULL COMMENT '载荷JSON内容',\n  approval_comment VARCHAR(500) DEFAULT NULL COMMENT '审批意见',\n  approved_time DATETIME DEFAULT NULL COMMENT '审批时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),\n  KEY idx_governance_approval_order_status_time (status, create_time, deleted),\n  KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)\n) COMMENT='sysgovernance审批工单表';"
+      "sql": "-- 表：sys_governance_approval_order\n-- 说明：治理审批工单表\nCREATE TABLE sys_governance_approval_order (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  action_code VARCHAR(64) NOT NULL COMMENT '操作编码',\n  action_name VARCHAR(128) DEFAULT NULL COMMENT '操作名称',\n  subject_type VARCHAR(64) DEFAULT NULL COMMENT '审批主体类型',\n  subject_id BIGINT DEFAULT NULL COMMENT '审批对象ID',\n  work_item_id BIGINT DEFAULT NULL COMMENT '工作项ID',\n  status VARCHAR(32) NOT NULL COMMENT '状态',\n  operator_user_id BIGINT NOT NULL COMMENT '操作人用户ID',\n  approver_user_id BIGINT NOT NULL COMMENT '复核人用户ID',\n  payload_json LONGTEXT DEFAULT NULL COMMENT '载荷JSON内容',\n  approval_comment VARCHAR(500) DEFAULT NULL COMMENT '审批意见',\n  approved_time DATETIME DEFAULT NULL COMMENT '审批时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),\n  KEY idx_governance_approval_order_status_time (status, create_time, deleted),\n  KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)\n) COMMENT='治理审批工单表';"
     },
     {
       "name": "sys_governance_approval_policy",
-      "sql": "-- 表：sys_governance_approval_policy\n-- 说明：sysgovernance审批policy表\nCREATE TABLE sys_governance_approval_policy (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 0 COMMENT '租户ID',\n  scope_type VARCHAR(16) NOT NULL COMMENT 'scope类型业务字段',\n  action_code VARCHAR(64) NOT NULL COMMENT 'action编码',\n  approver_mode VARCHAR(32) NOT NULL COMMENT '复核人mode业务字段',\n  approver_user_id BIGINT NOT NULL COMMENT '复核人用户ID',\n  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用标记',\n  remark VARCHAR(255) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_governance_approval_policy_scope_action (scope_type, tenant_id, action_code, deleted),\n  KEY idx_governance_approval_policy_enabled (enabled, scope_type, tenant_id, action_code, deleted),\n  KEY idx_governance_approval_policy_approver (approver_user_id, enabled, deleted)\n) COMMENT='sysgovernance审批policy表';"
+      "sql": "-- 表：sys_governance_approval_policy\n-- 说明：治理审批策略表\nCREATE TABLE sys_governance_approval_policy (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 0 COMMENT '租户ID',\n  scope_type VARCHAR(16) NOT NULL COMMENT '作用域类型',\n  action_code VARCHAR(64) NOT NULL COMMENT '操作编码',\n  approver_mode VARCHAR(32) NOT NULL COMMENT '复核人模式',\n  approver_user_id BIGINT NOT NULL COMMENT '复核人用户ID',\n  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用标记',\n  remark VARCHAR(255) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_governance_approval_policy_scope_action (scope_type, tenant_id, action_code, deleted),\n  KEY idx_governance_approval_policy_enabled (enabled, scope_type, tenant_id, action_code, deleted),\n  KEY idx_governance_approval_policy_approver (approver_user_id, enabled, deleted)\n) COMMENT='治理审批策略表';"
     },
     {
       "name": "sys_governance_approval_transition",
-      "sql": "-- 表：sys_governance_approval_transition\n-- 说明：sysgovernance审批transition表\nCREATE TABLE sys_governance_approval_transition (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  order_id BIGINT NOT NULL COMMENT '工单ID',\n  from_status VARCHAR(32) DEFAULT NULL COMMENT 'from状态业务字段',\n  to_status VARCHAR(32) NOT NULL COMMENT 'to状态业务字段',\n  actor_user_id BIGINT NOT NULL COMMENT '操作人用户ID',\n  transition_comment VARCHAR(500) DEFAULT NULL COMMENT 'transitioncomment业务字段',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_approval_transition_order (order_id, create_time, deleted),\n  KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)\n) COMMENT='sysgovernance审批transition表';"
+      "sql": "-- 表：sys_governance_approval_transition\n-- 说明：治理审批流转记录表\nCREATE TABLE sys_governance_approval_transition (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  order_id BIGINT NOT NULL COMMENT '工单ID',\n  from_status VARCHAR(32) DEFAULT NULL COMMENT '原状态',\n  to_status VARCHAR(32) NOT NULL COMMENT '目标状态',\n  actor_user_id BIGINT NOT NULL COMMENT '操作人用户ID',\n  transition_comment VARCHAR(500) DEFAULT NULL COMMENT '流转备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_approval_transition_order (order_id, create_time, deleted),\n  KEY idx_governance_approval_transition_actor (actor_user_id, create_time, deleted)\n) COMMENT='治理审批流转记录表';"
     },
     {
       "name": "sys_governance_replay_feedback",
-      "sql": "-- 表：sys_governance_replay_feedback\n-- 说明：sysgovernancereplayfeedback表\nCREATE TABLE sys_governance_replay_feedback (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  work_item_id BIGINT NOT NULL COMMENT '工作项ID',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  adopted_decision VARCHAR(64) DEFAULT NULL COMMENT 'adopteddecision业务字段',\n  execution_outcome VARCHAR(64) DEFAULT NULL COMMENT 'executionoutcome业务字段',\n  root_cause_code VARCHAR(64) DEFAULT NULL COMMENT 'rootcause编码',\n  feedback_json LONGTEXT DEFAULT NULL COMMENT 'feedbackJSON内容',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_replay_feedback_work_item (work_item_id, create_time, deleted),\n  KEY idx_governance_replay_feedback_release_batch (release_batch_id, create_time, deleted)\n) COMMENT='sysgovernancereplayfeedback表';"
+      "sql": "-- 表：sys_governance_replay_feedback\n-- 说明：治理复盘反馈表\nCREATE TABLE sys_governance_replay_feedback (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  work_item_id BIGINT NOT NULL COMMENT '工作项ID',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  adopted_decision VARCHAR(64) DEFAULT NULL COMMENT '采纳结论',\n  execution_outcome VARCHAR(64) DEFAULT NULL COMMENT '执行结果',\n  root_cause_code VARCHAR(64) DEFAULT NULL COMMENT '根因编码',\n  feedback_json LONGTEXT DEFAULT NULL COMMENT '复盘反馈内容',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_replay_feedback_work_item (work_item_id, create_time, deleted),\n  KEY idx_governance_replay_feedback_release_batch (release_batch_id, create_time, deleted)\n) COMMENT='治理复盘反馈表';"
     },
     {
       "name": "sys_audit_log",
-      "sql": "-- 表：sys_audit_log\n-- 说明：审计日志表\nCREATE TABLE sys_audit_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  user_id BIGINT DEFAULT NULL COMMENT '用户ID',\n  user_name VARCHAR(64) DEFAULT NULL COMMENT '用户名',\n  operation_type VARCHAR(64) DEFAULT NULL COMMENT '操作类型',\n  operation_module VARCHAR(128) DEFAULT NULL COMMENT '操作模块',\n  operation_method VARCHAR(255) NOT NULL DEFAULT '' COMMENT '操作方法',\n  request_url VARCHAR(255) DEFAULT NULL COMMENT '请求URL',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方法',\n  request_params LONGTEXT DEFAULT NULL COMMENT '请求参数',\n  response_result LONGTEXT DEFAULT NULL COMMENT '响应结果',\n  ip_address VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',\n  location VARCHAR(128) DEFAULT NULL COMMENT '位置',\n  operation_result TINYINT DEFAULT NULL COMMENT '操作结果 1成功 0失败',\n  result_message VARCHAR(500) DEFAULT NULL COMMENT '结果消息',\n  operation_time DATETIME DEFAULT NULL COMMENT '操作时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT 'error编码',\n  exception_class VARCHAR(255) DEFAULT NULL COMMENT 'exceptionclass业务字段',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_operation_time (operation_time),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code (device_code),\n  KEY idx_audit_deleted_operation_time (deleted, operation_time, create_time, id),\n  KEY idx_audit_deleted_type_time (deleted, operation_type, operation_time, create_time, id),\n  KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)\n) COMMENT='审计日志表';"
+      "sql": "-- 表：sys_audit_log\n-- 说明：审计日志表\nCREATE TABLE sys_audit_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  user_id BIGINT DEFAULT NULL COMMENT '用户ID',\n  user_name VARCHAR(64) DEFAULT NULL COMMENT '用户名',\n  operation_type VARCHAR(64) DEFAULT NULL COMMENT '操作类型',\n  operation_module VARCHAR(128) DEFAULT NULL COMMENT '操作模块',\n  operation_method VARCHAR(255) NOT NULL DEFAULT '' COMMENT '操作方法',\n  request_url VARCHAR(255) DEFAULT NULL COMMENT '请求URL',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方法',\n  request_params LONGTEXT DEFAULT NULL COMMENT '请求参数',\n  response_result LONGTEXT DEFAULT NULL COMMENT '响应结果',\n  ip_address VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',\n  location VARCHAR(128) DEFAULT NULL COMMENT '位置',\n  operation_result TINYINT DEFAULT NULL COMMENT '操作结果 1成功 0失败',\n  result_message VARCHAR(500) DEFAULT NULL COMMENT '结果消息',\n  operation_time DATETIME DEFAULT NULL COMMENT '操作时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',\n  exception_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_operation_time (operation_time),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code (device_code),\n  KEY idx_audit_deleted_operation_time (deleted, operation_time, create_time, id),\n  KEY idx_audit_deleted_type_time (deleted, operation_type, operation_time, create_time, id),\n  KEY idx_audit_deleted_request_method_time (deleted, request_method, operation_time, create_time, id)\n) COMMENT='审计日志表';"
     },
     {
       "name": "sys_dict",
@@ -6442,15 +6319,15 @@
     },
     {
       "name": "sys_dict_item",
-      "sql": "-- 表：sys_dict_item\n-- 说明：字典项表\nCREATE TABLE sys_dict_item (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  dict_id BIGINT NOT NULL COMMENT '字典ID',\n  item_name VARCHAR(128) NOT NULL COMMENT '项名称',\n  item_value VARCHAR(255) NOT NULL COMMENT '项值',\n  item_type VARCHAR(32) DEFAULT NULL COMMENT '项类型 string/number/boolean',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_dict_value_tenant (tenant_id, dict_id, item_value),\n  KEY idx_dict_id (dict_id)\n) COMMENT='字典项表';"
+      "sql": "-- 表：sys_dict_item\n-- 说明：字典项表\nCREATE TABLE sys_dict_item (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  dict_id BIGINT NOT NULL COMMENT '字典ID',\n  item_name VARCHAR(128) NOT NULL COMMENT '项名称',\n  item_value VARCHAR(255) NOT NULL COMMENT '项值',\n  item_type VARCHAR(32) DEFAULT NULL COMMENT '条目类型（字符串/数值/布尔）',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_dict_value_tenant (tenant_id, dict_id, item_value),\n  KEY idx_dict_id (dict_id)\n) COMMENT='字典项表';"
     },
     {
       "name": "sys_help_document",
-      "sql": "-- 表：sys_help_document\n-- 说明：帮助文档表\nCREATE TABLE sys_help_document (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  doc_category VARCHAR(32) NOT NULL COMMENT '文档分类 business/technical/faq',\n  title VARCHAR(128) NOT NULL COMMENT '文档标题',\n  summary VARCHAR(500) DEFAULT NULL COMMENT '文档摘要',\n  content LONGTEXT NOT NULL COMMENT '文档正文',\n  keywords VARCHAR(500) DEFAULT NULL COMMENT '关键词，逗号分隔',\n  related_paths VARCHAR(500) DEFAULT NULL COMMENT '关联页面路径，逗号分隔',\n  visible_role_codes VARCHAR(500) DEFAULT NULL COMMENT '可见角色编码，逗号分隔',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0停用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',\n  PRIMARY KEY (id),\n  KEY idx_help_document_deleted_category_sort (deleted, doc_category, sort_no, id),\n  KEY idx_help_document_deleted_status_sort (deleted, status, sort_no, id)\n) COMMENT='帮助文档表';"
+      "sql": "-- 表：sys_help_document\n-- 说明：帮助文档表\nCREATE TABLE sys_help_document (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  doc_category VARCHAR(32) NOT NULL COMMENT '文档分类（业务/技术/常见问题）',\n  title VARCHAR(128) NOT NULL COMMENT '文档标题',\n  summary VARCHAR(500) DEFAULT NULL COMMENT '文档摘要',\n  content LONGTEXT NOT NULL COMMENT '文档正文',\n  keywords VARCHAR(500) DEFAULT NULL COMMENT '关键词，逗号分隔',\n  related_paths VARCHAR(500) DEFAULT NULL COMMENT '关联页面路径，逗号分隔',\n  visible_role_codes VARCHAR(500) DEFAULT NULL COMMENT '可见角色编码，逗号分隔',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0停用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',\n  PRIMARY KEY (id),\n  KEY idx_help_document_deleted_category_sort (deleted, doc_category, sort_no, id),\n  KEY idx_help_document_deleted_status_sort (deleted, status, sort_no, id)\n) COMMENT='帮助文档表';"
     },
     {
       "name": "sys_in_app_message",
-      "sql": "-- 表：sys_in_app_message\n-- 说明：站内消息表\nCREATE TABLE sys_in_app_message (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型 system/business/error',\n  priority VARCHAR(32) NOT NULL DEFAULT 'medium' COMMENT '优先级 critical/high/medium/low',\n  title VARCHAR(128) NOT NULL COMMENT '消息标题',\n  summary VARCHAR(500) DEFAULT NULL COMMENT '消息摘要',\n  content LONGTEXT DEFAULT NULL COMMENT '消息正文',\n  target_type VARCHAR(16) NOT NULL DEFAULT 'all' COMMENT '推送范围 all/role/user',\n  target_role_codes VARCHAR(500) DEFAULT NULL COMMENT '目标角色编码，逗号分隔',\n  target_user_ids VARCHAR(500) DEFAULT NULL COMMENT '目标用户ID，逗号分隔',\n  related_path VARCHAR(255) DEFAULT NULL COMMENT '关联页面路径',\n  source_type VARCHAR(64) DEFAULT NULL COMMENT '来源类型',\n  source_id VARCHAR(64) DEFAULT NULL COMMENT '来源业务ID',\n  dedup_key VARCHAR(32) DEFAULT NULL COMMENT '去重键',\n  publish_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',\n  expire_time DATETIME DEFAULT NULL COMMENT '过期时间',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1发布中 0停用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',\n  PRIMARY KEY (id),\n  KEY idx_in_app_message_deleted_status_time (deleted, status, publish_time, id),\n  KEY idx_in_app_message_deleted_type_time (deleted, message_type, publish_time, id),\n  KEY idx_in_app_message_deleted_target_sort (deleted, target_type, sort_no, id),\n  KEY idx_in_app_message_source (source_type, source_id),\n  KEY idx_in_app_message_tenant_dedup (tenant_id, dedup_key, deleted)\n) COMMENT='站内消息表';"
+      "sql": "-- 表：sys_in_app_message\n-- 说明：站内消息表\nCREATE TABLE sys_in_app_message (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（系统/业务/错误）',\n  priority VARCHAR(32) NOT NULL DEFAULT 'medium' COMMENT '优先级（紧急/高/中/低）',\n  title VARCHAR(128) NOT NULL COMMENT '消息标题',\n  summary VARCHAR(500) DEFAULT NULL COMMENT '消息摘要',\n  content LONGTEXT DEFAULT NULL COMMENT '消息正文',\n  target_type VARCHAR(16) NOT NULL DEFAULT 'all' COMMENT '推送范围（全部/角色/用户）',\n  target_role_codes VARCHAR(500) DEFAULT NULL COMMENT '目标角色编码，逗号分隔',\n  target_user_ids VARCHAR(500) DEFAULT NULL COMMENT '目标用户ID，逗号分隔',\n  related_path VARCHAR(255) DEFAULT NULL COMMENT '关联页面路径',\n  source_type VARCHAR(64) DEFAULT NULL COMMENT '来源类型',\n  source_id VARCHAR(64) DEFAULT NULL COMMENT '来源业务ID',\n  dedup_key VARCHAR(32) DEFAULT NULL COMMENT '去重键',\n  publish_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',\n  expire_time DATETIME DEFAULT NULL COMMENT '过期时间',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1发布中 0停用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',\n  PRIMARY KEY (id),\n  KEY idx_in_app_message_deleted_status_time (deleted, status, publish_time, id),\n  KEY idx_in_app_message_deleted_type_time (deleted, message_type, publish_time, id),\n  KEY idx_in_app_message_deleted_target_sort (deleted, target_type, sort_no, id),\n  KEY idx_in_app_message_source (source_type, source_id),\n  KEY idx_in_app_message_tenant_dedup (tenant_id, dedup_key, deleted)\n) COMMENT='站内消息表';"
     },
     {
       "name": "sys_in_app_message_bridge_attempt_log",
@@ -6474,11 +6351,11 @@
     },
     {
       "name": "sys_organization",
-      "sql": "-- 表：sys_organization\n-- 说明：组织机构表\nCREATE TABLE sys_organization (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父ID',\n  org_name VARCHAR(128) NOT NULL COMMENT '组织名称',\n  org_code VARCHAR(64) NOT NULL COMMENT '组织编码',\n  org_type VARCHAR(32) DEFAULT NULL COMMENT '组织类型 dept/position/team',\n  leader_user_id BIGINT DEFAULT NULL COMMENT '负责人ID',\n  leader_name VARCHAR(64) DEFAULT NULL COMMENT '负责人姓名',\n  phone VARCHAR(32) DEFAULT NULL COMMENT '联系电话',\n  email VARCHAR(128) DEFAULT NULL COMMENT '联系邮箱',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_org_code_tenant (tenant_id, org_code),\n  KEY idx_parent_id (parent_id),\n  KEY idx_org_deleted_parent_sort (deleted, parent_id, sort_no, id),\n  KEY idx_org_deleted_status_sort (deleted, status, sort_no, id)\n) COMMENT='组织机构表';"
+      "sql": "-- 表：sys_organization\n-- 说明：组织机构表\nCREATE TABLE sys_organization (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父ID',\n  org_name VARCHAR(128) NOT NULL COMMENT '组织名称',\n  org_code VARCHAR(64) NOT NULL COMMENT '组织编码',\n  org_type VARCHAR(32) DEFAULT NULL COMMENT '组织类型（部门/岗位/班组）',\n  leader_user_id BIGINT DEFAULT NULL COMMENT '负责人ID',\n  leader_name VARCHAR(64) DEFAULT NULL COMMENT '负责人姓名',\n  phone VARCHAR(32) DEFAULT NULL COMMENT '联系电话',\n  email VARCHAR(128) DEFAULT NULL COMMENT '联系邮箱',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_org_code_tenant (tenant_id, org_code),\n  KEY idx_parent_id (parent_id),\n  KEY idx_org_deleted_parent_sort (deleted, parent_id, sort_no, id),\n  KEY idx_org_deleted_status_sort (deleted, status, sort_no, id)\n) COMMENT='组织机构表';"
     },
     {
       "name": "sys_region",
-      "sql": "-- 表：sys_region\n-- 说明：区域表\nCREATE TABLE sys_region (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  region_name VARCHAR(128) NOT NULL COMMENT '区域名称',\n  region_code VARCHAR(64) NOT NULL COMMENT '区域编码',\n  parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父ID',\n  region_type VARCHAR(32) NOT NULL COMMENT '区域类型 province/city/district/street',\n  longitude DECIMAL(10,6) DEFAULT NULL COMMENT '经度',\n  latitude DECIMAL(10,6) DEFAULT NULL COMMENT '纬度',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_region_code_tenant (tenant_id, region_code),\n  KEY idx_parent_id (parent_id),\n  KEY idx_region_deleted_parent_sort (deleted, parent_id, sort_no, id),\n  KEY idx_region_deleted_type_sort (deleted, region_type, sort_no, id)\n) COMMENT='区域表';"
+      "sql": "-- 表：sys_region\n-- 说明：区域表\nCREATE TABLE sys_region (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  region_name VARCHAR(128) NOT NULL COMMENT '区域名称',\n  region_code VARCHAR(64) NOT NULL COMMENT '区域编码',\n  parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父ID',\n  region_type VARCHAR(32) NOT NULL COMMENT '区域类型（省/市/区县/街道）',\n  longitude DECIMAL(10,6) DEFAULT NULL COMMENT '经度',\n  latitude DECIMAL(10,6) DEFAULT NULL COMMENT '纬度',\n  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_region_code_tenant (tenant_id, region_code),\n  KEY idx_parent_id (parent_id),\n  KEY idx_region_deleted_parent_sort (deleted, parent_id, sort_no, id),\n  KEY idx_region_deleted_type_sort (deleted, region_type, sort_no, id)\n) COMMENT='区域表';"
     },
     {
       "name": "sys_role",
@@ -6939,46 +6816,6 @@
         }
       ],
       "name": "risk_point_device_pending_promotion"
-    },
-    {
-      "indexes": [
-        {
-          "columns": [
-            "id"
-          ],
-          "kind": "PRIMARY",
-          "name": "PRIMARY"
-        },
-        {
-          "columns": [
-            "risk_point_id"
-          ],
-          "kind": "UNIQUE",
-          "name": "uk_risk_point_highway"
-        },
-        {
-          "columns": [
-            "route_code"
-          ],
-          "kind": "INDEX",
-          "name": "idx_route_code"
-        },
-        {
-          "columns": [
-            "admin_region_code"
-          ],
-          "kind": "INDEX",
-          "name": "idx_admin_region_code"
-        },
-        {
-          "columns": [
-            "project_type"
-          ],
-          "kind": "INDEX",
-          "name": "idx_project_type"
-        }
-      ],
-      "name": "risk_point_highway_detail"
     },
     {
       "indexes": [

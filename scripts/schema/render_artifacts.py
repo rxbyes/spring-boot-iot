@@ -49,7 +49,7 @@ def render_artifacts(schema_root: str | Path) -> dict[str, object]:
         list(_active_mysql_tables(registry)) + list(_active_mysql_views(registry))
     )
     tdengine_runtime_objects = _sorted_objects(
-        obj for obj in registry.tdengine.values() if obj.included_in_schema_sync
+        obj for obj in registry.tdengine.values() if obj.lifecycle == "active"
     )
 
     return {
@@ -76,12 +76,8 @@ def render_artifacts(schema_root: str | Path) -> dict[str, object]:
                 obj.name: obj.lifecycle for obj in _sorted_objects(list(registry.mysql.values()))
             },
         },
-        "mysql_runtime_manifest": {
-            "objects": [_runtime_manifest_entry(obj) for obj in mysql_runtime_objects]
-        },
-        "tdengine_runtime_manifest": {
-            "objects": [_runtime_manifest_entry(obj) for obj in tdengine_runtime_objects]
-        },
+        "mysql_runtime_manifest": _render_mysql_runtime_manifest(mysql_runtime_objects),
+        "tdengine_runtime_manifest": _render_tdengine_runtime_manifest(tdengine_runtime_objects),
         "catalog_markdown": _render_catalog_markdown(registry),
     }
 
@@ -300,13 +296,90 @@ def _manifest_indexes(indexes: tuple[RegistryIndex, ...]) -> list[dict[str, obje
     ]
 
 
-def _runtime_manifest_entry(obj: RegistryObject) -> dict[str, object]:
+def _render_mysql_runtime_manifest(objects: list[RegistryObject]) -> dict[str, object]:
+    tables = [obj for obj in objects if obj.storage_type == "mysql_table"]
+    views = [obj for obj in objects if obj.storage_type == "mysql_view"]
+    return {
+        "tables": [_mysql_runtime_table_entry(obj) for obj in tables],
+        "views": [_mysql_runtime_view_entry(obj) for obj in views],
+    }
+
+
+def _mysql_runtime_table_entry(obj: RegistryObject) -> dict[str, object]:
     return {
         "name": obj.name,
         "storageType": obj.storage_type,
         "ownerModule": obj.owner_module,
         "runtimeBootstrapMode": obj.runtime_bootstrap_mode,
+        "createSql": _ensure_create_table_if_not_exists(_render_mysql_table_sql(obj)),
+        "columns": [
+            {
+                "name": field.name,
+                "addSql": _render_mysql_add_column_sql(obj.name, field),
+            }
+            for field in obj.fields
+        ],
+        "indexes": [
+            {
+                "name": index.name,
+                "addSql": _render_mysql_add_index_sql(obj.name, index),
+            }
+            for index in obj.indexes
+            if index.kind != "PRIMARY"
+        ],
     }
+
+
+def _mysql_runtime_view_entry(obj: RegistryObject) -> dict[str, object]:
+    return {
+        "name": obj.name,
+        "storageType": obj.storage_type,
+        "ownerModule": obj.owner_module,
+        "runtimeBootstrapMode": obj.runtime_bootstrap_mode,
+        "createOrReplaceSql": _render_mysql_view_sql(obj),
+    }
+
+
+def _render_tdengine_runtime_manifest(objects: list[RegistryObject]) -> dict[str, object]:
+    return {
+        "objects": [_tdengine_runtime_entry(obj) for obj in objects]
+    }
+
+
+def _tdengine_runtime_entry(obj: RegistryObject) -> dict[str, object]:
+    return {
+        "name": obj.name,
+        "storageType": obj.storage_type,
+        "ownerModule": obj.owner_module,
+        "runtimeBootstrapMode": obj.runtime_bootstrap_mode,
+        "createSql": _render_tdengine_table(obj) if obj.storage_type == "tdengine_table" else _render_tdengine_stable(obj),
+        "fieldDictionary": [
+            {
+                "name": field.name,
+                "commentZh": field.comment_zh,
+                "isTag": field.is_tag,
+            }
+            for field in obj.fields
+        ],
+    }
+
+
+def _ensure_create_table_if_not_exists(sql: str) -> str:
+    return sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
+
+
+def _render_mysql_add_column_sql(table_name: str, field: RegistryField) -> str:
+    return (
+        f"ALTER TABLE `{table_name}` ADD COLUMN `{field.name}` "
+        f"{field.data_type} COMMENT '{_sql_escape(field.comment_zh)}'"
+    )
+
+
+def _render_mysql_add_index_sql(table_name: str, index: RegistryIndex) -> str:
+    columns = ", ".join(f"`{column}`" for column in index.columns)
+    if index.kind == "UNIQUE":
+        return f"ALTER TABLE `{table_name}` ADD UNIQUE INDEX `{index.name}` ({columns})"
+    return f"ALTER TABLE `{table_name}` ADD INDEX `{index.name}` ({columns})"
 
 
 def _serialize_bundle_value(value: object) -> str:

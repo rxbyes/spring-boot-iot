@@ -11,6 +11,7 @@ from typing import Iterable
 VALID_LIFECYCLES = {"active", "archived", "pending_delete"}
 CHINESE_RE = re.compile(r"[\u4e00-\u9fff]")
 ENGLISH_ALPHA_RE = re.compile(r"[A-Za-z]")
+SUSPICIOUS_COMMENT_RE = re.compile(r"\?|[a-z]")
 PLACEHOLDER_PATTERNS = (
     "表说明",
     "字段说明",
@@ -134,6 +135,20 @@ class SchemaRegistry:
     def find_invalid_relation_targets(self) -> list[str]:
         return list(self._invalid_relation_targets)
 
+    def find_suspicious_comment_fragments(self) -> list[str]:
+        offenders: list[str] = []
+        for obj in self.all_objects:
+            if _has_suspicious_comment_fragment(obj.comment_zh):
+                offenders.append(f"{obj.storage_type}:{obj.name}")
+            if _has_suspicious_comment_fragment(obj.table_comment_zh):
+                offenders.append(f"{obj.storage_type}:{obj.name}#tableCommentZh")
+            if _has_suspicious_comment_fragment(obj.business_boundary):
+                offenders.append(f"{obj.storage_type}:{obj.name}#businessBoundary")
+            for field in obj.fields:
+                if _has_suspicious_comment_fragment(field.comment_zh):
+                    offenders.append(f"{obj.storage_type}:{obj.name}.{field.name}")
+        return offenders
+
 
 def load_registry(schema_root: str | Path) -> SchemaRegistry:
     root = Path(schema_root).resolve()
@@ -155,6 +170,7 @@ def load_registry(schema_root: str | Path) -> SchemaRegistry:
 
     all_objects = mysql_objects + mysql_view_objects + tdengine_objects
     _validate_unique_names(all_objects)
+    _validate_lifecycle_policies(all_objects)
     _validate_relation_via_fields(all_objects)
     _validate_index_columns(all_objects)
     invalid_relations = _validate_relation_targets(all_objects)
@@ -352,6 +368,23 @@ def _validate_unique_names(objects: list[RegistryObject]) -> None:
         raise ValueError(f"Duplicate registry object names detected: {', '.join(duplicated)}")
 
 
+def _validate_lifecycle_policies(objects: list[RegistryObject]) -> None:
+    errors: list[str] = []
+    for obj in objects:
+        if obj.lifecycle not in {"archived", "pending_delete"}:
+            continue
+        if obj.included_in_init:
+            errors.append(f"{obj.name}: lifecycle={obj.lifecycle} cannot set includedInInit=true")
+        if obj.included_in_schema_sync:
+            errors.append(f"{obj.name}: lifecycle={obj.lifecycle} cannot set includedInSchemaSync=true")
+        if obj.runtime_bootstrap_mode != "disabled":
+            errors.append(
+                f"{obj.name}: lifecycle={obj.lifecycle} must use runtimeBootstrapMode=disabled"
+            )
+    if errors:
+        raise ValueError("Lifecycle policy violations detected: " + ", ".join(errors))
+
+
 def _validate_relation_targets(objects: list[RegistryObject]) -> list[str]:
     names = {obj.name for obj in objects}
     invalid: list[str] = []
@@ -477,3 +510,10 @@ def _is_english_only(text: str) -> bool:
     if not ENGLISH_ALPHA_RE.search(normalized):
         return False
     return all(ord(char) < 128 for char in normalized)
+
+
+def _has_suspicious_comment_fragment(text: str) -> bool:
+    normalized = str(text).strip()
+    if not normalized:
+        return False
+    return bool(SUSPICIOUS_COMMENT_RE.search(normalized))

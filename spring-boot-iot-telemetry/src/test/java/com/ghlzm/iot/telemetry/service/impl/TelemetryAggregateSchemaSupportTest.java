@@ -30,15 +30,27 @@ class TelemetryAggregateSchemaSupportTest {
     private TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     @Mock
     private JdbcTemplate jdbcTemplate;
+    @Mock
+    private TdengineSchemaManifestSupport schemaManifestSupport;
 
     private TelemetryAggregateSchemaSupport schemaSupport;
 
     @BeforeEach
     void setUp() {
         when(jdbcTemplateProvider.getJdbcTemplate()).thenReturn(jdbcTemplate);
+        when(schemaManifestSupport.requireObject(TelemetryAggregateTableNamingStrategy.STABLE_NAME))
+                .thenReturn(new com.ghlzm.iot.framework.schema.SchemaManifestLoader.TdengineSchemaObject(
+                        TelemetryAggregateTableNamingStrategy.STABLE_NAME,
+                        "tdengine_stable",
+                        "spring-boot-iot-telemetry",
+                        "manual_bootstrap_required",
+                        "CREATE STABLE IF NOT EXISTS iot_agg_measure_hour (...)",
+                        java.util.List.of()
+                ));
         schemaSupport = new TelemetryAggregateSchemaSupport(
                 jdbcTemplateProvider,
-                new TelemetryAggregateTableNamingStrategy()
+                new TelemetryAggregateTableNamingStrategy(),
+                schemaManifestSupport
         );
     }
 
@@ -67,7 +79,8 @@ class TelemetryAggregateSchemaSupportTest {
     void shouldThrowWhenStableMissing() {
         stubStableExists(false);
 
-        assertThrows(IllegalStateException.class, () -> schemaSupport.ensureChildTable(point()));
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> schemaSupport.ensureChildTable(point()));
+        org.junit.jupiter.api.Assertions.assertTrue(exception.getMessage().contains("requires manual bootstrap"));
 
         verify(jdbcTemplate, never()).execute(anyString());
     }

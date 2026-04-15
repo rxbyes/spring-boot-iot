@@ -175,7 +175,6 @@ import {
   DEFAULT_INSIGHT_RANGE,
   INSIGHT_RANGE_OPTIONS,
   buildInsightHistoryRequest,
-  dedupeCollectorParentShortAliases,
   getInsightCapabilityProfile,
   type InsightCapabilityProfile
 } from '@/utils/deviceInsightCapability';
@@ -506,7 +505,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
       return;
     }
 
-    properties.value = dedupeCollectorParentShortAliases(propertyResponse.data ?? []);
+    properties.value = propertyResponse.data ?? [];
     riskBindings.value = bindingResponse.data.records ?? [];
     productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
     productModelDataTypeMap.value = productInsightSupplement.modelDataTypeMap;

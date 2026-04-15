@@ -17,13 +17,16 @@ public class TelemetryAggregateSchemaSupport {
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final TelemetryAggregateTableNamingStrategy tableNamingStrategy;
+    private final TdengineSchemaManifestSupport schemaManifestSupport;
     private final AtomicBoolean stableVerified = new AtomicBoolean(false);
     private final Set<String> ensuredChildTables = ConcurrentHashMap.newKeySet();
 
     public TelemetryAggregateSchemaSupport(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
-                                           TelemetryAggregateTableNamingStrategy tableNamingStrategy) {
+                                           TelemetryAggregateTableNamingStrategy tableNamingStrategy,
+                                           TdengineSchemaManifestSupport schemaManifestSupport) {
         this.jdbcTemplateProvider = jdbcTemplateProvider;
         this.tableNamingStrategy = tableNamingStrategy;
+        this.schemaManifestSupport = schemaManifestSupport;
     }
 
     public void ensureChildTable(TelemetryV2Point point) {
@@ -51,13 +54,15 @@ public class TelemetryAggregateSchemaSupport {
             if (stableVerified.get()) {
                 return;
             }
-            String stableName = tableNamingStrategy.resolveStableName();
+            String stableName = schemaManifestSupport.requireObject(tableNamingStrategy.resolveStableName()).name();
             boolean stableExists = Boolean.TRUE.equals(jdbcTemplateProvider.getJdbcTemplate().query(
                     "SHOW STABLES LIKE '" + stableName + "'",
                     (ResultSetExtractor<Boolean>) rs -> rs.next()
             ));
             if (!stableExists) {
-                throw new IllegalStateException("telemetry aggregate stable missing: " + stableName);
+                throw new IllegalStateException(
+                        "telemetry aggregate stable missing and requires manual bootstrap: " + stableName
+                );
             }
             stableVerified.set(true);
         }

@@ -75,8 +75,7 @@ final class CollectorChildMetricBoundaryPolicy {
         if (SAMPLE_TYPE_STATUS.equals(normalizeKeyword(sampleType))
                 && normalizedIdentifier.startsWith(STATUS_PREFIX)
                 && !normalizedIdentifier.startsWith(PARENT_SENSOR_STATE_PREFIX)) {
-            String leafIdentifier = normalizeText(normalizedIdentifier.substring(STATUS_PREFIX.length()));
-            return leafIdentifier == null ? null : STATUS_PREFIX + leafIdentifier;
+            return normalizeText(normalizedIdentifier.substring(STATUS_PREFIX.length()));
         }
         return normalizedIdentifier;
     }

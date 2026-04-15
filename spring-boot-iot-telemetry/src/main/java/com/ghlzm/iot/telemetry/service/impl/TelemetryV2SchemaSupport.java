@@ -21,13 +21,16 @@ public class TelemetryV2SchemaSupport {
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final TelemetryV2TableNamingStrategy tableNamingStrategy;
+    private final TdengineSchemaManifestSupport schemaManifestSupport;
     private final AtomicBoolean stablesInitialized = new AtomicBoolean(false);
     private final Set<String> ensuredChildTables = ConcurrentHashMap.newKeySet();
 
     public TelemetryV2SchemaSupport(TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider,
-                                    TelemetryV2TableNamingStrategy tableNamingStrategy) {
+                                    TelemetryV2TableNamingStrategy tableNamingStrategy,
+                                    TdengineSchemaManifestSupport schemaManifestSupport) {
         this.jdbcTemplateProvider = jdbcTemplateProvider;
         this.tableNamingStrategy = tableNamingStrategy;
+        this.schemaManifestSupport = schemaManifestSupport;
     }
 
     public void ensureTables() {
@@ -72,28 +75,7 @@ public class TelemetryV2SchemaSupport {
     }
 
     private String buildStableSql(TelemetryStreamKind streamKind) {
-        return "CREATE STABLE IF NOT EXISTS " + tableNamingStrategy.resolveStableName(streamKind) + " ("
-                + "ts TIMESTAMP,"
-                + " metric_id BINARY(128),"
-                + " reported_at TIMESTAMP,"
-                + " ingested_at TIMESTAMP,"
-                + " value_double DOUBLE,"
-                + " value_long BIGINT,"
-                + " value_bool BOOL,"
-                + " value_text NCHAR(1024),"
-                + " quality_code BINARY(32),"
-                + " alarm_flag BOOL,"
-                + " trace_id BINARY(64),"
-                + " session_id BINARY(64),"
-                + " source_message_type BINARY(32)"
-                + ") TAGS ("
-                + "tenant_id BIGINT,"
-                + " device_id BIGINT,"
-                + " product_id BIGINT,"
-                + " sensor_group BINARY(64),"
-                + " location_code BINARY(64),"
-                + " risk_point_id BIGINT"
-                + ")";
+        return schemaManifestSupport.requireObject(tableNamingStrategy.resolveStableName(streamKind)).createSql();
     }
 
     private String buildChildTableSql(TelemetryV2Point point, String childTable) {

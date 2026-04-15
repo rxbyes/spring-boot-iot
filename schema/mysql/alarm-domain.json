@@ -36,7 +36,7 @@
         {
           "name": "alarm_level",
           "type": "VARCHAR(16) NOT NULL",
-          "commentZh": "告警等级"
+          "commentZh": "适用告警等级（红/橙/黄/蓝）"
         },
         {
           "name": "region_id",
@@ -230,7 +230,7 @@
         }
       ],
       "lineageRole": "transaction_record",
-      "businessBoundary": "用于告警记录表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于告警记录表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "iot_event_record",
@@ -271,7 +271,7 @@
         {
           "name": "alarm_level",
           "type": "VARCHAR(16) DEFAULT NULL",
-          "commentZh": "告警等级"
+          "commentZh": "适用告警等级（红/橙/黄/蓝）"
         },
         {
           "name": "risk_level",
@@ -485,7 +485,7 @@
         }
       ],
       "lineageRole": "transaction_record",
-      "businessBoundary": "用于事件记录表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于事件记录表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "iot_event_work_order",
@@ -643,7 +643,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于事件工单表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于事件工单表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_point",
@@ -704,12 +704,12 @@
         {
           "name": "risk_point_level",
           "type": "VARCHAR(16) DEFAULT NULL",
-          "commentZh": "风险点档案等级 level_1/level_2/level_3"
+          "commentZh": "风险点档案等级（一级/二级/三级）"
         },
         {
           "name": "current_risk_level",
           "type": "VARCHAR(16) DEFAULT NULL",
-          "commentZh": "当前风险态势等级 red/orange/yellow/blue"
+          "commentZh": "当前风险态势等级（红/橙/黄/蓝）"
         },
         {
           "name": "risk_level",
@@ -834,16 +834,16 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于风险点表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险点表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_point_highway_detail",
       "storageType": "mysql_table",
       "ownerModule": "spring-boot-iot-alarm",
       "lifecycle": "archived",
-      "includedInInit": true,
-      "includedInSchemaSync": true,
-      "runtimeBootstrapMode": "schema_sync_managed",
+      "includedInInit": false,
+      "includedInSchemaSync": false,
+      "runtimeBootstrapMode": "disabled",
       "tableCommentZh": "高速公路风险点扩展表",
       "commentZh": "高速公路风险点扩展表",
       "fields": [
@@ -910,7 +910,7 @@
         {
           "name": "source_row_no",
           "type": "INT DEFAULT NULL",
-          "commentZh": "Excel来源行号"
+          "commentZh": "导入源行号"
         },
         {
           "name": "tenant_id",
@@ -993,7 +993,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于高速公路风险点扩展表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于高速公路风险点扩展表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_metric_catalog",
@@ -1029,17 +1029,17 @@
         {
           "name": "product_model_id",
           "type": "BIGINT DEFAULT NULL",
-          "commentZh": "产品modelID"
+          "commentZh": "产品物模型ID"
         },
         {
           "name": "normative_identifier",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "normativeidentifier业务字段"
+          "commentZh": "规范指标标识"
         },
         {
           "name": "contract_identifier",
           "type": "VARCHAR(64) NOT NULL",
-          "commentZh": "contractidentifier业务字段"
+          "commentZh": "合同字段标识"
         },
         {
           "name": "risk_metric_code",
@@ -1054,67 +1054,67 @@
         {
           "name": "risk_category",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "风险category业务字段"
+          "commentZh": "风险类别"
         },
         {
           "name": "metric_role",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "指标role业务字段"
+          "commentZh": "指标角色"
         },
         {
           "name": "lifecycle_status",
           "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
-          "commentZh": "lifecycle状态业务字段"
+          "commentZh": "生命周期状态"
         },
         {
           "name": "source_scenario_code",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "sourcescenario编码"
+          "commentZh": "来源场景编码"
         },
         {
           "name": "metric_unit",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "指标unit业务字段"
+          "commentZh": "指标单位"
         },
         {
           "name": "metric_dimension",
           "type": "VARCHAR(64) DEFAULT NULL",
-          "commentZh": "指标dimension业务字段"
+          "commentZh": "指标量纲"
         },
         {
           "name": "threshold_type",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "threshold类型业务字段"
+          "commentZh": "阈值类型"
         },
         {
           "name": "semantic_direction",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "semanticdirection业务字段"
+          "commentZh": "语义方向"
         },
         {
           "name": "threshold_direction",
           "type": "VARCHAR(32) DEFAULT NULL",
-          "commentZh": "thresholddirection业务字段"
+          "commentZh": "阈值方向"
         },
         {
           "name": "trend_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "trend标记"
+          "commentZh": "是否启用趋势展示"
         },
         {
           "name": "gis_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "gis标记"
+          "commentZh": "是否启用地图展示"
         },
         {
           "name": "insight_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "insight标记"
+          "commentZh": "是否启用对象洞察"
         },
         {
           "name": "analytics_enabled",
           "type": "TINYINT NOT NULL DEFAULT 0",
-          "commentZh": "analytics标记"
+          "commentZh": "是否启用运营分析"
         },
         {
           "name": "enabled",
@@ -1172,7 +1172,7 @@
         }
       ],
       "lineageRole": "catalog_registry",
-      "businessBoundary": "用于风险指标目录表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险指标目录表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_metric_linkage_binding",
@@ -1213,7 +1213,7 @@
         {
           "name": "binding_origin",
           "type": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
-          "commentZh": "绑定origin业务字段"
+          "commentZh": "绑定来源"
         },
         {
           "name": "create_by",
@@ -1296,7 +1296,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "用于风险指标与联动规则绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险指标与联动规则绑定表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_metric_emergency_plan_binding",
@@ -1337,7 +1337,7 @@
         {
           "name": "binding_origin",
           "type": "VARCHAR(32) NOT NULL DEFAULT 'AUTO_INFERRED'",
-          "commentZh": "绑定origin业务字段"
+          "commentZh": "绑定来源"
         },
         {
           "name": "create_by",
@@ -1420,7 +1420,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "用于风险指标与应急预案绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险指标与应急预案绑定表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device",
@@ -1565,7 +1565,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于风险点设备绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险点设备绑定表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device_capability_binding",
@@ -1696,7 +1696,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "用于风险点设备级正式绑定表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险点设备级正式绑定表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device_pending_binding",
@@ -1727,7 +1727,7 @@
         {
           "name": "source_row_no",
           "type": "INT NOT NULL",
-          "commentZh": "来源行号"
+          "commentZh": "导入源行号"
         },
         {
           "name": "risk_point_name",
@@ -1888,7 +1888,7 @@
         }
       ],
       "lineageRole": "binding_registry",
-      "businessBoundary": "用于风险点设备待治理导入表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险点设备待治理导入表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "risk_point_device_pending_promotion",
@@ -2062,7 +2062,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于风险点设备待治理转正明细表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于风险点设备待治理转正明细表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "rule_definition",
@@ -2113,7 +2113,7 @@
         {
           "name": "alarm_level",
           "type": "VARCHAR(20) DEFAULT NULL",
-          "commentZh": "告警等级"
+          "commentZh": "适用告警等级（红/橙/黄/蓝）"
         },
         {
           "name": "notification_methods",
@@ -2197,7 +2197,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于阈值规则表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于阈值规则表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "linkage_rule",
@@ -2288,7 +2288,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于联动规则表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于联动规则表的数据持久化与查询，归属告警域并服务真实环境基线。"
     },
     {
       "name": "emergency_plan",
@@ -2314,7 +2314,7 @@
         {
           "name": "alarm_level",
           "type": "VARCHAR(16) DEFAULT NULL",
-          "commentZh": "适用告警等级 red/orange/yellow/blue"
+          "commentZh": "适用告警等级（红/橙/黄/蓝）"
         },
         {
           "name": "risk_level",
@@ -2389,7 +2389,7 @@
         }
       ],
       "lineageRole": "domain_master_data",
-      "businessBoundary": "用于应急预案表的数据持久化与查询，归属alarm域并服务真实环境基线。"
+      "businessBoundary": "用于应急预案表的数据持久化与查询，归属告警域并服务真实环境基线。"
     }
   ]
 }

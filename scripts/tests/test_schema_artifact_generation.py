@@ -71,12 +71,27 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
 
         self.assertIn("risk_point_highway_detail", catalog_markdown)
         self.assertIn("archived", catalog_markdown)
+        self.assertIn(
+            "| risk_point_highway_detail | mysql_table | archived | no | no | disabled |",
+            catalog_markdown,
+        )
+        self.assertIn(
+            "| iot_agg_measure_hour | tdengine_stable | active | yes | no | manual_bootstrap_required |",
+            catalog_markdown,
+        )
 
-        self.assertIn("objects", mysql_runtime_manifest)
-        mysql_runtime_object_names = {obj["name"] for obj in mysql_runtime_manifest["objects"]}
-        self.assertIn("iot_device_message_log", mysql_runtime_object_names)
-        self.assertIn("iot_message_log", mysql_runtime_object_names)
-        self.assertNotIn("risk_point_highway_detail", mysql_runtime_object_names)
+        self.assertIn("tables", mysql_runtime_manifest)
+        self.assertIn("views", mysql_runtime_manifest)
+        mysql_runtime_table_names = {obj["name"] for obj in mysql_runtime_manifest["tables"]}
+        mysql_runtime_view_names = {obj["name"] for obj in mysql_runtime_manifest["views"]}
+        self.assertIn("iot_device_message_log", mysql_runtime_table_names)
+        self.assertIn("iot_message_log", mysql_runtime_view_names)
+        self.assertNotIn("risk_point_highway_detail", mysql_runtime_table_names)
+        relation_entry = next(
+            entry for entry in mysql_runtime_manifest["tables"] if entry["name"] == "iot_device_relation"
+        )
+        self.assertIn("CREATE TABLE IF NOT EXISTS iot_device_relation", relation_entry["createSql"])
+        self.assertTrue(any(item["name"] == "idx_relation_child_code" for item in relation_entry["indexes"]))
 
         tdengine_objects = tdengine_runtime_manifest["objects"]
         self.assertEqual(5, len(tdengine_objects))
@@ -84,6 +99,7 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
             any(
                 obj["name"] == "iot_agg_measure_hour"
                 and obj["runtimeBootstrapMode"] == "manual_bootstrap_required"
+                and "CREATE STABLE IF NOT EXISTS iot_agg_measure_hour" in obj["createSql"]
                 for obj in tdengine_objects
             )
         )
@@ -107,6 +123,9 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
         )
         self.assertTrue(
             any(entry["name"] == "iot_device_message_log" for entry in mysql_schema_sync_manifest["createTableSql"])
+        )
+        self.assertFalse(
+            any(entry["name"] == "risk_point_highway_detail" for entry in mysql_schema_sync_manifest["createTableSql"])
         )
         self.assertTrue(
             all("name" in entry and "columns" in entry for entry in mysql_schema_sync_manifest["columnsToAdd"])
