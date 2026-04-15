@@ -36,6 +36,8 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     private static final String STATUS_CANCELLED = "CANCELLED";
     private static final String ACTION_PRODUCT_CONTRACT_RELEASE_APPLY = "PRODUCT_CONTRACT_RELEASE_APPLY";
     private static final String ACTION_PRODUCT_CONTRACT_ROLLBACK = "PRODUCT_CONTRACT_ROLLBACK";
+    private static final String ACTION_VENDOR_MAPPING_RULE_PUBLISH = "VENDOR_MAPPING_RULE_PUBLISH";
+    private static final String ACTION_VENDOR_MAPPING_RULE_ROLLBACK = "VENDOR_MAPPING_RULE_ROLLBACK";
     private static final String WORK_ITEM_EXECUTION_PENDING_APPROVAL = "PENDING_APPROVAL";
     private static final String WORK_ITEM_EXECUTION_EXECUTED = "EXECUTED";
     private static final String WORK_ITEM_EXECUTION_REJECTED = "REJECTED";
@@ -580,6 +582,8 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
         switch (actionCode) {
             case ACTION_PRODUCT_CONTRACT_RELEASE_APPLY -> requireProductContractReleasePermissions(actorUserId, operation);
             case ACTION_PRODUCT_CONTRACT_ROLLBACK -> requireProductContractRollbackPermissions(actorUserId, operation);
+            case ACTION_VENDOR_MAPPING_RULE_PUBLISH -> requireVendorMappingPublishPermissions(actorUserId, operation);
+            case ACTION_VENDOR_MAPPING_RULE_ROLLBACK -> requireVendorMappingRollbackPermissions(actorUserId, operation);
             default -> throw new BizException("审批动作未配置权限映射: " + actionCode);
         }
     }
@@ -607,6 +611,36 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     }
 
     private void requireProductContractRollbackPermissions(Long actorUserId, ApprovalOperation operation) {
+        switch (operation) {
+            case APPROVE, REJECT -> permissionGuard.requireAnyPermission(
+                    actorUserId,
+                    actionLabel(operation),
+                    GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
+            );
+            case CANCEL, RESUBMIT -> permissionGuard.requireAnyPermission(
+                    actorUserId,
+                    actionLabel(operation),
+                    GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK
+            );
+        }
+    }
+
+    private void requireVendorMappingPublishPermissions(Long actorUserId, ApprovalOperation operation) {
+        switch (operation) {
+            case APPROVE, REJECT -> permissionGuard.requireAnyPermission(
+                    actorUserId,
+                    actionLabel(operation),
+                    GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
+            );
+            case CANCEL, RESUBMIT -> permissionGuard.requireAnyPermission(
+                    actorUserId,
+                    actionLabel(operation),
+                    GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+            );
+        }
+    }
+
+    private void requireVendorMappingRollbackPermissions(Long actorUserId, ApprovalOperation operation) {
         switch (operation) {
             case APPROVE, REJECT -> permissionGuard.requireAnyPermission(
                     actorUserId,
@@ -718,7 +752,9 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     }
 
     private boolean isRollbackAction(String actionCode) {
-        return ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(normalizeText(actionCode));
+        String normalizedActionCode = normalizeText(actionCode);
+        return ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(normalizedActionCode)
+                || ACTION_VENDOR_MAPPING_RULE_ROLLBACK.equals(normalizedActionCode);
     }
 
     private enum ApprovalOperation {

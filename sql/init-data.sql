@@ -129,7 +129,9 @@ INSERT INTO sys_governance_approval_policy (
     id, tenant_id, scope_type, action_code, approver_mode, approver_user_id, enabled, remark, create_by, create_time, update_by, update_time, deleted
 ) VALUES
     (99001001, 0, 'GLOBAL', 'PRODUCT_CONTRACT_RELEASE_APPLY', 'FIXED_USER', 99000001, 1, '产品契约发布固定复核人', 1, NOW(), 1, NOW(), 0),
-    (99001002, 0, 'GLOBAL', 'PRODUCT_CONTRACT_ROLLBACK', 'FIXED_USER', 99000001, 1, '产品契约回滚固定复核人', 1, NOW(), 1, NOW(), 0)
+    (99001002, 0, 'GLOBAL', 'PRODUCT_CONTRACT_ROLLBACK', 'FIXED_USER', 99000001, 1, '产品契约回滚固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001003, 0, 'GLOBAL', 'VENDOR_MAPPING_RULE_PUBLISH', 'FIXED_USER', 99000001, 1, '厂商字段映射规则发布固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001004, 0, 'GLOBAL', 'VENDOR_MAPPING_RULE_ROLLBACK', 'FIXED_USER', 99000001, 1, '厂商字段映射规则回滚固定复核人', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     approver_mode = VALUES(approver_mode),
     approver_user_id = VALUES(approver_user_id),

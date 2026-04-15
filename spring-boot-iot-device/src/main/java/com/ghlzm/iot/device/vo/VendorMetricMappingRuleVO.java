@@ -35,6 +35,10 @@ public class VendorMetricMappingRuleVO {
 
     private Integer versionNo;
 
+    private String publishedStatus;
+
+    private Integer publishedVersionNo;
+
     private Long approvalOrderId;
 
     private Long createBy;

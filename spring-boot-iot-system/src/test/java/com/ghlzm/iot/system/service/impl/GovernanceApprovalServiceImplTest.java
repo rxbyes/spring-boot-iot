@@ -331,6 +331,24 @@ class GovernanceApprovalServiceImplTest {
     }
 
     @Test
+    void approveOrderShouldUseContractApprovePermissionForVendorMappingPublishAction() {
+        GovernanceApprovalOrder order = mockOrder(88016L, "PENDING", 10001L, 20002L, "VENDOR_MAPPING_RULE_PUBLISH");
+        when(orderMapper.selectById(88016L)).thenReturn(order);
+        when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+        when(executor.supports("VENDOR_MAPPING_RULE_PUBLISH")).thenReturn(true);
+        when(executor.execute(order)).thenReturn(new GovernanceApprovalActionExecutionResult("{\"published\":true}"));
+
+        service.approveOrder(88016L, 20002L, "approve publish");
+
+        verify(permissionGuard).requireAnyPermission(
+                20002L,
+                "治理审批通过",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
+        );
+    }
+
+    @Test
     void cancelOrderShouldUseRollbackOperatorPermissionForRollbackAction() {
         GovernanceApprovalOrder order = mockOrder(88007L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_ROLLBACK");
         when(orderMapper.selectById(88007L)).thenReturn(order);
@@ -338,6 +356,22 @@ class GovernanceApprovalServiceImplTest {
         when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
 
         service.cancelOrder(88007L, 10001L, "cancel rollback");
+
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "治理审批撤销",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK
+        );
+    }
+
+    @Test
+    void cancelOrderShouldUseRollbackPermissionForVendorMappingRollbackAction() {
+        GovernanceApprovalOrder order = mockOrder(88017L, "PENDING", 10001L, 20002L, "VENDOR_MAPPING_RULE_ROLLBACK");
+        when(orderMapper.selectById(88017L)).thenReturn(order);
+        when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+
+        service.cancelOrder(88017L, 10001L, "cancel vendor mapping rollback");
 
         verify(permissionGuard).requireAnyPermission(
                 10001L,

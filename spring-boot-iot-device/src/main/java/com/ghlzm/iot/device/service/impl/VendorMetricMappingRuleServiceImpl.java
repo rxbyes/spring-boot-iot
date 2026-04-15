@@ -8,13 +8,17 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
+import com.ghlzm.iot.device.entity.VendorMetricMappingRuleSnapshot;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,17 +41,20 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     private static final String PROTOCOL_FAMILY_SELECTOR_PREFIX = "family:";
 
     private final VendorMetricMappingRuleMapper mapper;
+    private final VendorMetricMappingRuleSnapshotMapper snapshotMapper;
     private final IotProperties iotProperties;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper) {
-        this(mapper, null);
+        this(mapper, null, null);
     }
 
     @Autowired
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                              VendorMetricMappingRuleSnapshotMapper snapshotMapper,
                                               IotProperties iotProperties) {
         this.mapper = mapper;
+        this.snapshotMapper = snapshotMapper;
         this.iotProperties = iotProperties;
     }
 
@@ -60,8 +67,9 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
                 .eq(StringUtils.hasText(status), VendorMetricMappingRule::getStatus, normalizeUpper(status))
                 .orderByDesc(VendorMetricMappingRule::getUpdateTime)
                 .orderByDesc(VendorMetricMappingRule::getId));
+        Map<Long, VendorMetricMappingRuleSnapshot> latestPublishedSnapshots = loadLatestPublishedSnapshots(result.getRecords());
         List<VendorMetricMappingRuleVO> records = result.getRecords().stream()
-                .map(this::toVO)
+                .map(rule -> toVO(rule, latestPublishedSnapshots.get(rule.getId())))
                 .toList();
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
     }
@@ -85,7 +93,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     @Transactional(rollbackFor = Exception.class)
     public VendorMetricMappingRuleVO createAndGet(Long productId, Long operatorId, VendorMetricMappingRuleUpsertDTO dto) {
         Long ruleId = createRule(productId, operatorId, dto);
-        return toVO(getRequiredRule(productId, ruleId));
+        return toVO(getRequiredRule(productId, ruleId), null);
     }
 
     @Override
@@ -103,7 +111,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         if (mapper.updateById(rule) <= 0) {
             throw new BizException("厂商字段映射规则更新失败，请稍后重试");
         }
-        return toVO(rule);
+        return toVO(rule, null);
     }
 
     private VendorMetricMappingRule getRequiredRule(Long productId, Long ruleId) {
@@ -134,7 +142,8 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         validateScopeFields(rule);
     }
 
-    private VendorMetricMappingRuleVO toVO(VendorMetricMappingRule rule) {
+    private VendorMetricMappingRuleVO toVO(VendorMetricMappingRule rule,
+                                           VendorMetricMappingRuleSnapshot snapshot) {
         VendorMetricMappingRuleVO vo = new VendorMetricMappingRuleVO();
         vo.setId(rule.getId());
         vo.setProductId(rule.getProductId());
@@ -149,12 +158,70 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         vo.setTargetNormativeIdentifier(rule.getTargetNormativeIdentifier());
         vo.setStatus(rule.getStatus());
         vo.setVersionNo(rule.getVersionNo());
-        vo.setApprovalOrderId(rule.getApprovalOrderId());
+        vo.setPublishedStatus(snapshot == null ? null : snapshot.getLifecycleStatus());
+        vo.setPublishedVersionNo(snapshot == null ? null : snapshot.getPublishedVersionNo());
+        vo.setApprovalOrderId(snapshot == null ? rule.getApprovalOrderId() : snapshot.getApprovalOrderId());
         vo.setCreateBy(rule.getCreateBy());
         vo.setCreateTime(rule.getCreateTime());
         vo.setUpdateBy(rule.getUpdateBy());
         vo.setUpdateTime(rule.getUpdateTime());
         return vo;
+    }
+
+    private Map<Long, VendorMetricMappingRuleSnapshot> loadLatestPublishedSnapshots(List<VendorMetricMappingRule> rules) {
+        if (snapshotMapper == null || rules == null || rules.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, VendorMetricMappingRuleSnapshot> latestSnapshots = new HashMap<>();
+        rules.stream()
+                .map(VendorMetricMappingRule::getProductId)
+                .filter(productId -> productId != null && productId > 0)
+                .distinct()
+                .forEach(productId -> mergeLatestSnapshots(latestSnapshots, snapshotMapper.selectPublishedByProductId(productId)));
+        return latestSnapshots;
+    }
+
+    private void mergeLatestSnapshots(Map<Long, VendorMetricMappingRuleSnapshot> target,
+                                      List<VendorMetricMappingRuleSnapshot> snapshots) {
+        if (target == null || snapshots == null || snapshots.isEmpty()) {
+            return;
+        }
+        for (VendorMetricMappingRuleSnapshot snapshot : snapshots) {
+            if (snapshot == null || snapshot.getRuleId() == null) {
+                continue;
+            }
+            target.merge(snapshot.getRuleId(), snapshot, this::preferHigherVersionSnapshot);
+        }
+    }
+
+    private VendorMetricMappingRuleSnapshot preferHigherVersionSnapshot(VendorMetricMappingRuleSnapshot left,
+                                                                        VendorMetricMappingRuleSnapshot right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        Integer leftVersion = left.getPublishedVersionNo();
+        Integer rightVersion = right.getPublishedVersionNo();
+        if (leftVersion == null && rightVersion != null) {
+            return right;
+        }
+        if (leftVersion != null && rightVersion == null) {
+            return left;
+        }
+        if (leftVersion != null && rightVersion != null && !leftVersion.equals(rightVersion)) {
+            return leftVersion > rightVersion ? left : right;
+        }
+        Long leftId = left.getId();
+        Long rightId = right.getId();
+        if (leftId == null) {
+            return right;
+        }
+        if (rightId == null) {
+            return left;
+        }
+        return leftId >= rightId ? left : right;
     }
 
     private String normalizeScopeType(String scopeType) {
