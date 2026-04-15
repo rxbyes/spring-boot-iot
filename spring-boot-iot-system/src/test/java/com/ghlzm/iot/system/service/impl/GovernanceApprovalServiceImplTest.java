@@ -349,6 +349,24 @@ class GovernanceApprovalServiceImplTest {
     }
 
     @Test
+    void approveOrderShouldUseProtocolGovernanceApprovePermissionForProtocolFamilyPublishAction() {
+        GovernanceApprovalOrder order = mockOrder(88018L, "PENDING", 10001L, 20002L, "PROTOCOL_FAMILY_PUBLISH");
+        when(orderMapper.selectById(88018L)).thenReturn(order);
+        when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+        when(executor.supports("PROTOCOL_FAMILY_PUBLISH")).thenReturn(true);
+        when(executor.execute(order)).thenReturn(new GovernanceApprovalActionExecutionResult("{\"published\":true}"));
+
+        service.approveOrder(88018L, 20002L, "approve protocol family");
+
+        verify(permissionGuard).requireAnyPermission(
+                20002L,
+                "治理审批通过",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_APPROVE
+        );
+    }
+
+    @Test
     void cancelOrderShouldUseRollbackOperatorPermissionForRollbackAction() {
         GovernanceApprovalOrder order = mockOrder(88007L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_ROLLBACK");
         when(orderMapper.selectById(88007L)).thenReturn(order);
@@ -377,6 +395,22 @@ class GovernanceApprovalServiceImplTest {
                 10001L,
                 "治理审批撤销",
                 GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK
+        );
+    }
+
+    @Test
+    void cancelOrderShouldUseProtocolGovernanceEditPermissionForProtocolProfileRollbackAction() {
+        GovernanceApprovalOrder order = mockOrder(88019L, "PENDING", 10001L, 20002L, "PROTOCOL_DECRYPT_PROFILE_ROLLBACK");
+        when(orderMapper.selectById(88019L)).thenReturn(order);
+        when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+
+        service.cancelOrder(88019L, 10001L, "cancel protocol profile rollback");
+
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "治理审批撤销",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
 

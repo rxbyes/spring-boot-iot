@@ -23,6 +23,10 @@ public final class GovernancePermissionCodes {
 
     public static final String PRODUCT_CONTRACT_ROLLBACK = "iot:product-contract:rollback";
 
+    // 协议治理：执行/复核
+    public static final String PROTOCOL_GOVERNANCE_EDIT = "iot:protocol-governance:edit";
+    public static final String PROTOCOL_GOVERNANCE_APPROVE = "iot:protocol-governance:approve";
+
     // 风险指标标注（执行/复核）
     public static final String RISK_METRIC_CATALOG_TAG = "risk:metric-catalog:tag";
     public static final String RISK_METRIC_CATALOG_APPROVE = "risk:metric-catalog:approve";

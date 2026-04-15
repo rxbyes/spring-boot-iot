@@ -4264,6 +4264,338 @@
           "name": "tenant_id"
         },
         {
+          "commentZh": "解密档案编码",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "profile_code"
+        },
+        {
+          "commentZh": "解密算法",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "algorithm"
+        },
+        {
+          "commentZh": "密钥来源",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "merchant_source"
+        },
+        {
+          "commentZh": "商户键",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "merchant_key"
+        },
+        {
+          "commentZh": "转换表达式",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "transformation"
+        },
+        {
+          "commentZh": "签名密钥",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "signature_secret"
+        },
+        {
+          "commentZh": "状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'DRAFT'",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "版本号",
+          "definition": "INT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "version_no"
+        },
+        {
+          "commentZh": "审批主单ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "approval_order_id"
+        },
+        {
+          "commentZh": "创建人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "更新人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "update_by"
+        },
+        {
+          "commentZh": "更新时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "update_time"
+        },
+        {
+          "commentZh": "逻辑删除",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_protocol_decrypt_profile"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "解密档案主表ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "profile_id"
+        },
+        {
+          "commentZh": "审批主单ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "approval_order_id"
+        },
+        {
+          "commentZh": "发布版本号",
+          "definition": "INT NOT NULL",
+          "isTag": false,
+          "name": "published_version_no"
+        },
+        {
+          "commentZh": "发布快照",
+          "definition": "LONGTEXT NOT NULL",
+          "isTag": false,
+          "name": "snapshot_json"
+        },
+        {
+          "commentZh": "生命周期状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "isTag": false,
+          "name": "lifecycle_status"
+        },
+        {
+          "commentZh": "创建人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "逻辑删除",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_protocol_decrypt_profile_snapshot"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "协议族编码",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "family_code"
+        },
+        {
+          "commentZh": "协议编码",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "protocol_code"
+        },
+        {
+          "commentZh": "显示名称",
+          "definition": "VARCHAR(255) NOT NULL",
+          "isTag": false,
+          "name": "display_name"
+        },
+        {
+          "commentZh": "绑定解密档案编码",
+          "definition": "VARCHAR(128) DEFAULT NULL",
+          "isTag": false,
+          "name": "decrypt_profile_code"
+        },
+        {
+          "commentZh": "签名算法",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "sign_algorithm"
+        },
+        {
+          "commentZh": "归一化策略",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "normalization_strategy"
+        },
+        {
+          "commentZh": "状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'DRAFT'",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "版本号",
+          "definition": "INT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "version_no"
+        },
+        {
+          "commentZh": "审批主单ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "approval_order_id"
+        },
+        {
+          "commentZh": "创建人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "更新人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "update_by"
+        },
+        {
+          "commentZh": "更新时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "update_time"
+        },
+        {
+          "commentZh": "逻辑删除",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_protocol_family_definition"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "协议族主表ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "family_id"
+        },
+        {
+          "commentZh": "审批主单ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "approval_order_id"
+        },
+        {
+          "commentZh": "发布版本号",
+          "definition": "INT NOT NULL",
+          "isTag": false,
+          "name": "published_version_no"
+        },
+        {
+          "commentZh": "发布快照",
+          "definition": "LONGTEXT NOT NULL",
+          "isTag": false,
+          "name": "snapshot_json"
+        },
+        {
+          "commentZh": "生命周期状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "isTag": false,
+          "name": "lifecycle_status"
+        },
+        {
+          "commentZh": "创建人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "逻辑删除",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_protocol_family_definition_snapshot"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
           "commentZh": "操作编码",
           "definition": "VARCHAR(64) NOT NULL",
           "isTag": false,
@@ -6369,6 +6701,22 @@
       "sql": "-- 表：iot_governance_work_item\n-- 说明：治理与运营工作项表\nCREATE TABLE iot_governance_work_item (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  work_item_code VARCHAR(64) NOT NULL COMMENT '工作项编码',\n  subject_type VARCHAR(64) NOT NULL COMMENT '审批主体类型',\n  subject_id BIGINT NOT NULL COMMENT '主题ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '发布批次ID',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批单ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  work_status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '工作状态业务字段',\n  priority_level VARCHAR(16) NOT NULL DEFAULT 'P2' COMMENT '优先级等级',\n  assignee_user_id BIGINT DEFAULT NULL COMMENT '责任人',\n  source_stage VARCHAR(64) DEFAULT NULL COMMENT '来源阶段',\n  blocking_reason VARCHAR(255) DEFAULT NULL COMMENT '阻塞原因',\n  snapshot_json JSON DEFAULT NULL COMMENT '上下文快照',\n  task_category VARCHAR(64) DEFAULT NULL COMMENT '生命周期任务分类',\n  domain_code VARCHAR(64) DEFAULT NULL COMMENT '生命周期域编码',\n  action_code VARCHAR(128) DEFAULT NULL COMMENT '操作编码',\n  execution_status VARCHAR(64) DEFAULT NULL COMMENT '生命周期执行状态',\n  recommendation_snapshot_json LONGTEXT DEFAULT NULL COMMENT '推荐快照',\n  evidence_snapshot_json LONGTEXT DEFAULT NULL COMMENT '证据快照',\n  impact_snapshot_json LONGTEXT DEFAULT NULL COMMENT '影响快照',\n  rollback_snapshot_json LONGTEXT DEFAULT NULL COMMENT '回滚快照',\n  due_time DATETIME DEFAULT NULL COMMENT '截止时间',\n  resolved_time DATETIME DEFAULT NULL COMMENT '解决时间',\n  closed_time DATETIME DEFAULT NULL COMMENT '关闭时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_governance_work_item_subject (subject_type, subject_id, work_status, deleted)\n) COMMENT='治理与运营工作项表';"
     },
     {
+      "name": "iot_protocol_decrypt_profile",
+      "sql": "-- 表：iot_protocol_decrypt_profile\n-- 说明：协议解密档案治理主表\nCREATE TABLE iot_protocol_decrypt_profile (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  profile_code VARCHAR(128) NOT NULL COMMENT '解密档案编码',\n  algorithm VARCHAR(64) NOT NULL COMMENT '解密算法',\n  merchant_source VARCHAR(64) NOT NULL COMMENT '密钥来源',\n  merchant_key VARCHAR(128) NOT NULL COMMENT '商户键',\n  transformation VARCHAR(128) DEFAULT NULL COMMENT '转换表达式',\n  signature_secret VARCHAR(255) DEFAULT NULL COMMENT '签名密钥',\n  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_protocol_decrypt_profile_code (tenant_id, profile_code, deleted)\n) COMMENT='协议解密档案治理主表';"
+    },
+    {
+      "name": "iot_protocol_decrypt_profile_snapshot",
+      "sql": "-- 表：iot_protocol_decrypt_profile_snapshot\n-- 说明：协议解密档案发布快照表\nCREATE TABLE iot_protocol_decrypt_profile_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  profile_id BIGINT NOT NULL COMMENT '解密档案主表ID',\n  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_protocol_decrypt_snapshot_lookup (profile_id, lifecycle_status, published_version_no, deleted)\n) COMMENT='协议解密档案发布快照表';"
+    },
+    {
+      "name": "iot_protocol_family_definition",
+      "sql": "-- 表：iot_protocol_family_definition\n-- 说明：协议族定义治理主表\nCREATE TABLE iot_protocol_family_definition (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',\n  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',\n  display_name VARCHAR(255) NOT NULL COMMENT '显示名称',\n  decrypt_profile_code VARCHAR(128) DEFAULT NULL COMMENT '绑定解密档案编码',\n  sign_algorithm VARCHAR(64) DEFAULT NULL COMMENT '签名算法',\n  normalization_strategy VARCHAR(64) DEFAULT NULL COMMENT '归一化策略',\n  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_protocol_family_definition_code (tenant_id, family_code, deleted)\n) COMMENT='协议族定义治理主表';"
+    },
+    {
+      "name": "iot_protocol_family_definition_snapshot",
+      "sql": "-- 表：iot_protocol_family_definition_snapshot\n-- 说明：协议族定义发布快照表\nCREATE TABLE iot_protocol_family_definition_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  family_id BIGINT NOT NULL COMMENT '协议族主表ID',\n  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_protocol_family_snapshot_lookup (family_id, lifecycle_status, published_version_no, deleted)\n) COMMENT='协议族定义发布快照表';"
+    },
+    {
       "name": "sys_governance_approval_order",
       "sql": "-- 表：sys_governance_approval_order\n-- 说明：治理审批工单表\nCREATE TABLE sys_governance_approval_order (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  action_code VARCHAR(64) NOT NULL COMMENT '操作编码',\n  action_name VARCHAR(128) DEFAULT NULL COMMENT '操作名称',\n  subject_type VARCHAR(64) DEFAULT NULL COMMENT '审批主体类型',\n  subject_id BIGINT DEFAULT NULL COMMENT '审批对象ID',\n  work_item_id BIGINT DEFAULT NULL COMMENT '工作项ID',\n  status VARCHAR(32) NOT NULL COMMENT '状态',\n  operator_user_id BIGINT NOT NULL COMMENT '操作人用户ID',\n  approver_user_id BIGINT NOT NULL COMMENT '复核人用户ID',\n  payload_json LONGTEXT DEFAULT NULL COMMENT '载荷JSON内容',\n  approval_comment VARCHAR(500) DEFAULT NULL COMMENT '审批意见',\n  approved_time DATETIME DEFAULT NULL COMMENT '审批时间',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_governance_approval_order_subject (subject_type, subject_id, deleted),\n  KEY idx_governance_approval_order_status_time (status, create_time, deleted),\n  KEY idx_governance_approval_order_operator (operator_user_id, approver_user_id, deleted)\n) COMMENT='治理审批工单表';"
     },
@@ -7515,6 +7863,92 @@
         },
         {
           "columns": [
+            "tenant_id",
+            "profile_code",
+            "deleted"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_protocol_decrypt_profile_code"
+        }
+      ],
+      "name": "iot_protocol_decrypt_profile"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "profile_id",
+            "lifecycle_status",
+            "published_version_no",
+            "deleted"
+          ],
+          "kind": "INDEX",
+          "name": "idx_protocol_decrypt_snapshot_lookup"
+        }
+      ],
+      "name": "iot_protocol_decrypt_profile_snapshot"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "tenant_id",
+            "family_code",
+            "deleted"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_protocol_family_definition_code"
+        }
+      ],
+      "name": "iot_protocol_family_definition"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "family_id",
+            "lifecycle_status",
+            "published_version_no",
+            "deleted"
+          ],
+          "kind": "INDEX",
+          "name": "idx_protocol_family_snapshot_lookup"
+        }
+      ],
+      "name": "iot_protocol_family_definition_snapshot"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
             "subject_type",
             "subject_id",
             "deleted"
@@ -8361,6 +8795,10 @@
     "iot_product_contract_release_snapshot": "active",
     "iot_product_metric_resolver_snapshot": "active",
     "iot_product_model": "active",
+    "iot_protocol_decrypt_profile": "active",
+    "iot_protocol_decrypt_profile_snapshot": "active",
+    "iot_protocol_family_definition": "active",
+    "iot_protocol_family_definition_snapshot": "active",
     "iot_vendor_metric_evidence": "active",
     "iot_vendor_metric_mapping_rule": "active",
     "iot_vendor_metric_mapping_rule_snapshot": "active",

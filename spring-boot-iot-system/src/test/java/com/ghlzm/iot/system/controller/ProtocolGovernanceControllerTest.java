@@ -1,0 +1,163 @@
+package com.ghlzm.iot.system.controller;
+
+import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptPreviewDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptProfileUpsertDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolFamilyDefinitionUpsertDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceSubmitDTO;
+import com.ghlzm.iot.framework.protocol.service.ProtocolSecurityGovernanceService;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptProfileVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolFamilyDefinitionVO;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.service.ProtocolGovernanceApprovalService;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ProtocolGovernanceControllerTest {
+
+    @Mock
+    private ProtocolSecurityGovernanceService service;
+    @Mock
+    private ProtocolGovernanceApprovalService approvalService;
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
+
+    private ProtocolGovernanceController controller;
+
+    @BeforeEach
+    void setUp() {
+        controller = new ProtocolGovernanceController(service, approvalService, permissionGuard);
+    }
+
+    @Test
+    void pageFamiliesShouldRequireProtocolGovernanceEditPermission() {
+        ProtocolFamilyDefinitionVO row = new ProtocolFamilyDefinitionVO();
+        row.setId(9101L);
+        row.setFamilyCode("legacy-dp-crack");
+        when(service.pageFamilies(null, null, 1L, 10L))
+                .thenReturn(PageResult.of(1L, 1L, 10L, List.of(row)));
+
+        R<PageResult<ProtocolFamilyDefinitionVO>> response =
+                controller.pageFamilies(null, null, 1L, 10L, authentication(10001L));
+
+        assertEquals(1L, response.getData().getTotal());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议族定义查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+    }
+
+    @Test
+    void saveDecryptProfileShouldRequireProtocolGovernanceEditPermission() {
+        ProtocolDecryptProfileVO vo = new ProtocolDecryptProfileVO();
+        vo.setId(9201L);
+        vo.setProfileCode("des-62000001");
+        vo.setStatus("DRAFT");
+        when(service.saveDecryptProfile(any(), eq(10001L))).thenReturn(vo);
+
+        R<ProtocolDecryptProfileVO> response = controller.saveDecryptProfile(
+                new ProtocolDecryptProfileUpsertDTO(
+                        "des-62000001",
+                        "DES",
+                        "IOT_PROTOCOL_CRYPTO",
+                        "62000001",
+                        "DES/CBC/PKCS5Padding",
+                        "demo-secret"
+                ),
+                authentication(10001L)
+        );
+
+        assertEquals("des-62000001", response.getData().getProfileCode());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议解密档案维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+    }
+
+    @Test
+    void submitFamilyPublishShouldRequireProtocolGovernanceEditPermission() {
+        when(approvalService.submitFamilyPublish(eq(9101L), eq(10001L), eq("发布裂缝协议族")))
+                .thenReturn(GovernanceSubmissionResultVO.pendingApproval(null, 99101L));
+
+        R<GovernanceSubmissionResultVO> response = controller.submitFamilyPublish(
+                9101L,
+                new ProtocolGovernanceSubmitDTO("发布裂缝协议族"),
+                authentication(10001L)
+        );
+
+        assertEquals(99101L, response.getData().getApprovalOrderId());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议族定义发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+    }
+
+    @Test
+    void previewDecryptShouldRequireProtocolGovernanceEditPermission() {
+        ProtocolDecryptPreviewVO vo = new ProtocolDecryptPreviewVO();
+        vo.setMatched(Boolean.TRUE);
+        vo.setResolvedProfileCode("des-62000001");
+        when(service.previewDecrypt(any())).thenReturn(vo);
+
+        R<ProtocolDecryptPreviewVO> response = controller.previewDecrypt(
+                new ProtocolDecryptPreviewDTO("62000000", "mqtt-json", "legacy-dp-crack"),
+                authentication(10001L)
+        );
+
+        assertEquals("des-62000001", response.getData().getResolvedProfileCode());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议解密试算",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+    }
+
+    @Test
+    void saveFamilyShouldDelegateToServiceWithCurrentUser() {
+        ProtocolFamilyDefinitionVO vo = new ProtocolFamilyDefinitionVO();
+        vo.setId(9101L);
+        vo.setFamilyCode("legacy-dp-crack");
+        when(service.saveFamily(any(), eq(10001L))).thenReturn(vo);
+
+        R<ProtocolFamilyDefinitionVO> response = controller.saveFamily(
+                new ProtocolFamilyDefinitionUpsertDTO(
+                        "legacy-dp-crack",
+                        "mqtt-json",
+                        "裂缝旧 $dp 协议族",
+                        "des-62000001",
+                        "AES",
+                        "LEGACY_DP"
+                ),
+                authentication(10001L)
+        );
+
+        assertEquals("legacy-dp-crack", response.getData().getFamilyCode());
+        verify(service).saveFamily(any(), eq(10001L));
+    }
+
+    private Authentication authentication(Long userId) {
+        JwtUserPrincipal principal = new JwtUserPrincipal(userId, "demo");
+        return new UsernamePasswordAuthenticationToken(principal, null, List.of());
+    }
+}

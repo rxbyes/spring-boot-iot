@@ -30,6 +30,10 @@ DROP TABLE IF EXISTS sys_governance_replay_feedback;
 DROP TABLE IF EXISTS sys_governance_approval_transition;
 DROP TABLE IF EXISTS sys_governance_approval_policy;
 DROP TABLE IF EXISTS sys_governance_approval_order;
+DROP TABLE IF EXISTS iot_protocol_family_definition_snapshot;
+DROP TABLE IF EXISTS iot_protocol_family_definition;
+DROP TABLE IF EXISTS iot_protocol_decrypt_profile_snapshot;
+DROP TABLE IF EXISTS iot_protocol_decrypt_profile;
 DROP TABLE IF EXISTS iot_governance_work_item;
 DROP TABLE IF EXISTS iot_governance_ops_alert;
 DROP TABLE IF EXISTS iot_vendor_metric_mapping_rule_snapshot;
@@ -1030,6 +1034,86 @@ CREATE TABLE iot_governance_work_item (
   PRIMARY KEY (id),
   KEY idx_governance_work_item_subject (subject_type, subject_id, work_status, deleted)
 ) COMMENT='治理与运营工作项表';
+
+-- 表：iot_protocol_decrypt_profile
+-- 说明：协议解密档案治理主表
+CREATE TABLE iot_protocol_decrypt_profile (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  profile_code VARCHAR(128) NOT NULL COMMENT '解密档案编码',
+  algorithm VARCHAR(64) NOT NULL COMMENT '解密算法',
+  merchant_source VARCHAR(64) NOT NULL COMMENT '密钥来源',
+  merchant_key VARCHAR(128) NOT NULL COMMENT '商户键',
+  transformation VARCHAR(128) DEFAULT NULL COMMENT '转换表达式',
+  signature_secret VARCHAR(255) DEFAULT NULL COMMENT '签名密钥',
+  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',
+  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by BIGINT DEFAULT NULL COMMENT '更新人',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_protocol_decrypt_profile_code (tenant_id, profile_code, deleted)
+) COMMENT='协议解密档案治理主表';
+
+-- 表：iot_protocol_decrypt_profile_snapshot
+-- 说明：协议解密档案发布快照表
+CREATE TABLE iot_protocol_decrypt_profile_snapshot (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  profile_id BIGINT NOT NULL COMMENT '解密档案主表ID',
+  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',
+  published_version_no INT NOT NULL COMMENT '发布版本号',
+  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',
+  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+  PRIMARY KEY (id),
+  KEY idx_protocol_decrypt_snapshot_lookup (profile_id, lifecycle_status, published_version_no, deleted)
+) COMMENT='协议解密档案发布快照表';
+
+-- 表：iot_protocol_family_definition
+-- 说明：协议族定义治理主表
+CREATE TABLE iot_protocol_family_definition (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',
+  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',
+  display_name VARCHAR(255) NOT NULL COMMENT '显示名称',
+  decrypt_profile_code VARCHAR(128) DEFAULT NULL COMMENT '绑定解密档案编码',
+  sign_algorithm VARCHAR(64) DEFAULT NULL COMMENT '签名算法',
+  normalization_strategy VARCHAR(64) DEFAULT NULL COMMENT '归一化策略',
+  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',
+  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by BIGINT DEFAULT NULL COMMENT '更新人',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_protocol_family_definition_code (tenant_id, family_code, deleted)
+) COMMENT='协议族定义治理主表';
+
+-- 表：iot_protocol_family_definition_snapshot
+-- 说明：协议族定义发布快照表
+CREATE TABLE iot_protocol_family_definition_snapshot (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  family_id BIGINT NOT NULL COMMENT '协议族主表ID',
+  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',
+  published_version_no INT NOT NULL COMMENT '发布版本号',
+  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',
+  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+  PRIMARY KEY (id),
+  KEY idx_protocol_family_snapshot_lookup (family_id, lifecycle_status, published_version_no, deleted)
+) COMMENT='协议族定义发布快照表';
 
 -- 表：sys_governance_approval_order
 -- 说明：治理审批工单表

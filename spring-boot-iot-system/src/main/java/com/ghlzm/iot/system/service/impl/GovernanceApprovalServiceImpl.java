@@ -38,6 +38,10 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     private static final String ACTION_PRODUCT_CONTRACT_ROLLBACK = "PRODUCT_CONTRACT_ROLLBACK";
     private static final String ACTION_VENDOR_MAPPING_RULE_PUBLISH = "VENDOR_MAPPING_RULE_PUBLISH";
     private static final String ACTION_VENDOR_MAPPING_RULE_ROLLBACK = "VENDOR_MAPPING_RULE_ROLLBACK";
+    private static final String ACTION_PROTOCOL_FAMILY_PUBLISH = "PROTOCOL_FAMILY_PUBLISH";
+    private static final String ACTION_PROTOCOL_FAMILY_ROLLBACK = "PROTOCOL_FAMILY_ROLLBACK";
+    private static final String ACTION_PROTOCOL_DECRYPT_PROFILE_PUBLISH = "PROTOCOL_DECRYPT_PROFILE_PUBLISH";
+    private static final String ACTION_PROTOCOL_DECRYPT_PROFILE_ROLLBACK = "PROTOCOL_DECRYPT_PROFILE_ROLLBACK";
     private static final String WORK_ITEM_EXECUTION_PENDING_APPROVAL = "PENDING_APPROVAL";
     private static final String WORK_ITEM_EXECUTION_EXECUTED = "EXECUTED";
     private static final String WORK_ITEM_EXECUTION_REJECTED = "REJECTED";
@@ -584,6 +588,10 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
             case ACTION_PRODUCT_CONTRACT_ROLLBACK -> requireProductContractRollbackPermissions(actorUserId, operation);
             case ACTION_VENDOR_MAPPING_RULE_PUBLISH -> requireVendorMappingPublishPermissions(actorUserId, operation);
             case ACTION_VENDOR_MAPPING_RULE_ROLLBACK -> requireVendorMappingRollbackPermissions(actorUserId, operation);
+            case ACTION_PROTOCOL_FAMILY_PUBLISH,
+                 ACTION_PROTOCOL_FAMILY_ROLLBACK,
+                 ACTION_PROTOCOL_DECRYPT_PROFILE_PUBLISH,
+                 ACTION_PROTOCOL_DECRYPT_PROFILE_ROLLBACK -> requireProtocolGovernancePermissions(actorUserId, operation);
             default -> throw new BizException("审批动作未配置权限映射: " + actionCode);
         }
     }
@@ -651,6 +659,21 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
                     actorUserId,
                     actionLabel(operation),
                     GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK
+            );
+        }
+    }
+
+    private void requireProtocolGovernancePermissions(Long actorUserId, ApprovalOperation operation) {
+        switch (operation) {
+            case APPROVE, REJECT -> permissionGuard.requireAnyPermission(
+                    actorUserId,
+                    actionLabel(operation),
+                    GovernancePermissionCodes.PROTOCOL_GOVERNANCE_APPROVE
+            );
+            case CANCEL, RESUBMIT -> permissionGuard.requireAnyPermission(
+                    actorUserId,
+                    actionLabel(operation),
+                    GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
             );
         }
     }
@@ -754,7 +777,9 @@ public class GovernanceApprovalServiceImpl implements GovernanceApprovalService 
     private boolean isRollbackAction(String actionCode) {
         String normalizedActionCode = normalizeText(actionCode);
         return ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(normalizedActionCode)
-                || ACTION_VENDOR_MAPPING_RULE_ROLLBACK.equals(normalizedActionCode);
+                || ACTION_VENDOR_MAPPING_RULE_ROLLBACK.equals(normalizedActionCode)
+                || ACTION_PROTOCOL_FAMILY_ROLLBACK.equals(normalizedActionCode)
+                || ACTION_PROTOCOL_DECRYPT_PROFILE_ROLLBACK.equals(normalizedActionCode);
     }
 
     private enum ApprovalOperation {

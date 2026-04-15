@@ -131,7 +131,11 @@ INSERT INTO sys_governance_approval_policy (
     (99001001, 0, 'GLOBAL', 'PRODUCT_CONTRACT_RELEASE_APPLY', 'FIXED_USER', 99000001, 1, '产品契约发布固定复核人', 1, NOW(), 1, NOW(), 0),
     (99001002, 0, 'GLOBAL', 'PRODUCT_CONTRACT_ROLLBACK', 'FIXED_USER', 99000001, 1, '产品契约回滚固定复核人', 1, NOW(), 1, NOW(), 0),
     (99001003, 0, 'GLOBAL', 'VENDOR_MAPPING_RULE_PUBLISH', 'FIXED_USER', 99000001, 1, '厂商字段映射规则发布固定复核人', 1, NOW(), 1, NOW(), 0),
-    (99001004, 0, 'GLOBAL', 'VENDOR_MAPPING_RULE_ROLLBACK', 'FIXED_USER', 99000001, 1, '厂商字段映射规则回滚固定复核人', 1, NOW(), 1, NOW(), 0)
+    (99001004, 0, 'GLOBAL', 'VENDOR_MAPPING_RULE_ROLLBACK', 'FIXED_USER', 99000001, 1, '厂商字段映射规则回滚固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001005, 0, 'GLOBAL', 'PROTOCOL_FAMILY_PUBLISH', 'FIXED_USER', 99000001, 1, '协议族定义发布固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001006, 0, 'GLOBAL', 'PROTOCOL_FAMILY_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议族定义回滚固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001007, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_PUBLISH', 'FIXED_USER', 99000001, 1, '协议解密档案发布固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001008, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议解密档案回滚固定复核人', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     approver_mode = VALUES(approver_mode),
     approver_user_id = VALUES(approver_user_id),
@@ -430,6 +434,8 @@ INSERT INTO sys_menu (
     (93001027, 1, 93001001, '密钥轮换执行', 'iot:secret-custody:rotate', '', '', '', '{"caption":"执行设备密钥轮换"}', 1127, 2, 2, '', 'iot:secret-custody:rotate', 1127, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001028, 1, 93001001, '密钥轮换复核', 'iot:secret-custody:approve', '', '', '', '{"caption":"关键密钥轮换动作双人复核"}', 1128, 2, 2, '', 'iot:secret-custody:approve', 1128, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001029, 1, 93001001, '规范库复核', 'iot:normative-library:approve', '', '', '', '{"caption":"规范库关键写动作复核授权"}', 1129, 2, 2, '', 'iot:normative-library:approve', 1129, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001030, 1, 93001001, '协议治理执行', 'iot:protocol-governance:edit', '', '', '', '{"caption":"维护协议族定义与解密档案草稿"}', 1130, 2, 2, '', 'iot:protocol-governance:edit', 1130, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001031, 1, 93001001, '协议治理复核', 'iot:protocol-governance:approve', '', '', '', '{"caption":"协议治理发布与回滚双人复核"}', 1131, 2, 2, '', 'iot:protocol-governance:approve', 1131, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002044, 1, 93002003, '风险指标标注', 'risk:metric-catalog:tag', '', '', '', '{"caption":"维护风险指标语义标签"}', 3144, 2, 2, '', 'risk:metric-catalog:tag', 3144, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002051, 1, 93002003, '风险指标复核', 'risk:metric-catalog:approve', '', '', '', '{"caption":"风险指标标注关键写动作双人复核"}', 3145, 2, 2, '', 'risk:metric-catalog:approve', 3145, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002045, 1, 93002004, '阈值策略执行', 'risk:rule-definition:edit', '', '', '', '{"caption":"新增/更新/删除阈值策略"}', 3245, 2, 2, '', 'risk:rule-definition:edit', 3245, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -464,6 +470,8 @@ FROM (
     UNION ALL SELECT @role_management_id, 93001026
     UNION ALL SELECT @role_management_id, 93001027
     UNION ALL SELECT @role_management_id, 93001028
+    UNION ALL SELECT @role_management_id, 93001030
+    UNION ALL SELECT @role_management_id, 93001031
     UNION ALL SELECT @role_management_id, 93002044
     UNION ALL SELECT @role_management_id, 93002051
     UNION ALL SELECT @role_management_id, 93002045
@@ -479,6 +487,8 @@ FROM (
     UNION ALL SELECT @role_ops_id, 93001026
     UNION ALL SELECT @role_ops_id, 93001027
     UNION ALL SELECT @role_ops_id, 93001028
+    UNION ALL SELECT @role_ops_id, 93001030
+    UNION ALL SELECT @role_ops_id, 93001031
     UNION ALL SELECT @role_ops_id, 93002044
     UNION ALL SELECT @role_ops_id, 93002051
     UNION ALL SELECT @role_ops_id, 93002045
@@ -493,6 +503,7 @@ FROM (
     UNION ALL SELECT @role_developer_id, 93001024
     UNION ALL SELECT @role_developer_id, 93001026
     UNION ALL SELECT @role_developer_id, 93001027
+    UNION ALL SELECT @role_developer_id, 93001030
     UNION ALL SELECT @role_developer_id, 93002044
     UNION ALL SELECT @role_developer_id, 93002045
     UNION ALL SELECT @role_developer_id, 93002047

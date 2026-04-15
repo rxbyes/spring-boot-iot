@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GovernancePermissionMatrixServiceImplTest {
 
     @Test
-    void listMatrixShouldExposeSecretCustodyContractAndVendorMappingDualControlRows() {
+    void listMatrixShouldExposeSecretCustodyContractVendorMappingAndProtocolDualControlRows() {
         GovernancePermissionMatrixServiceImpl service = new GovernancePermissionMatrixServiceImpl();
 
         List<GovernancePermissionMatrixItemVO> items = service.listMatrix();
@@ -32,6 +32,14 @@ class GovernancePermissionMatrixServiceImplTest {
                 "VENDOR_MAPPING_RULE_ROLLBACK".equals(item.getActionCode())
                         && "iot:product-contract:rollback".equals(item.getOperatorPermissionCode())
                         && "iot:product-contract:approve".equals(item.getApproverPermissionCode())));
-        assertEquals(10, items.size());
+        assertTrue(items.stream().anyMatch(item ->
+                "PROTOCOL_FAMILY_PUBLISH".equals(item.getActionCode())
+                        && "iot:protocol-governance:edit".equals(item.getOperatorPermissionCode())
+                        && "iot:protocol-governance:approve".equals(item.getApproverPermissionCode())));
+        assertTrue(items.stream().anyMatch(item ->
+                "PROTOCOL_DECRYPT_PROFILE_ROLLBACK".equals(item.getActionCode())
+                        && "iot:protocol-governance:edit".equals(item.getOperatorPermissionCode())
+                        && "iot:protocol-governance:approve".equals(item.getApproverPermissionCode())));
+        assertEquals(14, items.size());
     }
 }

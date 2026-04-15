@@ -3405,6 +3405,274 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `profile_code` VARCHAR(128) NOT NULL COMMENT '解密档案编码'",
+          "name": "profile_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `algorithm` VARCHAR(64) NOT NULL COMMENT '解密算法'",
+          "name": "algorithm"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `merchant_source` VARCHAR(64) NOT NULL COMMENT '密钥来源'",
+          "name": "merchant_source"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `merchant_key` VARCHAR(128) NOT NULL COMMENT '商户键'",
+          "name": "merchant_key"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `transformation` VARCHAR(128) DEFAULT NULL COMMENT '转换表达式'",
+          "name": "transformation"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `signature_secret` VARCHAR(255) DEFAULT NULL COMMENT '签名密钥'",
+          "name": "signature_secret"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `version_no` INT NOT NULL DEFAULT 1 COMMENT '版本号'",
+          "name": "version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `approval_order_id` BIGINT DEFAULT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `update_by` BIGINT DEFAULT NULL COMMENT '更新人'",
+          "name": "update_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+          "name": "update_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_protocol_decrypt_profile\n-- 说明：协议解密档案治理主表\nCREATE TABLE IF NOT EXISTS iot_protocol_decrypt_profile (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  profile_code VARCHAR(128) NOT NULL COMMENT '解密档案编码',\n  algorithm VARCHAR(64) NOT NULL COMMENT '解密算法',\n  merchant_source VARCHAR(64) NOT NULL COMMENT '密钥来源',\n  merchant_key VARCHAR(128) NOT NULL COMMENT '商户键',\n  transformation VARCHAR(128) DEFAULT NULL COMMENT '转换表达式',\n  signature_secret VARCHAR(255) DEFAULT NULL COMMENT '签名密钥',\n  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_protocol_decrypt_profile_code (tenant_id, profile_code, deleted)\n) COMMENT='协议解密档案治理主表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile` ADD UNIQUE INDEX `uk_protocol_decrypt_profile_code` (`tenant_id`, `profile_code`, `deleted`)",
+          "name": "uk_protocol_decrypt_profile_code"
+        }
+      ],
+      "name": "iot_protocol_decrypt_profile",
+      "ownerModule": "spring-boot-iot-framework",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `profile_id` BIGINT NOT NULL COMMENT '解密档案主表ID'",
+          "name": "profile_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `approval_order_id` BIGINT NOT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `published_version_no` INT NOT NULL COMMENT '发布版本号'",
+          "name": "published_version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `snapshot_json` LONGTEXT NOT NULL COMMENT '发布快照'",
+          "name": "snapshot_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `lifecycle_status` VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态'",
+          "name": "lifecycle_status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_protocol_decrypt_profile_snapshot\n-- 说明：协议解密档案发布快照表\nCREATE TABLE IF NOT EXISTS iot_protocol_decrypt_profile_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  profile_id BIGINT NOT NULL COMMENT '解密档案主表ID',\n  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_protocol_decrypt_snapshot_lookup (profile_id, lifecycle_status, published_version_no, deleted)\n) COMMENT='协议解密档案发布快照表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_decrypt_profile_snapshot` ADD INDEX `idx_protocol_decrypt_snapshot_lookup` (`profile_id`, `lifecycle_status`, `published_version_no`, `deleted`)",
+          "name": "idx_protocol_decrypt_snapshot_lookup"
+        }
+      ],
+      "name": "iot_protocol_decrypt_profile_snapshot",
+      "ownerModule": "spring-boot-iot-framework",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `family_code` VARCHAR(128) NOT NULL COMMENT '协议族编码'",
+          "name": "family_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `protocol_code` VARCHAR(64) NOT NULL COMMENT '协议编码'",
+          "name": "protocol_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `display_name` VARCHAR(255) NOT NULL COMMENT '显示名称'",
+          "name": "display_name"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `decrypt_profile_code` VARCHAR(128) DEFAULT NULL COMMENT '绑定解密档案编码'",
+          "name": "decrypt_profile_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `sign_algorithm` VARCHAR(64) DEFAULT NULL COMMENT '签名算法'",
+          "name": "sign_algorithm"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `normalization_strategy` VARCHAR(64) DEFAULT NULL COMMENT '归一化策略'",
+          "name": "normalization_strategy"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `version_no` INT NOT NULL DEFAULT 1 COMMENT '版本号'",
+          "name": "version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `approval_order_id` BIGINT DEFAULT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `update_by` BIGINT DEFAULT NULL COMMENT '更新人'",
+          "name": "update_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+          "name": "update_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_protocol_family_definition\n-- 说明：协议族定义治理主表\nCREATE TABLE IF NOT EXISTS iot_protocol_family_definition (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',\n  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',\n  display_name VARCHAR(255) NOT NULL COMMENT '显示名称',\n  decrypt_profile_code VARCHAR(128) DEFAULT NULL COMMENT '绑定解密档案编码',\n  sign_algorithm VARCHAR(64) DEFAULT NULL COMMENT '签名算法',\n  normalization_strategy VARCHAR(64) DEFAULT NULL COMMENT '归一化策略',\n  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_protocol_family_definition_code (tenant_id, family_code, deleted)\n) COMMENT='协议族定义治理主表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition` ADD UNIQUE INDEX `uk_protocol_family_definition_code` (`tenant_id`, `family_code`, `deleted`)",
+          "name": "uk_protocol_family_definition_code"
+        }
+      ],
+      "name": "iot_protocol_family_definition",
+      "ownerModule": "spring-boot-iot-framework",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `family_id` BIGINT NOT NULL COMMENT '协议族主表ID'",
+          "name": "family_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `approval_order_id` BIGINT NOT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `published_version_no` INT NOT NULL COMMENT '发布版本号'",
+          "name": "published_version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `snapshot_json` LONGTEXT NOT NULL COMMENT '发布快照'",
+          "name": "snapshot_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `lifecycle_status` VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态'",
+          "name": "lifecycle_status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_protocol_family_definition_snapshot\n-- 说明：协议族定义发布快照表\nCREATE TABLE IF NOT EXISTS iot_protocol_family_definition_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  family_id BIGINT NOT NULL COMMENT '协议族主表ID',\n  approval_order_id BIGINT NOT NULL COMMENT '审批主单ID',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_protocol_family_snapshot_lookup (family_id, lifecycle_status, published_version_no, deleted)\n) COMMENT='协议族定义发布快照表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_family_definition_snapshot` ADD INDEX `idx_protocol_family_snapshot_lookup` (`family_id`, `lifecycle_status`, `published_version_no`, `deleted`)",
+          "name": "idx_protocol_family_snapshot_lookup"
+        }
+      ],
+      "name": "iot_protocol_family_definition_snapshot",
+      "ownerModule": "spring-boot-iot-framework",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `sys_governance_approval_order` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
           "name": "id"
         },
