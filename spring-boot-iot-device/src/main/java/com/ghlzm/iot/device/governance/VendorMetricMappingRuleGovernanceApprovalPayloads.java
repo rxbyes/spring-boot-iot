@@ -7,13 +7,11 @@ import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * 厂商字段映射规则治理审批载荷。
- */
 public final class VendorMetricMappingRuleGovernanceApprovalPayloads {
 
     public static final String ACTION_VENDOR_MAPPING_RULE_PUBLISH = "VENDOR_MAPPING_RULE_PUBLISH";
     public static final String ACTION_VENDOR_MAPPING_RULE_ROLLBACK = "VENDOR_MAPPING_RULE_ROLLBACK";
+
     private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
 
     private VendorMetricMappingRuleGovernanceApprovalPayloads() {
@@ -85,6 +83,11 @@ public final class VendorMetricMappingRuleGovernanceApprovalPayloads {
                 normalizeText(rule.getLogicalChannelCode()),
                 normalizeText(rule.getTargetNormativeIdentifier()),
                 normalizeText(rule.getScopeType()),
+                normalizeText(rule.getProtocolCode()),
+                normalizeText(rule.getScenarioCode()),
+                normalizeText(rule.getDeviceFamily()),
+                normalizeText(rule.getRelationConditionJson()),
+                normalizeText(rule.getNormalizationRuleJson()),
                 null,
                 null
         ));
@@ -102,6 +105,11 @@ public final class VendorMetricMappingRuleGovernanceApprovalPayloads {
                 normalizeText(rule.getLogicalChannelCode()),
                 normalizeText(rule.getTargetNormativeIdentifier()),
                 normalizeText(rule.getScopeType()),
+                normalizeText(rule.getProtocolCode()),
+                normalizeText(rule.getScenarioCode()),
+                normalizeText(rule.getDeviceFamily()),
+                normalizeText(rule.getRelationConditionJson()),
+                normalizeText(rule.getNormalizationRuleJson()),
                 normalizeText(submitReason),
                 null
         );
@@ -120,6 +128,11 @@ public final class VendorMetricMappingRuleGovernanceApprovalPayloads {
                 normalized.logicalChannelCode(),
                 normalized.targetNormativeIdentifier(),
                 normalized.scopeType(),
+                normalized.protocolCode(),
+                normalized.scenarioCode(),
+                normalized.deviceFamily(),
+                normalized.relationConditionJson(),
+                normalized.normalizationRuleJson(),
                 normalized.submitReason(),
                 new RuleApprovalExecution(
                         approvalOrderId,
@@ -165,6 +178,11 @@ public final class VendorMetricMappingRuleGovernanceApprovalPayloads {
                                       String logicalChannelCode,
                                       String targetNormativeIdentifier,
                                       String scopeType,
+                                      String protocolCode,
+                                      String scenarioCode,
+                                      String deviceFamily,
+                                      String relationConditionJson,
+                                      String normalizationRuleJson,
                                       String submitReason,
                                       RuleApprovalExecution execution) {
     }

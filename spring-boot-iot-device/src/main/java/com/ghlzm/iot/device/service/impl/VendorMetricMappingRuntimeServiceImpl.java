@@ -5,7 +5,10 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
+import com.ghlzm.iot.device.entity.VendorMetricMappingRuleSnapshot;
+import com.ghlzm.iot.device.governance.VendorMetricMappingRuleGovernanceApprovalPayloads;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
 import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
@@ -13,12 +16,16 @@ import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
+import com.ghlzm.iot.framework.protocol.YamlProtocolSecurityDefinitionProvider;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,9 +33,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-/**
- * 厂商字段映射规则运行时解析服务实现。
- */
 @Service
 public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappingRuntimeService {
 
@@ -41,46 +45,79 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
     private static final String PROTOCOL_FAMILY_SELECTOR_PREFIX = "family:";
 
     private final VendorMetricMappingRuleMapper mapper;
+    private final VendorMetricMappingRuleSnapshotMapper snapshotMapper;
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
     private final PublishedProductContractSnapshotService snapshotService;
     private final MetricIdentifierResolver metricIdentifierResolver;
-    private final IotProperties iotProperties;
+    private final ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider;
     private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
 
     @Autowired
     public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                                 VendorMetricMappingRuleSnapshotMapper snapshotMapper,
                                                  NormativeMetricDefinitionService normativeMetricDefinitionService,
                                                  PublishedProductContractSnapshotService snapshotService,
                                                  MetricIdentifierResolver metricIdentifierResolver,
-                                                 IotProperties iotProperties) {
+                                                 ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider) {
         this.mapper = mapper;
+        this.snapshotMapper = snapshotMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.snapshotService = snapshotService;
         this.metricIdentifierResolver = metricIdentifierResolver;
-        this.iotProperties = iotProperties;
+        this.protocolSecurityDefinitionProvider = protocolSecurityDefinitionProvider;
     }
 
     public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
                                                  NormativeMetricDefinitionService normativeMetricDefinitionService,
                                                  PublishedProductContractSnapshotService snapshotService,
                                                  MetricIdentifierResolver metricIdentifierResolver) {
-        this(mapper, normativeMetricDefinitionService, snapshotService, metricIdentifierResolver, null);
+        this(mapper, null, normativeMetricDefinitionService, snapshotService, metricIdentifierResolver, (ProtocolSecurityDefinitionProvider) null);
+    }
+
+    public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                                 NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                                 PublishedProductContractSnapshotService snapshotService,
+                                                 MetricIdentifierResolver metricIdentifierResolver,
+                                                 IotProperties iotProperties) {
+        this(mapper, null, normativeMetricDefinitionService, snapshotService, metricIdentifierResolver,
+                iotProperties == null ? null : new YamlProtocolSecurityDefinitionProvider(iotProperties));
+    }
+
+    public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                                 VendorMetricMappingRuleSnapshotMapper snapshotMapper,
+                                                 NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                                 PublishedProductContractSnapshotService snapshotService,
+                                                 MetricIdentifierResolver metricIdentifierResolver,
+                                                 IotProperties iotProperties) {
+        this(mapper, snapshotMapper, normativeMetricDefinitionService, snapshotService, metricIdentifierResolver,
+                iotProperties == null ? null : new YamlProtocolSecurityDefinitionProvider(iotProperties));
+    }
+
+    public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                                 VendorMetricMappingRuleSnapshotMapper snapshotMapper,
+                                                 NormativeMetricDefinitionService normativeMetricDefinitionService,
+                                                 PublishedProductContractSnapshotService snapshotService,
+                                                 MetricIdentifierResolver metricIdentifierResolver,
+                                                 ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider,
+                                                 boolean ignored) {
+        this(mapper, snapshotMapper, normativeMetricDefinitionService, snapshotService, metricIdentifierResolver,
+                protocolSecurityDefinitionProvider);
     }
 
     public VendorMetricMappingRuntimeServiceImpl(VendorMetricMappingRuleMapper mapper,
                                                  NormativeMetricDefinitionService normativeMetricDefinitionService) {
-        this(mapper, normativeMetricDefinitionService, null, null, null);
+        this(mapper, null, normativeMetricDefinitionService, null, null, (ProtocolSecurityDefinitionProvider) null);
     }
 
     @Override
     public MappingResolution resolveForGovernance(Product product, String rawIdentifier, String logicalChannelCode) {
-        return resolveInternal(
-                product,
-                resolveProtocolSelectors(resolveProtocolCode(product), null),
-                rawIdentifier,
-                logicalChannelCode,
-                true
-        );
+        Set<String> protocolSelectors = resolveProtocolSelectors(resolveProtocolCode(product), null);
+        PublishedRuleSnapshotResolution publishedResolution =
+                resolvePublishedRuleSnapshot(product, protocolSelectors, rawIdentifier, logicalChannelCode, true);
+        if (publishedResolution.hasPublishedSnapshots()) {
+            return publishedResolution.resolution();
+        }
+        return resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, true);
     }
 
     @Override
@@ -88,21 +125,21 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                                                DeviceUpMessage upMessage,
                                                String rawIdentifier,
                                                String logicalChannelCode) {
-        MappingResolution snapshotResolution = resolvePublishedSnapshot(product, rawIdentifier, logicalChannelCode);
+        MappingResolution snapshotResolution = resolvePublishedContractSnapshot(product, rawIdentifier, logicalChannelCode);
         if (snapshotResolution != null) {
             return snapshotResolution;
         }
         DeviceUpProtocolMetadata protocolMetadata = upMessage == null ? null : upMessage.getProtocolMetadata();
-        return resolveInternal(
-                product,
-                resolveProtocolSelectors(
-                        normalizeLower(upMessage == null ? null : upMessage.getProtocolCode()),
-                        protocolMetadata == null ? null : protocolMetadata.getFamilyCodes()
-                ),
-                rawIdentifier,
-                logicalChannelCode,
-                false
+        Set<String> protocolSelectors = resolveProtocolSelectors(
+                normalizeLower(upMessage == null ? null : upMessage.getProtocolCode()),
+                protocolMetadata == null ? null : protocolMetadata.getFamilyCodes()
         );
+        PublishedRuleSnapshotResolution publishedResolution =
+                resolvePublishedRuleSnapshot(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
+        if (publishedResolution.hasPublishedSnapshots()) {
+            return publishedResolution.resolution();
+        }
+        return resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
     }
 
     @Override
@@ -111,9 +148,17 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         if (sanitizedIdentifier == null) {
             return null;
         }
+        Set<String> protocolSelectors = resolveProtocolSelectors(resolveProtocolCode(product), null);
+        PublishedRuleSnapshotResolution publishedResolution =
+                resolvePublishedRuleSnapshot(product, protocolSelectors, sanitizedIdentifier, null, true);
+        if (publishedResolution.hasPublishedSnapshots()) {
+            return publishedResolution.resolution() == null
+                    ? sanitizedIdentifier
+                    : publishedResolution.resolution().targetNormativeIdentifier();
+        }
         MappingResolution resolution = resolveInternal(
                 product,
-                resolveProtocolSelectors(resolveProtocolCode(product), null),
+                protocolSelectors,
                 sanitizedIdentifier,
                 null,
                 true
@@ -121,9 +166,9 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         return resolution == null ? sanitizedIdentifier : resolution.targetNormativeIdentifier();
     }
 
-    private MappingResolution resolvePublishedSnapshot(Product product,
-                                                       String rawIdentifier,
-                                                       String logicalChannelCode) {
+    private MappingResolution resolvePublishedContractSnapshot(Product product,
+                                                               String rawIdentifier,
+                                                               String logicalChannelCode) {
         if (snapshotService == null || metricIdentifierResolver == null
                 || product == null || product.getId() == null || !StringUtils.hasText(rawIdentifier)) {
             return null;
@@ -147,6 +192,39 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         );
     }
 
+    private PublishedRuleSnapshotResolution resolvePublishedRuleSnapshot(Product product,
+                                                                        Set<String> protocolSelectors,
+                                                                        String rawIdentifier,
+                                                                        String logicalChannelCode,
+                                                                        boolean strict) {
+        Long productId = product == null ? null : product.getId();
+        if (snapshotMapper == null || productId == null || productId <= 0) {
+            return PublishedRuleSnapshotResolution.none();
+        }
+        List<VendorMetricMappingRuleSnapshot> snapshots = snapshotMapper.selectPublishedByProductId(productId);
+        if (snapshots == null || snapshots.isEmpty()) {
+            return PublishedRuleSnapshotResolution.none();
+        }
+        List<VendorMetricMappingRule> publishedRules = snapshots.stream()
+                .filter(Objects::nonNull)
+                .filter(snapshot -> snapshot.getRuleId() != null)
+                .collect(Collectors.toMap(
+                        VendorMetricMappingRuleSnapshot::getRuleId,
+                        snapshot -> snapshot,
+                        this::preferHigherVersionSnapshot,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .map(this::toPublishedRule)
+                .filter(Objects::nonNull)
+                .toList();
+        return new PublishedRuleSnapshotResolution(
+                true,
+                resolveFromRules(product, protocolSelectors, rawIdentifier, logicalChannelCode, strict, publishedRules)
+        );
+    }
+
     private MappingResolution resolveInternal(Product product,
                                               Set<String> protocolSelectors,
                                               String rawIdentifier,
@@ -157,17 +235,35 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         if (productId == null || normalizedRawIdentifier == null) {
             return null;
         }
+        List<VendorMetricMappingRule> rules = mapper.selectList(new LambdaQueryWrapper<VendorMetricMappingRule>()
+                .eq(VendorMetricMappingRule::getDeleted, 0)
+                .and(wrapper -> wrapper.eq(VendorMetricMappingRule::getProductId, productId)
+                        .or(scope -> scope.isNull(VendorMetricMappingRule::getProductId)
+                                .eq(VendorMetricMappingRule::getScopeType, SCOPE_TYPE_TENANT_DEFAULT)))
+                .eq(VendorMetricMappingRule::getRawIdentifier, normalizedRawIdentifier));
+        return resolveFromRules(product, protocolSelectors, rawIdentifier, logicalChannelCode, strict, rules);
+    }
+
+    private MappingResolution resolveFromRules(Product product,
+                                               Set<String> protocolSelectors,
+                                               String rawIdentifier,
+                                               String logicalChannelCode,
+                                               boolean strict,
+                                               List<VendorMetricMappingRule> rules) {
+        Long productId = product == null ? null : product.getId();
+        String normalizedRawIdentifier = normalizeLower(rawIdentifier);
+        if (productId == null || normalizedRawIdentifier == null || rules == null || rules.isEmpty()) {
+            return null;
+        }
         String scenarioCode = normalizeLower(normativeMatcher.resolveScenarioCode(product));
         String normalizedLogicalChannelCode = normalizeUpper(logicalChannelCode);
         Set<String> scenarioDeviceFamilies = resolveScenarioDeviceFamilies(scenarioCode);
-        List<ResolvedRuleCandidate> candidates = mapper.selectList(new LambdaQueryWrapper<VendorMetricMappingRule>()
-                        .eq(VendorMetricMappingRule::getDeleted, 0)
-                        .and(wrapper -> wrapper.eq(VendorMetricMappingRule::getProductId, productId)
-                                .or(scope -> scope.isNull(VendorMetricMappingRule::getProductId)
-                                        .eq(VendorMetricMappingRule::getScopeType, SCOPE_TYPE_TENANT_DEFAULT)))
-                        .eq(VendorMetricMappingRule::getRawIdentifier, normalizedRawIdentifier))
-                .stream()
+        List<ResolvedRuleCandidate> candidates = rules.stream()
                 .filter(this::isUsableRule)
+                .filter(rule -> productId.equals(rule.getProductId())
+                        || (rule.getProductId() == null
+                        && SCOPE_TYPE_TENANT_DEFAULT.equals(normalizeUpper(rule.getScopeType()))))
+                .filter(rule -> normalizedRawIdentifier.equals(normalizeLower(rule.getRawIdentifier())))
                 .filter(rule -> scopeMatches(rule, scenarioCode, protocolSelectors, scenarioDeviceFamilies))
                 .filter(rule -> matchesOptional(rule.getScenarioCode(), scenarioCode))
                 .filter(rule -> matchesOptionalProtocol(rule.getProtocolCode(), protocolSelectors))
@@ -209,6 +305,64 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 normalizedRawIdentifier,
                 normalizeUpper(winner.rule().getLogicalChannelCode())
         );
+    }
+
+    private VendorMetricMappingRule toPublishedRule(VendorMetricMappingRuleSnapshot snapshot) {
+        if (snapshot == null || !StringUtils.hasText(snapshot.getSnapshotJson())) {
+            return null;
+        }
+        try {
+            VendorMetricMappingRuleGovernanceApprovalPayloads.RuleApprovalPayload payload =
+                    VendorMetricMappingRuleGovernanceApprovalPayloads.readPublishPayload(snapshot.getSnapshotJson());
+            VendorMetricMappingRule rule = new VendorMetricMappingRule();
+            rule.setId(payload.ruleId());
+            rule.setProductId(payload.productId());
+            rule.setVersionNo(snapshot.getPublishedVersionNo());
+            rule.setScopeType(normalizeUpper(payload.scopeType()));
+            rule.setProtocolCode(normalizeProtocolSelector(payload.protocolCode()));
+            rule.setScenarioCode(normalizeLower(payload.scenarioCode()));
+            rule.setDeviceFamily(normalizeLower(payload.deviceFamily()));
+            rule.setRawIdentifier(normalizeLower(payload.rawIdentifier()));
+            rule.setLogicalChannelCode(normalizeUpper(payload.logicalChannelCode()));
+            rule.setRelationConditionJson(normalizeText(payload.relationConditionJson()));
+            rule.setNormalizationRuleJson(normalizeText(payload.normalizationRuleJson()));
+            rule.setTargetNormativeIdentifier(normalizeText(payload.targetNormativeIdentifier()));
+            rule.setStatus("ACTIVE");
+            rule.setDeleted(0);
+            return rule;
+        } catch (BizException ex) {
+            return null;
+        }
+    }
+
+    private VendorMetricMappingRuleSnapshot preferHigherVersionSnapshot(VendorMetricMappingRuleSnapshot left,
+                                                                        VendorMetricMappingRuleSnapshot right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        Integer leftVersion = left.getPublishedVersionNo();
+        Integer rightVersion = right.getPublishedVersionNo();
+        if (leftVersion == null && rightVersion != null) {
+            return right;
+        }
+        if (leftVersion != null && rightVersion == null) {
+            return left;
+        }
+        if (leftVersion != null && rightVersion != null && !leftVersion.equals(rightVersion)) {
+            return leftVersion > rightVersion ? left : right;
+        }
+        Long leftId = left.getId();
+        Long rightId = right.getId();
+        if (leftId == null) {
+            return right;
+        }
+        if (rightId == null) {
+            return left;
+        }
+        return leftId >= rightId ? left : right;
     }
 
     private boolean isUsableRule(VendorMetricMappingRule rule) {
@@ -357,12 +511,13 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         if (normalizedProtocolCode != null) {
             selectors.add(normalizedProtocolCode);
         }
-        if (familyCodes == null || familyCodes.isEmpty() || iotProperties == null || iotProperties.getProtocol() == null) {
+        if (familyCodes == null || familyCodes.isEmpty() || protocolSecurityDefinitionProvider == null) {
             return Set.copyOf(selectors);
         }
         for (String familyCode : familyCodes) {
             String normalizedFamilyCode = normalizeLower(familyCode);
-            IotProperties.Protocol.FamilyDefinition familyDefinition = resolveProtocolFamilyDefinition(normalizedFamilyCode);
+            IotProperties.Protocol.FamilyDefinition familyDefinition =
+                    protocolSecurityDefinitionProvider.getFamilyDefinition(normalizedFamilyCode);
             if (normalizedFamilyCode == null || familyDefinition == null || Boolean.FALSE.equals(familyDefinition.getEnabled())) {
                 continue;
             }
@@ -374,22 +529,6 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
             selectors.add(PROTOCOL_FAMILY_SELECTOR_PREFIX + normalizedFamilyCode);
         }
         return Set.copyOf(selectors);
-    }
-
-    private IotProperties.Protocol.FamilyDefinition resolveProtocolFamilyDefinition(String familyCode) {
-        if (!StringUtils.hasText(familyCode)
-                || iotProperties == null
-                || iotProperties.getProtocol() == null
-                || iotProperties.getProtocol().getFamilyDefinitions() == null) {
-            return null;
-        }
-        return iotProperties.getProtocol().getFamilyDefinitions().entrySet().stream()
-                .filter(entry -> familyCode.equals(normalizeLower(entry.getKey()))
-                        || familyCode.equals(normalizeLower(entry.getValue() == null ? null : entry.getValue().getFamilyCode())))
-                .map(java.util.Map.Entry::getValue)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
     }
 
     private Set<String> resolveScenarioDeviceFamilies(String scenarioCode) {
@@ -446,5 +585,12 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
     private record ResolvedRuleCandidate(VendorMetricMappingRule rule,
                                          String targetNormativeIdentifier,
                                          int specificity) {
+    }
+
+    private record PublishedRuleSnapshotResolution(boolean hasPublishedSnapshots,
+                                                   MappingResolution resolution) {
+        private static PublishedRuleSnapshotResolution none() {
+            return new PublishedRuleSnapshotResolution(false, null);
+        }
     }
 }

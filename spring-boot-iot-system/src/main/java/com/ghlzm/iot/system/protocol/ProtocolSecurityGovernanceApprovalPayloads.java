@@ -126,7 +126,10 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                 record.getId(),
                 normalizeText(record.getFamilyCode()),
                 normalizeText(record.getProtocolCode()),
+                normalizeText(record.getDisplayName()),
                 normalizeText(record.getDecryptProfileCode()),
+                normalizeText(record.getSignAlgorithm()),
+                normalizeText(record.getNormalizationStrategy()),
                 record.getVersionNo(),
                 null,
                 null
@@ -143,6 +146,8 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                 normalizeText(record.getAlgorithm()),
                 normalizeText(record.getMerchantSource()),
                 normalizeText(record.getMerchantKey()),
+                normalizeText(record.getTransformation()),
+                normalizeText(record.getSignatureSecret()),
                 record.getVersionNo(),
                 null,
                 null
@@ -157,7 +162,10 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                 record.getId(),
                 normalizeText(record.getFamilyCode()),
                 normalizeText(record.getProtocolCode()),
+                normalizeText(record.getDisplayName()),
                 normalizeText(record.getDecryptProfileCode()),
+                normalizeText(record.getSignAlgorithm()),
+                normalizeText(record.getNormalizationStrategy()),
                 record.getVersionNo(),
                 normalizeText(submitReason),
                 null
@@ -174,6 +182,8 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                 normalizeText(record.getAlgorithm()),
                 normalizeText(record.getMerchantSource()),
                 normalizeText(record.getMerchantKey()),
+                normalizeText(record.getTransformation()),
+                normalizeText(record.getSignatureSecret()),
                 record.getVersionNo(),
                 normalizeText(submitReason),
                 null
@@ -189,7 +199,10 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                 normalized.familyId(),
                 normalized.familyCode(),
                 normalized.protocolCode(),
+                normalized.displayName(),
                 normalized.decryptProfileCode(),
+                normalized.signAlgorithm(),
+                normalized.normalizationStrategy(),
                 normalized.expectedVersionNo(),
                 normalized.submitReason(),
                 new ApprovalExecution(approvalOrderId, publishedVersionNo, normalizeText(lifecycleStatus))
@@ -207,6 +220,8 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                 normalized.algorithm(),
                 normalized.merchantSource(),
                 normalized.merchantKey(),
+                normalized.transformation(),
+                normalized.signatureSecret(),
                 normalized.expectedVersionNo(),
                 normalized.submitReason(),
                 new ApprovalExecution(approvalOrderId, publishedVersionNo, normalizeText(lifecycleStatus))
@@ -250,7 +265,10 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
     public record FamilyApprovalPayload(Long familyId,
                                         String familyCode,
                                         String protocolCode,
+                                        String displayName,
                                         String decryptProfileCode,
+                                        String signAlgorithm,
+                                        String normalizationStrategy,
                                         Integer expectedVersionNo,
                                         String submitReason,
                                         ApprovalExecution execution) {
@@ -261,6 +279,8 @@ public final class ProtocolSecurityGovernanceApprovalPayloads {
                                                 String algorithm,
                                                 String merchantSource,
                                                 String merchantKey,
+                                                String transformation,
+                                                String signatureSecret,
                                                 Integer expectedVersionNo,
                                                 String submitReason,
                                                 ApprovalExecution execution) {

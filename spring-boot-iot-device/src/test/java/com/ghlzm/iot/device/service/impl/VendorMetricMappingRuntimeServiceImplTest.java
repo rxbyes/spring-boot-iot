@@ -4,14 +4,17 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
+import com.ghlzm.iot.device.entity.VendorMetricMappingRuleSnapshot;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
 import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
-import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
+import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import java.util.List;
@@ -24,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,13 +36,16 @@ class VendorMetricMappingRuntimeServiceImplTest {
 
     @Mock
     private VendorMetricMappingRuleMapper mapper;
-
+    @Mock
+    private VendorMetricMappingRuleSnapshotMapper snapshotMapper;
     @Mock
     private NormativeMetricDefinitionService normativeMetricDefinitionService;
     @Mock
     private PublishedProductContractSnapshotService snapshotService;
     @Mock
     private MetricIdentifierResolver metricIdentifierResolver;
+    @Mock
+    private ProtocolSecurityDefinitionProvider definitionProvider;
 
     @Test
     void resolveForGovernanceShouldPreferLogicalChannelSpecificRule() {
@@ -116,6 +124,36 @@ class VendorMetricMappingRuntimeServiceImplTest {
 
         assertEquals("value", resolution.targetNormativeIdentifier());
         assertEquals("L1_LF_1", resolution.logicalChannelCode());
+    }
+
+    @Test
+    void resolveForGovernanceShouldReadPublishedSnapshotBeforeDraftTable() {
+        VendorMetricMappingRuleSnapshot snapshot = new VendorMetricMappingRuleSnapshot();
+        snapshot.setId(8101L);
+        snapshot.setRuleId(7101L);
+        snapshot.setProductId(1001L);
+        snapshot.setPublishedVersionNo(3);
+        snapshot.setLifecycleStatus("PUBLISHED");
+        snapshot.setSnapshotJson("""
+                {"ruleId":7101,"productId":1001,"expectedVersionNo":3,"rawIdentifier":"disp",
+                "logicalChannelCode":"L1_LF_1","targetNormativeIdentifier":"value","scopeType":"PRODUCT"}
+                """);
+        when(snapshotMapper.selectPublishedByProductId(1001L)).thenReturn(List.of(snapshot));
+
+        VendorMetricMappingRuntimeServiceImpl service = new VendorMetricMappingRuntimeServiceImpl(
+                mapper,
+                snapshotMapper,
+                normativeMetricDefinitionService,
+                snapshotService,
+                metricIdentifierResolver,
+                definitionProvider
+        );
+
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                service.resolveForGovernance(crackProduct(1001L), "disp", "L1_LF_1");
+
+        assertEquals("value", resolution.targetNormativeIdentifier());
+        verify(mapper, never()).selectList(any());
     }
 
     @Test
@@ -204,7 +242,7 @@ class VendorMetricMappingRuntimeServiceImplTest {
         Product product = new Product();
         product.setId(productId);
         product.setProductKey("nf-monitor-tipping-bucket-rain-gauge-v1");
-        product.setProductName("南方测绘 监测型 翻斗式雨量计");
+        product.setProductName("南方测绘 翻斗式雨量计");
         product.setManufacturer("南方测绘");
         product.setProtocolCode("mqtt-json");
         return product;

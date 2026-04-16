@@ -15,6 +15,8 @@ import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
+import com.ghlzm.iot.framework.protocol.YamlProtocolSecurityDefinitionProvider;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -26,9 +28,6 @@ import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * 厂商字段映射规则服务实现。
- */
 @Service
 public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRuleService {
 
@@ -42,20 +41,27 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
 
     private final VendorMetricMappingRuleMapper mapper;
     private final VendorMetricMappingRuleSnapshotMapper snapshotMapper;
-    private final IotProperties iotProperties;
+    private final ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper) {
-        this(mapper, null, null);
+        this(mapper, null, (ProtocolSecurityDefinitionProvider) null);
+    }
+
+    public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                              VendorMetricMappingRuleSnapshotMapper snapshotMapper,
+                                              IotProperties iotProperties) {
+        this(mapper, snapshotMapper,
+                iotProperties == null ? null : new YamlProtocolSecurityDefinitionProvider(iotProperties));
     }
 
     @Autowired
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
                                               VendorMetricMappingRuleSnapshotMapper snapshotMapper,
-                                              IotProperties iotProperties) {
+                                              ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider) {
         this.mapper = mapper;
         this.snapshotMapper = snapshotMapper;
-        this.iotProperties = iotProperties;
+        this.protocolSecurityDefinitionProvider = protocolSecurityDefinitionProvider;
     }
 
     @Override
@@ -335,18 +341,13 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
 
     private boolean isConfiguredProtocolFamilySelector(String protocolCode) {
         String normalizedSelector = normalizeProtocolSelector(protocolCode);
-        if (!StringUtils.hasText(normalizedSelector) || iotProperties == null || iotProperties.getProtocol() == null) {
+        if (!StringUtils.hasText(normalizedSelector) || protocolSecurityDefinitionProvider == null) {
             return false;
         }
         String familyCode = normalizedSelector.substring(PROTOCOL_FAMILY_SELECTOR_PREFIX.length());
-        return iotProperties.getProtocol().getFamilyDefinitions().entrySet().stream()
-                .anyMatch(entry -> {
-                    String entryKey = normalizeLower(entry.getKey());
-                    IotProperties.Protocol.FamilyDefinition definition = entry.getValue();
-                    String configuredFamilyCode = normalizeLower(definition == null ? null : definition.getFamilyCode());
-                    boolean sameFamily = familyCode.equals(entryKey) || familyCode.equals(configuredFamilyCode);
-                    return sameFamily && definition != null && !Boolean.FALSE.equals(definition.getEnabled());
-                });
+        IotProperties.Protocol.FamilyDefinition definition =
+                protocolSecurityDefinitionProvider.getFamilyDefinition(familyCode);
+        return definition != null && !Boolean.FALSE.equals(definition.getEnabled());
     }
 
     private void ensureNoConflictingRule(VendorMetricMappingRule incomingRule, Long currentRuleId) {

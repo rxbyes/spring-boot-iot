@@ -1,5 +1,6 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
@@ -8,7 +9,6 @@ import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.framework.config.IotProperties;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,7 +57,7 @@ class VendorMetricMappingRuleServiceImplTest {
         snapshot.setLifecycleStatus("PUBLISHED");
         when(snapshotMapper.selectPublishedByProductId(1001L)).thenReturn(List.of(snapshot));
 
-        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, null);
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, (IotProperties) null);
 
         VendorMetricMappingRuleVO row = service.pageRules(1001L, null, 1L, 10L).getRecords().get(0);
 
@@ -78,7 +78,7 @@ class VendorMetricMappingRuleServiceImplTest {
         dto.setTargetNormativeIdentifier("value");
         dto.setNormalizationRuleJson("{\"unit\":\"mm\",\"transform\":\"identity\"}");
 
-        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, null);
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, (IotProperties) null);
 
         Long ruleId = service.createRule(1001L, 10001L, dto);
 
@@ -105,7 +105,7 @@ class VendorMetricMappingRuleServiceImplTest {
         dto.setLogicalChannelCode("L3_YL_1");
         dto.setTargetNormativeIdentifier("value");
 
-        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, null);
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, (IotProperties) null);
 
         service.createRule(1001L, 10001L, dto);
 
@@ -138,7 +138,7 @@ class VendorMetricMappingRuleServiceImplTest {
         dto.setLogicalChannelCode("L3_YL_1");
         dto.setTargetNormativeIdentifier("value");
 
-        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, null);
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(mapper, snapshotMapper, (IotProperties) null);
 
         BizException error = assertThrows(BizException.class, () -> service.createRule(1001L, 10001L, dto));
 
