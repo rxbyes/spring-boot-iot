@@ -1,0 +1,433 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-04-17T16:20:00+08:00",
+  "target": {
+    "planName": "协议治理工作台自动化专项基线",
+    "frontendBaseUrl": "http://127.0.0.1:5175",
+    "backendBaseUrl": "http://127.0.0.1:10099",
+    "loginRoute": "/login",
+    "username": "admin",
+    "password": "123456",
+    "browserPath": "",
+    "headless": true,
+    "outputPrefix": "protocol-governance-browser",
+    "baselineDir": "config/automation/baselines",
+    "scenarioScopes": [
+      "delivery"
+    ],
+    "failScopes": [
+      "delivery"
+    ]
+  },
+  "tags": [
+    "playwright",
+    "config-driven",
+    "web-smoke",
+    "protocol-governance"
+  ],
+  "plugins": [
+    "builtin-report",
+    "builtin-suggestion",
+    "capture-response"
+  ],
+  "scenarios": [
+    {
+      "key": "protocol-governance-login",
+      "name": "协议治理登录初始化",
+      "route": "/login",
+      "scope": "delivery",
+      "readySelector": "#login-submit",
+      "requiresLogin": false,
+      "description": "初始化协议治理工作台浏览器会话。",
+      "businessFlow": "登录鉴权与会话建立",
+      "featurePoints": [
+        "登录页可达",
+        "登录接口成功返回",
+        "进入受保护页面"
+      ],
+      "steps": [
+        {
+          "id": "protocol-governance-login-fill-username",
+          "label": "填写账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-username"
+          },
+          "value": "${target.username}"
+        },
+        {
+          "id": "protocol-governance-login-fill-password",
+          "label": "填写密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-password"
+          },
+          "value": "${target.password}"
+        },
+        {
+          "id": "protocol-governance-login-submit",
+          "label": "提交登录",
+          "type": "triggerApi",
+          "matcher": "/api/auth/login",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#login-submit"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-login-assert-shell",
+          "label": "断言进入治理入口",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "平台治理"
+        }
+      ]
+    },
+    {
+      "key": "protocol-governance-workbench",
+      "name": "协议治理工作台闭环冒烟",
+      "route": "/protocol-governance",
+      "scope": "delivery",
+      "readySelector": "[data-testid='protocol-family-save']",
+      "requiresLogin": true,
+      "description": "验证协议治理工作台三块内容域可达，并完成草稿保存、解密试算和模板回放。",
+      "businessFlow": "协议族定义 / 解密档案 / 协议模板同页治理",
+      "featurePoints": [
+        "协议治理工作台可达",
+        "协议族与解密档案草稿可保存",
+        "模板回放返回结果"
+      ],
+      "steps": [
+        {
+          "id": "protocol-governance-assert-route",
+          "label": "断言进入协议治理路由",
+          "type": "assertUrlIncludes",
+          "value": "/protocol-governance"
+        },
+        {
+          "id": "protocol-governance-assert-family-panel",
+          "label": "断言协议族定义区块可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "协议族定义"
+        },
+        {
+          "id": "protocol-governance-assert-profile-panel",
+          "label": "断言解密档案区块可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "解密档案"
+        },
+        {
+          "id": "protocol-governance-assert-template-panel",
+          "label": "断言协议模板区块可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "协议模板"
+        },
+        {
+          "id": "protocol-governance-fill-profile-code",
+          "label": "填写解密档案编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-profile-code"
+          },
+          "value": "autotest-profile-${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-profile-algorithm",
+          "label": "填写解密算法",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-algorithm"
+          },
+          "value": "AES"
+        },
+        {
+          "id": "protocol-governance-fill-profile-merchant-source",
+          "label": "填写商户来源",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-merchant-source"
+          },
+          "value": "IOT_PROTOCOL_CRYPTO"
+        },
+        {
+          "id": "protocol-governance-fill-profile-merchant-key",
+          "label": "填写商户键",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-merchant-key"
+          },
+          "value": "autotest-profile-${runToken}"
+        },
+        {
+          "id": "protocol-governance-save-profile",
+          "label": "保存解密档案草稿",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/decrypt-profiles",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "testId",
+              "value": "protocol-profile-save"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-fill-family-code",
+          "label": "填写协议族编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-family-code"
+          },
+          "value": "autotest-family-${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-family-protocol-code",
+          "label": "填写协议编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-protocol-code"
+          },
+          "value": "mqtt-json"
+        },
+        {
+          "id": "protocol-governance-fill-family-display-name",
+          "label": "填写协议族名称",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-display-name"
+          },
+          "value": "自动化协议族 ${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-family-decrypt-profile-code",
+          "label": "关联解密档案编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-decrypt-profile-code"
+          },
+          "value": "autotest-profile-${runToken}"
+        },
+        {
+          "id": "protocol-governance-save-family",
+          "label": "保存协议族草稿",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/families",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "testId",
+              "value": "protocol-family-save"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-fill-preview-family-code",
+          "label": "填写试算协议族编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-preview-family-code"
+          },
+          "value": "autotest-family-${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-preview-protocol-code",
+          "label": "填写试算协议编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-preview-protocol-code"
+          },
+          "value": "mqtt-json"
+        },
+        {
+          "id": "protocol-governance-fill-preview-app-id",
+          "label": "填写试算 appId",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-preview-app-id"
+          },
+          "value": "62000001"
+        },
+        {
+          "id": "protocol-governance-run-preview",
+          "label": "运行解密命中试算",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/decrypt-profiles/preview",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "testId",
+              "value": "protocol-preview-submit"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-assert-preview-result",
+          "label": "断言试算结果可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "最近一次试算"
+        },
+        {
+          "id": "protocol-governance-fill-template-code",
+          "label": "填写模板编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-template-code"
+          },
+          "value": "autotest-template-${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-template-family-code",
+          "label": "填写模板协议族编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-family-code"
+          },
+          "value": "autotest-family-${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-template-protocol-code",
+          "label": "填写模板协议编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-protocol-code"
+          },
+          "value": "mqtt-json"
+        },
+        {
+          "id": "protocol-governance-fill-template-display-name",
+          "label": "填写模板名称",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-display-name"
+          },
+          "value": "自动化协议模板 ${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-template-expression",
+          "label": "填写表达式 JSON",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-expression-json"
+          },
+          "value": "{\"logicalPattern\":\"^L1_LF_\\\\d+$\"}"
+        },
+        {
+          "id": "protocol-governance-fill-template-output-mapping",
+          "label": "填写输出映射 JSON",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-output-mapping-json"
+          },
+          "value": "{\"value\":\"$.value\"}"
+        },
+        {
+          "id": "protocol-governance-save-template",
+          "label": "保存协议模板草稿",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/templates",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "testId",
+              "value": "protocol-template-save"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-fill-template-replay-code",
+          "label": "填写模板回放编码",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-replay-template-code"
+          },
+          "value": "autotest-template-${runToken}"
+        },
+        {
+          "id": "protocol-governance-fill-template-replay-payload",
+          "label": "填写模板回放载荷",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-replay-payload-json"
+          },
+          "value": "{\"L1_LF_1\":{\"2026-04-05T08:23:10.000Z\":0.2136}}"
+        },
+        {
+          "id": "protocol-governance-run-template-replay",
+          "label": "运行模板回放",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/templates/replay",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "testId",
+              "value": "protocol-template-replay-submit"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-assert-template-replay-result",
+          "label": "断言模板回放结果可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "最近一次模板回放"
+        },
+        {
+          "id": "protocol-governance-assert-template-replay-children",
+          "label": "断言模板回放提取子通道",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "提取子通道 1"
+        }
+      ]
+    }
+  ]
+}
