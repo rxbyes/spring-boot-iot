@@ -209,6 +209,7 @@ const allSelectableSelected = computed(() =>
 watch(
   () => props.productId,
   () => {
+    batchStatusSummary.value = null
     void loadRows()
   },
   { immediate: true }

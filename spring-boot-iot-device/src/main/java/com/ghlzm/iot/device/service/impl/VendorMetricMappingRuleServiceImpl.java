@@ -160,6 +160,9 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         if (!StringUtils.hasText(targetStatus)) {
             throw new BizException("targetStatus 不能为空");
         }
+        if (!ALLOWED_BATCH_TARGET_STATUSES.contains(targetStatus)) {
+            throw new BizException("targetStatus 不支持: " + targetStatus);
+        }
 
         Set<Long> selectedRuleIds = new LinkedHashSet<>();
         for (Long ruleId : dto.getRuleIds()) {
@@ -188,8 +191,9 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
             rule.setStatus(targetStatus);
             rule.setVersionNo(nextVersion(rule.getVersionNo()));
             rule.setUpdateBy(normalizePositiveLong(operatorId));
-            mapper.updateById(rule);
-            changedCount++;
+            if (mapper.updateById(rule) > 0) {
+                changedCount++;
+            }
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
