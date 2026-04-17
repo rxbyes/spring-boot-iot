@@ -518,6 +518,11 @@ export type VendorMetricMappingRuleLifecycleStatus =
   | 'DISABLED'
   | string;
 
+export type VendorMetricMappingRulePublishedStatus =
+  | 'PUBLISHED'
+  | 'ROLLED_BACK'
+  | string;
+
 export interface VendorMetricMappingRuleSuggestion {
   id?: IdType | null;
   rawIdentifier: string;
@@ -574,6 +579,88 @@ export interface VendorMetricMappingRuleCreatePayload {
   normalizationRuleJson?: string | null;
   targetNormativeIdentifier: string;
   status: VendorMetricMappingRuleLifecycleStatus;
+}
+
+export interface VendorMetricMappingRuleLedgerRow {
+  ruleId?: IdType | null;
+  productId?: IdType | null;
+  rawIdentifier?: string | null;
+  targetNormativeIdentifier?: string | null;
+  scopeType?: VendorMetricMappingRuleScopeType | null;
+  draftStatus?: VendorMetricMappingRuleLifecycleStatus | null;
+  draftVersionNo?: number | null;
+  publishedStatus?: VendorMetricMappingRulePublishedStatus | null;
+  publishedVersionNo?: number | null;
+  latestApprovalOrderId?: IdType | null;
+  publishedSource?: string | null;
+  logicalChannelCode?: string | null;
+}
+
+export interface VendorMetricMappingRuleHitPreview {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  ruleId?: IdType | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+}
+
+export interface ProtocolGovernancePageQuery {
+  keyword?: string | null;
+  status?: string | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface ProtocolFamilyDefinition {
+  id?: IdType | null;
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  displayName?: string | null;
+  decryptProfileCode?: string | null;
+  signAlgorithm?: string | null;
+  normalizationStrategy?: string | null;
+  status?: string | null;
+  versionNo?: number | null;
+  publishedStatus?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface ProtocolDecryptProfile {
+  id?: IdType | null;
+  profileCode?: string | null;
+  algorithm?: string | null;
+  merchantSource?: string | null;
+  merchantKey?: string | null;
+  transformation?: string | null;
+  signatureSecret?: string | null;
+  status?: string | null;
+  versionNo?: number | null;
+  publishedStatus?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface ProtocolDecryptPreview {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  familyCode?: string | null;
+  resolvedProfileCode?: string | null;
+  algorithm?: string | null;
+  merchantSource?: string | null;
+  merchantKey?: string | null;
+  transformation?: string | null;
 }
 
 export interface ProductModelGovernanceAppliedItem {

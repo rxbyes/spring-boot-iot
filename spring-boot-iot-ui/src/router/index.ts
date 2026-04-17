@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/products')
   },
   {
+    path: '/protocol-governance',
+    name: 'protocol-governance',
+    component: () => import('../views/ProtocolGovernanceWorkbenchView.vue'),
+    meta: routeMeta('/protocol-governance')
+  },
+  {
     path: '/devices',
     name: 'devices',
     component: () => import('../views/DeviceWorkbenchView.vue'),

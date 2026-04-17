@@ -81,6 +81,7 @@ run_step "frontend component guard" "$ui_root" "$npm_cmd" run component:guard
 run_step "frontend list guard" "$ui_root" "$npm_cmd" run list:guard
 run_step "frontend style guard" "$ui_root" "$npm_cmd" run style:guard
 run_step "schema baseline guard" "$repo_root" "$python_cmd" -m unittest scripts/test_risk_point_pending_promotion_schema.py -v
+run_step "governance registry guard" "$repo_root" "$python_cmd" scripts/governance/check_governance_registry.py
 run_step "governance contract gates" "$repo_root" "$node_cmd" scripts/run-governance-contract-gates.mjs
 run_step "docs topology check" "$repo_root" "$node_cmd" scripts/docs/check-topology.mjs
 write_log "All local minimum quality gates passed"

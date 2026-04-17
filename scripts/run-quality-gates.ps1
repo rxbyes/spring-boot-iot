@@ -119,6 +119,7 @@ Invoke-LoggedCommand -Step 'frontend list guard' -WorkingDirectory $uiRoot -Exec
 Invoke-LoggedCommand -Step 'frontend style guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'style:guard')
 $schemaArgs = Get-PythonUnittestArgs -PythonExecutablePath $pythonCmd
 Invoke-LoggedCommand -Step 'schema baseline guard' -WorkingDirectory $repoRoot -Executable $pythonCmd -Arguments $schemaArgs
+Invoke-LoggedCommand -Step 'governance registry guard' -WorkingDirectory $repoRoot -Executable $pythonCmd -Arguments @('scripts/governance/check_governance_registry.py')
 Invoke-LoggedCommand -Step 'governance contract gates' -WorkingDirectory $repoRoot -Executable $nodeCmd -Arguments @('scripts/run-governance-contract-gates.mjs')
 Invoke-LoggedCommand -Step 'docs topology check' -WorkingDirectory $repoRoot -Executable $nodeCmd -Arguments @('scripts/docs/check-topology.mjs')
 Write-Log 'All local minimum quality gates passed'

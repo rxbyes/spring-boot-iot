@@ -214,7 +214,7 @@ describe('sectionHomes config', () => {
     expect(config).toBeTruthy();
     expect(config?.intro).toContain('排障树哪一段');
     expect(config?.description).toBe('接入智维总览负责回答先去哪、再去哪、最后去哪修。');
-    expect(config?.cards).toHaveLength(6);
+    expect(config?.cards).toHaveLength(7);
     expect(config?.hubJudgement).toBe('先做链路验证，再按证据分流到诊断页，最后回产品或设备治理修正。');
     expect(config?.hubLeadTitle).toBe('标准排障路径');
     expect(config?.hubLeadDescription).toBe('标准排障路径固定为：链路验证 -> 链路追踪 / 异常观测 / 数据校验 -> 产品定义中心 / 设备资产中心。');
@@ -225,6 +225,7 @@ describe('sectionHomes config', () => {
       '最后回产品定义中心或设备资产中心完成修正。'
     ]);
     expect(config?.cards.find((item) => item.path === '/products')?.description).toBe('维护产品定义，并承接契约治理、版本治理与风险目录入口。');
+    expect(config?.cards.find((item) => item.path === '/protocol-governance')?.description).toBe('维护协议族定义、解密档案和发布审批入口。');
     expect(config?.cards.find((item) => item.path === '/reporting')?.description).toBe('排障起点：先发起模拟验证，再决定进入哪一条诊断分支。');
   });
 });

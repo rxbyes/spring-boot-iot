@@ -38,6 +38,7 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
         self.assertEqual(
             {
                 "catalog_markdown",
+                "lineage_markdown",
                 "mysql_init_sql",
                 "mysql_runtime_manifest",
                 "mysql_schema_sync_manifest",
@@ -50,6 +51,7 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
         mysql_init_sql = bundle["mysql_init_sql"]
         tdengine_init_sql = bundle["tdengine_init_sql"]
         catalog_markdown = bundle["catalog_markdown"]
+        lineage_markdown = bundle["lineage_markdown"]
         mysql_runtime_manifest = _as_json(bundle["mysql_runtime_manifest"])
         tdengine_runtime_manifest = _as_json(bundle["tdengine_runtime_manifest"])
         mysql_schema_sync_manifest = _as_json(bundle["mysql_schema_sync_manifest"])
@@ -79,6 +81,17 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
             "| iot_agg_measure_hour | tdengine_stable | active | yes | no | manual_bootstrap_required |",
             catalog_markdown,
         )
+        self.assertIn("# Database Schema Lineage Catalog", lineage_markdown)
+        self.assertIn("## Domain alarm", lineage_markdown)
+        self.assertIn("| risk_point_highway_detail | domain_master_data |", lineage_markdown)
+        self.assertIn("risk_point（belongs_to:risk_point_id）", lineage_markdown)
+        self.assertIn("高速公路风险点扩展表的数据持久化与查询", lineage_markdown)
+        self.assertIn(
+            'risk_point_highway_detail["risk_point_highway_detail"] -->|"belongs_to via risk_point_id"| risk_point["risk_point"]',
+            lineage_markdown,
+        )
+        self.assertIn("## Domain device", lineage_markdown)
+        self.assertIn("iot_product_model", lineage_markdown)
 
         self.assertIn("tables", mysql_runtime_manifest)
         self.assertIn("views", mysql_runtime_manifest)

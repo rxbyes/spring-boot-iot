@@ -99,6 +99,7 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     matchLabels: ['接入智维', '设备接入'],
     cards: [
       { path: '/products', label: '产品定义中心', description: '维护产品定义，并承接契约治理、版本治理与风险目录入口。', short: '产', keywords: ['产品定义中心', '产品台账', '产品建档'] },
+      { path: '/protocol-governance', label: '协议治理工作台', description: '维护协议族定义、解密档案和发布审批入口。', short: '协', keywords: ['协议治理工作台', '协议族定义', '解密档案', '协议治理'] },
       { path: '/devices', label: '设备资产中心', description: '维护设备主数据、在线状态与认证字段。', short: '设', keywords: ['设备资产中心', '设备资产', '设备档案'] },
       { path: '/reporting', label: '链路验证中心', description: '排障起点：先发起模拟验证，再决定进入哪一条诊断分支。', short: '验', keywords: ['链路验证中心', '模拟上报', '接入验证', 'HTTP', 'MQTT', '设备反查'] },
       { path: '/system-log', label: '异常观测台', description: '后台异常核对：查看 system_error 与异步异常，再决定回哪一页修正。', short: '观', keywords: ['异常观测台', 'system_error', '异常排查'] },

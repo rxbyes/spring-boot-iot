@@ -90,10 +90,14 @@ com.ghlzm.iot
 - 该规则适用于所有编码助手和编码模型，包括 Codex、Qwen Code 等。
 
 ## 数据库 Schema 协作规则
-- 数据库结构真相源固定为 `schema/` registry；禁止直接手改 `sql/init.sql`、`sql/init-tdengine.sql`、`schema/generated/mysql-schema-sync.json`、runtime bootstrap manifest，或 `scripts/run-real-env-schema-sync.py` 顶部结构清单而不回写 registry。
+- 数据库结构真相源固定为 `schema/` registry；禁止直接手改 `sql/init.sql`、`sql/init-tdengine.sql`、`schema/generated/mysql-schema-sync.json`、runtime bootstrap manifest、`docs/appendix/database-schema-object-catalog.generated.md`、`docs/appendix/database-schema-lineage.generated.md`，或 `scripts/run-real-env-schema-sync.py` 顶部结构清单而不回写 registry。
 - 新增表、扩字段、改中文注释、调整生命周期的标准流程固定为：修改 `schema/` -> 执行 `python scripts/schema/render_artifacts.py --write` -> 执行 `python scripts/schema/check_schema_registry.py` -> 同步更新 `docs/04-数据库设计与初始化数据.md`。
+- archived / pending_delete 对象、seed 退场和真实库删除前置条件的治理真相源固定为 `schema-governance/`；禁止只改文档、只写一次性导出脚本，或只改 `sql/init-data.sql` 而不回写治理 registry。
+- 当任务涉及 archived / pending_delete、seed 退场、历史归档迁移、域级治理台账或真实库删除评估时，标准流程固定为：修改 `schema-governance/` 或治理渲染脚本 -> 执行 `python scripts/governance/render_governance_docs.py --write` -> 执行 `python scripts/governance/check_governance_registry.py` -> 执行 `python scripts/governance/run_domain_audit.py --domain <domain>` -> 如需备份执行 `python scripts/governance/export_object_backup.py --domain <domain> --object <objectName>` -> 同步更新 `docs/04-数据库设计与初始化数据.md` 与 `docs/08-变更记录与技术债清单.md`。
+- `docs/appendix/database-schema-governance-catalog.generated.md` 与 `docs/appendix/database-schema-domain-governance.generated.md` 当前都属于治理渲染链生成物，禁止手改而不回写 `schema-governance/` 或 `scripts/governance/render_governance_docs.py`。
+- `python scripts/governance/check_governance_registry.py` 当前除校验治理 registry 本身外，还会校验上述两个治理附录是否与最新 registry/渲染逻辑一致；若输出 `OUT_OF_DATE docs/appendix/...`，必须先重新执行 `python scripts/governance/render_governance_docs.py --write`，再继续后续流程。
 - `sql/init-data.sql` 继续只承载演示数据、权限基线和共享环境 seed，不并入运行时 bootstrap，也不由 MySQL active schema runner 自动执行。
-- `risk_point_highway_detail` 当前生命周期固定为 `archived`，不进入默认 init / schema sync / runtime bootstrap；若后续要恢复或删除，必须先更新 registry 生命周期和本文档，再实施。
+- `risk_point_highway_detail` 当前生命周期固定为 `archived`，不进入默认 init / schema sync / runtime bootstrap；若后续要恢复或删除，必须同时更新 `schema/` registry、`schema-governance/` registry 与本文档后再实施。
 - TDengine 运行时自动补齐边界固定为 `iot_device_telemetry_point`、`iot_raw_measure_point`、`iot_raw_status_point`、`iot_raw_event_point` 四个对象；`iot_agg_measure_hour` 继续要求先执行 `sql/init-tdengine.sql` 手动初始化。
 
 ## 智能助手协作入口规则
@@ -210,7 +214,7 @@ com.ghlzm.iot
 
 ## 推荐命令
 - 构建：`mvn -s .mvn/settings.xml clean install -DskipTests`；若仓库不存在 `.mvn/settings.xml`，直接改为 `mvn clean install -DskipTests`
-- 本地质量门禁：`node scripts/run-quality-gates.mjs`；当前已包含治理契约专项门禁，若只需验证产品物模型治理主链路，可执行 `node scripts/run-governance-contract-gates.mjs`
+- 本地质量门禁：`node scripts/run-quality-gates.mjs`；当前已包含 `schema-governance` checker 与治理契约专项门禁，若只需验证产品物模型治理主链路，可执行 `node scripts/run-governance-contract-gates.mjs`
 - 启动应用（macOS / Linux、Windows CMD）：`mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run -Dspring-boot.run.profiles=dev`；若仓库不存在 `.mvn/settings.xml`，直接省略 `-s .mvn/settings.xml`
 - 启动应用（Windows PowerShell）：`mvn -s .mvn/settings.xml -pl spring-boot-iot-admin spring-boot:run "-Dspring-boot.run.profiles=dev"`；若仓库不存在 `.mvn/settings.xml`，直接省略 `-s .mvn/settings.xml`
 - 严格真实环境验收启动（跨模块改动推荐）：`mvn -pl spring-boot-iot-admin -am clean package -DskipTests` 后执行 `java -jar spring-boot-iot-admin/target/spring-boot-iot-admin-1.0.0-SNAPSHOT.jar --spring.profiles.active=dev`

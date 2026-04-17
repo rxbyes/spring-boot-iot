@@ -1,0 +1,51 @@
+{
+  "domain": "alarm",
+  "objects": [
+    {
+      "objectName": "risk_point_highway_detail",
+      "storageType": "mysql_table",
+      "governanceStage": "archived",
+      "ownerModule": "spring-boot-iot-alarm",
+      "businessDomain": "alarm",
+      "seedPackages": [
+        "highway_archived_risk_points_seed"
+      ],
+      "realEnvAuditProfile": "mysql_archived_object_with_seed",
+      "backupRequirements": {
+        "exportFormats": [
+          "json",
+          "csv",
+          "sql"
+        ],
+        "mustCaptureRowCount": true
+      },
+      "deletionPrerequisites": [
+        "no_active_capability_bindings",
+        "seed_removed_from_init_data",
+        "docs_and_registry_updated"
+      ],
+      "manualChecklist": [
+        "确认扩展字段已无人工核查需求或已迁入新真相源"
+      ],
+      "evidenceRefs": [
+        "docs/04-数据库设计与初始化数据.md",
+        "docs/08-变更记录与技术债清单.md"
+      ],
+      "notes": "高速项目归档观察对象，不进入默认主链路。"
+    }
+  ],
+  "seedPackages": [
+    {
+      "name": "highway_archived_risk_points_seed",
+      "sourceFiles": [
+        "sql/init-data.sql"
+      ],
+      "usage": "历史归档",
+      "allowedInInitData": true,
+      "boundObjects": [
+        "risk_point",
+        "risk_point_highway_detail"
+      ]
+    }
+  ]
+}

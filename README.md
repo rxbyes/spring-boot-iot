@@ -6,7 +6,7 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-04-14
+> 更新时间：2026-04-16
 
 ## 项目简介
 
@@ -52,7 +52,7 @@
 - 通知中心当前已具备 `system_error` 自动消息、工单相关自动消息，以及高优未读桥接既有通知渠道能力。
 - 可观测当前已补齐规则化运维告警闭环：通过 `iot.observability.alerting` 在现有审计、MQTT 运行态、接入失败聚合和站内信桥接统计之上评估 4 类固定规则，并通过新场景 `observability_alert` 复用既有通知渠道。
 - `message-flow` 时间线当前已纳入真实环境基线：每次 HTTP / MQTT 接入都会生成 `sessionId / traceId` 与 Redis 短期时间线，`/reporting` 与 `/message-trace` 共享同一条处理阶段复盘结果。
-- 数据库结构治理当前已切换为 `schema/` registry 真相源：MySQL `56` 张表、`1` 个兼容视图与 TDengine `5` 个对象的中文注释、生命周期、关系与 bootstrap 策略统一收口在 `schema/**/*.json`；`sql/init.sql`、`sql/init-tdengine.sql`、`schema/generated/mysql-schema-sync.json` 与运行时 bootstrap manifest 均由 `python scripts/schema/render_artifacts.py --write` 统一生成。运行时只会自动补齐 active MySQL 结构对象，以及 TDengine 的 `iot_device_telemetry_point` 与 `3` 张 raw stable；`risk_point_highway_detail` 已降级为 archived，`iot_agg_measure_hour` 继续要求脚本手动初始化。
+- 数据库治理当前已拆成“双真相源”模式：结构真相固定为 `schema/**/*.json`，承载 MySQL `56` 张表、`1` 个兼容视图与 TDengine `5` 个对象的结构、中文注释、生命周期、关系与 bootstrap 策略；`sql/init.sql`、`sql/init-tdengine.sql`、`schema/generated/mysql-schema-sync.json`、[docs/appendix/database-schema-object-catalog.generated.md](docs/appendix/database-schema-object-catalog.generated.md) 与 [docs/appendix/database-schema-lineage.generated.md](docs/appendix/database-schema-lineage.generated.md) 都由 `python scripts/schema/render_artifacts.py --write` 统一生成。对象退场、seed 包归属和真实库审计真相则固定为 `schema-governance/*.json`，首批已接入 `alarm` 域的 `risk_point_highway_detail` archived 样板，并通过 `scripts/governance/check_governance_registry.py`、`scripts/governance/run_domain_audit.py`、`scripts/governance/export_object_backup.py`、[docs/appendix/database-schema-governance-catalog.generated.md](docs/appendix/database-schema-governance-catalog.generated.md) 与 [docs/appendix/database-schema-domain-governance.generated.md](docs/appendix/database-schema-domain-governance.generated.md) 统一收口；其中域级治理台账会按域汇总结构对象、生命周期、治理对象与血缘摘要，而真实库审计事实继续原位维护在 `docs/04` / `docs/08`。运行时仍只会自动补齐 active MySQL 结构对象，以及 TDengine 的 `iot_device_telemetry_point` 与 `3` 张 raw stable；`risk_point_highway_detail` 已降级为 archived，`iot_agg_measure_hour` 继续要求脚本手动初始化。
 - `/message-trace` 当前已收口为 `链路追踪 / 失败归档` 同路由双模式：链路追踪列表通过共享工具条展示最近 1h / 24h 与失败摘要，首屏固定同一行展示 `快速搜索（TraceId / 设备编码 / 产品标识） / 消息类型 / Topic / 查询 / 重置`，不再保留该模式下的“更多筛选”切换；正常链路行内只保留 `详情`，失败样本继续复用失败归档详情、`追踪 / 观测` 等异常排障动作，不再保留独立运维看板辅战区。
 - `2026-04-12` 起，`接入智维` 总览已把标准排障路径显式固化为 `链路验证中心 -> 链路追踪台 / 异常观测台 / 数据校验台 -> 产品定义中心 / 设备资产中心`。完整决策树只保留在 `/device-access` 总览页；`/reporting`、`/message-trace`、`/system-log`、`/file-debug` 这些诊断子页只继续回答“当前节点 + 下一步”，不在子页重复整棵决策树。
 - `/message-trace` 详情抽屉当前已切到“主链路复盘”语义：标题区仅保留轻刊头，正文固定为 `消息态势与处理概况 / 链路与接入台账 / Payload 对照 / 处理时间线` 四段，命中模板化拆分时再补轻量 `协议模板证据`。`TraceId / 日志 ID / 创建时间 / 设备编码 / 路由类型 / 产品标识 / Topic` 统一由纵向台账行承接，不再回流 `lead-sheet`、左右分栏或重复 topic 标签。`Payload 对照` 保持 `原始 Payload / 解密后明文 / 解析结果` 三条纵向折叠板块，默认收起、按需展开并提供复制动作；即使 Redis 时间线已过期或查询异常，仍继续展示从消息日志恢复出的明文与解析结果。`处理时间线` 默认折叠，但首屏必须固定回答 `当前状态 / 处理节点 / Trace 归属 / 存储提示` 四张摘要卡；展开后再进入完整 Pipeline 复盘。
@@ -96,6 +96,17 @@ python scripts/schema/check_schema_registry.py
 ```
 
 不要直接手改生成后的 `sql/init.sql`、`sql/init-tdengine.sql`、runtime manifest 或 `scripts/run-real-env-schema-sync.py` 顶部结构清单而不回写 registry。
+
+若本轮涉及 archived / pending_delete 对象、seed 退场或真实库删除前置条件，请固定执行：
+
+```bash
+python scripts/governance/render_governance_docs.py --write
+python scripts/governance/check_governance_registry.py
+python scripts/governance/run_domain_audit.py --domain <domain>
+python scripts/governance/export_object_backup.py --domain <domain> --object <objectName>
+```
+
+其中 `python scripts/governance/check_governance_registry.py` 当前还会校验治理附录是否最新；若输出 `OUT_OF_DATE docs/appendix/...`，先重新执行 `python scripts/governance/render_governance_docs.py --write`，再继续后续校验。不要只改文档或只写一次性导出脚本而绕过 `schema-governance/`。
 
 ### 2. 安装后端依赖
 
@@ -144,7 +155,8 @@ npm run acceptance:dev
 node scripts/run-quality-gates.mjs
 ```
 
-  - 当前已串联 Maven 打包、前端 `build`、`component:guard`、`list:guard`、`style:guard`、治理契约专项门禁、schema baseline guard 与 docs topology check
+  - 当前已串联 Maven 打包、前端 `build`、`component:guard`、`list:guard`、`style:guard`、schema baseline guard、`schema-governance` checker、治理契约专项门禁与 docs topology check
+  - 若治理附录未按最新 registry / 渲染逻辑更新，`python scripts/governance/check_governance_registry.py` 会在该入口内直接报 `OUT_OF_DATE docs/appendix/...`
   - Windows 底层脚本：`powershell -ExecutionPolicy Bypass -File scripts/run-quality-gates.ps1`
   - macOS / Linux 底层脚本：`sh scripts/run-quality-gates.sh`
   - 若只需验证产品物模型治理主链路，可单独执行：`node scripts/run-governance-contract-gates.mjs`

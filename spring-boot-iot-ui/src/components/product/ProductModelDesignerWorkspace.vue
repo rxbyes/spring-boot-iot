@@ -637,6 +637,17 @@
         </div>
       </section>
 
+      <section class="product-model-designer__stage" data-testid="contract-field-rule-ledger">
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>映射规则台账</h3>
+            <p>查看当前草稿、已发布版本、审批单状态和命中试算结果，不在产品页复制另一套协议治理整页。</p>
+          </div>
+        </header>
+
+        <ProductVendorMappingRuleLedgerPanel :product-id="props.product?.id ?? null" />
+      </section>
+
       <section class="product-model-designer__stage">
         <header class="product-model-designer__stage-head">
           <div>
@@ -1002,6 +1013,7 @@ import { useRouter } from 'vue-router'
 import StandardButton from '@/components/StandardButton.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
+import ProductVendorMappingRuleLedgerPanel from '@/components/product/ProductVendorMappingRuleLedgerPanel.vue'
 import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
 import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'

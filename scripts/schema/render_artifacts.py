@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_FILES = {
     "mysql_schema_sync_manifest": REPO_ROOT / "schema" / "generated" / "mysql-schema-sync.json",
     "catalog_markdown": REPO_ROOT / "docs" / "appendix" / "database-schema-object-catalog.generated.md",
+    "lineage_markdown": REPO_ROOT / "docs" / "appendix" / "database-schema-lineage.generated.md",
     "mysql_runtime_manifest": REPO_ROOT
     / "spring-boot-iot-framework"
     / "src"
@@ -79,6 +80,7 @@ def render_artifacts(schema_root: str | Path) -> dict[str, object]:
         "mysql_runtime_manifest": _render_mysql_runtime_manifest(mysql_runtime_objects),
         "tdengine_runtime_manifest": _render_tdengine_runtime_manifest(tdengine_runtime_objects),
         "catalog_markdown": _render_catalog_markdown(registry),
+        "lineage_markdown": _render_lineage_markdown(registry),
     }
 
 
@@ -273,6 +275,54 @@ def _render_catalog_markdown(registry: SchemaRegistry) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+def _render_lineage_markdown(registry: SchemaRegistry) -> str:
+    lines = [
+        "# Database Schema Lineage Catalog",
+        "",
+        "Generated from the schema registry. Do not edit by hand.",
+        "",
+        "| Domain | Objects | Relations | Roles |",
+        "| --- | --- | --- | --- |",
+    ]
+    for domain, objects in _group_objects_by_domain(registry).items():
+        relations_count = sum(len(obj.relations) for obj in objects)
+        roles = " / ".join(sorted({obj.lineage_role for obj in objects}))
+        lines.append(
+            f"| {domain} | {len(objects)} | {relations_count} | {_markdown_escape(roles)} |"
+        )
+
+    for domain, objects in _group_objects_by_domain(registry).items():
+        lines.extend(
+            [
+                "",
+                f"## Domain {domain}",
+                "",
+                "| Object | Lineage Role | Relations | Business Boundary |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for obj in objects:
+            lines.append(
+                "| {name} | {role} | {relations} | {boundary} |".format(
+                    name=obj.name,
+                    role=obj.lineage_role,
+                    relations=_markdown_escape(_render_relation_summary(obj)),
+                    boundary=_markdown_escape(obj.business_boundary),
+                )
+            )
+        lines.extend(
+            [
+                "",
+                "```mermaid",
+                "graph TD",
+                *_render_domain_mermaid_lines(objects),
+                "```",
+            ]
+        )
+
+    return "\n".join(lines).strip() + "\n"
+
+
 def _manifest_columns(fields: tuple[RegistryField, ...]) -> list[dict[str, object]]:
     return [
         {
@@ -390,6 +440,46 @@ def _serialize_bundle_value(value: object) -> str:
 
 def _sorted_objects(objects) -> list[RegistryObject]:
     return sorted(objects, key=lambda obj: (obj.domain, obj.storage_type, obj.name))
+
+
+def _group_objects_by_domain(registry: SchemaRegistry) -> dict[str, list[RegistryObject]]:
+    groups: dict[str, list[RegistryObject]] = {}
+    for obj in _sorted_objects(registry.all_objects):
+        groups.setdefault(obj.domain, []).append(obj)
+    return groups
+
+
+def _render_relation_summary(obj: RegistryObject) -> str:
+    if not obj.relations:
+        return "-"
+    return "<br>".join(
+        f"{relation.target}（{relation.relation_type}:{relation.via_field}）"
+        for relation in obj.relations
+    )
+
+
+def _render_domain_mermaid_lines(objects: list[RegistryObject]) -> list[str]:
+    lines: list[str] = []
+    declared_nodes: set[str] = set()
+    for obj in objects:
+        source_id = _mermaid_node_id(obj.name)
+        if source_id not in declared_nodes:
+            lines.append(f'  {source_id}["{obj.name}"]')
+            declared_nodes.add(source_id)
+        for relation in obj.relations:
+            target_id = _mermaid_node_id(relation.target)
+            if target_id not in declared_nodes:
+                lines.append(f'  {target_id}["{relation.target}"]')
+                declared_nodes.add(target_id)
+            lines.append(
+                f'  {source_id}["{obj.name}"] -->|"{relation.relation_type} via {relation.via_field}"| '
+                f'{target_id}["{relation.target}"]'
+            )
+    return lines or ['  empty_domain["no relations"]']
+
+
+def _mermaid_node_id(name: str) -> str:
+    return "".join(ch if ch.isalnum() or ch == "_" else "_" for ch in name)
 
 
 def _sql_escape(text: str) -> str:

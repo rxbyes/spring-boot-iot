@@ -149,6 +149,16 @@ const SuggestionPanelStub = defineComponent({
   `
 })
 
+const LedgerPanelStub = defineComponent({
+  name: 'ProductVendorMappingRuleLedgerPanel',
+  props: ['productId'],
+  template: `
+    <section class="vendor-rule-ledger-panel-stub" data-testid="vendor-rule-ledger-panel-stub">
+      <span data-testid="vendor-rule-ledger-panel-props">{{ productId }}</span>
+    </section>
+  `
+})
+
 const ElInputStub = defineComponent({
   name: 'ElInput',
   props: ['modelValue', 'type', 'rows', 'placeholder'],
@@ -209,6 +219,7 @@ function mountWorkspace(productOverrides?: Partial<{
         StandardButton: StandardButtonStub,
         ProductModelGovernanceCompareTable: CompareTableStub,
         ProductVendorMappingSuggestionPanel: SuggestionPanelStub,
+        ProductVendorMappingRuleLedgerPanel: LedgerPanelStub,
         ElInput: ElInputStub,
         ElTag: true
       }
@@ -575,6 +586,17 @@ describe('ProductModelDesignerWorkspace', () => {
 
     expect(wrapper.get('[data-testid="vendor-suggestion-panel-props"]').text()).toContain('1001|1')
     expect(wrapper.get('[data-testid="contract-field-suggestion-refresh-hint"]').text()).toContain('映射规则草稿已创建')
+  })
+
+  it('renders the mapping ledger section after suggestions and before apply', async () => {
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    const pageText = wrapper.text()
+    expect(pageText.indexOf('映射规则建议')).toBeLessThan(pageText.indexOf('映射规则台账'))
+    expect(pageText.indexOf('映射规则台账')).toBeLessThan(pageText.indexOf('本次生效'))
+    expect(wrapper.get('[data-testid="vendor-rule-ledger-panel-props"]').text()).toContain('1001')
   })
 
   it('clears the refresh hint and passes the new product id when switching products', async () => {
@@ -1197,7 +1219,7 @@ describe('ProductModelDesignerWorkspace', () => {
     )
   })
 
-  it('normalizes alias-style formal property identifiers before saving runtime trend metrics', async () => {
+  it('preserves full-path formal property identifiers when saving runtime trend metrics', async () => {
     mockListProductModels.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1224,13 +1246,13 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(mockUpdateProduct).toHaveBeenCalledWith(
       1001,
       expect.objectContaining({
-        metadataJson: expect.stringContaining('"identifier":"signal_4g"')
+        metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.signal_4g"')
       })
     )
     expect(mockUpdateProduct).not.toHaveBeenCalledWith(
       1001,
       expect.objectContaining({
-        metadataJson: expect.stringContaining('"identifier":"S1_ZT_1.signal_4g"')
+        metadataJson: expect.stringContaining('"identifier":"signal_4g"')
       })
     )
   })
