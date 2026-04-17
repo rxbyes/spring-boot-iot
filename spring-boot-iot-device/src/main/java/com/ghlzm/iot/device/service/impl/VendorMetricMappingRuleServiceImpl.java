@@ -45,6 +45,10 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     private static final String SCOPE_TYPE_PROTOCOL = "PROTOCOL";
     private static final String SCOPE_TYPE_TENANT_DEFAULT = "TENANT_DEFAULT";
     private static final String STATUS_DRAFT = "DRAFT";
+    private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final String STATUS_DISABLED = "DISABLED";
+    private static final Set<String> ALLOWED_BATCH_TARGET_STATUSES =
+            Set.of(STATUS_DRAFT, STATUS_ACTIVE, STATUS_DISABLED);
     private static final String PROTOCOL_FAMILY_SELECTOR_PREFIX = "family:";
     private static final String HIT_SOURCE_MISS = "MISS";
 

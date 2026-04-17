@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -223,6 +224,7 @@ class VendorMetricMappingRuleServiceImplTest {
         ignored.setDeleted(0);
 
         when(mapper.selectBatchIds(List.of(7101L, 7102L, 7199L))).thenReturn(List.of(first, second, ignored));
+        when(mapper.updateById(any(VendorMetricMappingRule.class))).thenReturn(1);
 
         VendorMetricMappingRuleBatchStatusDTO dto = new VendorMetricMappingRuleBatchStatusDTO();
         dto.setRuleIds(List.of(7101L, 7102L, 7199L));
@@ -252,6 +254,67 @@ class VendorMetricMappingRuleServiceImplTest {
                         && "DISABLED".equals(row.getStatus())
                         && Integer.valueOf(3).equals(row.getVersionNo())
         ));
+    }
+
+    @Test
+    void batchStatusShouldNotCountFailedUpdatesAsChanged() {
+        VendorMetricMappingRule first = new VendorMetricMappingRule();
+        first.setId(7101L);
+        first.setProductId(1001L);
+        first.setStatus("DRAFT");
+        first.setVersionNo(3);
+        first.setDeleted(0);
+
+        VendorMetricMappingRule second = new VendorMetricMappingRule();
+        second.setId(7102L);
+        second.setProductId(1001L);
+        second.setStatus("DRAFT");
+        second.setVersionNo(2);
+        second.setDeleted(0);
+
+        when(mapper.selectBatchIds(List.of(7101L, 7102L))).thenReturn(List.of(first, second));
+        when(mapper.updateById(any(VendorMetricMappingRule.class))).thenAnswer((invocation) -> {
+            VendorMetricMappingRule row = invocation.getArgument(0);
+            return Long.valueOf(7101L).equals(row.getId()) ? 1 : 0;
+        });
+
+        VendorMetricMappingRuleBatchStatusDTO dto = new VendorMetricMappingRuleBatchStatusDTO();
+        dto.setRuleIds(List.of(7101L, 7102L));
+        dto.setTargetStatus("ACTIVE");
+
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(
+                mapper,
+                snapshotMapper,
+                (ProtocolSecurityDefinitionProvider) null,
+                productMapper,
+                runtimeService
+        );
+
+        Map<String, Object> result = service.batchStatus(1001L, 10001L, dto);
+
+        assertEquals(2, result.get("requestedCount"));
+        assertEquals(2, result.get("matchedCount"));
+        assertEquals(1, result.get("changedCount"));
+        assertEquals("ACTIVE", result.get("targetStatus"));
+    }
+
+    @Test
+    void batchStatusShouldRejectUnsupportedTargetStatus() {
+        VendorMetricMappingRuleBatchStatusDTO dto = new VendorMetricMappingRuleBatchStatusDTO();
+        dto.setRuleIds(List.of(7101L));
+        dto.setTargetStatus("ARCHIVED");
+
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(
+                mapper,
+                snapshotMapper,
+                (ProtocolSecurityDefinitionProvider) null,
+                productMapper,
+                runtimeService
+        );
+
+        BizException error = assertThrows(BizException.class, () -> service.batchStatus(1001L, 10001L, dto));
+        assertTrue(error.getMessage().contains("targetStatus"));
+        verify(mapper, never()).updateById(any(VendorMetricMappingRule.class));
     }
 
     @Test

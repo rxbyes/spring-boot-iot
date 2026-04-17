@@ -226,6 +226,30 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
     expect(mockMessageSuccess).toHaveBeenCalled()
   })
 
+  it('clears batch status summary when switching to another valid product', async () => {
+    const wrapper = mountPanel()
+
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="rule-ledger-select-7101"]').setValue(true)
+    await wrapper.get('[data-testid="rule-ledger-select-7102"]').setValue(true)
+    await wrapper.get('[data-testid="rule-ledger-batch-status-disabled"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="rule-ledger-batch-status-summary"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('请求 2 · 命中 2 · 变更 2 · 目标 DISABLED')
+
+    await wrapper.setProps({ productId: 2002 })
+    await flushPromises()
+    await flushPromises()
+
+    expect(mockListVendorMetricMappingRuleLedger).toHaveBeenLastCalledWith(2002)
+    expect(wrapper.find('[data-testid="rule-ledger-batch-status-summary"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('请求 2 · 命中 2 · 变更 2 · 目标 DISABLED')
+  })
+
   it('runs replay and renders hit source, scope, canonical identifier and sample value', async () => {
     const wrapper = mountPanel()
 
