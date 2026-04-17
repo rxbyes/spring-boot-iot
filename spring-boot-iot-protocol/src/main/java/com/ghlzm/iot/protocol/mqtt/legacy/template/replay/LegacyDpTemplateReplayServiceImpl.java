@@ -15,11 +15,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+@Service
 public class LegacyDpTemplateReplayServiceImpl implements LegacyDpTemplateReplayService {
 
     private static final String BUILTIN_CRACK_TEMPLATE_CODE = "crack_child_template";
