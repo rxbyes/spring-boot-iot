@@ -6,21 +6,29 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.util.JsonPayloadUtils;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleBatchStatusDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleReplayDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRuleSnapshot;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleReplayVO;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
 import com.ghlzm.iot.framework.protocol.YamlProtocolSecurityDefinitionProvider;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,30 +46,45 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     private static final String SCOPE_TYPE_TENANT_DEFAULT = "TENANT_DEFAULT";
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String PROTOCOL_FAMILY_SELECTOR_PREFIX = "family:";
+    private static final String HIT_SOURCE_MISS = "MISS";
 
     private final VendorMetricMappingRuleMapper mapper;
     private final VendorMetricMappingRuleSnapshotMapper snapshotMapper;
     private final ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider;
+    private final ProductMapper productMapper;
+    private final VendorMetricMappingRuntimeServiceImpl runtimeService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper) {
-        this(mapper, null, (ProtocolSecurityDefinitionProvider) null);
+        this(mapper, null, (ProtocolSecurityDefinitionProvider) null, null, null);
     }
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
                                               VendorMetricMappingRuleSnapshotMapper snapshotMapper,
                                               IotProperties iotProperties) {
         this(mapper, snapshotMapper,
-                iotProperties == null ? null : new YamlProtocolSecurityDefinitionProvider(iotProperties));
+                iotProperties == null ? null : new YamlProtocolSecurityDefinitionProvider(iotProperties),
+                null,
+                null);
+    }
+
+    public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
+                                              VendorMetricMappingRuleSnapshotMapper snapshotMapper,
+                                              ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider) {
+        this(mapper, snapshotMapper, protocolSecurityDefinitionProvider, null, null);
     }
 
     @Autowired
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
                                               VendorMetricMappingRuleSnapshotMapper snapshotMapper,
-                                              ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider) {
+                                              ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider,
+                                              ProductMapper productMapper,
+                                              VendorMetricMappingRuntimeServiceImpl runtimeService) {
         this.mapper = mapper;
         this.snapshotMapper = snapshotMapper;
         this.protocolSecurityDefinitionProvider = protocolSecurityDefinitionProvider;
+        this.productMapper = productMapper;
+        this.runtimeService = runtimeService;
     }
 
     @Override
@@ -120,12 +143,134 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         return toVO(rule, null);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> batchStatus(Long productId, Long operatorId, VendorMetricMappingRuleBatchStatusDTO dto) {
+        if (productId == null || productId <= 0) {
+            throw new BizException("产品标识不能为空");
+        }
+        if (dto == null || dto.getRuleIds() == null || dto.getRuleIds().isEmpty()) {
+            throw new BizException("ruleIds 不能为空");
+        }
+        String targetStatus = normalizeUpper(dto.getTargetStatus());
+        if (!StringUtils.hasText(targetStatus)) {
+            throw new BizException("targetStatus 不能为空");
+        }
+
+        Set<Long> selectedRuleIds = new LinkedHashSet<>();
+        for (Long ruleId : dto.getRuleIds()) {
+            if (ruleId != null && ruleId > 0) {
+                selectedRuleIds.add(ruleId);
+            }
+        }
+        if (selectedRuleIds.isEmpty()) {
+            throw new BizException("ruleIds 不能为空");
+        }
+
+        List<VendorMetricMappingRule> rules = mapper.selectBatchIds(List.copyOf(selectedRuleIds));
+        int matchedCount = 0;
+        int changedCount = 0;
+        for (VendorMetricMappingRule rule : rules == null ? List.<VendorMetricMappingRule>of() : rules) {
+            if (rule == null || rule.getId() == null || Integer.valueOf(1).equals(rule.getDeleted())) {
+                continue;
+            }
+            if (!productId.equals(rule.getProductId())) {
+                continue;
+            }
+            matchedCount++;
+            if (targetStatus.equals(normalizeUpper(rule.getStatus()))) {
+                continue;
+            }
+            rule.setStatus(targetStatus);
+            rule.setVersionNo(nextVersion(rule.getVersionNo()));
+            rule.setUpdateBy(normalizePositiveLong(operatorId));
+            mapper.updateById(rule);
+            changedCount++;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("requestedCount", dto.getRuleIds().size());
+        result.put("matchedCount", matchedCount);
+        result.put("changedCount", changedCount);
+        result.put("targetStatus", targetStatus);
+        return result;
+    }
+
+    @Override
+    public VendorMetricMappingRuleReplayVO replay(Long productId, VendorMetricMappingRuleReplayDTO dto) {
+        if (productId == null || productId <= 0) {
+            throw new BizException("产品标识不能为空");
+        }
+        if (dto == null || !StringUtils.hasText(dto.getRawIdentifier())) {
+            throw new BizException("rawIdentifier 不能为空");
+        }
+
+        Product product = getRequiredProduct(productId);
+        String rawIdentifier = normalizeRawIdentifier(dto.getRawIdentifier());
+        String logicalChannelCode = normalizeUpper(dto.getLogicalChannelCode());
+        String sampleValue = normalizeText(dto.getSampleValue());
+
+        if (runtimeService == null) {
+            return buildReplayMiss(rawIdentifier, logicalChannelCode, sampleValue);
+        }
+
+        VendorMetricMappingRuntimeServiceImpl.ReplayResolution resolution =
+                runtimeService.replayForGovernance(product, rawIdentifier, logicalChannelCode);
+        if (resolution == null) {
+            return buildReplayMiss(rawIdentifier, logicalChannelCode, sampleValue);
+        }
+
+        String targetIdentifier = normalizeLowerIdentifier(resolution.targetNormativeIdentifier());
+        VendorMetricMappingRuleReplayVO vo = new VendorMetricMappingRuleReplayVO();
+        vo.setMatched(Boolean.TRUE.equals(resolution.matched()));
+        vo.setHitSource(normalizeText(resolution.hitSource()));
+        vo.setMatchedScopeType(normalizeUpper(resolution.matchedScopeType()));
+        vo.setRuleId(resolution.ruleId());
+        vo.setRawIdentifier(normalizeRawIdentifier(
+                StringUtils.hasText(resolution.rawIdentifier()) ? resolution.rawIdentifier() : rawIdentifier
+        ));
+        vo.setLogicalChannelCode(normalizeUpper(
+                StringUtils.hasText(resolution.logicalChannelCode()) ? resolution.logicalChannelCode() : logicalChannelCode
+        ));
+        vo.setTargetNormativeIdentifier(targetIdentifier);
+        vo.setCanonicalIdentifier(targetIdentifier);
+        vo.setSampleValue(sampleValue);
+        return vo;
+    }
+
     private VendorMetricMappingRule getRequiredRule(Long productId, Long ruleId) {
         VendorMetricMappingRule rule = mapper.selectById(ruleId);
         if (rule == null || Integer.valueOf(1).equals(rule.getDeleted()) || !productId.equals(rule.getProductId())) {
             throw new BizException("厂商字段映射规则不存在: " + ruleId);
         }
         return rule;
+    }
+
+    private Product getRequiredProduct(Long productId) {
+        if (productMapper == null) {
+            throw new BizException("产品不存在: " + productId);
+        }
+        Product product = productMapper.selectById(productId);
+        if (product == null) {
+            throw new BizException("产品不存在: " + productId);
+        }
+        return product;
+    }
+
+    private VendorMetricMappingRuleReplayVO buildReplayMiss(String rawIdentifier,
+                                                            String logicalChannelCode,
+                                                            String sampleValue) {
+        VendorMetricMappingRuleReplayVO vo = new VendorMetricMappingRuleReplayVO();
+        vo.setMatched(Boolean.FALSE);
+        vo.setHitSource(HIT_SOURCE_MISS);
+        vo.setMatchedScopeType(null);
+        vo.setRuleId(null);
+        vo.setRawIdentifier(rawIdentifier);
+        vo.setLogicalChannelCode(logicalChannelCode);
+        vo.setTargetNormativeIdentifier(null);
+        vo.setCanonicalIdentifier(null);
+        vo.setSampleValue(sampleValue);
+        return vo;
     }
 
     private void applyEditableFields(VendorMetricMappingRule rule,

@@ -229,6 +229,93 @@ class VendorMetricMappingRuntimeServiceImplTest {
         assertEquals("value", resolution.targetNormativeIdentifier());
     }
 
+    @Test
+    void replayForGovernanceShouldReturnPublishedSnapshotHitDetails() {
+        VendorMetricMappingRuleSnapshot snapshot = new VendorMetricMappingRuleSnapshot();
+        snapshot.setId(8101L);
+        snapshot.setRuleId(7101L);
+        snapshot.setProductId(1001L);
+        snapshot.setPublishedVersionNo(3);
+        snapshot.setLifecycleStatus("PUBLISHED");
+        snapshot.setSnapshotJson("""
+                {"ruleId":7101,"productId":1001,"expectedVersionNo":3,"rawIdentifier":"disp",
+                "logicalChannelCode":"L1_LF_1","targetNormativeIdentifier":"value","scopeType":"PRODUCT"}
+                """);
+        when(snapshotMapper.selectPublishedByProductId(1001L)).thenReturn(List.of(snapshot));
+
+        VendorMetricMappingRuntimeServiceImpl service = new VendorMetricMappingRuntimeServiceImpl(
+                mapper,
+                snapshotMapper,
+                normativeMetricDefinitionService,
+                snapshotService,
+                metricIdentifierResolver,
+                definitionProvider
+        );
+
+        VendorMetricMappingRuntimeServiceImpl.ReplayResolution replay =
+                service.replayForGovernance(crackProduct(1001L), "disp", "L1_LF_1");
+
+        assertEquals(true, replay.matched());
+        assertEquals("PUBLISHED_SNAPSHOT", replay.hitSource());
+        assertEquals("PRODUCT", replay.matchedScopeType());
+        assertEquals("value", replay.targetNormativeIdentifier());
+    }
+
+    @Test
+    void replayForGovernanceShouldReturnDraftRuleHitDetailsWhenNoPublishedSnapshotExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of(
+                mappingRule(8801L, 7007L, "L3_YL_1.value", "L3_YL_1", "value", "ACTIVE",
+                        "DEVICE_FAMILY", "phase4-rain-gauge", "RAIN_GAUGE")
+        ));
+        when(mapper.selectById(8801L)).thenReturn(mappingRule(
+                8801L, 7007L, "L3_YL_1.value", "L3_YL_1", "value", "ACTIVE",
+                "DEVICE_FAMILY", "phase4-rain-gauge", "RAIN_GAUGE"
+        ));
+        when(normativeMetricDefinitionService.listByScenario("phase4-rain-gauge"))
+                .thenReturn(List.of(normativeDefinition("phase4-rain-gauge", "value", "RAIN_GAUGE")));
+
+        VendorMetricMappingRuntimeServiceImpl.ReplayResolution replay =
+                service.replayForGovernance(rainGaugeProduct(7007L), "L3_YL_1.value", "L3_YL_1");
+
+        assertEquals(true, replay.matched());
+        assertEquals("DRAFT_RULE", replay.hitSource());
+        assertEquals("DEVICE_FAMILY", replay.matchedScopeType());
+        assertEquals("value", replay.targetNormativeIdentifier());
+    }
+
+    @Test
+    void replayForGovernanceShouldKeepPublishedSnapshotAsOnlyTruthWhenSnapshotExistsButMisses() {
+        VendorMetricMappingRuleSnapshot snapshot = new VendorMetricMappingRuleSnapshot();
+        snapshot.setId(8101L);
+        snapshot.setRuleId(7101L);
+        snapshot.setProductId(1001L);
+        snapshot.setPublishedVersionNo(3);
+        snapshot.setLifecycleStatus("PUBLISHED");
+        snapshot.setSnapshotJson("""
+                {"ruleId":7101,"productId":1001,"expectedVersionNo":3,"rawIdentifier":"other",
+                "logicalChannelCode":"L1_LF_1","targetNormativeIdentifier":"value","scopeType":"PRODUCT"}
+                """);
+        when(snapshotMapper.selectPublishedByProductId(1001L)).thenReturn(List.of(snapshot));
+
+        VendorMetricMappingRuntimeServiceImpl service = new VendorMetricMappingRuntimeServiceImpl(
+                mapper,
+                snapshotMapper,
+                normativeMetricDefinitionService,
+                snapshotService,
+                metricIdentifierResolver,
+                definitionProvider
+        );
+
+        VendorMetricMappingRuntimeServiceImpl.ReplayResolution replay =
+                service.replayForGovernance(crackProduct(1001L), "disp", "L1_LF_1");
+
+        assertEquals(false, replay.matched());
+        assertEquals("PUBLISHED_SNAPSHOT", replay.hitSource());
+        verify(mapper, never()).selectList(any());
+    }
+
     private Product crackProduct(Long productId) {
         Product product = new Product();
         product.setId(productId);

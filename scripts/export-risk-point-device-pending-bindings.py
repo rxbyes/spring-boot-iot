@@ -15,7 +15,10 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
 
-import pymysql
+try:
+    import pymysql
+except ModuleNotFoundError:  # pragma: no cover - exercised through CLI in test environments.
+    pymysql = None
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -486,6 +489,8 @@ def main() -> int:
             risk_points_by_name: Dict[str, List[Dict[str, object]]] = {}
             devices_by_code: Dict[str, Dict[str, object]] = {}
         else:
+            if pymysql is None:
+                raise RuntimeError("缺少 pymysql 依赖；仅在执行真实库查找时需要安装该驱动。")
             connection_args = resolve_connection_args(args)
             with pymysql.connect(
                 host=connection_args["host"],

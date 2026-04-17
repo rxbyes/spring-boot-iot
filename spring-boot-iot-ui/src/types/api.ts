@@ -607,11 +607,69 @@ export interface VendorMetricMappingRuleHitPreview {
   approvalOrderId?: IdType | null;
 }
 
+export interface VendorMetricMappingRuleBatchStatusPayload {
+  ruleIds: IdType[];
+  targetStatus: VendorMetricMappingRuleLifecycleStatus | string;
+}
+
+export interface VendorMetricMappingRuleBatchStatusResult {
+  requestedCount?: number | null;
+  matchedCount?: number | null;
+  changedCount?: number | null;
+  targetStatus?: string | null;
+}
+
+export interface VendorMetricMappingRuleReplayPayload {
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  sampleValue?: string | null;
+}
+
+export interface VendorMetricMappingRuleReplay {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  matchedScopeType?: VendorMetricMappingRuleScopeType | string | null;
+  ruleId?: IdType | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier?: string | null;
+  canonicalIdentifier?: string | null;
+  sampleValue?: string | null;
+}
+
 export interface ProtocolGovernancePageQuery {
   keyword?: string | null;
   status?: string | null;
   pageNum?: number;
   pageSize?: number;
+}
+
+export interface ProtocolGovernanceBatchSubmitPayload {
+  recordIds: IdType[];
+  submitReason?: string | null;
+}
+
+export interface ProtocolGovernanceBatchSubmitResultItem {
+  recordId?: IdType | null;
+  success?: boolean | null;
+  approvalOrderId?: IdType | null;
+  errorMessage?: string | null;
+}
+
+export interface ProtocolGovernanceBatchSubmitResult {
+  totalCount?: number | null;
+  submittedCount?: number | null;
+  failedCount?: number | null;
+  items?: ProtocolGovernanceBatchSubmitResultItem[] | null;
+}
+
+export interface ProtocolFamilyDefinitionUpsertPayload {
+  familyCode: string;
+  protocolCode: string;
+  displayName: string;
+  decryptProfileCode?: string | null;
+  signAlgorithm?: string | null;
+  normalizationStrategy?: string | null;
 }
 
 export interface ProtocolFamilyDefinition {
@@ -633,6 +691,15 @@ export interface ProtocolFamilyDefinition {
   updateTime?: string | null;
 }
 
+export interface ProtocolDecryptProfileUpsertPayload {
+  profileCode: string;
+  algorithm: string;
+  merchantSource: string;
+  merchantKey: string;
+  transformation?: string | null;
+  signatureSecret?: string | null;
+}
+
 export interface ProtocolDecryptProfile {
   id?: IdType | null;
   profileCode?: string | null;
@@ -652,10 +719,35 @@ export interface ProtocolDecryptProfile {
   updateTime?: string | null;
 }
 
+export interface ProtocolDecryptPreviewPayload {
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  appId?: string | null;
+}
+
 export interface ProtocolDecryptPreview {
   matched?: boolean | null;
   hitSource?: string | null;
   familyCode?: string | null;
+  resolvedProfileCode?: string | null;
+  algorithm?: string | null;
+  merchantSource?: string | null;
+  merchantKey?: string | null;
+  transformation?: string | null;
+}
+
+export interface ProtocolGovernanceReplayPayload {
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  appId?: string | null;
+}
+
+export interface ProtocolGovernanceReplay {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  appId?: string | null;
   resolvedProfileCode?: string | null;
   algorithm?: string | null;
   merchantSource?: string | null;

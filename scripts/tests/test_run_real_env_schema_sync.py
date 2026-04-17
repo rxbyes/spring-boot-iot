@@ -3,6 +3,8 @@ import pathlib
 import unittest
 from unittest import mock
 
+import scripts.schema_contract_test_support as schema_contract_support
+
 
 SCRIPT_PATH = pathlib.Path(__file__).resolve().parents[1] / "run-real-env-schema-sync.py"
 SPEC = importlib.util.spec_from_file_location("schema_sync", SCRIPT_PATH)
@@ -69,109 +71,146 @@ class GeneratedSchemaManifestTest(unittest.TestCase):
 
 class SchemaSyncCoverageTest(unittest.TestCase):
     def test_create_table_sql_covers_device_relation_table(self):
-        create_sql = schema_sync.CREATE_TABLE_SQL.get("iot_device_relation")
-        self.assertIsNotNone(create_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS iot_device_relation", create_sql)
-        self.assertIn("uk_relation_parent_code_channel", create_sql)
-        self.assertIn("idx_relation_parent_code", create_sql)
-        self.assertIn("idx_relation_child_code", create_sql)
+        self.assertIn("iot_device_relation", schema_sync.CREATE_TABLE_SQL)
+        entry = schema_contract_support.get_schema_sync_create_entry("iot_device_relation")
+        indexes = schema_contract_support.get_schema_sync_indexes("iot_device_relation")
+        self.assertEqual("active", entry["lifecycle"])
+        self.assertEqual(
+            ("tenant_id", "parent_device_code", "logical_channel_code", "deleted"),
+            indexes["uk_relation_parent_code_channel"]["columns"],
+        )
+        self.assertEqual("UNIQUE", indexes["uk_relation_parent_code_channel"]["kind"])
+        self.assertEqual(
+            ("tenant_id", "parent_device_code", "enabled", "deleted"),
+            indexes["idx_relation_parent_code"]["columns"],
+        )
+        self.assertEqual(
+            ("tenant_id", "child_device_code", "enabled", "deleted"),
+            indexes["idx_relation_child_code"]["columns"],
+        )
 
     def test_create_table_sql_covers_governance_approval_policy_table(self):
-        policy_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_policy")
-        self.assertIsNotNone(policy_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_policy", policy_sql)
-        self.assertIn("uk_governance_approval_policy_scope_action", policy_sql)
+        self.assertIn("sys_governance_approval_policy", schema_sync.CREATE_TABLE_SQL)
+        entry = schema_contract_support.get_schema_sync_create_entry("sys_governance_approval_policy")
+        indexes = schema_contract_support.get_schema_sync_indexes("sys_governance_approval_policy")
+        self.assertEqual("active", entry["lifecycle"])
+        self.assertEqual(
+            ("scope_type", "tenant_id", "action_code", "deleted"),
+            indexes["uk_governance_approval_policy_scope_action"]["columns"],
+        )
+        self.assertEqual("UNIQUE", indexes["uk_governance_approval_policy_scope_action"]["kind"])
 
     def test_create_table_sql_covers_governance_approval_tables(self):
-        order_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_order")
-        transition_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_approval_transition")
-        replay_feedback_sql = schema_sync.CREATE_TABLE_SQL.get("sys_governance_replay_feedback")
-        self.assertIsNotNone(order_sql)
-        self.assertIsNotNone(transition_sql)
-        self.assertIsNotNone(replay_feedback_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_order", order_sql)
-        self.assertIn("work_item_id", order_sql)
-        self.assertIn("idx_governance_approval_order_subject", order_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_approval_transition", transition_sql)
-        self.assertIn("idx_governance_approval_transition_order", transition_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS sys_governance_replay_feedback", replay_feedback_sql)
-        self.assertIn("idx_governance_replay_feedback_work_item", replay_feedback_sql)
-        self.assertIn("idx_governance_replay_feedback_release_batch", replay_feedback_sql)
+        order_entry = schema_contract_support.get_schema_sync_create_entry("sys_governance_approval_order")
+        transition_entry = schema_contract_support.get_schema_sync_create_entry("sys_governance_approval_transition")
+        replay_feedback_entry = schema_contract_support.get_schema_sync_create_entry("sys_governance_replay_feedback")
+        order_columns = schema_contract_support.get_schema_sync_columns("sys_governance_approval_order")
+        order_indexes = schema_contract_support.get_schema_sync_indexes("sys_governance_approval_order")
+        transition_indexes = schema_contract_support.get_schema_sync_indexes("sys_governance_approval_transition")
+        replay_feedback_indexes = schema_contract_support.get_schema_sync_indexes("sys_governance_replay_feedback")
+        self.assertEqual("active", order_entry["lifecycle"])
+        self.assertEqual("active", transition_entry["lifecycle"])
+        self.assertEqual("active", replay_feedback_entry["lifecycle"])
+        self.assertIn("work_item_id", order_columns)
+        self.assertEqual(
+            ("subject_type", "subject_id", "deleted"),
+            order_indexes["idx_governance_approval_order_subject"]["columns"],
+        )
+        self.assertEqual(
+            ("order_id", "create_time", "deleted"),
+            transition_indexes["idx_governance_approval_transition_order"]["columns"],
+        )
+        self.assertEqual(
+            ("work_item_id", "create_time", "deleted"),
+            replay_feedback_indexes["idx_governance_replay_feedback_work_item"]["columns"],
+        )
+        self.assertEqual(
+            ("release_batch_id", "create_time", "deleted"),
+            replay_feedback_indexes["idx_governance_replay_feedback_release_batch"]["columns"],
+        )
 
     def test_columns_to_add_cover_governance_approval_order_work_item_link(self):
         self.assertIn("sys_governance_approval_order", schema_sync.COLUMNS_TO_ADD)
-        self.assertEqual(
-            dict(schema_sync.COLUMNS_TO_ADD["sys_governance_approval_order"])["work_item_id"],
-            "BIGINT DEFAULT NULL COMMENT '工作项ID'",
-        )
+        work_item_column = schema_contract_support.get_schema_sync_columns("sys_governance_approval_order")[
+            "work_item_id"
+        ]
+        self.assertEqual("BIGINT DEFAULT NULL", work_item_column["definition"])
+        self.assertEqual("工作项ID", work_item_column["commentZh"])
 
     def test_product_metadata_json_column_is_declared_for_schema_sync(self):
         self.assertIn("iot_product", schema_sync.COLUMNS_TO_ADD)
-        self.assertIn(
-            ("metadata_json", "JSON DEFAULT NULL COMMENT '产品扩展元数据'"),
-            schema_sync.COLUMNS_TO_ADD["iot_product"],
-        )
+        metadata_json_column = schema_contract_support.get_schema_sync_columns("iot_product")["metadata_json"]
+        self.assertEqual("JSON DEFAULT NULL", metadata_json_column["definition"])
+        self.assertEqual("产品扩展元数据", metadata_json_column["commentZh"])
 
     def test_create_table_sql_covers_risk_metric_binding_tables(self):
-        linkage_sql = schema_sync.CREATE_TABLE_SQL.get("risk_metric_linkage_binding")
-        plan_sql = schema_sync.CREATE_TABLE_SQL.get("risk_metric_emergency_plan_binding")
-        self.assertIsNotNone(linkage_sql)
-        self.assertIsNotNone(plan_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS risk_metric_linkage_binding", linkage_sql)
-        self.assertIn("uk_risk_metric_linkage_active", linkage_sql)
-        self.assertIn("idx_risk_metric_linkage_metric", linkage_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS risk_metric_emergency_plan_binding", plan_sql)
-        self.assertIn("uk_risk_metric_plan_active", plan_sql)
-        self.assertIn("idx_risk_metric_plan_metric", plan_sql)
+        self.assertIn("risk_metric_linkage_binding", schema_sync.CREATE_TABLE_SQL)
+        self.assertIn("risk_metric_emergency_plan_binding", schema_sync.CREATE_TABLE_SQL)
+        linkage_indexes = schema_contract_support.get_schema_sync_indexes("risk_metric_linkage_binding")
+        plan_indexes = schema_contract_support.get_schema_sync_indexes("risk_metric_emergency_plan_binding")
+        self.assertEqual(
+            ("tenant_id", "risk_metric_id", "linkage_rule_id", "deleted"),
+            linkage_indexes["uk_risk_metric_linkage_active"]["columns"],
+        )
+        self.assertEqual(
+            ("risk_metric_id", "binding_status", "deleted"),
+            linkage_indexes["idx_risk_metric_linkage_metric"]["columns"],
+        )
+        self.assertEqual(
+            ("tenant_id", "risk_metric_id", "emergency_plan_id", "deleted"),
+            plan_indexes["uk_risk_metric_plan_active"]["columns"],
+        )
+        self.assertEqual(
+            ("risk_metric_id", "binding_status", "deleted"),
+            plan_indexes["idx_risk_metric_plan_metric"]["columns"],
+        )
 
     def test_indexes_to_add_covers_risk_metric_binding_tables(self):
         self.assertIn("risk_metric_linkage_binding", schema_sync.INDEXES_TO_ADD)
         self.assertIn("risk_metric_emergency_plan_binding", schema_sync.INDEXES_TO_ADD)
-        linkage_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_linkage_binding"])
-        plan_index_sql = dict(schema_sync.INDEXES_TO_ADD["risk_metric_emergency_plan_binding"])
         self.assertEqual(
-            linkage_index_sql["uk_risk_metric_linkage_active"],
-            "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
+            (True, ("tenant_id", "risk_metric_id", "linkage_rule_id", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("risk_metric_linkage_binding", "uk_risk_metric_linkage_active")],
         )
         self.assertEqual(
-            linkage_index_sql["idx_risk_metric_linkage_rule"],
-            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_rule` (`linkage_rule_id`, `binding_status`, `deleted`)",
+            (False, ("linkage_rule_id", "binding_status", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("risk_metric_linkage_binding", "idx_risk_metric_linkage_rule")],
         )
         self.assertEqual(
-            linkage_index_sql["idx_risk_metric_linkage_metric"],
-            "ALTER TABLE `risk_metric_linkage_binding` ADD INDEX `idx_risk_metric_linkage_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+            (False, ("risk_metric_id", "binding_status", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("risk_metric_linkage_binding", "idx_risk_metric_linkage_metric")],
         )
         self.assertEqual(
-            plan_index_sql["uk_risk_metric_plan_active"],
-            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD UNIQUE INDEX `uk_risk_metric_plan_active` (`tenant_id`, `risk_metric_id`, `emergency_plan_id`, `deleted`)",
+            (True, ("tenant_id", "risk_metric_id", "emergency_plan_id", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("risk_metric_emergency_plan_binding", "uk_risk_metric_plan_active")],
         )
         self.assertEqual(
-            plan_index_sql["idx_risk_metric_plan_rule"],
-            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_rule` (`emergency_plan_id`, `binding_status`, `deleted`)",
+            (False, ("emergency_plan_id", "binding_status", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_rule")],
         )
         self.assertEqual(
-            plan_index_sql["idx_risk_metric_plan_metric"],
-            "ALTER TABLE `risk_metric_emergency_plan_binding` ADD INDEX `idx_risk_metric_plan_metric` (`risk_metric_id`, `binding_status`, `deleted`)",
+            (False, ("risk_metric_id", "binding_status", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("risk_metric_emergency_plan_binding", "idx_risk_metric_plan_metric")],
         )
 
     def test_create_table_sql_covers_governance_control_plane_tables(self):
-        work_item_sql = schema_sync.CREATE_TABLE_SQL.get("iot_governance_work_item")
-        ops_alert_sql = schema_sync.CREATE_TABLE_SQL.get("iot_governance_ops_alert")
-        self.assertIsNotNone(work_item_sql)
-        self.assertIsNotNone(ops_alert_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_work_item", work_item_sql)
-        self.assertIn("work_status", work_item_sql)
-        self.assertIn("task_category", work_item_sql)
-        self.assertIn("execution_status", work_item_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS iot_governance_ops_alert", ops_alert_sql)
-        self.assertIn("alert_status", ops_alert_sql)
+        self.assertIn("iot_governance_work_item", schema_sync.CREATE_TABLE_SQL)
+        self.assertIn("iot_governance_ops_alert", schema_sync.CREATE_TABLE_SQL)
+        work_item_columns = schema_contract_support.get_schema_sync_columns("iot_governance_work_item")
+        ops_alert_columns = schema_contract_support.get_schema_sync_columns("iot_governance_ops_alert")
+        self.assertTrue({"work_status", "task_category", "execution_status"}.issubset(work_item_columns.keys()))
+        self.assertIn("alert_status", ops_alert_columns)
 
     def test_create_table_sql_covers_product_metric_resolver_snapshot_table(self):
-        snapshot_sql = schema_sync.CREATE_TABLE_SQL.get("iot_product_metric_resolver_snapshot")
-        self.assertIsNotNone(snapshot_sql)
-        self.assertIn("CREATE TABLE IF NOT EXISTS iot_product_metric_resolver_snapshot", snapshot_sql)
-        self.assertIn("release_batch_id", snapshot_sql)
-        self.assertIn("uk_metric_resolver_snapshot_batch", snapshot_sql)
+        self.assertIn("iot_product_metric_resolver_snapshot", schema_sync.CREATE_TABLE_SQL)
+        snapshot_columns = schema_contract_support.get_schema_sync_columns("iot_product_metric_resolver_snapshot")
+        snapshot_indexes = schema_contract_support.get_schema_sync_indexes("iot_product_metric_resolver_snapshot")
+        self.assertIn("release_batch_id", snapshot_columns)
+        self.assertEqual(
+            ("product_id", "release_batch_id", "deleted"),
+            snapshot_indexes["uk_metric_resolver_snapshot_batch"]["columns"],
+        )
+        self.assertEqual("UNIQUE", snapshot_indexes["uk_metric_resolver_snapshot_batch"]["kind"])
 
     def test_columns_to_add_covers_governance_work_item_lifecycle_hub_fields(self):
         self.assertIn("iot_governance_work_item", schema_sync.COLUMNS_TO_ADD)
@@ -196,31 +235,27 @@ class SchemaSyncCoverageTest(unittest.TestCase):
     def test_indexes_to_add_covers_governance_control_plane_tables(self):
         self.assertIn("iot_governance_work_item", schema_sync.INDEXES_TO_ADD)
         self.assertIn("iot_governance_ops_alert", schema_sync.INDEXES_TO_ADD)
-        work_item_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_governance_work_item"])
-        ops_alert_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_governance_ops_alert"])
         self.assertEqual(
-            work_item_index_sql["idx_governance_work_item_subject"],
-            "ALTER TABLE `iot_governance_work_item` ADD INDEX `idx_governance_work_item_subject` (`subject_type`, `subject_id`, `work_status`, `deleted`)",
+            (False, ("subject_type", "subject_id", "work_status", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("iot_governance_work_item", "idx_governance_work_item_subject")],
         )
         self.assertEqual(
-            ops_alert_index_sql["uk_governance_ops_alert_code"],
-            "ALTER TABLE `iot_governance_ops_alert` ADD UNIQUE INDEX `uk_governance_ops_alert_code` (`tenant_id`, `alert_type`, `alert_code`, `deleted`)",
+            (True, ("tenant_id", "alert_type", "alert_code", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("iot_governance_ops_alert", "uk_governance_ops_alert_code")],
         )
 
     def test_indexes_to_add_covers_device_relation_parent_code_uniqueness(self):
         self.assertIn("iot_device_relation", schema_sync.INDEXES_TO_ADD)
-        relation_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_device_relation"])
         self.assertEqual(
-            relation_index_sql["uk_relation_parent_code_channel"],
-            "ALTER TABLE `iot_device_relation` ADD UNIQUE INDEX `uk_relation_parent_code_channel` (`tenant_id`, `parent_device_code`, `logical_channel_code`, `deleted`)",
+            (True, ("tenant_id", "parent_device_code", "logical_channel_code", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("iot_device_relation", "uk_relation_parent_code_channel")],
         )
 
     def test_indexes_to_add_covers_metric_resolver_snapshot_batch_uniqueness(self):
         self.assertIn("iot_product_metric_resolver_snapshot", schema_sync.INDEXES_TO_ADD)
-        snapshot_index_sql = dict(schema_sync.INDEXES_TO_ADD["iot_product_metric_resolver_snapshot"])
         self.assertEqual(
-            snapshot_index_sql["uk_metric_resolver_snapshot_batch"],
-            "ALTER TABLE `iot_product_metric_resolver_snapshot` ADD UNIQUE INDEX `uk_metric_resolver_snapshot_batch` (`product_id`, `release_batch_id`, `deleted`)",
+            (True, ("product_id", "release_batch_id", "deleted")),
+            schema_sync.EXPECTED_INDEX_SHAPES[("iot_product_metric_resolver_snapshot", "uk_metric_resolver_snapshot_batch")],
         )
 
     def test_governance_approval_policy_seeds_cover_fixed_reviewer_defaults(self):

@@ -8,6 +8,7 @@ import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptPreviewDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptProfileUpsertDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolFamilyDefinitionUpsertDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceReplayDTO;
 import com.ghlzm.iot.framework.protocol.entity.ProtocolDecryptProfileRecord;
 import com.ghlzm.iot.framework.protocol.entity.ProtocolDecryptProfileSnapshot;
 import com.ghlzm.iot.framework.protocol.entity.ProtocolFamilyDefinitionRecord;
@@ -20,6 +21,7 @@ import com.ghlzm.iot.framework.protocol.service.ProtocolSecurityGovernanceServic
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptProfileVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolFamilyDefinitionVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceReplayVO;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -217,6 +219,39 @@ public class ProtocolSecurityGovernanceServiceImpl implements ProtocolSecurityGo
         return miss;
     }
 
+    @Override
+    public ProtocolFamilyDefinitionVO getFamilyDetail(Long familyId) {
+        ProtocolFamilyDefinitionRecord record = requireFamilyById(familyId);
+        return toFamilyVO(record, familySnapshotMapper.selectLatestPublishedByFamilyId(record.getId()));
+    }
+
+    @Override
+    public ProtocolDecryptProfileVO getDecryptProfileDetail(Long profileId) {
+        ProtocolDecryptProfileRecord record = requireProfileById(profileId);
+        return toProfileVO(record, decryptProfileSnapshotMapper.selectLatestPublishedByProfileId(record.getId()));
+    }
+
+    @Override
+    public ProtocolGovernanceReplayVO replayDecrypt(ProtocolGovernanceReplayDTO dto) {
+        String familyCode = normalizeLower(dto == null ? null : dto.getFamilyCode());
+        String protocolCode = normalizeLower(dto == null ? null : dto.getProtocolCode());
+        String appId = normalizeText(dto == null ? null : dto.getAppId());
+
+        ProtocolDecryptPreviewVO preview = previewDecrypt(new ProtocolDecryptPreviewDTO(appId, protocolCode, familyCode));
+        ProtocolGovernanceReplayVO replay = new ProtocolGovernanceReplayVO();
+        replay.setMatched(preview.getMatched());
+        replay.setHitSource(preview.getHitSource());
+        replay.setFamilyCode(preview.getFamilyCode() == null ? familyCode : preview.getFamilyCode());
+        replay.setProtocolCode(protocolCode);
+        replay.setAppId(appId);
+        replay.setResolvedProfileCode(preview.getResolvedProfileCode());
+        replay.setAlgorithm(preview.getAlgorithm());
+        replay.setMerchantSource(preview.getMerchantSource());
+        replay.setMerchantKey(preview.getMerchantKey());
+        replay.setTransformation(preview.getTransformation());
+        return replay;
+    }
+
     private Map<Long, ProtocolFamilyDefinitionSnapshot> loadLatestFamilySnapshots(List<ProtocolFamilyDefinitionRecord> records) {
         if (records == null || records.isEmpty()) {
             return Map.of();
@@ -367,6 +402,28 @@ public class ProtocolSecurityGovernanceServiceImpl implements ProtocolSecurityGo
 
     private Integer nextVersion(Integer versionNo) {
         return versionNo == null || versionNo <= 0 ? 1 : versionNo + 1;
+    }
+
+    private ProtocolFamilyDefinitionRecord requireFamilyById(Long familyId) {
+        if (familyId == null || familyId <= 0) {
+            throw new BizException("协议族定义不存在: " + familyId);
+        }
+        ProtocolFamilyDefinitionRecord record = familyRecordMapper.selectById(familyId);
+        if (record == null || Integer.valueOf(1).equals(record.getDeleted())) {
+            throw new BizException("协议族定义不存在: " + familyId);
+        }
+        return record;
+    }
+
+    private ProtocolDecryptProfileRecord requireProfileById(Long profileId) {
+        if (profileId == null || profileId <= 0) {
+            throw new BizException("协议解密档案不存在: " + profileId);
+        }
+        ProtocolDecryptProfileRecord record = decryptProfileRecordMapper.selectById(profileId);
+        if (record == null || Integer.valueOf(1).equals(record.getDeleted())) {
+            throw new BizException("协议解密档案不存在: " + profileId);
+        }
+        return record;
     }
 
     private Long normalizePositiveLong(Long value) {

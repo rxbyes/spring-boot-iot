@@ -5,6 +5,8 @@ import re
 import sys
 import unittest
 
+import scripts.schema_contract_test_support as schema_contract_support
+
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 RENDERER_PATH = REPO_ROOT / "scripts" / "schema" / "render_artifacts.py"
@@ -56,42 +58,108 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
         tdengine_runtime_manifest = _as_json(bundle["tdengine_runtime_manifest"])
         mysql_schema_sync_manifest = _as_json(bundle["mysql_schema_sync_manifest"])
 
-        self.assertIn("CREATE TABLE iot_device_message_log", mysql_init_sql)
-        self.assertIn("设备消息日志表", mysql_init_sql)
+        message_log_table_sql = schema_contract_support.extract_create_table_statement(
+            mysql_init_sql,
+            "iot_device_message_log",
+        )
+        self.assertIn("设备消息日志表", message_log_table_sql)
         self.assertRegex(mysql_init_sql, re.compile(r"[\u4e00-\u9fff]"))
         self.assertNotIn("risk_point_highway_detail", mysql_init_sql)
-        self.assertIn("CREATE OR REPLACE VIEW iot_message_log", mysql_init_sql)
+        message_log_view_sql = schema_contract_support.extract_create_view_statement(
+            mysql_init_sql,
+            "iot_message_log",
+        )
+        self.assertIn("FROM iot_device_message_log", message_log_view_sql)
 
-        self.assertIn(
-            "CREATE TABLE IF NOT EXISTS iot_device_telemetry_point",
-            tdengine_init_sql,
-        )
-        self.assertIn("CREATE STABLE IF NOT EXISTS iot_raw_measure_point", tdengine_init_sql)
-        self.assertIn("CREATE STABLE IF NOT EXISTS iot_raw_status_point", tdengine_init_sql)
-        self.assertIn("CREATE STABLE IF NOT EXISTS iot_raw_event_point", tdengine_init_sql)
-        self.assertIn("CREATE STABLE IF NOT EXISTS iot_agg_measure_hour", tdengine_init_sql)
+        for object_name in (
+            "iot_device_telemetry_point",
+            "iot_raw_measure_point",
+            "iot_raw_status_point",
+            "iot_raw_event_point",
+            "iot_agg_measure_hour",
+        ):
+            statement = schema_contract_support.extract_tdengine_create_statement(
+                tdengine_init_sql,
+                object_name,
+            )
+            self.assertIn(object_name, statement)
 
-        self.assertIn("risk_point_highway_detail", catalog_markdown)
-        self.assertIn("archived", catalog_markdown)
-        self.assertIn(
-            "| risk_point_highway_detail | mysql_table | archived | no | no | disabled |",
+        catalog_rows = schema_contract_support.parse_markdown_table(
             catalog_markdown,
+            "| Name | Storage | Lifecycle | In Init | In Schema Sync | Runtime Bootstrap | Owner Module | Comment |",
         )
-        self.assertIn(
-            "| iot_agg_measure_hour | tdengine_stable | active | yes | no | manual_bootstrap_required |",
-            catalog_markdown,
+        archived_catalog_row = schema_contract_support.get_markdown_table_row(
+            catalog_rows,
+            "Name",
+            "risk_point_highway_detail",
         )
-        self.assertIn("# Database Schema Lineage Catalog", lineage_markdown)
-        self.assertIn("## Domain alarm", lineage_markdown)
-        self.assertIn("| risk_point_highway_detail | domain_master_data |", lineage_markdown)
-        self.assertIn("risk_point（belongs_to:risk_point_id）", lineage_markdown)
-        self.assertIn("高速公路风险点扩展表的数据持久化与查询", lineage_markdown)
-        self.assertIn(
-            'risk_point_highway_detail["risk_point_highway_detail"] -->|"belongs_to via risk_point_id"| risk_point["risk_point"]',
+        agg_catalog_row = schema_contract_support.get_markdown_table_row(
+            catalog_rows,
+            "Name",
+            "iot_agg_measure_hour",
+        )
+        self.assertEqual("mysql_table", archived_catalog_row["Storage"])
+        self.assertEqual("archived", archived_catalog_row["Lifecycle"])
+        self.assertEqual("no", archived_catalog_row["In Init"])
+        self.assertEqual("no", archived_catalog_row["In Schema Sync"])
+        self.assertEqual("disabled", archived_catalog_row["Runtime Bootstrap"])
+        self.assertEqual("tdengine_stable", agg_catalog_row["Storage"])
+        self.assertEqual("active", agg_catalog_row["Lifecycle"])
+        self.assertEqual("yes", agg_catalog_row["In Init"])
+        self.assertEqual("no", agg_catalog_row["In Schema Sync"])
+        self.assertEqual("manual_bootstrap_required", agg_catalog_row["Runtime Bootstrap"])
+
+        lineage_summary_rows = schema_contract_support.parse_markdown_table(
             lineage_markdown,
+            "| Domain | Objects | Relations | Roles |",
         )
-        self.assertIn("## Domain device", lineage_markdown)
-        self.assertIn("iot_product_model", lineage_markdown)
+        alarm_domain_summary = schema_contract_support.get_markdown_table_row(
+            lineage_summary_rows,
+            "Domain",
+            "alarm",
+        )
+        self.assertIn("domain_master_data", alarm_domain_summary["Roles"])
+
+        alarm_section = schema_contract_support.extract_markdown_section(
+            lineage_markdown,
+            "## Domain alarm",
+        )
+        device_section = schema_contract_support.extract_markdown_section(
+            lineage_markdown,
+            "## Domain device",
+        )
+        alarm_rows = schema_contract_support.parse_markdown_table(
+            alarm_section,
+            "| Object | Lineage Role | Relations | Business Boundary |",
+        )
+        device_rows = schema_contract_support.parse_markdown_table(
+            device_section,
+            "| Object | Lineage Role | Relations | Business Boundary |",
+        )
+        archived_lineage_row = schema_contract_support.get_markdown_table_row(
+            alarm_rows,
+            "Object",
+            "risk_point_highway_detail",
+        )
+        product_model_row = schema_contract_support.get_markdown_table_row(
+            device_rows,
+            "Object",
+            "iot_product_model",
+        )
+        self.assertEqual("domain_master_data", archived_lineage_row["Lineage Role"])
+        self.assertIn("risk_point", archived_lineage_row["Relations"])
+        self.assertIn("高速公路风险点扩展表的数据持久化与查询", archived_lineage_row["Business Boundary"])
+        self.assertEqual("domain_master_data", product_model_row["Lineage Role"])
+
+        alarm_mermaid = schema_contract_support.extract_markdown_mermaid_block(alarm_section)
+        self.assertTrue(
+            schema_contract_support.mermaid_has_edge(
+                alarm_mermaid,
+                "risk_point_highway_detail",
+                "risk_point",
+                "belongs_to via risk_point_id",
+            )
+        )
 
         self.assertIn("tables", mysql_runtime_manifest)
         self.assertIn("views", mysql_runtime_manifest)
@@ -100,22 +168,25 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
         self.assertIn("iot_device_message_log", mysql_runtime_table_names)
         self.assertIn("iot_message_log", mysql_runtime_view_names)
         self.assertNotIn("risk_point_highway_detail", mysql_runtime_table_names)
-        relation_entry = next(
-            entry for entry in mysql_runtime_manifest["tables"] if entry["name"] == "iot_device_relation"
+        relation_entry = schema_contract_support.get_named_entry(
+            mysql_runtime_manifest["tables"],
+            "iot_device_relation",
+            "mysql runtime table",
         )
-        self.assertIn("CREATE TABLE IF NOT EXISTS iot_device_relation", relation_entry["createSql"])
+        self.assertEqual("schema_sync_managed", relation_entry["runtimeBootstrapMode"])
+        self.assertEqual("mysql_table", relation_entry["storageType"])
         self.assertTrue(any(item["name"] == "idx_relation_child_code" for item in relation_entry["indexes"]))
 
         tdengine_objects = tdengine_runtime_manifest["objects"]
         self.assertEqual(5, len(tdengine_objects))
-        self.assertTrue(
-            any(
-                obj["name"] == "iot_agg_measure_hour"
-                and obj["runtimeBootstrapMode"] == "manual_bootstrap_required"
-                and "CREATE STABLE IF NOT EXISTS iot_agg_measure_hour" in obj["createSql"]
-                for obj in tdengine_objects
-            )
+        agg_entry = schema_contract_support.get_named_entry(
+            tdengine_objects,
+            "iot_agg_measure_hour",
+            "tdengine runtime object",
         )
+        self.assertEqual("manual_bootstrap_required", agg_entry["runtimeBootstrapMode"])
+        self.assertEqual("tdengine_stable", agg_entry["storageType"])
+        self.assertEqual(20, len(agg_entry["fieldDictionary"]))
 
         self.assertEqual(
             {
@@ -127,13 +198,12 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
             },
             set(mysql_schema_sync_manifest),
         )
-        self.assertTrue(
-            any(
-                entry["name"] == "iot_message_log"
-                and "CREATE OR REPLACE VIEW iot_message_log" in entry["sql"]
-                for entry in mysql_schema_sync_manifest["viewSql"]
-            )
+        view_entry = schema_contract_support.get_named_entry(
+            mysql_schema_sync_manifest["viewSql"],
+            "iot_message_log",
+            "schema sync view",
         )
+        self.assertIn("FROM iot_device_message_log", view_entry["sql"])
         self.assertTrue(
             any(entry["name"] == "iot_device_message_log" for entry in mysql_schema_sync_manifest["createTableSql"])
         )

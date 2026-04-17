@@ -9,6 +9,8 @@ const {
   mockSubmitVendorMetricMappingRulePublish,
   mockSubmitVendorMetricMappingRuleRollback,
   mockPreviewVendorMetricMappingRuleHit,
+  mockBatchUpdateVendorMetricMappingRuleStatus,
+  mockReplayVendorMetricMappingRule,
   mockMessageSuccess,
   mockMessageError
 } = vi.hoisted(() => ({
@@ -16,6 +18,8 @@ const {
   mockSubmitVendorMetricMappingRulePublish: vi.fn(),
   mockSubmitVendorMetricMappingRuleRollback: vi.fn(),
   mockPreviewVendorMetricMappingRuleHit: vi.fn(),
+  mockBatchUpdateVendorMetricMappingRuleStatus: vi.fn(),
+  mockReplayVendorMetricMappingRule: vi.fn(),
   mockMessageSuccess: vi.fn(),
   mockMessageError: vi.fn()
 }))
@@ -24,7 +28,9 @@ vi.mock('@/api/vendorMetricMappingRule', () => ({
   listVendorMetricMappingRuleLedger: mockListVendorMetricMappingRuleLedger,
   submitVendorMetricMappingRulePublish: mockSubmitVendorMetricMappingRulePublish,
   submitVendorMetricMappingRuleRollback: mockSubmitVendorMetricMappingRuleRollback,
-  previewVendorMetricMappingRuleHit: mockPreviewVendorMetricMappingRuleHit
+  previewVendorMetricMappingRuleHit: mockPreviewVendorMetricMappingRuleHit,
+  batchUpdateVendorMetricMappingRuleStatus: mockBatchUpdateVendorMetricMappingRuleStatus,
+  replayVendorMetricMappingRule: mockReplayVendorMetricMappingRule
 }))
 
 vi.mock('@/utils/message', () => ({
@@ -72,6 +78,8 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
     mockSubmitVendorMetricMappingRulePublish.mockReset()
     mockSubmitVendorMetricMappingRuleRollback.mockReset()
     mockPreviewVendorMetricMappingRuleHit.mockReset()
+    mockBatchUpdateVendorMetricMappingRuleStatus.mockReset()
+    mockReplayVendorMetricMappingRule.mockReset()
     mockMessageSuccess.mockReset()
     mockMessageError.mockReset()
 
@@ -91,6 +99,20 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
           publishedVersionNo: 3,
           latestApprovalOrderId: 99001,
           publishedSource: 'published_snapshot'
+        },
+        {
+          ruleId: 7102,
+          productId: 1001,
+          rawIdentifier: 'disp_x',
+          targetNormativeIdentifier: 'dispsX',
+          scopeType: 'PRODUCT',
+          draftStatus: 'ACTIVE',
+          draftVersionNo: 2,
+          publishedStatus: null,
+          publishedVersionNo: null,
+          latestApprovalOrderId: null,
+          publishedSource: 'draft_table',
+          logicalChannelCode: 'L1_LF_1'
         }
       ]
     })
@@ -121,6 +143,31 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
         targetNormativeIdentifier: 'value',
         publishedVersionNo: 3,
         approvalOrderId: 99001
+      }
+    })
+    mockBatchUpdateVendorMetricMappingRuleStatus.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        requestedCount: 2,
+        matchedCount: 2,
+        changedCount: 2,
+        targetStatus: 'DISABLED'
+      }
+    })
+    mockReplayVendorMetricMappingRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        matched: true,
+        hitSource: 'PUBLISHED_SNAPSHOT',
+        matchedScopeType: 'PRODUCT',
+        ruleId: 7101,
+        rawIdentifier: 'disp',
+        logicalChannelCode: 'L1_LF_1',
+        targetNormativeIdentifier: 'value',
+        canonicalIdentifier: 'value',
+        sampleValue: '0.2136'
       }
     })
   })
@@ -158,5 +205,45 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
 
     expect(mockSubmitVendorMetricMappingRulePublish).toHaveBeenCalledWith(1001, 7101, expect.stringContaining('disp'))
     expect(mockMessageSuccess).toHaveBeenCalled()
+  })
+
+  it('supports selecting multiple rows and submitting batch status update with summary', async () => {
+    const wrapper = mountPanel()
+
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="rule-ledger-select-7101"]').setValue(true)
+    await wrapper.get('[data-testid="rule-ledger-select-7102"]').setValue(true)
+    await wrapper.get('[data-testid="rule-ledger-batch-status-disabled"]').trigger('click')
+    await flushPromises()
+
+    expect(mockBatchUpdateVendorMetricMappingRuleStatus).toHaveBeenCalledWith(1001, {
+      ruleIds: [7101, 7102],
+      targetStatus: 'DISABLED'
+    })
+    expect(wrapper.text()).toContain('请求 2 · 命中 2 · 变更 2 · 目标 DISABLED')
+    expect(mockMessageSuccess).toHaveBeenCalled()
+  })
+
+  it('runs replay and renders hit source, scope, canonical identifier and sample value', async () => {
+    const wrapper = mountPanel()
+
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="rule-ledger-replay-sample-7101"]').setValue('0.2136')
+    await wrapper.get('[data-testid="rule-ledger-replay-submit-7101"]').trigger('click')
+    await flushPromises()
+
+    expect(mockReplayVendorMetricMappingRule).toHaveBeenCalledWith(1001, {
+      rawIdentifier: 'disp',
+      logicalChannelCode: undefined,
+      sampleValue: '0.2136'
+    })
+    expect(wrapper.text()).toContain('PUBLISHED_SNAPSHOT')
+    expect(wrapper.text()).toContain('PRODUCT')
+    expect(wrapper.text()).toContain('value')
+    expect(wrapper.text()).toContain('0.2136')
   })
 })

@@ -11,13 +11,17 @@ from scripts.schema.load_registry import load_registry
 from scripts.schema.render_artifacts import REPO_ROOT, check_artifacts
 
 
+def _display_repo_relative(path: Path) -> str:
+    return path.relative_to(REPO_ROOT).as_posix()
+
+
 def main() -> int:
     schema_root = REPO_ROOT / "schema"
     load_registry(schema_root)
     mismatches = check_artifacts(schema_root)
     if mismatches:
         for path in mismatches:
-            print(f"OUT_OF_DATE {path.relative_to(REPO_ROOT)}")
+            print(f"OUT_OF_DATE {_display_repo_relative(path)}")
         return 1
     print("Schema registry is valid and generated artifacts are up to date.")
     return 0

@@ -6,8 +6,12 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptPreviewDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptProfileUpsertDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolFamilyDefinitionUpsertDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceBatchSubmitDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceReplayDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceSubmitDTO;
 import com.ghlzm.iot.framework.protocol.service.ProtocolSecurityGovernanceService;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceBatchSubmitResultVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceReplayVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptProfileVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolFamilyDefinitionVO;
@@ -25,6 +29,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/governance/protocol")
@@ -57,6 +66,17 @@ public class ProtocolGovernanceController {
         return R.ok(service.pageFamilies(keyword, status, pageNum, pageSize));
     }
 
+    @GetMapping("/families/{familyId}")
+    public R<ProtocolFamilyDefinitionVO> getFamilyDetail(@PathVariable Long familyId, Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议族定义详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(service.getFamilyDetail(familyId));
+    }
+
     @GetMapping("/decrypt-profiles")
     public R<PageResult<ProtocolDecryptProfileVO>> pageDecryptProfiles(@RequestParam(required = false) String keyword,
                                                                        @RequestParam(required = false) String status,
@@ -70,6 +90,18 @@ public class ProtocolGovernanceController {
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.pageDecryptProfiles(keyword, status, pageNum, pageSize));
+    }
+
+    @GetMapping("/decrypt-profiles/{profileId}")
+    public R<ProtocolDecryptProfileVO> getDecryptProfileDetail(@PathVariable Long profileId,
+                                                               Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议解密档案详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(service.getDecryptProfileDetail(profileId));
     }
 
     @PostMapping("/families")
@@ -109,6 +141,19 @@ public class ProtocolGovernanceController {
         return R.ok(approvalService.submitFamilyPublish(familyId, currentUserId, submitReasonOf(dto)));
     }
 
+    @PostMapping("/families/batch-submit-publish")
+    public R<ProtocolGovernanceBatchSubmitResultVO> submitFamilyBatchPublish(
+            @RequestBody @Valid ProtocolGovernanceBatchSubmitDTO dto,
+            Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议族定义批量发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(submitFamilyBatch(dto, currentUserId, false));
+    }
+
     @PostMapping("/families/{familyId}/submit-rollback")
     public R<GovernanceSubmissionResultVO> submitFamilyRollback(@PathVariable Long familyId,
                                                                 @RequestBody(required = false) ProtocolGovernanceSubmitDTO dto,
@@ -120,6 +165,19 @@ public class ProtocolGovernanceController {
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(approvalService.submitFamilyRollback(familyId, currentUserId, submitReasonOf(dto)));
+    }
+
+    @PostMapping("/families/batch-submit-rollback")
+    public R<ProtocolGovernanceBatchSubmitResultVO> submitFamilyBatchRollback(
+            @RequestBody @Valid ProtocolGovernanceBatchSubmitDTO dto,
+            Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议族定义批量回滚",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(submitFamilyBatch(dto, currentUserId, true));
     }
 
     @PostMapping("/decrypt-profiles/{profileId}/submit-publish")
@@ -135,6 +193,19 @@ public class ProtocolGovernanceController {
         return R.ok(approvalService.submitDecryptProfilePublish(profileId, currentUserId, submitReasonOf(dto)));
     }
 
+    @PostMapping("/decrypt-profiles/batch-submit-publish")
+    public R<ProtocolGovernanceBatchSubmitResultVO> submitDecryptProfileBatchPublish(
+            @RequestBody @Valid ProtocolGovernanceBatchSubmitDTO dto,
+            Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议解密档案批量发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(submitProfileBatch(dto, currentUserId, false));
+    }
+
     @PostMapping("/decrypt-profiles/{profileId}/submit-rollback")
     public R<GovernanceSubmissionResultVO> submitDecryptProfileRollback(@PathVariable Long profileId,
                                                                         @RequestBody(required = false) ProtocolGovernanceSubmitDTO dto,
@@ -146,6 +217,19 @@ public class ProtocolGovernanceController {
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(approvalService.submitDecryptProfileRollback(profileId, currentUserId, submitReasonOf(dto)));
+    }
+
+    @PostMapping("/decrypt-profiles/batch-submit-rollback")
+    public R<ProtocolGovernanceBatchSubmitResultVO> submitDecryptProfileBatchRollback(
+            @RequestBody @Valid ProtocolGovernanceBatchSubmitDTO dto,
+            Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议解密档案批量回滚",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(submitProfileBatch(dto, currentUserId, true));
     }
 
     @PostMapping("/decrypt-profiles/preview")
@@ -160,6 +244,18 @@ public class ProtocolGovernanceController {
         return R.ok(service.previewDecrypt(dto));
     }
 
+    @PostMapping("/decrypt-profiles/replay")
+    public R<ProtocolGovernanceReplayVO> replayDecrypt(@RequestBody ProtocolGovernanceReplayDTO dto,
+                                                       Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议解密命中回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(service.replayDecrypt(dto));
+    }
+
     private Long requireCurrentUserId(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
             throw new BizException(401, "未认证，请先登录");
@@ -168,6 +264,86 @@ public class ProtocolGovernanceController {
     }
 
     private String submitReasonOf(ProtocolGovernanceSubmitDTO dto) {
+        return dto == null ? null : dto.getSubmitReason();
+    }
+
+    private ProtocolGovernanceBatchSubmitResultVO submitFamilyBatch(ProtocolGovernanceBatchSubmitDTO dto,
+                                                                    Long currentUserId,
+                                                                    boolean rollback) {
+        String reason = submitReasonOf(dto);
+        ProtocolGovernanceBatchSubmitResultVO result = new ProtocolGovernanceBatchSubmitResultVO();
+        List<ProtocolGovernanceBatchSubmitResultVO.Item> items = new ArrayList<>();
+        int submitted = 0;
+        int failed = 0;
+        for (Long recordId : uniqueRecordIds(dto)) {
+            ProtocolGovernanceBatchSubmitResultVO.Item item = new ProtocolGovernanceBatchSubmitResultVO.Item();
+            item.setRecordId(recordId);
+            try {
+                GovernanceSubmissionResultVO submission = rollback
+                        ? approvalService.submitFamilyRollback(recordId, currentUserId, reason)
+                        : approvalService.submitFamilyPublish(recordId, currentUserId, reason);
+                item.setSuccess(Boolean.TRUE);
+                item.setApprovalOrderId(submission == null ? null : submission.getApprovalOrderId());
+                submitted++;
+            } catch (RuntimeException ex) {
+                item.setSuccess(Boolean.FALSE);
+                item.setErrorMessage(ex.getMessage());
+                failed++;
+            }
+            items.add(item);
+        }
+        result.setItems(items);
+        result.setTotalCount(items.size());
+        result.setSubmittedCount(submitted);
+        result.setFailedCount(failed);
+        return result;
+    }
+
+    private ProtocolGovernanceBatchSubmitResultVO submitProfileBatch(ProtocolGovernanceBatchSubmitDTO dto,
+                                                                     Long currentUserId,
+                                                                     boolean rollback) {
+        String reason = submitReasonOf(dto);
+        ProtocolGovernanceBatchSubmitResultVO result = new ProtocolGovernanceBatchSubmitResultVO();
+        List<ProtocolGovernanceBatchSubmitResultVO.Item> items = new ArrayList<>();
+        int submitted = 0;
+        int failed = 0;
+        for (Long recordId : uniqueRecordIds(dto)) {
+            ProtocolGovernanceBatchSubmitResultVO.Item item = new ProtocolGovernanceBatchSubmitResultVO.Item();
+            item.setRecordId(recordId);
+            try {
+                GovernanceSubmissionResultVO submission = rollback
+                        ? approvalService.submitDecryptProfileRollback(recordId, currentUserId, reason)
+                        : approvalService.submitDecryptProfilePublish(recordId, currentUserId, reason);
+                item.setSuccess(Boolean.TRUE);
+                item.setApprovalOrderId(submission == null ? null : submission.getApprovalOrderId());
+                submitted++;
+            } catch (RuntimeException ex) {
+                item.setSuccess(Boolean.FALSE);
+                item.setErrorMessage(ex.getMessage());
+                failed++;
+            }
+            items.add(item);
+        }
+        result.setItems(items);
+        result.setTotalCount(items.size());
+        result.setSubmittedCount(submitted);
+        result.setFailedCount(failed);
+        return result;
+    }
+
+    private List<Long> uniqueRecordIds(ProtocolGovernanceBatchSubmitDTO dto) {
+        Set<Long> uniqueIds = new LinkedHashSet<>();
+        if (dto != null && dto.getRecordIds() != null) {
+            for (Long recordId : dto.getRecordIds()) {
+                if (recordId != null && recordId > 0) {
+                    uniqueIds.add(recordId);
+                }
+            }
+        }
+        return List.copyOf(uniqueIds);
+    }
+
+    private String submitReasonOf(ProtocolGovernanceBatchSubmitDTO dto) {
         return dto == null ? null : dto.getSubmitReason();
     }
 }

@@ -1,12 +1,17 @@
 package com.ghlzm.iot.system.controller;
 
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceBatchSubmitDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceReplayDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptPreviewDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptProfileUpsertDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolFamilyDefinitionUpsertDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceSubmitDTO;
 import com.ghlzm.iot.framework.protocol.service.ProtocolSecurityGovernanceService;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceBatchSubmitResultVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceReplayVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptProfileVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolFamilyDefinitionVO;
@@ -27,6 +32,7 @@ import org.springframework.security.core.Authentication;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -154,6 +160,67 @@ class ProtocolGovernanceControllerTest {
 
         assertEquals("legacy-dp-crack", response.getData().getFamilyCode());
         verify(service).saveFamily(any(), eq(10001L));
+    }
+
+    @Test
+    void getFamilyDetailShouldRequireProtocolGovernanceEditPermission() {
+        ProtocolFamilyDefinitionVO detail = new ProtocolFamilyDefinitionVO();
+        detail.setId(9101L);
+        detail.setFamilyCode("legacy-dp-crack");
+        when(service.getFamilyDetail(9101L)).thenReturn(detail);
+
+        R<ProtocolFamilyDefinitionVO> response = controller.getFamilyDetail(9101L, authentication(10001L));
+
+        assertEquals(9101L, response.getData().getId());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议族定义详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+    }
+
+    @Test
+    void replayDecryptShouldRequireProtocolGovernanceEditPermission() {
+        ProtocolGovernanceReplayVO replay = new ProtocolGovernanceReplayVO();
+        replay.setMatched(Boolean.TRUE);
+        replay.setResolvedProfileCode("des-62000001");
+        when(service.replayDecrypt(any())).thenReturn(replay);
+
+        R<ProtocolGovernanceReplayVO> response = controller.replayDecrypt(
+                new ProtocolGovernanceReplayDTO("legacy-dp-crack", "mqtt-json", "62000001"),
+                authentication(10001L)
+        );
+
+        assertEquals("des-62000001", response.getData().getResolvedProfileCode());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议解密命中回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+    }
+
+    @Test
+    void submitFamilyBatchPublishShouldCollectSuccessAndFailure() {
+        when(approvalService.submitFamilyPublish(eq(9101L), eq(10001L), eq("批量发布协议族")))
+                .thenReturn(GovernanceSubmissionResultVO.pendingApproval(null, 99101L));
+        doThrow(new BizException("协议族定义不存在: 9102"))
+                .when(approvalService)
+                .submitFamilyPublish(eq(9102L), eq(10001L), eq("批量发布协议族"));
+
+        R<ProtocolGovernanceBatchSubmitResultVO> response = controller.submitFamilyBatchPublish(
+                new ProtocolGovernanceBatchSubmitDTO(List.of(9101L, 9102L), "批量发布协议族"),
+                authentication(10001L)
+        );
+
+        assertEquals(2, response.getData().getTotalCount());
+        assertEquals(1, response.getData().getSubmittedCount());
+        assertEquals(1, response.getData().getFailedCount());
+        assertEquals(2, response.getData().getItems().size());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "协议族定义批量发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
     }
 
     private Authentication authentication(Long userId) {

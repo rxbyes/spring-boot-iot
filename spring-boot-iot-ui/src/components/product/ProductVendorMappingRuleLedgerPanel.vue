@@ -18,13 +18,60 @@
     <p v-if="loading" class="product-vendor-rule-ledger__hint">正在加载映射规则台账...</p>
     <p v-else-if="errorMessage" class="product-vendor-rule-ledger__hint">{{ errorMessage }}</p>
 
-    <div v-else-if="rows.length" class="product-vendor-rule-ledger__list">
-      <article
-        v-for="row in rows"
-        :key="String(row.ruleId ?? `${row.rawIdentifier || '--'}-${row.targetNormativeIdentifier || '--'}`)"
-        class="product-vendor-rule-ledger__item"
+    <template v-else-if="rows.length">
+      <div class="product-vendor-rule-ledger__batch">
+        <label class="product-vendor-rule-ledger__batch-select-all">
+          <input
+            data-testid="rule-ledger-select-all"
+            type="checkbox"
+            :checked="allSelectableSelected"
+            :disabled="!selectableRuleIds.length"
+            @change="toggleSelectAll(($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ `已选 ${selectedRuleIds.length} 项` }}</span>
+        </label>
+        <div class="product-vendor-rule-ledger__batch-actions">
+          <StandardButton
+            data-testid="rule-ledger-batch-status-active"
+            :disabled="!selectedRuleIds.length || isSubmitting('batch-status-active')"
+            @click="handleBatchStatus('ACTIVE')"
+          >
+            {{ isSubmitting('batch-status-active') ? '提交中...' : '批量启用' }}
+          </StandardButton>
+          <StandardButton
+            data-testid="rule-ledger-batch-status-disabled"
+            :disabled="!selectedRuleIds.length || isSubmitting('batch-status-disabled')"
+            @click="handleBatchStatus('DISABLED')"
+          >
+            {{ isSubmitting('batch-status-disabled') ? '提交中...' : '批量停用' }}
+          </StandardButton>
+        </div>
+      </div>
+      <p
+        v-if="batchStatusSummary"
+        data-testid="rule-ledger-batch-status-summary"
+        class="product-vendor-rule-ledger__hint"
       >
+        {{ batchStatusSummaryLabel(batchStatusSummary) }}
+      </p>
+
+      <div class="product-vendor-rule-ledger__list">
+        <article
+          v-for="row in rows"
+          :key="rowIdentity(row)"
+          class="product-vendor-rule-ledger__item"
+        >
         <div class="product-vendor-rule-ledger__headline">
+          <label class="product-vendor-rule-ledger__item-selector">
+            <input
+              :data-testid="`rule-ledger-select-${rowIdentity(row)}`"
+              type="checkbox"
+              :checked="isRowSelected(row)"
+              :disabled="row.ruleId == null"
+              @change="toggleRowSelection(row, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>选择</span>
+          </label>
           <div class="product-vendor-rule-ledger__title">
             <strong>{{ `${row.rawIdentifier || '--'} -> ${row.targetNormativeIdentifier || '--'}` }}</strong>
             <span>{{ `${scopeTypeLabel(row.scopeType)} · ${versionLabel(row)}` }}</span>
@@ -42,21 +89,21 @@
 
         <div class="product-vendor-rule-ledger__actions">
           <StandardButton
-            :data-testid="`rule-ledger-preview-hit-${row.ruleId}`"
-            :disabled="!row.rawIdentifier || isSubmitting(`preview-${row.ruleId}`)"
+            :data-testid="`rule-ledger-preview-hit-${rowIdentity(row)}`"
+            :disabled="!row.rawIdentifier || isSubmitting(`preview-${rowIdentity(row)}`)"
             @click="handlePreview(row)"
           >
-            {{ isSubmitting(`preview-${row.ruleId}`) ? '试命中中...' : '试命中' }}
+            {{ isSubmitting(`preview-${rowIdentity(row)}`) ? '试命中中...' : '试命中' }}
           </StandardButton>
           <StandardButton
-            :data-testid="`rule-ledger-submit-publish-${row.ruleId}`"
+            :data-testid="`rule-ledger-submit-publish-${rowIdentity(row)}`"
             :disabled="!row.ruleId || isSubmitting(`publish-${row.ruleId}`)"
             @click="handleSubmitPublish(row)"
           >
             {{ isSubmitting(`publish-${row.ruleId}`) ? '提交中...' : '提交发布审批' }}
           </StandardButton>
           <StandardButton
-            :data-testid="`rule-ledger-submit-rollback-${row.ruleId}`"
+            :data-testid="`rule-ledger-submit-rollback-${rowIdentity(row)}`"
             :disabled="!canRollback(row) || isSubmitting(`rollback-${row.ruleId}`)"
             @click="handleSubmitRollback(row)"
           >
@@ -64,16 +111,46 @@
           </StandardButton>
         </div>
 
+        <div class="product-vendor-rule-ledger__replay">
+          <input
+            :data-testid="`rule-ledger-replay-sample-${rowIdentity(row)}`"
+            class="product-vendor-rule-ledger__replay-input"
+            type="text"
+            placeholder="样例值（可选）"
+            :value="replaySampleByRuleId[rowIdentity(row)] || ''"
+            @input="handleReplaySampleInput(row, ($event.target as HTMLInputElement).value)"
+          />
+          <StandardButton
+            :data-testid="`rule-ledger-replay-submit-${rowIdentity(row)}`"
+            :disabled="!row.rawIdentifier || isSubmitting(`replay-${rowIdentity(row)}`)"
+            @click="handleReplay(row)"
+          >
+            {{ isSubmitting(`replay-${rowIdentity(row)}`) ? '回放中...' : '回放校验' }}
+          </StandardButton>
+        </div>
+
         <div
-          v-if="previewStateByRuleId[String(row.ruleId ?? '')]"
-          :data-testid="`rule-ledger-preview-result-${row.ruleId}`"
+          v-if="previewStateByRuleId[rowIdentity(row)]"
+          :data-testid="`rule-ledger-preview-result-${rowIdentity(row)}`"
           class="product-vendor-rule-ledger__preview"
         >
-          <strong>{{ previewMatchedLabel(previewStateByRuleId[String(row.ruleId ?? '')]) }}</strong>
-          <span>{{ previewSourceLabel(previewStateByRuleId[String(row.ruleId ?? '')]) }}</span>
+          <strong>{{ previewMatchedLabel(previewStateByRuleId[rowIdentity(row)]) }}</strong>
+          <span>{{ previewSourceLabel(previewStateByRuleId[rowIdentity(row)]) }}</span>
         </div>
-      </article>
-    </div>
+
+        <div
+          v-if="replayStateByRuleId[rowIdentity(row)]"
+          :data-testid="`rule-ledger-replay-result-${rowIdentity(row)}`"
+          class="product-vendor-rule-ledger__preview"
+        >
+          <strong>{{ replayMatchedLabel(replayStateByRuleId[rowIdentity(row)]) }}</strong>
+          <span>{{ replaySourceAndScopeLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
+          <span>{{ replayCanonicalLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
+          <span>{{ replaySampleLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
+        </div>
+        </article>
+      </div>
+    </template>
 
     <div v-else class="product-vendor-rule-ledger__empty">
       <strong>当前还没有映射规则台账</strong>
@@ -86,15 +163,23 @@
 import { computed, ref, watch } from 'vue'
 
 import {
+  batchUpdateVendorMetricMappingRuleStatus,
   listVendorMetricMappingRuleLedger,
   previewVendorMetricMappingRuleHit,
+  replayVendorMetricMappingRule,
   submitVendorMetricMappingRulePublish,
   submitVendorMetricMappingRuleRollback
 } from '@/api/vendorMetricMappingRule'
 import { resolveRequestErrorMessage } from '@/api/request'
 import StandardButton from '@/components/StandardButton.vue'
 import { ElMessage } from '@/utils/message'
-import type { IdType, VendorMetricMappingRuleHitPreview, VendorMetricMappingRuleLedgerRow } from '@/types/api'
+import type {
+  IdType,
+  VendorMetricMappingRuleBatchStatusResult,
+  VendorMetricMappingRuleHitPreview,
+  VendorMetricMappingRuleLedgerRow,
+  VendorMetricMappingRuleReplay
+} from '@/types/api'
 
 const props = defineProps<{
   productId?: IdType | null
@@ -105,9 +190,21 @@ const loading = ref(false)
 const errorMessage = ref('')
 const submittingKey = ref('')
 const previewStateByRuleId = ref<Record<string, VendorMetricMappingRuleHitPreview>>({})
+const replayStateByRuleId = ref<Record<string, VendorMetricMappingRuleReplay>>({})
+const replaySampleByRuleId = ref<Record<string, string>>({})
+const selectedRuleIds = ref<IdType[]>([])
+const batchStatusSummary = ref<VendorMetricMappingRuleBatchStatusResult | null>(null)
 
 const publishedCount = computed(() => rows.value.filter((row) => row.publishedStatus === 'PUBLISHED').length)
 const draftCount = computed(() => rows.value.filter((row) => row.draftStatus === 'DRAFT').length)
+const selectableRuleIds = computed(() =>
+  rows.value
+    .map((row) => row.ruleId)
+    .filter((ruleId): ruleId is IdType => ruleId !== null && ruleId !== undefined && ruleId !== '')
+)
+const allSelectableSelected = computed(() =>
+  Boolean(selectableRuleIds.value.length) && selectedRuleIds.value.length === selectableRuleIds.value.length
+)
 
 watch(
   () => props.productId,
@@ -123,6 +220,17 @@ function hasProductId(value: IdType | null | undefined): value is IdType {
 
 function versionLabel(row: VendorMetricMappingRuleLedgerRow) {
   return `v${row.draftVersionNo ?? '--'} / v${row.publishedVersionNo ?? '--'}`
+}
+
+function rowIdentity(row: VendorMetricMappingRuleLedgerRow) {
+  if (row.ruleId !== null && row.ruleId !== undefined && row.ruleId !== '') {
+    return String(row.ruleId)
+  }
+  return `${row.rawIdentifier || '--'}-${row.targetNormativeIdentifier || '--'}`
+}
+
+function normalizeId(value: IdType) {
+  return String(value)
 }
 
 function scopeTypeLabel(scopeType?: string | null) {
@@ -150,6 +258,40 @@ function canRollback(row: VendorMetricMappingRuleLedgerRow) {
   return Boolean(row.ruleId) && row.publishedStatus === 'PUBLISHED'
 }
 
+function isRowSelected(row: VendorMetricMappingRuleLedgerRow) {
+  if (row.ruleId === null || row.ruleId === undefined || row.ruleId === '') {
+    return false
+  }
+  const ruleId = normalizeId(row.ruleId)
+  return selectedRuleIds.value.some((selectedRuleId) => normalizeId(selectedRuleId) === ruleId)
+}
+
+function toggleRowSelection(row: VendorMetricMappingRuleLedgerRow, checked: boolean) {
+  if (row.ruleId === null || row.ruleId === undefined || row.ruleId === '') {
+    return
+  }
+  const ruleId = normalizeId(row.ruleId)
+  const nextSelectedRuleIds = selectedRuleIds.value.filter(
+    (selectedRuleId) => normalizeId(selectedRuleId) !== ruleId
+  )
+  if (checked) {
+    nextSelectedRuleIds.push(row.ruleId)
+  }
+  selectedRuleIds.value = nextSelectedRuleIds
+}
+
+function toggleSelectAll(checked: boolean) {
+  selectedRuleIds.value = checked ? [...selectableRuleIds.value] : []
+}
+
+function batchStatusSummaryLabel(summary: VendorMetricMappingRuleBatchStatusResult) {
+  const requested = summary.requestedCount ?? 0
+  const matched = summary.matchedCount ?? 0
+  const changed = summary.changedCount ?? 0
+  const targetStatus = summary.targetStatus || '--'
+  return `请求 ${requested} · 命中 ${matched} · 变更 ${changed} · 目标 ${targetStatus}`
+}
+
 function previewMatchedLabel(preview?: VendorMetricMappingRuleHitPreview | null) {
   if (!preview) {
     return '--'
@@ -166,15 +308,51 @@ function previewSourceLabel(preview?: VendorMetricMappingRuleHitPreview | null) 
   return `${source} · ${target}`
 }
 
+function replayMatchedLabel(replay?: VendorMetricMappingRuleReplay | null) {
+  if (!replay) {
+    return '--'
+  }
+  return replay.matched ? '回放命中规则' : '回放未命中规则'
+}
+
+function replaySourceAndScopeLabel(replay?: VendorMetricMappingRuleReplay | null) {
+  if (!replay) {
+    return '--'
+  }
+  return `${replay.hitSource || '--'} · ${replay.matchedScopeType || '--'}`
+}
+
+function replayCanonicalLabel(replay?: VendorMetricMappingRuleReplay | null) {
+  if (!replay) {
+    return 'canonical --'
+  }
+  const canonicalIdentifier = replay.canonicalIdentifier || replay.targetNormativeIdentifier || '--'
+  return `canonical ${canonicalIdentifier}`
+}
+
+function replaySampleLabel(replay?: VendorMetricMappingRuleReplay | null) {
+  if (!replay) {
+    return '样例值 --'
+  }
+  return `样例值 ${replay.sampleValue || '--'}`
+}
+
 async function loadRows() {
   if (!hasProductId(props.productId)) {
     rows.value = []
     previewStateByRuleId.value = {}
+    replayStateByRuleId.value = {}
+    replaySampleByRuleId.value = {}
+    selectedRuleIds.value = []
+    batchStatusSummary.value = null
     return
   }
   loading.value = true
   errorMessage.value = ''
   previewStateByRuleId.value = {}
+  replayStateByRuleId.value = {}
+  replaySampleByRuleId.value = {}
+  selectedRuleIds.value = []
   try {
     const response = await listVendorMetricMappingRuleLedger(props.productId)
     rows.value = response.data ?? []
@@ -190,7 +368,7 @@ async function handlePreview(row: VendorMetricMappingRuleLedgerRow) {
   if (!hasProductId(props.productId) || !row.rawIdentifier) {
     return
   }
-  const previewKey = `preview-${row.ruleId}`
+  const previewKey = `preview-${rowIdentity(row)}`
   submittingKey.value = previewKey
   try {
     const response = await previewVendorMetricMappingRuleHit(props.productId, {
@@ -198,10 +376,68 @@ async function handlePreview(row: VendorMetricMappingRuleLedgerRow) {
       logicalChannelCode: row.logicalChannelCode ?? undefined
     })
     const nextState = { ...previewStateByRuleId.value }
-    nextState[String(row.ruleId ?? row.rawIdentifier)] = response.data ?? {}
+    nextState[rowIdentity(row)] = response.data ?? {}
     previewStateByRuleId.value = nextState
   } catch (error) {
     ElMessage.error(resolveRequestErrorMessage(error, '映射规则试命中失败'))
+  } finally {
+    submittingKey.value = ''
+  }
+}
+
+function handleReplaySampleInput(row: VendorMetricMappingRuleLedgerRow, value: string) {
+  const key = rowIdentity(row)
+  replaySampleByRuleId.value = {
+    ...replaySampleByRuleId.value,
+    [key]: value
+  }
+}
+
+async function handleReplay(row: VendorMetricMappingRuleLedgerRow) {
+  if (!hasProductId(props.productId) || !row.rawIdentifier) {
+    return
+  }
+  const key = rowIdentity(row)
+  const replayKey = `replay-${key}`
+  submittingKey.value = replayKey
+  try {
+    const sampleValue = replaySampleByRuleId.value[key]?.trim()
+    const response = await replayVendorMetricMappingRule(props.productId, {
+      rawIdentifier: row.rawIdentifier,
+      logicalChannelCode: row.logicalChannelCode ?? undefined,
+      sampleValue: sampleValue || undefined
+    })
+    replayStateByRuleId.value = {
+      ...replayStateByRuleId.value,
+      [key]: response.data ?? {}
+    }
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '映射规则回放校验失败'))
+  } finally {
+    submittingKey.value = ''
+  }
+}
+
+async function handleBatchStatus(targetStatus: string) {
+  if (!hasProductId(props.productId) || !selectedRuleIds.value.length) {
+    return
+  }
+  const batchKey = `batch-status-${targetStatus.toLowerCase()}`
+  submittingKey.value = batchKey
+  try {
+    const response = await batchUpdateVendorMetricMappingRuleStatus(props.productId, {
+      ruleIds: selectedRuleIds.value,
+      targetStatus
+    })
+    batchStatusSummary.value = response.data ?? null
+    if (batchStatusSummary.value) {
+      ElMessage.success(`映射规则批量状态切换完成：${batchStatusSummaryLabel(batchStatusSummary.value)}`)
+    } else {
+      ElMessage.success('映射规则批量状态切换完成')
+    }
+    await loadRows()
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '映射规则批量状态切换失败'))
   } finally {
     submittingKey.value = ''
   }
@@ -261,6 +497,7 @@ async function handleSubmitRollback(row: VendorMetricMappingRuleLedgerRow) {
 <style scoped>
 .product-vendor-rule-ledger,
 .product-vendor-rule-ledger__summary,
+.product-vendor-rule-ledger__batch,
 .product-vendor-rule-ledger__list,
 .product-vendor-rule-ledger__item {
   display: grid;
@@ -277,6 +514,7 @@ async function handleSubmitRollback(row: VendorMetricMappingRuleLedgerRow) {
 
 .product-vendor-rule-ledger__summary-card,
 .product-vendor-rule-ledger__item,
+.product-vendor-rule-ledger__batch,
 .product-vendor-rule-ledger__empty {
   padding: 0.82rem 0.9rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
@@ -287,6 +525,23 @@ async function handleSubmitRollback(row: VendorMetricMappingRuleLedgerRow) {
 .product-vendor-rule-ledger__summary-card {
   display: grid;
   gap: 0.24rem;
+}
+
+.product-vendor-rule-ledger__batch {
+  gap: 0.68rem;
+}
+
+.product-vendor-rule-ledger__batch-select-all,
+.product-vendor-rule-ledger__item-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.product-vendor-rule-ledger__batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .product-vendor-rule-ledger__summary-card span,
@@ -319,14 +574,18 @@ async function handleSubmitRollback(row: VendorMetricMappingRuleLedgerRow) {
 .product-vendor-rule-ledger__headline,
 .product-vendor-rule-ledger__actions {
   display: flex;
-  justify-content: space-between;
   gap: 0.72rem;
   align-items: flex-start;
+}
+
+.product-vendor-rule-ledger__headline {
+  justify-content: space-between;
 }
 
 .product-vendor-rule-ledger__title {
   display: grid;
   gap: 0.18rem;
+  flex: 1;
 }
 
 .product-vendor-rule-ledger__meta,
@@ -338,6 +597,22 @@ async function handleSubmitRollback(row: VendorMetricMappingRuleLedgerRow) {
 
 .product-vendor-rule-ledger__actions {
   flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.product-vendor-rule-ledger__replay {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.product-vendor-rule-ledger__replay-input {
+  width: min(20rem, 100%);
+  min-height: 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--panel-border);
+  padding: 0.25rem 0.6rem;
+  color: var(--text-heading);
 }
 
 .product-vendor-rule-ledger__preview {

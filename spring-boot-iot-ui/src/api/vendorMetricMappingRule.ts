@@ -6,10 +6,14 @@ import type {
   GovernanceSubmissionResult,
   IdType,
   PageResult,
+  VendorMetricMappingRuleBatchStatusPayload,
+  VendorMetricMappingRuleBatchStatusResult,
   VendorMetricMappingRule,
   VendorMetricMappingRuleCreatePayload,
   VendorMetricMappingRuleHitPreview,
   VendorMetricMappingRuleLedgerRow,
+  VendorMetricMappingRuleReplay,
+  VendorMetricMappingRuleReplayPayload,
   VendorMetricMappingRuleSuggestion,
   VendorMetricMappingRuleSuggestionQuery
 } from '@/types/api'
@@ -137,4 +141,31 @@ export function previewVendorMetricMappingRuleHit(
       ...options
     }
   )
+}
+
+export function batchUpdateVendorMetricMappingRuleStatus(
+  productId: IdType,
+  payload: VendorMetricMappingRuleBatchStatusPayload,
+  options: VendorMetricMappingRuleRequestOptions = {}
+): Promise<ApiEnvelope<VendorMetricMappingRuleBatchStatusResult>> {
+  return request<VendorMetricMappingRuleBatchStatusResult>(
+    `/api/device/product/${productId}/vendor-mapping-rules/batch-status`,
+    {
+      method: 'POST',
+      body: payload,
+      ...options
+    }
+  )
+}
+
+export function replayVendorMetricMappingRule(
+  productId: IdType,
+  payload: VendorMetricMappingRuleReplayPayload,
+  options: VendorMetricMappingRuleRequestOptions = {}
+): Promise<ApiEnvelope<VendorMetricMappingRuleReplay>> {
+  return request<VendorMetricMappingRuleReplay>(`/api/device/product/${productId}/vendor-mapping-rules/replay`, {
+    method: 'POST',
+    body: payload,
+    ...options
+  })
 }

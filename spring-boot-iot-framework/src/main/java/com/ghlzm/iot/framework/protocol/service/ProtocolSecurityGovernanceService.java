@@ -4,9 +4,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptPreviewDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptProfileUpsertDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolFamilyDefinitionUpsertDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceReplayDTO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptProfileVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolFamilyDefinitionVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceReplayVO;
 
 public interface ProtocolSecurityGovernanceService {
 
@@ -19,4 +21,10 @@ public interface ProtocolSecurityGovernanceService {
     ProtocolDecryptProfileVO saveDecryptProfile(ProtocolDecryptProfileUpsertDTO dto, Long operatorUserId);
 
     ProtocolDecryptPreviewVO previewDecrypt(ProtocolDecryptPreviewDTO dto);
+
+    ProtocolFamilyDefinitionVO getFamilyDetail(Long familyId);
+
+    ProtocolDecryptProfileVO getDecryptProfileDetail(Long profileId);
+
+    ProtocolGovernanceReplayVO replayDecrypt(ProtocolGovernanceReplayDTO dto);
 }

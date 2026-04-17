@@ -1,8 +1,10 @@
 package com.ghlzm.iot.framework.protocol.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolDecryptPreviewDTO;
+import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceReplayDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolFamilyDefinitionUpsertDTO;
 import com.ghlzm.iot.framework.protocol.entity.ProtocolDecryptProfileRecord;
 import com.ghlzm.iot.framework.protocol.entity.ProtocolFamilyDefinitionRecord;
@@ -14,6 +16,7 @@ import com.ghlzm.iot.framework.protocol.mapper.ProtocolFamilyDefinitionSnapshotM
 import com.ghlzm.iot.framework.protocol.service.ProtocolSecurityGovernanceService;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolFamilyDefinitionVO;
+import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceReplayVO;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -120,6 +124,47 @@ class ProtocolSecurityGovernanceServiceImplTest {
         assertEquals("IOT_PROTOCOL_CRYPTO", result.getMerchantSource());
         assertEquals("FAMILY_DRAFT", result.getHitSource());
         assertTrue(Boolean.TRUE.equals(result.getMatched()));
+    }
+
+    @Test
+    void getFamilyDetailShouldExposeLatestPublishedSnapshotState() {
+        when(familyRecordMapper.selectById(9101L))
+                .thenReturn(familyRecord(9101L, "legacy-dp-crack", "mqtt-json", "des-62000001", "DRAFT", 4));
+        when(familySnapshotMapper.selectLatestPublishedByFamilyId(9101L))
+                .thenReturn(familySnapshot(9301L, 9101L, 3, 99101L));
+
+        ProtocolFamilyDefinitionVO detail = service.getFamilyDetail(9101L);
+
+        assertEquals(9101L, detail.getId());
+        assertEquals("PUBLISHED", detail.getPublishedStatus());
+        assertEquals(3, detail.getPublishedVersionNo());
+        assertEquals(99101L, detail.getApprovalOrderId());
+    }
+
+    @Test
+    void getDecryptProfileDetailShouldThrowWhenProfileNotFound() {
+        when(decryptProfileRecordMapper.selectById(9201L)).thenReturn(null);
+
+        assertThrows(BizException.class, () -> service.getDecryptProfileDetail(9201L));
+    }
+
+    @Test
+    void replayDecryptShouldEchoNormalizedRequestAndResolvedProfile() {
+        when(familyRecordMapper.selectLatestEnabledByFamilyCode("legacy-dp-crack"))
+                .thenReturn(familyRecord(9101L, "legacy-dp-crack", "mqtt-json", "des-62000001", "ACTIVE", 3));
+        when(decryptProfileRecordMapper.selectLatestEnabledByProfileCode("des-62000001"))
+                .thenReturn(profileRecord(9201L, "des-62000001", "DES", "IOT_PROTOCOL_CRYPTO", "62000001", "ACTIVE", 2));
+
+        ProtocolGovernanceReplayVO replay = service.replayDecrypt(
+                new ProtocolGovernanceReplayDTO(" legacy-dp-crack ", " mqtt-json ", " 62000001 ")
+        );
+
+        assertEquals("legacy-dp-crack", replay.getFamilyCode());
+        assertEquals("mqtt-json", replay.getProtocolCode());
+        assertEquals("62000001", replay.getAppId());
+        assertEquals("des-62000001", replay.getResolvedProfileCode());
+        assertEquals("FAMILY_DRAFT", replay.getHitSource());
+        assertTrue(Boolean.TRUE.equals(replay.getMatched()));
     }
 
     private ProtocolFamilyDefinitionRecord familyRecord(Long id,

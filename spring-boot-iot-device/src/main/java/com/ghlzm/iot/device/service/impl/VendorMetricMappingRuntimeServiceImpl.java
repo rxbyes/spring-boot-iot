@@ -43,6 +43,9 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
     private static final String SCOPE_TYPE_TENANT_DEFAULT = "TENANT_DEFAULT";
     private static final Set<String> DISABLED_STATUSES = Set.of("INACTIVE", "DISABLED", "RETIRED");
     private static final String PROTOCOL_FAMILY_SELECTOR_PREFIX = "family:";
+    private static final String HIT_SOURCE_PUBLISHED_SNAPSHOT = "PUBLISHED_SNAPSHOT";
+    private static final String HIT_SOURCE_DRAFT_RULE = "DRAFT_RULE";
+    private static final String HIT_SOURCE_MISS = "MISS";
 
     private final VendorMetricMappingRuleMapper mapper;
     private final VendorMetricMappingRuleSnapshotMapper snapshotMapper;
@@ -164,6 +167,65 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 true
         );
         return resolution == null ? sanitizedIdentifier : resolution.targetNormativeIdentifier();
+    }
+
+    public ReplayResolution replayForGovernance(Product product, String rawIdentifier, String logicalChannelCode) {
+        String normalizedRawIdentifier = normalizeLower(rawIdentifier);
+        String normalizedLogicalChannelCode = normalizeUpper(logicalChannelCode);
+        Long productId = product == null ? null : product.getId();
+        if (productId == null || productId <= 0 || !StringUtils.hasText(normalizedRawIdentifier)) {
+            return ReplayResolution.unmatched(HIT_SOURCE_MISS, normalizedRawIdentifier, normalizedLogicalChannelCode);
+        }
+
+        Set<String> protocolSelectors = resolveProtocolSelectors(resolveProtocolCode(product), null);
+        List<VendorMetricMappingRuleSnapshot> publishedSnapshots = loadPublishedSnapshots(productId);
+        boolean hasPublishedSnapshots = !publishedSnapshots.isEmpty();
+        if (hasPublishedSnapshots) {
+            Map<Long, VendorMetricMappingRule> publishedRulesByRuleId = buildPublishedRulesByRuleId(publishedSnapshots);
+            MappingResolution publishedResolution = resolveFromRules(
+                    product,
+                    protocolSelectors,
+                    normalizedRawIdentifier,
+                    normalizedLogicalChannelCode,
+                    true,
+                    publishedRulesByRuleId.values().stream().toList()
+            );
+            if (publishedResolution == null) {
+                return ReplayResolution.unmatched(
+                        HIT_SOURCE_PUBLISHED_SNAPSHOT,
+                        normalizedRawIdentifier,
+                        normalizedLogicalChannelCode
+                );
+            }
+            VendorMetricMappingRule matchedRule = publishedRulesByRuleId.get(publishedResolution.ruleId());
+            return ReplayResolution.matched(
+                    HIT_SOURCE_PUBLISHED_SNAPSHOT,
+                    normalizeUpper(matchedRule == null ? null : matchedRule.getScopeType()),
+                    publishedResolution.rawIdentifier(),
+                    publishedResolution.logicalChannelCode(),
+                    publishedResolution.targetNormativeIdentifier(),
+                    publishedResolution.ruleId()
+            );
+        }
+
+        MappingResolution resolution = resolveInternal(
+                product,
+                protocolSelectors,
+                normalizedRawIdentifier,
+                normalizedLogicalChannelCode,
+                true
+        );
+        if (resolution == null) {
+            return ReplayResolution.unmatched(HIT_SOURCE_MISS, normalizedRawIdentifier, normalizedLogicalChannelCode);
+        }
+        return ReplayResolution.matched(
+                HIT_SOURCE_DRAFT_RULE,
+                resolveScopeTypeByDraftRuleId(resolution.ruleId()),
+                resolution.rawIdentifier(),
+                resolution.logicalChannelCode(),
+                resolution.targetNormativeIdentifier(),
+                resolution.ruleId()
+        );
     }
 
     private MappingResolution resolvePublishedContractSnapshot(Product product,
@@ -363,6 +425,50 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
             return left;
         }
         return leftId >= rightId ? left : right;
+    }
+
+    private List<VendorMetricMappingRuleSnapshot> loadPublishedSnapshots(Long productId) {
+        if (snapshotMapper == null || productId == null || productId <= 0) {
+            return List.of();
+        }
+        List<VendorMetricMappingRuleSnapshot> snapshots = snapshotMapper.selectPublishedByProductId(productId);
+        return snapshots == null ? List.of() : snapshots;
+    }
+
+    private Map<Long, VendorMetricMappingRule> buildPublishedRulesByRuleId(List<VendorMetricMappingRuleSnapshot> snapshots) {
+        if (snapshots == null || snapshots.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, VendorMetricMappingRuleSnapshot> latestSnapshotByRuleId = snapshots.stream()
+                .filter(Objects::nonNull)
+                .filter(snapshot -> snapshot.getRuleId() != null)
+                .collect(Collectors.toMap(
+                        VendorMetricMappingRuleSnapshot::getRuleId,
+                        snapshot -> snapshot,
+                        this::preferHigherVersionSnapshot,
+                        LinkedHashMap::new
+                ));
+        return latestSnapshotByRuleId.values().stream()
+                .map(this::toPublishedRule)
+                .filter(Objects::nonNull)
+                .filter(rule -> rule.getId() != null)
+                .collect(Collectors.toMap(
+                        VendorMetricMappingRule::getId,
+                        rule -> rule,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+    }
+
+    private String resolveScopeTypeByDraftRuleId(Long ruleId) {
+        if (ruleId == null || mapper == null) {
+            return null;
+        }
+        VendorMetricMappingRule rule = mapper.selectById(ruleId);
+        if (rule == null || Integer.valueOf(1).equals(rule.getDeleted())) {
+            return null;
+        }
+        return normalizeUpper(rule.getScopeType());
     }
 
     private boolean isUsableRule(VendorMetricMappingRule rule) {
@@ -580,6 +686,45 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         String normalizedSelector = normalizeProtocolSelector(value);
         return StringUtils.hasText(normalizedSelector)
                 && normalizedSelector.startsWith(PROTOCOL_FAMILY_SELECTOR_PREFIX);
+    }
+
+    public record ReplayResolution(boolean matched,
+                                   String hitSource,
+                                   String matchedScopeType,
+                                   String rawIdentifier,
+                                   String logicalChannelCode,
+                                   String targetNormativeIdentifier,
+                                   Long ruleId) {
+        private static ReplayResolution matched(String hitSource,
+                                                String matchedScopeType,
+                                                String rawIdentifier,
+                                                String logicalChannelCode,
+                                                String targetNormativeIdentifier,
+                                                Long ruleId) {
+            return new ReplayResolution(
+                    true,
+                    hitSource,
+                    matchedScopeType,
+                    rawIdentifier,
+                    logicalChannelCode,
+                    targetNormativeIdentifier,
+                    ruleId
+            );
+        }
+
+        private static ReplayResolution unmatched(String hitSource,
+                                                  String rawIdentifier,
+                                                  String logicalChannelCode) {
+            return new ReplayResolution(
+                    false,
+                    hitSource,
+                    null,
+                    rawIdentifier,
+                    logicalChannelCode,
+                    null,
+                    null
+            );
+        }
     }
 
     private record ResolvedRuleCandidate(VendorMetricMappingRule rule,

@@ -2,14 +2,17 @@ package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleBatchStatusDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleHitPreviewDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRulePublishSubmitDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleReplayDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleRollbackSubmitDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleGovernanceService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleSuggestionService;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleHitPreviewVO;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleReplayVO;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleSuggestionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
@@ -17,6 +20,7 @@ import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -190,6 +194,58 @@ class VendorMetricMappingRuleControllerTest {
                 GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
         );
         verify(governanceService).previewHit(1001L, dto);
+    }
+
+    @Test
+    void batchStatusShouldRequireGovernPermissionAndDelegateToService() {
+        VendorMetricMappingRuleBatchStatusDTO dto = new VendorMetricMappingRuleBatchStatusDTO();
+        dto.setRuleIds(List.of(7101L, 7102L));
+        dto.setTargetStatus("DISABLED");
+        when(service.batchStatus(1001L, 10001L, dto)).thenReturn(Map.of(
+                "requestedCount", 2,
+                "matchedCount", 2,
+                "changedCount", 2,
+                "targetStatus", "DISABLED"
+        ));
+
+        R<Map<String, Object>> response = controller.batchStatus(1001L, dto, authentication(10001L));
+
+        assertEquals(2, response.getData().get("changedCount"));
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "厂商字段映射规则维护",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        verify(service).batchStatus(1001L, 10001L, dto);
+    }
+
+    @Test
+    void replayShouldRequireGovernPermissionAndDelegateToService() {
+        VendorMetricMappingRuleReplayDTO dto = new VendorMetricMappingRuleReplayDTO();
+        dto.setRawIdentifier("disp");
+        dto.setLogicalChannelCode("L1_LF_1");
+        dto.setSampleValue("0.2136");
+        VendorMetricMappingRuleReplayVO replay = new VendorMetricMappingRuleReplayVO();
+        replay.setMatched(Boolean.TRUE);
+        replay.setHitSource("PUBLISHED_SNAPSHOT");
+        replay.setMatchedScopeType("PRODUCT");
+        replay.setRawIdentifier("disp");
+        replay.setLogicalChannelCode("L1_LF_1");
+        replay.setTargetNormativeIdentifier("value");
+        replay.setCanonicalIdentifier("value");
+        replay.setSampleValue("0.2136");
+        when(service.replay(1001L, dto)).thenReturn(replay);
+
+        R<VendorMetricMappingRuleReplayVO> response = controller.replay(1001L, dto, authentication(10001L));
+
+        assertEquals("PRODUCT", response.getData().getMatchedScopeType());
+        assertEquals("value", response.getData().getCanonicalIdentifier());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "厂商字段映射规则回放校验",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        verify(service).replay(1001L, dto);
     }
 
     private Authentication authentication(Long userId) {

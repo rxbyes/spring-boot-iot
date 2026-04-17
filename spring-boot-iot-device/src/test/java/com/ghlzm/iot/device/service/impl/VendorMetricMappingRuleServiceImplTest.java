@@ -2,14 +2,21 @@ package com.ghlzm.iot.device.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleBatchStatusDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleReplayDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRuleSnapshot;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleReplayVO;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -20,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +39,10 @@ class VendorMetricMappingRuleServiceImplTest {
     private VendorMetricMappingRuleMapper mapper;
     @Mock
     private VendorMetricMappingRuleSnapshotMapper snapshotMapper;
+    @Mock
+    private ProductMapper productMapper;
+    @Mock
+    private VendorMetricMappingRuntimeServiceImpl runtimeService;
 
     @Test
     void pageRulesShouldMergeLatestPublishedSnapshotState() {
@@ -185,5 +197,100 @@ class VendorMetricMappingRuleServiceImplTest {
 
         assertEquals("protocolCode 对应的协议族不存在或未启用: family:missing-family", error.getMessage());
         verify(mapper, never()).insert(any(VendorMetricMappingRule.class));
+    }
+
+    @Test
+    void batchStatusShouldOnlyUpdateMatchedRulesWithinProduct() {
+        VendorMetricMappingRule first = new VendorMetricMappingRule();
+        first.setId(7101L);
+        first.setProductId(1001L);
+        first.setStatus("ACTIVE");
+        first.setVersionNo(3);
+        first.setDeleted(0);
+
+        VendorMetricMappingRule second = new VendorMetricMappingRule();
+        second.setId(7102L);
+        second.setProductId(1001L);
+        second.setStatus("DRAFT");
+        second.setVersionNo(2);
+        second.setDeleted(0);
+
+        VendorMetricMappingRule ignored = new VendorMetricMappingRule();
+        ignored.setId(7199L);
+        ignored.setProductId(2002L);
+        ignored.setStatus("ACTIVE");
+        ignored.setVersionNo(9);
+        ignored.setDeleted(0);
+
+        when(mapper.selectBatchIds(List.of(7101L, 7102L, 7199L))).thenReturn(List.of(first, second, ignored));
+
+        VendorMetricMappingRuleBatchStatusDTO dto = new VendorMetricMappingRuleBatchStatusDTO();
+        dto.setRuleIds(List.of(7101L, 7102L, 7199L));
+        dto.setTargetStatus("disabled");
+
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(
+                mapper,
+                snapshotMapper,
+                (ProtocolSecurityDefinitionProvider) null,
+                productMapper,
+                runtimeService
+        );
+
+        Map<String, Object> result = service.batchStatus(1001L, 10001L, dto);
+
+        assertEquals(3, result.get("requestedCount"));
+        assertEquals(2, result.get("matchedCount"));
+        assertEquals(2, result.get("changedCount"));
+        assertEquals("DISABLED", result.get("targetStatus"));
+        verify(mapper).updateById(argThat((VendorMetricMappingRule row) ->
+                Long.valueOf(7101L).equals(row.getId())
+                        && "DISABLED".equals(row.getStatus())
+                        && Integer.valueOf(4).equals(row.getVersionNo())
+        ));
+        verify(mapper).updateById(argThat((VendorMetricMappingRule row) ->
+                Long.valueOf(7102L).equals(row.getId())
+                        && "DISABLED".equals(row.getStatus())
+                        && Integer.valueOf(3).equals(row.getVersionNo())
+        ));
+    }
+
+    @Test
+    void replayShouldReuseRuntimeResolutionAndEchoSampleValue() {
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProtocolCode("mqtt-json");
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(runtimeService.replayForGovernance(eq(product), eq("disp"), eq("L1_LF_1")))
+                .thenReturn(new VendorMetricMappingRuntimeServiceImpl.ReplayResolution(
+                        true,
+                        "PUBLISHED_SNAPSHOT",
+                        "PRODUCT",
+                        "disp",
+                        "L1_LF_1",
+                        "value",
+                        7101L
+                ));
+
+        VendorMetricMappingRuleReplayDTO dto = new VendorMetricMappingRuleReplayDTO();
+        dto.setRawIdentifier("disp");
+        dto.setLogicalChannelCode("L1_LF_1");
+        dto.setSampleValue("0.2136");
+
+        VendorMetricMappingRuleServiceImpl service = new VendorMetricMappingRuleServiceImpl(
+                mapper,
+                snapshotMapper,
+                (ProtocolSecurityDefinitionProvider) null,
+                productMapper,
+                runtimeService
+        );
+
+        VendorMetricMappingRuleReplayVO result = service.replay(1001L, dto);
+
+        assertEquals(Boolean.TRUE, result.getMatched());
+        assertEquals("PUBLISHED_SNAPSHOT", result.getHitSource());
+        assertEquals("PRODUCT", result.getMatchedScopeType());
+        assertEquals("value", result.getCanonicalIdentifier());
+        assertEquals("value", result.getTargetNormativeIdentifier());
+        assertEquals("0.2136", result.getSampleValue());
     }
 }

@@ -9,6 +9,8 @@ import sys
 import tempfile
 import unittest
 
+import scripts.schema_contract_test_support as schema_contract_support
+
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SUPPORT_PATH = REPO_ROOT / "scripts" / "governance" / "domain_audit_support.py"
@@ -29,6 +31,17 @@ def load_module(path: pathlib.Path, name: str):
 tools = load_module(SUPPORT_PATH, "governance_tools")
 render_tools = load_module(RENDER_PATH, "governance_render_tools")
 governance_loader = load_module(LOADER_PATH, "governance_loader_for_render")
+
+
+def load_registry():
+    return governance_loader.load_governance_registry(REPO_ROOT / "schema-governance", REPO_ROOT / "schema")
+
+
+def structure_objects_for_domain(registry, domain_name: str):
+    return sorted(
+        [obj for obj in registry.structure_registry.all_objects if obj.domain == domain_name],
+        key=lambda item: (item.storage_type, item.name),
+    )
 
 
 class GovernanceToolsTest(unittest.TestCase):
@@ -75,39 +88,134 @@ class GovernanceToolsTest(unittest.TestCase):
         self.assertIn("RP-HW-SLOPE-045", content)
 
     def test_render_governance_catalog_should_include_alarm_sample(self):
-        registry = governance_loader.load_governance_registry(REPO_ROOT / "schema-governance", REPO_ROOT / "schema")
+        registry = load_registry()
         markdown = render_tools.render_governance_catalog(registry)
+        archived_object = registry.domains["alarm"].objects["risk_point_highway_detail"]
+        catalog_rows = schema_contract_support.parse_markdown_table(
+            markdown,
+            "| Domain | Object | Stage | Seed Packages | Audit Profile | Owner Module | Notes |",
+        )
+        archived_row = schema_contract_support.get_markdown_table_row(
+            catalog_rows,
+            "Object",
+            archived_object.object_name,
+        )
 
-        self.assertIn("| alarm | risk_point_highway_detail | archived |", markdown)
-        self.assertIn("highway_archived_risk_points_seed", markdown)
+        self.assertEqual("alarm", archived_row["Domain"])
+        self.assertEqual(archived_object.governance_stage, archived_row["Stage"])
+        self.assertEqual(", ".join(archived_object.seed_packages), archived_row["Seed Packages"])
+        self.assertEqual(archived_object.real_env_audit_profile, archived_row["Audit Profile"])
+        self.assertEqual(archived_object.owner_module, archived_row["Owner Module"])
+        self.assertEqual(archived_object.notes, archived_row["Notes"])
 
     def test_render_domain_governance_ledger_should_include_alarm_summary_and_governance_object(self):
-        registry = governance_loader.load_governance_registry(REPO_ROOT / "schema-governance", REPO_ROOT / "schema")
+        registry = load_registry()
+        archived_object = registry.domains["alarm"].objects["risk_point_highway_detail"]
+        alarm_structure_objects = structure_objects_for_domain(registry, "alarm")
 
         markdown = render_tools.render_domain_governance_ledger(registry)
+        alarm_section = schema_contract_support.extract_markdown_section(markdown, "## Domain alarm")
+        metric_rows = schema_contract_support.parse_markdown_table(
+            alarm_section,
+            "| Metric | Value |",
+        )
+        lifecycle_rows = schema_contract_support.parse_markdown_table(
+            alarm_section,
+            "| Lifecycle | Count |",
+        )
+        governance_rows = schema_contract_support.parse_markdown_table(
+            alarm_section,
+            "| Governance Object | Stage | Seed Packages | Audit Profile | Deletion Prerequisites | Notes |",
+        )
+        objects_row = schema_contract_support.get_markdown_table_row(metric_rows, "Metric", "Objects")
+        relations_row = schema_contract_support.get_markdown_table_row(metric_rows, "Metric", "Relations")
+        archived_lifecycle_row = schema_contract_support.get_markdown_table_row(
+            lifecycle_rows,
+            "Lifecycle",
+            "archived",
+        )
+        archived_governance_row = schema_contract_support.get_markdown_table_row(
+            governance_rows,
+            "Governance Object",
+            archived_object.object_name,
+        )
 
         self.assertIn("# Database Schema Domain Governance Ledger", markdown)
-        self.assertIn("## Domain alarm", markdown)
-        self.assertIn("| Lifecycle | Count |", markdown)
-        self.assertIn("| archived | 1 |", markdown)
-        self.assertIn("| risk_point_highway_detail | archived |", markdown)
-        self.assertIn("当前域如有真实库审计结论，请查看 `docs/04`", markdown)
+        self.assertEqual(str(len(alarm_structure_objects)), objects_row["Value"])
+        self.assertEqual(
+            str(sum(len(obj.relations) for obj in alarm_structure_objects)),
+            relations_row["Value"],
+        )
+        self.assertEqual(
+            str(sum(1 for obj in alarm_structure_objects if obj.lifecycle == "archived")),
+            archived_lifecycle_row["Count"],
+        )
+        self.assertEqual(archived_object.governance_stage, archived_governance_row["Stage"])
+        self.assertEqual(", ".join(archived_object.seed_packages), archived_governance_row["Seed Packages"])
+        self.assertEqual(archived_object.real_env_audit_profile, archived_governance_row["Audit Profile"])
+        self.assertEqual(
+            "<br>".join(archived_object.deletion_prerequisites),
+            archived_governance_row["Deletion Prerequisites"],
+        )
+        self.assertEqual(archived_object.notes, archived_governance_row["Notes"])
+        self.assertIn("`docs/04`", alarm_section)
+        self.assertIn("`docs/08`", alarm_section)
 
     def test_render_domain_governance_ledger_should_show_no_governance_objects_for_plain_domain(self):
-        registry = governance_loader.load_governance_registry(REPO_ROOT / "schema-governance", REPO_ROOT / "schema")
+        registry = load_registry()
 
         markdown = render_tools.render_domain_governance_ledger(registry)
+        device_section = schema_contract_support.extract_markdown_section(markdown, "## Domain device")
+        governance_rows = schema_contract_support.parse_markdown_table(
+            device_section,
+            "| Governance Object | Stage | Seed Packages | Audit Profile | Deletion Prerequisites | Notes |",
+        )
+        placeholder_row = schema_contract_support.get_markdown_table_row(
+            governance_rows,
+            "Governance Object",
+            "当前无登记治理对象",
+        )
 
-        self.assertIn("## Domain device", markdown)
-        self.assertIn("| 当前无登记治理对象 | - | - | - | - | - |", markdown)
+        self.assertEqual("-", placeholder_row["Stage"])
+        self.assertEqual("-", placeholder_row["Seed Packages"])
+        self.assertEqual("-", placeholder_row["Audit Profile"])
+        self.assertEqual("-", placeholder_row["Deletion Prerequisites"])
+        self.assertEqual("-", placeholder_row["Notes"])
 
     def test_render_domain_governance_ledger_should_include_relation_summary_for_alarm_domain(self):
-        registry = governance_loader.load_governance_registry(REPO_ROOT / "schema-governance", REPO_ROOT / "schema")
+        registry = load_registry()
 
         markdown = render_tools.render_domain_governance_ledger(registry)
+        alarm_section = schema_contract_support.extract_markdown_section(markdown, "## Domain alarm")
+        relation_rows = schema_contract_support.parse_markdown_table(
+            alarm_section,
+            "| Object | Relations |",
+        )
+        highway_detail_row = schema_contract_support.get_markdown_table_row(
+            relation_rows,
+            "Object",
+            "risk_point_highway_detail",
+        )
+        mermaid_block = schema_contract_support.extract_markdown_mermaid_block(alarm_section)
 
-        self.assertIn("risk_point（belongs_to:risk_point_id）", markdown)
-        self.assertIn("```mermaid", markdown)
+        self.assertIn("risk_point（belongs_to:risk_point_id）", highway_detail_row["Relations"])
+        self.assertIn("sys_tenant（belongs_to:tenant_id）", highway_detail_row["Relations"])
+        self.assertTrue(
+            schema_contract_support.mermaid_has_edge(
+                mermaid_block,
+                "risk_point_highway_detail",
+                "risk_point",
+                "belongs_to via risk_point_id",
+            )
+        )
+        self.assertTrue(
+            schema_contract_support.mermaid_has_edge(
+                mermaid_block,
+                "risk_point_highway_detail",
+                "sys_tenant",
+                "belongs_to via tenant_id",
+            )
+        )
 
     def test_check_governance_docs_should_report_missing_generated_files(self):
         with tempfile.TemporaryDirectory(prefix="governance-doc-check-") as temp_dir:
@@ -149,6 +257,7 @@ class GovernanceToolsTest(unittest.TestCase):
                 REPO_ROOT / "schema",
                 output_paths=output_paths,
             )
+            catalog_markdown = output_paths["catalog_markdown"].read_text(encoding="utf-8")
             domain_markdown = output_paths["domain_ledger_markdown"].read_text(encoding="utf-8")
 
         self.assertEqual(
@@ -159,7 +268,25 @@ class GovernanceToolsTest(unittest.TestCase):
             written,
         )
         self.assertEqual([], mismatches)
-        self.assertIn("# Database Schema Domain Governance Ledger", domain_markdown)
+        catalog_rows = schema_contract_support.parse_markdown_table(
+            catalog_markdown,
+            "| Domain | Object | Stage | Seed Packages | Audit Profile | Owner Module | Notes |",
+        )
+        domain_section = schema_contract_support.extract_markdown_section(domain_markdown, "## Domain alarm")
+        governance_rows = schema_contract_support.parse_markdown_table(
+            domain_section,
+            "| Governance Object | Stage | Seed Packages | Audit Profile | Deletion Prerequisites | Notes |",
+        )
+        schema_contract_support.get_markdown_table_row(
+            catalog_rows,
+            "Object",
+            "risk_point_highway_detail",
+        )
+        schema_contract_support.get_markdown_table_row(
+            governance_rows,
+            "Governance Object",
+            "risk_point_highway_detail",
+        )
 
     def test_build_schema_comment_drift_should_report_table_and_field_mismatches(self):
         registry = governance_loader.load_governance_registry(REPO_ROOT / "schema-governance", REPO_ROOT / "schema")
