@@ -755,6 +755,59 @@ export interface ProtocolGovernanceReplay {
   transformation?: string | null;
 }
 
+export interface ProtocolTemplateDefinitionUpsertPayload {
+  templateCode: string;
+  familyCode: string;
+  protocolCode: string;
+  displayName: string;
+  expressionJson: string;
+  outputMappingJson?: string | null;
+}
+
+export interface ProtocolTemplateDefinition {
+  id?: IdType | null;
+  templateCode?: string | null;
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  displayName?: string | null;
+  expressionJson?: string | null;
+  outputMappingJson?: string | null;
+  status?: string | null;
+  versionNo?: number | null;
+  publishedStatus?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface ProtocolTemplateSubmitPayload {
+  submitReason?: string | null;
+}
+
+export interface ProtocolTemplateReplayPayload {
+  templateCode: string;
+  payloadJson: string;
+}
+
+export interface ProtocolTemplateReplayChild {
+  logicalChannelCode?: string | null;
+  childProperties?: Record<string, unknown> | null;
+  canonicalizationStrategy?: string | null;
+  statusMirrorApplied?: boolean | null;
+  rawPayload?: string | null;
+}
+
+export interface ProtocolTemplateReplay {
+  templateCode?: string | null;
+  resolvedTemplateCode?: string | null;
+  matched?: boolean | null;
+  summary?: string | null;
+  extractedChildren?: ProtocolTemplateReplayChild[] | null;
+}
+
 export interface ProductModelGovernanceAppliedItem {
   modelType?: ProductModelType | null;
   identifier?: string | null;

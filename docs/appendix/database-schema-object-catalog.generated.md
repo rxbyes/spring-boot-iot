@@ -44,6 +44,8 @@ Generated from the schema registry. Do not edit by hand.
 | iot_protocol_decrypt_profile_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议解密档案发布快照表 |
 | iot_protocol_family_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议族定义治理主表 |
 | iot_protocol_family_definition_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议族定义发布快照表 |
+| iot_protocol_template_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议模板治理主表 |
+| iot_protocol_template_definition_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议模板发布快照表 |
 | sys_governance_approval_order | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批工单表 |
 | sys_governance_approval_policy | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批策略表 |
 | sys_governance_approval_transition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批流转记录表 |

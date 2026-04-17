@@ -5,8 +5,8 @@ Generated from the schema registry. Do not edit by hand.
 | Domain | Objects | Relations | Roles |
 | --- | --- | --- | --- |
 | alarm | 15 | 39 | binding_registry / catalog_registry / domain_master_data / transaction_record |
-| device | 18 | 44 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
-| governance | 6 | 14 | domain_master_data / governance_master_data |
+| device | 19 | 48 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
+| governance | 12 | 29 | domain_master_data / governance_master_data |
 | mysql-compatibility | 1 | 2 | compatibility_projection |
 | system | 17 | 26 | governance_master_data |
 | telemetry | 5 | 19 | telemetry_compatibility_fallback / telemetry_hourly_aggregate / telemetry_raw_timeseries |
@@ -117,6 +117,7 @@ graph TD
 | iot_product_model | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于产品物模型表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_vendor_metric_evidence | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于厂商字段证据表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_vendor_metric_mapping_rule | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于厂商字段映射规则表的数据持久化与查询，归属设备域并服务真实环境基线。 |
+| iot_vendor_metric_mapping_rule_snapshot | snapshot_baseline | iot_vendor_metric_mapping_rule（belongs_to:rule_id）<br>iot_product（belongs_to:product_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于厂商字段映射规则正式发布后的快照真相持久化，支撑审批后读取与运行时回放。 |
 
 ```mermaid
 graph TD
@@ -185,6 +186,11 @@ graph TD
   iot_vendor_metric_mapping_rule["iot_vendor_metric_mapping_rule"]
   iot_vendor_metric_mapping_rule["iot_vendor_metric_mapping_rule"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_vendor_metric_mapping_rule["iot_vendor_metric_mapping_rule"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_vendor_metric_mapping_rule_snapshot["iot_vendor_metric_mapping_rule_snapshot"]
+  iot_vendor_metric_mapping_rule_snapshot["iot_vendor_metric_mapping_rule_snapshot"] -->|"belongs_to via rule_id"| iot_vendor_metric_mapping_rule["iot_vendor_metric_mapping_rule"]
+  iot_vendor_metric_mapping_rule_snapshot["iot_vendor_metric_mapping_rule_snapshot"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_vendor_metric_mapping_rule_snapshot["iot_vendor_metric_mapping_rule_snapshot"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_vendor_metric_mapping_rule_snapshot["iot_vendor_metric_mapping_rule_snapshot"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
 ```
 
 ## Domain governance
@@ -193,6 +199,12 @@ graph TD
 | --- | --- | --- | --- |
 | iot_governance_ops_alert | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于治理运维告警表的数据持久化与查询，归属治理域并服务真实环境基线。 |
 | iot_governance_work_item | domain_master_data | sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于治理与运营工作项表的数据持久化与查询，归属治理域并服务真实环境基线。 |
+| iot_protocol_decrypt_profile | governance_master_data | sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于协议解密档案草稿、发布与回滚治理的真实环境持久化。 |
+| iot_protocol_decrypt_profile_snapshot | governance_master_data | iot_protocol_decrypt_profile（belongs_to:profile_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于协议解密档案正式发布真相快照的真实环境持久化。 |
+| iot_protocol_family_definition | governance_master_data | sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于协议族定义草稿、发布与回滚治理的真实环境持久化。 |
+| iot_protocol_family_definition_snapshot | governance_master_data | iot_protocol_family_definition（belongs_to:family_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于协议族定义正式发布真相快照的真实环境持久化。 |
+| iot_protocol_template_definition | governance_master_data | sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于协议模板草稿、直接发布快照与回放治理的真实环境持久化。 |
+| iot_protocol_template_definition_snapshot | governance_master_data | iot_protocol_template_definition（belongs_to:template_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于协议模板正式发布真相快照的真实环境持久化。 |
 | sys_governance_approval_order | governance_master_data | iot_governance_work_item（belongs_to:work_item_id）<br>sys_user（belongs_to:operator_user_id）<br>sys_user（belongs_to:approver_user_id）<br>sys_tenant（belongs_to:tenant_id） | 用于治理审批工单表的数据持久化与查询，归属治理域并服务真实环境基线。 |
 | sys_governance_approval_policy | governance_master_data | sys_tenant（belongs_to:tenant_id） | 用于治理审批策略表的数据持久化与查询，归属治理域并服务真实环境基线。 |
 | sys_governance_approval_transition | governance_master_data | sys_governance_approval_order（belongs_to:order_id）<br>sys_user（belongs_to:actor_user_id）<br>sys_tenant（belongs_to:tenant_id） | 用于治理审批流转记录表的数据持久化与查询，归属治理域并服务真实环境基线。 |
@@ -207,6 +219,27 @@ graph TD
   sys_governance_approval_order["sys_governance_approval_order"]
   iot_governance_work_item["iot_governance_work_item"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
   iot_governance_work_item["iot_governance_work_item"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_decrypt_profile["iot_protocol_decrypt_profile"]
+  iot_protocol_decrypt_profile["iot_protocol_decrypt_profile"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_decrypt_profile["iot_protocol_decrypt_profile"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_decrypt_profile_snapshot["iot_protocol_decrypt_profile_snapshot"]
+  iot_protocol_decrypt_profile_snapshot["iot_protocol_decrypt_profile_snapshot"] -->|"belongs_to via profile_id"| iot_protocol_decrypt_profile["iot_protocol_decrypt_profile"]
+  iot_protocol_decrypt_profile_snapshot["iot_protocol_decrypt_profile_snapshot"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_decrypt_profile_snapshot["iot_protocol_decrypt_profile_snapshot"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_family_definition["iot_protocol_family_definition"]
+  iot_protocol_family_definition["iot_protocol_family_definition"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_family_definition["iot_protocol_family_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"]
+  iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"] -->|"belongs_to via family_id"| iot_protocol_family_definition["iot_protocol_family_definition"]
+  iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_template_definition["iot_protocol_template_definition"]
+  iot_protocol_template_definition["iot_protocol_template_definition"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_template_definition["iot_protocol_template_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"] -->|"belongs_to via template_id"| iot_protocol_template_definition["iot_protocol_template_definition"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_governance_approval_order["sys_governance_approval_order"] -->|"belongs_to via work_item_id"| iot_governance_work_item["iot_governance_work_item"]
   sys_user["sys_user"]
   sys_governance_approval_order["sys_governance_approval_order"] -->|"belongs_to via operator_user_id"| sys_user["sys_user"]

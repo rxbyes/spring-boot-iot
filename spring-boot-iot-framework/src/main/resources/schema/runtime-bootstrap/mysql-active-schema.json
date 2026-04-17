@@ -3673,6 +3673,156 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `template_code` VARCHAR(128) NOT NULL COMMENT '模板编码'",
+          "name": "template_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `family_code` VARCHAR(128) NOT NULL COMMENT '协议族编码'",
+          "name": "family_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `protocol_code` VARCHAR(64) NOT NULL COMMENT '协议编码'",
+          "name": "protocol_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `display_name` VARCHAR(255) NOT NULL COMMENT '显示名称'",
+          "name": "display_name"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `expression_json` LONGTEXT NOT NULL COMMENT '表达式JSON'",
+          "name": "expression_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `output_mapping_json` LONGTEXT DEFAULT NULL COMMENT '输出映射JSON'",
+          "name": "output_mapping_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `version_no` INT NOT NULL DEFAULT 1 COMMENT '版本号'",
+          "name": "version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `approval_order_id` BIGINT DEFAULT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `update_by` BIGINT DEFAULT NULL COMMENT '更新人'",
+          "name": "update_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+          "name": "update_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_protocol_template_definition\n-- 说明：协议模板治理主表\nCREATE TABLE IF NOT EXISTS iot_protocol_template_definition (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  template_code VARCHAR(128) NOT NULL COMMENT '模板编码',\n  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',\n  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',\n  display_name VARCHAR(255) NOT NULL COMMENT '显示名称',\n  expression_json LONGTEXT NOT NULL COMMENT '表达式JSON',\n  output_mapping_json LONGTEXT DEFAULT NULL COMMENT '输出映射JSON',\n  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_protocol_template_definition_code (tenant_id, template_code, deleted)\n) COMMENT='协议模板治理主表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition` ADD UNIQUE INDEX `uk_protocol_template_definition_code` (`tenant_id`, `template_code`, `deleted`)",
+          "name": "uk_protocol_template_definition_code"
+        }
+      ],
+      "name": "iot_protocol_template_definition",
+      "ownerModule": "spring-boot-iot-framework",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `template_id` BIGINT NOT NULL COMMENT '协议模板主表ID'",
+          "name": "template_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `template_code` VARCHAR(128) NOT NULL COMMENT '模板编码'",
+          "name": "template_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `family_code` VARCHAR(128) NOT NULL COMMENT '协议族编码'",
+          "name": "family_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `protocol_code` VARCHAR(64) NOT NULL COMMENT '协议编码'",
+          "name": "protocol_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `published_version_no` INT NOT NULL COMMENT '发布版本号'",
+          "name": "published_version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `snapshot_json` LONGTEXT NOT NULL COMMENT '发布快照'",
+          "name": "snapshot_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `lifecycle_status` VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态'",
+          "name": "lifecycle_status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `approval_order_id` BIGINT DEFAULT NULL COMMENT '审批主单ID'",
+          "name": "approval_order_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `submit_reason` VARCHAR(255) DEFAULT NULL COMMENT '提交原因'",
+          "name": "submit_reason"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_protocol_template_definition_snapshot\n-- 说明：协议模板发布快照表\nCREATE TABLE IF NOT EXISTS iot_protocol_template_definition_snapshot (\n  id BIGINT NOT NULL COMMENT '主键ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  template_id BIGINT NOT NULL COMMENT '协议模板主表ID',\n  template_code VARCHAR(128) NOT NULL COMMENT '模板编码',\n  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',\n  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',\n  published_version_no INT NOT NULL COMMENT '发布版本号',\n  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',\n  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',\n  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',\n  submit_reason VARCHAR(255) DEFAULT NULL COMMENT '提交原因',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',\n  PRIMARY KEY (id),\n  KEY idx_protocol_template_snapshot_lookup (template_id, lifecycle_status, published_version_no, deleted)\n) COMMENT='协议模板发布快照表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_protocol_template_definition_snapshot` ADD INDEX `idx_protocol_template_snapshot_lookup` (`template_id`, `lifecycle_status`, `published_version_no`, `deleted`)",
+          "name": "idx_protocol_template_snapshot_lookup"
+        }
+      ],
+      "name": "iot_protocol_template_definition_snapshot",
+      "ownerModule": "spring-boot-iot-framework",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `sys_governance_approval_order` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键ID'",
           "name": "id"
         },

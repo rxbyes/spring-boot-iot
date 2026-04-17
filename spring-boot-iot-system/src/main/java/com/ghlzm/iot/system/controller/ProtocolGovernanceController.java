@@ -10,6 +10,13 @@ import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceBatchSubmitDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceReplayDTO;
 import com.ghlzm.iot.framework.protocol.dto.ProtocolGovernanceSubmitDTO;
 import com.ghlzm.iot.framework.protocol.service.ProtocolSecurityGovernanceService;
+import com.ghlzm.iot.framework.protocol.template.dto.ProtocolTemplateReplayDTO;
+import com.ghlzm.iot.framework.protocol.template.dto.ProtocolTemplateSubmitDTO;
+import com.ghlzm.iot.framework.protocol.template.dto.ProtocolTemplateUpsertDTO;
+import com.ghlzm.iot.framework.protocol.template.service.ProtocolTemplateGovernanceService;
+import com.ghlzm.iot.framework.protocol.template.service.ProtocolTemplateReplayService;
+import com.ghlzm.iot.framework.protocol.template.vo.ProtocolTemplateDefinitionVO;
+import com.ghlzm.iot.framework.protocol.template.vo.ProtocolTemplateReplayVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceBatchSubmitResultVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolGovernanceReplayVO;
 import com.ghlzm.iot.framework.protocol.vo.ProtocolDecryptPreviewVO;
@@ -40,13 +47,19 @@ import java.util.Set;
 public class ProtocolGovernanceController {
 
     private final ProtocolSecurityGovernanceService service;
+    private final ProtocolTemplateGovernanceService templateGovernanceService;
+    private final ProtocolTemplateReplayService templateReplayService;
     private final ProtocolGovernanceApprovalService approvalService;
     private final GovernancePermissionGuard permissionGuard;
 
     public ProtocolGovernanceController(ProtocolSecurityGovernanceService service,
+                                        ProtocolTemplateGovernanceService templateGovernanceService,
+                                        ProtocolTemplateReplayService templateReplayService,
                                         ProtocolGovernanceApprovalService approvalService,
                                         GovernancePermissionGuard permissionGuard) {
         this.service = service;
+        this.templateGovernanceService = templateGovernanceService;
+        this.templateReplayService = templateReplayService;
         this.approvalService = approvalService;
         this.permissionGuard = permissionGuard;
     }
@@ -254,6 +267,70 @@ public class ProtocolGovernanceController {
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.replayDecrypt(dto));
+    }
+
+    @GetMapping("/templates")
+    public R<PageResult<ProtocolTemplateDefinitionVO>> pageTemplates(@RequestParam(required = false) String keyword,
+                                                                     @RequestParam(required = false) String status,
+                                                                     @RequestParam(required = false) Long pageNum,
+                                                                     @RequestParam(required = false) Long pageSize,
+                                                                     Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议模板查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(templateGovernanceService.pageTemplates(keyword, status, pageNum, pageSize));
+    }
+
+    @GetMapping("/templates/{templateId}")
+    public R<ProtocolTemplateDefinitionVO> getTemplateDetail(@PathVariable Long templateId,
+                                                             Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议模板详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(templateGovernanceService.getTemplateDetail(templateId));
+    }
+
+    @PostMapping("/templates")
+    public R<ProtocolTemplateDefinitionVO> saveTemplate(@RequestBody @Valid ProtocolTemplateUpsertDTO dto,
+                                                        Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议模板维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(templateGovernanceService.saveTemplate(dto, currentUserId));
+    }
+
+    @PostMapping("/templates/{templateId}/publish")
+    public R<ProtocolTemplateDefinitionVO> publishTemplate(@PathVariable Long templateId,
+                                                           @RequestBody(required = false) ProtocolTemplateSubmitDTO dto,
+                                                           Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议模板发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(templateGovernanceService.publishTemplate(templateId, currentUserId, dto));
+    }
+
+    @PostMapping("/templates/replay")
+    public R<ProtocolTemplateReplayVO> replayTemplate(@RequestBody @Valid ProtocolTemplateReplayDTO dto,
+                                                      Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "协议模板回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
+        );
+        return R.ok(templateReplayService.replay(dto));
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

@@ -22,6 +22,10 @@
           <span>已发布协议对象</span>
           <strong>{{ publishedItemCount }}</strong>
         </article>
+        <article class="protocol-governance-workbench__summary-card">
+          <span>协议模板</span>
+          <strong>{{ templateRows.length }}</strong>
+        </article>
       </div>
 
       <StandardWorkbenchPanel
@@ -441,6 +445,186 @@
           <p>共享环境会继续沿用 YAML fallback，直到正式发布的解密档案进入运行时真相。</p>
         </div>
       </StandardWorkbenchPanel>
+
+      <StandardWorkbenchPanel
+        title="协议模板"
+        description="先以模板草稿和模板回放收口 legacy `$dp` 子模板，后续运行时会切到配置化解释执行。"
+      >
+        <section class="protocol-governance-workbench__editor">
+          <div class="protocol-governance-workbench__editor-head">
+            <div class="protocol-governance-workbench__editor-copy">
+              <strong>{{ templateDraftModeTitle }}</strong>
+              <p>模板草稿当前按 `templateCode` 作为业务键保存，先服务治理校验和后续解释执行接入。</p>
+            </div>
+            <div class="protocol-governance-workbench__actions">
+              <StandardButton action="reset" @click="resetTemplateDraft">清空草稿</StandardButton>
+              <StandardButton
+                action="confirm"
+                data-testid="protocol-template-save"
+                :disabled="templateSaving"
+                @click="handleSaveTemplate"
+              >
+                {{ templateSaving ? '保存中...' : '保存草稿' }}
+              </StandardButton>
+            </div>
+          </div>
+
+          <div class="protocol-governance-workbench__form-grid">
+            <label class="protocol-governance-workbench__field">
+              <span>模板编码</span>
+              <input
+                data-testid="protocol-template-template-code"
+                v-model="templateDraft.templateCode"
+                type="text"
+                placeholder="例如 legacy-dp-crack-v1"
+              />
+            </label>
+            <label class="protocol-governance-workbench__field">
+              <span>协议族编码</span>
+              <input
+                data-testid="protocol-template-family-code"
+                v-model="templateDraft.familyCode"
+                type="text"
+                placeholder="例如 legacy-dp"
+              />
+            </label>
+            <label class="protocol-governance-workbench__field">
+              <span>协议编码</span>
+              <input
+                data-testid="protocol-template-protocol-code"
+                v-model="templateDraft.protocolCode"
+                type="text"
+                placeholder="例如 mqtt-json"
+              />
+            </label>
+            <label class="protocol-governance-workbench__field">
+              <span>显示名称</span>
+              <input
+                data-testid="protocol-template-display-name"
+                v-model="templateDraft.displayName"
+                type="text"
+                placeholder="输入模板展示名称"
+              />
+            </label>
+            <label class="protocol-governance-workbench__field protocol-governance-workbench__field--full">
+              <span>表达式 JSON</span>
+              <textarea
+                data-testid="protocol-template-expression-json"
+                v-model="templateDraft.expressionJson"
+                rows="4"
+                placeholder='例如 {"logicalPattern":"^L1_LF_\\d+$"}'
+              />
+            </label>
+            <label class="protocol-governance-workbench__field protocol-governance-workbench__field--full">
+              <span>输出映射 JSON</span>
+              <textarea
+                data-testid="protocol-template-output-mapping-json"
+                v-model="templateDraft.outputMappingJson"
+                rows="3"
+                placeholder='例如 {"value":"$.value"}'
+              />
+            </label>
+          </div>
+        </section>
+
+        <section class="protocol-governance-workbench__preview">
+          <div class="protocol-governance-workbench__editor-head">
+            <div class="protocol-governance-workbench__editor-copy">
+              <strong>模板回放</strong>
+              <p>输入模板编码和示例载荷，校验当前模板桥接到 legacy 运行时后的提取结果。</p>
+            </div>
+            <div class="protocol-governance-workbench__actions">
+              <StandardButton
+                action="default"
+                data-testid="protocol-template-replay-submit"
+                :disabled="templateReplayLoading"
+                @click="handleReplayTemplate"
+              >
+                {{ templateReplayLoading ? '回放中...' : '运行模板回放' }}
+              </StandardButton>
+            </div>
+          </div>
+
+          <div class="protocol-governance-workbench__form-grid">
+            <label class="protocol-governance-workbench__field">
+              <span>模板编码</span>
+              <input
+                data-testid="protocol-template-replay-template-code"
+                v-model="templateReplayDraft.templateCode"
+                type="text"
+                placeholder="例如 legacy-dp-crack-v1"
+              />
+            </label>
+            <label class="protocol-governance-workbench__field protocol-governance-workbench__field--full">
+              <span>载荷 JSON</span>
+              <textarea
+                data-testid="protocol-template-replay-payload-json"
+                v-model="templateReplayDraft.payloadJson"
+                rows="6"
+                placeholder='例如 {"L1_LF_1":{"2026-04-05T08:23:10.000Z":0.2136}}'
+              />
+            </label>
+          </div>
+
+          <article v-if="templateReplayResult" class="protocol-governance-workbench__preview-result">
+            <strong>最近一次模板回放</strong>
+            <p>{{ templateReplayResult.summary || '--' }}</p>
+            <p>{{ `桥接模板 ${templateReplayResult.resolvedTemplateCode || '--'}` }}</p>
+            <p>{{ `提取子通道 ${(templateReplayResult.extractedChildren ?? []).length}` }}</p>
+          </article>
+        </section>
+
+        <p v-if="templateLoading" class="protocol-governance-workbench__hint">正在加载协议模板...</p>
+        <p v-else-if="templateErrorMessage" class="protocol-governance-workbench__hint">{{ templateErrorMessage }}</p>
+        <template v-else-if="templateRows.length">
+          <div class="protocol-governance-workbench__list">
+            <article
+              v-for="row in templateRows"
+              :key="String(row.id ?? row.templateCode ?? '--')"
+              class="protocol-governance-workbench__item"
+            >
+              <div class="protocol-governance-workbench__item-head">
+                <div class="protocol-governance-workbench__item-title">
+                  <strong>{{ row.templateCode || '--' }}</strong>
+                  <span>{{ `${row.familyCode || '--'} · ${row.protocolCode || '--'}` }}</span>
+                  <span>{{ versionLabel(row.versionNo, row.publishedVersionNo, row.status, row.publishedStatus) }}</span>
+                </div>
+                <span class="protocol-governance-workbench__item-side">
+                  {{ row.displayName || '--' }}
+                </span>
+              </div>
+              <div class="protocol-governance-workbench__actions">
+                <StandardButton
+                  :data-testid="`protocol-template-edit-${row.id}`"
+                  action="default"
+                  @click="applyTemplateDraft(row)"
+                >
+                  编辑草稿
+                </StandardButton>
+                <StandardButton
+                  :data-testid="`protocol-template-detail-${row.id}`"
+                  :disabled="row.id == null || templateDetailLoadingKey === `template-${row.id}`"
+                  action="default"
+                  @click="handleLoadTemplateDetail(row)"
+                >
+                  {{ templateDetailLoadingKey === `template-${row.id}` ? '加载中...' : '查看详情' }}
+                </StandardButton>
+                <StandardButton
+                  :data-testid="`protocol-template-publish-${row.id}`"
+                  :disabled="row.id == null || submittingKey === `template-publish-${row.id}`"
+                  @click="handlePublishTemplate(row)"
+                >
+                  {{ submittingKey === `template-publish-${row.id}` ? '发布中...' : '发布快照' }}
+                </StandardButton>
+              </div>
+            </article>
+          </div>
+        </template>
+        <div v-else class="protocol-governance-workbench__empty">
+          <strong>当前还没有协议模板</strong>
+          <p>先保存模板草稿，再做模板回放和发布快照。</p>
+        </div>
+      </StandardWorkbenchPanel>
     </section>
   </IotAccessPageShell>
 </template>
@@ -451,12 +635,17 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import {
   getProtocolDecryptProfileDetail,
   getProtocolFamilyDetail,
+  getProtocolTemplateDetail,
   pageProtocolDecryptProfiles,
   pageProtocolFamilies,
+  pageProtocolTemplates,
+  publishProtocolTemplate,
   previewProtocolDecrypt,
   replayProtocolDecrypt,
+  replayProtocolTemplate,
   saveProtocolDecryptProfile,
   saveProtocolFamily,
+  saveProtocolTemplate,
   submitProtocolDecryptProfileBatchPublish,
   submitProtocolDecryptProfileBatchRollback,
   submitProtocolDecryptProfilePublish,
@@ -479,7 +668,11 @@ import type {
   ProtocolDecryptProfileUpsertPayload,
   ProtocolGovernanceReplay,
   ProtocolFamilyDefinition,
-  ProtocolFamilyDefinitionUpsertPayload
+  ProtocolFamilyDefinitionUpsertPayload,
+  ProtocolTemplateDefinition,
+  ProtocolTemplateDefinitionUpsertPayload,
+  ProtocolTemplateReplay,
+  ProtocolTemplateReplayPayload
 } from '@/types/api'
 
 interface ProtocolFamilyDraftForm {
@@ -506,36 +699,61 @@ interface ProtocolDecryptPreviewForm {
   appId: string
 }
 
+interface ProtocolTemplateDraftForm {
+  templateCode: string
+  familyCode: string
+  protocolCode: string
+  displayName: string
+  expressionJson: string
+  outputMappingJson: string
+}
+
+interface ProtocolTemplateReplayForm {
+  templateCode: string
+  payloadJson: string
+}
+
 const familyRows = ref<ProtocolFamilyDefinition[]>([])
 const decryptProfileRows = ref<ProtocolDecryptProfile[]>([])
+const templateRows = ref<ProtocolTemplateDefinition[]>([])
 const familyLoading = ref(false)
 const decryptProfileLoading = ref(false)
+const templateLoading = ref(false)
 const familySaving = ref(false)
 const decryptProfileSaving = ref(false)
+const templateSaving = ref(false)
 const familyBatchSubmitting = ref(false)
 const decryptProfileBatchSubmitting = ref(false)
 const previewLoading = ref(false)
 const replayLoading = ref(false)
+const templateReplayLoading = ref(false)
 const familyErrorMessage = ref('')
 const decryptProfileErrorMessage = ref('')
+const templateErrorMessage = ref('')
 const submittingKey = ref('')
 const familyDetailLoadingKey = ref('')
 const decryptProfileDetailLoadingKey = ref('')
+const templateDetailLoadingKey = ref('')
 const editingFamilyCode = ref('')
 const editingDecryptProfileCode = ref('')
+const editingTemplateCode = ref('')
 const selectedFamilyIds = ref<IdType[]>([])
 const selectedDecryptProfileIds = ref<IdType[]>([])
 const previewResult = ref<ProtocolDecryptPreview | null>(null)
 const replayResult = ref<ProtocolGovernanceReplay | null>(null)
+const templateReplayResult = ref<ProtocolTemplateReplay | null>(null)
 
 const familyDraft = reactive<ProtocolFamilyDraftForm>(createEmptyFamilyDraft())
 const decryptProfileDraft = reactive<ProtocolDecryptProfileDraftForm>(createEmptyDecryptProfileDraft())
 const previewDraft = reactive<ProtocolDecryptPreviewForm>(createEmptyPreviewDraft())
+const templateDraft = reactive<ProtocolTemplateDraftForm>(createEmptyTemplateDraft())
+const templateReplayDraft = reactive<ProtocolTemplateReplayForm>(createEmptyTemplateReplayDraft())
 
 const publishedItemCount = computed(() => {
   const familyPublished = familyRows.value.filter((row) => row.publishedStatus === 'PUBLISHED').length
   const profilePublished = decryptProfileRows.value.filter((row) => row.publishedStatus === 'PUBLISHED').length
-  return familyPublished + profilePublished
+  const templatePublished = templateRows.value.filter((row) => row.publishedStatus === 'PUBLISHED').length
+  return familyPublished + profilePublished + templatePublished
 })
 
 const familyDraftModeTitle = computed(() =>
@@ -548,8 +766,12 @@ const decryptProfileDraftModeTitle = computed(() =>
     : '新建解密档案草稿'
 )
 
+const templateDraftModeTitle = computed(() =>
+  editingTemplateCode.value ? `编辑协议模板草稿 · ${editingTemplateCode.value}` : '新建协议模板草稿'
+)
+
 onMounted(() => {
-  void Promise.all([loadFamilies(), loadDecryptProfiles()])
+  void Promise.all([loadFamilies(), loadDecryptProfiles(), loadTemplates()])
 })
 
 function createEmptyFamilyDraft(): ProtocolFamilyDraftForm {
@@ -579,6 +801,24 @@ function createEmptyPreviewDraft(): ProtocolDecryptPreviewForm {
     familyCode: '',
     protocolCode: '',
     appId: ''
+  }
+}
+
+function createEmptyTemplateDraft(): ProtocolTemplateDraftForm {
+  return {
+    templateCode: '',
+    familyCode: '',
+    protocolCode: '',
+    displayName: '',
+    expressionJson: '',
+    outputMappingJson: ''
+  }
+}
+
+function createEmptyTemplateReplayDraft(): ProtocolTemplateReplayForm {
+  return {
+    templateCode: '',
+    payloadJson: ''
   }
 }
 
@@ -683,6 +923,22 @@ function resetDecryptProfileDraft() {
   applyDecryptProfileDraft(createEmptyDecryptProfileDraft())
 }
 
+function applyTemplateDraft(
+  source?: Partial<ProtocolTemplateDefinition> | Partial<ProtocolTemplateDefinitionUpsertPayload> | null
+) {
+  templateDraft.templateCode = source?.templateCode ?? ''
+  templateDraft.familyCode = source?.familyCode ?? ''
+  templateDraft.protocolCode = source?.protocolCode ?? ''
+  templateDraft.displayName = source?.displayName ?? ''
+  templateDraft.expressionJson = source?.expressionJson ?? ''
+  templateDraft.outputMappingJson = source?.outputMappingJson ?? ''
+  editingTemplateCode.value = source?.templateCode ?? ''
+}
+
+function resetTemplateDraft() {
+  applyTemplateDraft(createEmptyTemplateDraft())
+}
+
 async function loadFamilies() {
   familyLoading.value = true
   familyErrorMessage.value = ''
@@ -721,6 +977,23 @@ async function loadDecryptProfiles() {
     decryptProfileErrorMessage.value = resolveRequestErrorMessage(error, '解密档案加载失败')
   } finally {
     decryptProfileLoading.value = false
+  }
+}
+
+async function loadTemplates() {
+  templateLoading.value = true
+  templateErrorMessage.value = ''
+  try {
+    const response = await pageProtocolTemplates({
+      pageNum: 1,
+      pageSize: 20
+    })
+    templateRows.value = response.data?.records ?? []
+  } catch (error) {
+    templateRows.value = []
+    templateErrorMessage.value = resolveRequestErrorMessage(error, '协议模板加载失败')
+  } finally {
+    templateLoading.value = false
   }
 }
 
@@ -776,6 +1049,38 @@ async function handleSaveDecryptProfile() {
   }
 }
 
+async function handleSaveTemplate() {
+  const payload: ProtocolTemplateDefinitionUpsertPayload = {
+    templateCode: trimRequired(templateDraft.templateCode),
+    familyCode: trimRequired(templateDraft.familyCode),
+    protocolCode: trimRequired(templateDraft.protocolCode),
+    displayName: trimRequired(templateDraft.displayName),
+    expressionJson: trimRequired(templateDraft.expressionJson),
+    outputMappingJson: trimOptional(templateDraft.outputMappingJson)
+  }
+  if (
+    !payload.templateCode ||
+    !payload.familyCode ||
+    !payload.protocolCode ||
+    !payload.displayName ||
+    !payload.expressionJson
+  ) {
+    ElMessage.error('模板编码、协议族编码、协议编码、显示名称和表达式 JSON 不能为空')
+    return
+  }
+  templateSaving.value = true
+  try {
+    const response = await saveProtocolTemplate(payload)
+    applyTemplateDraft(response.data ?? payload)
+    ElMessage.success('协议模板草稿已保存')
+    await loadTemplates()
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '协议模板草稿保存失败'))
+  } finally {
+    templateSaving.value = false
+  }
+}
+
 async function handlePreviewDecrypt() {
   previewLoading.value = true
   try {
@@ -810,6 +1115,27 @@ async function handleReplayDecrypt() {
   }
 }
 
+async function handleReplayTemplate() {
+  const payload: ProtocolTemplateReplayPayload = {
+    templateCode: trimRequired(templateReplayDraft.templateCode),
+    payloadJson: trimRequired(templateReplayDraft.payloadJson)
+  }
+  if (!payload.templateCode || !payload.payloadJson) {
+    ElMessage.error('模板编码和载荷 JSON 不能为空')
+    return
+  }
+  templateReplayLoading.value = true
+  try {
+    const response = await replayProtocolTemplate(payload)
+    templateReplayResult.value = response.data ?? null
+  } catch (error) {
+    templateReplayResult.value = null
+    ElMessage.error(resolveRequestErrorMessage(error, '模板回放失败'))
+  } finally {
+    templateReplayLoading.value = false
+  }
+}
+
 async function handleLoadFamilyDetail(row: ProtocolFamilyDefinition) {
   if (row.id == null) {
     return
@@ -837,6 +1163,39 @@ async function handleLoadDecryptProfileDetail(row: ProtocolDecryptProfile) {
     ElMessage.error(resolveRequestErrorMessage(error, '解密档案详情加载失败'))
   } finally {
     decryptProfileDetailLoadingKey.value = ''
+  }
+}
+
+async function handleLoadTemplateDetail(row: ProtocolTemplateDefinition) {
+  if (row.id == null) {
+    return
+  }
+  templateDetailLoadingKey.value = `template-${row.id}`
+  try {
+    const response = await getProtocolTemplateDetail(row.id)
+    applyTemplateDraft(response.data ?? row)
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '协议模板详情加载失败'))
+  } finally {
+    templateDetailLoadingKey.value = ''
+  }
+}
+
+async function handlePublishTemplate(row: ProtocolTemplateDefinition) {
+  if (row.id == null) {
+    return
+  }
+  submittingKey.value = `template-publish-${row.id}`
+  try {
+    await publishProtocolTemplate(row.id, {
+      submitReason: `发布协议模板：${row.templateCode || '--'}`
+    })
+    ElMessage.success('协议模板已发布快照')
+    await loadTemplates()
+  } catch (error) {
+    ElMessage.error(resolveRequestErrorMessage(error, '协议模板发布失败'))
+  } finally {
+    submittingKey.value = ''
   }
 }
 
@@ -1159,6 +1518,29 @@ async function handleSubmitDecryptProfileBatchRollback() {
   outline: 2px solid color-mix(in srgb, var(--brand) 28%, white);
   outline-offset: 1px;
   border-color: color-mix(in srgb, var(--brand) 38%, var(--panel-border));
+}
+
+.protocol-governance-workbench__field textarea {
+  width: 100%;
+  min-height: 5.2rem;
+  padding: 0.58rem 0.72rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.62rem;
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  font: inherit;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.protocol-governance-workbench__field textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--brand) 28%, white);
+  outline-offset: 1px;
+  border-color: color-mix(in srgb, var(--brand) 38%, var(--panel-border));
+}
+
+.protocol-governance-workbench__field--full {
+  grid-column: 1 / -1;
 }
 
 .protocol-governance-workbench__list {

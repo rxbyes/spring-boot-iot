@@ -15,6 +15,11 @@ import type {
   ProtocolDecryptProfileUpsertPayload,
   ProtocolFamilyDefinition,
   ProtocolFamilyDefinitionUpsertPayload,
+  ProtocolTemplateDefinition,
+  ProtocolTemplateDefinitionUpsertPayload,
+  ProtocolTemplateReplay,
+  ProtocolTemplateReplayPayload,
+  ProtocolTemplateSubmitPayload,
   ProtocolGovernancePageQuery
 } from '@/types/api'
 
@@ -177,6 +182,54 @@ export function replayProtocolDecrypt(
   payload: ProtocolGovernanceReplayPayload
 ): Promise<ApiEnvelope<ProtocolGovernanceReplay>> {
   return request<ProtocolGovernanceReplay>('/api/governance/protocol/decrypt-profiles/replay', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function pageProtocolTemplates(
+  params: ProtocolGovernancePageQuery = {}
+): Promise<ApiEnvelope<PageResult<ProtocolTemplateDefinition>>> {
+  const queryString = buildQueryString(params)
+  const path = queryString
+    ? `/api/governance/protocol/templates?${queryString}`
+    : '/api/governance/protocol/templates'
+  return request<PageResult<ProtocolTemplateDefinition>>(path, {
+    method: 'GET'
+  })
+}
+
+export function getProtocolTemplateDetail(
+  templateId: IdType
+): Promise<ApiEnvelope<ProtocolTemplateDefinition>> {
+  return request<ProtocolTemplateDefinition>(`/api/governance/protocol/templates/${templateId}`, {
+    method: 'GET'
+  })
+}
+
+export function saveProtocolTemplate(
+  payload: ProtocolTemplateDefinitionUpsertPayload
+): Promise<ApiEnvelope<ProtocolTemplateDefinition>> {
+  return request<ProtocolTemplateDefinition>('/api/governance/protocol/templates', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function publishProtocolTemplate(
+  templateId: IdType,
+  payload: ProtocolTemplateSubmitPayload = {}
+): Promise<ApiEnvelope<ProtocolTemplateDefinition>> {
+  return request<ProtocolTemplateDefinition>(`/api/governance/protocol/templates/${templateId}/publish`, {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function replayProtocolTemplate(
+  payload: ProtocolTemplateReplayPayload
+): Promise<ApiEnvelope<ProtocolTemplateReplay>> {
+  return request<ProtocolTemplateReplay>('/api/governance/protocol/templates/replay', {
     method: 'POST',
     body: payload
   })

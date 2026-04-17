@@ -30,6 +30,8 @@ DROP TABLE IF EXISTS sys_governance_replay_feedback;
 DROP TABLE IF EXISTS sys_governance_approval_transition;
 DROP TABLE IF EXISTS sys_governance_approval_policy;
 DROP TABLE IF EXISTS sys_governance_approval_order;
+DROP TABLE IF EXISTS iot_protocol_template_definition_snapshot;
+DROP TABLE IF EXISTS iot_protocol_template_definition;
 DROP TABLE IF EXISTS iot_protocol_family_definition_snapshot;
 DROP TABLE IF EXISTS iot_protocol_family_definition;
 DROP TABLE IF EXISTS iot_protocol_decrypt_profile_snapshot;
@@ -1114,6 +1116,50 @@ CREATE TABLE iot_protocol_family_definition_snapshot (
   PRIMARY KEY (id),
   KEY idx_protocol_family_snapshot_lookup (family_id, lifecycle_status, published_version_no, deleted)
 ) COMMENT='协议族定义发布快照表';
+
+-- 表：iot_protocol_template_definition
+-- 说明：协议模板治理主表
+CREATE TABLE iot_protocol_template_definition (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  template_code VARCHAR(128) NOT NULL COMMENT '模板编码',
+  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',
+  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',
+  display_name VARCHAR(255) NOT NULL COMMENT '显示名称',
+  expression_json LONGTEXT NOT NULL COMMENT '表达式JSON',
+  output_mapping_json LONGTEXT DEFAULT NULL COMMENT '输出映射JSON',
+  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态',
+  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by BIGINT DEFAULT NULL COMMENT '更新人',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_protocol_template_definition_code (tenant_id, template_code, deleted)
+) COMMENT='协议模板治理主表';
+
+-- 表：iot_protocol_template_definition_snapshot
+-- 说明：协议模板发布快照表
+CREATE TABLE iot_protocol_template_definition_snapshot (
+  id BIGINT NOT NULL COMMENT '主键ID',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  template_id BIGINT NOT NULL COMMENT '协议模板主表ID',
+  template_code VARCHAR(128) NOT NULL COMMENT '模板编码',
+  family_code VARCHAR(128) NOT NULL COMMENT '协议族编码',
+  protocol_code VARCHAR(64) NOT NULL COMMENT '协议编码',
+  published_version_no INT NOT NULL COMMENT '发布版本号',
+  snapshot_json LONGTEXT NOT NULL COMMENT '发布快照',
+  lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '生命周期状态',
+  approval_order_id BIGINT DEFAULT NULL COMMENT '审批主单ID',
+  submit_reason VARCHAR(255) DEFAULT NULL COMMENT '提交原因',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+  PRIMARY KEY (id),
+  KEY idx_protocol_template_snapshot_lookup (template_id, lifecycle_status, published_version_no, deleted)
+) COMMENT='协议模板发布快照表';
 
 -- 表：sys_governance_approval_order
 -- 说明：治理审批工单表
