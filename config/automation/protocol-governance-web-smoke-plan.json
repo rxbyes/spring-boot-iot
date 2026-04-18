@@ -428,6 +428,250 @@
           "value": "提取子通道 1"
         }
       ]
+    },
+    {
+      "key": "protocol-governance-detail-and-publish",
+      "name": "协议治理详情与模板发布",
+      "route": "/protocol-governance",
+      "scope": "delivery",
+      "readySelector": "[data-testid='protocol-family-save']",
+      "requiresLogin": true,
+      "description": "验证详情接口会把草稿编辑区回填到服务端最新值，并完成模板发布快照。",
+      "businessFlow": "详情加载 / 草稿回填 / 模板发布快照",
+      "featurePoints": [
+        "协议族详情可回填草稿区",
+        "解密档案详情可回填草稿区",
+        "协议模板详情可回填草稿区",
+        "协议模板可发布快照"
+      ],
+      "steps": [
+        {
+          "id": "protocol-governance-detail-assert-route",
+          "label": "断言进入协议治理路由",
+          "type": "assertUrlIncludes",
+          "value": "/protocol-governance"
+        },
+        {
+          "id": "protocol-governance-family-detail-overwrite-display-name",
+          "label": "先覆盖协议族名称输入框",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-display-name"
+          },
+          "value": "临时协议族名称"
+        },
+        {
+          "id": "protocol-governance-family-detail-open",
+          "label": "打开协议族详情",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/families/",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": ".protocol-governance-workbench__item:has-text(\"autotest-family-${runToken}\") [data-testid^='protocol-family-detail-']"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-family-detail-assert-display-name",
+          "label": "断言协议族详情回填显示名称",
+          "type": "assertValue",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-display-name"
+          },
+          "value": "自动化协议族 ${runToken}"
+        },
+        {
+          "id": "protocol-governance-profile-detail-overwrite-merchant-key",
+          "label": "先覆盖商户键输入框",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-merchant-key"
+          },
+          "value": "temporary-merchant-key"
+        },
+        {
+          "id": "protocol-governance-profile-detail-open",
+          "label": "打开解密档案详情",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/decrypt-profiles/",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": ".protocol-governance-workbench__item:has-text(\"autotest-profile-${runToken}\") [data-testid^='protocol-profile-detail-']"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-profile-detail-assert-merchant-key",
+          "label": "断言解密档案详情回填商户键",
+          "type": "assertValue",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-merchant-key"
+          },
+          "value": "autotest-profile-${runToken}"
+        },
+        {
+          "id": "protocol-governance-template-detail-overwrite-display-name",
+          "label": "先覆盖模板名称输入框",
+          "type": "fill",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-display-name"
+          },
+          "value": "临时模板名称"
+        },
+        {
+          "id": "protocol-governance-template-detail-open",
+          "label": "打开协议模板详情",
+          "type": "triggerApi",
+          "matcher": "/api/governance/protocol/templates/",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": ".protocol-governance-workbench__item:has-text(\"autotest-template-${runToken}\") [data-testid^='protocol-template-detail-']"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-template-detail-assert-display-name",
+          "label": "断言协议模板详情回填名称",
+          "type": "assertValue",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-template-display-name"
+          },
+          "value": "自动化协议模板 ${runToken}"
+        },
+        {
+          "id": "protocol-governance-template-publish",
+          "label": "发布协议模板快照",
+          "type": "triggerApi",
+          "matcher": "/publish",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": ".protocol-governance-workbench__item:has-text(\"autotest-template-${runToken}\") [data-testid^='protocol-template-publish-']"
+            }
+          }
+        },
+        {
+          "id": "protocol-governance-template-publish-sleep",
+          "label": "等待模板发布后列表刷新",
+          "type": "sleep",
+          "timeout": 300
+        },
+        {
+          "id": "protocol-governance-template-publish-assert-route",
+          "label": "断言模板发布后仍停留在工作台",
+          "type": "assertUrlIncludes",
+          "value": "/protocol-governance"
+        },
+        {
+          "id": "protocol-governance-template-publish-assert-row",
+          "label": "断言模板发布后列表仍可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "autotest-template-${runToken}"
+        }
+      ]
+    },
+    {
+      "key": "protocol-governance-batch-guards",
+      "name": "协议治理批量回滚前端约束",
+      "route": "/protocol-governance",
+      "scope": "delivery",
+      "readySelector": "[data-testid='protocol-family-save']",
+      "requiresLogin": true,
+      "description": "验证未发布记录命中批量回滚时会在前端直接拦截，而不会继续写审批链路。",
+      "businessFlow": "批量选择 / 前端约束 / 错误提示",
+      "featurePoints": [
+        "协议族未发布记录批量回滚会前端拦截",
+        "解密档案未发布记录批量回滚会前端拦截"
+      ],
+      "steps": [
+        {
+          "id": "protocol-governance-batch-guards-assert-route",
+          "label": "断言进入协议治理路由",
+          "type": "assertUrlIncludes",
+          "value": "/protocol-governance"
+        },
+        {
+          "id": "protocol-governance-family-batch-select-unpublished",
+          "label": "勾选未发布协议族记录",
+          "type": "setChecked",
+          "locator": {
+            "type": "css",
+            "value": ".protocol-governance-workbench__item:has-text(\"autotest-family-${runToken}\") input[type='checkbox']"
+          },
+          "value": true
+        },
+        {
+          "id": "protocol-governance-family-batch-rollback-guard",
+          "label": "触发协议族批量回滚拦截",
+          "type": "click",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-family-batch-submit-rollback"
+          }
+        },
+        {
+          "id": "protocol-governance-family-batch-rollback-guard-sleep",
+          "label": "等待协议族错误提示出现",
+          "type": "sleep",
+          "timeout": 300
+        },
+        {
+          "id": "protocol-governance-family-batch-rollback-guard-assert-error",
+          "label": "断言协议族批量回滚前端错误提示",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "仅已发布协议族定义支持回滚，请先选择已发布记录"
+        },
+        {
+          "id": "protocol-governance-family-batch-unselect-unpublished",
+          "label": "取消勾选未发布协议族记录",
+          "type": "setChecked",
+          "locator": {
+            "type": "css",
+            "value": ".protocol-governance-workbench__item:has-text(\"autotest-family-${runToken}\") input[type='checkbox']"
+          },
+          "value": false
+        },
+        {
+          "id": "protocol-governance-profile-batch-select-unpublished",
+          "label": "勾选未发布解密档案记录",
+          "type": "setChecked",
+          "locator": {
+            "type": "css",
+            "value": ".protocol-governance-workbench__item:has-text(\"autotest-profile-${runToken}\") input[type='checkbox']"
+          },
+          "value": true
+        },
+        {
+          "id": "protocol-governance-profile-batch-rollback-guard",
+          "label": "断言解密档案批量回滚按钮保持禁用",
+          "type": "assertDisabled",
+          "locator": {
+            "type": "testId",
+            "value": "protocol-profile-batch-submit-rollback"
+          }
+        }
+      ]
     }
   ]
 }
