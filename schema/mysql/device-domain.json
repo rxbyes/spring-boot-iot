@@ -257,6 +257,164 @@
       "businessBoundary": "用于产品物模型表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
+      "name": "iot_device_onboarding_case",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备无代码接入案例表",
+      "commentZh": "设备无代码接入案例表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "case_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "案例编码"
+        },
+        {
+          "name": "case_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "案例名称"
+        },
+        {
+          "name": "scenario_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "场景编码"
+        },
+        {
+          "name": "device_family",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备族"
+        },
+        {
+          "name": "protocol_family_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议族编码"
+        },
+        {
+          "name": "decrypt_profile_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "解密档案编码"
+        },
+        {
+          "name": "protocol_template_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议模板编码"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "release_batch_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "合同发布批次ID"
+        },
+        {
+          "name": "current_step",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE'",
+          "commentZh": "当前步骤"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'BLOCKED'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "blocker_summary_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "阻塞摘要JSON"
+        },
+        {
+          "name": "evidence_summary_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "证据摘要JSON"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人用户ID"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人用户ID"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_onboarding_case_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "case_code"
+          ]
+        },
+        {
+          "name": "idx_onboarding_case_step_status",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "current_step",
+            "status"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "用于无代码接入案例的流程编排、步骤状态和阻塞摘要持久化，不承载协议或合同正式真相。"
+    },
+    {
       "name": "iot_normative_metric_definition",
       "storageType": "mysql_table",
       "ownerModule": "spring-boot-iot-device",

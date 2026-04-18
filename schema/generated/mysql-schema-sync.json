@@ -2611,6 +2611,137 @@
           "name": "tenant_id"
         },
         {
+          "commentZh": "案例编码",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "case_code"
+        },
+        {
+          "commentZh": "案例名称",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "case_name"
+        },
+        {
+          "commentZh": "场景编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "scenario_code"
+        },
+        {
+          "commentZh": "设备族",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "device_family"
+        },
+        {
+          "commentZh": "协议族编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "protocol_family_code"
+        },
+        {
+          "commentZh": "解密档案编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "decrypt_profile_code"
+        },
+        {
+          "commentZh": "协议模板编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "protocol_template_code"
+        },
+        {
+          "commentZh": "产品ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "合同发布批次ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "release_batch_id"
+        },
+        {
+          "commentZh": "当前步骤",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE'",
+          "isTag": false,
+          "name": "current_step"
+        },
+        {
+          "commentZh": "状态",
+          "definition": "VARCHAR(32) NOT NULL DEFAULT 'BLOCKED'",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "阻塞摘要JSON",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "blocker_summary_json"
+        },
+        {
+          "commentZh": "证据摘要JSON",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "evidence_summary_json"
+        },
+        {
+          "commentZh": "备注",
+          "definition": "VARCHAR(500) DEFAULT NULL",
+          "isTag": false,
+          "name": "remark"
+        },
+        {
+          "commentZh": "创建人用户ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "更新人用户ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "update_by"
+        },
+        {
+          "commentZh": "更新时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "update_time"
+        },
+        {
+          "commentZh": "逻辑删除标记",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_device_onboarding_case"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
           "commentZh": "产品ID",
           "definition": "BIGINT NOT NULL",
           "isTag": false,
@@ -6831,6 +6962,10 @@
       "sql": "-- 表：iot_device_metric_latest\n-- 说明：时序最新值投影表\nCREATE TABLE iot_device_metric_latest (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  tenant_id BIGINT NOT NULL COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  metric_id VARCHAR(128) NOT NULL COMMENT '指标唯一键',\n  metric_code VARCHAR(128) NOT NULL COMMENT '指标编码',\n  metric_name VARCHAR(128) DEFAULT NULL COMMENT '指标名称',\n  value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',\n  value_double DOUBLE DEFAULT NULL COMMENT '数值',\n  value_long BIGINT DEFAULT NULL COMMENT '整数值',\n  value_bool TINYINT(1) DEFAULT NULL COMMENT '布尔值',\n  value_text TEXT DEFAULT NULL COMMENT '文本值',\n  quality_code VARCHAR(32) DEFAULT NULL COMMENT '质量编码',\n  alarm_flag TINYINT(1) DEFAULT NULL COMMENT '告警标记',\n  reported_at DATETIME DEFAULT NULL COMMENT '设备上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),\n  KEY idx_tel_latest_device_reported (device_id, reported_at)\n) COMMENT='时序最新值投影表';"
     },
     {
+      "name": "iot_device_onboarding_case",
+      "sql": "-- 表：iot_device_onboarding_case\n-- 说明：设备无代码接入案例表\nCREATE TABLE iot_device_onboarding_case (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  case_code VARCHAR(64) NOT NULL COMMENT '案例编码',\n  case_name VARCHAR(128) NOT NULL COMMENT '案例名称',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族',\n  protocol_family_code VARCHAR(64) DEFAULT NULL COMMENT '协议族编码',\n  decrypt_profile_code VARCHAR(64) DEFAULT NULL COMMENT '解密档案编码',\n  protocol_template_code VARCHAR(64) DEFAULT NULL COMMENT '协议模板编码',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '合同发布批次ID',\n  current_step VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE' COMMENT '当前步骤',\n  status VARCHAR(32) NOT NULL DEFAULT 'BLOCKED' COMMENT '状态',\n  blocker_summary_json JSON DEFAULT NULL COMMENT '阻塞摘要JSON',\n  evidence_summary_json JSON DEFAULT NULL COMMENT '证据摘要JSON',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_onboarding_case_code (tenant_id, case_code),\n  KEY idx_onboarding_case_step_status (tenant_id, current_step, status)\n) COMMENT='设备无代码接入案例表';"
+    },
+    {
       "name": "iot_device_online_session",
       "sql": "-- 表：iot_device_online_session\n-- 说明：设备在线会话表\nCREATE TABLE iot_device_online_session (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  device_code VARCHAR(64) NOT NULL COMMENT '设备编码',\n  online_time DATETIME NOT NULL COMMENT '会话开始时间',\n  last_seen_time DATETIME DEFAULT NULL COMMENT '会话最后活跃时间',\n  offline_time DATETIME DEFAULT NULL COMMENT '会话结束时间',\n  duration_minutes BIGINT DEFAULT NULL COMMENT '在线时长（分钟）',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_online_session_device_active (deleted, device_id, offline_time),\n  KEY idx_online_session_product_time (deleted, product_id, online_time, offline_time)\n) COMMENT='设备在线会话表';"
     },
@@ -7682,6 +7817,35 @@
         }
       ],
       "name": "iot_device_metric_latest"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "tenant_id",
+            "case_code"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_onboarding_case_code"
+        },
+        {
+          "columns": [
+            "tenant_id",
+            "current_step",
+            "status"
+          ],
+          "kind": "INDEX",
+          "name": "idx_onboarding_case_step_status"
+        }
+      ],
+      "name": "iot_device_onboarding_case"
     },
     {
       "indexes": [
@@ -9022,6 +9186,7 @@
     "iot_device_invalid_report_state": "active",
     "iot_device_message_log": "active",
     "iot_device_metric_latest": "active",
+    "iot_device_onboarding_case": "active",
     "iot_device_online_session": "active",
     "iot_device_property": "active",
     "iot_device_relation": "active",

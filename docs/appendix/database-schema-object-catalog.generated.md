@@ -25,6 +25,7 @@ Generated from the schema registry. Do not edit by hand.
 | iot_device_invalid_report_state | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 无效 MQTT 上报最新态表 |
 | iot_device_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
 | iot_device_metric_latest | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 时序最新值投影表 |
+| iot_device_onboarding_case | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备无代码接入案例表 |
 | iot_device_online_session | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备在线会话表 |
 | iot_device_property | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备最新属性表 |
 | iot_device_relation | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备逻辑通道关系表 |

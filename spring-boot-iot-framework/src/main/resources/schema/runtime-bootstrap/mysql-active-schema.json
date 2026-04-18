@@ -2105,6 +2105,109 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `case_code` VARCHAR(64) NOT NULL COMMENT '案例编码'",
+          "name": "case_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `case_name` VARCHAR(128) NOT NULL COMMENT '案例名称'",
+          "name": "case_name"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `scenario_code` VARCHAR(64) DEFAULT NULL COMMENT '场景编码'",
+          "name": "scenario_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `device_family` VARCHAR(64) DEFAULT NULL COMMENT '设备族'",
+          "name": "device_family"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `protocol_family_code` VARCHAR(64) DEFAULT NULL COMMENT '协议族编码'",
+          "name": "protocol_family_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `decrypt_profile_code` VARCHAR(64) DEFAULT NULL COMMENT '解密档案编码'",
+          "name": "decrypt_profile_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `protocol_template_code` VARCHAR(64) DEFAULT NULL COMMENT '协议模板编码'",
+          "name": "protocol_template_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `product_id` BIGINT DEFAULT NULL COMMENT '产品ID'",
+          "name": "product_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `release_batch_id` BIGINT DEFAULT NULL COMMENT '合同发布批次ID'",
+          "name": "release_batch_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `current_step` VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE' COMMENT '当前步骤'",
+          "name": "current_step"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT 'BLOCKED' COMMENT '状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `blocker_summary_json` JSON DEFAULT NULL COMMENT '阻塞摘要JSON'",
+          "name": "blocker_summary_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `evidence_summary_json` JSON DEFAULT NULL COMMENT '证据摘要JSON'",
+          "name": "evidence_summary_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注'",
+          "name": "remark"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人用户ID'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `update_by` BIGINT DEFAULT NULL COMMENT '更新人用户ID'",
+          "name": "update_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+          "name": "update_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_device_onboarding_case\n-- 说明：设备无代码接入案例表\nCREATE TABLE IF NOT EXISTS iot_device_onboarding_case (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  case_code VARCHAR(64) NOT NULL COMMENT '案例编码',\n  case_name VARCHAR(128) NOT NULL COMMENT '案例名称',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族',\n  protocol_family_code VARCHAR(64) DEFAULT NULL COMMENT '协议族编码',\n  decrypt_profile_code VARCHAR(64) DEFAULT NULL COMMENT '解密档案编码',\n  protocol_template_code VARCHAR(64) DEFAULT NULL COMMENT '协议模板编码',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  release_batch_id BIGINT DEFAULT NULL COMMENT '合同发布批次ID',\n  current_step VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE' COMMENT '当前步骤',\n  status VARCHAR(32) NOT NULL DEFAULT 'BLOCKED' COMMENT '状态',\n  blocker_summary_json JSON DEFAULT NULL COMMENT '阻塞摘要JSON',\n  evidence_summary_json JSON DEFAULT NULL COMMENT '证据摘要JSON',\n  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_onboarding_case_code (tenant_id, case_code),\n  KEY idx_onboarding_case_step_status (tenant_id, current_step, status)\n) COMMENT='设备无代码接入案例表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD UNIQUE INDEX `uk_onboarding_case_code` (`tenant_id`, `case_code`)",
+          "name": "uk_onboarding_case_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_device_onboarding_case` ADD INDEX `idx_onboarding_case_step_status` (`tenant_id`, `current_step`, `status`)",
+          "name": "idx_onboarding_case_step_status"
+        }
+      ],
+      "name": "iot_device_onboarding_case",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `iot_device_online_session` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
           "name": "id"
         },

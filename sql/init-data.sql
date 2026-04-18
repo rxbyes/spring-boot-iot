@@ -155,6 +155,7 @@ INSERT INTO sys_menu (
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
+    (93001008, 1, 93000001, '无代码接入台', 'iot:device-onboarding', '/device-onboarding', 'DeviceOnboardingWorkbenchView', 'guide', '{"caption":"统一查看接入案例、阻塞原因和下一步动作"}', 10, 1, 1, '/device-onboarding', 'iot:device-onboarding', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001003, 1, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -311,6 +312,7 @@ VALUES
     (96010044, 1, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
     (96010045, 1, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
     (96010046, 1, @role_management_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010170, 1, @role_management_id, 93001008, 1, NOW(), 1, NOW(), 0),
     (96010052, 1, @role_management_id, 93001001, 1, NOW(), 1, NOW(), 0),
     (96010047, 1, @role_management_id, 93001002, 1, NOW(), 1, NOW(), 0),
     (96010048, 1, @role_management_id, 93001101, 1, NOW(), 1, NOW(), 0),
@@ -339,6 +341,7 @@ VALUES
     (96010143, 1, @role_management_id, 93003020, 1, NOW(), 1, NOW(), 0),
 
     (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010171, 1, @role_ops_id, 93001008, 1, NOW(), 1, NOW(), 0),
     (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
     (96010063, 1, @role_ops_id, 93001002, 1, NOW(), 1, NOW(), 0),
     (96010064, 1, @role_ops_id, 93001003, 1, NOW(), 1, NOW(), 0),
@@ -369,6 +372,7 @@ VALUES
     (96010154, 1, @role_ops_id, 93003025, 1, NOW(), 1, NOW(), 0),
 
     (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
+    (96010172, 1, @role_developer_id, 93001008, 1, NOW(), 1, NOW(), 0),
     (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
     (96010093, 1, @role_developer_id, 93001002, 1, NOW(), 1, NOW(), 0),
     (96010094, 1, @role_developer_id, 93001003, 1, NOW(), 1, NOW(), 0),

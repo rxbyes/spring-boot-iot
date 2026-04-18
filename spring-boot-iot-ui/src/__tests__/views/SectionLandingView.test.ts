@@ -152,6 +152,7 @@ describe('SectionLandingView', () => {
     expect(wrapper.text()).toContain('链路追踪台')
     expect(wrapper.text()).toContain('异常观测台')
     expect(wrapper.text()).toContain('数据校验台')
+    expect(wrapper.text()).toContain('无代码接入台')
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('设备资产中心')
     expect(wrapper.text()).not.toContain('QUIET CONSOLE')

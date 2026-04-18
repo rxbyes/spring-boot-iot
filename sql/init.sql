@@ -51,6 +51,7 @@ DROP TABLE IF EXISTS iot_device_secret_rotation_log;
 DROP TABLE IF EXISTS iot_device_relation;
 DROP TABLE IF EXISTS iot_device_property;
 DROP TABLE IF EXISTS iot_device_online_session;
+DROP TABLE IF EXISTS iot_device_onboarding_case;
 DROP TABLE IF EXISTS iot_device_metric_latest;
 DROP TABLE IF EXISTS iot_device_message_log;
 DROP TABLE IF EXISTS iot_device_invalid_report_state;
@@ -662,6 +663,35 @@ CREATE TABLE iot_device_metric_latest (
   UNIQUE KEY uk_tel_latest_tenant_device_metric (tenant_id, device_id, metric_id),
   KEY idx_tel_latest_device_reported (device_id, reported_at)
 ) COMMENT='时序最新值投影表';
+
+-- 表：iot_device_onboarding_case
+-- 说明：设备无代码接入案例表
+CREATE TABLE iot_device_onboarding_case (
+  id BIGINT NOT NULL COMMENT '主键',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  case_code VARCHAR(64) NOT NULL COMMENT '案例编码',
+  case_name VARCHAR(128) NOT NULL COMMENT '案例名称',
+  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',
+  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族',
+  protocol_family_code VARCHAR(64) DEFAULT NULL COMMENT '协议族编码',
+  decrypt_profile_code VARCHAR(64) DEFAULT NULL COMMENT '解密档案编码',
+  protocol_template_code VARCHAR(64) DEFAULT NULL COMMENT '协议模板编码',
+  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+  release_batch_id BIGINT DEFAULT NULL COMMENT '合同发布批次ID',
+  current_step VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE' COMMENT '当前步骤',
+  status VARCHAR(32) NOT NULL DEFAULT 'BLOCKED' COMMENT '状态',
+  blocker_summary_json JSON DEFAULT NULL COMMENT '阻塞摘要JSON',
+  evidence_summary_json JSON DEFAULT NULL COMMENT '证据摘要JSON',
+  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_onboarding_case_code (tenant_id, case_code),
+  KEY idx_onboarding_case_step_status (tenant_id, current_step, status)
+) COMMENT='设备无代码接入案例表';
 
 -- 表：iot_device_online_session
 -- 说明：设备在线会话表

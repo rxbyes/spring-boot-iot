@@ -13,6 +13,63 @@ export interface PageResult<T> {
   records: T[];
 }
 
+export type DeviceOnboardingCaseCurrentStep =
+  | 'PROTOCOL_GOVERNANCE'
+  | 'PRODUCT_GOVERNANCE'
+  | 'CONTRACT_RELEASE'
+  | 'ACCEPTANCE';
+
+export type DeviceOnboardingCaseStatus = 'BLOCKED' | 'IN_PROGRESS' | 'READY';
+
+export interface DeviceOnboardingCase {
+  id: IdType;
+  tenantId?: IdType | null;
+  caseCode: string;
+  caseName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  productId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  currentStep: DeviceOnboardingCaseCurrentStep;
+  status: DeviceOnboardingCaseStatus;
+  blockers: string[];
+  remark?: string | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface DeviceOnboardingCasePageQuery {
+  tenantId?: IdType | null;
+  keyword?: string;
+  status?: DeviceOnboardingCaseStatus | '';
+  currentStep?: DeviceOnboardingCaseCurrentStep | '';
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface DeviceOnboardingCaseUpsertPayload {
+  tenantId?: IdType | null;
+  caseCode: string;
+  caseName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  productId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  remark?: string | null;
+}
+
+export type DeviceOnboardingCaseCreatePayload = DeviceOnboardingCaseUpsertPayload;
+
+export type DeviceOnboardingCaseUpdatePayload = DeviceOnboardingCaseUpsertPayload;
+
 export interface StatsBucket {
   label: string;
   value: string;

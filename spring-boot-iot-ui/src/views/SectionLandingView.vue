@@ -103,7 +103,7 @@ const landingTabs = [
   { key: 'asset', label: '资产底座' },
   { key: 'diagnostics', label: '诊断排障' }
 ] as const
-const assetPaths = new Set(['/products', '/devices'])
+const assetPaths = new Set(['/device-onboarding', '/products', '/devices'])
 
 const accessibleCards = computed(() => {
   const cards = config.value?.cards || []

@@ -44,6 +44,12 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/protocol-governance')
   },
   {
+    path: '/device-onboarding',
+    name: 'device-onboarding',
+    component: () => import('../views/DeviceOnboardingWorkbenchView.vue'),
+    meta: routeMeta('/device-onboarding')
+  },
+  {
     path: '/devices',
     name: 'devices',
     component: () => import('../views/DeviceWorkbenchView.vue'),
