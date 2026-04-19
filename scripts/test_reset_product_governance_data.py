@@ -114,6 +114,65 @@ class ProductGovernanceResetScriptTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.module.assert_execute_allowed(args)
 
+    def test_render_scope_clause_supports_all_tenant_and_product_filters(self) -> None:
+        self.assertEqual("", self.module.render_scope_clause(None, []))
+        self.assertIn("tenant_id = %s", self.module.render_scope_clause("2001", []))
+        self.assertIn("product_id IN (%s,%s)", self.module.render_scope_clause(None, ["1001", "1002"]))
+
+    def test_cross_domain_operations_include_onboarding_and_governance_cleanup(self) -> None:
+        plan = self.module.build_cleanup_plan("2001", ["1001"], "dry-run")
+        operation_keys = {(item["table"], item["action"]) for item in plan["operations"]}
+
+        self.assertIn(("iot_device_onboarding_case", "reset-release-batch"), operation_keys)
+        self.assertIn(("iot_governance_work_item", "conditional-delete"), operation_keys)
+        self.assertIn(("sys_governance_approval_order", "conditional-delete"), operation_keys)
+
+    def test_build_cleanup_plan_keeps_approval_scope_dependencies_before_release_deletes(self) -> None:
+        plan = self.module.build_cleanup_plan("2001", ["1001"], "dry-run")
+        ordered_tables = [item["table"] for item in plan["operations"]]
+
+        self.assertLess(
+            ordered_tables.index("sys_governance_approval_order"),
+            ordered_tables.index("iot_product_contract_release_batch"),
+        )
+        self.assertLess(
+            ordered_tables.index("sys_governance_approval_order"),
+            ordered_tables.index("iot_vendor_metric_mapping_rule"),
+        )
+
+    def test_operation_sql_scopes_approval_orders_by_product_release_and_rule_subjects(self) -> None:
+        sql, params = self.module.operation_sql(
+            {"table": "sys_governance_approval_order", "action": "conditional-delete"},
+            {"tenantId": None, "productIds": ["1001"], "scopeType": "product_ids"},
+        )
+
+        self.assertIn("subject_type = 'PRODUCT'", sql)
+        self.assertIn("subject_type = 'RELEASE_BATCH'", sql)
+        self.assertIn("subject_type = 'VENDOR_MAPPING_RULE'", sql)
+        self.assertIn("work_item_id IN (SELECT id FROM iot_governance_work_item", sql)
+        self.assertIn("1001", [str(item) for item in params])
+
+    def test_operation_sql_resets_onboarding_case_to_contract_release_in_progress(self) -> None:
+        sql, params = self.module.operation_sql(
+            {"table": "iot_device_onboarding_case", "action": "reset-release-batch"},
+            {"tenantId": "2001", "productIds": ["1001"], "scopeType": "product_ids"},
+        )
+
+        self.assertIn("release_batch_id = NULL", sql)
+        self.assertIn("current_step = 'CONTRACT_RELEASE'", sql)
+        self.assertIn("status = 'IN_PROGRESS'", sql)
+        self.assertEqual(("1001",), params)
+
+    def test_parse_jdbc_url_extracts_host_port_database_and_query(self) -> None:
+        parsed = self.module.parse_jdbc_url(
+            "jdbc:mysql://127.0.0.1:3306/rm_iot?useUnicode=true&characterEncoding=utf8mb4"
+        )
+
+        self.assertEqual("127.0.0.1", parsed["host"])
+        self.assertEqual(3306, parsed["port"])
+        self.assertEqual("rm_iot", parsed["database"])
+        self.assertEqual(["utf8mb4"], parsed["query"]["characterEncoding"])
+
 
 if __name__ == "__main__":
     unittest.main()
