@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 
@@ -107,10 +108,49 @@ def build_cleanup_plan(
     }
 
 
+def write_backup_manifest(output_dir: Path, plan: dict[str, object]) -> Path:
+    """Persist the current cleanup plan as a backup manifest."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / f"product-governance-reset-{datetime.now():%Y%m%d%H%M%S}.json"
+    manifest_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    return manifest_path
+
+
+def operation_sql(operation: dict[str, str]) -> str:
+    """Build the SQL statement for a single cleanup operation."""
+    if operation["action"] in {"delete", "conditional-delete"}:
+        return f"DELETE FROM {operation['table']} WHERE deleted = 0"
+    if operation["table"] == "iot_product":
+        return "UPDATE iot_product SET metadata_json = NULL WHERE deleted = 0"
+    if operation["table"] == "iot_device_onboarding_case":
+        return "UPDATE iot_device_onboarding_case SET release_batch_id = NULL WHERE deleted = 0"
+    raise ValueError(f"Unsupported operation: {operation}")
+
+
+def execute_cleanup_plan(connection, plan: dict[str, object]) -> None:
+    """Execute the current cleanup plan against an open DB connection."""
+    with connection:
+        cursor = connection.cursor()
+        for operation in plan["operations"]:
+            cursor.execute(operation_sql(operation))
+        connection.commit()
+
+
+def assert_execute_allowed(args: argparse.Namespace) -> None:
+    """Prevent execute mode from running without explicit confirmation."""
+    if args.mode == "execute" and (not args.execute or not args.confirm):
+        raise RuntimeError("Execute mode requires both --execute and --confirm")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print the current cleanup plan in JSON form."""
     args = parse_args(argv)
+    assert_execute_allowed(args)
     plan = build_cleanup_plan(args.tenant_id, args.product_ids, args.mode)
+    if args.mode == "backup":
+        manifest_path = write_backup_manifest(REPO_ROOT / "tmp" / "product-governance-reset", plan)
+        print(json.dumps({"backupManifest": str(manifest_path)}, ensure_ascii=False))
+        return 0
     print(json.dumps(plan, ensure_ascii=False, indent=2))
     return 0
 

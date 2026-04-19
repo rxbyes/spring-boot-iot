@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -65,6 +66,53 @@ class ProductGovernanceResetScriptTest(unittest.TestCase):
         self.assertIn("user", defaults)
         self.assertIn("password", defaults)
         self.assertTrue(defaults["jdbc_url"].startswith("jdbc:mysql://"))
+
+    def test_write_backup_manifest_persists_json_summary(self) -> None:
+        output_dir = Path(tempfile.mkdtemp())
+        plan = self.module.build_cleanup_plan(None, [], "backup")
+
+        manifest_path = self.module.write_backup_manifest(output_dir, plan)
+
+        self.assertTrue(manifest_path.exists())
+        self.assertEqual(".json", manifest_path.suffix)
+        self.assertIn("product-governance-reset", manifest_path.name)
+        self.assertIn('"mode": "backup"', manifest_path.read_text(encoding="utf-8"))
+
+    def test_execute_cleanup_plan_runs_delete_then_update_in_order(self) -> None:
+        statements: list[tuple[str, tuple[object, ...]]] = []
+
+        class FakeCursor:
+            def execute(self, sql, params=()):
+                statements.append((str(sql).strip(), tuple(params)))
+
+        class FakeConnection:
+            def cursor(self):
+                return FakeCursor()
+
+            def commit(self):
+                statements.append(("COMMIT", ()))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        self.module.execute_cleanup_plan(
+            FakeConnection(),
+            self.module.build_cleanup_plan("2001", ["1001"], "execute"),
+        )
+
+        self.assertTrue(statements[0][0].startswith("DELETE FROM risk_metric_linkage_binding"))
+        self.assertTrue(any(sql.startswith("UPDATE iot_product") for sql, _ in statements))
+        self.assertTrue(any(sql.startswith("UPDATE iot_device_onboarding_case") for sql, _ in statements))
+        self.assertEqual("COMMIT", statements[-1][0])
+
+    def test_assert_execute_allowed_requires_execute_and_confirm(self) -> None:
+        args = self.module.parse_args(["--mode", "execute"])
+
+        with self.assertRaises(RuntimeError):
+            self.module.assert_execute_allowed(args)
 
 
 if __name__ == "__main__":
