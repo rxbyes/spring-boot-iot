@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import re
 from pathlib import Path
 
 
@@ -59,3 +61,59 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm", action="store_true")
     return parser.parse_args(argv)
+
+
+def extract_default(text: str, env_name: str) -> str:
+    """Extract the default value from a Spring placeholder."""
+    match = re.search(rf"{env_name}:([^}}]+)}}", text)
+    if not match:
+        raise RuntimeError(f"Unable to resolve {env_name} from {APP_DEV_PATH}")
+    return match.group(1).strip()
+
+
+def load_dev_defaults() -> dict[str, str]:
+    """Read the default MySQL connection settings from application-dev.yml."""
+    text = APP_DEV_PATH.read_text(encoding="utf-8")
+    return {
+        "jdbc_url": extract_default(text, "IOT_MYSQL_URL"),
+        "user": extract_default(text, "IOT_MYSQL_USERNAME"),
+        "password": extract_default(text, "IOT_MYSQL_PASSWORD"),
+    }
+
+
+def build_cleanup_plan(
+    tenant_id: str | None,
+    product_ids: list[str],
+    mode: str,
+) -> dict[str, object]:
+    """Build the dry-run cleanup manifest for later execution stages."""
+    normalized_product_ids = [item for item in product_ids if str(item).strip()]
+    operations = [{"table": table, "action": "delete"} for table in DELETE_TABLES]
+    operations.extend({"table": table, "action": "conditional-delete"} for table in CONDITIONAL_DELETE_TABLES)
+    operations.append({"table": "iot_product", "action": "reset-metadata"})
+    operations.append({"table": "iot_device_onboarding_case", "action": "reset-release-batch"})
+    return {
+        "mode": mode,
+        "scope": {
+            "tenantId": tenant_id,
+            "productIds": normalized_product_ids,
+            "scopeType": "product_ids" if normalized_product_ids else ("tenant" if tenant_id else "all"),
+        },
+        "operations": operations,
+        "metadata_reset": {
+            "table": "iot_product",
+            "paths": ["objectInsight.customMetrics"],
+        },
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Print the current cleanup plan in JSON form."""
+    args = parse_args(argv)
+    plan = build_cleanup_plan(args.tenant_id, args.product_ids, args.mode)
+    print(json.dumps(plan, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

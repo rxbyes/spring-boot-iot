@@ -46,6 +46,26 @@ class ProductGovernanceResetScriptTest(unittest.TestCase):
         self.assertIsNone(args.tenant_id)
         self.assertEqual([], args.product_ids)
 
+    def test_build_cleanup_plan_renders_scope_and_metadata_reset_targets(self) -> None:
+        plan = self.module.build_cleanup_plan("2001", ["1001", "1002"], "dry-run")
+
+        self.assertEqual("dry-run", plan["mode"])
+        self.assertEqual("2001", plan["scope"]["tenantId"])
+        self.assertEqual(["1001", "1002"], plan["scope"]["productIds"])
+        self.assertEqual("product_ids", plan["scope"]["scopeType"])
+        self.assertEqual("iot_product", plan["metadata_reset"]["table"])
+        self.assertIn("objectInsight.customMetrics", plan["metadata_reset"]["paths"])
+        self.assertEqual("risk_metric_linkage_binding", plan["operations"][0]["table"])
+        self.assertEqual("delete", plan["operations"][0]["action"])
+
+    def test_load_dev_defaults_extracts_mysql_connection_info(self) -> None:
+        defaults = self.module.load_dev_defaults()
+
+        self.assertIn("jdbc_url", defaults)
+        self.assertIn("user", defaults)
+        self.assertIn("password", defaults)
+        self.assertTrue(defaults["jdbc_url"].startswith("jdbc:mysql://"))
+
 
 if __name__ == "__main__":
     unittest.main()
