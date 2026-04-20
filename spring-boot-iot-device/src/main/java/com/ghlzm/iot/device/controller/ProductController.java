@@ -6,6 +6,7 @@ import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
+import com.ghlzm.iot.device.vo.ProductOverviewSummaryVO;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -56,6 +57,11 @@ public class ProductController {
     @GetMapping("/api/device/product/{id}")
     public R<ProductDetailVO> getById(@PathVariable Long id) {
         return R.ok(productService.getDetailById(id));
+    }
+
+    @GetMapping("/api/device/product/{id}/overview-summary")
+    public R<ProductOverviewSummaryVO> getOverviewSummary(@PathVariable Long id) {
+        return R.ok(productService.getOverviewSummary(id));
     }
 
     @PutMapping("/api/device/product/{id}")

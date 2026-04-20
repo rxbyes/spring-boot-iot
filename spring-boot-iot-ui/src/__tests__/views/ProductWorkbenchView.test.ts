@@ -888,11 +888,11 @@ describe('ProductWorkbenchView', () => {
       expect.arrayContaining([
         expect.objectContaining({
           key: 'pending-contract-release',
-          path: '/products?openProductId=1001&workbenchView=models'
+          path: '/products/1001/contracts'
         }),
         expect.objectContaining({
           key: 'pending-metric-publish',
-          path: '/products?openProductId=1001&workbenchView=models'
+          path: '/products/1001/contracts'
         }),
         expect.objectContaining({
           key: 'pending-risk-binding',
@@ -1032,7 +1032,7 @@ describe('ProductWorkbenchView', () => {
     errorSpy.mockRestore()
   })
 
-  it('opens the unified business workbench from the single direct entry with overview as the default view', async () => {
+  it('routes the single direct product entry to the overview detail page', async () => {
     const wrapper = mountView()
     await flushPromises()
     await nextTick()
@@ -1062,14 +1062,11 @@ describe('ProductWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
-    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('overview')
-    expect(wrapper.find('.product-detail-workbench-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('演示产品')
-    expect(wrapper.text()).toContain('demo-product')
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/overview')
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
   })
 
-  it('auto-opens the product workbench models view when entered from governance-task dispatch context', async () => {
+  it('redirects legacy governance-task workbench context to the routed contracts page', async () => {
     mockRoute.query = {
       openProductId: '1001',
       workbenchView: 'models',
@@ -1105,12 +1102,11 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(mockGetProductById).toHaveBeenCalledWith('1001', expect.any(Object))
-    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('models')
-    expect(wrapper.text()).toContain('GNSS产品')
+    expect(mockRouter.replace).toHaveBeenCalledWith('/products/1001/contracts')
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
   })
 
-  it('clears one-shot governance workbench route context after the product workbench closes', async () => {
+  it('redirects legacy governance workbench query context even when extra governance params are present', async () => {
     mockRoute.query = {
       openProductId: '1001',
       workbenchView: 'models',
@@ -1145,17 +1141,12 @@ describe('ProductWorkbenchView', () => {
       }
     })
 
-    const wrapper = mountView()
+    mountView()
     await flushPromises()
     await nextTick()
 
-    expect((wrapper.vm as any).businessWorkbenchVisible).toBe(true)
-
-    ;(wrapper.vm as any).businessWorkbenchVisible = false
-    await flushPromises()
-    await nextTick()
-
-    expect(mockRouter.replace).toHaveBeenCalledWith({
+    expect(mockRouter.replace).toHaveBeenCalledWith('/products/1001/contracts')
+    expect(mockRouter.replace).not.toHaveBeenCalledWith({
       path: '/products',
       query: {
         pageNum: '2'
@@ -1238,7 +1229,7 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.text()).toContain('优先核对产品定义与契约基线')
   })
 
-  it('opens the unified business workbench with overview as the default detail view', async () => {
+  it('routes detail row actions to the overview detail page', async () => {
     const wrapper = mountView()
 
     const product = {
@@ -1256,12 +1247,11 @@ describe('ProductWorkbenchView', () => {
     ;(wrapper.vm as any).handleRowAction('detail', product)
     await nextTick()
 
-    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('overview')
-    expect(wrapper.get('.product-business-workbench-drawer-stub__title').text()).toBe('演示产品')
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/overview')
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
   })
 
-  it('keeps devices in the same workbench and opens edit from the header action', async () => {
+  it('routes devices to the devices detail page and still supports in-place edit when explicitly requested', async () => {
     const wrapper = mountView()
 
     const product = {
@@ -1278,14 +1268,15 @@ describe('ProductWorkbenchView', () => {
 
     ;(wrapper.vm as any).handleRowAction('devices', product)
     await nextTick()
-    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('devices')
-    expect(wrapper.find('.product-device-list-workspace-stub').exists()).toBe(true)
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/devices')
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
 
-    ;(wrapper.vm as any).handleRowAction('detail', product)
+    mockRouter.push.mockClear()
+    ;(wrapper.vm as any).handleRowAction('edit', product)
+    await flushPromises()
     await nextTick()
-    expect(wrapper.find('.product-business-workbench-drawer-stub__header-actions').text()).toContain('编辑档案')
-    await wrapper.get('[data-testid="open-product-workbench-edit"]').trigger('click')
-    await nextTick()
+
+    expect(mockRouter.push).not.toHaveBeenCalled()
     expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
     expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)
   })

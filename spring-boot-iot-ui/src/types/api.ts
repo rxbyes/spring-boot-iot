@@ -413,6 +413,26 @@ export interface Product {
   maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
 }
 
+export interface ProductOverviewSummary {
+  productId: IdType;
+  productKey: string;
+  productName?: string | null;
+  protocolCode?: string | null;
+  nodeType?: number | null;
+  dataFormat?: string | null;
+  manufacturer?: string | null;
+  description?: string | null;
+  status?: number | null;
+  deviceCount?: number | null;
+  onlineDeviceCount?: number | null;
+  lastReportTime?: string | null;
+  formalFieldCount?: number | null;
+  latestReleaseBatchId?: IdType | null;
+  latestReleasedFieldCount?: number | null;
+  latestReleaseStatus?: string | null;
+  latestReleaseCreateTime?: string | null;
+}
+
 export type ProductObjectInsightMetricGroup = 'measure' | 'statusEvent' | 'runtime';
 
 export interface ProductObjectInsightCustomMetricConfig {

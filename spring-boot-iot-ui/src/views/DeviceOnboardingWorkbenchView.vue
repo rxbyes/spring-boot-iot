@@ -607,6 +607,7 @@ import type {
   OnboardingTemplatePackUpdatePayload
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
+import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes'
 
 const router = useRouter()
 
@@ -952,12 +953,11 @@ function handleNext(row: DeviceOnboardingCase): void {
     return
   }
   if (row.currentStep === 'PRODUCT_GOVERNANCE' || row.currentStep === 'CONTRACT_RELEASE') {
-    void router.push({
-      path: '/products',
-      query: row.productId == null
-        ? { workbenchView: 'models' }
-        : { openProductId: String(row.productId), workbenchView: 'models' }
-    })
+    void router.push(
+      row.productId == null
+        ? '/products'
+        : buildProductWorkbenchSectionPath(row.productId, 'contracts')
+    )
   }
 }
 

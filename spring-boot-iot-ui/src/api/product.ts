@@ -11,6 +11,7 @@ import type {
   ProductModelGovernanceComparePayload,
   ProductModelGovernanceCompareResult,
   ProductModel,
+  ProductOverviewSummary,
   ProductModelUpsertPayload
 } from '../types/api';
 
@@ -183,6 +184,13 @@ export const productApi = {
    */
   getProductById(id: IdType, options: ProductRequestOptions = {}) {
     return request<Product>(`/api/device/product/${id}`, options);
+  },
+
+  getProductOverviewSummary(id: IdType, options: ProductRequestOptions = {}) {
+    return request<ProductOverviewSummary>(`/api/device/product/${id}/overview-summary`, {
+      method: 'GET',
+      ...options
+    })
   },
 
   /**

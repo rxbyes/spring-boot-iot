@@ -1,5 +1,6 @@
 import type { GovernanceWorkItem } from '@/types/api'
 import type { RouteLocationRaw } from 'vue-router'
+import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes'
 
 function parseSnapshot(snapshotJson?: string | null) {
   if (!snapshotJson) {
@@ -70,10 +71,8 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
         return null
       }
       return {
-        path: '/products',
+        path: buildProductWorkbenchSectionPath(item.productId, 'contracts'),
         query: {
-          openProductId: String(item.productId),
-          workbenchView: 'models',
           governanceSource: 'task',
           workItemCode: item.workItemCode,
           ...governanceContextQuery(item)
