@@ -27,13 +27,21 @@ public class DeviceOnboardingCase extends BaseEntity {
 
     private String protocolTemplateCode;
 
+    private Long templatePackId;
+
     private Long productId;
 
     private Long releaseBatchId;
 
+    private String deviceCode;
+
     private String currentStep;
 
     private String status;
+
+    private String acceptanceJobId;
+
+    private String acceptanceRunId;
 
     private String blockerSummaryJson;
 

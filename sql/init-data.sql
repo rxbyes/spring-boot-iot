@@ -156,6 +156,7 @@ INSERT INTO sys_menu (
     (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
 
     (93001008, 1, 93000001, '无代码接入台', 'iot:device-onboarding', '/device-onboarding', 'DeviceOnboardingWorkbenchView', 'guide', '{"caption":"统一查看接入案例、阻塞原因和下一步动作"}', 10, 1, 1, '/device-onboarding', 'iot:device-onboarding', 10, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001009, 1, 93000001, '协议治理工作台', 'iot:protocol-governance', '/protocol-governance', 'ProtocolGovernanceWorkbenchView', 'guide', '{"caption":"协议族、解密档案与协议模板治理"}', 11, 1, 1, '/protocol-governance', 'iot:protocol-governance', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001001, 1, 93000001, '产品定义中心', 'iot:products', '/products', 'ProductWorkbenchView', 'box', '{"caption":"产品台账、协议基线与库存归属"}', 11, 1, 1, '/products', 'iot:products', 11, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001002, 1, 93000001, '设备资产中心', 'iot:devices', '/devices', 'DeviceWorkbenchView', 'cpu', '{"caption":"设备建档、在线状态与资产运维"}', 12, 1, 1, '/devices', 'iot:devices', 12, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001003, 1, 93000001, '链路验证中心', 'iot:reporting', '/reporting', 'ReportWorkbenchView', 'promotion', '{"caption":"HTTP 上报模拟、payload 回放与联调"}', 13, 1, 1, '/reporting', 'iot:reporting', 13, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -434,12 +435,12 @@ INSERT INTO sys_menu (
     (93001023, 1, 93001001, '契约发布', 'iot:product-contract:release', '', '', '', '{"caption":"发布正式契约并生成发布批次"}', 1123, 2, 2, '', 'iot:product-contract:release', 1123, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001024, 1, 93001001, '契约回滚', 'iot:product-contract:rollback', '', '', '', '{"caption":"回滚最新契约发布批次"}', 1124, 2, 2, '', 'iot:product-contract:rollback', 1124, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001025, 1, 93001001, '契约复核', 'iot:product-contract:approve', '', '', '', '{"caption":"关键发布/回滚动作双人复核"}', 1125, 2, 2, '', 'iot:product-contract:approve', 1125, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001026, 1, 93001001, '密钥托管查看', 'iot:secret-custody:view', '', '', '', '{"caption":"查看密钥托管与轮换记录"}', 1126, 2, 2, '', 'iot:secret-custody:view', 1126, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001027, 1, 93001001, '密钥轮换执行', 'iot:secret-custody:rotate', '', '', '', '{"caption":"执行设备密钥轮换"}', 1127, 2, 2, '', 'iot:secret-custody:rotate', 1127, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001028, 1, 93001001, '密钥轮换复核', 'iot:secret-custody:approve', '', '', '', '{"caption":"关键密钥轮换动作双人复核"}', 1128, 2, 2, '', 'iot:secret-custody:approve', 1128, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001026, 1, 93003023, '密钥托管查看', 'iot:secret-custody:view', '', '', '', '{"caption":"查看密钥托管与轮换记录"}', 1126, 2, 2, '', 'iot:secret-custody:view', 1126, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001027, 1, 93003023, '密钥轮换执行', 'iot:secret-custody:rotate', '', '', '', '{"caption":"执行设备密钥轮换"}', 1127, 2, 2, '', 'iot:secret-custody:rotate', 1127, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001028, 1, 93003023, '密钥轮换复核', 'iot:secret-custody:approve', '', '', '', '{"caption":"关键密钥轮换动作双人复核"}', 1128, 2, 2, '', 'iot:secret-custody:approve', 1128, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001029, 1, 93001001, '规范库复核', 'iot:normative-library:approve', '', '', '', '{"caption":"规范库关键写动作复核授权"}', 1129, 2, 2, '', 'iot:normative-library:approve', 1129, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001030, 1, 93001001, '协议治理执行', 'iot:protocol-governance:edit', '', '', '', '{"caption":"维护协议族定义与解密档案草稿"}', 1130, 2, 2, '', 'iot:protocol-governance:edit', 1130, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93001031, 1, 93001001, '协议治理复核', 'iot:protocol-governance:approve', '', '', '', '{"caption":"协议治理发布与回滚双人复核"}', 1131, 2, 2, '', 'iot:protocol-governance:approve', 1131, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001030, 1, 93001009, '协议治理执行', 'iot:protocol-governance:edit', '', '', '', '{"caption":"维护协议族定义与解密档案草稿"}', 1130, 2, 2, '', 'iot:protocol-governance:edit', 1130, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001031, 1, 93001009, '协议治理复核', 'iot:protocol-governance:approve', '', '', '', '{"caption":"协议治理发布与回滚双人复核"}', 1131, 2, 2, '', 'iot:protocol-governance:approve', 1131, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002044, 1, 93002003, '风险指标标注', 'risk:metric-catalog:tag', '', '', '', '{"caption":"维护风险指标语义标签"}', 3144, 2, 2, '', 'risk:metric-catalog:tag', 3144, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002051, 1, 93002003, '风险指标复核', 'risk:metric-catalog:approve', '', '', '', '{"caption":"风险指标标注关键写动作双人复核"}', 3145, 2, 2, '', 'risk:metric-catalog:approve', 3145, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002045, 1, 93002004, '阈值策略执行', 'risk:rule-definition:edit', '', '', '', '{"caption":"新增/更新/删除阈值策略"}', 3245, 2, 2, '', 'risk:rule-definition:edit', 3245, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -449,6 +450,7 @@ INSERT INTO sys_menu (
     (93002049, 1, 93002006, '预案执行', 'risk:emergency-plan:edit', '', '', '', '{"caption":"新增/更新/删除应急预案"}', 3449, 2, 2, '', 'risk:emergency-plan:edit', 3449, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002050, 1, 93002006, '预案复核', 'risk:emergency-plan:approve', '', '', '', '{"caption":"预案关键写操作双人复核"}', 3450, 2, 2, '', 'risk:emergency-plan:approve', 3450, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
+    parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
     menu_code = VALUES(menu_code),
     permission = VALUES(permission),
@@ -521,6 +523,230 @@ WHERE role_scope.role_id IS NOT NULL
       AND rm.role_id = role_scope.role_id
       AND rm.menu_id = role_scope.menu_id
       AND rm.deleted = 0
+  );
+
+INSERT INTO sys_menu (
+    id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
+    route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (93001032, 1, 93001009, '协议族草稿', 'iot:protocol-governance:family-draft', '', '', '', '{"caption":"维护协议族定义草稿"}', 1132, 2, 2, '', 'iot:protocol-governance:family-draft', 1132, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001033, 1, 93001009, '协议族发布', 'iot:protocol-governance:family-publish', '', '', '', '{"caption":"提交协议族发布审批"}', 1133, 2, 2, '', 'iot:protocol-governance:family-publish', 1133, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001034, 1, 93001009, '协议族回滚', 'iot:protocol-governance:family-rollback', '', '', '', '{"caption":"提交协议族回滚审批"}', 1134, 2, 2, '', 'iot:protocol-governance:family-rollback', 1134, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001035, 1, 93001009, '解密档案草稿', 'iot:protocol-governance:decrypt-draft', '', '', '', '{"caption":"维护解密档案草稿"}', 1135, 2, 2, '', 'iot:protocol-governance:decrypt-draft', 1135, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001036, 1, 93001009, '解密命中试算', 'iot:protocol-governance:decrypt-preview', '', '', '', '{"caption":"查看解密命中试算结果"}', 1136, 2, 2, '', 'iot:protocol-governance:decrypt-preview', 1136, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001037, 1, 93001009, '解密回放', 'iot:protocol-governance:decrypt-replay', '', '', '', '{"caption":"执行解密链路回放"}', 1137, 2, 2, '', 'iot:protocol-governance:decrypt-replay', 1137, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001038, 1, 93001009, '协议模板草稿', 'iot:protocol-governance:template-draft', '', '', '', '{"caption":"维护协议模板草稿"}', 1138, 2, 2, '', 'iot:protocol-governance:template-draft', 1138, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001039, 1, 93001009, '模板回放', 'iot:protocol-governance:template-replay', '', '', '', '{"caption":"执行协议模板回放"}', 1139, 2, 2, '', 'iot:protocol-governance:template-replay', 1139, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001040, 1, 93001009, '模板发布', 'iot:protocol-governance:template-publish', '', '', '', '{"caption":"发布协议模板快照"}', 1140, 2, 2, '', 'iot:protocol-governance:template-publish', 1140, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001041, 1, 93001001, '总览工作区', 'iot:products:workbench-overview', '', '', '', '{"caption":"切换产品总览工作区"}', 1141, 2, 2, '', 'iot:products:workbench-overview', 1141, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001042, 1, 93001001, '契约字段工作区', 'iot:products:workbench-models', '', '', '', '{"caption":"切换契约字段工作区"}', 1142, 2, 2, '', 'iot:products:workbench-models', 1142, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001043, 1, 93001001, '关联设备工作区', 'iot:products:workbench-devices', '', '', '', '{"caption":"切换关联设备工作区"}', 1143, 2, 2, '', 'iot:products:workbench-devices', 1143, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001044, 1, 93001001, '产品编辑工作区', 'iot:products:workbench-edit', '', '', '', '{"caption":"切换产品编辑工作区"}', 1144, 2, 2, '', 'iot:products:workbench-edit', 1144, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001045, 1, 93001001, '契约版本台账', 'iot:product-contract:ledger', '', '', '', '{"caption":"查看正式合同发布台账"}', 1145, 2, 2, '', 'iot:product-contract:ledger', 1145, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001046, 1, 93001001, '批次差异', 'iot:product-contract:diff', '', '', '', '{"caption":"查看合同批次差异"}', 1146, 2, 2, '', 'iot:product-contract:diff', 1146, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001047, 1, 93001001, '映射规则建议', 'iot:vendor-mapping-rule:suggestion', '', '', '', '{"caption":"查看厂商字段映射规则建议"}', 1147, 2, 2, '', 'iot:vendor-mapping-rule:suggestion', 1147, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001048, 1, 93001001, '映射规则台账', 'iot:vendor-mapping-rule:ledger', '', '', '', '{"caption":"查看厂商字段映射规则台账"}', 1148, 2, 2, '', 'iot:vendor-mapping-rule:ledger', 1148, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001049, 1, 93001001, '映射命中预览', 'iot:vendor-mapping-rule:preview', '', '', '', '{"caption":"预览映射规则命中结果"}', 1149, 2, 2, '', 'iot:vendor-mapping-rule:preview', 1149, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001050, 1, 93001001, '映射回放', 'iot:vendor-mapping-rule:replay', '', '', '', '{"caption":"回放映射规则治理证据"}', 1150, 2, 2, '', 'iot:vendor-mapping-rule:replay', 1150, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001051, 1, 93001002, '设备详情', 'iot:devices:detail', '', '', '', '{"caption":"打开设备详情抽屉"}', 1251, 2, 2, '', 'iot:devices:detail', 1251, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001052, 1, 93001002, '导出列设置', 'iot:devices:export-config', '', '', '', '{"caption":"维护设备导出列设置"}', 1252, 2, 2, '', 'iot:devices:export-config', 1252, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001053, 1, 93001002, '导出选中', 'iot:devices:export-selected', '', '', '', '{"caption":"导出选中的设备结果"}', 1253, 2, 2, '', 'iot:devices:export-selected', 1253, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001054, 1, 93001002, '导出当前结果', 'iot:devices:export-current', '', '', '', '{"caption":"导出当前筛选结果"}', 1254, 2, 2, '', 'iot:devices:export-current', 1254, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001055, 1, 93001002, '对象洞察跳转', 'iot:devices:insight', '', '', '', '{"caption":"从设备资产中心跳转对象洞察"}', 1255, 2, 2, '', 'iot:devices:insight', 1255, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001056, 1, 93001003, '结果复盘工作区', 'iot:reporting:replay-workspace', '', '', '', '{"caption":"切换结果复盘工作区"}', 1356, 2, 2, '', 'iot:reporting:replay-workspace', 1356, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001057, 1, 93001003, '模拟上报工作区', 'iot:reporting:simulate-workspace', '', '', '', '{"caption":"切换模拟上报工作区"}', 1357, 2, 2, '', 'iot:reporting:simulate-workspace', 1357, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001058, 1, 93001003, '最近会话工作区', 'iot:reporting:recent-workspace', '', '', '', '{"caption":"切换最近会话工作区"}', 1358, 2, 2, '', 'iot:reporting:recent-workspace', 1358, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001059, 1, 93001003, '继续链路追踪', 'iot:reporting:jump-message-trace', '', '', '', '{"caption":"从链路验证跳转到链路追踪"}', 1359, 2, 2, '', 'iot:reporting:jump-message-trace', 1359, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001060, 1, 93001003, '复制实际Payload', 'iot:reporting:copy-actual-payload', '', '', '', '{"caption":"复制实际 payload"}', 1360, 2, 2, '', 'iot:reporting:copy-actual-payload', 1360, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001061, 1, 93001003, '复制响应', 'iot:reporting:copy-response', '', '', '', '{"caption":"复制模拟响应"}', 1361, 2, 2, '', 'iot:reporting:copy-response', 1361, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001062, 1, 93001007, '链路详情', 'iot:message-trace:detail', '', '', '', '{"caption":"打开链路详情工作台"}', 1562, 2, 2, '', 'iot:message-trace:detail', 1562, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001063, 1, 93001007, '处理时间线', 'iot:message-trace:timeline', '', '', '', '{"caption":"查看处理时间线"}', 1563, 2, 2, '', 'iot:message-trace:timeline', 1563, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001064, 1, 93001007, 'Payload 对比', 'iot:message-trace:payload-comparison', '', '', '', '{"caption":"查看 payload 对比"}', 1564, 2, 2, '', 'iot:message-trace:payload-comparison', 1564, 1, 1, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    parent_id = VALUES(parent_id),
+    menu_name = VALUES(menu_name),
+    menu_code = VALUES(menu_code),
+    path = VALUES(path),
+    component = VALUES(component),
+    icon = VALUES(icon),
+    permission = VALUES(permission),
+    meta_json = VALUES(meta_json),
+    sort = VALUES(sort),
+    type = VALUES(type),
+    menu_type = VALUES(menu_type),
+    route_path = VALUES(route_path),
+    sort_no = VALUES(sort_no),
+    visible = VALUES(visible),
+    status = VALUES(status),
+    update_by = VALUES(update_by),
+    update_time = VALUES(update_time),
+    deleted = 0;
+
+INSERT INTO sys_menu (
+    id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
+    route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
+) VALUES
+    (93002031, 1, 93002003, '新增风险点', 'risk:point:add', '', '', '', '{"caption":"新增风险点"}', 3131, 2, 2, '', 'risk:point:add', 3131, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002032, 1, 93002003, '编辑风险点', 'risk:point:update', '', '', '', '{"caption":"编辑风险点"}', 3132, 2, 2, '', 'risk:point:update', 3132, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002033, 1, 93002003, '删除风险点', 'risk:point:delete', '', '', '', '{"caption":"删除风险点"}', 3133, 2, 2, '', 'risk:point:delete', 3133, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002034, 1, 93002003, '绑定设备', 'risk:point:bind-device', '', '', '', '{"caption":"为风险点绑定设备"}', 3134, 2, 2, '', 'risk:point:bind-device', 3134, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002035, 1, 93002003, '维护绑定', 'risk:point:binding-maintain', '', '', '', '{"caption":"维护正式风险绑定"}', 3135, 2, 2, '', 'risk:point:binding-maintain', 3135, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002036, 1, 93002003, '待治理转正', 'risk:point:pending-promote', '', '', '', '{"caption":"处理待治理绑定转正"}', 3136, 2, 2, '', 'risk:point:pending-promote', 3136, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002037, 1, 93002003, '风险点详情', 'risk:point:detail', '', '', '', '{"caption":"查看风险点详情"}', 3137, 2, 2, '', 'risk:point:detail', 3137, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002038, 1, 93002003, '治理历史', 'risk:point:history', '', '', '', '{"caption":"查看风险绑定治理历史"}', 3138, 2, 2, '', 'risk:point:history', 3138, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002039, 1, 93002001, '告警详情', 'risk:alarm:detail', '', '', '', '{"caption":"查看告警详情"}', 2339, 2, 2, '', 'risk:alarm:detail', 2339, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002040, 1, 93002001, '告警确认', 'risk:alarm:confirm', '', '', '', '{"caption":"确认告警"}', 2340, 2, 2, '', 'risk:alarm:confirm', 2340, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002041, 1, 93002001, '告警抑制', 'risk:alarm:suppress', '', '', '', '{"caption":"抑制告警"}', 2341, 2, 2, '', 'risk:alarm:suppress', 2341, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002042, 1, 93002001, '告警关闭', 'risk:alarm:close', '', '', '', '{"caption":"关闭告警"}', 2342, 2, 2, '', 'risk:alarm:close', 2342, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002052, 1, 93002002, '事件详情', 'risk:event:detail', '', '', '', '{"caption":"查看事件详情"}', 2452, 2, 2, '', 'risk:event:detail', 2452, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002053, 1, 93002002, '事件派发', 'risk:event:dispatch', '', '', '', '{"caption":"派发事件工单"}', 2453, 2, 2, '', 'risk:event:dispatch', 2453, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002054, 1, 93002002, '事件关闭', 'risk:event:close', '', '', '', '{"caption":"关闭事件"}', 2454, 2, 2, '', 'risk:event:close', 2454, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003601, 1, 93003001, '新增组织', 'system:organization:add', '', '', '', '{"caption":"新增组织节点"}', 4101, 2, 2, '', 'system:organization:add', 4101, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003602, 1, 93003001, '编辑组织', 'system:organization:update', '', '', '', '{"caption":"编辑组织节点"}', 4102, 2, 2, '', 'system:organization:update', 4102, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003603, 1, 93003001, '删除组织', 'system:organization:delete', '', '', '', '{"caption":"删除组织节点"}', 4103, 2, 2, '', 'system:organization:delete', 4103, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003604, 1, 93003001, '新增下级组织', 'system:organization:add-child', '', '', '', '{"caption":"新增下级组织节点"}', 4104, 2, 2, '', 'system:organization:add-child', 4104, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003605, 1, 93003001, '导出组织', 'system:organization:export', '', '', '', '{"caption":"导出组织树结果"}', 4105, 2, 2, '', 'system:organization:export', 4105, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003606, 1, 93003004, '新增区域', 'system:region:add', '', '', '', '{"caption":"新增区域节点"}', 4506, 2, 2, '', 'system:region:add', 4506, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003607, 1, 93003004, '编辑区域', 'system:region:update', '', '', '', '{"caption":"编辑区域节点"}', 4507, 2, 2, '', 'system:region:update', 4507, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003608, 1, 93003004, '删除区域', 'system:region:delete', '', '', '', '{"caption":"删除区域节点"}', 4508, 2, 2, '', 'system:region:delete', 4508, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003609, 1, 93003004, '新增下级区域', 'system:region:add-child', '', '', '', '{"caption":"新增下级区域节点"}', 4509, 2, 2, '', 'system:region:add-child', 4509, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003610, 1, 93003004, '导出区域', 'system:region:export', '', '', '', '{"caption":"导出区域树结果"}', 4510, 2, 2, '', 'system:region:export', 4510, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003611, 1, 93003005, '新增字典', 'system:dict:add', '', '', '', '{"caption":"新增字典类型"}', 4611, 2, 2, '', 'system:dict:add', 4611, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003612, 1, 93003005, '编辑字典', 'system:dict:update', '', '', '', '{"caption":"编辑字典类型"}', 4612, 2, 2, '', 'system:dict:update', 4612, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003613, 1, 93003005, '删除字典', 'system:dict:delete', '', '', '', '{"caption":"删除字典类型"}', 4613, 2, 2, '', 'system:dict:delete', 4613, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003614, 1, 93003005, '导出字典', 'system:dict:export', '', '', '', '{"caption":"导出字典类型结果"}', 4614, 2, 2, '', 'system:dict:export', 4614, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003615, 1, 93003005, '新增字典项', 'system:dict-item:add', '', '', '', '{"caption":"新增字典项"}', 4615, 2, 2, '', 'system:dict-item:add', 4615, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003616, 1, 93003005, '编辑字典项', 'system:dict-item:update', '', '', '', '{"caption":"编辑字典项"}', 4616, 2, 2, '', 'system:dict-item:update', 4616, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003617, 1, 93003005, '删除字典项', 'system:dict-item:delete', '', '', '', '{"caption":"删除字典项"}', 4617, 2, 2, '', 'system:dict-item:delete', 4617, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003618, 1, 93003005, '导出字典项', 'system:dict-item:export', '', '', '', '{"caption":"导出字典项结果"}', 4618, 2, 2, '', 'system:dict-item:export', 4618, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003619, 1, 93003006, '新增渠道', 'system:channel:add', '', '', '', '{"caption":"新增通知渠道"}', 4719, 2, 2, '', 'system:channel:add', 4719, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003620, 1, 93003006, '编辑渠道', 'system:channel:update', '', '', '', '{"caption":"编辑通知渠道"}', 4720, 2, 2, '', 'system:channel:update', 4720, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003621, 1, 93003006, '删除渠道', 'system:channel:delete', '', '', '', '{"caption":"删除通知渠道"}', 4721, 2, 2, '', 'system:channel:delete', 4721, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003622, 1, 93003006, '渠道测试', 'system:channel:test', '', '', '', '{"caption":"执行通知渠道测试"}', 4722, 2, 2, '', 'system:channel:test', 4722, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003623, 1, 93003006, '导出渠道', 'system:channel:export', '', '', '', '{"caption":"导出通知渠道结果"}', 4723, 2, 2, '', 'system:channel:export', 4723, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003624, 1, 93003010, '消息详情', 'system:in-app-message:detail', '', '', '', '{"caption":"查看站内消息详情"}', 4824, 2, 2, '', 'system:in-app-message:detail', 4824, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003625, 1, 93003010, '桥接统计', 'system:in-app-message:bridge-stats', '', '', '', '{"caption":"查看未读桥接统计"}', 4825, 2, 2, '', 'system:in-app-message:bridge-stats', 4825, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003626, 1, 93003010, '桥接结果', 'system:in-app-message:bridge-results', '', '', '', '{"caption":"查看未读桥接结果"}', 4826, 2, 2, '', 'system:in-app-message:bridge-results', 4826, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003627, 1, 93003010, '桥接详情', 'system:in-app-message:bridge-detail', '', '', '', '{"caption":"查看未读桥接详情"}', 4827, 2, 2, '', 'system:in-app-message:bridge-detail', 4827, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003628, 1, 93003024, '决策说明', 'system:governance-task:decision-context', '', '', '', '{"caption":"查看任务排序与决策说明"}', 5028, 2, 2, '', 'system:governance-task:decision-context', 5028, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003629, 1, 93003024, '去处理', 'system:governance-task:dispatch', '', '', '', '{"caption":"从控制面派发到领域工作台"}', 5029, 2, 2, '', 'system:governance-task:dispatch', 5029, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003630, 1, 93003024, '治理复盘', 'system:governance-task:replay', '', '', '', '{"caption":"打开治理链路复盘"}', 5030, 2, 2, '', 'system:governance-task:replay', 5030, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003631, 1, 93003024, '确认任务', 'system:governance-task:ack', '', '', '', '{"caption":"确认治理任务"}', 5031, 2, 2, '', 'system:governance-task:ack', 5031, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003632, 1, 93003024, '阻塞任务', 'system:governance-task:block', '', '', '', '{"caption":"标记治理任务阻塞"}', 5032, 2, 2, '', 'system:governance-task:block', 5032, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003633, 1, 93003024, '关闭任务', 'system:governance-task:close', '', '', '', '{"caption":"关闭治理任务"}', 5033, 2, 2, '', 'system:governance-task:close', 5033, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003634, 1, 93003024, '提交复盘结论', 'system:governance-task:replay-feedback', '', '', '', '{"caption":"提交治理复盘结论"}', 5034, 2, 2, '', 'system:governance-task:replay-feedback', 5034, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003635, 1, 93003025, '告警复盘', 'system:governance-ops:replay', '', '', '', '{"caption":"打开治理运维复盘"}', 5135, 2, 2, '', 'system:governance-ops:replay', 5135, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003636, 1, 93003025, '确认告警', 'system:governance-ops:ack', '', '', '', '{"caption":"确认治理运维告警"}', 5136, 2, 2, '', 'system:governance-ops:ack', 5136, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003637, 1, 93003025, '抑制告警', 'system:governance-ops:suppress', '', '', '', '{"caption":"抑制治理运维告警"}', 5137, 2, 2, '', 'system:governance-ops:suppress', 5137, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003638, 1, 93003025, '关闭告警', 'system:governance-ops:close', '', '', '', '{"caption":"关闭治理运维告警"}', 5138, 2, 2, '', 'system:governance-ops:close', 5138, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003639, 1, 93003025, '提交复盘结论', 'system:governance-ops:replay-feedback', '', '', '', '{"caption":"提交治理运维复盘结论"}', 5139, 2, 2, '', 'system:governance-ops:replay-feedback', 5139, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003640, 1, 93003022, '审批详情', 'system:governance-approval:detail', '', '', '', '{"caption":"查看审批详情"}', 5240, 2, 2, '', 'system:governance-approval:detail', 5240, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003641, 1, 93003022, '审批通过', 'system:governance-approval:approve', '', '', '', '{"caption":"审批通过治理主单"}', 5241, 2, 2, '', 'system:governance-approval:approve', 5241, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003642, 1, 93003022, '审批驳回', 'system:governance-approval:reject', '', '', '', '{"caption":"审批驳回治理主单"}', 5242, 2, 2, '', 'system:governance-approval:reject', 5242, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003643, 1, 93003022, '撤销审批', 'system:governance-approval:cancel', '', '', '', '{"caption":"撤销治理审批主单"}', 5243, 2, 2, '', 'system:governance-approval:cancel', 5243, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003644, 1, 93003022, '原单重提', 'system:governance-approval:resubmit', '', '', '', '{"caption":"按原单重新提交审批"}', 5244, 2, 2, '', 'system:governance-approval:resubmit', 5244, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003645, 1, 93003022, '审批预演', 'system:governance-approval:simulation', '', '', '', '{"caption":"查看审批预演结果"}', 5245, 2, 2, '', 'system:governance-approval:simulation', 5245, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003646, 1, 93003022, '影响分析', 'system:governance-approval:impact', '', '', '', '{"caption":"查看审批影响分析"}', 5246, 2, 2, '', 'system:governance-approval:impact', 5246, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003701, 1, 93003020, '发起验收', 'system:business-acceptance:launch', '', '', '', '{"caption":"发起业务验收"}', 5701, 2, 2, '', 'system:business-acceptance:launch', 5701, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003702, 1, 93003020, '打开结果', 'system:business-acceptance:open-result', '', '', '', '{"caption":"打开最近一次验收结果"}', 5702, 2, 2, '', 'system:business-acceptance:open-result', 5702, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003703, 1, 93003016, '刷新盘点', 'system:rd-automation-inventory:refresh', '', '', '', '{"caption":"刷新页面盘点结果"}', 5303, 2, 2, '', 'system:rd-automation-inventory:refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003704, 1, 93003016, '勾选未覆盖', 'system:rd-automation-inventory:select-uncovered', '', '', '', '{"caption":"勾选未覆盖页面"}', 5304, 2, 2, '', 'system:rd-automation-inventory:select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003705, 1, 93003016, '生成脚手架', 'system:rd-automation-inventory:generate-scaffold', '', '', '', '{"caption":"一键生成自动化脚手架"}', 5305, 2, 2, '', 'system:rd-automation-inventory:generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003706, 1, 93003017, '新增页面冒烟模板', 'system:rd-automation-templates:add-page-smoke', '', '', '', '{"caption":"新增页面冒烟模板"}', 5406, 2, 2, '', 'system:rd-automation-templates:add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003707, 1, 93003017, '新增表单提交模板', 'system:rd-automation-templates:add-form-submit', '', '', '', '{"caption":"新增表单提交模板"}', 5407, 2, 2, '', 'system:rd-automation-templates:add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003708, 1, 93003017, '新增列表详情模板', 'system:rd-automation-templates:add-list-detail', '', '', '', '{"caption":"新增列表详情模板"}', 5408, 2, 2, '', 'system:rd-automation-templates:add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003709, 1, 93003018, '导入计划', 'system:rd-automation-plans:import', '', '', '', '{"caption":"导入自动化计划"}', 5509, 2, 2, '', 'system:rd-automation-plans:import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003710, 1, 93003018, '导出计划', 'system:rd-automation-plans:export', '', '', '', '{"caption":"导出自动化计划 JSON"}', 5510, 2, 2, '', 'system:rd-automation-plans:export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003711, 1, 93003018, '重置计划', 'system:rd-automation-plans:reset', '', '', '', '{"caption":"恢复默认自动化计划"}', 5511, 2, 2, '', 'system:rd-automation-plans:reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003712, 1, 93003019, '复制命令', 'system:rd-automation-handoff:copy-command', '', '', '', '{"caption":"复制交付命令"}', 5612, 2, 2, '', 'system:rd-automation-handoff:copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003713, 1, 93003019, '导出计划文件', 'system:rd-automation-handoff:export-plan', '', '', '', '{"caption":"导出交付计划"}', 5613, 2, 2, '', 'system:rd-automation-handoff:export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003714, 1, 93003013, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0)
+ON DUPLICATE KEY UPDATE
+    parent_id = VALUES(parent_id),
+    menu_name = VALUES(menu_name),
+    menu_code = VALUES(menu_code),
+    path = VALUES(path),
+    component = VALUES(component),
+    icon = VALUES(icon),
+    meta_json = VALUES(meta_json),
+    sort = VALUES(sort),
+    type = VALUES(type),
+    menu_type = VALUES(menu_type),
+    route_path = VALUES(route_path),
+    permission = VALUES(permission),
+    sort_no = VALUES(sort_no),
+    visible = VALUES(visible),
+    status = VALUES(status),
+    update_by = VALUES(update_by),
+    update_time = VALUES(update_time),
+    deleted = 0;
+
+SET @menu_permission_role_menu_id := 96011000;
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@menu_permission_role_menu_id := @menu_permission_role_menu_id + 1), 1, parent_rm.role_id, child.id, 1, NOW(), 1, NOW(), 0
+FROM sys_menu child
+JOIN sys_menu parent
+  ON parent.id = child.parent_id
+ AND parent.tenant_id = 1
+ AND parent.deleted = 0
+JOIN sys_role_menu parent_rm
+  ON parent_rm.menu_id = parent.id
+ AND parent_rm.tenant_id = 1
+ AND parent_rm.deleted = 0
+WHERE child.tenant_id = 1
+  AND child.deleted = 0
+  AND child.id = 93001009
+  AND parent_rm.role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id)
+  AND NOT EXISTS (
+      SELECT 1
+      FROM sys_role_menu existed
+      WHERE existed.tenant_id = 1
+        AND existed.role_id = parent_rm.role_id
+        AND existed.menu_id = child.id
+        AND existed.deleted = 0
+  );
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@menu_permission_role_menu_id := @menu_permission_role_menu_id + 1), 1, parent_rm.role_id, child.id, 1, NOW(), 1, NOW(), 0
+FROM sys_menu child
+JOIN sys_menu parent
+  ON parent.id = child.parent_id
+ AND parent.tenant_id = 1
+ AND parent.deleted = 0
+JOIN sys_role_menu parent_rm
+  ON parent_rm.menu_id = parent.id
+ AND parent_rm.tenant_id = 1
+ AND parent_rm.deleted = 0
+WHERE child.tenant_id = 1
+  AND child.deleted = 0
+  AND child.id IN (
+      93001032, 93001033, 93001034, 93001035, 93001036, 93001037, 93001038, 93001039, 93001040,
+      93001041, 93001042, 93001043, 93001044, 93001045, 93001046, 93001047, 93001048, 93001049, 93001050,
+      93001051, 93001052, 93001053, 93001054, 93001055,
+      93001056, 93001057, 93001058, 93001059, 93001060, 93001061,
+      93001062, 93001063, 93001064,
+      93002031, 93002032, 93002033, 93002034, 93002035, 93002036, 93002037, 93002038,
+      93002039, 93002040, 93002041, 93002042,
+      93002052, 93002053, 93002054,
+      93003601, 93003602, 93003603, 93003604, 93003605,
+      93003606, 93003607, 93003608, 93003609, 93003610,
+      93003611, 93003612, 93003613, 93003614, 93003615, 93003616, 93003617, 93003618,
+      93003619, 93003620, 93003621, 93003622, 93003623,
+      93003624, 93003625, 93003626, 93003627,
+      93003628, 93003629, 93003630, 93003631, 93003632, 93003633, 93003634,
+      93003635, 93003636, 93003637, 93003638, 93003639,
+      93003640, 93003641, 93003642, 93003643, 93003644, 93003645, 93003646,
+      93003701, 93003702, 93003703, 93003704, 93003705, 93003706, 93003707, 93003708,
+      93003709, 93003710, 93003711, 93003712, 93003713, 93003714
+  )
+  AND parent_rm.role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id)
+  AND NOT EXISTS (
+      SELECT 1
+      FROM sys_role_menu existed
+      WHERE existed.tenant_id = 1
+        AND existed.role_id = parent_rm.role_id
+        AND existed.menu_id = child.id
+        AND existed.deleted = 0
   );
 -- =========================
 -- 2) IoT 产品/设备/消息基线

@@ -11,13 +11,21 @@ const {
   mockPageRoles,
   mockPageDicts,
   mockListMenuTree,
-  mockListDictItems
+  mockListDictItems,
+  mockListRoles,
+  mockListWritableOrganizationTree,
+  mockHasPermission,
+  mockFetchCurrentUser
 } = vi.hoisted(() => ({
   mockPageUsers: vi.fn(),
   mockPageRoles: vi.fn(),
   mockPageDicts: vi.fn(),
   mockListMenuTree: vi.fn(),
-  mockListDictItems: vi.fn()
+  mockListDictItems: vi.fn(),
+  mockListRoles: vi.fn(),
+  mockListWritableOrganizationTree: vi.fn(),
+  mockHasPermission: vi.fn(() => true),
+  mockFetchCurrentUser: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock('@/api/user', () => ({
@@ -31,10 +39,15 @@ vi.mock('@/api/user', () => ({
 
 vi.mock('@/api/role', () => ({
   pageRoles: mockPageRoles,
+  listRoles: mockListRoles,
   getRole: vi.fn(),
   addRole: vi.fn(),
   updateRole: vi.fn(),
   deleteRole: vi.fn()
+}))
+
+vi.mock('@/api/organization', () => ({
+  listWritableOrganizationTree: mockListWritableOrganizationTree
 }))
 
 vi.mock('@/api/menu', () => ({
@@ -51,6 +64,13 @@ vi.mock('@/api/dict', () => ({
   addDictItem: vi.fn(),
   updateDictItem: vi.fn(),
   deleteDictItem: vi.fn()
+}))
+
+vi.mock('@/stores/permission', () => ({
+  usePermissionStore: () => ({
+    hasPermission: mockHasPermission,
+    fetchCurrentUser: mockFetchCurrentUser
+  })
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -163,9 +183,11 @@ function mountView(component: object) {
         StandardTableTextColumn: true,
         StandardTableToolbar: true,
         StandardButton: true,
+        StandardWorkbenchRowActions: true,
         StandardRowActions: true,
         StandardActionLink: true,
         CsvColumnSettingDialog: true,
+        EmptyState: true,
         'el-table': ElTableStub,
         'el-table-column': ElTableColumnStub,
         'el-form': true,
@@ -188,6 +210,18 @@ describe('system governance refinement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    mockHasPermission.mockReturnValue(true)
+    mockFetchCurrentUser.mockResolvedValue(undefined)
+    mockListRoles.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockListWritableOrganizationTree.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
 
     mockPageUsers.mockResolvedValue({
       code: 200,
@@ -269,7 +303,7 @@ describe('system governance refinement', () => {
     expect(drawer.props('title')).toBe('新增角色')
     expect(drawer.props('subtitle')).toContain('右侧抽屉维护角色基础信息')
     expect(wrapper.text()).toContain('角色权限')
-    expect(wrapper.text()).toContain('菜单与按钮授权')
+    expect(wrapper.text()).toContain('目录、页面、按钮')
     expect(wrapper.text()).not.toContain('System Form')
   })
 

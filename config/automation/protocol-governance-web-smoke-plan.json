@@ -588,6 +588,107 @@
       ]
     },
     {
+      "key": "protocol-governance-approval-submit",
+      "name": "协议治理审批写链路取证",
+      "route": "/protocol-governance",
+      "scope": "delivery",
+      "readySelector": "[data-testid='protocol-family-save']",
+      "requiresLogin": true,
+      "description": "验证协议族定义与解密档案的发布审批按钮会真正命中审批写链路，并回显审批单号。",
+      "businessFlow": "单条发布审批提交 / 审批单号回显",
+      "featurePoints": [
+        "协议族定义发布审批写链路可达",
+        "解密档案发布审批写链路可达",
+        "审批单号会回显到页面提示"
+      ],
+      "steps": [
+        {
+          "id": "protocol-governance-approval-submit-assert-route",
+          "label": "断言进入协议治理路由",
+          "type": "assertUrlIncludes",
+          "value": "/protocol-governance"
+        },
+        {
+          "id": "protocol-governance-family-submit-publish",
+          "label": "提交协议族定义发布审批",
+          "type": "triggerApi",
+          "matcher": "/submit-publish",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": ".protocol-governance-workbench__item:has-text(\"autotest-family-${runToken}\") [data-testid^='protocol-family-submit-publish-']"
+            }
+          },
+          "captures": [
+            {
+              "variable": "familyApprovalOrderId",
+              "path": "payload.data.approvalOrderId"
+            }
+          ]
+        },
+        {
+          "id": "protocol-governance-family-submit-publish-assert",
+          "label": "断言协议族发布审批提示出现",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "协议族定义发布审批已提交"
+        },
+        {
+          "id": "protocol-governance-family-submit-publish-assert-order",
+          "label": "断言协议族审批单号回显",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "${familyApprovalOrderId}"
+        },
+        {
+          "id": "protocol-governance-profile-submit-publish",
+          "label": "提交解密档案发布审批",
+          "type": "triggerApi",
+          "matcher": "/submit-publish",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": ".protocol-governance-workbench__item:has-text(\"autotest-profile-${runToken}\") [data-testid^='protocol-profile-submit-publish-']"
+            }
+          },
+          "captures": [
+            {
+              "variable": "profileApprovalOrderId",
+              "path": "payload.data.approvalOrderId"
+            }
+          ]
+        },
+        {
+          "id": "protocol-governance-profile-submit-publish-assert",
+          "label": "断言解密档案发布审批提示出现",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "解密档案发布审批已提交"
+        },
+        {
+          "id": "protocol-governance-profile-submit-publish-assert-order",
+          "label": "断言解密档案审批单号回显",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "${profileApprovalOrderId}"
+        }
+      ]
+    },
+    {
       "key": "protocol-governance-batch-guards",
       "name": "协议治理批量回滚前端约束",
       "route": "/protocol-governance",

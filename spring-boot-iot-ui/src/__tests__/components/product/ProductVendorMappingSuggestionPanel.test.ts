@@ -191,6 +191,41 @@ describe('ProductVendorMappingSuggestionPanel', () => {
     expect(wrapper.emitted('accepted')).toEqual([[suggestion]])
   })
 
+  it('supports switching a suggestion to DEVICE_FAMILY scope before creating the draft rule', async () => {
+    const suggestion = buildSuggestion({
+      id: 'suggestion-device-family',
+      recommendedScopeType: 'DEVICE_FAMILY'
+    })
+    listVendorMetricMappingRuleSuggestions.mockResolvedValueOnce(mockSuggestionResponse([suggestion]))
+
+    const wrapper = await mountPanel()
+
+    await wrapper
+      .get('[data-testid="vendor-mapping-suggestion-scope-suggestion-device-family"]')
+      .setValue('DEVICE_FAMILY')
+    await wrapper
+      .get('[data-testid="vendor-mapping-suggestion-device-family-suggestion-device-family"]')
+      .setValue('rain_gauge')
+    await wrapper
+      .get('[data-testid="vendor-mapping-suggestion-accept-suggestion-device-family"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(createVendorMetricMappingRule).toHaveBeenCalledTimes(1)
+    expect(createVendorMetricMappingRule).toHaveBeenLastCalledWith(
+      1001,
+      expect.objectContaining({
+        rawIdentifier: 'vendor.value',
+        targetNormativeIdentifier: 'value',
+        scopeType: 'DEVICE_FAMILY',
+        deviceFamily: 'rain_gauge',
+        status: 'DRAFT'
+      })
+    )
+    expect(messageSuccess).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('accepted')).toEqual([[suggestion]])
+  })
+
   it('requires confirmation before creating a LOW_CONFIDENCE suggestion', async () => {
     let resolveConfirmation: (() => void) | undefined
     listVendorMetricMappingRuleSuggestions.mockResolvedValueOnce(

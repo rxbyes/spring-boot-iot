@@ -22,8 +22,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -268,6 +270,36 @@ class RiskMetricCatalogServiceImplTest {
                         && "RM_1001_VALUE".equals(row.getRiskMetricCode())
                         && "激光测距值".equals(row.getRiskMetricName())
         ));
+    }
+
+    @Test
+    void listObjectInsightRecommendedIdentifiersShouldOnlyKeepInsightEnabledCatalogMetrics() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher,
+                snapshotService
+        );
+        RiskMetricCatalog value = new RiskMetricCatalog();
+        value.setProductId(1001L);
+        value.setContractIdentifier("value");
+        value.setInsightEnabled(1);
+        value.setEnabled(1);
+        value.setDeleted(0);
+
+        RiskMetricCatalog sensorState = new RiskMetricCatalog();
+        sensorState.setProductId(1001L);
+        sensorState.setContractIdentifier("sensor_state");
+        sensorState.setInsightEnabled(0);
+        sensorState.setEnabled(1);
+        sensorState.setDeleted(0);
+
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+
+        assertEquals(List.of("value"), service.listObjectInsightRecommendedIdentifiers(1001L));
+        assertEquals(List.of("value", "sensor_state"), service.listRiskBindingRecommendedIdentifiers(1001L));
     }
 
     @Test

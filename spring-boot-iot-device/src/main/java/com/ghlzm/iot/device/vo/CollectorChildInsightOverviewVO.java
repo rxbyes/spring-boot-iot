@@ -14,5 +14,6 @@ public class CollectorChildInsightOverviewVO {
     private Integer childCount;
     private Integer reachableChildCount;
     private Integer sensorStateReportedCount;
+    private Integer recommendedMetricCount;
     private List<CollectorChildInsightChildVO> children;
 }

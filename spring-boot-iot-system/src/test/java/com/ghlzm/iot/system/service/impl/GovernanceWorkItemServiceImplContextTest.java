@@ -1,7 +1,9 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.system.mapper.GovernanceWorkItemMapper;
+import com.ghlzm.iot.system.mapper.GovernanceReplayFeedbackMapper;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.service.GovernancePriorityScorer;
 import java.util.concurrent.Executor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -33,6 +35,16 @@ class GovernanceWorkItemServiceImplContextTest {
         @Bean
         GovernanceWorkItemMapper governanceWorkItemMapper() {
             return mock(GovernanceWorkItemMapper.class);
+        }
+
+        @Bean
+        GovernanceReplayFeedbackMapper governanceReplayFeedbackMapper() {
+            return mock(GovernanceReplayFeedbackMapper.class);
+        }
+
+        @Bean
+        GovernancePriorityScorer governancePriorityScorer() {
+            return new GovernancePriorityScorerImpl();
         }
 
         @Bean(name = {"applicationTaskExecutor", "taskExecutor"})

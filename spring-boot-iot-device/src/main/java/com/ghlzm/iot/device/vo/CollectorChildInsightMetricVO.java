@@ -13,5 +13,6 @@ public class CollectorChildInsightMetricVO {
     private String displayName;
     private String propertyValue;
     private String unit;
+    private Boolean recommended;
     private LocalDateTime reportTime;
 }

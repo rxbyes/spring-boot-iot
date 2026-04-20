@@ -40,6 +40,22 @@ class DefaultMetricIdentifierResolverTest {
     }
 
     @Test
+    void shouldPreferFullPathPublishedIdentifierDuringGovernanceNormalization() {
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(9001L)
+                .publishedIdentifier("L1_GNSS_1.gpsTotalX")
+                .canonicalAlias("L1_GNSS_1.gpsTotalX", "gpsTotalX")
+                .canonicalAlias("gpsTotalX", "gpsTotalX")
+                .build();
+
+        MetricIdentifierResolution resolution = resolver.resolveForGovernance(snapshot, "l1_gnss_1.GPSTOTALX");
+
+        assertEquals("L1_GNSS_1.gpsTotalX", resolution.canonicalIdentifier());
+        assertEquals(MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT, resolution.source());
+    }
+
+    @Test
     void shouldPreserveRawIdentifierCaseWhenSnapshotDoesNotMatch() {
         PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
                 .productId(1001L)

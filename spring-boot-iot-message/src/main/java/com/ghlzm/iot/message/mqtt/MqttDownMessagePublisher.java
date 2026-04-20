@@ -69,4 +69,11 @@ public class MqttDownMessagePublisher {
     public void publishRaw(String topic, byte[] payload, int qos, boolean retained) {
         mqttMessageConsumer.publish(topic, payload, qos, retained);
     }
+
+    /**
+     * 使用独立 publisher 客户端发布原始消息，适用于模拟设备上行等需要避免复用订阅连接的场景。
+     */
+    public void publishRawIsolated(String topic, byte[] payload, int qos, boolean retained) {
+        mqttMessageConsumer.publishIsolated(topic, payload, qos, retained);
+    }
 }

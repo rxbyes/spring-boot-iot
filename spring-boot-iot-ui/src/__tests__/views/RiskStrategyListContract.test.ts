@@ -44,11 +44,11 @@ describe('risk strategy list contract', () => {
     const emergencyPlanSource = readViewSource('EmergencyPlanView.vue')
     const riskPointSource = readViewSource('RiskPointView.vue')
 
-    expect(emergencyPlanSource).toContain('<StandardTableTextColumn prop="alarmLevel" label="适用告警等级" width="120">')
+    expect(emergencyPlanSource).toContain('<StandardTableTextColumn prop="alarmLevel" label="适用告警等级" :width="120">')
     expect(emergencyPlanSource).not.toContain('<el-table-column prop="alarmLevel" label="适用告警等级" width="120">')
 
-    expect(riskPointSource).toContain('<StandardTableTextColumn prop="riskPointLevel" label="风险点等级" width="120">')
-    expect(riskPointSource).toContain('<StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" width="120">')
+    expect(riskPointSource).toContain('<StandardTableTextColumn prop="riskPointLevel" label="风险点等级" :width="120">')
+    expect(riskPointSource).toContain('<StandardTableTextColumn prop="currentRiskLevel" label="当前风险态势" :width="120">')
     expect(riskPointSource).not.toContain('<el-table-column prop="riskPointLevel" label="风险点等级" width="120">')
     expect(riskPointSource).not.toContain('<el-table-column prop="currentRiskLevel" label="当前风险态势" width="120">')
   })

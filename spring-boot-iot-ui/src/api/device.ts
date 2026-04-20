@@ -5,9 +5,12 @@ import type {
   DeviceAddPayload,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
+  DeviceOnboardingBatchActivatePayload,
+  DeviceOnboardingBatchResult,
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
+  DeviceOnboardingSuggestion,
   MessageFlowSubmitResult,
   DeviceRelation,
   DeviceRelationUpsertPayload,
@@ -61,6 +64,22 @@ export function addDevice(payload: DeviceAddPayload): Promise<ApiEnvelope<Device
 export function getDeviceById(id: IdType, options: DeviceRequestOptions = {}): Promise<ApiEnvelope<Device>> {
   return request<Device>(`/api/device/${id}`, {
     ...options
+  })
+}
+
+export function getDeviceOnboardingSuggestion(traceId: string): Promise<ApiEnvelope<DeviceOnboardingSuggestion>> {
+  const query = buildQuery({ traceId })
+  return request<DeviceOnboardingSuggestion>(`/api/device/onboarding/suggestion${query ? `?${query}` : ''}`, {
+    method: 'GET'
+  })
+}
+
+export function batchActivateOnboardingSuggestions(
+  payload: DeviceOnboardingBatchActivatePayload
+): Promise<ApiEnvelope<DeviceOnboardingBatchResult>> {
+  return request<DeviceOnboardingBatchResult>('/api/device/onboarding/batch-activate', {
+    method: 'POST',
+    body: payload
   })
 }
 
@@ -164,6 +183,8 @@ export function createDeviceRelation(payload: DeviceRelationUpsertPayload): Prom
 export const deviceApi = {
   addDevice,
   getDeviceById,
+  getDeviceOnboardingSuggestion,
+  batchActivateOnboardingSuggestions,
   getDeviceByCode,
   pageDevices,
   updateDevice,

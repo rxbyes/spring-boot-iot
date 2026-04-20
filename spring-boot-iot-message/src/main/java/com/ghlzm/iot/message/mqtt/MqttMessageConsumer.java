@@ -253,6 +253,13 @@ public class MqttMessageConsumer implements SmartLifecycle, MqttCallbackExtended
         publishViaEphemeralClient(topic, payload, qos, retained);
     }
 
+    /**
+     * 使用独立 publisher 客户端发布，避免与 leader 订阅客户端复用同一连接。
+     */
+    public void publishIsolated(String topic, byte[] payload, int qos, boolean retained) {
+        publishViaEphemeralClient(topic, payload, qos, retained);
+    }
+
     public boolean isConnected() {
         return mqttClient != null && mqttClient.isConnected();
     }

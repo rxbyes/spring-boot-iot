@@ -105,7 +105,8 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
           productId: 1001,
           rawIdentifier: 'disp_x',
           targetNormativeIdentifier: 'dispsX',
-          scopeType: 'PRODUCT',
+          scopeType: 'DEVICE_FAMILY',
+          deviceFamily: 'rain_gauge',
           draftStatus: 'ACTIVE',
           draftVersionNo: 2,
           publishedStatus: null,
@@ -183,6 +184,16 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
     expect(wrapper.text()).toContain('PUBLISHED')
     expect(wrapper.text()).toContain('v4 / v3')
     expect(wrapper.find('[data-testid="rule-ledger-submit-publish-7101"]').exists()).toBe(true)
+  })
+
+  it('renders shared scope signature details for non-product rules', async () => {
+    const wrapper = mountPanel()
+
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('设备族级')
+    expect(wrapper.text()).toContain('范围 rain_gauge')
   })
 
   it('previews hit result and submits publish approval from the ledger row', async () => {

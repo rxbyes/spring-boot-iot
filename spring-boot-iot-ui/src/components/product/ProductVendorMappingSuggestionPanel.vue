@@ -63,6 +63,68 @@
               suggestion.existingTargetNormativeIdentifier || '--'
             }}
           </p>
+
+          <div
+            v-if="canAccept(suggestion)"
+            class="product-vendor-mapping-suggestion-panel__scope-grid"
+          >
+            <label class="product-vendor-mapping-suggestion-panel__scope-field">
+              <span>治理范围</span>
+              <select
+                :data-testid="`vendor-mapping-suggestion-scope-${suggestionKey(suggestion)}`"
+                :value="resolveScopeDraft(suggestion).scopeType"
+                @change="handleScopeTypeChange(suggestion, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="PRODUCT">产品级</option>
+                <option value="DEVICE_FAMILY">设备族级</option>
+                <option value="SCENARIO">场景级</option>
+                <option value="PROTOCOL">协议级</option>
+                <option value="TENANT_DEFAULT">租户默认</option>
+              </select>
+            </label>
+
+            <label
+              v-if="resolveScopeDraft(suggestion).scopeType === 'DEVICE_FAMILY'"
+              class="product-vendor-mapping-suggestion-panel__scope-field"
+            >
+              <span>deviceFamily</span>
+              <input
+                :data-testid="`vendor-mapping-suggestion-device-family-${suggestionKey(suggestion)}`"
+                type="text"
+                placeholder="请输入设备族编码"
+                :value="resolveScopeDraft(suggestion).deviceFamily || ''"
+                @input="handleScopeFieldInput(suggestion, 'deviceFamily', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+
+            <label
+              v-if="resolveScopeDraft(suggestion).scopeType === 'SCENARIO'"
+              class="product-vendor-mapping-suggestion-panel__scope-field"
+            >
+              <span>scenarioCode</span>
+              <input
+                :data-testid="`vendor-mapping-suggestion-scenario-code-${suggestionKey(suggestion)}`"
+                type="text"
+                placeholder="请输入场景编码"
+                :value="resolveScopeDraft(suggestion).scenarioCode || ''"
+                @input="handleScopeFieldInput(suggestion, 'scenarioCode', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+
+            <label
+              v-if="resolveScopeDraft(suggestion).scopeType === 'PROTOCOL'"
+              class="product-vendor-mapping-suggestion-panel__scope-field"
+            >
+              <span>protocolCode</span>
+              <input
+                :data-testid="`vendor-mapping-suggestion-protocol-code-${suggestionKey(suggestion)}`"
+                type="text"
+                placeholder="请输入协议编码或 family:*"
+                :value="resolveScopeDraft(suggestion).protocolCode || ''"
+                @input="handleScopeFieldInput(suggestion, 'protocolCode', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+          </div>
         </div>
 
         <button
@@ -100,6 +162,11 @@ type SuggestionRow = VendorMetricMappingRuleSuggestion & {
   targetNormativeName?: string | null
 }
 
+type ScopeDraft = Pick<
+  VendorMetricMappingRuleCreatePayload,
+  'scopeType' | 'protocolCode' | 'scenarioCode' | 'deviceFamily'
+>
+
 const props = defineProps<{
   productId?: IdType | null
   refreshToken?: string | number
@@ -114,6 +181,7 @@ const includeIgnored = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
 const suggestions = ref<SuggestionRow[]>([])
+const scopeDraftsBySuggestionKey = ref<Record<string, ScopeDraft>>({})
 const acceptingRowKey = ref<string | null>(null)
 let messageModulePromise: Promise<typeof import('element-plus').ElMessage> | null = null
 let loadController: AbortController | null = null
@@ -142,6 +210,7 @@ async function loadSuggestions() {
     loadController = null
     latestLoadToken += 1
     suggestions.value = []
+    scopeDraftsBySuggestionKey.value = {}
     errorMessage.value = ''
     loading.value = false
     return
@@ -163,11 +232,13 @@ async function loadSuggestions() {
       return
     }
     suggestions.value = normalizeSuggestions(response.data)
+    scopeDraftsBySuggestionKey.value = {}
   } catch (error) {
     if (controller.signal.aborted || currentLoadToken !== latestLoadToken) {
       return
     }
     suggestions.value = []
+    scopeDraftsBySuggestionKey.value = {}
     errorMessage.value = error instanceof Error ? error.message : '映射建议加载失败'
   } finally {
     if (loadController === controller) {
@@ -189,6 +260,66 @@ function suggestionKey(suggestion: SuggestionRow) {
 function canAccept(suggestion: SuggestionRow) {
   const status = resolveSuggestionStatus(suggestion)
   return status === 'READY_TO_CREATE' || status === 'LOW_CONFIDENCE'
+}
+
+function normalizeScopeType(value?: string | null): VendorMetricMappingRuleCreatePayload['scopeType'] {
+  switch ((value || '').trim().toUpperCase()) {
+    case 'DEVICE_FAMILY':
+      return 'DEVICE_FAMILY'
+    case 'SCENARIO':
+      return 'SCENARIO'
+    case 'PROTOCOL':
+      return 'PROTOCOL'
+    case 'TENANT_DEFAULT':
+      return 'TENANT_DEFAULT'
+    case 'PRODUCT':
+    default:
+      return 'PRODUCT'
+  }
+}
+
+function defaultScopeDraft(suggestion: SuggestionRow): ScopeDraft {
+  return {
+    scopeType: normalizeScopeType(suggestion.recommendedScopeType),
+    protocolCode: '',
+    scenarioCode: '',
+    deviceFamily: ''
+  }
+}
+
+function resolveScopeDraft(suggestion: SuggestionRow): ScopeDraft {
+  return scopeDraftsBySuggestionKey.value[suggestionKey(suggestion)] || defaultScopeDraft(suggestion)
+}
+
+function updateScopeDraft(suggestion: SuggestionRow, partial: Partial<ScopeDraft>) {
+  const key = suggestionKey(suggestion)
+  scopeDraftsBySuggestionKey.value = {
+    ...scopeDraftsBySuggestionKey.value,
+    [key]: {
+      ...resolveScopeDraft(suggestion),
+      ...partial
+    }
+  }
+}
+
+function handleScopeTypeChange(suggestion: SuggestionRow, value: string) {
+  const scopeType = normalizeScopeType(value)
+  updateScopeDraft(suggestion, {
+    scopeType,
+    protocolCode: scopeType === 'PROTOCOL' ? resolveScopeDraft(suggestion).protocolCode : '',
+    scenarioCode: scopeType === 'SCENARIO' ? resolveScopeDraft(suggestion).scenarioCode : '',
+    deviceFamily: scopeType === 'DEVICE_FAMILY' ? resolveScopeDraft(suggestion).deviceFamily : ''
+  })
+}
+
+function handleScopeFieldInput(
+  suggestion: SuggestionRow,
+  field: 'protocolCode' | 'scenarioCode' | 'deviceFamily',
+  value: string
+) {
+  updateScopeDraft(suggestion, {
+    [field]: value
+  })
 }
 
 function formatConfidence(confidence?: number | string | null) {
@@ -217,13 +348,18 @@ async function handleAccept(suggestion: SuggestionRow) {
       })
     }
 
+    const scopeDraft = resolveScopeDraft(suggestion)
     const payload: VendorMetricMappingRuleCreatePayload = {
-      scopeType: 'PRODUCT',
+      scopeType: scopeDraft.scopeType,
+      protocolCode: normalizeOptionalText(scopeDraft.protocolCode),
+      scenarioCode: normalizeOptionalText(scopeDraft.scenarioCode),
+      deviceFamily: normalizeOptionalText(scopeDraft.deviceFamily),
       rawIdentifier: suggestion.rawIdentifier,
       logicalChannelCode: suggestion.logicalChannelCode ?? undefined,
       targetNormativeIdentifier: suggestion.targetNormativeIdentifier,
       status: 'DRAFT'
     }
+    validateCreatePayload(payload)
 
     await createVendorMetricMappingRule(props.productId as IdType, payload)
     const message = await getMessageApi()
@@ -270,6 +406,23 @@ function resolveSuggestionStatus(suggestion: SuggestionRow) {
 
 function resolveTargetName(suggestion: SuggestionRow) {
   return suggestion.targetNormativeName || suggestion.targetNormativeIdentifier || '--'
+}
+
+function normalizeOptionalText(value?: string | null) {
+  const trimmed = (value || '').trim()
+  return trimmed ? trimmed : undefined
+}
+
+function validateCreatePayload(payload: VendorMetricMappingRuleCreatePayload) {
+  if (payload.scopeType === 'DEVICE_FAMILY' && !payload.deviceFamily) {
+    throw new Error('deviceFamily 不能为空')
+  }
+  if (payload.scopeType === 'SCENARIO' && !payload.scenarioCode) {
+    throw new Error('scenarioCode 不能为空')
+  }
+  if (payload.scopeType === 'PROTOCOL' && !payload.protocolCode) {
+    throw new Error('protocolCode 不能为空')
+  }
 }
 
 function isHandledRequestError(error: unknown): error is { handled?: boolean } {
@@ -332,6 +485,33 @@ async function getMessageApi() {
 
 .product-vendor-mapping-suggestion-panel__item-main {
   gap: 0.2rem;
+}
+
+.product-vendor-mapping-suggestion-panel__scope-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+}
+
+.product-vendor-mapping-suggestion-panel__scope-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.product-vendor-mapping-suggestion-panel__scope-field span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.product-vendor-mapping-suggestion-panel__scope-field select,
+.product-vendor-mapping-suggestion-panel__scope-field input {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.7rem;
+  background: #fff;
+  color: var(--text-primary);
 }
 
 .product-vendor-mapping-suggestion-panel__item-main span,

@@ -300,7 +300,7 @@ const MetricCardStub = defineComponent({
 
 const TrendPanelStub = defineComponent({
   name: 'TrendPanelStub',
-  props: ['groups', 'rangeCode'],
+  props: ['groups', 'rangeCode', 'emptyMessage'],
   emits: ['change-range'],
   template: `
     <section class="trend-panel-stub">
@@ -308,6 +308,7 @@ const TrendPanelStub = defineComponent({
       <div>{{ rangeCode }}</div>
       <button data-testid="trend-panel-range-1d" type="button" @click="$emit('change-range', '1d')">近一天</button>
       <button data-testid="trend-panel-range-365d" type="button" @click="$emit('change-range', '365d')">近一年</button>
+      <div v-if="!groups?.length" class="trend-panel-stub__empty">{{ emptyMessage }}</div>
       <div v-for="group in groups" :key="group.title">
         <div>{{ group.title }}</div>
         <div v-for="series in group.series" :key="series.identifier">{{ series.displayName }}</div>
@@ -602,6 +603,212 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('L1_LF_1');
     expect(wrapper.text()).toContain('激光测距值');
     expect(wrapper.text()).toContain('链路可达');
+  });
+
+  it('loads collector child overview for nf-collect-rtu-v1 even when the device nodeType remains 1', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 6203,
+        productId: 803,
+        deviceCode: 'SK00EA0D1307967',
+        deviceName: 'NF-COLLECTOR-SK00EA0D1307967',
+        productKey: 'nf-collect-rtu-v1',
+        productName: '南方测绘 采集型 遥测终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        lastOnlineTime: '2026-04-19 12:14:08',
+        lastReportTime: '2026-04-19 12:14:08',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: 'S1_ZT_1.signal_4g',
+          propertyValue: '18',
+          valueType: 'int',
+          updateTime: '2026-04-19 12:14:08'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 803,
+        productKey: 'nf-collect-rtu-v1',
+        productName: '南方测绘 采集型 遥测终端',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          governance: {
+            productCapabilityType: 'COLLECTING'
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getCollectorChildInsightOverview).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        parentDeviceCode: 'SK00EA0D1307967',
+        parentOnlineStatus: 1,
+        childCount: 1,
+        reachableChildCount: 1,
+        sensorStateReportedCount: 1,
+        children: [
+          {
+            logicalChannelCode: 'L1_LF_1',
+            childDeviceCode: '202018134',
+            childDeviceName: 'NF-LASER-202018134',
+            childProductKey: 'nf-monitor-laser-rangefinder-v1',
+            collectorLinkState: 'reachable',
+            sensorStateValue: '0',
+            lastReportTime: '2026-04-19 12:14:08',
+            metrics: [
+              {
+                identifier: 'value',
+                displayName: '激光测距值',
+                propertyValue: '2473.72',
+                reportTime: '2026-04-19 12:14:08'
+              }
+            ]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'SK00EA0D1307967'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getCollectorChildInsightOverview).toHaveBeenCalledWith('SK00EA0D1307967');
+    expect(wrapper.text()).toContain('子设备总览');
+    expect(wrapper.text()).toContain('激光测距值');
+  });
+
+  it('surfaces suggestion-first collector metrics for downstream object insight governance', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 6201,
+        productId: 801,
+        deviceCode: 'SK00EA0D1307988',
+        deviceName: '激光采集器',
+        productName: '南方测绘 监测型 采集器',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        nodeType: 2,
+        lastOnlineTime: '2026-04-09 21:47:28',
+        lastReportTime: '2026-04-09 21:47:28',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 801,
+        productKey: 'nf-monitor-collector-v1',
+        productName: '南方测绘 监测型 采集器',
+        protocolCode: 'mqtt-json',
+        nodeType: 2,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getCollectorChildInsightOverview).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        parentDeviceCode: 'SK00EA0D1307988',
+        parentOnlineStatus: 1,
+        childCount: 1,
+        reachableChildCount: 1,
+        sensorStateReportedCount: 1,
+        recommendedMetricCount: 1,
+        children: [
+          {
+            logicalChannelCode: 'L1_LF_1',
+            childDeviceCode: '202018108',
+            childDeviceName: '1# 激光测点',
+            childProductKey: 'nf-monitor-laser-rangefinder-v1',
+            collectorLinkState: 'reachable',
+            sensorStateValue: '0',
+            lastReportTime: '2026-04-09 21:47:28',
+            recommendedMetricIdentifiers: ['value'],
+            metrics: [
+              {
+                identifier: 'value',
+                displayName: '激光测距值',
+                propertyValue: '10.86',
+                unit: 'mm',
+                reportTime: '2026-04-09 21:47:28',
+                recommended: true
+              }
+            ]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'SK00EA0D1307988'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('建议优先纳入对象洞察');
+    expect(wrapper.text()).toContain('1# 激光测点');
+    expect(wrapper.text()).toContain('激光测距值');
   });
 
   it('shows property snapshot units from snapshot first and product model fallback', async () => {
@@ -1029,6 +1236,136 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('相对湿度');
     expect(wrapper.text()).not.toContain('系统自定义参数');
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
+  });
+
+  it('upgrades legacy short collector identifiers to full-path runtime identifiers before querying history', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 3002,
+        productId: 804,
+        deviceCode: 'SK00EA0D1307967',
+        deviceName: 'NF-COLLECTOR-SK00EA0D1307967',
+        productKey: 'nf-collect-rtu-v1',
+        productName: '南方测绘 采集型 遥测终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        lastOnlineTime: '2026-04-19 12:14:08',
+        lastReportTime: '2026-04-19 12:14:08',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: 'S1_ZT_1.signal_4g',
+          propertyValue: '18',
+          valueType: 'int',
+          updateTime: '2026-04-19 12:14:08'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.battery_dump_energy',
+          propertyName: 'S1_ZT_1.battery_dump_energy',
+          propertyValue: '0',
+          valueType: 'int',
+          updateTime: '2026-04-19 12:14:08'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 804,
+        productKey: 'nf-collect-rtu-v1',
+        productName: '南方测绘 采集型 遥测终端',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'signal_4g',
+                displayName: '4G信号',
+                group: 'runtime',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true
+              },
+              {
+                identifier: 'battery_dump_energy',
+                displayName: '电池剩余电量',
+                group: 'runtime',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 3002,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'S1_ZT_1.signal_4g',
+            displayName: '4G信号',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-19 12:00:00', value: 18, filled: false }]
+          },
+          {
+            identifier: 'S1_ZT_1.battery_dump_energy',
+            displayName: '电池剩余电量',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-19 12:00:00', value: 0, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'SK00EA0D1307967'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledTimes(1);
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 3002,
+      identifiers: expect.arrayContaining(['S1_ZT_1.signal_4g', 'S1_ZT_1.battery_dump_energy'])
+    }));
+    expect(wrapper.text()).toContain('4G信号');
+    expect(wrapper.text()).toContain('电池剩余电量');
   });
 
   it('splits configured status trends into status events and runtime parameters', async () => {
@@ -1553,8 +1890,166 @@ describe('DeviceInsightView', () => {
 
     expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('未配置趋势的采集设备');
+    expect(wrapper.text()).toContain('当前产品未配置对象洞察重点趋势指标，请到 /products 先将正式字段加入对象洞察后再查看趋势。');
     expect(wrapper.text()).not.toContain('监测数据');
     expect(wrapper.text()).not.toContain('状态数据');
+  });
+
+  it('explains latest snapshot gaps for a single device when runtime properties are absent', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4101,
+        productId: 901,
+        deviceCode: 'SNAPSHOT-NO-LATEST',
+        deviceName: '无快照监测点',
+        productName: '普通监测设备',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        lastOnlineTime: '2026-04-18 10:00:00',
+        lastReportTime: '2026-04-18 10:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 901,
+        productKey: 'generic-monitor-device',
+        productName: '普通监测设备',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    mockRoute.query = {
+      deviceCode: 'SNAPSHOT-NO-LATEST'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('当前设备暂无最新属性快照，请检查设备上报与 latest 属性写入链路。');
+  });
+
+  it('explains collector parent snapshot and trend boundaries when only child metrics are available', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 6202,
+        productId: 802,
+        deviceCode: 'COLLECTOR-PARENT-EMPTY',
+        deviceName: '裂缝采集器',
+        productName: '南方测绘 监测型 采集器',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        nodeType: 2,
+        lastOnlineTime: '2026-04-19 08:00:00',
+        lastReportTime: '2026-04-19 08:00:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 802,
+        productKey: 'nf-monitor-collector-v1',
+        productName: '南方测绘 监测型 采集器',
+        protocolCode: 'mqtt-json',
+        nodeType: 2,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getCollectorChildInsightOverview).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        parentDeviceCode: 'COLLECTOR-PARENT-EMPTY',
+        parentOnlineStatus: 1,
+        childCount: 1,
+        reachableChildCount: 1,
+        sensorStateReportedCount: 1,
+        children: [
+          {
+            logicalChannelCode: 'L1_LF_1',
+            childDeviceCode: 'CHILD-1001',
+            childDeviceName: '1# 裂缝计',
+            childProductKey: 'nf-monitor-laser-rangefinder-v1',
+            collectorLinkState: 'reachable',
+            sensorStateValue: '0',
+            lastReportTime: '2026-04-19 08:00:00',
+            metrics: [
+              {
+                identifier: 'value',
+                displayName: '裂缝量',
+                propertyValue: '1.28',
+                unit: 'mm',
+                reportTime: '2026-04-19 08:00:00'
+              }
+            ]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'COLLECTOR-PARENT-EMPTY'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('当前采集器父设备未配置可展示的父设备趋势指标；子设备指标请查看子设备总览，并到 /products 为父设备或对应子产品单独配置对象洞察。');
+    expect(wrapper.text()).toContain('当前采集器父设备暂无自身运行态属性快照；子设备监测值与 sensor_state 请查看子设备总览或进入子设备对象洞察。');
   });
 
   it('loads product-level insight config by productId when device metadata is absent', async () => {

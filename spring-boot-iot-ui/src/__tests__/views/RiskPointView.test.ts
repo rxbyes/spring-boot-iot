@@ -1353,6 +1353,60 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).toContain('不要把采集器当作监测主体')
   })
 
+  it('marks catalog-backed pending candidates as suggestion-first binding targets', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            riskMetricId: 6102,
+            metricIdentifier: 'value',
+            metricName: '裂缝监测值',
+            catalogRecommended: true,
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL', 'LATEST_PROPERTY']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await (wrapper.vm as any).openBindingWorkbench(createRiskPointRow(), 'pending')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('建议优先绑定')
+    expect(wrapper.text()).toContain('目录指标 #6102')
+    expect(wrapper.text()).toContain('裂缝监测值')
+  })
+
   it('auto-opens the unified binding workbench on the formal-binding view when governance route requests maintain-binding', async () => {
     mockRoute.query = {
       openRiskPointId: '1',

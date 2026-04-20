@@ -264,11 +264,12 @@ test('protocol governance smoke plan expands detail, publish and guard scenarios
   const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
   const scenarios = new Map(plan.scenarios.map((scenario) => [scenario.key, scenario]));
 
-  assert.equal(plan.scenarios.length, 4);
+  assert.equal(plan.scenarios.length, 5);
   for (const key of [
     'protocol-governance-login',
     'protocol-governance-workbench',
     'protocol-governance-detail-and-publish',
+    'protocol-governance-approval-submit',
     'protocol-governance-batch-guards'
   ]) {
     assert.ok(scenarios.has(key), `${key} scenario should exist`);
@@ -280,6 +281,42 @@ test('protocol governance smoke plan expands detail, publish and guard scenarios
     detailScenario?.steps.some((step) => step.id === 'protocol-governance-family-detail-assert-display-name')
   );
   assert.ok(detailScenario?.steps.some((step) => step.id === 'protocol-governance-template-publish'));
+
+  const approvalScenario = scenarios.get('protocol-governance-approval-submit');
+  assert.equal(approvalScenario?.readySelector, "[data-testid='protocol-family-save']");
+  const familyApprovalStep = approvalScenario?.steps.find(
+    (step) => step.id === 'protocol-governance-family-submit-publish'
+  );
+  assert.equal(familyApprovalStep?.type, 'triggerApi');
+  assert.equal(familyApprovalStep?.matcher, '/submit-publish');
+  assert.deepEqual(familyApprovalStep?.captures, [
+    {
+      variable: 'familyApprovalOrderId',
+      path: 'payload.data.approvalOrderId'
+    }
+  ]);
+  const familyApprovalAssertStep = approvalScenario?.steps.find(
+    (step) => step.id === 'protocol-governance-family-submit-publish-assert'
+  );
+  assert.equal(familyApprovalAssertStep?.type, 'assertText');
+  assert.equal(familyApprovalAssertStep?.value, '协议族定义发布审批已提交');
+
+  const profileApprovalStep = approvalScenario?.steps.find(
+    (step) => step.id === 'protocol-governance-profile-submit-publish'
+  );
+  assert.equal(profileApprovalStep?.type, 'triggerApi');
+  assert.equal(profileApprovalStep?.matcher, '/submit-publish');
+  assert.deepEqual(profileApprovalStep?.captures, [
+    {
+      variable: 'profileApprovalOrderId',
+      path: 'payload.data.approvalOrderId'
+    }
+  ]);
+  const profileApprovalAssertStep = approvalScenario?.steps.find(
+    (step) => step.id === 'protocol-governance-profile-submit-publish-assert'
+  );
+  assert.equal(profileApprovalAssertStep?.type, 'assertText');
+  assert.equal(profileApprovalAssertStep?.value, '解密档案发布审批已提交');
 
   const guardScenario = scenarios.get('protocol-governance-batch-guards');
   const familyGuardStep = guardScenario?.steps.find(

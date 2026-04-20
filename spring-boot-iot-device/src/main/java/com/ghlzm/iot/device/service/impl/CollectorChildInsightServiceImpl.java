@@ -1,6 +1,9 @@
 package com.ghlzm.iot.device.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel;
+import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.CollectorChildInsightService;
 import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.DeviceService;
@@ -10,8 +13,12 @@ import com.ghlzm.iot.device.vo.CollectorChildInsightOverviewVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceRelationVO;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,11 +34,14 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
 
     private final DeviceService deviceService;
     private final DeviceRelationService deviceRelationService;
+    private final RiskMetricCatalogReadMapper riskMetricCatalogReadMapper;
 
     public CollectorChildInsightServiceImpl(DeviceService deviceService,
-                                            DeviceRelationService deviceRelationService) {
+                                            DeviceRelationService deviceRelationService,
+                                            RiskMetricCatalogReadMapper riskMetricCatalogReadMapper) {
         this.deviceService = deviceService;
         this.deviceRelationService = deviceRelationService;
+        this.riskMetricCatalogReadMapper = riskMetricCatalogReadMapper;
     }
 
     @Override
@@ -39,8 +49,9 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
         DeviceDetailVO parent = deviceService.getDetailByCode(currentUserId, parentDeviceCode);
         List<DeviceRelationVO> relations = deviceRelationService.listByParentDeviceCode(currentUserId, parentDeviceCode);
         List<CollectorChildInsightChildVO> children = new ArrayList<>();
+        Map<Long, List<String>> recommendedMetricCache = new LinkedHashMap<>();
         for (DeviceRelationVO relation : relations) {
-            children.add(toChildOverview(currentUserId, parent, relation));
+            children.add(toChildOverview(currentUserId, parent, relation, recommendedMetricCache));
         }
 
         CollectorChildInsightOverviewVO overview = new CollectorChildInsightOverviewVO();
@@ -53,15 +64,51 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
         overview.setSensorStateReportedCount((int) children.stream()
                 .filter(child -> hasText(child.getSensorStateValue()))
                 .count());
+        overview.setRecommendedMetricCount((int) children.stream()
+                .map(CollectorChildInsightChildVO::getRecommendedMetricIdentifiers)
+                .filter(list -> list != null && !list.isEmpty())
+                .flatMap(List::stream)
+                .distinct()
+                .count());
         overview.setChildren(children);
         return overview;
     }
 
+    @Override
+    public List<String> listRecommendedMetrics(Long productId) {
+        if (productId == null || riskMetricCatalogReadMapper == null) {
+            return List.of();
+        }
+        List<RiskMetricCatalogReadModel> rows = riskMetricCatalogReadMapper.selectList(
+                new LambdaQueryWrapper<RiskMetricCatalogReadModel>()
+                        .eq(RiskMetricCatalogReadModel::getProductId, productId)
+                        .eq(RiskMetricCatalogReadModel::getEnabled, 1)
+                        .eq(RiskMetricCatalogReadModel::getDeleted, 0)
+                        .eq(RiskMetricCatalogReadModel::getInsightEnabled, 1)
+        );
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (RiskMetricCatalogReadModel row : rows) {
+            String identifier = normalizeIdentifier(row == null ? null : row.getContractIdentifier());
+            if (identifier != null) {
+                identifiers.add(identifier);
+            }
+        }
+        return List.copyOf(identifiers);
+    }
+
     private CollectorChildInsightChildVO toChildOverview(Long currentUserId,
                                                          DeviceDetailVO parent,
-                                                         DeviceRelationVO relation) {
+                                                         DeviceRelationVO relation,
+                                                         Map<Long, List<String>> recommendedMetricCache) {
         DeviceDetailVO child = deviceService.getDetailByCode(currentUserId, relation.getChildDeviceCode());
         List<DeviceProperty> properties = deviceService.listProperties(currentUserId, relation.getChildDeviceCode());
+        List<String> recommendedMetricIdentifiers = child == null || child.getProductId() == null
+                ? List.of()
+                : recommendedMetricCache.computeIfAbsent(child.getProductId(), this::listRecommendedMetrics);
+        Set<String> recommendedMetricSet = new LinkedHashSet<>(recommendedMetricIdentifiers);
 
         CollectorChildInsightChildVO item = new CollectorChildInsightChildVO();
         item.setLogicalChannelCode(relation.getLogicalChannelCode());
@@ -71,11 +118,19 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
         item.setCollectorLinkState(resolveCollectorLinkState(parent, child));
         item.setSensorStateValue(resolvePropertyValue(properties, SENSOR_STATE_IDENTIFIER));
         item.setLastReportTime(child.getLastReportTime());
-        item.setMetrics(selectMonitoringMetrics(properties));
+        List<CollectorChildInsightMetricVO> metrics = selectMonitoringMetrics(properties, recommendedMetricSet);
+        item.setMetrics(metrics);
+        item.setRecommendedMetricIdentifiers(metrics.stream()
+                .filter(metric -> Boolean.TRUE.equals(metric.getRecommended()))
+                .map(metric -> normalizeIdentifier(metric.getIdentifier()))
+                .filter(value -> value != null)
+                .distinct()
+                .toList());
         return item;
     }
 
-    private List<CollectorChildInsightMetricVO> selectMonitoringMetrics(List<DeviceProperty> properties) {
+    private List<CollectorChildInsightMetricVO> selectMonitoringMetrics(List<DeviceProperty> properties,
+                                                                        Set<String> recommendedMetricIdentifiers) {
         if (properties == null || properties.isEmpty()) {
             return List.of();
         }
@@ -91,6 +146,8 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
             metric.setPropertyValue(property.getPropertyValue());
             metric.setUnit(null);
             metric.setReportTime(property.getReportTime());
+            metric.setRecommended(recommendedMetricIdentifiers != null
+                    && recommendedMetricIdentifiers.contains(identifier));
             metrics.add(metric);
         }
         return metrics;

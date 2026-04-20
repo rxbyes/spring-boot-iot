@@ -313,6 +313,11 @@
           "commentZh": "协议模板编码"
         },
         {
+          "name": "template_pack_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "模板包ID"
+        },
+        {
           "name": "product_id",
           "type": "BIGINT DEFAULT NULL",
           "commentZh": "产品ID"
@@ -321,6 +326,21 @@
           "name": "release_batch_id",
           "type": "BIGINT DEFAULT NULL",
           "commentZh": "合同发布批次ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "验收设备编码"
+        },
+        {
+          "name": "acceptance_job_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "标准接入验收任务ID"
+        },
+        {
+          "name": "acceptance_run_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "标准接入验收运行ID"
         },
         {
           "name": "current_step",
@@ -397,9 +417,22 @@
             "current_step",
             "status"
           ]
+        },
+        {
+          "name": "idx_onboarding_case_template_pack",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "template_pack_id"
+          ]
         }
       ],
       "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_onboarding_template_pack",
+          "viaField": "template_pack_id"
+        },
         {
           "type": "belongs_to",
           "target": "iot_product",
@@ -413,6 +446,158 @@
       ],
       "lineageRole": "device_domain_state",
       "businessBoundary": "用于无代码接入案例的流程编排、步骤状态和阻塞摘要持久化，不承载协议或合同正式真相。"
+    },
+    {
+      "name": "iot_onboarding_template_pack",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "设备无代码接入模板包表",
+      "commentZh": "设备无代码接入模板包表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "pack_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "模板包编码"
+        },
+        {
+          "name": "pack_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "模板包名称"
+        },
+        {
+          "name": "scenario_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "场景编码"
+        },
+        {
+          "name": "device_family",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备族"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'ACTIVE'",
+          "commentZh": "模板包状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "protocol_family_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议族编码"
+        },
+        {
+          "name": "decrypt_profile_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "解密档案编码"
+        },
+        {
+          "name": "protocol_template_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议模板编码"
+        },
+        {
+          "name": "default_governance_config_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "默认治理配置JSON"
+        },
+        {
+          "name": "default_insight_config_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "默认对象洞察配置JSON"
+        },
+        {
+          "name": "default_acceptance_profile_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "默认验收配置JSON"
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "描述"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人用户ID"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人用户ID"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_onboarding_template_pack_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "pack_code"
+          ]
+        },
+        {
+          "name": "idx_onboarding_template_pack_status",
+          "kind": "INDEX",
+          "columns": [
+            "tenant_id",
+            "status"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "device_domain_state",
+      "businessBoundary": "用于无代码接入模板包的引用资产、默认治理配置与预填信息持久化，不承载协议或合同正式快照。"
     },
     {
       "name": "iot_normative_metric_definition",

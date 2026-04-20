@@ -21,6 +21,17 @@ export type DeviceOnboardingCaseCurrentStep =
 
 export type DeviceOnboardingCaseStatus = 'BLOCKED' | 'IN_PROGRESS' | 'READY';
 
+export type OnboardingTemplatePackStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface DeviceOnboardingAcceptanceSummary {
+  jobId?: string | null;
+  runId?: string | null;
+  status?: 'RUNNING' | 'PASSED' | 'FAILED' | 'BLOCKED' | string | null;
+  summary?: string | null;
+  failedLayers?: string[] | null;
+  jumpPath?: string | null;
+}
+
 export interface DeviceOnboardingCase {
   id: IdType;
   tenantId?: IdType | null;
@@ -31,11 +42,14 @@ export interface DeviceOnboardingCase {
   protocolFamilyCode?: string | null;
   decryptProfileCode?: string | null;
   protocolTemplateCode?: string | null;
+  templatePackId?: IdType | null;
   productId?: IdType | null;
   releaseBatchId?: IdType | null;
+  deviceCode?: string | null;
   currentStep: DeviceOnboardingCaseCurrentStep;
   status: DeviceOnboardingCaseStatus;
   blockers: string[];
+  acceptance?: DeviceOnboardingAcceptanceSummary | null;
   remark?: string | null;
   createBy?: IdType | null;
   createTime?: string | null;
@@ -61,14 +75,119 @@ export interface DeviceOnboardingCaseUpsertPayload {
   protocolFamilyCode?: string | null;
   decryptProfileCode?: string | null;
   protocolTemplateCode?: string | null;
+  templatePackId?: IdType | null;
   productId?: IdType | null;
   releaseBatchId?: IdType | null;
+  deviceCode?: string | null;
   remark?: string | null;
 }
 
 export type DeviceOnboardingCaseCreatePayload = DeviceOnboardingCaseUpsertPayload;
 
 export type DeviceOnboardingCaseUpdatePayload = DeviceOnboardingCaseUpsertPayload;
+
+export interface DeviceOnboardingCaseBatchCreatePayload {
+  items: DeviceOnboardingCaseCreatePayload[];
+}
+
+export interface DeviceOnboardingCaseBatchTemplateApplyPayload {
+  caseIds: IdType[];
+  templatePackId: IdType;
+}
+
+export interface DeviceOnboardingCaseBatchStartAcceptancePayload {
+  caseIds: IdType[];
+}
+
+export interface DeviceOnboardingCaseBatchSuccessItem {
+  caseId?: IdType | null;
+  caseCode?: string | null;
+  caseName?: string | null;
+  currentStep?: DeviceOnboardingCaseCurrentStep | string | null;
+  status?: DeviceOnboardingCaseStatus | string | null;
+  deviceCode?: string | null;
+  acceptanceStatus?: string | null;
+  acceptanceRunId?: string | null;
+}
+
+export interface DeviceOnboardingCaseBatchFailureItem {
+  caseId?: IdType | null;
+  caseCode?: string | null;
+  caseName?: string | null;
+  failureKey?: string | null;
+  message: string;
+}
+
+export interface DeviceOnboardingCaseBatchFailureGroup {
+  failureKey?: string | null;
+  summary: string;
+  count: number;
+  caseCodes: string[];
+}
+
+export interface DeviceOnboardingCaseBatchResult {
+  action?: 'BATCH_CREATE' | 'BATCH_APPLY_TEMPLATE' | 'BATCH_START_ACCEPTANCE' | string | null;
+  requestedCount: number;
+  successCount: number;
+  failedCount: number;
+  successItems: DeviceOnboardingCaseBatchSuccessItem[];
+  failureItems: DeviceOnboardingCaseBatchFailureItem[];
+  failureGroups: DeviceOnboardingCaseBatchFailureGroup[];
+}
+
+export interface OnboardingTemplatePack {
+  id: IdType;
+  tenantId?: IdType | null;
+  packCode: string;
+  packName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  status: OnboardingTemplatePackStatus | string;
+  versionNo?: number | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  defaultGovernanceConfigJson?: string | null;
+  defaultInsightConfigJson?: string | null;
+  defaultAcceptanceProfileJson?: string | null;
+  description?: string | null;
+  remark?: string | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface OnboardingTemplatePackPageQuery {
+  tenantId?: IdType | null;
+  keyword?: string;
+  status?: OnboardingTemplatePackStatus | '';
+  scenarioCode?: string;
+  deviceFamily?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface OnboardingTemplatePackUpsertPayload {
+  tenantId?: IdType | null;
+  packCode: string;
+  packName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  status?: OnboardingTemplatePackStatus | string | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  defaultGovernanceConfigJson?: string | null;
+  defaultInsightConfigJson?: string | null;
+  defaultAcceptanceProfileJson?: string | null;
+  description?: string | null;
+  remark?: string | null;
+}
+
+export type OnboardingTemplatePackCreatePayload = OnboardingTemplatePackUpsertPayload;
+
+export type OnboardingTemplatePackUpdatePayload = OnboardingTemplatePackUpsertPayload;
 
 export interface StatsBucket {
   label: string;
@@ -641,6 +760,9 @@ export interface VendorMetricMappingRuleCreatePayload {
 export interface VendorMetricMappingRuleLedgerRow {
   ruleId?: IdType | null;
   productId?: IdType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
   rawIdentifier?: string | null;
   targetNormativeIdentifier?: string | null;
   scopeType?: VendorMetricMappingRuleScopeType | null;
@@ -1185,6 +1307,49 @@ export interface Device {
   updateTime?: string | null;
 }
 
+export interface DeviceOnboardingSuggestion {
+  traceId: string;
+  deviceCode?: string | null;
+  deviceName?: string | null;
+  assetSourceType?: string | null;
+  productKey?: string | null;
+  protocolCode?: string | null;
+  lastFailureStage?: string | null;
+  lastErrorMessage?: string | null;
+  lastReportTopic?: string | null;
+  lastPayload?: string | null;
+  recommendedProductId?: IdType | null;
+  recommendedProductKey?: string | null;
+  recommendedProductName?: string | null;
+  recommendedFamilyCode?: string | null;
+  recommendedFamilyName?: string | null;
+  recommendedDecryptProfileCode?: string | null;
+  recommendedTemplateCode?: string | null;
+  recommendedTemplateName?: string | null;
+  suggestionStatus?: string | null;
+  ruleGaps: string[];
+}
+
+export interface DeviceOnboardingBatchActivatePayload {
+  traceIds: string[];
+  confirmed: boolean;
+}
+
+export interface DeviceOnboardingBatchError {
+  traceId?: string | null;
+  deviceCode?: string | null;
+  message: string;
+}
+
+export interface DeviceOnboardingBatchResult {
+  requestedCount: number;
+  activatedCount: number;
+  rejectedCount: number;
+  activatedTraceIds: string[];
+  activatedDeviceCodes: string[];
+  errors: DeviceOnboardingBatchError[];
+}
+
 export interface DeviceOption {
   id: IdType;
   productId?: IdType | null;
@@ -1227,6 +1392,7 @@ export interface CollectorChildInsightMetric {
   displayName?: string | null;
   propertyValue?: string | null;
   unit?: string | null;
+  recommended?: boolean | null;
   reportTime?: string | null;
 }
 
@@ -1238,6 +1404,7 @@ export interface CollectorChildInsightChild {
   collectorLinkState: string;
   sensorStateValue?: string | null;
   lastReportTime?: string | null;
+  recommendedMetricIdentifiers?: string[] | null;
   metrics: CollectorChildInsightMetric[];
 }
 
@@ -1247,6 +1414,7 @@ export interface CollectorChildInsightOverview {
   childCount: number;
   reachableChildCount: number;
   sensorStateReportedCount: number;
+  recommendedMetricCount?: number | null;
   children: CollectorChildInsightChild[];
 }
 

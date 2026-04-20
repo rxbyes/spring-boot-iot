@@ -42,7 +42,7 @@
             <span class="product-model-governance-compare-table__row-kicker">治理候选快照</span>
             <strong>{{ rowDisplayName(row) }}</strong>
             <div class="product-model-governance-compare-table__row-meta">
-              <span>identifier: {{ row.identifier }}</span>
+              <span>正式字段标识：{{ row.identifier }}</span>
               <span>类型: {{ rowTypeLabel(row) }}</span>
               <span>{{ rowDataHint(row) }}</span>
               <span v-if="rowNormativeLabel(row)">规范字段：{{ rowNormativeLabel(row) }}</span>

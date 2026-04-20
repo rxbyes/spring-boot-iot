@@ -10,6 +10,7 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingSuggestionQuery;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.ProductModel;
@@ -19,11 +20,13 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
+import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingSuggestionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
@@ -77,6 +80,8 @@ class DeviceServiceImplTest {
     @Mock
     private DeviceInvalidReportStateService invalidReportStateService;
     @Mock
+    private DeviceOnboardingSuggestionService deviceOnboardingSuggestionService;
+    @Mock
     private PermissionService permissionService;
     @Mock
     private OrganizationService organizationService;
@@ -104,6 +109,7 @@ class DeviceServiceImplTest {
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
+                deviceOnboardingSuggestionService,
                 permissionService,
                 organizationService
         ));
@@ -358,6 +364,33 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void getOnboardingSuggestionShouldDelegateWithScopedTenant() {
+        when(permissionService.getDataPermissionContext(101L))
+                .thenReturn(new DataPermissionContext(101L, 8L, null, DataScopeType.TENANT, false));
+        DeviceOnboardingSuggestionVO suggestion = new DeviceOnboardingSuggestionVO();
+        suggestion.setTraceId("trace-unregistered-001");
+        suggestion.setRecommendedProductKey("south_rtu");
+        when(deviceOnboardingSuggestionService.suggest(eq(8L), any())).thenReturn(suggestion);
+
+        DeviceOnboardingSuggestionQuery query = new DeviceOnboardingSuggestionQuery("trace-unregistered-001");
+        DeviceOnboardingSuggestionVO result = deviceService.getOnboardingSuggestion(101L, query);
+
+        assertEquals("south_rtu", result.getRecommendedProductKey());
+        verify(deviceOnboardingSuggestionService).suggest(eq(8L), eq(query));
+    }
+
+    @Test
+    void getOnboardingSuggestionShouldRejectOrganizationScopedUser() {
+        when(permissionService.getDataPermissionContext(101L))
+                .thenReturn(new DataPermissionContext(101L, 8L, 7101L, DataScopeType.ORG, false));
+
+        BizException error = assertThrows(BizException.class,
+                () -> deviceService.getOnboardingSuggestion(101L, new DeviceOnboardingSuggestionQuery("trace-unregistered-001")));
+
+        assertEquals("当前数据权限暂不支持未登记设备接入建议", error.getMessage());
+    }
+
+    @Test
     void pageDevicesShouldFilterRegisteredRowsByCurrentTenant() {
         when(permissionService.getDataPermissionContext(99L))
                 .thenReturn(new DataPermissionContext(99L, 8L, null, DataScopeType.TENANT, false));
@@ -581,6 +614,7 @@ class DeviceServiceImplTest {
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
+                deviceOnboardingSuggestionService,
                 permissionService,
                 organizationService
         ));

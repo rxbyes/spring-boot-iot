@@ -39,7 +39,15 @@
           class="product-object-insight-config-editor__candidate-card"
         >
           <div class="product-object-insight-config-editor__candidate-copy">
-            <strong>{{ model.modelName }}</strong>
+            <strong>
+              {{ model.modelName }}
+              <small
+                v-if="isRecommendedMetric(model.identifier)"
+                class="product-object-insight-config-editor__candidate-recommend"
+              >
+                建议优先
+              </small>
+            </strong>
             <p>{{ model.identifier }}</p>
           </div>
           <div class="product-object-insight-config-editor__candidate-actions">
@@ -234,9 +242,11 @@ const props = withDefaults(
   defineProps<{
     modelValue: ProductObjectInsightCustomMetricConfig[]
     availableModels?: ProductModel[]
+    recommendedIdentifiers?: string[]
   }>(),
   {
-    availableModels: () => []
+    availableModels: () => [],
+    recommendedIdentifiers: () => []
   }
 )
 
@@ -327,9 +337,19 @@ function isQuickAddDisabled(identifier: string) {
   return !hasMetric(identifier) && normalizedMetrics.value.length >= MAX_PRODUCT_OBJECT_INSIGHT_CUSTOM_METRICS
 }
 
+function isRecommendedMetric(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier).toLowerCase()
+  return (props.recommendedIdentifiers ?? []).some(
+    (value) => normalizeText(value).toLowerCase() === normalizedIdentifier
+  )
+}
+
 function resolveMetricStateLabel(identifier: string) {
   const metric = findProductObjectInsightMetric(normalizedMetrics.value, identifier)
   if (!metric) {
+    if (isRecommendedMetric(identifier)) {
+      return '建议优先纳入趋势'
+    }
     return '当前未加入趋势'
   }
   return `当前为${getObjectInsightMetricGroupLabel(metric.group)}`
@@ -400,6 +420,13 @@ function resolveMetricStateLabel(identifier: string) {
 
 .product-object-insight-config-editor__candidate-copy strong {
   color: var(--text-primary);
+}
+
+.product-object-insight-config-editor__candidate-recommend {
+  margin-left: 0.45rem;
+  color: #b45309;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .product-object-insight-config-editor__candidate-actions {

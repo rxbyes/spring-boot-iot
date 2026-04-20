@@ -44,6 +44,16 @@ class DeviceCollectorInsightControllerTest {
         verify(collectorChildInsightService).getOverview(1001L, "SK00EA0D1307988");
     }
 
+    @Test
+    void recommendedMetricsEndpointShouldDelegateToCollectorInsightService() {
+        when(collectorChildInsightService.listRecommendedMetrics(1001L)).thenReturn(List.of("value"));
+
+        R<List<String>> response = controller.listRecommendedMetrics(1001L, authentication(1001L));
+
+        assertEquals(List.of("value"), response.getData());
+        verify(collectorChildInsightService).listRecommendedMetrics(1001L);
+    }
+
     private Authentication authentication(Long userId) {
         JwtUserPrincipal principal = new JwtUserPrincipal(userId, "demo");
         return new UsernamePasswordAuthenticationToken(principal, null, List.of());

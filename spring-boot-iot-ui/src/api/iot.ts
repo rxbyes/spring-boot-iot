@@ -77,6 +77,10 @@ export function getCollectorChildInsightOverview(deviceCode: string) {
   return request<CollectorChildInsightOverview | null>(`/api/device/${deviceCode}/collector-children/overview`);
 }
 
+export function getCollectorChildRecommendedMetrics(productId: string | number) {
+  return request<string[]>(`/api/device/product/${productId}/collector-children/recommended-metrics`);
+}
+
 export function getDeviceMessageLogs(deviceCode: string) {
   return request<DeviceMessageLog[]>(`/api/device/${deviceCode}/message-logs`);
 }

@@ -85,6 +85,7 @@
         <div class="product-vendor-rule-ledger__meta">
           <span>{{ `命中来源 ${row.publishedSource || '--'}` }}</span>
           <span>{{ `逻辑通道 ${row.logicalChannelCode || '--'}` }}</span>
+          <span v-if="scopeSignatureValue(row)">{{ `范围 ${scopeSignatureValue(row)}` }}</span>
         </div>
 
         <div class="product-vendor-rule-ledger__actions">
@@ -248,6 +249,19 @@ function scopeTypeLabel(scopeType?: string | null) {
       return '租户默认'
     default:
       return scopeType || '--'
+  }
+}
+
+function scopeSignatureValue(row: VendorMetricMappingRuleLedgerRow) {
+  switch (row.scopeType) {
+    case 'DEVICE_FAMILY':
+      return row.deviceFamily || '--'
+    case 'SCENARIO':
+      return row.scenarioCode || '--'
+    case 'PROTOCOL':
+      return row.protocolCode || '--'
+    default:
+      return ''
   }
 }
 

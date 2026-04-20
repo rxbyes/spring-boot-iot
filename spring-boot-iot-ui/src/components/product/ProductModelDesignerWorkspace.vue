@@ -478,6 +478,16 @@
           </div>
         </div>
 
+        <div class="product-model-designer__governance-note" data-testid="contract-field-sample-note">
+          <strong>字段标识按当前产品契约形态收口</strong>
+          <p>
+            单台样本会优先沿用当前产品的正式字段口径：单能力/规范产品通常收口为直接字段，多能力产品会保留监测类型编码 + 数据字段这类全路径标识。
+          </p>
+          <p>
+            复合设备会按父设备关系映射归一到子产品字段；逻辑通道编码用于归属和原始证据，不直接等于正式字段标识。
+          </p>
+        </div>
+
         <section
           v-if="deviceStructure === 'composite'"
           class="product-model-designer__relation-stage"
@@ -1624,8 +1634,8 @@ const rollbackReceiptText = computed(() => {
 })
 const samplePayloadPlaceholder = computed(() =>
   deviceStructure.value === 'composite'
-    ? '请粘贴单台父设备的复合上报 JSON，例如 {"SK00EA0D1307986":{"L1_LF_1":{"2026-04-05T20:14:06.000Z":10.86}}}'
-    : '请粘贴单台设备的上报 JSON，例如 {"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}'
+    ? '请粘贴单台父设备的复合上报 JSON，例如 {"SK00EA0D1307967":{"S1_ZT_1":{"2026-04-19T02:54:08.000Z":{"ext_power_volt":11.94,"sensor_state":{"L1_LF_1":0}}}}}'
+    : '请粘贴单台设备的上报 JSON，例如 {"SK11EB0D1308028AZ":{"S1_ZT_1":{"2026-04-19T02:32:10.000Z":{"temp":10.8,"signal_4g":-55,"sensor_state":{"L1_QJ_1":0,"L1_LF_1":0}}}}}'
 )
 const trendMetricRows = computed(() =>
   parseProductObjectInsightMetrics(productSnapshot.value?.metadataJson ?? props.product?.metadataJson)

@@ -1,11 +1,13 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.ghlzm.iot.alarm.governance.RiskPointGovernanceApprovalExecutor;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
+import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
@@ -52,6 +54,11 @@ class RiskPointGovernanceApprovalBeansContextTest {
         }
 
         @Bean
+        RiskPointDeviceCapabilityBindingMapper riskPointDeviceCapabilityBindingMapper() {
+            return mock(RiskPointDeviceCapabilityBindingMapper.class);
+        }
+
+        @Bean
         RiskPointDevicePendingBindingMapper riskPointDevicePendingBindingMapper() {
             return mock(RiskPointDevicePendingBindingMapper.class);
         }
@@ -79,6 +86,11 @@ class RiskPointGovernanceApprovalBeansContextTest {
         @Bean
         GovernanceWorkItemService governanceWorkItemService() {
             return mock(GovernanceWorkItemService.class);
+        }
+
+        @Bean
+        DeviceService deviceService() {
+            return mock(DeviceService.class);
         }
     }
 }

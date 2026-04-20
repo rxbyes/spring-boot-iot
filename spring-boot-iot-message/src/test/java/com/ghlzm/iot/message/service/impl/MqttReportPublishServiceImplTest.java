@@ -148,7 +148,7 @@ class MqttReportPublishServiceImplTest {
 
         service.publish(buildCommand("plain-text"));
 
-        verify(mqttDownMessagePublisher).publishRaw(
+        verify(mqttDownMessagePublisher).publishRawIsolated(
                 "$dp",
                 "plain-text".getBytes(StandardCharsets.UTF_8),
                 1,
@@ -210,7 +210,7 @@ class MqttReportPublishServiceImplTest {
         service.publish(command);
 
         ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
-        verify(mqttDownMessagePublisher).publishRaw(
+        verify(mqttDownMessagePublisher).publishRawIsolated(
                 org.mockito.Mockito.eq("$dp"),
                 payloadCaptor.capture(),
                 org.mockito.Mockito.eq(1),
@@ -245,7 +245,7 @@ class MqttReportPublishServiceImplTest {
 
         MessageFlowSubmitResult submitResult = service.publish(command);
 
-        verify(mqttDownMessagePublisher).publishRaw(
+        verify(mqttDownMessagePublisher).publishRawIsolated(
                 "$dp",
                 "plain-text".getBytes(StandardCharsets.UTF_8),
                 2,
@@ -256,6 +256,45 @@ class MqttReportPublishServiceImplTest {
                 org.mockito.Mockito.any(),
                 org.mockito.Mockito.anyInt(),
                 org.mockito.Mockito.anyBoolean()
+        );
+        assertEquals(MessageFlowStatuses.SESSION_PUBLISHED, submitResult.getStatus());
+        assertFalse(Boolean.TRUE.equals(submitResult.getTimelineAvailable()));
+        assertTrue(Boolean.TRUE.equals(submitResult.getCorrelationPending()));
+    }
+
+    @Test
+    void publishShouldUseIsolatedRawPublisherForSyntheticUplink() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+
+        when(mqttMessageConsumer.isPublishCapable()).thenReturn(true);
+        when(deviceService.getRequiredByCode("demo-device-01")).thenReturn(device);
+        when(productService.getRequiredById(1001L)).thenReturn(product);
+
+        MqttReportPublishServiceImpl service = new MqttReportPublishServiceImpl(
+                deviceService,
+                productService,
+                mqttMessageConsumer,
+                mqttDownMessagePublisher,
+                buildIotProperties(),
+                buildMessageFlowProperties(false),
+                messageFlowMetricsRecorder,
+                messageFlowTimelineStore
+        );
+
+        MessageFlowSubmitResult submitResult = service.publish(buildCommand("plain-text"));
+
+        verify(mqttDownMessagePublisher).publishRawIsolated(
+                "$dp",
+                "plain-text".getBytes(StandardCharsets.UTF_8),
+                1,
+                false
+        );
+        verify(mqttDownMessagePublisher, never()).publishRaw(
+                "$dp",
+                "plain-text".getBytes(StandardCharsets.UTF_8),
+                1,
+                false
         );
         assertEquals(MessageFlowStatuses.SESSION_PUBLISHED, submitResult.getStatus());
         assertFalse(Boolean.TRUE.equals(submitResult.getTimelineAvailable()));
@@ -300,7 +339,7 @@ class MqttReportPublishServiceImplTest {
         assertTrue(Boolean.TRUE.equals(session.getCorrelationPending()));
 
         verify(messageFlowTimelineStore).bindFingerprint(any(String.class), org.mockito.Mockito.eq(submitResult.getSessionId()));
-        verify(mqttDownMessagePublisher, times(1)).publishRaw(
+        verify(mqttDownMessagePublisher, times(1)).publishRawIsolated(
                 "$dp",
                 "plain-text".getBytes(StandardCharsets.UTF_8),
                 1,

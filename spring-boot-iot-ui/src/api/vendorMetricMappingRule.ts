@@ -79,6 +79,9 @@ export async function listVendorMetricMappingRuleLedger(
     data: (response.data?.records ?? []).map((row) => ({
       ruleId: row.id,
       productId: row.productId,
+      protocolCode: row.protocolCode,
+      scenarioCode: row.scenarioCode,
+      deviceFamily: row.deviceFamily,
       rawIdentifier: row.rawIdentifier,
       logicalChannelCode: row.logicalChannelCode,
       targetNormativeIdentifier: row.targetNormativeIdentifier,

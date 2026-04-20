@@ -7,18 +7,33 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.device.dto.DeviceOnboardingCaseBatchCreateDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingCaseBatchStartAcceptanceDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingCaseBatchTemplateApplyDTO;
 import com.ghlzm.iot.device.dto.DeviceOnboardingCaseCreateDTO;
 import com.ghlzm.iot.device.dto.DeviceOnboardingCaseQueryDTO;
 import com.ghlzm.iot.device.dto.DeviceOnboardingCaseUpdateDTO;
 import com.ghlzm.iot.device.entity.DeviceOnboardingCase;
+import com.ghlzm.iot.device.entity.OnboardingTemplatePack;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceOnboardingCaseMapper;
+import com.ghlzm.iot.device.mapper.OnboardingTemplatePackMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.service.DeviceOnboardingAcceptanceGateway;
 import com.ghlzm.iot.device.service.DeviceOnboardingCaseService;
+import com.ghlzm.iot.device.service.model.DeviceOnboardingAcceptanceLaunch;
+import com.ghlzm.iot.device.service.model.DeviceOnboardingAcceptanceProgress;
+import com.ghlzm.iot.device.service.model.DeviceOnboardingAcceptanceRequest;
+import com.ghlzm.iot.device.vo.DeviceOnboardingCaseBatchResultVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingAcceptanceSummaryVO;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,17 +53,48 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
     private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String STATUS_READY = "READY";
 
+    private static final String ACCEPTANCE_STATUS_RUNNING = "RUNNING";
+    private static final String ACCEPTANCE_STATUS_PASSED = "PASSED";
+
     private static final String BLOCKER_PROTOCOL = "待补齐协议族/解密档案/协议模板";
     private static final String BLOCKER_PRODUCT = "待绑定产品并完成契约治理";
     private static final String BLOCKER_RELEASE = "待发布正式合同批次";
+    private static final String BLOCKER_ACCEPTANCE_DEVICE = "待补齐验收设备编码";
+    private static final String BLOCKER_ACCEPTANCE_RUNNING = "标准接入验收执行中";
 
     private final DeviceOnboardingCaseMapper mapper;
     private final ProductMapper productMapper;
+    private final OnboardingTemplatePackMapper templatePackMapper;
+    private final DeviceOnboardingAcceptanceGateway acceptanceGateway;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
-    public DeviceOnboardingCaseServiceImpl(DeviceOnboardingCaseMapper mapper, ProductMapper productMapper) {
+    @Autowired
+    public DeviceOnboardingCaseServiceImpl(DeviceOnboardingCaseMapper mapper,
+                                           ProductMapper productMapper,
+                                           OnboardingTemplatePackMapper templatePackMapper,
+                                           ObjectProvider<DeviceOnboardingAcceptanceGateway> acceptanceGatewayProvider) {
+        this(
+                mapper,
+                productMapper,
+                templatePackMapper,
+                acceptanceGatewayProvider == null ? null : acceptanceGatewayProvider.getIfAvailable()
+        );
+    }
+
+    DeviceOnboardingCaseServiceImpl(DeviceOnboardingCaseMapper mapper,
+                                    ProductMapper productMapper,
+                                    DeviceOnboardingAcceptanceGateway acceptanceGateway) {
+        this(mapper, productMapper, null, acceptanceGateway);
+    }
+
+    DeviceOnboardingCaseServiceImpl(DeviceOnboardingCaseMapper mapper,
+                                    ProductMapper productMapper,
+                                    OnboardingTemplatePackMapper templatePackMapper,
+                                    DeviceOnboardingAcceptanceGateway acceptanceGateway) {
         this.mapper = mapper;
         this.productMapper = productMapper;
+        this.templatePackMapper = templatePackMapper;
+        this.acceptanceGateway = acceptanceGateway;
     }
 
     @Override
@@ -76,7 +122,9 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
                     .or()
                     .like(DeviceOnboardingCase::getScenarioCode, keyword)
                     .or()
-                    .like(DeviceOnboardingCase::getDeviceFamily, keyword));
+                    .like(DeviceOnboardingCase::getDeviceFamily, keyword)
+                    .or()
+                    .like(DeviceOnboardingCase::getDeviceCode, keyword));
         }
 
         Page<DeviceOnboardingCase> result = mapper.selectPage(page, wrapper);
@@ -93,6 +141,7 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         entity.setTenantId(resolveTenantId(dto.getTenantId()));
         applyEditableFields(entity, dto);
         ensureCaseCodeUnique(entity.getTenantId(), entity.getCaseCode(), null);
+        validateTemplatePackIfPresent(entity.getTemplatePackId());
         validateProductIfPresent(entity.getProductId());
         applyDerivedStatus(entity);
         entity.setCreateBy(operatorUserId);
@@ -112,9 +161,114 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         DeviceOnboardingCase entity = getRequiredCase(caseId);
         entity.setTenantId(resolveTenantId(dto.getTenantId() == null ? entity.getTenantId() : dto.getTenantId()));
         applyEditableFields(entity, dto);
+        clearAcceptanceState(entity);
         ensureCaseCodeUnique(entity.getTenantId(), entity.getCaseCode(), caseId);
+        validateTemplatePackIfPresent(entity.getTemplatePackId());
         validateProductIfPresent(entity.getProductId());
         applyDerivedStatus(entity);
+        entity.setUpdateBy(operatorUserId);
+        mapper.updateById(entity);
+        return toVO(entity);
+    }
+
+    @Override
+    public DeviceOnboardingCaseBatchResultVO batchCreateCases(DeviceOnboardingCaseBatchCreateDTO dto, Long operatorUserId) {
+        if (dto == null || dto.getItems() == null || dto.getItems().isEmpty()) {
+            throw new BizException("请至少提供一条接入案例");
+        }
+        List<DeviceOnboardingCaseVO> successes = new ArrayList<>();
+        List<DeviceOnboardingCaseBatchResultVO.FailureItem> failures = new ArrayList<>();
+        for (DeviceOnboardingCaseCreateDTO item : dto.getItems()) {
+            String caseCode = item == null ? null : normalizeOptional(item.getCaseCode());
+            String caseName = item == null ? null : normalizeOptional(item.getCaseName());
+            try {
+                if (item == null) {
+                    throw new BizException("接入案例不能为空");
+                }
+                successes.add(createCase(item, operatorUserId));
+            } catch (Exception ex) {
+                failures.add(buildFailureItem(null, caseCode, caseName, resolveFailureMessage(ex)));
+            }
+        }
+        return buildBatchResult("BATCH_CREATE", successes, failures);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DeviceOnboardingCaseBatchResultVO batchApplyTemplatePack(DeviceOnboardingCaseBatchTemplateApplyDTO dto,
+                                                                    Long operatorUserId) {
+        if (dto == null || dto.getCaseIds() == null || dto.getCaseIds().isEmpty()) {
+            throw new BizException("请至少选择一个接入案例");
+        }
+        OnboardingTemplatePack templatePack = requireTemplatePack(dto.getTemplatePackId());
+        List<DeviceOnboardingCaseVO> successes = new ArrayList<>();
+        List<DeviceOnboardingCaseBatchResultVO.FailureItem> failures = new ArrayList<>();
+        for (Long caseId : dto.getCaseIds()) {
+            try {
+                successes.add(applyTemplatePack(caseId, templatePack, operatorUserId));
+            } catch (Exception ex) {
+                failures.add(buildFailureItem(caseId, null, null, resolveFailureMessage(ex)));
+            }
+        }
+        return buildBatchResult("BATCH_APPLY_TEMPLATE", successes, failures);
+    }
+
+    @Override
+    public DeviceOnboardingCaseBatchResultVO batchStartAcceptance(DeviceOnboardingCaseBatchStartAcceptanceDTO dto,
+                                                                  Long operatorUserId) {
+        if (dto == null || dto.getCaseIds() == null || dto.getCaseIds().isEmpty()) {
+            throw new BizException("请至少选择一个接入案例");
+        }
+        List<DeviceOnboardingCaseVO> successes = new ArrayList<>();
+        List<DeviceOnboardingCaseBatchResultVO.FailureItem> failures = new ArrayList<>();
+        for (Long caseId : dto.getCaseIds()) {
+            DeviceOnboardingCase snapshot = mapper.selectById(caseId);
+            try {
+                successes.add(startAcceptance(caseId, operatorUserId));
+            } catch (Exception ex) {
+                failures.add(buildFailureItem(
+                        caseId,
+                        snapshot == null ? null : snapshot.getCaseCode(),
+                        snapshot == null ? null : snapshot.getCaseName(),
+                        resolveFailureMessage(ex)
+                ));
+            }
+        }
+        return buildBatchResult("BATCH_START_ACCEPTANCE", successes, failures);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DeviceOnboardingCaseVO startAcceptance(Long caseId, Long operatorUserId) {
+        DeviceOnboardingCase entity = getRequiredCase(caseId);
+        validateProductIfPresent(entity.getProductId());
+        DerivedStatus derivedStatus = deriveStatus(entity);
+        entity.setCurrentStep(derivedStatus.currentStep());
+        entity.setStatus(derivedStatus.status());
+        entity.setBlockerSummaryJson(writeStringList(derivedStatus.blockers()));
+        if (!STEP_ACCEPTANCE.equals(derivedStatus.currentStep()) || !STATUS_READY.equals(derivedStatus.status())) {
+            clearAcceptanceState(entity);
+            throw new BizException(derivedStatus.blockers().isEmpty()
+                    ? "当前接入案例尚未具备触发验收条件"
+                    : derivedStatus.blockers().get(0));
+        }
+        if (!StringUtils.hasText(entity.getDeviceCode())) {
+            throw new BizException(BLOCKER_ACCEPTANCE_DEVICE);
+        }
+        if (acceptanceGateway == null) {
+            throw new BizException("标准接入验收网关未启用");
+        }
+        DeviceOnboardingAcceptanceLaunch launch = acceptanceGateway.launch(toAcceptanceRequest(entity));
+        entity.setAcceptanceJobId(normalizeOptional(launch == null ? null : launch.jobId()));
+        entity.setAcceptanceRunId(null);
+        applyAcceptanceProgress(entity, new DeviceOnboardingAcceptanceProgress(
+                entity.getAcceptanceJobId(),
+                null,
+                ACCEPTANCE_STATUS_RUNNING,
+                BLOCKER_ACCEPTANCE_RUNNING,
+                List.of(),
+                null
+        ));
         entity.setUpdateBy(operatorUserId);
         mapper.updateById(entity);
         return toVO(entity);
@@ -126,6 +280,7 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         DeviceOnboardingCase entity = getRequiredCase(caseId);
         validateProductIfPresent(entity.getProductId());
         applyDerivedStatus(entity);
+        syncAcceptanceProgressIfNeeded(entity);
         entity.setUpdateBy(operatorUserId);
         mapper.updateById(entity);
         return toVO(entity);
@@ -139,8 +294,10 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         entity.setProtocolFamilyCode(normalizeOptional(dto.getProtocolFamilyCode()));
         entity.setDecryptProfileCode(normalizeOptional(dto.getDecryptProfileCode()));
         entity.setProtocolTemplateCode(normalizeOptional(dto.getProtocolTemplateCode()));
+        entity.setTemplatePackId(dto.getTemplatePackId());
         entity.setProductId(dto.getProductId());
         entity.setReleaseBatchId(dto.getReleaseBatchId());
+        entity.setDeviceCode(normalizeOptional(dto.getDeviceCode()));
         entity.setRemark(normalizeOptional(dto.getRemark()));
     }
 
@@ -152,8 +309,10 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         entity.setProtocolFamilyCode(normalizeOptional(dto.getProtocolFamilyCode()));
         entity.setDecryptProfileCode(normalizeOptional(dto.getDecryptProfileCode()));
         entity.setProtocolTemplateCode(normalizeOptional(dto.getProtocolTemplateCode()));
+        entity.setTemplatePackId(dto.getTemplatePackId());
         entity.setProductId(dto.getProductId());
         entity.setReleaseBatchId(dto.getReleaseBatchId());
+        entity.setDeviceCode(normalizeOptional(dto.getDeviceCode()));
         entity.setRemark(normalizeOptional(dto.getRemark()));
     }
 
@@ -162,6 +321,9 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         entity.setCurrentStep(derivedStatus.currentStep());
         entity.setStatus(derivedStatus.status());
         entity.setBlockerSummaryJson(writeStringList(derivedStatus.blockers()));
+        if (!STEP_ACCEPTANCE.equals(derivedStatus.currentStep()) || !STATUS_READY.equals(derivedStatus.status())) {
+            clearAcceptanceState(entity);
+        }
     }
 
     private DerivedStatus deriveStatus(DeviceOnboardingCase entity) {
@@ -180,7 +342,43 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
             blockers.add(BLOCKER_RELEASE);
             return new DerivedStatus(STEP_CONTRACT_RELEASE, STATUS_IN_PROGRESS, blockers);
         }
+        if (!StringUtils.hasText(entity.getDeviceCode())) {
+            blockers.add(BLOCKER_ACCEPTANCE_DEVICE);
+            return new DerivedStatus(STEP_ACCEPTANCE, STATUS_BLOCKED, blockers);
+        }
         return new DerivedStatus(STEP_ACCEPTANCE, STATUS_READY, List.of());
+    }
+
+    private DeviceOnboardingCaseVO applyTemplatePack(Long caseId,
+                                                     OnboardingTemplatePack templatePack,
+                                                     Long operatorUserId) {
+        DeviceOnboardingCase entity = getRequiredCase(caseId);
+        entity.setTemplatePackId(templatePack.getId());
+        entity.setScenarioCode(normalizeOptional(templatePack.getScenarioCode()));
+        entity.setDeviceFamily(normalizeOptional(templatePack.getDeviceFamily()));
+        entity.setProtocolFamilyCode(normalizeOptional(templatePack.getProtocolFamilyCode()));
+        entity.setDecryptProfileCode(normalizeOptional(templatePack.getDecryptProfileCode()));
+        entity.setProtocolTemplateCode(normalizeOptional(templatePack.getProtocolTemplateCode()));
+        clearAcceptanceState(entity);
+        validateProductIfPresent(entity.getProductId());
+        applyDerivedStatus(entity);
+        entity.setUpdateBy(operatorUserId);
+        mapper.updateById(entity);
+        return toVO(entity);
+    }
+
+    private OnboardingTemplatePack requireTemplatePack(Long templatePackId) {
+        if (templatePackId == null) {
+            throw new BizException("templatePackId 不能为空");
+        }
+        if (templatePackMapper == null) {
+            throw new BizException("模板包服务未启用");
+        }
+        OnboardingTemplatePack templatePack = templatePackMapper.selectById(templatePackId);
+        if (templatePack == null || templatePack.getDeleted() != null && templatePack.getDeleted() == 1) {
+            throw new BizException("模板包不存在: " + templatePackId);
+        }
+        return templatePack;
     }
 
     private void ensureCaseCodeUnique(Long tenantId, String caseCode, Long excludeId) {
@@ -207,6 +405,19 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         }
     }
 
+    private void validateTemplatePackIfPresent(Long templatePackId) {
+        if (templatePackId == null) {
+            return;
+        }
+        if (templatePackMapper == null) {
+            throw new BizException("模板包服务未启用");
+        }
+        OnboardingTemplatePack templatePack = templatePackMapper.selectById(templatePackId);
+        if (templatePack == null || templatePack.getDeleted() != null && templatePack.getDeleted() == 1) {
+            throw new BizException("模板包不存在: " + templatePackId);
+        }
+    }
+
     private DeviceOnboardingCase getRequiredCase(Long caseId) {
         DeviceOnboardingCase entity = mapper.selectById(caseId);
         if (entity == null || entity.getDeleted() != null && entity.getDeleted() == 1) {
@@ -226,11 +437,14 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         vo.setProtocolFamilyCode(entity.getProtocolFamilyCode());
         vo.setDecryptProfileCode(entity.getDecryptProfileCode());
         vo.setProtocolTemplateCode(entity.getProtocolTemplateCode());
+        vo.setTemplatePackId(entity.getTemplatePackId());
         vo.setProductId(entity.getProductId());
         vo.setReleaseBatchId(entity.getReleaseBatchId());
+        vo.setDeviceCode(entity.getDeviceCode());
         vo.setCurrentStep(entity.getCurrentStep());
         vo.setStatus(entity.getStatus());
         vo.setBlockers(readStringList(entity.getBlockerSummaryJson()));
+        vo.setAcceptance(readAcceptanceSummary(entity.getEvidenceSummaryJson()));
         vo.setRemark(entity.getRemark());
         vo.setCreateBy(entity.getCreateBy());
         vo.setCreateTime(entity.getCreateTime());
@@ -275,6 +489,177 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         } catch (Exception ex) {
             throw new BizException("接入案例阻塞摘要解析失败");
         }
+    }
+
+    private void syncAcceptanceProgressIfNeeded(DeviceOnboardingCase entity) {
+        if (entity == null || acceptanceGateway == null || !STEP_ACCEPTANCE.equals(entity.getCurrentStep())) {
+            return;
+        }
+        if (!StringUtils.hasText(entity.getAcceptanceJobId()) && !StringUtils.hasText(entity.getAcceptanceRunId())) {
+            return;
+        }
+        DeviceOnboardingAcceptanceProgress progress = acceptanceGateway.getProgress(
+                normalizeOptional(entity.getAcceptanceJobId()),
+                normalizeOptional(entity.getAcceptanceRunId())
+        );
+        if (progress == null) {
+            return;
+        }
+        applyAcceptanceProgress(entity, progress);
+    }
+
+    private void applyAcceptanceProgress(DeviceOnboardingCase entity, DeviceOnboardingAcceptanceProgress progress) {
+        if (entity == null || progress == null) {
+            return;
+        }
+        DeviceOnboardingAcceptanceSummaryVO acceptance = new DeviceOnboardingAcceptanceSummaryVO();
+        acceptance.setJobId(normalizeOptional(firstNonBlank(progress.jobId(), entity.getAcceptanceJobId())));
+        acceptance.setRunId(normalizeOptional(firstNonBlank(progress.runId(), entity.getAcceptanceRunId())));
+        acceptance.setStatus(normalizeOptional(progress.status()));
+        acceptance.setSummary(normalizeOptional(progress.summary()));
+        acceptance.setFailedLayers(progress.failedLayers() == null ? List.of() : List.copyOf(progress.failedLayers()));
+        acceptance.setJumpPath(normalizeOptional(progress.jumpPath()));
+        entity.setAcceptanceJobId(acceptance.getJobId());
+        entity.setAcceptanceRunId(acceptance.getRunId());
+        entity.setEvidenceSummaryJson(writeAcceptanceSummary(acceptance));
+        if (ACCEPTANCE_STATUS_RUNNING.equalsIgnoreCase(progress.status())) {
+            entity.setCurrentStep(STEP_ACCEPTANCE);
+            entity.setStatus(STATUS_IN_PROGRESS);
+            entity.setBlockerSummaryJson(writeStringList(List.of(BLOCKER_ACCEPTANCE_RUNNING)));
+            return;
+        }
+        if (ACCEPTANCE_STATUS_PASSED.equalsIgnoreCase(progress.status())) {
+            entity.setCurrentStep(STEP_ACCEPTANCE);
+            entity.setStatus(STATUS_READY);
+            entity.setBlockerSummaryJson(writeStringList(List.of()));
+            return;
+        }
+        entity.setCurrentStep(STEP_ACCEPTANCE);
+        entity.setStatus(STATUS_BLOCKED);
+        entity.setBlockerSummaryJson(writeStringList(List.of(firstNonBlank(progress.summary(), "标准接入验收未通过"))));
+    }
+
+    private DeviceOnboardingAcceptanceRequest toAcceptanceRequest(DeviceOnboardingCase entity) {
+        return new DeviceOnboardingAcceptanceRequest(
+                entity.getId(),
+                entity.getTenantId(),
+                entity.getCaseCode(),
+                entity.getCaseName(),
+                entity.getProductId(),
+                entity.getReleaseBatchId(),
+                entity.getDeviceCode(),
+                entity.getProtocolFamilyCode(),
+                entity.getDecryptProfileCode(),
+                entity.getProtocolTemplateCode()
+        );
+    }
+
+    private DeviceOnboardingAcceptanceSummaryVO readAcceptanceSummary(String json) {
+        if (!StringUtils.hasText(json)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, DeviceOnboardingAcceptanceSummaryVO.class);
+        } catch (Exception ex) {
+            throw new BizException("接入案例验收摘要解析失败");
+        }
+    }
+
+    private String writeAcceptanceSummary(DeviceOnboardingAcceptanceSummaryVO summary) {
+        if (summary == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(summary);
+        } catch (Exception ex) {
+            throw new BizException("接入案例验收摘要序列化失败");
+        }
+    }
+
+    private void clearAcceptanceState(DeviceOnboardingCase entity) {
+        if (entity == null) {
+            return;
+        }
+        entity.setAcceptanceJobId(null);
+        entity.setAcceptanceRunId(null);
+        entity.setEvidenceSummaryJson(null);
+    }
+
+    private String firstNonBlank(String preferred, String fallback) {
+        return StringUtils.hasText(preferred) ? preferred : fallback;
+    }
+
+    private DeviceOnboardingCaseBatchResultVO buildBatchResult(
+            String action,
+            List<DeviceOnboardingCaseVO> successes,
+            List<DeviceOnboardingCaseBatchResultVO.FailureItem> failures) {
+        DeviceOnboardingCaseBatchResultVO result = new DeviceOnboardingCaseBatchResultVO();
+        result.setAction(action);
+        result.setRequestedCount((successes == null ? 0 : successes.size()) + (failures == null ? 0 : failures.size()));
+        result.setSuccessCount(successes == null ? 0 : successes.size());
+        result.setFailedCount(failures == null ? 0 : failures.size());
+        result.setSuccessItems(successes == null ? List.of() : successes.stream().map(this::toBatchSuccessItem).toList());
+        result.setFailureItems(failures == null ? List.of() : List.copyOf(failures));
+        result.setFailureGroups(groupFailureItems(failures));
+        return result;
+    }
+
+    private DeviceOnboardingCaseBatchResultVO.SuccessItem toBatchSuccessItem(DeviceOnboardingCaseVO vo) {
+        DeviceOnboardingCaseBatchResultVO.SuccessItem item = new DeviceOnboardingCaseBatchResultVO.SuccessItem();
+        item.setCaseId(vo.getId());
+        item.setCaseCode(vo.getCaseCode());
+        item.setCaseName(vo.getCaseName());
+        item.setCurrentStep(vo.getCurrentStep());
+        item.setStatus(vo.getStatus());
+        item.setDeviceCode(vo.getDeviceCode());
+        item.setAcceptanceStatus(vo.getAcceptance() == null ? null : vo.getAcceptance().getStatus());
+        item.setAcceptanceRunId(vo.getAcceptance() == null ? null : vo.getAcceptance().getRunId());
+        return item;
+    }
+
+    private DeviceOnboardingCaseBatchResultVO.FailureItem buildFailureItem(Long caseId,
+                                                                           String caseCode,
+                                                                           String caseName,
+                                                                           String message) {
+        String summary = StringUtils.hasText(message) ? message.trim() : "批量操作失败";
+        DeviceOnboardingCaseBatchResultVO.FailureItem item = new DeviceOnboardingCaseBatchResultVO.FailureItem();
+        item.setCaseId(caseId);
+        item.setCaseCode(caseCode);
+        item.setCaseName(caseName);
+        item.setFailureKey(summary);
+        item.setMessage(summary);
+        return item;
+    }
+
+    private List<DeviceOnboardingCaseBatchResultVO.FailureGroup> groupFailureItems(
+            List<DeviceOnboardingCaseBatchResultVO.FailureItem> failures) {
+        if (failures == null || failures.isEmpty()) {
+            return List.of();
+        }
+        Map<String, DeviceOnboardingCaseBatchResultVO.FailureGroup> groups = new LinkedHashMap<>();
+        for (DeviceOnboardingCaseBatchResultVO.FailureItem item : failures) {
+            String key = StringUtils.hasText(item.getFailureKey()) ? item.getFailureKey().trim() : "批量操作失败";
+            DeviceOnboardingCaseBatchResultVO.FailureGroup group = groups.computeIfAbsent(key, ignored -> {
+                DeviceOnboardingCaseBatchResultVO.FailureGroup created = new DeviceOnboardingCaseBatchResultVO.FailureGroup();
+                created.setFailureKey(key);
+                created.setSummary(key);
+                created.setCount(0);
+                created.setCaseCodes(new ArrayList<>());
+                return created;
+            });
+            group.setCount(group.getCount() == null ? 1 : group.getCount() + 1);
+            if (StringUtils.hasText(item.getCaseCode())) {
+                group.getCaseCodes().add(item.getCaseCode().trim());
+            }
+        }
+        return List.copyOf(groups.values());
+    }
+
+    private String resolveFailureMessage(Exception ex) {
+        if (ex instanceof BizException bizException && StringUtils.hasText(bizException.getMessage())) {
+            return bizException.getMessage();
+        }
+        return ex == null ? "批量操作失败" : firstNonBlank(ex.getMessage(), "批量操作失败");
     }
 
     private record DerivedStatus(String currentStep, String status, List<String> blockers) {

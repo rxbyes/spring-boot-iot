@@ -1087,3 +1087,30 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 28. 浏览器自动化巡检记录（2026-04-18）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-18 15:56:36（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery, baseline`  
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260418155636.json`
+- `logs/acceptance/iot-access-browser-results-20260418155636.json`
+- `logs/acceptance/iot-access-browser-report-20260418155636.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260418155636/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

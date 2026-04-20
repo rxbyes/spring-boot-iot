@@ -5,7 +5,7 @@ Generated from the schema registry. Do not edit by hand.
 | Domain | Objects | Relations | Roles |
 | --- | --- | --- | --- |
 | alarm | 15 | 39 | binding_registry / catalog_registry / domain_master_data / transaction_record |
-| device | 20 | 50 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
+| device | 21 | 52 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
 | governance | 12 | 29 | domain_master_data / governance_master_data |
 | mysql-compatibility | 1 | 2 | compatibility_projection |
 | system | 17 | 26 | governance_master_data |
@@ -105,12 +105,13 @@ graph TD
 | iot_device_invalid_report_state | device_domain_state | iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） | 用于无效 MQTT 上报最新态表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_message_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备消息日志表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_metric_latest | device_domain_state | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于时序最新值投影表的数据持久化与查询，归属设备域并服务真实环境基线。 |
-| iot_device_onboarding_case | device_domain_state | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于无代码接入案例的流程编排、步骤状态和阻塞摘要持久化，不承载协议或合同正式真相。 |
+| iot_device_onboarding_case | device_domain_state | iot_onboarding_template_pack（belongs_to:template_pack_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于无代码接入案例的流程编排、步骤状态和阻塞摘要持久化，不承载协议或合同正式真相。 |
 | iot_device_online_session | device_domain_state | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备在线会话表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_property | device_domain_state | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备最新属性表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_relation | relationship_mapping | iot_device（belongs_to:parent_device_id）<br>iot_device（belongs_to:child_device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备逻辑通道关系表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_secret_rotation_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） | 用于设备密钥轮换日志表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_normative_metric_definition | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于规范字段定义表的数据持久化与查询，归属设备域并服务真实环境基线。 |
+| iot_onboarding_template_pack | device_domain_state | sys_tenant（belongs_to:tenant_id） | 用于无代码接入模板包的引用资产、默认治理配置与预填信息持久化，不承载协议或合同正式快照。 |
 | iot_product | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于产品表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_product_contract_release_batch | domain_master_data | iot_product（belongs_to:product_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于产品合同发布批次表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_product_contract_release_snapshot | snapshot_baseline | iot_product_contract_release_batch（belongs_to:batch_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于产品合同发布快照表的数据持久化与查询，归属设备域并服务真实环境基线。 |
@@ -149,6 +150,8 @@ graph TD
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_device_onboarding_case["iot_device_onboarding_case"]
+  iot_onboarding_template_pack["iot_onboarding_template_pack"]
+  iot_device_onboarding_case["iot_device_onboarding_case"] -->|"belongs_to via template_pack_id"| iot_onboarding_template_pack["iot_onboarding_template_pack"]
   iot_device_onboarding_case["iot_device_onboarding_case"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_device_onboarding_case["iot_device_onboarding_case"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_device_online_session["iot_device_online_session"]
@@ -167,6 +170,7 @@ graph TD
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_normative_metric_definition["iot_normative_metric_definition"]
   iot_normative_metric_definition["iot_normative_metric_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_onboarding_template_pack["iot_onboarding_template_pack"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_product["iot_product"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_product_contract_release_batch["iot_product_contract_release_batch"]
   iot_product_contract_release_batch["iot_product_contract_release_batch"] -->|"belongs_to via product_id"| iot_product["iot_product"]

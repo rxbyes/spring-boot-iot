@@ -462,6 +462,21 @@
 5. `other` 类型提炼出的字段会默认标记 `needsReview=true`，必须先人工归类后再确认写库。
 6. 手动提炼当前只自动生成 `property` 候选；事件和服务仍由正式模型人工补录。
 
+当前 `/products -> 契约字段` 样本提取的正式字段口径补充如下：
+
+| 场景 | 正式字段标识怎么收口 | 典型示例 |
+| --- | --- | --- |
+| 单台单能力 / 规范产品 | 以 direct canonical 字段为主，不再额外保留监测类型前缀。 | `value`、`sensor_state`、`gpsTotalX` |
+| 单台多能力产品 | 保留 `监测类型编码 + 数据字段` 全路径，避免多个测点/能力挤压成同名字段。 | `L1_QJ_1.angle`、`L1_JS_1.gX`、`S1_ZT_1.sensor_state.L1_LF_1` |
+| 复合父设备 | 父设备自身状态字段继续留在父产品，不归一到子产品。 | `ext_power_volt`、`temp`、`signal_4g` |
+| 复合子设备 | 逻辑通道编码只用于归属与证据，最终按关系映射策略归一为子产品 canonical 字段。 | `value`、`sensor_state`、`dispsX`、`dispsY` |
+
+额外约束：
+
+1. `sampleType + deviceStructure` 只决定解析路径，不单独决定正式字段命名。
+2. 当单台状态样本本身承载多能力状态组时，应按产品正式契约形态保留全路径，而不是强行压成统一短标识。
+3. 当复合样本命中 `relationMappings / iot_device_relation` 时，`logicalChannelCode` 只作为“这条字段属于哪个子设备”的证据，不直接作为最终正式字段名。
+
 ### 2.9 调用接口时直接复用的请求体资产
 
 当前接口 `POST /api/device/product/{productId}/models` 一次只接受 `1` 条 `ProductModelUpsertDTO`，不支持数组批量提交。

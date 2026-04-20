@@ -281,6 +281,44 @@ class RiskPointPendingRecommendationServiceImplTest {
         );
     }
 
+    @Test
+    void listRecommendedMetricIdentifiersShouldDelegateToCatalogService() {
+        Fixture fixture = new Fixture();
+        when(fixture.riskMetricCatalogService.listRiskBindingRecommendedIdentifiers(2001L)).thenReturn(List.of("value"));
+
+        assertEquals(List.of("value"), fixture.service.listRecommendedMetricIdentifiers(2001L));
+    }
+
+    @Test
+    void getCandidatesShouldMarkCatalogRecommendedMetricAsSuggestionFirst() {
+        Fixture fixture = new Fixture();
+        fixture.device.setDeviceName("裂缝计-L1");
+        fixture.pending.setDeviceName("裂缝计-L1");
+
+        ProductModel releasedValue = fixture.productModel("value", "裂缝监测值", "double", 1);
+        DeviceProperty latestValue = fixture.deviceProperty("value", "裂缝监测值", "10.86", LocalDateTime.of(2026, 4, 3, 11, 0, 0));
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(7001L);
+        catalog.setProductId(2001L);
+        catalog.setContractIdentifier("value");
+        catalog.setRiskMetricName("裂缝监测值");
+        catalog.setEnabled(1);
+
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(releasedValue));
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of(latestValue));
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.riskMetricCatalogService.listEnabledByProduct(2001L)).thenReturn(List.of(catalog));
+        when(fixture.riskMetricCatalogService.listRiskBindingRecommendedIdentifiers(2001L)).thenReturn(List.of("value"));
+
+        RiskPointPendingCandidateBundleVO result = fixture.service.getCandidates(9001L, 1001L);
+
+        assertEquals(1, result.getCandidates().size());
+        assertTrue(Boolean.TRUE.equals(result.getCandidates().get(0).getCatalogRecommended()));
+        assertEquals("HIGH", result.getCandidates().get(0).getRecommendationLevel());
+        assertTrue(result.getCandidates().get(0).getReasonSummary().contains("建议优先绑定"));
+    }
+
     private static final class Fixture {
         private final RiskPointPendingBindingService bindingService = mock(RiskPointPendingBindingService.class);
         private final DeviceService deviceService = mock(DeviceService.class);

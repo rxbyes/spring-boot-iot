@@ -92,7 +92,7 @@ describe('ProductModelGovernanceCompareTable', () => {
     expect(wrapper.text()).toContain('治理候选快照')
     expect(wrapper.text()).toContain('样例值')
     expect(wrapper.text()).toContain('正式字段：暂无')
-    expect(wrapper.text()).toContain('identifier:')
+    expect(wrapper.text()).toContain('正式字段标识：')
     expect(wrapper.text()).toContain('类型:')
     expect(wrapper.text()).toContain('规范字段：设备重启')
     expect(wrapper.text()).toContain('当前建议：')

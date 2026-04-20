@@ -531,6 +531,7 @@
               <div class="risk-point-pending-candidate-list__meta">
                 <span>{{ candidate.metricIdentifier }}</span>
                 <span v-if="candidate.riskMetricId">目录指标 #{{ candidate.riskMetricId }}</span>
+                <span v-if="isCatalogRecommendedCandidate(candidate)">建议优先绑定</span>
                 <span>{{ (candidate.evidenceSources || []).join(' / ') }}</span>
               </div>
               <p v-if="candidate.reasonSummary" class="risk-point-pending-candidate-list__summary">{{ candidate.reasonSummary }}</p>
@@ -1749,6 +1750,9 @@ const isPromotablePending = (pending: RiskPointPendingBindingItem | null | undef
 
 const isPendingMetricSelected = (metricIdentifier: string) =>
   pendingPromotionForm.selectedMetrics.some((item) => item.metricIdentifier === metricIdentifier);
+
+const isCatalogRecommendedCandidate = (candidate: RiskPointPendingMetricCandidate | null | undefined) =>
+  Boolean(candidate?.catalogRecommended || candidate?.riskMetricId);
 
 const togglePendingMetric = (candidate: RiskPointPendingMetricCandidate) => {
   const nextMetric = {

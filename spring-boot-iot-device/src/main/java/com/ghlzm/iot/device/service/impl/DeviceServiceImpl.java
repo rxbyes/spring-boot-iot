@@ -10,6 +10,7 @@ import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingSuggestionQuery;
 import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
@@ -21,6 +22,7 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
+import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
@@ -28,6 +30,7 @@ import com.ghlzm.iot.device.vo.DeviceBatchAddErrorVO;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingSuggestionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
@@ -77,6 +80,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     private final IotProperties iotProperties;
     private final DeviceInvalidReportStateService invalidReportStateService;
+    private final DeviceOnboardingSuggestionService deviceOnboardingSuggestionService;
     private final PermissionService permissionService;
     private final OrganizationService organizationService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -88,6 +92,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                              UnregisteredDeviceRosterService unregisteredDeviceRosterService,
                              IotProperties iotProperties,
                              DeviceInvalidReportStateService invalidReportStateService,
+                             DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
                              PermissionService permissionService,
                              OrganizationService organizationService) {
         this.productService = productService;
@@ -97,6 +102,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         this.unregisteredDeviceRosterService = unregisteredDeviceRosterService;
         this.iotProperties = iotProperties;
         this.invalidReportStateService = invalidReportStateService;
+        this.deviceOnboardingSuggestionService = deviceOnboardingSuggestionService;
         this.permissionService = permissionService;
         this.organizationService = organizationService;
     }
@@ -456,6 +462,19 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     @Override
     public List<DeviceMetricOptionVO> listMetricOptions(Long deviceId) {
         return listMetricOptions(null, deviceId);
+    }
+
+    @Override
+    public DeviceOnboardingSuggestionVO getOnboardingSuggestion(DeviceOnboardingSuggestionQuery query) {
+        return getOnboardingSuggestion(null, query);
+    }
+
+    @Override
+    public DeviceOnboardingSuggestionVO getOnboardingSuggestion(Long currentUserId, DeviceOnboardingSuggestionQuery query) {
+        if (hasOrganizationRestrictedScope(currentUserId)) {
+            throw new BizException("当前数据权限暂不支持未登记设备接入建议");
+        }
+        return deviceOnboardingSuggestionService.suggest(resolveScopedTenantId(currentUserId), query);
     }
 
     @Override

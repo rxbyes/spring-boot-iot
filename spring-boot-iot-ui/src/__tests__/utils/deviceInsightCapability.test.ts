@@ -243,7 +243,7 @@ describe('deviceInsightCapability', () => {
     ).toBe('传输信号');
   });
 
-  it('does not rewrite short configured identifiers to full-path runtime identifiers', () => {
+  it('rewrites short configured identifiers to the unique full-path runtime identifier', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-ALIAS-001',
       productName: '雨量采集终端',
@@ -271,8 +271,8 @@ describe('deviceInsightCapability', () => {
       ]
     });
 
-    expect(profile.historyIdentifiers).toEqual(['signal_4g']);
-    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('signal_4g');
+    expect(profile.historyIdentifiers).toEqual(['S1_ZT_1.signal_4g']);
+    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('S1_ZT_1.signal_4g');
   });
 
   it('prefers device metadata over product metadata while preserving product-level fallback metrics', () => {
@@ -497,7 +497,7 @@ describe('deviceInsightCapability', () => {
     );
   });
 
-  it('keeps short configured runtime custom metrics unchanged when the latest property uses a full-path identifier', () => {
+  it('keeps short configured identifiers unchanged when multiple runtime suffix matches exist', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-CANONICAL-001',
       productName: '雨量采集终端',
@@ -505,9 +505,9 @@ describe('deviceInsightCapability', () => {
         objectInsight: {
           customMetrics: [
             {
-              identifier: 'signal_4g',
-              displayName: '传输信号',
-              group: 'runtime',
+              identifier: 'value',
+              displayName: '监测值',
+              group: 'measure',
               includeInTrend: true,
               includeInExtension: false,
               enabled: true
@@ -518,15 +518,22 @@ describe('deviceInsightCapability', () => {
       properties: [
         {
           id: 1,
-          identifier: 'S1_ZT_1.signal_4g',
-          propertyName: '4G 信号强度',
-          propertyValue: '-81',
-          valueType: 'int'
+          identifier: 'L1_LF_1.value',
+          propertyName: '裂缝量',
+          propertyValue: '0.18',
+          valueType: 'double'
+        },
+        {
+          id: 2,
+          identifier: 'L1_SW_1.value',
+          propertyName: '深部位移值',
+          propertyValue: '0.03',
+          valueType: 'double'
         }
       ]
     });
 
-    expect(profile.historyIdentifiers).toEqual(['signal_4g']);
-    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('signal_4g');
+    expect(profile.historyIdentifiers).toEqual(['value']);
+    expect(profile.customMetrics.find((item) => item.displayName === '监测值')?.identifier).toBe('value');
   });
 });

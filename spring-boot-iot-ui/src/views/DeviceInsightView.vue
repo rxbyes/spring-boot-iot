@@ -119,6 +119,14 @@
             :overview="collectorOverview"
           />
 
+          <section
+            v-if="collectorRecommendationNotice"
+            class="insight-recommendation-banner"
+            aria-live="polite"
+          >
+            {{ collectorRecommendationNotice }}
+          </section>
+
           <RiskInsightTrendPanel
             :range-code="selectedRange"
             :groups="trendGroups"
@@ -128,7 +136,7 @@
 
           <PanelCard
             title="设备属性快照"
-            description="保留设备当前最新快照，按单行记录核对时序指标与现场状态。"
+            description="展示设备当前最新运行态值，名称与单位优先沿用正式字段配置，不用物模型定义替代真实值。"
           >
             <el-table
               v-if="propertyTableRows.length"
@@ -144,7 +152,7 @@
               <StandardTableTextColumn prop="valueType" label="类型" :min-width="120" />
               <StandardTableTextColumn prop="displayTime" label="更新时间" :min-width="180" />
             </el-table>
-            <div v-else class="empty-state">当前设备暂无属性快照。</div>
+            <div v-else class="empty-state">{{ snapshotEmptyMessage }}</div>
           </PanelCard>
         </template>
       </div>
@@ -242,6 +250,8 @@ const requestVersion = ref(0);
 let syncingRoute = false;
 
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
+const isCollectorParentInsight = computed(() => Number(device.value?.nodeType) === 2);
+const hasCollectorChildren = computed(() => Boolean(collectorOverview.value?.children?.length));
 const hasInsightContent = computed(() =>
   Boolean(device.value || properties.value.length || riskDetail.value || trendGroups.value.length || collectorOverview.value?.children?.length)
 );
@@ -328,7 +338,33 @@ const trendEmptyMessage = computed(() => {
   if (trendErrorMessage.value) {
     return trendErrorMessage.value;
   }
+  if (!capabilityProfile.value.historyIdentifiers.length) {
+    return isCollectorParentInsight.value && hasCollectorChildren.value
+      ? '当前采集器父设备未配置可展示的父设备趋势指标；子设备指标请查看子设备总览，并到 /products 为父设备或对应子产品单独配置对象洞察。'
+      : '当前产品未配置对象洞察重点趋势指标，请到 /products 先将正式字段加入对象洞察后再查看趋势。';
+  }
   return '当前范围暂无可展示的 TDengine 趋势数据';
+});
+
+const snapshotEmptyMessage = computed(() => {
+  if (!normalizedDeviceCode.value) {
+    return '请输入设备编码后开始综合分析';
+  }
+  if (isCollectorParentInsight.value && hasCollectorChildren.value) {
+    return '当前采集器父设备暂无自身运行态属性快照；子设备监测值与 sensor_state 请查看子设备总览或进入子设备对象洞察。';
+  }
+  return '当前设备暂无最新属性快照，请检查设备上报与 latest 属性写入链路。';
+});
+
+const collectorRecommendationNotice = computed(() => {
+  const entries = (collectorOverview.value?.children ?? [])
+    .flatMap((child) => (child.metrics ?? [])
+      .filter((metric) => metric.recommended)
+      .map((metric) => `${child.childDeviceName || child.logicalChannelCode} / ${metric.displayName || metric.identifier}`));
+  if (!entries.length) {
+    return '';
+  }
+  return `建议优先纳入对象洞察：${entries.join('；')}`;
 });
 
 const deviceArchiveEntries = computed(() => [
@@ -484,7 +520,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     device.value = deviceResponse.data;
 
-    const collectorOverviewRequest = Number(deviceResponse.data?.nodeType) === 2
+    const collectorOverviewRequest = shouldLoadCollectorInsightOverview(deviceResponse.data)
       ? getCollectorChildInsightOverview(code).catch((error) => {
         console.warn('采集器子设备总览加载失败', error);
         return null;
@@ -758,6 +794,17 @@ function resolvePropertyUnit(item: DeviceProperty) {
   return resolveMetricUnit(item.identifier, item) || '--';
 }
 
+function shouldLoadCollectorInsightOverview(currentDevice?: Device | null) {
+  if (!currentDevice) {
+    return false;
+  }
+  if (Number(currentDevice.nodeType) === 2) {
+    return true;
+  }
+  // `nf-collect-rtu-v1` 仍按 nodeType=1 建档，但对象洞察读侧要继续按采集器父设备处理。
+  return (currentDevice.productKey || '').trim().toLowerCase() === 'nf-collect-rtu-v1';
+}
+
 async function loadProductInsightSupplement(productId?: string | number | null) {
   const emptySupplement = {
     metadataJson: null as string | null,
@@ -910,7 +957,8 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 .insight-hero,
 .archive-card,
 .narrative-card,
-.highlight-card {
+.highlight-card,
+.insight-recommendation-banner {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
@@ -920,6 +968,14 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 .empty-state--hero,
 .insight-hero {
   padding: 1.4rem;
+}
+
+.insight-recommendation-banner {
+  padding: 1rem 1.15rem;
+  color: #9a3412;
+  border-color: color-mix(in srgb, #f59e0b 24%, var(--panel-border));
+  background: linear-gradient(140deg, rgba(255, 251, 235, 0.98), rgba(255, 255, 255, 0.98));
+  line-height: 1.7;
 }
 
 .insight-hero {

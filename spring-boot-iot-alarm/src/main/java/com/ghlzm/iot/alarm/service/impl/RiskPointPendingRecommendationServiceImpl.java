@@ -163,11 +163,23 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         List<RiskPointPendingMetricCandidateVO> rawCandidates = candidateMap.values().stream()
                 .map(this::toCandidate)
                 .toList();
+        Set<String> recommendedIdentifiers = device == null || device.getProductId() == null
+                ? Set.of()
+                : new LinkedHashSet<>(listRecommendedMetricIdentifiers(device.getProductId()));
         bundle.setCandidates(decorateRiskMetricCatalog(device, metricGovernanceRules.governCandidates(pending, device, rawCandidates)).stream()
+                .map(candidate -> applyCatalogRecommendation(candidate, recommendedIdentifiers))
                 .sorted(candidateComparator())
                 .toList());
         bundle.setPromotionHistory(loadPromotionHistory(pending.getId()));
         return bundle;
+    }
+
+    @Override
+    public List<String> listRecommendedMetricIdentifiers(Long productId) {
+        if (riskMetricCatalogService == null || productId == null) {
+            return List.of();
+        }
+        return riskMetricCatalogService.listRiskBindingRecommendedIdentifiers(productId);
     }
 
     private void validatePendingForRecommendation(RiskPointDevicePendingBinding pending) {
@@ -345,6 +357,31 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
             }
         }
         return candidates;
+    }
+
+    private RiskPointPendingMetricCandidateVO applyCatalogRecommendation(RiskPointPendingMetricCandidateVO candidate,
+                                                                        Set<String> recommendedIdentifiers) {
+        if (candidate == null || recommendedIdentifiers == null || recommendedIdentifiers.isEmpty()
+                || !StringUtils.hasText(candidate.getMetricIdentifier())) {
+            return candidate;
+        }
+        if (!recommendedIdentifiers.contains(candidate.getMetricIdentifier())) {
+            return candidate;
+        }
+        candidate.setCatalogRecommended(true);
+        if (candidate.getRecommendationScore() == null || candidate.getRecommendationScore() < 95) {
+            candidate.setRecommendationScore(95);
+        }
+        candidate.setRecommendationLevel("HIGH");
+        String prefix = "已命中正式风险目录，建议优先绑定";
+        if (!StringUtils.hasText(candidate.getReasonSummary())) {
+            candidate.setReasonSummary(prefix);
+            return candidate;
+        }
+        if (!candidate.getReasonSummary().contains(prefix)) {
+            candidate.setReasonSummary(prefix + "；" + candidate.getReasonSummary());
+        }
+        return candidate;
     }
 
     private List<RiskPointPendingPromotionHistoryVO> loadPromotionHistory(Long pendingId) {

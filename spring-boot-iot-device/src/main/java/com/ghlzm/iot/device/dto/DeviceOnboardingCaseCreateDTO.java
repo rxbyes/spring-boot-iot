@@ -27,9 +27,13 @@ public class DeviceOnboardingCaseCreateDTO {
 
     private String protocolTemplateCode;
 
+    private Long templatePackId;
+
     private Long productId;
 
     private Long releaseBatchId;
+
+    private String deviceCode;
 
     private String remark;
 }

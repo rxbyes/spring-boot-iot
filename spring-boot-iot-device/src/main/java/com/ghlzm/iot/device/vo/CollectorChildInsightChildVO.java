@@ -17,5 +17,6 @@ public class CollectorChildInsightChildVO {
     private String collectorLinkState;
     private String sensorStateValue;
     private LocalDateTime lastReportTime;
+    private List<String> recommendedMetricIdentifiers;
     private List<CollectorChildInsightMetricVO> metrics;
 }

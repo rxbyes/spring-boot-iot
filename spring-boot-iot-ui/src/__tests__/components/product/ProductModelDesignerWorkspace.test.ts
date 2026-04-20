@@ -566,9 +566,19 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('单台设备')
     expect(wrapper.text()).toContain('复合设备')
     expect(wrapper.text()).toContain('提取契约字段')
+    expect(wrapper.text()).toContain('单台样本会优先沿用当前产品的正式字段口径')
+    expect(wrapper.text()).toContain('多能力产品会保留监测类型编码 + 数据字段这类全路径标识')
+    expect(wrapper.text()).toContain('复合设备会按父设备关系映射归一到子产品字段')
+    expect(wrapper.text()).toContain('逻辑通道编码用于归属和原始证据，不直接等于正式字段标识')
     expect(wrapper.find('[data-testid="contract-field-sample-input"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="contract-field-sample-input"]').attributes('placeholder')).toContain('S1_ZT_1')
     expect(wrapper.text()).not.toContain('自动提炼')
     expect(wrapper.text()).not.toContain('父设备样本归一到子产品')
+
+    await wrapper.get('[data-testid="device-structure-composite"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="contract-field-sample-input"]').attributes('placeholder')).toContain('sensor_state')
   })
 
   it('renders the mapping suggestion section between compare and apply and bumps refresh token after accept', async () => {

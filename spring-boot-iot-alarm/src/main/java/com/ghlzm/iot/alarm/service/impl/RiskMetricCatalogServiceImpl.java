@@ -186,6 +186,27 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
         return rows == null ? List.of() : rows;
     }
 
+    @Override
+    public List<String> listObjectInsightRecommendedIdentifiers(Long productId) {
+        return listEnabledByProduct(productId).stream()
+                .filter(row -> Integer.valueOf(1).equals(row.getInsightEnabled()))
+                .map(RiskMetricCatalog::getContractIdentifier)
+                .map(this::normalize)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+    }
+
+    @Override
+    public List<String> listRiskBindingRecommendedIdentifiers(Long productId) {
+        return listEnabledByProduct(productId).stream()
+                .map(RiskMetricCatalog::getContractIdentifier)
+                .map(this::normalize)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+    }
+
     private List<RiskMetricCatalog> listAllByProduct(Long productId) {
         if (productId == null) {
             return List.of();

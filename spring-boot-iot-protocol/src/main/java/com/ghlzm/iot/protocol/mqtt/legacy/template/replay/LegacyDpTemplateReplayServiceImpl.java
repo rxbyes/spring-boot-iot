@@ -1,6 +1,7 @@
 package com.ghlzm.iot.protocol.mqtt.legacy.template.replay;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.protocol.template.ProtocolTemplateDefinitionProvider;
 import com.ghlzm.iot.framework.protocol.template.dto.ProtocolTemplateReplayDTO;
 import com.ghlzm.iot.framework.protocol.template.vo.ProtocolTemplateReplayVO;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationRule;
@@ -15,6 +16,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.core.type.TypeReference;
@@ -24,12 +27,15 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class LegacyDpTemplateReplayServiceImpl implements LegacyDpTemplateReplayService {
 
-    private static final String BUILTIN_CRACK_TEMPLATE_CODE = "crack_child_template";
-    private static final String BUILTIN_DEEP_DISPLACEMENT_TEMPLATE_CODE = "deep_displacement_child_template";
-
     private final LegacyDpChildTemplateRegistry registry;
     private final LegacyDpChildTemplateExecutor executor;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+
+    @Autowired
+    public LegacyDpTemplateReplayServiceImpl(ObjectProvider<ProtocolTemplateDefinitionProvider> templateDefinitionProvider) {
+        this(buildRegistry(templateDefinitionProvider == null ? null : templateDefinitionProvider.getIfAvailable()),
+                new LegacyDpChildTemplateExecutor());
+    }
 
     public LegacyDpTemplateReplayServiceImpl() {
         this(new LegacyDpChildTemplateRegistry(), new LegacyDpChildTemplateExecutor());
@@ -53,26 +59,18 @@ public class LegacyDpTemplateReplayServiceImpl implements LegacyDpTemplateReplay
         }
 
         Map<String, Object> payload = parsePayload(payloadJson);
-        LegacyDpReplayProfile profile = resolveProfile(requestedTemplateCode);
-        LegacyDpChildTemplate template = resolveBuiltinTemplate(profile.builtinTemplateCode());
+        String fallbackTemplateCode = resolveFallbackTemplateCode(requestedTemplateCode);
+        LegacyDpChildTemplate template = resolveTemplate(requestedTemplateCode, fallbackTemplateCode);
         if (template == null) {
-            return buildMiss(requestedTemplateCode, profile.builtinTemplateCode());
+            return buildMiss(requestedTemplateCode, fallbackTemplateCode);
         }
 
         List<ProtocolTemplateReplayVO.ExtractedChild> extractedChildren = new ArrayList<>();
         Map<String, Object> parentProperties = resolveParentProperties(payload);
         for (Map.Entry<String, Object> entry : sortEntries(payload)) {
             String logicalCode = entry.getKey();
-            if (!profile.matchesLogicalCode(logicalCode)) {
-                continue;
-            }
             LegacyDpChildTemplateContext context = new LegacyDpChildTemplateContext(
-                    new LegacyDpRelationRule(
-                            logicalCode,
-                            "replay-child-" + logicalCode.toLowerCase(Locale.ROOT),
-                            profile.canonicalizationStrategy(),
-                            profile.statusMirrorStrategy()
-                    ),
+                    buildReplayRelationRule(logicalCode),
                     logicalCode,
                     entry.getValue(),
                     parentProperties
@@ -86,7 +84,7 @@ public class LegacyDpTemplateReplayServiceImpl implements LegacyDpTemplateReplay
 
         ProtocolTemplateReplayVO result = new ProtocolTemplateReplayVO();
         result.setTemplateCode(requestedTemplateCode);
-        result.setResolvedTemplateCode(profile.builtinTemplateCode());
+        result.setResolvedTemplateCode(template.getTemplateCode());
         result.setMatched(!extractedChildren.isEmpty());
         result.setSummary(extractedChildren.isEmpty() ? "未命中模板" : "命中 " + extractedChildren.size() + " 个逻辑通道");
         result.setExtractedChildren(extractedChildren);
@@ -114,28 +112,36 @@ public class LegacyDpTemplateReplayServiceImpl implements LegacyDpTemplateReplay
         return child;
     }
 
-    private LegacyDpChildTemplate resolveBuiltinTemplate(String templateCode) {
+    private LegacyDpChildTemplate resolveTemplate(String requestedTemplateCode, String fallbackTemplateCode) {
         return registry.listTemplates().stream()
-                .filter(template -> template != null && templateCode.equals(template.getTemplateCode()))
+                .filter(template -> template != null
+                        && (requestedTemplateCode.equals(template.getTemplateCode())
+                        || (StringUtils.hasText(fallbackTemplateCode) && fallbackTemplateCode.equals(template.getTemplateCode()))))
                 .findFirst()
                 .orElse(null);
     }
 
-    private LegacyDpReplayProfile resolveProfile(String templateCode) {
+    private String resolveFallbackTemplateCode(String templateCode) {
         String normalized = normalizeLower(templateCode);
         if (normalized.contains("deep")) {
-            return new LegacyDpReplayProfile(
-                    BUILTIN_DEEP_DISPLACEMENT_TEMPLATE_CODE,
-                    "^L1_SW_\\d+$",
-                    "LEGACY",
-                    "NONE"
-            );
+            return "deep_displacement_child_template";
         }
-        return new LegacyDpReplayProfile(
-                BUILTIN_CRACK_TEMPLATE_CODE,
-                "^L1_LF_\\d+$",
-                "LF_VALUE",
-                "SENSOR_STATE"
+        return "crack_child_template";
+    }
+
+    private LegacyDpRelationRule buildReplayRelationRule(String logicalCode) {
+        String normalizedLogicalCode = normalizeText(logicalCode);
+        String canonicalizationStrategy = normalizedLogicalCode != null && normalizedLogicalCode.matches("^L1_LF_\\d+$")
+                ? "LF_VALUE"
+                : "LEGACY";
+        String statusMirrorStrategy = normalizedLogicalCode != null && normalizedLogicalCode.matches("^L1_LF_\\d+$")
+                ? "SENSOR_STATE"
+                : "NONE";
+        return new LegacyDpRelationRule(
+                normalizedLogicalCode,
+                "replay-child-" + (normalizedLogicalCode == null ? "unknown" : normalizedLogicalCode.toLowerCase(Locale.ROOT)),
+                canonicalizationStrategy,
+                statusMirrorStrategy
         );
     }
 
@@ -187,13 +193,9 @@ public class LegacyDpTemplateReplayServiceImpl implements LegacyDpTemplateReplay
         return StringUtils.hasText(normalized) ? normalized.toLowerCase(Locale.ROOT) : "";
     }
 
-    private record LegacyDpReplayProfile(String builtinTemplateCode,
-                                         String logicalCodeRegex,
-                                         String canonicalizationStrategy,
-                                         String statusMirrorStrategy) {
-
-        boolean matchesLogicalCode(String logicalCode) {
-            return StringUtils.hasText(logicalCode) && logicalCode.matches(logicalCodeRegex);
-        }
+    private static LegacyDpChildTemplateRegistry buildRegistry(ProtocolTemplateDefinitionProvider templateDefinitionProvider) {
+        return templateDefinitionProvider == null
+                ? new LegacyDpChildTemplateRegistry()
+                : new LegacyDpChildTemplateRegistry(templateDefinitionProvider);
     }
 }

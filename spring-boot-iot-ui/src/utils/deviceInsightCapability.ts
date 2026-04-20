@@ -510,6 +510,16 @@ function resolveRuntimeMetricIdentifier(identifier: string, properties: DevicePr
   if (caseInsensitiveMatch?.identifier) {
     return caseInsensitiveMatch.identifier;
   }
+  const suffixMatches = properties.filter((item) => {
+    const runtimeIdentifier = item.identifier?.trim();
+    if (!runtimeIdentifier) {
+      return false;
+    }
+    return runtimeIdentifier.toLowerCase().endsWith(`.${normalizedIdentifier}`);
+  });
+  if (suffixMatches.length === 1 && suffixMatches[0]?.identifier) {
+    return suffixMatches[0].identifier;
+  }
   return identifier;
 }
 

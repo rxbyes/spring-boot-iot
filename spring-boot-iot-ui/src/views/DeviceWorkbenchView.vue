@@ -374,6 +374,14 @@
       </template>
     </StandardDetailDrawer>
 
+    <DeviceOnboardingSuggestionDrawer
+      v-model="suggestionVisible"
+      :suggestion="onboardingSuggestion"
+      :loading="suggestionLoading"
+      :error-message="suggestionErrorMessage"
+      :source-row="onboardingSuggestionSource"
+    />
+
     <StandardFormDrawer
       v-model="formVisible"
       :title="formTitle"
@@ -598,6 +606,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
+import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -625,6 +634,8 @@ import type {
   DeviceAccessErrorLog,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
+  DeviceOnboardingBatchResult,
+  DeviceOnboardingSuggestion,
   DeviceOption,
   DeviceReplacePayload,
   DeviceReplaceResult,
@@ -695,7 +706,7 @@ interface DevicePageLoadOptions {
 
 interface DeviceRowAction {
   key?: string
-  command: 'replace' | 'insight' | 'delete'
+  command: 'replace' | 'insight' | 'delete' | 'suggestion'
   label: string
 }
 
@@ -707,7 +718,7 @@ interface DeviceDirectAction {
 
 interface DeviceToolbarAction {
   key?: string
-  command: 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  command: 'batch-activate' | 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
   label: string
   disabled?: boolean
   divided?: boolean
@@ -729,6 +740,7 @@ const detailVisible = ref(false)
 const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
 const replaceVisible = ref(false)
+const suggestionVisible = ref(false)
 const replaceSubmitting = ref(false)
 const replaceRefreshing = ref(false)
 const detailLoading = ref(false)
@@ -742,6 +754,8 @@ const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const replaceRefreshMessage = ref('')
 const replaceRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
+const suggestionLoading = ref(false)
+const suggestionErrorMessage = ref('')
 const formMode = ref<DeviceFormMode>('create')
 const editingDeviceId = ref<string | number | null>(null)
 const replaceFormDirtySinceOpen = ref(false)
@@ -754,6 +768,8 @@ const detailData = ref<Device | null>(null)
 const registerSourceRow = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
+const onboardingSuggestion = ref<DeviceOnboardingSuggestion | null>(null)
+const onboardingSuggestionSource = ref<Device | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
@@ -909,15 +925,26 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const selectedBatchActivatableRows = computed(() => selectedRows.value.filter((row) => canBatchActivateOnboarding(row)))
 const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
   const actions: DeviceToolbarAction[] = []
+
+  if (permissionStore.hasPermission('iot:devices:add')) {
+    actions.push({
+      key: 'batch-activate',
+      command: 'batch-activate',
+      label: '批量转正式设备',
+      disabled:
+        selectedRows.value.length === 0 || selectedBatchActivatableRows.value.length !== selectedRows.value.length
+    })
+  }
 
   if (permissionStore.hasPermission('iot:devices:delete')) {
     actions.push({
       key: 'batch-delete',
       command: 'batch-delete',
       label: '批量删除',
-      disabled: selectedRows.value.length === 0
+      disabled: selectedRows.value.length === 0 || selectedRows.value.some((row) => !isRegisteredDeviceRow(row))
     })
   }
 
@@ -1222,7 +1249,7 @@ function isRegisteredDeviceRow(row?: Partial<Device> | null) {
 }
 
 function isSelectableDeviceRow(row?: Device) {
-  return isRegisteredDeviceRow(row)
+  return isRegisteredDeviceRow(row) || canBatchActivateOnboarding(row)
 }
 
 function canEditDeviceRow(row?: Device | null) {
@@ -1250,6 +1277,14 @@ function canJumpToInsight(row?: Device | null) {
   return Boolean(row?.deviceCode && isRegisteredDeviceRow(row))
 }
 
+function canSuggestOnboarding(row?: Device | null) {
+  return Boolean(row?.lastTraceId && !isRegisteredDeviceRow(row))
+}
+
+function canBatchActivateOnboarding(row?: Device | null) {
+  return Boolean(row?.lastTraceId && !isRegisteredDeviceRow(row))
+}
+
 function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
   const actions: DeviceDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
 
@@ -1262,6 +1297,9 @@ function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
 
 function getDeviceRowActions(row: Device): DeviceRowAction[] {
   const actions: DeviceRowAction[] = []
+  if (canSuggestOnboarding(row)) {
+    actions.push({ key: 'suggestion', command: 'suggestion', label: '接入建议' })
+  }
   if (canReplaceDeviceRow(row)) {
     if (permissionStore.hasPermission('iot:devices:replace')) {
       actions.push({ key: 'replace', command: 'replace', label: '更换' })
@@ -1512,6 +1550,9 @@ function handleExportCurrent() {
 
 function handleToolbarAction(command: string | number | object) {
   switch (command) {
+    case 'batch-activate':
+      void handleBatchActivate()
+      break
     case 'batch-delete':
       void handleBatchDelete()
       break
@@ -2692,6 +2733,32 @@ function handleJumpToInsight(row?: Device | null) {
   })
 }
 
+async function handleOpenOnboardingSuggestion(row: Device) {
+  const traceId = row.lastTraceId?.trim()
+  if (!traceId) {
+    ElMessage.warning('当前线索缺少 Trace，暂时无法生成接入建议。')
+    return
+  }
+  onboardingSuggestionSource.value = row
+  onboardingSuggestion.value = null
+  suggestionErrorMessage.value = ''
+  suggestionVisible.value = true
+  suggestionLoading.value = true
+  try {
+    const res = await deviceApi.getDeviceOnboardingSuggestion(traceId)
+    if (res.code === 200 && res.data) {
+      onboardingSuggestion.value = res.data
+      return
+    }
+    suggestionErrorMessage.value = res.msg || '加载接入建议失败'
+  } catch (error) {
+    console.error('加载接入建议失败', error)
+    suggestionErrorMessage.value = resolveRequestErrorMessage(error, '加载接入建议失败')
+  } finally {
+    suggestionLoading.value = false
+  }
+}
+
 function handleRowAction(command: string | number | object, row: Device) {
   if (command === 'detail') {
     handleOpenDetail(row)
@@ -2707,6 +2774,10 @@ function handleRowAction(command: string | number | object, row: Device) {
   }
   if (command === 'insight') {
     handleJumpToInsight(row)
+    return
+  }
+  if (command === 'suggestion') {
+    void handleOpenOnboardingSuggestion(row)
     return
   }
   if (command === 'delete') {
@@ -2803,6 +2874,48 @@ async function handleBatchDelete() {
   }
 }
 
+async function handleBatchActivate() {
+  if (selectedRows.value.length === 0) {
+    return
+  }
+  if (selectedBatchActivatableRows.value.length !== selectedRows.value.length) {
+    ElMessage.warning('批量转正只支持已选未登记且带 Trace 的线索，请调整后重试。')
+    return
+  }
+
+  const traceIds = selectedBatchActivatableRows.value
+    .map((row) => row.lastTraceId?.trim())
+    .filter((traceId): traceId is string => Boolean(traceId))
+  if (traceIds.length === 0) {
+    ElMessage.warning('当前选中记录缺少 Trace，暂时无法批量转正。')
+    return
+  }
+
+  try {
+    await confirmAction({
+      title: '批量转正式设备',
+      message: `确认按当前接入建议将选中的 ${traceIds.length} 条线索转为正式设备吗？系统会拦截仍有规则缺口的记录。`,
+      type: 'warning',
+      confirmButtonText: '确认转正'
+    })
+    const res = await deviceApi.batchActivateOnboardingSuggestions({
+      traceIds,
+      confirmed: true
+    })
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || '批量转正式设备失败')
+      return
+    }
+
+    await finishBatchActivation(res.data)
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    ElMessage.error(resolveRequestErrorMessage(error, '批量转正式设备失败'))
+  }
+}
+
 async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
   batchImportSubmitting.value = true
   try {
@@ -2840,6 +2953,24 @@ async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
   } finally {
     batchImportSubmitting.value = false
   }
+}
+
+async function finishBatchActivation(result: DeviceOnboardingBatchResult) {
+  if (result.activatedCount > 0) {
+    clearDeviceOptionCache()
+    clearDevicePageCache()
+    clearSelection()
+    await loadDevicePage({
+      silent: true,
+      force: true,
+      silentMessage: '已按确认建议转正式设备，正在后台刷新列表。'
+    })
+  }
+  if (result.rejectedCount === 0) {
+    ElMessage.success(`批量转正完成，共转正 ${result.activatedCount} 台设备`)
+    return
+  }
+  ElMessage.warning(`批量转正完成，成功 ${result.activatedCount} 条，拦截 ${result.rejectedCount} 条`)
 }
 
 async function handleReplaceSubmit(payload: DeviceReplacePayload) {

@@ -44,7 +44,7 @@ describe('sectionHomes config', () => {
       'quality-workbench',
       'rd-workbench'
     ]);
-    expect(groups[0]?.items[0]?.label).toBe('产品定义中心');
+    expect(groups[0]?.items[0]?.label).toBe('无代码接入台');
   });
 
   it('matches activities by path and keywords for recent usage', () => {
@@ -214,7 +214,7 @@ describe('sectionHomes config', () => {
     expect(config).toBeTruthy();
     expect(config?.intro).toContain('排障树哪一段');
     expect(config?.description).toBe('接入智维总览负责回答先去哪、再去哪、最后去哪修。');
-    expect(config?.cards).toHaveLength(7);
+    expect(config?.cards).toHaveLength(8);
     expect(config?.hubJudgement).toBe('先做链路验证，再按证据分流到诊断页，最后回产品或设备治理修正。');
     expect(config?.hubLeadTitle).toBe('标准排障路径');
     expect(config?.hubLeadDescription).toBe('标准排障路径固定为：链路验证 -> 链路追踪 / 异常观测 / 数据校验 -> 产品定义中心 / 设备资产中心。');

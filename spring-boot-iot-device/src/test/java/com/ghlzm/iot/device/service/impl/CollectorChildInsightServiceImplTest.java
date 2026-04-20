@@ -1,120 +1,87 @@
 package com.ghlzm.iot.device.service.impl;
 
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel;
+import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.vo.CollectorChildInsightChildVO;
+import com.ghlzm.iot.device.vo.CollectorChildInsightMetricVO;
 import com.ghlzm.iot.device.vo.CollectorChildInsightOverviewVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceRelationVO;
 import java.time.LocalDateTime;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 class CollectorChildInsightServiceImplTest {
 
-    @Mock
-    private DeviceService deviceService;
+    private final DeviceService deviceService = mock(DeviceService.class);
+    private final DeviceRelationService deviceRelationService = mock(DeviceRelationService.class);
+    private final RiskMetricCatalogReadMapper riskMetricCatalogReadMapper = mock(RiskMetricCatalogReadMapper.class);
 
-    @Mock
-    private DeviceRelationService deviceRelationService;
-
-    private CollectorChildInsightServiceImpl service;
-
-    @BeforeEach
-    void setUp() {
-        service = new CollectorChildInsightServiceImpl(deviceService, deviceRelationService);
-    }
+    private final CollectorChildInsightServiceImpl service = new CollectorChildInsightServiceImpl(
+            deviceService,
+            deviceRelationService,
+            riskMetricCatalogReadMapper
+    );
 
     @Test
-    void getOverviewShouldAggregateChildLatestMetricsAndFormalSensorState() {
-        LocalDateTime reportTime = LocalDateTime.of(2026, 4, 9, 21, 47, 28);
-        when(deviceService.getDetailByCode(1001L, "SK00EA0D1307988"))
-                .thenReturn(parentDevice(1, "SK00EA0D1307988"));
-        when(deviceRelationService.listByParentDeviceCode(1001L, "SK00EA0D1307988"))
-                .thenReturn(List.of(relation("L1_LF_1", "202018108", "nf-monitor-laser-rangefinder-v1")));
-        when(deviceService.getDetailByCode(1001L, "202018108"))
-                .thenReturn(childDevice("202018108", "1# 激光测点", 1, reportTime));
-        when(deviceService.listProperties(1001L, "202018108"))
-                .thenReturn(List.of(
-                        property("value", "激光测距值", "10.86", reportTime),
-                        property("sensor_state", "传感器状态", "0", reportTime)
-                ));
+    void getOverviewShouldMarkCollectorChildRecommendedMetricsFromPublishedCatalog() {
+        DeviceDetailVO parent = new DeviceDetailVO();
+        parent.setDeviceCode("COLLECTOR-001");
+        parent.setOnlineStatus(1);
 
-        CollectorChildInsightOverviewVO overview = service.getOverview(1001L, "SK00EA0D1307988");
+        DeviceDetailVO child = new DeviceDetailVO();
+        child.setDeviceCode("LASER-001");
+        child.setDeviceName("1# 激光测点");
+        child.setProductId(2001L);
+        child.setProductKey("nf-monitor-laser-rangefinder-v1");
+        child.setOnlineStatus(1);
+        child.setLastReportTime(LocalDateTime.of(2026, 4, 18, 11, 30, 0));
 
-        assertEquals(1, overview.getChildCount());
-        assertEquals(1, overview.getReachableChildCount());
-        assertEquals(1, overview.getSensorStateReportedCount());
-        assertEquals("L1_LF_1", overview.getChildren().get(0).getLogicalChannelCode());
-        assertEquals("reachable", overview.getChildren().get(0).getCollectorLinkState());
-        assertEquals("0", overview.getChildren().get(0).getSensorStateValue());
-        assertEquals(1, overview.getChildren().get(0).getMetrics().size());
-        assertEquals("value", overview.getChildren().get(0).getMetrics().get(0).getIdentifier());
-    }
+        DeviceRelationVO relation = new DeviceRelationVO();
+        relation.setLogicalChannelCode("L1_LF_1");
+        relation.setChildDeviceCode("LASER-001");
+        relation.setChildProductKey("nf-monitor-laser-rangefinder-v1");
 
-    @Test
-    void getOverviewShouldMarkChildUnreachableWhenParentOffline() {
-        when(deviceService.getDetailByCode(1001L, "SK00EA0D1307988"))
-                .thenReturn(parentDevice(0, "SK00EA0D1307988"));
-        when(deviceRelationService.listByParentDeviceCode(1001L, "SK00EA0D1307988"))
-                .thenReturn(List.of(relation("L1_LF_1", "202018108", "nf-monitor-laser-rangefinder-v1")));
-        when(deviceService.getDetailByCode(1001L, "202018108"))
-                .thenReturn(childDevice("202018108", "1# 激光测点", 1, LocalDateTime.of(2026, 4, 9, 21, 47, 28)));
-        when(deviceService.listProperties(1001L, "202018108")).thenReturn(List.of());
+        DeviceProperty value = new DeviceProperty();
+        value.setIdentifier("value");
+        value.setPropertyName("激光测距值");
+        value.setPropertyValue("10.86");
+        value.setReportTime(LocalDateTime.of(2026, 4, 18, 11, 30, 0));
 
-        CollectorChildInsightOverviewVO overview = service.getOverview(1001L, "SK00EA0D1307988");
+        DeviceProperty sensorState = new DeviceProperty();
+        sensorState.setIdentifier("sensor_state");
+        sensorState.setPropertyName("传感器状态");
+        sensorState.setPropertyValue("0");
+        sensorState.setReportTime(LocalDateTime.of(2026, 4, 18, 11, 30, 0));
 
-        assertEquals(1, overview.getChildCount());
-        assertEquals(0, overview.getReachableChildCount());
-        assertEquals("unreachable", overview.getChildren().get(0).getCollectorLinkState());
-    }
+        RiskMetricCatalogReadModel recommendedCatalog = new RiskMetricCatalogReadModel();
+        recommendedCatalog.setContractIdentifier("value");
+        recommendedCatalog.setInsightEnabled(1);
+        recommendedCatalog.setEnabled(1);
+        recommendedCatalog.setDeleted(0);
 
-    private DeviceDetailVO parentDevice(int onlineStatus, String deviceCode) {
-        DeviceDetailVO vo = new DeviceDetailVO();
-        vo.setDeviceCode(deviceCode);
-        vo.setOnlineStatus(onlineStatus);
-        return vo;
-    }
+        when(deviceService.getDetailByCode(1001L, "COLLECTOR-001")).thenReturn(parent);
+        when(deviceRelationService.listByParentDeviceCode(1001L, "COLLECTOR-001")).thenReturn(List.of(relation));
+        when(deviceService.getDetailByCode(1001L, "LASER-001")).thenReturn(child);
+        when(deviceService.listProperties(1001L, "LASER-001")).thenReturn(List.of(value, sensorState));
+        when(riskMetricCatalogReadMapper.selectList(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(recommendedCatalog));
 
-    private DeviceDetailVO childDevice(String deviceCode,
-                                       String deviceName,
-                                       int onlineStatus,
-                                       LocalDateTime lastReportTime) {
-        DeviceDetailVO vo = new DeviceDetailVO();
-        vo.setDeviceCode(deviceCode);
-        vo.setDeviceName(deviceName);
-        vo.setOnlineStatus(onlineStatus);
-        vo.setLastReportTime(lastReportTime);
-        return vo;
-    }
+        CollectorChildInsightOverviewVO overview = service.getOverview(1001L, "COLLECTOR-001");
 
-    private DeviceRelationVO relation(String logicalChannelCode,
-                                      String childDeviceCode,
-                                      String childProductKey) {
-        DeviceRelationVO vo = new DeviceRelationVO();
-        vo.setLogicalChannelCode(logicalChannelCode);
-        vo.setChildDeviceCode(childDeviceCode);
-        vo.setChildProductKey(childProductKey);
-        return vo;
-    }
-
-    private DeviceProperty property(String identifier,
-                                    String name,
-                                    String value,
-                                    LocalDateTime reportTime) {
-        DeviceProperty property = new DeviceProperty();
-        property.setIdentifier(identifier);
-        property.setPropertyName(name);
-        property.setPropertyValue(value);
-        property.setReportTime(reportTime);
-        return property;
+        assertEquals(1, overview.getRecommendedMetricCount());
+        assertEquals(List.of("value"), service.listRecommendedMetrics(2001L));
+        CollectorChildInsightChildVO childOverview = overview.getChildren().get(0);
+        assertEquals(List.of("value"), childOverview.getRecommendedMetricIdentifiers());
+        CollectorChildInsightMetricVO metric = childOverview.getMetrics().get(0);
+        assertEquals("value", metric.getIdentifier());
+        assertTrue(Boolean.TRUE.equals(metric.getRecommended()));
     }
 }

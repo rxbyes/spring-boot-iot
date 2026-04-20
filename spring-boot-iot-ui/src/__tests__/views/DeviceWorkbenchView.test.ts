@@ -42,6 +42,8 @@ vi.mock('@/api/device', () => ({
     pageDevices: mockPageDevices,
     listDeviceOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] }),
     getDeviceById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    getDeviceOnboardingSuggestion: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    batchActivateOnboardingSuggestions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     deleteDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     batchDeleteDevices: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     batchAddDevices: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
@@ -205,7 +207,7 @@ const StandardButtonStub = defineComponent({
 
 const StandardActionMenuStub = defineComponent({
   name: 'StandardActionMenu',
-  props: ['label'],
+  props: ['label', 'items'],
   template: '<button class="standard-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
 })
 
@@ -251,6 +253,20 @@ const StandardFormDrawerStub = defineComponent({
       <p>{{ subtitle }}</p>
       <slot />
       <slot name="footer" />
+    </section>
+  `
+})
+
+const DeviceOnboardingSuggestionDrawerStub = defineComponent({
+  name: 'DeviceOnboardingSuggestionDrawer',
+  props: ['modelValue', 'suggestion', 'loading', 'errorMessage', 'sourceRow'],
+  template: `
+    <section class="device-onboarding-suggestion-drawer-stub">
+      <p>{{ sourceRow?.deviceCode }}</p>
+      <p>{{ suggestion?.recommendedProductKey }}</p>
+      <p>{{ suggestion?.recommendedFamilyCode }}</p>
+      <p>{{ suggestion?.recommendedTemplateCode }}</p>
+      <p>{{ (suggestion?.ruleGaps || []).join(' / ') }}</p>
     </section>
   `
 })
@@ -316,6 +332,7 @@ function mountView() {
         StandardActionMenu: StandardActionMenuStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
+        DeviceOnboardingSuggestionDrawer: DeviceOnboardingSuggestionDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub
@@ -551,6 +568,107 @@ describe('DeviceWorkbenchView', () => {
       '详情',
       '编辑'
     ])
+  })
+
+  it('shows onboarding suggestion for unregistered rows and loads the drawer payload', async () => {
+    const { deviceApi } = await import('@/api/device')
+    vi.mocked(deviceApi.getDeviceOnboardingSuggestion).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-unregistered-001',
+        deviceCode: 'shadow-device-01',
+        recommendedProductKey: 'south_rtu',
+        recommendedFamilyCode: 'legacy-dp',
+        recommendedTemplateCode: 'legacy-dp-crack-v1',
+        ruleGaps: ['推荐产品尚未形成正式合同发布，转正前需先发布契约字段。']
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'south_rtu',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state',
+        lastTraceId: 'trace-unregistered-001'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain('接入建议')
+
+    await (wrapper.vm as any).handleRowAction('suggestion', (wrapper.vm as any).tableData[0])
+    await flushPromises()
+    await nextTick()
+
+    expect(deviceApi.getDeviceOnboardingSuggestion).toHaveBeenCalledWith('trace-unregistered-001')
+    const suggestionDrawer = wrapper.findComponent(DeviceOnboardingSuggestionDrawerStub)
+    expect(suggestionDrawer.props('modelValue')).toBe(true)
+    expect((suggestionDrawer.props('suggestion') as Record<string, unknown>).recommendedTemplateCode).toBe('legacy-dp-crack-v1')
+    expect(wrapper.text()).toContain('south_rtu')
+    expect(wrapper.text()).toContain('legacy-dp')
+  })
+
+  it('adds batch activation to toolbar actions for confirmed unregistered selections', async () => {
+    const { deviceApi } = await import('@/api/device')
+    const { confirmAction } = await import('@/utils/confirm')
+    vi.mocked(confirmAction).mockResolvedValue(undefined)
+    vi.mocked(deviceApi.batchActivateOnboardingSuggestions).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        requestedCount: 1,
+        activatedCount: 1,
+        rejectedCount: 0,
+        activatedTraceIds: ['trace-unregistered-001'],
+        activatedDeviceCodes: ['shadow-device-01'],
+        errors: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'south_rtu',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state',
+        lastTraceId: 'trace-unregistered-001'
+      }
+    ]
+    ;(wrapper.vm as any).selectedRows = [...(wrapper.vm as any).tableData]
+    await nextTick()
+
+    const actionMenu = wrapper.findComponent(StandardActionMenuStub)
+    const menuLabels = ((actionMenu.props('items') as Array<{ label: string }>) || []).map((item) => item.label)
+    expect(menuLabels).toContain('批量转正式设备')
+
+    await (wrapper.vm as any).handleToolbarAction('batch-activate')
+    await flushPromises()
+    await nextTick()
+
+    expect(confirmAction).toHaveBeenCalledTimes(1)
+    expect(deviceApi.batchActivateOnboardingSuggestions).toHaveBeenCalledWith({
+      traceIds: ['trace-unregistered-001'],
+      confirmed: true
+    })
   })
 
   it('switches unregistered edit into register mode with add-permission submit copy', async () => {

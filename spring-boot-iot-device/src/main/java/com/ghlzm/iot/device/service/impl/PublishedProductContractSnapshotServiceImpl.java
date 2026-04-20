@@ -80,7 +80,7 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             if (canonicalIdentifier == null) {
                 continue;
             }
-            builder.publishedIdentifier(canonicalIdentifier);
+            builder.publishedIdentifier(identifier);
             builder.canonicalAlias(identifier, canonicalIdentifier);
             builder.canonicalAlias(canonicalIdentifier, canonicalIdentifier);
         }
@@ -176,7 +176,14 @@ public class PublishedProductContractSnapshotServiceImpl implements PublishedPro
             return null;
         }
         String trimmed = identifier.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        int separatorIndex = trimmed.lastIndexOf('.');
+        if (separatorIndex < 0 || separatorIndex >= trimmed.length() - 1) {
+            return trimmed;
+        }
+        return trimmed.substring(separatorIndex + 1);
     }
 
     private record CachedSnapshot(Long releaseBatchId, PublishedProductContractSnapshot snapshot) {

@@ -46,6 +46,7 @@ DROP TABLE IF EXISTS iot_product_metric_resolver_snapshot;
 DROP TABLE IF EXISTS iot_product_contract_release_snapshot;
 DROP TABLE IF EXISTS iot_product_contract_release_batch;
 DROP TABLE IF EXISTS iot_product;
+DROP TABLE IF EXISTS iot_onboarding_template_pack;
 DROP TABLE IF EXISTS iot_normative_metric_definition;
 DROP TABLE IF EXISTS iot_device_secret_rotation_log;
 DROP TABLE IF EXISTS iot_device_relation;
@@ -676,8 +677,12 @@ CREATE TABLE iot_device_onboarding_case (
   protocol_family_code VARCHAR(64) DEFAULT NULL COMMENT '协议族编码',
   decrypt_profile_code VARCHAR(64) DEFAULT NULL COMMENT '解密档案编码',
   protocol_template_code VARCHAR(64) DEFAULT NULL COMMENT '协议模板编码',
+  template_pack_id BIGINT DEFAULT NULL COMMENT '模板包ID',
   product_id BIGINT DEFAULT NULL COMMENT '产品ID',
   release_batch_id BIGINT DEFAULT NULL COMMENT '合同发布批次ID',
+  device_code VARCHAR(64) DEFAULT NULL COMMENT '验收设备编码',
+  acceptance_job_id VARCHAR(64) DEFAULT NULL COMMENT '标准接入验收任务ID',
+  acceptance_run_id VARCHAR(64) DEFAULT NULL COMMENT '标准接入验收运行ID',
   current_step VARCHAR(32) NOT NULL DEFAULT 'PROTOCOL_GOVERNANCE' COMMENT '当前步骤',
   status VARCHAR(32) NOT NULL DEFAULT 'BLOCKED' COMMENT '状态',
   blocker_summary_json JSON DEFAULT NULL COMMENT '阻塞摘要JSON',
@@ -690,7 +695,8 @@ CREATE TABLE iot_device_onboarding_case (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   UNIQUE KEY uk_onboarding_case_code (tenant_id, case_code),
-  KEY idx_onboarding_case_step_status (tenant_id, current_step, status)
+  KEY idx_onboarding_case_step_status (tenant_id, current_step, status),
+  KEY idx_onboarding_case_template_pack (tenant_id, template_pack_id)
 ) COMMENT='设备无代码接入案例表';
 
 -- 表：iot_device_online_session
@@ -817,6 +823,35 @@ CREATE TABLE iot_normative_metric_definition (
   PRIMARY KEY (id),
   UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)
 ) COMMENT='规范字段定义表';
+
+-- 表：iot_onboarding_template_pack
+-- 说明：设备无代码接入模板包表
+CREATE TABLE iot_onboarding_template_pack (
+  id BIGINT NOT NULL COMMENT '主键',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  pack_code VARCHAR(64) NOT NULL COMMENT '模板包编码',
+  pack_name VARCHAR(128) NOT NULL COMMENT '模板包名称',
+  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',
+  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族',
+  status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE' COMMENT '模板包状态',
+  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+  protocol_family_code VARCHAR(64) DEFAULT NULL COMMENT '协议族编码',
+  decrypt_profile_code VARCHAR(64) DEFAULT NULL COMMENT '解密档案编码',
+  protocol_template_code VARCHAR(64) DEFAULT NULL COMMENT '协议模板编码',
+  default_governance_config_json JSON DEFAULT NULL COMMENT '默认治理配置JSON',
+  default_insight_config_json JSON DEFAULT NULL COMMENT '默认对象洞察配置JSON',
+  default_acceptance_profile_json JSON DEFAULT NULL COMMENT '默认验收配置JSON',
+  description VARCHAR(500) DEFAULT NULL COMMENT '描述',
+  remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_onboarding_template_pack_code (tenant_id, pack_code),
+  KEY idx_onboarding_template_pack_status (tenant_id, status)
+) COMMENT='设备无代码接入模板包表';
 
 -- 表：iot_product
 -- 说明：产品表

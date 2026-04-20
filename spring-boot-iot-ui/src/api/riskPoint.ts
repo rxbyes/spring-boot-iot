@@ -121,6 +121,7 @@ export interface RiskPointPendingMetricCandidate {
       seenCount?: number | null;
       recommendationScore?: number | null;
       recommendationLevel?: string | null;
+      catalogRecommended?: boolean | null;
       reasonSummary?: string | null;
 }
 

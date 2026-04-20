@@ -5,6 +5,7 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.service.CollectorChildInsightService;
 import com.ghlzm.iot.device.vo.CollectorChildInsightOverviewVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +27,13 @@ public class DeviceCollectorInsightController {
     public R<CollectorChildInsightOverviewVO> getOverview(@PathVariable String deviceCode,
                                                           Authentication authentication) {
         return R.ok(collectorChildInsightService.getOverview(requireCurrentUserId(authentication), deviceCode));
+    }
+
+    @GetMapping("/api/device/product/{productId}/collector-children/recommended-metrics")
+    public R<List<String>> listRecommendedMetrics(@PathVariable Long productId,
+                                                  Authentication authentication) {
+        requireCurrentUserId(authentication);
+        return R.ok(collectorChildInsightService.listRecommendedMetrics(productId));
     }
 
     private Long requireCurrentUserId(Authentication authentication) {
