@@ -321,10 +321,8 @@ describe('governance control plane views', () => {
     await continueButton!.trigger('click')
 
     expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/products',
+      path: '/products/9223372036854775807/contracts',
       query: {
-        openProductId: '9223372036854775807',
-        workbenchView: 'models',
         governanceSource: 'task',
         workItemCode: 'PENDING_CONTRACT_RELEASE'
       }
@@ -506,10 +504,8 @@ describe('governance control plane views', () => {
     await dispatchButton!.trigger('click')
 
     expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/products',
+      path: '/products/1001/contracts',
       query: {
-        openProductId: '1001',
-        workbenchView: 'models',
         governanceSource: 'task',
         workItemCode: 'PENDING_CONTRACT_RELEASE'
       }
@@ -551,10 +547,8 @@ describe('governance control plane views', () => {
     await dispatchButton!.trigger('click')
 
     expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/products',
+      path: '/products/6006/contracts',
       query: {
-        openProductId: '6006',
-        workbenchView: 'models',
         governanceSource: 'task',
         workItemCode: 'PENDING_PRODUCT_GOVERNANCE',
         governanceBoundary: 'collector-child',

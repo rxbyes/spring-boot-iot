@@ -15,6 +15,8 @@ public class ProductModelCandidateSummaryVO {
 
     private String sampleDeviceCode;
 
+    private String resolvedContractIdentifierMode;
+
     private Integer propertyEvidenceCount;
 
     private Integer propertyCandidateCount;

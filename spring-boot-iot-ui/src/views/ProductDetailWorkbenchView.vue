@@ -45,7 +45,6 @@
           :class="{ 'product-detail-page__tab--active': activeSection === item.key }"
         >
           <span>{{ item.label }}</span>
-          <small>{{ item.caption }}</small>
         </RouterLink>
       </nav>
 
@@ -146,30 +145,25 @@ const {
   resetTotal: resetDeviceTotal
 } = useServerPagination(10)
 
-const sectionLabels: Record<ProductWorkbenchSection, { label: string; caption: string; description: string }> = {
+const sectionLabels: Record<ProductWorkbenchSection, { label: string; description: string }> = {
   overview: {
     label: '产品总览',
-    caption: '概览',
     description: '查看产品档案、活跃度和最新发布状态。'
   },
   devices: {
     label: '关联设备',
-    caption: '设备',
     description: '查看当前产品下的设备清单与最近上报。'
   },
   contracts: {
     label: '契约字段',
-    caption: '契约',
     description: '只保留样本输入、识别结果、本次生效和当前已生效字段。'
   },
   'mapping-rules': {
     label: '映射规则',
-    caption: '映射',
     description: '集中维护厂商字段映射建议与映射规则台账。'
   },
   releases: {
     label: '版本台账',
-    caption: '版本',
     description: '查看发布批次、回滚试算和跨批次差异。'
   }
 }
@@ -199,7 +193,6 @@ const tabItems = computed(() =>
   (Object.keys(sectionLabels) as ProductWorkbenchSection[]).map((key) => ({
     key,
     label: sectionLabels[key].label,
-    caption: sectionLabels[key].caption,
     to: buildProductWorkbenchSectionPath(productId.value, key)
   }))
 )
@@ -216,12 +209,6 @@ const heroMetrics = computed(() => [
     label: '正式字段',
     value: String(overviewSummary.value?.formalFieldCount ?? 0),
     hint: '产品正式物模型'
-  },
-  {
-    key: 'latestReleaseBatchId',
-    label: '最新批次',
-    value: overviewSummary.value?.latestReleaseBatchId == null ? '--' : String(overviewSummary.value.latestReleaseBatchId),
-    hint: overviewSummary.value?.latestReleaseStatus || '尚未发布'
   }
 ])
 
@@ -389,7 +376,7 @@ watch(
 <style scoped>
 .product-detail-page {
   display: grid;
-  gap: 1rem;
+  gap: 1.08rem;
   min-width: 0;
 }
 
@@ -416,8 +403,8 @@ watch(
 }
 
 .product-detail-page__hero {
-  gap: 1rem;
-  padding: 0.96rem 1.08rem 1.08rem;
+  gap: 1.08rem;
+  padding: 0.92rem 1.04rem 1rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-2xl) + 2px);
   background:
@@ -427,7 +414,7 @@ watch(
 
 .product-detail-page__hero-copy {
   display: grid;
-  gap: 0.28rem;
+  gap: 0.22rem;
 }
 
 .product-detail-page__hero-kicker {
@@ -442,8 +429,8 @@ watch(
   margin: 0;
   color: var(--text-heading);
   font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: clamp(1.34rem, 2vw, 1.76rem);
-  line-height: 1.22;
+  font-size: clamp(1.18rem, 1.6vw, 1.42rem);
+  line-height: 1.24;
 }
 
 .product-detail-page__hero-copy p {
@@ -456,8 +443,12 @@ watch(
 .product-detail-page__hero-metrics,
 .product-detail-page__overview-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.84rem;
+}
+
+.product-detail-page__overview-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .product-detail-page__metric-card,
@@ -489,50 +480,64 @@ watch(
 }
 
 .product-detail-page__tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.72rem;
-  margin-top: 0.12rem;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.76rem;
+  padding: 0.24rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-2xl) + 2px);
+  background: color-mix(in srgb, var(--brand-light) 8%, white);
 }
 
 .product-detail-page__tab {
-  display: grid;
-  gap: 0.18rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
   min-width: 0;
-  padding: 0.82rem 0.94rem;
-  border: 1px solid var(--panel-border);
+  padding: 0.72rem 0.86rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-xl);
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--text-secondary);
   text-decoration: none;
-  transition: border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  text-align: center;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .product-detail-page__tab span {
   color: inherit;
   font-weight: 600;
-  line-height: 1.4;
-}
-
-.product-detail-page__tab small {
-  color: var(--text-caption);
-  line-height: 1.5;
+  line-height: 1.42;
 }
 
 .product-detail-page__tab:hover {
-  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  background: rgba(255, 255, 255, 0.96);
   color: var(--brand);
   transform: translateY(-1px);
 }
 
 .product-detail-page__tab--active {
-  border-color: color-mix(in srgb, var(--brand) 28%, var(--panel-border));
-  background: color-mix(in srgb, var(--brand-light) 18%, white);
+  border-color: color-mix(in srgb, var(--brand) 24%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand-light) 22%, white);
   color: color-mix(in srgb, var(--brand) 82%, var(--text-heading));
+  box-shadow: 0 8px 18px -20px color-mix(in srgb, var(--brand) 42%, transparent);
 }
 
 .product-detail-page__content {
   gap: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .product-detail-page__tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -542,7 +547,6 @@ watch(
   }
 
   .product-detail-page__tabs {
-    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

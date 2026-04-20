@@ -631,7 +631,7 @@ function syncRoute() {
 }
 
 function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightCapabilityProfile) {
-  const pointMap = new Map((data.points ?? []).map((item) => [item.identifier, item]));
+  const points = data.points ?? [];
   const resolvedGroups = profile.trendGroups
     .map((group) => ({
       key: resolveTrendGroupViewKey(group.key),
@@ -639,7 +639,7 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
       description: resolveTrendGroupDescription(group.key),
       series: group.identifiers
         .map((identifier) => {
-          const point = pointMap.get(identifier);
+          const point = resolveTelemetryHistoryPoint(points, identifier);
           if (!point) {
             return null;
           }
@@ -666,6 +666,50 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
     .filter((group) => group.series.length > 0);
 
   return resolvedGroups.flatMap((group) => splitTrendGroup(group));
+}
+
+function resolveTelemetryHistoryPoint(
+  points: TelemetryHistoryBatchResponse['points'],
+  identifier: string
+) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return null;
+  }
+
+  const exactPoint = points.find((item) => normalizeText(item.identifier) === normalizedIdentifier);
+  if (exactPoint) {
+    return exactPoint;
+  }
+
+  const lowerCaseIdentifier = normalizedIdentifier.toLowerCase();
+  const caseInsensitivePoint = points.find((item) => normalizeText(item.identifier).toLowerCase() === lowerCaseIdentifier);
+  if (caseInsensitivePoint) {
+    return caseInsensitivePoint;
+  }
+
+  if (normalizedIdentifier.includes('.')) {
+    const suffixIdentifier = normalizedIdentifier.split('.').pop();
+    if (!suffixIdentifier) {
+      return null;
+    }
+    return resolveUniqueTelemetryHistoryPoint(points, (itemIdentifier) => itemIdentifier.toLowerCase() === suffixIdentifier.toLowerCase());
+  }
+
+  return resolveUniqueTelemetryHistoryPoint(points, (itemIdentifier) =>
+    itemIdentifier.toLowerCase().endsWith(`.${lowerCaseIdentifier}`)
+  );
+}
+
+function resolveUniqueTelemetryHistoryPoint(
+  points: TelemetryHistoryBatchResponse['points'],
+  matcher: (identifier: string) => boolean
+) {
+  const matchedPoints = points.filter((item) => {
+    const itemIdentifier = normalizeText(item.identifier);
+    return itemIdentifier ? matcher(itemIdentifier) : false;
+  });
+  return matchedPoints.length === 1 ? matchedPoints[0] : null;
 }
 
 function splitTrendGroup(group: InsightTrendGroup) {

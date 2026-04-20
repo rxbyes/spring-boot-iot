@@ -481,9 +481,7 @@ describe('DeviceOnboardingWorkbenchView', () => {
     await wrapper.get('[data-testid="onboarding-next-9101"]').trigger('click')
 
     expect(mockRefreshDeviceOnboardingCaseStatus).toHaveBeenCalledWith(9101)
-    expect(mockRouter.push).toHaveBeenCalledWith(expect.objectContaining({
-      path: '/products'
-    }))
+    expect(mockRouter.push).toHaveBeenCalledWith('/products')
   })
 
   it('shows acceptance summary and jumps to automation results when run exists', async () => {

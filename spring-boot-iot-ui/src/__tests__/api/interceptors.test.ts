@@ -53,7 +53,7 @@ describe('errorResponseInterceptor', () => {
       expect(requestError.handled).toBe(true)
       expect(requestError.status).toBe(500)
       expect(requestError.message).toBe('对象洞察指标必须使用已发布合同标识符: value')
-      expect(requestError.rawMessage).toBeUndefined()
+      expect(requestError.rawMessage).toBe('对象洞察指标必须使用已发布合同标识符: value')
     }
   })
 

@@ -18,6 +18,8 @@ public class ProductModelGovernanceCompareDTO {
 
         private String deviceStructure;
 
+        private String contractIdentifierMode;
+
         private String samplePayload;
 
         private String parentDeviceCode;

@@ -522,6 +522,7 @@ export interface ProductModelCandidateSummary {
   extractionMode?: string | null;
   sampleType?: string | null;
   sampleDeviceCode?: string | null;
+  resolvedContractIdentifierMode?: ProductModelContractIdentifierMode | null;
   propertyEvidenceCount?: number | null;
   propertyCandidateCount?: number | null;
   eventEvidenceCount?: number | null;
@@ -637,9 +638,12 @@ export interface ProductModelGovernanceCompareResult {
   compareRows: ProductModelGovernanceCompareRow[];
 }
 
+export type ProductModelContractIdentifierMode = 'DIRECT' | 'FULL_PATH';
+
 export interface ProductModelGovernanceManualExtractPayload {
   sampleType: ProductModelManualSampleType;
   deviceStructure: ProductModelGovernanceDeviceStructure;
+  contractIdentifierMode?: ProductModelContractIdentifierMode | null;
   samplePayload: string;
   parentDeviceCode?: string | null;
   relationMappings?: ProductModelGovernanceRelationMappingPayload[] | null;

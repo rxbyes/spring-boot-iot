@@ -188,10 +188,35 @@ export interface ProductModelGovernanceSummary {
   lastComparedAt?: string | null;
 }
 
+export type ProductModelContractIdentifierMode = 'DIRECT' | 'FULL_PATH';
+
+export interface ProductModelCandidateSummary {
+  extractionMode?: string | null;
+  sampleType?: string | null;
+  sampleDeviceCode?: string | null;
+  resolvedContractIdentifierMode?: ProductModelContractIdentifierMode | null;
+  propertyEvidenceCount?: number | null;
+  propertyCandidateCount?: number | null;
+  eventEvidenceCount?: number | null;
+  eventCandidateCount?: number | null;
+  serviceEvidenceCount?: number | null;
+  serviceCandidateCount?: number | null;
+  needsReviewCount?: number | null;
+  existingModelCount?: number | null;
+  createdCount?: number | null;
+  skippedCount?: number | null;
+  conflictCount?: number | null;
+  eventHint?: string | null;
+  serviceHint?: string | null;
+  ignoredFieldCount?: number | null;
+  lastExtractedAt?: string | null;
+}
+
 export interface ProductModelGovernanceComparePayload {
   manualExtract?: {
     sampleType: 'business' | 'status';
     deviceStructure: 'single' | 'composite';
+    contractIdentifierMode?: ProductModelContractIdentifierMode | null;
     samplePayload: string;
     parentDeviceCode?: string | null;
     relationMappings?: Array<{
@@ -204,8 +229,8 @@ export interface ProductModelGovernanceComparePayload {
 export interface ProductModelGovernanceCompareResult {
   productId: string | number;
   summary: ProductModelGovernanceSummary;
-  manualSummary?: Record<string, unknown> | null;
-  runtimeSummary?: Record<string, unknown> | null;
+  manualSummary?: ProductModelCandidateSummary | null;
+  runtimeSummary?: ProductModelCandidateSummary | null;
   formalSummary?: ProductModelGovernanceSummary | null;
   compareRows: ProductModelGovernanceCompareRow[];
 }

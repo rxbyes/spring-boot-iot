@@ -482,10 +482,10 @@
         <div class="product-model-designer__governance-note" data-testid="contract-field-sample-note">
           <strong>字段标识按当前产品契约形态收口</strong>
           <p>
-            单台样本会优先沿用当前产品的正式字段口径：单能力/规范产品通常收口为直接字段，多能力产品会保留监测类型编码 + 数据字段这类全路径标识。
+            单台样本会按当前产品形态自动识别正式字段口径：单台多能力产品保留监测类型编码 + 数据字段这类全路径标识，只有单能力/规范产品才收口为直接字段。
           </p>
           <p>
-            复合设备会按父设备关系映射归一到子产品字段；逻辑通道编码用于归属和原始证据，不直接等于正式字段标识。
+            复合设备会按父设备关系映射归一到子产品直接字段；逻辑通道编码只用于归属线索和原始证据，不直接等于正式字段标识。
           </p>
         </div>
 
@@ -1153,7 +1153,7 @@ const sampleTypeOptions: Array<{ label: string; value: SampleType }> = [
 ]
 
 const deviceStructureOptions: Array<{ label: string; value: DeviceStructure }> = [
-  { label: '单台设备', value: 'single' },
+  { label: '单台设备（按产品形态自动识别）', value: 'single' },
   { label: '复合设备', value: 'composite' }
 ]
 

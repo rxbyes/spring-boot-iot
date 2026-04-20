@@ -61,6 +61,16 @@ const StandardPageShellStub = defineComponent({
   `
 })
 
+const RouterLinkStub = defineComponent({
+  name: 'RouterLink',
+  props: ['to'],
+  template: `
+    <a class="router-link-stub" :data-to="typeof to === 'string' ? to : JSON.stringify(to)">
+      <slot />
+    </a>
+  `
+})
+
 const ProductDeviceListWorkspaceStub = defineComponent({
   name: 'ProductDeviceListWorkspace',
   props: ['pagination'],
@@ -116,6 +126,40 @@ it.each([
   expect(wrapper.find('.shell-breadcrumbs').exists()).toBe(false)
 })
 
+it('renders single-line workbench tabs and keeps only device and field hero metrics', async () => {
+  const wrapper = shallowMount(ProductDetailWorkbenchView, {
+    global: {
+      stubs: {
+        RouterLink: RouterLinkStub,
+        StandardButton: true,
+        ProductDetailWorkbench: true,
+        ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
+        ProductModelDesignerWorkspace: true,
+        StandardPageShell: StandardPageShellStub
+      }
+    }
+  })
+
+  await flushPromises()
+  await nextTick()
+
+  const tabTexts = wrapper
+    .findAll('.product-detail-page__tab')
+    .map((node) => node.text().replace(/\s+/g, ' ').trim())
+
+  expect(tabTexts).toEqual(['产品总览', '关联设备', '契约字段', '映射规则', '版本台账'])
+  expect(wrapper.find('.product-detail-page__tab small').exists()).toBe(false)
+
+  const metricTexts = wrapper
+    .findAll('.product-detail-page__metric-card')
+    .map((node) => node.text().replace(/\s+/g, ' ').trim())
+
+  expect(metricTexts).toHaveLength(2)
+  expect(metricTexts[0]).toContain('关联设备')
+  expect(metricTexts[1]).toContain('正式字段')
+  expect(wrapper.text()).not.toContain('最新批次')
+})
+
 it('requests related devices with server pagination and reacts to pagination events', async () => {
   mockRoute.path = '/products/42/devices'
   mockRoute.name = 'product-devices'
@@ -128,7 +172,7 @@ it('requests related devices with server pagination and reacts to pagination eve
   const wrapper = shallowMount(ProductDetailWorkbenchView, {
     global: {
       stubs: {
-        RouterLink: true,
+        RouterLink: RouterLinkStub,
         StandardButton: true,
         ProductDetailWorkbench: true,
         ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,

@@ -845,6 +845,57 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepRainGaugeRuntimeOnlyStatusRowsOnFullPathAfterSingleDeviceModeResolved() {
+        when(productMapper.selectById(7007L)).thenReturn(product(
+                7007L,
+                "nf-monitor-tipping-bucket-rain-gauge-v1",
+                "南方测绘 监测型 翻斗式雨量计"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device(5007L, 7007L, "SK00D50D1305080")));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(
+                deviceProperty(5007L, "humidity", "设备湿度", "89.04", "double", LocalDateTime.of(2026, 4, 20, 4, 35, 0))
+        ));
+        when(vendorMetricEvidenceMapper.selectList(any())).thenReturn(List.of(
+                runtimeEvidence(
+                        7007L,
+                        "S1_ZT_1.humidity",
+                        "humidity",
+                        4,
+                        LocalDateTime.of(2026, 4, 20, 4, 35, 0),
+                        "89.04",
+                        "double"
+                )
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00D50D1305080":{"S1_ZT_1":{"2026-04-20T04:33:10.000Z":{"ext_power_volt":14.04}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(7007L, dto);
+
+        assertEquals(
+                List.of("S1_ZT_1.ext_power_volt", "S1_ZT_1.humidity"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .sorted()
+                        .toList()
+        );
+        ProductModelGovernanceCompareRowVO runtimeOnlyRow = compareRow(result, "property", "S1_ZT_1.humidity");
+        assertEquals("runtime_only", runtimeOnlyRow.getCompareStatus());
+        assertEquals("继续观察", runtimeOnlyRow.getSuggestedAction());
+        assertNotNull(runtimeOnlyRow.getRuntimeCandidate());
+        assertEquals(List.of("humidity", "S1_ZT_1.humidity"), runtimeOnlyRow.getRuntimeCandidate().getRawIdentifiers());
+        assertTrue(result.getCompareRows().stream().noneMatch(item -> "humidity".equals(item.getIdentifier())));
+    }
+
+    @Test
     void compareGovernanceShouldOnlyMirrorCompositeSensorStateWithoutLeakingParentTerminalStatus() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());

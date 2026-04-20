@@ -2216,6 +2216,161 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).not.toContain('系统自定义参数');
   });
 
+  it('matches bare telemetry history identifiers back to full-path object insight metrics', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: '1917408115385364482',
+        productId: '202603192100560271',
+        deviceCode: '6260370286',
+        deviceName: '中海达声光报警器-1',
+        productKey: 'zhd-warning-sound-light-alarm-v1',
+        productName: '中海达 预警型 声光报警器',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-20 09:00:00',
+        lastReportTime: '2026-04-20 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: '202603192100560271',
+        productKey: 'zhd-warning-sound-light-alarm-v1',
+        productName: '中海达 预警型 声光报警器',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'S1_ZT_1.sound_state',
+                displayName: '声光状态',
+                group: 'status',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 1
+              },
+              {
+                identifier: 'S1_ZT_1.battery_dump_energy',
+                displayName: '剩余电量',
+                group: 'runtime',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 2
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 51,
+          productId: '202603192100560271',
+          modelType: 'property',
+          identifier: 'S1_ZT_1.sound_state',
+          modelName: '声光状态',
+          dataType: 'int',
+          specsJson: null
+        },
+        {
+          id: 52,
+          productId: '202603192100560271',
+          modelType: 'property',
+          identifier: 'S1_ZT_1.battery_dump_energy',
+          modelName: '剩余电量',
+          dataType: 'int',
+          specsJson: JSON.stringify({
+            unit: '%'
+          })
+        }
+      ]
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.sound_state',
+          propertyName: '声光状态',
+          propertyValue: '1',
+          valueType: 'int',
+          updateTime: '2026-04-20 09:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.battery_dump_energy',
+          propertyName: '剩余电量',
+          propertyValue: '86',
+          valueType: 'int',
+          unit: '%',
+          updateTime: '2026-04-20 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '1917408115385364482',
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'sound_state',
+            displayName: '声光状态',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-20 09:00:00', value: 1, filled: false }]
+          },
+          {
+            identifier: 'battery_dump_energy',
+            displayName: '剩余电量',
+            seriesType: 'status',
+            buckets: [{ time: '2026-04-20 09:00:00', value: 86, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: '6260370286'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(getTelemetryHistoryBatch).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: '1917408115385364482',
+      identifiers: ['S1_ZT_1.sound_state', 'S1_ZT_1.battery_dump_energy']
+    }));
+    expect(wrapper.text()).toContain('状态事件');
+    expect(wrapper.text()).toContain('运行参数');
+    expect(wrapper.text()).toContain('声光状态');
+    expect(wrapper.text()).toContain('剩余电量');
+    expect(wrapper.text()).not.toContain('当前范围暂无可展示的 TDengine 趋势数据');
+  });
+
   it('uses snapshot-first metrics and removes secondary metric panels for multidimensional devices', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,

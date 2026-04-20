@@ -350,6 +350,7 @@ public class ProductModelGovernanceComparator {
         copied.setExtractionMode(summary.getExtractionMode());
         copied.setSampleType(summary.getSampleType());
         copied.setSampleDeviceCode(summary.getSampleDeviceCode());
+        copied.setResolvedContractIdentifierMode(summary.getResolvedContractIdentifierMode());
         copied.setPropertyEvidenceCount(summary.getPropertyEvidenceCount());
         copied.setPropertyCandidateCount(summary.getPropertyCandidateCount());
         copied.setEventEvidenceCount(summary.getEventEvidenceCount());
