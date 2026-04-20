@@ -1,9 +1,6 @@
 <template>
   <StandardPageShell
     class="product-detail-page"
-    show-breadcrumbs
-    :breadcrumbs="breadcrumbs"
-    eyebrow="产品工作区"
     :title="pageTitle"
     :description="pageDescription"
   >
@@ -183,14 +180,9 @@ const activeSection = computed<ProductWorkbenchSection>(() => {
 })
 
 const sectionMeta = computed(() => sectionLabels[activeSection.value])
-const pageTitle = computed(() => product.value?.productName || product.value?.productKey || '产品工作区')
+const pageTitle = computed(() => sectionMeta.value.label)
 const pageDescription = computed(() => sectionMeta.value.description)
 const heroDescription = computed(() => product.value?.description?.trim() || sectionMeta.value.description)
-const breadcrumbs = computed(() => [
-  { label: '产品定义中心', to: '/products' },
-  { label: product.value?.productName || product.value?.productKey || '产品工作区' },
-  { label: sectionMeta.value.label }
-])
 const tabItems = computed(() =>
   (Object.keys(sectionLabels) as ProductWorkbenchSection[]).map((key) => ({
     key,
