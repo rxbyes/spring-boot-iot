@@ -260,6 +260,9 @@ export const usePermissionStore = defineStore('permission', () => {
       return true;
     }
     // 共享环境中菜单树偶发为空时，允许访问标准分组内的静态页面，避免“菜单可见但无法跳转”。
+    if (allowedPaths.value.some((allowedPath) => allowedPath !== '/' && normalizedPath.startsWith(`${allowedPath}/`))) {
+      return true;
+    }
     if (allowedPaths.value.length === 0 && hasBoundRoles.value) {
       return staticFallbackPaths.value.includes(normalizedPath);
     }

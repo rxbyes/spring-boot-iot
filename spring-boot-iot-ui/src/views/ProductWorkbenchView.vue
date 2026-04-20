@@ -617,6 +617,10 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 import {
+  buildProductWorkbenchPathFromLegacyView,
+  buildProductWorkbenchSectionPath
+} from '@/utils/productWorkbenchRoutes'
+import {
   buildProductMetadataJson,
   parseProductObjectInsightMetrics,
   validateProductObjectInsightMetrics
@@ -2025,20 +2029,12 @@ async function resolveGovernanceRouteWorkbench() {
 
   handledGovernanceWorkbenchRouteKey.value = routeKey
 
-  if (targetView === 'overview') {
-    await openDetail(targetProduct)
-    return
-  }
-
   if (targetView === 'edit') {
     openEditWorkbench(targetProduct, targetProduct)
     return
   }
 
-  currentProduct.value = targetProduct
-  businessWorkbenchProduct.value = targetProduct
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange(targetView)
+  await router.replace(buildProductWorkbenchPath(targetProduct.id, targetView))
 }
 
 async function refreshEditAvailableModels(productId: string | number, editSessionId: number) {
@@ -2144,21 +2140,15 @@ function handleEdit(row: Product) {
 }
 
 function handleOpenDetail(row: Product) {
-  void openDetail(row)
+  void router.push(buildProductWorkbenchSectionPath(row.id, 'overview'))
 }
 
 function handleOpenDeviceListDrawer(row: Product) {
-  currentProduct.value = row
-  businessWorkbenchProduct.value = row
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange('devices')
+  void router.push(buildProductWorkbenchSectionPath(row.id, 'devices'))
 }
 
 function handleOpenProductModelDesigner(row: Product) {
-  currentProduct.value = row
-  businessWorkbenchProduct.value = row
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange('models')
+  void router.push(buildProductWorkbenchSectionPath(row.id, 'contracts'))
 }
 
 function handleBusinessWorkbenchEdit() {
@@ -2203,12 +2193,7 @@ function buildProductWorkbenchPath(
   productId: number | string | null | undefined,
   workbenchView: ProductBusinessWorkbenchView = 'models'
 ) {
-  const query = new URLSearchParams()
-  if (productId != null && String(productId).trim()) {
-    query.set('openProductId', String(productId))
-  }
-  query.set('workbenchView', workbenchView)
-  return `/products?${query.toString()}`
+  return buildProductWorkbenchPathFromLegacyView(productId, workbenchView)
 }
 
 async function clearProductWorkbenchRouteContext() {

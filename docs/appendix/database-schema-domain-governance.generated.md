@@ -127,14 +127,14 @@ graph TD
 
 | Metric | Value |
 | --- | --- |
-| Objects | 19 |
-| Relations | 48 |
-| Owner Modules | spring-boot-iot-device(19) |
-| Lineage Roles | device_domain_state(5), domain_master_data(6), operation_log(3), relationship_mapping(1), snapshot_baseline(3), transaction_record(1) |
+| Objects | 20 |
+| Relations | 50 |
+| Owner Modules | spring-boot-iot-device(20) |
+| Lineage Roles | device_domain_state(6), domain_master_data(6), operation_log(3), relationship_mapping(1), snapshot_baseline(3), transaction_record(1) |
 
 | Lifecycle | Count |
 | --- | --- |
-| active | 19 |
+| active | 20 |
 | archived | 0 |
 | pending_delete | 0 |
 
@@ -146,6 +146,7 @@ graph TD
 | iot_device_invalid_report_state | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 无效 MQTT 上报最新态表 |
 | iot_device_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
 | iot_device_metric_latest | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 时序最新值投影表 |
+| iot_device_onboarding_case | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备无代码接入案例表 |
 | iot_device_online_session | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备在线会话表 |
 | iot_device_property | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备最新属性表 |
 | iot_device_relation | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备逻辑通道关系表 |
@@ -172,6 +173,7 @@ graph TD
 | iot_device_invalid_report_state | iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_message_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_metric_latest | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
+| iot_device_onboarding_case | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_online_session | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_property | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_relation | iot_device（belongs_to:parent_device_id）<br>iot_device（belongs_to:child_device_id）<br>sys_tenant（belongs_to:tenant_id） |
@@ -214,6 +216,9 @@ graph TD
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_device_onboarding_case["iot_device_onboarding_case"]
+  iot_device_onboarding_case["iot_device_onboarding_case"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_device_onboarding_case["iot_device_onboarding_case"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_device_online_session["iot_device_online_session"]
   iot_device_online_session["iot_device_online_session"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_device_online_session["iot_device_online_session"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
@@ -266,14 +271,14 @@ graph TD
 
 | Metric | Value |
 | --- | --- |
-| Objects | 10 |
-| Relations | 24 |
-| Owner Modules | spring-boot-iot-alarm(2), spring-boot-iot-framework(4), spring-boot-iot-system(4) |
-| Lineage Roles | domain_master_data(2), governance_master_data(8) |
+| Objects | 12 |
+| Relations | 29 |
+| Owner Modules | spring-boot-iot-alarm(2), spring-boot-iot-framework(6), spring-boot-iot-system(4) |
+| Lineage Roles | domain_master_data(2), governance_master_data(10) |
 
 | Lifecycle | Count |
 | --- | --- |
-| active | 10 |
+| active | 12 |
 | archived | 0 |
 | pending_delete | 0 |
 
@@ -285,6 +290,8 @@ graph TD
 | iot_protocol_decrypt_profile_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议解密档案发布快照表 |
 | iot_protocol_family_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议族定义治理主表 |
 | iot_protocol_family_definition_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议族定义发布快照表 |
+| iot_protocol_template_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议模板治理主表 |
+| iot_protocol_template_definition_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-framework | 协议模板发布快照表 |
 | sys_governance_approval_order | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批工单表 |
 | sys_governance_approval_policy | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批策略表 |
 | sys_governance_approval_transition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 治理审批流转记录表 |
@@ -302,6 +309,8 @@ graph TD
 | iot_protocol_decrypt_profile_snapshot | iot_protocol_decrypt_profile（belongs_to:profile_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_protocol_family_definition | sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_protocol_family_definition_snapshot | iot_protocol_family_definition（belongs_to:family_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） |
+| iot_protocol_template_definition | sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） |
+| iot_protocol_template_definition_snapshot | iot_protocol_template_definition（belongs_to:template_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） |
 | sys_governance_approval_order | iot_governance_work_item（belongs_to:work_item_id）<br>sys_user（belongs_to:operator_user_id）<br>sys_user（belongs_to:approver_user_id）<br>sys_tenant（belongs_to:tenant_id） |
 | sys_governance_approval_policy | sys_tenant（belongs_to:tenant_id） |
 | sys_governance_approval_transition | sys_governance_approval_order（belongs_to:order_id）<br>sys_user（belongs_to:actor_user_id）<br>sys_tenant（belongs_to:tenant_id） |
@@ -330,6 +339,13 @@ graph TD
   iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"] -->|"belongs_to via family_id"| iot_protocol_family_definition["iot_protocol_family_definition"]
   iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
   iot_protocol_family_definition_snapshot["iot_protocol_family_definition_snapshot"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_template_definition["iot_protocol_template_definition"]
+  iot_protocol_template_definition["iot_protocol_template_definition"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_template_definition["iot_protocol_template_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"] -->|"belongs_to via template_id"| iot_protocol_template_definition["iot_protocol_template_definition"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"] -->|"belongs_to via approval_order_id"| sys_governance_approval_order["sys_governance_approval_order"]
+  iot_protocol_template_definition_snapshot["iot_protocol_template_definition_snapshot"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_governance_approval_order["sys_governance_approval_order"] -->|"belongs_to via work_item_id"| iot_governance_work_item["iot_governance_work_item"]
   sys_user["sys_user"]
   sys_governance_approval_order["sys_governance_approval_order"] -->|"belongs_to via operator_user_id"| sys_user["sys_user"]

@@ -38,6 +38,55 @@ const routes: RouteRecordRaw[] = [
     meta: routeMeta('/products')
   },
   {
+    path: '/products/:productId',
+    redirect: (to) => `/products/${String(to.params.productId || '').trim()}/overview`
+  },
+  {
+    path: '/products/:productId/overview',
+    name: 'product-overview',
+    component: () => import('../views/ProductDetailWorkbenchView.vue'),
+    meta: routeMeta('/products', {
+      title: '产品总览',
+      description: '查看产品概览、正式字段规模与最新合同发布状态。'
+    })
+  },
+  {
+    path: '/products/:productId/devices',
+    name: 'product-devices',
+    component: () => import('../views/ProductDetailWorkbenchView.vue'),
+    meta: routeMeta('/products', {
+      title: '关联设备',
+      description: '查看当前产品下的设备清单、在线状态与最近上报。'
+    })
+  },
+  {
+    path: '/products/:productId/contracts',
+    name: 'product-contracts',
+    component: () => import('../views/ProductDetailWorkbenchView.vue'),
+    meta: routeMeta('/products', {
+      title: '契约字段',
+      description: '只保留样本输入、识别结果、本次生效与当前已生效字段。'
+    })
+  },
+  {
+    path: '/products/:productId/mapping-rules',
+    name: 'product-mapping-rules',
+    component: () => import('../views/ProductDetailWorkbenchView.vue'),
+    meta: routeMeta('/products', {
+      title: '映射规则',
+      description: '集中维护厂商字段映射建议与映射规则台账。'
+    })
+  },
+  {
+    path: '/products/:productId/releases',
+    name: 'product-releases',
+    component: () => import('../views/ProductDetailWorkbenchView.vue'),
+    meta: routeMeta('/products', {
+      title: '版本台账',
+      description: '查看发布批次、回滚试算与跨批次差异对账。'
+    })
+  },
+  {
     path: '/protocol-governance',
     name: 'protocol-governance',
     component: () => import('../views/ProtocolGovernanceWorkbenchView.vue'),

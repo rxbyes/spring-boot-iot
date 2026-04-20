@@ -11,8 +11,10 @@ import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
@@ -23,6 +25,7 @@ import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
+import com.ghlzm.iot.device.vo.ProductOverviewSummaryVO;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -60,6 +63,8 @@ class ProductServiceImplTest {
     @Mock
     private ProductModelMapper productModelMapper;
     @Mock
+    private ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
+    @Mock
     private DeviceOnlineSessionService deviceOnlineSessionService;
 
     private ProductServiceImpl productService;
@@ -72,7 +77,40 @@ class ProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        productService = spy(new ProductServiceImpl(deviceMapper, productModelMapper, deviceOnlineSessionService));
+        productService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                productContractReleaseBatchMapper,
+                deviceOnlineSessionService
+        ));
+    }
+
+    @Test
+    void getOverviewSummaryShouldAggregateProductAndLatestBatch() {
+        ProductDetailVO detail = new ProductDetailVO();
+        detail.setId(1001L);
+        detail.setProductKey("crack-product");
+        detail.setProductName("裂缝监测产品");
+        detail.setDeviceCount(9L);
+        detail.setOnlineDeviceCount(4L);
+        doReturn(detail).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectCount(any())).thenReturn(3L);
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(7001L);
+        latestBatch.setReleasedFieldCount(2);
+        latestBatch.setReleaseStatus("RELEASED");
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+
+        ProductOverviewSummaryVO summary = productService.getOverviewSummary(1001L);
+
+        assertEquals(1001L, summary.getProductId());
+        assertEquals("crack-product", summary.getProductKey());
+        assertEquals(9L, summary.getDeviceCount());
+        assertEquals(4L, summary.getOnlineDeviceCount());
+        assertEquals(3, summary.getFormalFieldCount());
+        assertEquals(7001L, summary.getLatestReleaseBatchId());
+        assertEquals(2, summary.getLatestReleasedFieldCount());
+        assertEquals("RELEASED", summary.getLatestReleaseStatus());
     }
 
     @Test
@@ -539,6 +577,7 @@ class ProductServiceImplTest {
         ProductServiceImpl legacyCompatibleService = spy(new ProductServiceImpl(
                 deviceMapper,
                 productModelMapper,
+                productContractReleaseBatchMapper,
                 deviceOnlineSessionService,
                 snapshotService,
                 resolver

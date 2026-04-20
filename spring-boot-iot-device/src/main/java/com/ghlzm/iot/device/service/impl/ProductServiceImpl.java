@@ -15,8 +15,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
@@ -27,6 +29,7 @@ import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
+import com.ghlzm.iot.device.vo.ProductOverviewSummaryVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
@@ -55,6 +58,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
     private final DeviceMapper deviceMapper;
     private final ProductModelMapper productModelMapper;
+    private final ProductContractReleaseBatchMapper releaseBatchMapper;
     private final DeviceOnlineSessionService deviceOnlineSessionService;
     private final PublishedProductContractSnapshotService snapshotService;
     private final MetricIdentifierResolver metricIdentifierResolver;
@@ -63,11 +67,13 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     @Autowired
     public ProductServiceImpl(DeviceMapper deviceMapper,
                               ProductModelMapper productModelMapper,
+                              ProductContractReleaseBatchMapper releaseBatchMapper,
                               DeviceOnlineSessionService deviceOnlineSessionService,
                               PublishedProductContractSnapshotService snapshotService,
                               MetricIdentifierResolver metricIdentifierResolver) {
         this.deviceMapper = deviceMapper;
         this.productModelMapper = productModelMapper;
+        this.releaseBatchMapper = releaseBatchMapper;
         this.deviceOnlineSessionService = deviceOnlineSessionService;
         this.snapshotService = snapshotService;
         this.metricIdentifierResolver = metricIdentifierResolver;
@@ -75,12 +81,14 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
     public ProductServiceImpl(DeviceMapper deviceMapper,
                               ProductModelMapper productModelMapper,
+                              ProductContractReleaseBatchMapper releaseBatchMapper,
                               DeviceOnlineSessionService deviceOnlineSessionService) {
         this(
                 deviceMapper,
                 productModelMapper,
+                releaseBatchMapper,
                 deviceOnlineSessionService,
-                new PublishedProductContractSnapshotServiceImpl(productModelMapper, null),
+                new PublishedProductContractSnapshotServiceImpl(productModelMapper, releaseBatchMapper),
                 new DefaultMetricIdentifierResolver()
         );
     }
@@ -116,6 +124,34 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         ProductDeviceStatRow stat = loadProductDeviceStatMap(List.of(id)).get(id);
         ProductActivityStatRow activityStat = loadProductActivityStat(id);
         return toDetailVO(product, stat, activityStat);
+    }
+
+    @Override
+    public ProductOverviewSummaryVO getOverviewSummary(Long id) {
+        ProductDetailVO detail = getDetailById(id);
+        ProductOverviewSummaryVO summary = new ProductOverviewSummaryVO();
+        summary.setProductId(detail.getId());
+        summary.setProductKey(detail.getProductKey());
+        summary.setProductName(detail.getProductName());
+        summary.setProtocolCode(detail.getProtocolCode());
+        summary.setNodeType(detail.getNodeType());
+        summary.setDataFormat(detail.getDataFormat());
+        summary.setManufacturer(detail.getManufacturer());
+        summary.setDescription(detail.getDescription());
+        summary.setStatus(detail.getStatus());
+        summary.setDeviceCount(detail.getDeviceCount());
+        summary.setOnlineDeviceCount(detail.getOnlineDeviceCount());
+        summary.setLastReportTime(detail.getLastReportTime());
+        summary.setFormalFieldCount(resolveFormalFieldCount(id));
+
+        ProductContractReleaseBatch latestBatch = loadLatestReleaseBatch(id);
+        if (latestBatch != null) {
+            summary.setLatestReleaseBatchId(latestBatch.getId());
+            summary.setLatestReleasedFieldCount(latestBatch.getReleasedFieldCount());
+            summary.setLatestReleaseStatus(latestBatch.getReleaseStatus());
+            summary.setLatestReleaseCreateTime(latestBatch.getCreateTime());
+        }
+        return summary;
     }
 
     @Override
@@ -340,6 +376,37 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             activityStat.setMaxOnlineDuration(durationStat.getMaxOnlineDuration());
         }
         return activityStat;
+    }
+
+    private Integer resolveFormalFieldCount(Long productId) {
+        if (productId == null || productModelMapper == null) {
+            return 0;
+        }
+        Long count = productModelMapper.selectCount(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, productId)
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+        );
+        return count == null ? 0 : Math.toIntExact(count);
+    }
+
+    private ProductContractReleaseBatch loadLatestReleaseBatch(Long productId) {
+        if (productId == null || releaseBatchMapper == null) {
+            return null;
+        }
+        List<ProductContractReleaseBatch> batches = releaseBatchMapper.selectList(
+                new LambdaQueryWrapper<ProductContractReleaseBatch>()
+                        .eq(ProductContractReleaseBatch::getProductId, productId)
+                        .eq(ProductContractReleaseBatch::getDeleted, 0)
+                        .orderByDesc(ProductContractReleaseBatch::getCreateTime)
+                        .orderByDesc(ProductContractReleaseBatch::getId)
+                        .last("limit 1")
+        );
+        if (CollectionUtils.isEmpty(batches)) {
+            return null;
+        }
+        return batches.get(0);
     }
 
     private ProductPageVO toPageVO(Product product, ProductDeviceStatRow stat) {

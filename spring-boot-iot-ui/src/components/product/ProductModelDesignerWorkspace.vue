@@ -16,7 +16,7 @@
     </div>
 
     <template v-else>
-      <section class="product-model-designer__summary-sheet">
+      <section v-if="showSummarySheet" class="product-model-designer__summary-sheet">
         <div class="product-model-designer__summary-copy">
           <span class="product-model-designer__summary-kicker">契约字段</span>
           <h3 class="product-model-designer__summary-title">基于现有上报手动提炼契约字段</h3>
@@ -98,7 +98,7 @@
         </section>
 
         <section
-          v-if="latestReleaseBatchId"
+          v-if="showReleaseSections && latestReleaseBatchId"
           class="product-model-designer__rollback-preview"
           data-testid="contract-field-rollback-preview"
         >
@@ -264,7 +264,7 @@
         </section>
 
         <section
-          v-if="releaseLedgerRows.length"
+          v-if="showReleaseSections && releaseLedgerRows.length"
           ref="versionLedgerStageRef"
           class="product-model-designer__version-ledger"
           data-testid="contract-version-ledger"
@@ -419,6 +419,7 @@
       </section>
 
       <section
+        v-if="showContractSections"
         ref="sampleStageRef"
         class="product-model-designer__stage"
         data-testid="contract-field-sample-stage"
@@ -562,7 +563,7 @@
         </div>
       </section>
 
-      <section class="product-model-designer__stage">
+      <section v-if="showContractSections" class="product-model-designer__stage">
         <header class="product-model-designer__stage-head">
           <div>
             <h3>识别结果</h3>
@@ -611,6 +612,7 @@
       </section>
 
       <section
+        v-if="showMappingRuleSections"
         class="product-model-designer__stage"
         data-testid="contract-field-vendor-suggestions"
       >
@@ -637,7 +639,11 @@
         </div>
       </section>
 
-      <section class="product-model-designer__stage" data-testid="contract-field-rule-ledger">
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
+        data-testid="contract-field-rule-ledger"
+      >
         <header class="product-model-designer__stage-head">
           <div>
             <h3>映射规则台账</h3>
@@ -648,7 +654,7 @@
         <ProductVendorMappingRuleLedgerPanel :product-id="props.product?.id ?? null" />
       </section>
 
-      <section class="product-model-designer__stage">
+      <section v-if="showContractSections" class="product-model-designer__stage">
         <header class="product-model-designer__stage-head">
           <div>
             <h3>本次生效</h3>
@@ -859,7 +865,7 @@
         </section>
       </section>
 
-      <section class="product-model-designer__stage">
+      <section v-if="showContractSections" class="product-model-designer__stage">
         <header class="product-model-designer__stage-head">
           <div>
             <h3>当前已生效字段</h3>
@@ -1114,8 +1120,11 @@ interface GovernanceApprovalPayload<TResult, TRequest = unknown> {
   execution?: GovernanceApprovalPayloadExecution<TResult> | null
 }
 
+type ProductModelDesignerWorkspaceView = 'full' | 'contracts' | 'mapping-rules' | 'releases'
+
 const props = defineProps<{
   product: Product | null
+  workspaceView?: ProductModelDesignerWorkspaceView
 }>()
 
 const emit = defineEmits<{
@@ -1227,6 +1236,10 @@ const singleSelectedLedgerMetric = computed(() =>
   selectedLedgerMetrics.value.length === 1 ? selectedLedgerMetrics.value[0] ?? null : null
 )
 const currentGovernanceProduct = computed(() => productSnapshot.value ?? props.product ?? null)
+const showContractSections = computed(() => props.workspaceView !== 'mapping-rules' && props.workspaceView !== 'releases')
+const showMappingRuleSections = computed(() => props.workspaceView === 'full' || props.workspaceView === 'mapping-rules' || props.workspaceView == null)
+const showReleaseSections = computed(() => props.workspaceView === 'full' || props.workspaceView === 'releases' || props.workspaceView == null)
+const showSummarySheet = computed(() => props.workspaceView !== 'mapping-rules')
 const governanceApplicability = computed(() => resolveProductGovernanceApplicability(currentGovernanceProduct.value))
 const governanceCapabilityLabel = computed(() => getProductGovernanceCapabilityLabel(governanceApplicability.value.capabilityType))
 const canOpenRiskPointWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
