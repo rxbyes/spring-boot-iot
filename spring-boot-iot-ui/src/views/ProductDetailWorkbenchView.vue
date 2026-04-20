@@ -43,6 +43,7 @@
           :to="item.to"
           class="product-detail-page__tab"
           :class="{ 'product-detail-page__tab--active': activeSection === item.key }"
+          :aria-current="activeSection === item.key ? 'page' : undefined"
         >
           <span>{{ item.label }}</span>
         </RouterLink>
@@ -106,44 +107,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
-import { deviceApi } from '@/api/device'
-import { productApi } from '@/api/product'
-import { resolveRequestErrorMessage } from '@/api/request'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue'
 import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
 import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWorkspace.vue'
 import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
-import { useServerPagination } from '@/composables/useServerPagination'
-import type { Device, Product, ProductOverviewSummary } from '@/types/api'
+import { useProductDetailWorkbench } from '@/composables/useProductDetailWorkbench'
+import type { Device } from '@/types/api'
 import {
   buildProductWorkbenchSectionPath,
-  normalizeProductWorkbenchSection,
   type ProductWorkbenchSection
 } from '@/utils/productWorkbenchRoutes'
 import { formatDateTime } from '@/utils/format'
 
-const route = useRoute()
 const router = useRouter()
-
-const product = ref<Product | null>(null)
-const overviewSummary = ref<ProductOverviewSummary | null>(null)
-const loading = ref(false)
-const errorMessage = ref('')
-const devicesLoading = ref(false)
-const deviceErrorMessage = ref('')
-const devices = ref<Device[]>([])
 const {
-  pagination: devicePagination,
-  applyPageResult: applyDevicePageResult,
-  resetPage: resetDevicePage,
-  setPageNum: setDevicePageNum,
-  setPageSize: setDevicePageSize,
-  resetTotal: resetDeviceTotal
-} = useServerPagination(10)
+  productId,
+  activeSection,
+  product,
+  overviewSummary,
+  loading,
+  errorMessage,
+  devices,
+  devicesLoading,
+  deviceErrorMessage,
+  devicePagination,
+  refreshProductWorkspace,
+  handleDevicePageChange,
+  handleDevicePageSizeChange,
+  handleProductUpdated
+} = useProductDetailWorkbench()
 
 const sectionLabels: Record<ProductWorkbenchSection, { label: string; description: string }> = {
   overview: {
@@ -167,23 +163,6 @@ const sectionLabels: Record<ProductWorkbenchSection, { label: string; descriptio
     description: '查看发布批次、回滚试算和跨批次差异。'
   }
 }
-
-const productId = computed(() => String(route.params.productId || '').trim())
-const activeSection = computed<ProductWorkbenchSection>(() => {
-  if (route.name === 'product-devices') {
-    return 'devices'
-  }
-  if (route.name === 'product-contracts') {
-    return 'contracts'
-  }
-  if (route.name === 'product-mapping-rules') {
-    return 'mapping-rules'
-  }
-  if (route.name === 'product-releases') {
-    return 'releases'
-  }
-  return normalizeProductWorkbenchSection('overview')
-})
 
 const sectionMeta = computed(() => sectionLabels[activeSection.value])
 const pageTitle = computed(() => sectionMeta.value.label)
@@ -233,113 +212,12 @@ const overviewCards = computed(() => [
   }
 ])
 
-function clearDeviceState() {
-  devices.value = []
-  resetDeviceTotal()
-  deviceErrorMessage.value = ''
-  devicesLoading.value = false
-}
-
-async function loadProductContext() {
-  if (!productId.value) {
-    product.value = null
-    overviewSummary.value = null
-    clearDeviceState()
-    errorMessage.value = '产品编号缺失，无法打开工作区。'
-    return false
-  }
-
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const [detailResult, summaryResult] = await Promise.allSettled([
-      productApi.getProductById(productId.value),
-      productApi.getProductOverviewSummary(productId.value)
-    ])
-
-    if (detailResult.status !== 'fulfilled' || detailResult.value.code !== 200 || !detailResult.value.data) {
-      throw new Error('产品详情加载失败')
-    }
-
-    product.value = detailResult.value.data
-    overviewSummary.value =
-      summaryResult.status === 'fulfilled' && summaryResult.value.code === 200
-        ? summaryResult.value.data || null
-        : null
-    return true
-  } catch (error) {
-    product.value = null
-    overviewSummary.value = null
-    clearDeviceState()
-    errorMessage.value = resolveRequestErrorMessage(error, '加载产品工作区失败')
-    return false
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadProductWorkspace() {
-  const loaded = await loadProductContext()
-  if (!loaded) {
-    return
-  }
-  if (activeSection.value === 'devices') {
-    await loadDevices()
-    return
-  }
-  clearDeviceState()
-}
-
-async function loadDevices() {
-  if (!product.value?.productKey) {
-    clearDeviceState()
-    deviceErrorMessage.value = '产品 Key 缺失，无法加载关联设备。'
-    return
-  }
-
-  devicesLoading.value = true
-  deviceErrorMessage.value = ''
-  try {
-    const response = await deviceApi.pageDevices({
-      productKey: product.value.productKey,
-      pageNum: devicePagination.pageNum,
-      pageSize: devicePagination.pageSize
-    })
-    if (response.code === 200) {
-      devices.value = applyDevicePageResult(response.data)
-      return
-    }
-    clearDeviceState()
-  } catch (error) {
-    clearDeviceState()
-    deviceErrorMessage.value = resolveRequestErrorMessage(error, '加载关联设备失败')
-  } finally {
-    devicesLoading.value = false
-  }
-}
-
-function handleDevicePageChange(page: number) {
-  if (page === devicePagination.pageNum) {
-    return
-  }
-  setDevicePageNum(page)
-  void loadDevices()
-}
-
-function handleDevicePageSizeChange(size: number) {
-  if (size === devicePagination.pageSize) {
-    return
-  }
-  setDevicePageSize(size)
-  void loadDevices()
-}
-
 function handleBackToList() {
   void router.push('/products')
 }
 
 function handleRefresh() {
-  void loadProductWorkspace()
+  void refreshProductWorkspace()
 }
 
 function handleViewDevice(device: Device) {
@@ -353,47 +231,12 @@ function handleViewDevice(device: Device) {
     }
   })
 }
-
-function handleProductUpdated(updatedProduct: Product) {
-  product.value = updatedProduct
-  void loadProductWorkspace()
-}
-
-watch(
-  () => productId.value,
-  (current, previous) => {
-    if (current === previous) {
-      return
-    }
-    resetDevicePage()
-    clearDeviceState()
-    void loadProductWorkspace()
-  }
-  ,
-  { immediate: true }
-)
-
-watch(
-  () => activeSection.value,
-  (current, previous) => {
-    if (current === previous) {
-      return
-    }
-    if (current === 'devices') {
-      if (product.value) {
-        void loadDevices()
-      }
-      return
-    }
-    clearDeviceState()
-  }
-)
 </script>
 
 <style scoped>
 .product-detail-page {
   display: grid;
-  gap: 1.08rem;
+  gap: 1.12rem;
   min-width: 0;
 }
 
@@ -420,8 +263,8 @@ watch(
 }
 
 .product-detail-page__hero {
-  gap: 1.08rem;
-  padding: 0.92rem 1.04rem 1rem;
+  gap: 1rem;
+  padding: 0.88rem 1rem 0.96rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-2xl) + 2px);
   background:
@@ -431,12 +274,12 @@ watch(
 
 .product-detail-page__hero-copy {
   display: grid;
-  gap: 0.22rem;
+  gap: 0.18rem;
 }
 
 .product-detail-page__hero-kicker {
   color: color-mix(in srgb, var(--brand) 78%, var(--text-caption));
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -446,7 +289,7 @@ watch(
   margin: 0;
   color: var(--text-heading);
   font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: clamp(1.18rem, 1.6vw, 1.42rem);
+  font-size: clamp(1.08rem, 1.4vw, 1.28rem);
   line-height: 1.24;
 }
 
@@ -454,7 +297,8 @@ watch(
   margin: 0;
   max-width: 54rem;
   color: var(--text-secondary);
-  line-height: 1.66;
+  font-size: 0.9rem;
+  line-height: 1.62;
 }
 
 .product-detail-page__hero-metrics,
@@ -471,7 +315,7 @@ watch(
 .product-detail-page__metric-card,
 .product-detail-page__overview-card {
   gap: 0.22rem;
-  padding: 0.78rem 0.86rem;
+  padding: 0.74rem 0.82rem;
   border: 1px solid color-mix(in srgb, var(--brand) 9%, var(--panel-border));
   border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.9);
@@ -486,21 +330,22 @@ watch(
 .product-detail-page__metric-card strong,
 .product-detail-page__overview-card strong {
   color: var(--text-heading);
-  font-size: 1rem;
+  font-size: 0.96rem;
   line-height: 1.28;
 }
 
 .product-detail-page__metric-card small,
 .product-detail-page__overview-card small {
   color: var(--text-secondary);
+  font-size: 0.82rem;
   line-height: 1.5;
 }
 
 .product-detail-page__tabs {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.76rem;
-  padding: 0.24rem;
+  gap: 0.86rem;
+  padding: 0.36rem;
   border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
   border-radius: calc(var(--radius-2xl) + 2px);
   background: color-mix(in srgb, var(--brand-light) 8%, white);
@@ -510,15 +355,16 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.9rem;
+  min-height: 3.08rem;
   min-width: 0;
-  padding: 0.72rem 0.86rem;
+  padding: 0.82rem 0.92rem;
   border: 1px solid transparent;
   border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.82);
   color: var(--text-secondary);
   text-decoration: none;
   text-align: center;
+  outline: none;
   transition:
     border-color var(--transition-fast),
     background var(--transition-fast),
@@ -530,6 +376,7 @@ watch(
 .product-detail-page__tab span {
   color: inherit;
   font-weight: 600;
+  font-size: 0.92rem;
   line-height: 1.42;
 }
 
@@ -547,8 +394,17 @@ watch(
   box-shadow: 0 8px 18px -20px color-mix(in srgb, var(--brand) 42%, transparent);
 }
 
+.product-detail-page__tab:focus-visible {
+  border-color: color-mix(in srgb, var(--brand) 26%, var(--panel-border));
+  background: rgba(255, 255, 255, 0.98);
+  color: color-mix(in srgb, var(--brand) 82%, var(--text-heading));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--brand) 14%, white),
+    0 0 0 4px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
 .product-detail-page__content {
-  gap: 1rem;
+  gap: 1.08rem;
 }
 
 @media (max-width: 1100px) {

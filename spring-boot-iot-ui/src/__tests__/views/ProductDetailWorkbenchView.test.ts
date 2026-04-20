@@ -101,6 +101,8 @@ beforeEach(() => {
     msg: 'success',
     data: null
   })
+  mockRouterPush.mockReset()
+  mockRouterReplace.mockReset()
   mockPageDevices.mockReset()
   mockPageDevices.mockResolvedValue({
     code: 200,
@@ -311,6 +313,19 @@ it('requests related devices with server pagination and reacts to pagination eve
   await flushPromises()
   await nextTick()
 
+  expect(mockRouterReplace).toHaveBeenLastCalledWith({
+    path: '/products/42/devices',
+    query: {
+      pageNum: 2
+    }
+  })
+
+  mockRouteState.query = {
+    pageNum: '2'
+  }
+  await flushPromises()
+  await nextTick()
+
   expect(mockPageDevices).toHaveBeenLastCalledWith({
     productKey: 'nf-collect-rtu-v1',
     pageNum: 2,
@@ -318,6 +333,19 @@ it('requests related devices with server pagination and reacts to pagination eve
   })
 
   await wrapper.get('.emit-size-20').trigger('click')
+  await flushPromises()
+  await nextTick()
+
+  expect(mockRouterReplace).toHaveBeenLastCalledWith({
+    path: '/products/42/devices',
+    query: {
+      pageSize: 20
+    }
+  })
+
+  mockRouteState.query = {
+    pageSize: '20'
+  }
   await flushPromises()
   await nextTick()
 

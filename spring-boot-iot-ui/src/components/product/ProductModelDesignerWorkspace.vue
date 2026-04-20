@@ -1476,7 +1476,7 @@ const governanceStepCards = computed<GovernanceStepCard[]>(() => {
       key: 'capability-pending',
       title: '能力待确认',
       status: '待确认',
-      description: '请先回到编辑档案确认当前产品能力，再决定是否进入风险指标目录或设备级风险点绑定。',
+      description: '请先打开当前产品的编辑表单，确认产品能力后再决定是否进入风险指标目录或设备级风险点绑定。',
       actionLabel: currentGovernanceProduct.value?.id ? '去完善产品能力' : undefined,
       actionKey: currentGovernanceProduct.value?.id ? 'edit' : undefined,
       actionTestid: currentGovernanceProduct.value?.id ? 'contract-field-next-capability' : undefined
@@ -1503,7 +1503,7 @@ const governanceBoundaryNoteDescription = computed(() => {
     return `当前产品为${governanceCapabilityLabel.value}，后续风险治理直接通过设备级风险点绑定收口，不再展示目录发布或阈值策略入口。`
   }
   if (governanceApplicability.value.capabilityType === 'UNKNOWN') {
-    return '请先回到编辑档案确认产品能力，再决定是否进入风险指标目录、设备级风险点绑定或阈值策略治理。'
+    return '请先打开当前产品的编辑表单，确认产品能力后再决定是否进入风险指标目录、设备级风险点绑定或阈值策略治理。'
   }
   return '本批次没有命中可进入风险闭环的目录指标，所以不会出现单独的目录发布、风险点绑定或阈值策略入口。'
 })

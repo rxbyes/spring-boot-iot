@@ -8,6 +8,12 @@ export type ProductWorkbenchSection =
   | 'releases'
 
 export type LegacyProductWorkbenchView = 'overview' | 'devices' | 'models' | 'edit'
+export type ProductWorkbenchRouteName =
+  | 'product-overview'
+  | 'product-devices'
+  | 'product-contracts'
+  | 'product-mapping-rules'
+  | 'product-releases'
 
 function normalizeId(productId: IdType | null | undefined) {
   if (productId == null) {
@@ -25,6 +31,23 @@ export function normalizeProductWorkbenchSection(section?: string | null): Produ
     case 'mapping-rules':
       return 'mapping-rules'
     case 'releases':
+      return 'releases'
+    default:
+      return 'overview'
+  }
+}
+
+export function resolveProductWorkbenchSectionByRouteName(
+  routeName?: string | symbol | null
+): ProductWorkbenchSection {
+  switch (routeName) {
+    case 'product-devices':
+      return 'devices'
+    case 'product-contracts':
+      return 'contracts'
+    case 'product-mapping-rules':
+      return 'mapping-rules'
+    case 'product-releases':
       return 'releases'
     default:
       return 'overview'

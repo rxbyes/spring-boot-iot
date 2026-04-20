@@ -213,24 +213,6 @@ const ProductDetailWorkbenchStub = defineComponent({
   template: '<section class="product-detail-workbench-stub">{{ product?.productName }}</section>'
 })
 
-const ProductBusinessWorkbenchDrawerStub = defineComponent({
-  name: 'ProductBusinessWorkbenchDrawer',
-  props: ['modelValue', 'product', 'activeView'],
-  emits: ['update:modelValue', 'update:activeView', 'saved'],
-  template: `
-    <section v-if="modelValue" class="product-business-workbench-drawer-stub">
-      <h2 class="product-business-workbench-drawer-stub__title">{{ product?.productName }}</h2>
-      <p class="product-business-workbench-drawer-stub__key">{{ product?.productKey }}</p>
-      <div class="product-business-workbench-drawer-stub__header-actions"><slot name="header-actions" /></div>
-      <p data-testid="product-business-workbench-active-view">{{ activeView }}</p>
-      <slot v-if="activeView === 'overview'" name="overview" />
-      <slot v-else-if="activeView === 'models'" name="models" />
-      <slot v-else-if="activeView === 'devices'" name="devices" />
-      <slot v-else name="edit" />
-    </section>
-  `
-})
-
 const ProductModelDesignerWorkspaceStub = defineComponent({
   name: 'ProductModelDesignerWorkspace',
   props: ['product'],
@@ -248,28 +230,29 @@ const ProductDeviceListWorkspaceStub = defineComponent({
   `
 })
 
-const ProductEditWorkspaceStub = defineComponent({
-  name: 'ProductEditWorkspace',
-  props: ['model', 'editing', 'availableModels', 'productCapabilityType'],
-  emits: ['cancel', 'submit'],
-  setup(props, { expose }) {
-    expose({
-      validate: () => Promise.resolve(true),
-      clearValidate: () => undefined
-    })
-    return () =>
-      h('section', { class: 'product-edit-workspace-stub' }, [
-        h('span', props.model?.productName || ''),
-        h('span', props.editing ? 'editing' : 'creating'),
-        h('span', `available-models:${props.availableModels?.length ?? 0}`),
-        h('span', `capability:${props.productCapabilityType || ''}`)
-      ])
-  }
-})
-
 const StandardFormDrawerStub = defineComponent({
   name: 'StandardFormDrawer',
-  template: '<section class="product-form-drawer-stub"><slot /><slot name="footer" /></section>'
+  props: ['modelValue', 'title'],
+  template: `
+    <section v-if="modelValue" class="product-form-drawer-stub">
+      <h2 data-testid="product-form-drawer-title">{{ title }}</h2>
+      <div class="product-form-drawer-stub__body"><slot /></div>
+      <div class="product-form-drawer-stub__footer"><slot name="footer" /></div>
+    </section>
+  `
+})
+
+const ProductObjectInsightConfigEditorStub = defineComponent({
+  name: 'ProductObjectInsightConfigEditor',
+  props: ['modelValue', 'availableModels'],
+  emits: ['update:modelValue'],
+  template: `
+    <section class="product-object-insight-config-editor-stub">
+      <span class="product-object-insight-config-editor-stub__available-models">
+        available-models:{{ availableModels?.length ?? 0 }}
+      </span>
+    </section>
+  `
 })
 
 const DeviceListDrawerStub = defineComponent({
@@ -387,11 +370,10 @@ function mountView() {
         StandardFormDrawer: StandardFormDrawerStub,
         StandardButton: StandardButtonStub,
         StandardTableToolbar: StandardTableToolbarStub,
-        ProductBusinessWorkbenchDrawer: ProductBusinessWorkbenchDrawerStub,
         ProductDetailWorkbench: ProductDetailWorkbenchStub,
         ProductModelDesignerWorkspace: ProductModelDesignerWorkspaceStub,
         ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
-        ProductEditWorkspace: ProductEditWorkspaceStub,
+        ProductObjectInsightConfigEditor: ProductObjectInsightConfigEditorStub,
         StandardDrawerFooter: true,
         StandardAppliedFiltersBar: true,
         StandardInlineState: StandardInlineStateStub,
@@ -1097,8 +1079,9 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(mockRouter.push).not.toHaveBeenCalled()
-    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
-    expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="product-form-drawer-title"]').text()).toBe('编辑产品')
+    expect(wrapper.find('.product-form-drawer-stub').exists()).toBe(true)
+    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
   })
 
   it('redirects legacy governance-task workbench context to the routed contracts page', async () => {
@@ -1138,7 +1121,7 @@ describe('ProductWorkbenchView', () => {
 
     expect(mockGetProductById).toHaveBeenCalledWith('1001', expect.any(Object))
     expect(mockRouter.replace).toHaveBeenCalledWith('/products/1001/contracts')
-    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
+    expect(wrapper.find('.product-form-drawer-stub').exists()).toBe(false)
   })
 
   it('redirects legacy governance workbench query context even when extra governance params are present', async () => {
@@ -1285,7 +1268,7 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/overview')
-    expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
+    expect(wrapper.find('.product-form-drawer-stub').exists()).toBe(false)
   })
 
   it('routes devices to the devices detail page and still supports in-place edit when explicitly requested', async () => {
@@ -1314,8 +1297,8 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(mockRouter.push).not.toHaveBeenCalled()
-    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
-    expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="product-form-drawer-title"]').text()).toBe('编辑产品')
+    expect(wrapper.find('.product-form-drawer-stub').exists()).toBe(true)
   })
 
   it('loads formal property candidates into the edit workspace object-insight editor', async () => {
@@ -1336,10 +1319,10 @@ describe('ProductWorkbenchView', () => {
     await nextTick()
 
     expect(mockListProductModels).toHaveBeenCalledWith(1001)
-    const editWorkspace = wrapper.findComponent(ProductEditWorkspaceStub)
-    expect(editWorkspace.exists()).toBe(true)
-    expect((editWorkspace.props('availableModels') as Array<{ identifier: string }> | undefined)?.[0]?.identifier).toBe('value')
-    expect(editWorkspace.text()).toContain('available-models:1')
+    const objectInsightEditor = wrapper.findComponent(ProductObjectInsightConfigEditorStub)
+    expect(objectInsightEditor.exists()).toBe(true)
+    expect((objectInsightEditor.props('availableModels') as Array<{ identifier: string }> | undefined)?.[0]?.identifier).toBe('value')
+    expect(objectInsightEditor.text()).toContain('available-models:1')
   })
 
   it('keeps the unified workbench context in sync after saving product edits', async () => {
@@ -1388,8 +1371,8 @@ describe('ProductWorkbenchView', () => {
         manufacturer: '更新厂商'
       })
     )
-    expect((wrapper.vm as any).businessWorkbenchVisible).toBe(true)
-    expect((wrapper.vm as any).businessWorkbenchProduct.productName).toBe('演示产品（已更新）')
+    expect((wrapper.vm as any).formVisible).toBe(true)
+    expect((wrapper.vm as any).currentProduct.productName).toBe('演示产品（已更新）')
     expect((wrapper.vm as any).detailData.productName).toBe('演示产品（已更新）')
   })
 
