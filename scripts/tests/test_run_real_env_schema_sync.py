@@ -263,7 +263,12 @@ class SchemaSyncCoverageTest(unittest.TestCase):
         self.assertEqual(schema_sync.GOVERNANCE_REVIEWER_ROLE_CODE, "SUPER_ADMIN")
         self.assertEqual(
             [seed["action_code"] for seed in schema_sync.GOVERNANCE_APPROVAL_POLICY_SEEDS],
-            ["PRODUCT_CONTRACT_RELEASE_APPLY", "PRODUCT_CONTRACT_ROLLBACK"],
+            [
+                "PRODUCT_CONTRACT_RELEASE_APPLY",
+                "PRODUCT_CONTRACT_ROLLBACK",
+                "VENDOR_MAPPING_RULE_PUBLISH",
+                "VENDOR_MAPPING_RULE_ROLLBACK",
+            ],
         )
 
 

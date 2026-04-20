@@ -29,7 +29,7 @@ GOVERNANCE_REVIEWER_NICKNAME = "治理复核专员"
 GOVERNANCE_REVIEWER_REAL_NAME = "治理复核专员"
 GOVERNANCE_REVIEWER_PHONE = "13800009900"
 GOVERNANCE_REVIEWER_EMAIL = "governance-reviewer@ghlzm.com"
-GOVERNANCE_REVIEWER_REMARK = "系统级固定治理复核人账号，负责产品契约发布与回滚审批。"
+GOVERNANCE_REVIEWER_REMARK = "系统级固定治理复核人账号，负责产品契约与映射规则发布/回滚审批。"
 GOVERNANCE_APPROVAL_POLICY_SEEDS = (
     {
         "preferred_id": 99001001,
@@ -46,6 +46,22 @@ GOVERNANCE_APPROVAL_POLICY_SEEDS = (
         "action_code": "PRODUCT_CONTRACT_ROLLBACK",
         "approver_mode": "FIXED_USER",
         "remark": "产品契约回滚固定复核人",
+    },
+    {
+        "preferred_id": 99001003,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "VENDOR_MAPPING_RULE_PUBLISH",
+        "approver_mode": "FIXED_USER",
+        "remark": "映射规则发布固定复核人",
+    },
+    {
+        "preferred_id": 99001004,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "VENDOR_MAPPING_RULE_ROLLBACK",
+        "approver_mode": "FIXED_USER",
+        "remark": "映射规则回滚固定复核人",
     },
 )
 

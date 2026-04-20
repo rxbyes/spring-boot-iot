@@ -4,6 +4,20 @@ import * as requestModule from '@/api/request'
 import { createRequestError } from '@/api/request'
 
 describe('request error message normalization', () => {
+  it('retains same-text raw business messages for 500 request errors', () => {
+    const error = createRequestError(
+      '当前动作未配置固定复核策略',
+      false,
+      500,
+      '当前动作未配置固定复核策略'
+    )
+
+    expect(error.rawMessage).toBe('当前动作未配置固定复核策略')
+    expect((requestModule as any).resolveRequestErrorMessage(error, '获取列表失败')).toBe(
+      '当前动作未配置固定复核策略'
+    )
+  })
+
   it('prefers raw business messages for 500 request errors when provided', () => {
     const error = createRequestError(
       '系统繁忙，请稍后重试！',

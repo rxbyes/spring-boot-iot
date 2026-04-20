@@ -151,8 +151,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("signal_db", "信号值"),
             Map.entry("singal_nb", "NB 信号强度"),
             Map.entry("singal_db", "信号值"),
+            Map.entry("ext_power_volt", "外接电源电压"),
             Map.entry("solar_volt", "太阳能电压"),
+            Map.entry("supply_power", "供电功率"),
+            Map.entry("consume_power", "耗电功率"),
             Map.entry("battery_volt", "电池电压"),
+            Map.entry("sw_version", "软件版本"),
             Map.entry("battery_dump_energy", "电池剩余电量")
     );
     private static final Set<String> TELEMETRY_LAST_SEGMENTS = Set.of(
@@ -1623,6 +1627,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         String normalizedName = propertyName.toLowerCase(Locale.ROOT);
         String normalizedIdentifier = identifier.toLowerCase(Locale.ROOT);
         return normalizedName.equals(normalizedIdentifier)
+                || normalizedName.equals(lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT))
                 || propertyName.contains(".")
                 || normalizedName.startsWith("l1_")
                 || normalizedName.startsWith("s1_zt_");

@@ -39,7 +39,7 @@
       >
         <header class="product-model-governance-compare-table__row-header">
           <div class="product-model-governance-compare-table__row-heading">
-            <span class="product-model-governance-compare-table__row-kicker">治理候选快照</span>
+            <span class="product-model-governance-compare-table__row-kicker">候选中文名</span>
             <strong>{{ rowDisplayName(row) }}</strong>
             <div class="product-model-governance-compare-table__row-meta">
               <span>正式字段标识：{{ row.identifier }}</span>

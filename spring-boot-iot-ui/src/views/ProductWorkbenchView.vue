@@ -1148,6 +1148,15 @@ function getProductDirectActions(variant: 'table' | 'card'): ProductDirectAction
     }
   ]
 
+  if (permissionStore.hasPermission('iot:products:update')) {
+    actions.push({
+      key: 'edit',
+      command: 'edit',
+      label: '编辑',
+      dataTestid: 'open-product-edit-workbench'
+    })
+  }
+
   if (permissionStore.hasPermission('iot:products:delete')) {
     actions.push({
       key: 'delete',

@@ -2,6 +2,7 @@ import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createRequestError } from '@/api/request'
 import ProductVendorMappingRuleLedgerPanel from '@/components/product/ProductVendorMappingRuleLedgerPanel.vue'
 
 const {
@@ -216,6 +217,26 @@ describe('ProductVendorMappingRuleLedgerPanel', () => {
 
     expect(mockSubmitVendorMetricMappingRulePublish).toHaveBeenCalledWith(1001, 7101, expect.stringContaining('disp'))
     expect(mockMessageSuccess).toHaveBeenCalled()
+  })
+
+  it('does not show a second toast for handled publish approval errors', async () => {
+    mockSubmitVendorMetricMappingRulePublish.mockRejectedValueOnce(
+      createRequestError(
+        '当前动作未配置固定复核策略',
+        true,
+        500,
+        '当前动作未配置固定复核策略'
+      )
+    )
+    const wrapper = mountPanel()
+
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="rule-ledger-submit-publish-7101"]').trigger('click')
+    await flushPromises()
+
+    expect(mockMessageError).not.toHaveBeenCalled()
   })
 
   it('supports selecting multiple rows and submitting batch status update with summary', async () => {

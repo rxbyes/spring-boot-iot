@@ -171,7 +171,7 @@ import {
   submitVendorMetricMappingRulePublish,
   submitVendorMetricMappingRuleRollback
 } from '@/api/vendorMetricMappingRule'
-import { resolveRequestErrorMessage } from '@/api/request'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import StandardButton from '@/components/StandardButton.vue'
 import { ElMessage } from '@/utils/message'
 import type {
@@ -352,6 +352,13 @@ function replaySampleLabel(replay?: VendorMetricMappingRuleReplay | null) {
   return `样例值 ${replay.sampleValue || '--'}`
 }
 
+function showRequestErrorMessage(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
+}
+
 async function loadRows() {
   if (!hasProductId(props.productId)) {
     rows.value = []
@@ -394,7 +401,7 @@ async function handlePreview(row: VendorMetricMappingRuleLedgerRow) {
     nextState[rowIdentity(row)] = response.data ?? {}
     previewStateByRuleId.value = nextState
   } catch (error) {
-    ElMessage.error(resolveRequestErrorMessage(error, '映射规则试命中失败'))
+    showRequestErrorMessage(error, '映射规则试命中失败')
   } finally {
     submittingKey.value = ''
   }
@@ -427,7 +434,7 @@ async function handleReplay(row: VendorMetricMappingRuleLedgerRow) {
       [key]: response.data ?? {}
     }
   } catch (error) {
-    ElMessage.error(resolveRequestErrorMessage(error, '映射规则回放校验失败'))
+    showRequestErrorMessage(error, '映射规则回放校验失败')
   } finally {
     submittingKey.value = ''
   }
@@ -452,7 +459,7 @@ async function handleBatchStatus(targetStatus: string) {
     }
     await loadRows()
   } catch (error) {
-    ElMessage.error(resolveRequestErrorMessage(error, '映射规则批量状态切换失败'))
+    showRequestErrorMessage(error, '映射规则批量状态切换失败')
   } finally {
     submittingKey.value = ''
   }
@@ -477,7 +484,7 @@ async function handleSubmitPublish(row: VendorMetricMappingRuleLedgerRow) {
     )
     await loadRows()
   } catch (error) {
-    ElMessage.error(resolveRequestErrorMessage(error, '映射规则发布审批提交失败'))
+    showRequestErrorMessage(error, '映射规则发布审批提交失败')
   } finally {
     submittingKey.value = ''
   }
@@ -502,7 +509,7 @@ async function handleSubmitRollback(row: VendorMetricMappingRuleLedgerRow) {
     )
     await loadRows()
   } catch (error) {
-    ElMessage.error(resolveRequestErrorMessage(error, '映射规则回滚审批提交失败'))
+    showRequestErrorMessage(error, '映射规则回滚审批提交失败')
   } finally {
     submittingKey.value = ''
   }

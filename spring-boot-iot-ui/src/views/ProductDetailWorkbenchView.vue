@@ -72,10 +72,13 @@
         <ProductDeviceListWorkspace
           v-else-if="activeSection === 'devices'"
           :devices="devices"
+          :pagination="devicePagination"
           :error-message="deviceErrorMessage"
           :empty="!devicesLoading && !deviceErrorMessage && devices.length === 0"
           :devices-loading="devicesLoading"
           @view-device="handleViewDevice"
+          @page-change="handleDevicePageChange"
+          @page-size-change="handleDevicePageSizeChange"
         />
 
         <ProductModelDesignerWorkspace
@@ -115,6 +118,7 @@ import StandardPageShell from '@/components/StandardPageShell.vue'
 import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
 import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWorkspace.vue'
 import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
+import { useServerPagination } from '@/composables/useServerPagination'
 import type { Device, Product, ProductOverviewSummary } from '@/types/api'
 import {
   buildProductWorkbenchSectionPath,
@@ -133,6 +137,14 @@ const errorMessage = ref('')
 const devicesLoading = ref(false)
 const deviceErrorMessage = ref('')
 const devices = ref<Device[]>([])
+const {
+  pagination: devicePagination,
+  applyPageResult: applyDevicePageResult,
+  resetPage: resetDevicePage,
+  setPageNum: setDevicePageNum,
+  setPageSize: setDevicePageSize,
+  resetTotal: resetDeviceTotal
+} = useServerPagination(10)
 
 const sectionLabels: Record<ProductWorkbenchSection, { label: string; caption: string; description: string }> = {
   overview: {
@@ -238,6 +250,8 @@ async function loadProductWorkspace() {
   if (!productId.value) {
     product.value = null
     overviewSummary.value = null
+    devices.value = []
+    resetDeviceTotal()
     errorMessage.value = '产品编号缺失，无法打开工作区。'
     return
   }
@@ -264,12 +278,15 @@ async function loadProductWorkspace() {
       await loadDevices()
     } else {
       devices.value = []
+      resetDeviceTotal()
       deviceErrorMessage.value = ''
       devicesLoading.value = false
     }
   } catch (error) {
     product.value = null
     overviewSummary.value = null
+    devices.value = []
+    resetDeviceTotal()
     errorMessage.value = resolveRequestErrorMessage(error, '加载产品工作区失败')
   } finally {
     loading.value = false
@@ -279,6 +296,7 @@ async function loadProductWorkspace() {
 async function loadDevices() {
   if (!product.value?.productKey) {
     devices.value = []
+    resetDeviceTotal()
     deviceErrorMessage.value = '产品 Key 缺失，无法加载关联设备。'
     return
   }
@@ -288,16 +306,38 @@ async function loadDevices() {
   try {
     const response = await deviceApi.pageDevices({
       productKey: product.value.productKey,
-      pageNum: 1,
-      pageSize: 100
+      pageNum: devicePagination.pageNum,
+      pageSize: devicePagination.pageSize
     })
-    devices.value = response.code === 200 ? response.data?.records || [] : []
+    if (response.code === 200) {
+      devices.value = applyDevicePageResult(response.data)
+      return
+    }
+    devices.value = []
+    resetDeviceTotal()
   } catch (error) {
     devices.value = []
+    resetDeviceTotal()
     deviceErrorMessage.value = resolveRequestErrorMessage(error, '加载关联设备失败')
   } finally {
     devicesLoading.value = false
   }
+}
+
+function handleDevicePageChange(page: number) {
+  if (page === devicePagination.pageNum) {
+    return
+  }
+  setDevicePageNum(page)
+  void loadDevices()
+}
+
+function handleDevicePageSizeChange(size: number) {
+  if (size === devicePagination.pageSize) {
+    return
+  }
+  setDevicePageSize(size)
+  void loadDevices()
 }
 
 function handleBackToList() {
@@ -326,6 +366,18 @@ function handleProductUpdated(updatedProduct: Product) {
 }
 
 watch(
+  () => productId.value,
+  (current, previous) => {
+    if (current === previous) {
+      return
+    }
+    devices.value = []
+    resetDevicePage()
+    resetDeviceTotal()
+  }
+)
+
+watch(
   () => `${productId.value}:${activeSection.value}`,
   () => {
     void loadProductWorkspace()
@@ -337,7 +389,7 @@ watch(
 <style scoped>
 .product-detail-page {
   display: grid;
-  gap: 0.88rem;
+  gap: 1rem;
   min-width: 0;
 }
 
@@ -364,8 +416,8 @@ watch(
 }
 
 .product-detail-page__hero {
-  gap: 0.88rem;
-  padding: 1rem 1.1rem;
+  gap: 1rem;
+  padding: 0.96rem 1.08rem 1.08rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
   border-radius: calc(var(--radius-2xl) + 2px);
   background:
@@ -375,7 +427,7 @@ watch(
 
 .product-detail-page__hero-copy {
   display: grid;
-  gap: 0.34rem;
+  gap: 0.28rem;
 }
 
 .product-detail-page__hero-kicker {
@@ -390,28 +442,28 @@ watch(
   margin: 0;
   color: var(--text-heading);
   font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
-  font-size: clamp(1.56rem, 2.4vw, 2.14rem);
-  line-height: 1.18;
+  font-size: clamp(1.34rem, 2vw, 1.76rem);
+  line-height: 1.22;
 }
 
 .product-detail-page__hero-copy p {
   margin: 0;
   max-width: 54rem;
   color: var(--text-secondary);
-  line-height: 1.7;
+  line-height: 1.66;
 }
 
 .product-detail-page__hero-metrics,
 .product-detail-page__overview-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.84rem;
 }
 
 .product-detail-page__metric-card,
 .product-detail-page__overview-card {
-  gap: 0.26rem;
-  padding: 0.82rem 0.9rem;
+  gap: 0.22rem;
+  padding: 0.78rem 0.86rem;
   border: 1px solid color-mix(in srgb, var(--brand) 9%, var(--panel-border));
   border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.9);
@@ -420,14 +472,14 @@ watch(
 .product-detail-page__metric-card span,
 .product-detail-page__overview-card span {
   color: var(--text-caption);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .product-detail-page__metric-card strong,
 .product-detail-page__overview-card strong {
   color: var(--text-heading);
-  font-size: 1.12rem;
-  line-height: 1.3;
+  font-size: 1rem;
+  line-height: 1.28;
 }
 
 .product-detail-page__metric-card small,
@@ -439,14 +491,15 @@ watch(
 .product-detail-page__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.56rem;
+  gap: 0.72rem;
+  margin-top: 0.12rem;
 }
 
 .product-detail-page__tab {
   display: grid;
-  gap: 0.12rem;
+  gap: 0.18rem;
   min-width: 0;
-  padding: 0.7rem 0.82rem;
+  padding: 0.82rem 0.94rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-xl);
   background: var(--bg-card);
@@ -479,7 +532,7 @@ watch(
 }
 
 .product-detail-page__content {
-  gap: 0.88rem;
+  gap: 1rem;
 }
 
 @media (max-width: 900px) {

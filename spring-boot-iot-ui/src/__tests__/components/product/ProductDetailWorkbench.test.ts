@@ -68,6 +68,18 @@ describe('ProductDetailWorkbench', () => {
     expect(wrapper.text()).not.toContain('维护与治理')
   })
 
+  it('keeps overview cards compact with explicit hierarchy hooks for browser verification', () => {
+    const wrapper = mount(ProductDetailWorkbench, {
+      props: {
+        product: baseProduct
+      }
+    })
+
+    expect(wrapper.find('.product-detail-workbench__copy-label--metric').exists()).toBe(true)
+    expect(wrapper.find('.product-detail-workbench__copy-value--metric').exists()).toBe(true)
+    expect(wrapper.find('.product-detail-workbench__copy-value--body').exists()).toBe(true)
+  })
+
   it('keeps compact cards visible when activity metrics are missing', () => {
     const wrapper = mount(ProductDetailWorkbench, {
       props: {

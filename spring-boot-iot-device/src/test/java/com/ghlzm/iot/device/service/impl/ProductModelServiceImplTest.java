@@ -621,6 +621,41 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepSingleDeviceStatusPathsAndFriendlyNamesForDirectCollectorRtuProduct() {
+        Product collector = directCollectorRtuProduct(6007L);
+        when(productMapper.selectById(6007L)).thenReturn(collector);
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00D50D1305080":{"S1_ZT_1":{"2026-04-20T04:33:10.000Z":{"ext_power_volt":14.04,"battery_dump_energy":0}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6007L, dto);
+
+        assertEquals(
+                List.of("S1_ZT_1.battery_dump_energy", "S1_ZT_1.ext_power_volt"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .sorted()
+                        .toList()
+        );
+        assertEquals(
+                "外接电源电压",
+                compareRow(result, "property", "S1_ZT_1.ext_power_volt").getManualCandidate().getModelName()
+        );
+        assertEquals(
+                "电池剩余电量",
+                compareRow(result, "property", "S1_ZT_1.battery_dump_energy").getManualCandidate().getModelName()
+        );
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());

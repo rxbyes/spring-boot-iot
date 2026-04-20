@@ -34,7 +34,7 @@ export function createRequestError(message: string, handled = false, status?: nu
   const error = new Error(message) as RequestError;
   error.handled = handled;
   error.status = status;
-  if (rawMessage && rawMessage !== message) {
+  if (rawMessage) {
     error.rawMessage = rawMessage;
   }
   return error;

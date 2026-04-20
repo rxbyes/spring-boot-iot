@@ -1066,6 +1066,41 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.find('.product-business-workbench-drawer-stub').exists()).toBe(false)
   })
 
+  it('shows direct edit on product rows and keeps edit in the in-place drawer flow', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 1001,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        dataFormat: 'JSON',
+        manufacturer: 'GHLZM',
+        status: 1,
+        deviceCount: 0,
+        onlineDeviceCount: 0,
+        createTime: '2026-03-24T09:00:00',
+        updateTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    const directButtons = wrapper.findAll('.product-workbench-row-actions-stub__direct')
+    expect(directButtons.some((node) => node.text() === '编辑')).toBe(true)
+
+    await directButtons.find((node) => node.text() === '编辑')!.trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(mockRouter.push).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="product-business-workbench-active-view"]').text()).toBe('edit')
+    expect(wrapper.find('.product-edit-workspace-stub').exists()).toBe(true)
+  })
+
   it('redirects legacy governance-task workbench context to the routed contracts page', async () => {
     mockRoute.query = {
       openProductId: '1001',
@@ -1187,10 +1222,12 @@ describe('ProductWorkbenchView', () => {
     expect(tableRowActions?.props('gap')).toBeUndefined()
     expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
       '进入工作台',
+      '编辑',
       '删除'
     ])
     expect(((tableRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
       '进入工作台',
+      '编辑',
       '删除'
     ])
     expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(0)
@@ -1200,7 +1237,7 @@ describe('ProductWorkbenchView', () => {
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('152')
+    expect(String(actionColumn?.props('width'))).toBe('200')
   })
 
   it('shows a compact diagnostic intake hint when opened from system-log', async () => {
