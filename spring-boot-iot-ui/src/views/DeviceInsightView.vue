@@ -320,9 +320,9 @@ const snapshotMetrics = computed(() =>
       label: appendUnitToDisplayName(
         resolveMetricBaseName(
           metric.identifier,
-          resolveProductModelValue(productModelDisplayNameMap.value, metric.identifier),
           metric.displayName,
-          property?.propertyName
+          property?.propertyName,
+          resolveProductModelValue(productModelDisplayNameMap.value, metric.identifier)
         ),
         resolveMetricUnit(metric.identifier, property)
       ),
@@ -434,10 +434,10 @@ const propertyTableRows = computed(() => {
       valueType: normalizeText(property?.valueType) || resolveProductModelValue(productModelDataTypeMap.value, identifier) || '--',
       displayName: resolveMetricBaseName(
         identifier,
-        resolveProductModelValue(productModelDisplayNameMap.value, identifier),
         property?.propertyName,
         configuredMetric?.displayName,
-        series?.displayName
+        series?.displayName,
+        resolveProductModelValue(productModelDisplayNameMap.value, identifier)
       ),
       displayUnit: resolveMetricUnit(identifier, property) || '--',
       displayTime: formatDateTime(property?.updateTime || property?.reportTime || latestActualBucket?.time)
@@ -650,10 +650,10 @@ function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightC
             displayName: appendUnitToDisplayName(
               resolveMetricBaseName(
                 identifier,
-                resolveProductModelValue(productModelDisplayNameMap.value, identifier),
                 profileDisplayName,
                 property?.propertyName,
-                point.displayName
+                point.displayName,
+                resolveProductModelValue(productModelDisplayNameMap.value, identifier)
               ),
               resolveMetricUnit(identifier, property)
             ),
@@ -928,6 +928,7 @@ function resolveProductModelUnit(model: ProductModel) {
 }
 
 function resolveMetricBaseName(identifier: string, ...candidates: Array<unknown>) {
+  let rawFallback = '';
   for (const candidate of candidates) {
     const normalizedCandidate = normalizeText(candidate);
     if (!normalizedCandidate) {
@@ -935,10 +936,14 @@ function resolveMetricBaseName(identifier: string, ...candidates: Array<unknown>
     }
     const resolved = resolveInsightMetricDisplayName(identifier, normalizedCandidate);
     if (resolved) {
+      if (isAliasLikeMetricLabel(resolved, identifier)) {
+        rawFallback = rawFallback || resolved;
+        continue;
+      }
       return resolved;
     }
   }
-  return resolveInsightMetricDisplayName(identifier);
+  return rawFallback || resolveInsightMetricDisplayName(identifier);
 }
 
 function resolveMetricUnit(identifier: string, property?: DeviceProperty | null) {
@@ -956,7 +961,46 @@ function resolveProductModelValue(map: Map<string, string>, identifier: string) 
       return value;
     }
   }
+  const compatibleEntries = Array.from(map.entries()).filter(([key]) =>
+    isCompatibleProductModelIdentifier(key, identifier)
+  );
+  if (compatibleEntries.length === 1) {
+    return compatibleEntries[0]?.[1] || '';
+  }
   return '';
+}
+
+function isCompatibleProductModelIdentifier(candidateIdentifier: string, targetIdentifier: string) {
+  const normalizedCandidate = normalizeText(candidateIdentifier).toLowerCase();
+  const normalizedTarget = normalizeText(targetIdentifier).toLowerCase();
+  if (!normalizedCandidate || !normalizedTarget) {
+    return false;
+  }
+  if (normalizedCandidate === normalizedTarget) {
+    return true;
+  }
+  const targetTail = normalizedTarget.split('.').pop() || normalizedTarget;
+  return normalizedCandidate === targetTail
+    || normalizedCandidate.endsWith(`.${targetTail}`)
+    || normalizedTarget.endsWith(`.${normalizedCandidate}`);
+}
+
+function isAliasLikeMetricLabel(label: string, identifier: string) {
+  const normalizedLabel = normalizeText(label);
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedLabel) {
+    return true;
+  }
+  if (!normalizedIdentifier) {
+    return false;
+  }
+  if (normalizedLabel.trim().toLowerCase() === normalizedIdentifier.trim().toLowerCase()) {
+    return true;
+  }
+  if (/[\u4e00-\u9fff]/.test(normalizedLabel)) {
+    return false;
+  }
+  return !/\s/.test(normalizedLabel);
 }
 
 function appendUnitToDisplayName(displayName: string, unit?: string) {

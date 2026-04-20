@@ -1058,6 +1058,123 @@ describe('DeviceInsightView', () => {
     expect(trendPanelTexts).not.toContain('轴加速度');
   });
 
+  it('prefers canonical formal names and units when trend metric still keeps a raw alias identifier', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4301,
+        productId: 703,
+        deviceCode: 'RAIN-ALIAS-001',
+        deviceName: '翻斗式雨量计',
+        productName: '翻斗式雨量计',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-20 08:00:00',
+        lastReportTime: '2026-04-20 08:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L3_YL_1.totalValue',
+          propertyName: 'L3_YL_1.totalValue',
+          propertyValue: '0',
+          valueType: 'double',
+          updateTime: '2026-04-20 08:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 703,
+        productKey: 'nf-monitor-tipping-bucket-rain-gauge-v1',
+        productName: '翻斗式雨量计',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'L3_YL_1.totalValue',
+                displayName: 'L3_YL_1.totalValue',
+                group: 'measure',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 10
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 13,
+          productId: 703,
+          modelType: 'property',
+          identifier: 'totalValue',
+          modelName: '累计雨量',
+          dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: 'mm'
+          })
+        }
+      ]
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 4301,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'L3_YL_1.totalValue',
+            displayName: 'L3_YL_1.totalValue',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-20 08:00:00', value: 0, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'RAIN-ALIAS-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const trendPanelTexts = wrapper.find('.trend-panel-stub').findAll('div').map((node) => node.text());
+
+    expect(wrapper.text()).toContain('累计雨量（mm）');
+    expect(trendPanelTexts).toContain('累计雨量（mm）');
+    expect(trendPanelTexts).not.toContain('L3_YL_1.totalValue');
+  });
+
   it('only queries explicitly configured trend metrics for collect devices', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,

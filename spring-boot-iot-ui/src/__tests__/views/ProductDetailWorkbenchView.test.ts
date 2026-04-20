@@ -1,43 +1,37 @@
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, nextTick, reactive } from 'vue'
 import { shallowMount, flushPromises } from '@vue/test-utils'
 import { beforeEach, expect, it, vi } from 'vitest'
 
 import ProductDetailWorkbenchView from '@/views/ProductDetailWorkbenchView.vue'
 
-const { mockRoute, mockPageDevices } = vi.hoisted(() => ({
+const { mockRoute, mockPageDevices, mockGetProductById, mockGetProductOverviewSummary, mockRouterPush, mockRouterReplace } = vi.hoisted(() => ({
   mockRoute: {
     path: '/products/42/overview',
     name: 'product-overview',
     params: { productId: '42' },
     query: {}
   },
-  mockPageDevices: vi.fn()
+  mockPageDevices: vi.fn(),
+  mockGetProductById: vi.fn(),
+  mockGetProductOverviewSummary: vi.fn(),
+  mockRouterPush: vi.fn(),
+  mockRouterReplace: vi.fn()
 }))
 
+const mockRouteState = reactive(mockRoute)
+
 vi.mock('vue-router', () => ({
-  useRoute: () => mockRoute,
+  useRoute: () => mockRouteState,
   useRouter: () => ({
-    push: vi.fn()
+    push: mockRouterPush,
+    replace: mockRouterReplace
   })
 }))
 
 vi.mock('@/api/product', () => ({
   productApi: {
-    getProductById: vi.fn().mockResolvedValue({
-      code: 200,
-      msg: 'success',
-      data: {
-        id: 42,
-        productKey: 'nf-collect-rtu-v1',
-        productName: '南方测绘 采集型 遥测终端',
-        description: '采集型遥测终端设备，协议 mqtt-json，直接接入'
-      }
-    }),
-    getProductOverviewSummary: vi.fn().mockResolvedValue({
-      code: 200,
-      msg: 'success',
-      data: null
-    })
+    getProductById: mockGetProductById,
+    getProductOverviewSummary: mockGetProductOverviewSummary
   }
 }))
 
@@ -65,7 +59,7 @@ const RouterLinkStub = defineComponent({
   name: 'RouterLink',
   props: ['to'],
   template: `
-    <a class="router-link-stub" :data-to="typeof to === 'string' ? to : JSON.stringify(to)">
+    <a class="router-link-stub" v-bind="$attrs" :data-to="typeof to === 'string' ? to : JSON.stringify(to)">
       <slot />
     </a>
   `
@@ -86,10 +80,27 @@ const ProductDeviceListWorkspaceStub = defineComponent({
 })
 
 beforeEach(() => {
-  mockRoute.path = '/products/42/overview'
-  mockRoute.name = 'product-overview'
-  mockRoute.params = { productId: '42' }
-  mockRoute.query = {}
+  mockRouteState.path = '/products/42/overview'
+  mockRouteState.name = 'product-overview'
+  mockRouteState.params = { productId: '42' }
+  mockRouteState.query = {}
+  mockGetProductById.mockReset()
+  mockGetProductById.mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: {
+      id: 42,
+      productKey: 'nf-collect-rtu-v1',
+      productName: '南方测绘 采集型 遥测终端',
+      description: '采集型遥测终端设备，协议 mqtt-json，直接接入'
+    }
+  })
+  mockGetProductOverviewSummary.mockReset()
+  mockGetProductOverviewSummary.mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: null
+  })
   mockPageDevices.mockReset()
   mockPageDevices.mockResolvedValue({
     code: 200,
@@ -103,7 +114,7 @@ it.each([
   ['product-contracts', '契约字段'],
   ['product-mapping-rules', '映射规则']
 ])('titles the page by active section for %s', async (routeName, expectedTitle) => {
-  mockRoute.name = routeName
+  mockRouteState.name = routeName
 
   const wrapper = shallowMount(ProductDetailWorkbenchView, {
     global: {
@@ -160,9 +171,114 @@ it('renders single-line workbench tabs and keeps only device and field hero metr
   expect(wrapper.text()).not.toContain('最新批次')
 })
 
+it('marks the active workbench tab and syncs device pagination through the route query', async () => {
+  mockRouteState.path = '/products/42/devices'
+  mockRouteState.name = 'product-devices'
+  mockRouteState.query = {
+    pageNum: '3',
+    pageSize: '20'
+  }
+  mockPageDevices.mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: { total: 25, pageNum: 3, pageSize: 20, records: [] }
+  })
+
+  const wrapper = shallowMount(ProductDetailWorkbenchView, {
+    global: {
+      stubs: {
+        RouterLink: RouterLinkStub,
+        StandardButton: true,
+        ProductDetailWorkbench: true,
+        ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
+        ProductModelDesignerWorkspace: true,
+        StandardPageShell: StandardPageShellStub
+      }
+    }
+  })
+
+  await flushPromises()
+  await nextTick()
+
+  expect(wrapper.get('[aria-current="page"]').text()).toBe('关联设备')
+  expect(mockPageDevices).toHaveBeenLastCalledWith({
+    productKey: 'nf-collect-rtu-v1',
+    pageNum: 3,
+    pageSize: 20
+  })
+
+  await wrapper.get('.emit-page-2').trigger('click')
+  await flushPromises()
+  await nextTick()
+
+  expect(mockRouterReplace).toHaveBeenCalledWith({
+    path: '/products/42/devices',
+    query: {
+      pageNum: 2,
+      pageSize: 20
+    }
+  })
+
+  mockRouteState.query = {
+    pageNum: '2',
+    pageSize: '20'
+  }
+  await flushPromises()
+  await nextTick()
+
+  expect(mockPageDevices).toHaveBeenLastCalledWith({
+    productKey: 'nf-collect-rtu-v1',
+    pageNum: 2,
+    pageSize: 20
+  })
+})
+
+it('keeps product detail data cached when switching between detail sections', async () => {
+  const wrapper = shallowMount(ProductDetailWorkbenchView, {
+    global: {
+      stubs: {
+        RouterLink: RouterLinkStub,
+        StandardButton: true,
+        ProductDetailWorkbench: true,
+        ProductDeviceListWorkspace: ProductDeviceListWorkspaceStub,
+        ProductModelDesignerWorkspace: true,
+        StandardPageShell: StandardPageShellStub
+      }
+    }
+  })
+
+  await flushPromises()
+  await nextTick()
+
+  expect(mockGetProductById).toHaveBeenCalledTimes(1)
+  expect(mockGetProductOverviewSummary).toHaveBeenCalledTimes(1)
+
+  mockRouteState.path = '/products/42/contracts'
+  mockRouteState.name = 'product-contracts'
+  await flushPromises()
+  await nextTick()
+
+  expect(mockGetProductById).toHaveBeenCalledTimes(1)
+  expect(mockGetProductOverviewSummary).toHaveBeenCalledTimes(1)
+
+  mockRouteState.path = '/products/42/devices'
+  mockRouteState.name = 'product-devices'
+  await flushPromises()
+  await nextTick()
+
+  expect(mockGetProductById).toHaveBeenCalledTimes(1)
+  expect(mockGetProductOverviewSummary).toHaveBeenCalledTimes(1)
+  expect(mockPageDevices).toHaveBeenLastCalledWith({
+    productKey: 'nf-collect-rtu-v1',
+    pageNum: 1,
+    pageSize: 10
+  })
+  expect(wrapper.find('.product-device-list-workspace-stub').exists()).toBe(true)
+})
+
 it('requests related devices with server pagination and reacts to pagination events', async () => {
-  mockRoute.path = '/products/42/devices'
-  mockRoute.name = 'product-devices'
+  mockRouteState.path = '/products/42/devices'
+  mockRouteState.name = 'product-devices'
   mockPageDevices.mockResolvedValue({
     code: 200,
     msg: 'success',

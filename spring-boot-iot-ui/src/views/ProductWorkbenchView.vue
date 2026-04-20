@@ -356,66 +356,6 @@
       </template>
     </StandardWorkbenchPanel>
 
-    <ProductBusinessWorkbenchDrawer
-      v-model="businessWorkbenchVisible"
-      :active-view="businessWorkbenchActiveView"
-      :product="businessWorkbenchProduct"
-      @update:activeView="handleBusinessWorkbenchViewChange"
-    >
-      <template #header-actions>
-        <StandardButton data-testid="open-product-workbench-edit" @click="handleBusinessWorkbenchEdit">
-          编辑档案
-        </StandardButton>
-      </template>
-
-      <template #overview>
-        <ProductDetailWorkbench
-          v-if="businessWorkbenchLoadedViews.overview && (detailData || businessWorkbenchProduct)"
-          :product="detailData || businessWorkbenchProduct"
-        />
-      </template>
-
-      <template #models>
-        <ProductModelDesignerWorkspace
-          v-if="businessWorkbenchLoadedViews.models && businessWorkbenchProduct"
-          :product="businessWorkbenchProduct"
-          @product-updated="handleBusinessWorkbenchProductUpdated"
-        />
-      </template>
-
-      <template #devices>
-        <ProductDeviceListWorkspace
-          v-if="businessWorkbenchLoadedViews.devices && businessWorkbenchProduct"
-          :devices="deviceListData"
-          :loading="devicesLoading && deviceListData.length === 0 && !deviceListErrorMessage"
-          :error-message="deviceListErrorMessage"
-          :empty="!devicesLoading && !deviceListErrorMessage && deviceListTotal === 0"
-          :devices-loading="devicesLoading"
-          @view-device="handleViewDevice"
-        />
-      </template>
-
-      <template #edit>
-        <ProductEditWorkspace
-          v-if="businessWorkbenchLoadedViews.edit"
-          ref="editWorkspaceRef"
-          :model="formData"
-          :product-capability-type="productCapabilityType"
-          :object-insight-metrics="objectInsightMetricRows"
-          :available-models="editAvailableModels"
-          :rules="formRules"
-          :editing="Boolean(editingProductId)"
-          :submit-loading="submitLoading"
-          :refresh-state="formRefreshState"
-          :refresh-message="formRefreshMessage"
-          @update:product-capability-type="handleProductCapabilityTypeChange"
-          @update:object-insight-metrics="handleObjectInsightMetricsChange"
-          @cancel="handleCancelEdit"
-          @submit="handleSubmit"
-        />
-      </template>
-    </ProductBusinessWorkbenchDrawer>
-
     <StandardFormDrawer
       v-model="formVisible"
       :title="formTitle"
@@ -494,7 +434,7 @@
 
           <ProductObjectInsightConfigEditor
             :model-value="objectInsightMetricRows"
-            :available-models="[]"
+            :available-models="editAvailableModels"
             @update:model-value="handleObjectInsightMetricsChange"
           />
         </el-form>

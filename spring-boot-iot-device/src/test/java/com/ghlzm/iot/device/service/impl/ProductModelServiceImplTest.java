@@ -656,6 +656,40 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepSingleDeviceStatusFullPathsForWarningSoundLightAlarmProduct() {
+        Product product = product(8008L, "zhd-warning-sound-light-alarm-v1", "中海达 预警型 声光报警器");
+        when(productMapper.selectById(8008L)).thenReturn(product);
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"6260370286":{"S1_ZT_1":{"2026-04-20T09:05:00.000Z":{"sound_state":1,"battery_dump_energy":86,"pa_state":0}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(8008L, dto);
+
+        assertEquals("FULL_PATH", result.getManualSummary().getResolvedContractIdentifierMode());
+        assertEquals(
+                List.of("S1_ZT_1.battery_dump_energy", "S1_ZT_1.pa_state", "S1_ZT_1.sound_state"),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .sorted()
+                        .toList()
+        );
+        assertEquals(
+                "电池剩余电量",
+                compareRow(result, "property", "S1_ZT_1.battery_dump_energy").getManualCandidate().getModelName()
+        );
+        assertNull(compareRow(result, "property", "S1_ZT_1.sound_state").getNormativeIdentifier());
+        assertNull(compareRow(result, "property", "S1_ZT_1.pa_state").getNormativeIdentifier());
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());

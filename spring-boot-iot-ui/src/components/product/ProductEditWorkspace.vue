@@ -139,7 +139,7 @@ type ProductEditFormState = ProductAddPayload
 const props = withDefaults(
   defineProps<{
     model: ProductEditFormState
-    productCapabilityType: ProductGovernanceCapabilityType
+    productCapabilityType?: ProductGovernanceCapabilityType
     objectInsightMetrics: ProductObjectInsightCustomMetricConfig[]
     availableModels?: ProductModel[]
     rules: FormRules<ProductEditFormState>
@@ -149,6 +149,7 @@ const props = withDefaults(
     refreshMessage?: string
   }>(),
   {
+    productCapabilityType: 'UNKNOWN',
     editing: false,
     availableModels: () => [],
     submitLoading: false,

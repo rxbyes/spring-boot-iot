@@ -233,14 +233,20 @@ const overviewCards = computed(() => [
   }
 ])
 
-async function loadProductWorkspace() {
+function clearDeviceState() {
+  devices.value = []
+  resetDeviceTotal()
+  deviceErrorMessage.value = ''
+  devicesLoading.value = false
+}
+
+async function loadProductContext() {
   if (!productId.value) {
     product.value = null
     overviewSummary.value = null
-    devices.value = []
-    resetDeviceTotal()
+    clearDeviceState()
     errorMessage.value = '产品编号缺失，无法打开工作区。'
-    return
+    return false
   }
 
   loading.value = true
@@ -260,30 +266,33 @@ async function loadProductWorkspace() {
       summaryResult.status === 'fulfilled' && summaryResult.value.code === 200
         ? summaryResult.value.data || null
         : null
-
-    if (activeSection.value === 'devices') {
-      await loadDevices()
-    } else {
-      devices.value = []
-      resetDeviceTotal()
-      deviceErrorMessage.value = ''
-      devicesLoading.value = false
-    }
+    return true
   } catch (error) {
     product.value = null
     overviewSummary.value = null
-    devices.value = []
-    resetDeviceTotal()
+    clearDeviceState()
     errorMessage.value = resolveRequestErrorMessage(error, '加载产品工作区失败')
+    return false
   } finally {
     loading.value = false
   }
 }
 
+async function loadProductWorkspace() {
+  const loaded = await loadProductContext()
+  if (!loaded) {
+    return
+  }
+  if (activeSection.value === 'devices') {
+    await loadDevices()
+    return
+  }
+  clearDeviceState()
+}
+
 async function loadDevices() {
   if (!product.value?.productKey) {
-    devices.value = []
-    resetDeviceTotal()
+    clearDeviceState()
     deviceErrorMessage.value = '产品 Key 缺失，无法加载关联设备。'
     return
   }
@@ -300,11 +309,9 @@ async function loadDevices() {
       devices.value = applyDevicePageResult(response.data)
       return
     }
-    devices.value = []
-    resetDeviceTotal()
+    clearDeviceState()
   } catch (error) {
-    devices.value = []
-    resetDeviceTotal()
+    clearDeviceState()
     deviceErrorMessage.value = resolveRequestErrorMessage(error, '加载关联设备失败')
   } finally {
     devicesLoading.value = false
@@ -358,18 +365,28 @@ watch(
     if (current === previous) {
       return
     }
-    devices.value = []
     resetDevicePage()
-    resetDeviceTotal()
+    clearDeviceState()
+    void loadProductWorkspace()
   }
+  ,
+  { immediate: true }
 )
 
 watch(
-  () => `${productId.value}:${activeSection.value}`,
-  () => {
-    void loadProductWorkspace()
-  },
-  { immediate: true }
+  () => activeSection.value,
+  (current, previous) => {
+    if (current === previous) {
+      return
+    }
+    if (current === 'devices') {
+      if (product.value) {
+        void loadDevices()
+      }
+      return
+    }
+    clearDeviceState()
+  }
 )
 </script>
 

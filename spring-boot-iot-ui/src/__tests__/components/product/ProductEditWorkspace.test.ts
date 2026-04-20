@@ -1,6 +1,6 @@
 import { defineComponent, h } from 'vue'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
 
@@ -45,6 +45,51 @@ const ElFormStub = defineComponent({
 })
 
 describe('ProductEditWorkspace', () => {
+  it('falls back to an unknown capability type without emitting a missing prop warning', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const wrapper = mount(ProductEditWorkspace, {
+      props: {
+        model: {
+          productKey: 'south-monitor',
+          productName: '南方监测终端',
+          protocolCode: 'mqtt-json',
+          nodeType: 1,
+          dataFormat: 'JSON',
+          manufacturer: 'GHLZM',
+          description: '南方场站监测终端',
+          metadataJson: '',
+          status: 1
+        },
+        objectInsightMetrics: [],
+        rules: {
+          productKey: [{ required: true, message: '请输入产品 Key', trigger: 'blur' }]
+        },
+        editing: true,
+        submitLoading: false,
+        refreshState: 'warning',
+        refreshMessage: '最新档案已取回；你已开始编辑，当前未自动覆盖表单。'
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          StandardInlineState: StandardInlineStateStub,
+          ProductObjectInsightConfigEditor: ProductObjectInsightConfigEditorStub,
+          ElForm: ElFormStub,
+          ElFormItem: true,
+          ElInput: true,
+          ElSelect: true,
+          ElOption: true
+        }
+      }
+    })
+
+    expect(wrapper.find('.product-edit-workspace__journal-head').exists()).toBe(true)
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
+
+    consoleWarnSpy.mockRestore()
+  })
+
   it('renders the edit workspace as a concise editing section without repeating identity statistics', async () => {
     const wrapper = mount(ProductEditWorkspace, {
       props: {
@@ -63,6 +108,7 @@ describe('ProductEditWorkspace', () => {
         rules: {
           productKey: [{ required: true, message: '请输入产品 Key', trigger: 'blur' }]
         },
+        productCapabilityType: 'UNKNOWN',
         editing: true,
         submitLoading: false,
         refreshState: 'warning',
