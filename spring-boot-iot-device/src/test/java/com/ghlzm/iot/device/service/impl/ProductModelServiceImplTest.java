@@ -656,6 +656,58 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepSingleDeviceStatusPathsAndFriendlyNamesForDeepDisplacementProduct() {
+        when(productMapper.selectById(4004L)).thenReturn(product(
+                4004L,
+                "nf-monitor-deep-displacement-v1",
+                "南方测绘 监测型 深部位移监测仪"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("status");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00EB0D1308310":{"S1_ZT_1":{"2026-04-21T00:56:36.000Z":{"battery_dump_energy":0,"temp":14.25,"humidity":86.48,"signal_4g":30}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(4004L, dto);
+
+        assertEquals("FULL_PATH", result.getManualSummary().getResolvedContractIdentifierMode());
+        assertEquals(
+                List.of(
+                        "S1_ZT_1.battery_dump_energy",
+                        "S1_ZT_1.humidity",
+                        "S1_ZT_1.signal_4g",
+                        "S1_ZT_1.temp"
+                ),
+                result.getCompareRows().stream()
+                        .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                        .sorted()
+                        .toList()
+        );
+        assertEquals(
+                "电池剩余电量",
+                compareRow(result, "property", "S1_ZT_1.battery_dump_energy").getManualCandidate().getModelName()
+        );
+        assertEquals(
+                "设备温度",
+                compareRow(result, "property", "S1_ZT_1.temp").getManualCandidate().getModelName()
+        );
+        assertEquals(
+                "设备湿度",
+                compareRow(result, "property", "S1_ZT_1.humidity").getManualCandidate().getModelName()
+        );
+        assertEquals(
+                "4G 信号强度",
+                compareRow(result, "property", "S1_ZT_1.signal_4g").getManualCandidate().getModelName()
+        );
+    }
+
+    @Test
     void compareGovernanceShouldKeepSingleDeviceStatusFullPathsForWarningSoundLightAlarmProduct() {
         Product product = product(8008L, "zhd-warning-sound-light-alarm-v1", "中海达 预警型 声光报警器");
         when(productMapper.selectById(8008L)).thenReturn(product);

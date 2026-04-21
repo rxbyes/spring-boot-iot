@@ -485,6 +485,9 @@
             单台样本会按当前产品形态自动识别正式字段口径：单台多能力产品保留监测类型编码 + 数据字段这类全路径标识，只有单能力/规范产品才收口为直接字段。
           </p>
           <p>
+            单台设备的业务数据与状态数据（如 4G、剩余电量、温湿度、电压）都走同一套识别规则，不会拆成第三种设备结构。
+          </p>
+          <p>
             复合设备会按父设备关系映射归一到子产品直接字段；逻辑通道编码只用于归属线索和原始证据，不直接等于正式字段标识。
           </p>
         </div>
@@ -573,7 +576,11 @@
         </div>
       </section>
 
-      <section v-if="showContractSections" class="product-model-designer__stage">
+      <section
+        v-if="showContractSections"
+        ref="formalFieldStageRef"
+        class="product-model-designer__stage"
+      >
         <header class="product-model-designer__stage-head">
           <div>
             <h3>识别结果</h3>
@@ -897,7 +904,13 @@
         </div>
 
         <div v-if="activeModels.length" class="product-model-designer__formal-list">
-          <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__formal-card">
+          <article
+            v-for="model in activeModels"
+            :key="String(model.id)"
+            :ref="(element) => registerFormalModelCardRef(model, element)"
+            :data-testid="`formal-model-card-${model.id}`"
+            class="product-model-designer__formal-card"
+          >
             <div class="product-model-designer__formal-card-head">
               <div v-if="isRenamingModel(model)" class="product-model-designer__formal-rename">
                 <ElInput
@@ -1024,7 +1037,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import StandardButton from '@/components/StandardButton.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
@@ -1087,6 +1100,7 @@ import {
   resolveProductGovernanceApplicability
 } from '@/utils/productGovernanceCapability'
 
+const route = useRoute()
 const router = useRouter()
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
@@ -1198,6 +1212,7 @@ const relationMappings = ref<RelationMappingRow[]>([createRelationRow()])
 const activeType = ref<ProductModelType>('property')
 const sampleStageRef = ref<HTMLElement | null>(null)
 const versionLedgerStageRef = ref<HTMLElement | null>(null)
+const formalFieldStageRef = ref<HTMLElement | null>(null)
 const applyApprovalLoading = ref(false)
 const rollbackApprovalLoading = ref(false)
 const applyResubmitLoading = ref(false)
@@ -1212,6 +1227,7 @@ const productSnapshot = ref<Product | null>(null)
 const trendMetricSubmitting = ref(false)
 const trendMetricSubmittingKey = ref('')
 const deletingModelId = ref<IdType | null>(null)
+const formalModelCardRefs = new Map<string, HTMLElement>()
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
@@ -1678,6 +1694,103 @@ watch(
   },
   { immediate: true }
 )
+
+watch(
+  () => [props.workspaceView, props.product?.id, route.query.modelIdentifier, route.query.renameModel, models.value.length] as const,
+  async ([workspaceView, productId, focusedIdentifier, renameModel]) => {
+    if (!productId || !supportsFormalFieldFocus(workspaceView)) {
+      return
+    }
+    const targetIdentifier = readRouteQueryString(focusedIdentifier)
+    if (!targetIdentifier || !models.value.length) {
+      return
+    }
+    const targetModel = findFormalPropertyModel(targetIdentifier)
+    if (!targetModel) {
+      return
+    }
+    activeType.value = targetModel.modelType
+    await nextTick()
+    if (readRouteQueryString(renameModel) === '1') {
+      startRenameModel(targetModel)
+      await nextTick()
+    }
+    focusFormalModelCard(targetModel)
+    void clearFocusedFormalModelQuery()
+  },
+  { immediate: true }
+)
+
+function supportsFormalFieldFocus(workspaceView?: ProductModelDesignerWorkspaceView) {
+  return workspaceView !== 'mapping-rules' && workspaceView !== 'releases'
+}
+
+function readRouteQueryString(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+function findFormalPropertyModel(identifier: string) {
+  const normalizedIdentifier = readRouteQueryString(identifier).toLowerCase()
+  if (!normalizedIdentifier) {
+    return null
+  }
+  const exactModel = models.value.find((model) =>
+    model.modelType === 'property' && model.identifier?.trim().toLowerCase() === normalizedIdentifier
+  )
+  if (exactModel) {
+    return exactModel
+  }
+  const compatibleModels = models.value.filter((model) =>
+    model.modelType === 'property' && isCompatibleModelIdentifier(model.identifier, identifier)
+  )
+  return compatibleModels.length === 1 ? compatibleModels[0] ?? null : null
+}
+
+function registerFormalModelCardRef(model: ProductModel, element: Element | null) {
+  const key = formalModelCardKey(model)
+  if (element instanceof HTMLElement) {
+    formalModelCardRefs.set(key, element)
+    return
+  }
+  formalModelCardRefs.delete(key)
+}
+
+function formalModelCardKey(model: ProductModel) {
+  return `${model.modelType}:${model.identifier}`
+}
+
+function focusFormalModelCard(model: ProductModel) {
+  const card = formalModelCardRefs.get(formalModelCardKey(model))
+  const target = card ?? formalFieldStageRef.value
+  target?.scrollIntoView?.({ block: 'center' })
+}
+
+async function clearFocusedFormalModelQuery() {
+  const nextQuery = { ...(route.query ?? {}) }
+  delete nextQuery.modelIdentifier
+  delete nextQuery.renameModel
+  delete nextQuery.source
+  await router.replace({
+    path: route.path,
+    query: nextQuery
+  })
+}
+
+function isCompatibleModelIdentifier(candidateIdentifier?: string | null, targetIdentifier?: string | null) {
+  const normalizedCandidate = candidateIdentifier?.trim().toLowerCase() ?? ''
+  const normalizedTarget = targetIdentifier?.trim().toLowerCase() ?? ''
+  if (!normalizedCandidate || !normalizedTarget) {
+    return false
+  }
+  if (normalizedCandidate === normalizedTarget) {
+    return true
+  }
+  const targetTail = normalizedTarget.split('.').pop() || normalizedTarget
+  return normalizedCandidate === targetTail
+    || normalizedCandidate.endsWith(`.${targetTail}`)
+    || normalizedTarget.endsWith(`.${normalizedCandidate}`)
+}
 
 function createRelationRow(): RelationMappingRow {
   return {

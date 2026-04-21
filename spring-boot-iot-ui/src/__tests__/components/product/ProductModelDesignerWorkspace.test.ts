@@ -22,6 +22,7 @@ const {
   mockGetGovernanceApprovalOrderDetail,
   mockResubmitGovernanceApprovalOrder,
   mockListDeviceRelations,
+  mockRoute,
   mockRouter
 } = vi.hoisted(() => ({
   mockListProductModels: vi.fn(),
@@ -39,8 +40,13 @@ const {
   mockGetGovernanceApprovalOrderDetail: vi.fn(),
   mockResubmitGovernanceApprovalOrder: vi.fn(),
   mockListDeviceRelations: vi.fn(),
+  mockRoute: {
+    path: '/products/1001/contracts',
+    query: {} as Record<string, unknown>
+  },
   mockRouter: {
-    push: vi.fn()
+    push: vi.fn(),
+    replace: vi.fn().mockResolvedValue(undefined)
   }
 }))
 
@@ -79,6 +85,7 @@ vi.mock('@/api/governanceApproval', () => ({
 }))
 
 vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute,
   useRouter: () => mockRouter
 }))
 
@@ -244,7 +251,10 @@ describe('ProductModelDesignerWorkspace', () => {
     mockGetGovernanceApprovalOrderDetail.mockReset()
     mockResubmitGovernanceApprovalOrder.mockReset()
     mockListDeviceRelations.mockReset()
+    mockRoute.path = '/products/1001/contracts'
+    mockRoute.query = {}
     mockRouter.push.mockReset()
+    mockRouter.replace.mockReset()
     vi.mocked(ElMessage.success).mockReset()
     vi.mocked(ElMessage.error).mockReset()
     vi.mocked(ElMessage.warning).mockReset()
@@ -568,6 +578,7 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('提取契约字段')
     expect(wrapper.text()).toContain('单台样本会按当前产品形态自动识别正式字段口径')
     expect(wrapper.text()).toContain('单台多能力产品保留监测类型编码 + 数据字段这类全路径标识')
+    expect(wrapper.text()).toContain('单台设备的业务数据与状态数据（如 4G、剩余电量、温湿度、电压）都走同一套识别规则')
     expect(wrapper.text()).toContain('只有单能力/规范产品才收口为直接字段')
     expect(wrapper.text()).toContain('复合设备会按父设备关系映射归一到子产品直接字段')
     expect(wrapper.text()).toContain('逻辑通道编码只用于归属线索和原始证据，不直接等于正式字段标识')
@@ -1544,6 +1555,26 @@ describe('ProductModelDesignerWorkspace', () => {
       dataType: 'double'
     }))
     expect(wrapper.text()).toContain('裂缝量')
+  })
+
+  it('auto-opens the focused formal field rename editor from the insight deep link', async () => {
+    mockRoute.query = {
+      modelIdentifier: 'value',
+      renameModel: '1',
+      source: 'insight'
+    }
+
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="formal-model-name-input-2001"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="formal-model-unit-input-2001"]').exists()).toBe(true)
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      path: '/products/1001/contracts',
+      query: {}
+    })
   })
 
   it('saves formal property unit together with renamed display name', async () => {

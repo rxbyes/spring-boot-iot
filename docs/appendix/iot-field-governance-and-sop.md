@@ -474,7 +474,7 @@
 额外约束：
 
 1. `sampleType + deviceStructure` 只决定解析路径，不单独决定正式字段命名。
-2. 当单台状态样本本身承载多能力状态组时，应按产品正式契约形态保留全路径，而不是强行压成统一短标识。
+2. 当单台状态样本本身承载多能力状态组，或上报 4G、剩余电量、温湿度、电压等设备自有状态参数时，应按产品正式契约形态保留全路径，而不是强行压成统一短标识。
 3. 当复合样本命中 `relationMappings / iot_device_relation` 时，`logicalChannelCode` 只作为“这条字段属于哪个子设备”的证据，不直接作为最终正式字段名。
 4. compare 请求体允许隐藏透传 `manualExtract.contractIdentifierMode=DIRECT|FULL_PATH` 作为强制覆盖；页面默认不新增切换，继续按“单台设备（按产品形态自动识别）”由后端解析。
 5. compare 里运行态单独命中的“继续观察”字段，必须与本次 compare 已解析出的 `resolvedContractIdentifierMode` 保持一致；若正式/手动样本保留全路径，运行态补证也必须保留同一全路径，不得再退化成尾字段短标识。

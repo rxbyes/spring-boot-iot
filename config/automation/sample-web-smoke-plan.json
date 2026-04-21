@@ -292,7 +292,7 @@
           "type": "click",
           "locator": {
             "type": "role",
-            "role": "button",
+            "role": "link",
             "name": "契约字段",
             "exact": true
           },
@@ -327,6 +327,17 @@
             "value": "body"
           },
           "value": "基于现有上报手动提炼契约字段",
+          "optional": false
+        },
+        {
+          "id": "product-governance-assert-single-status-guidance",
+          "label": "断言单台设备业务与状态数据共用同一规则",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "单台设备的业务数据与状态数据（如 4G、剩余电量、温湿度、电压）都走同一套识别规则",
           "optional": false
         },
         {
@@ -413,7 +424,7 @@
           "type": "click",
           "locator": {
             "type": "role",
-            "role": "button",
+            "role": "link",
             "name": "契约字段",
             "exact": true
           },
@@ -605,7 +616,7 @@
           "type": "click",
           "locator": {
             "type": "role",
-            "role": "button",
+            "role": "link",
             "name": "契约字段",
             "exact": true
           },
