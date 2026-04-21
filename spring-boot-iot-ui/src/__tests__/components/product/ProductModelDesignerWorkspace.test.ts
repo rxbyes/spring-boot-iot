@@ -168,10 +168,10 @@ const LedgerPanelStub = defineComponent({
 
 const RuntimeDisplayRulePanelStub = defineComponent({
   name: 'ProductRuntimeMetricDisplayRulePanel',
-  props: ['productId'],
+  props: ['productId', 'formalPropertyIdentifiers'],
   template: `
     <section class="runtime-display-rule-panel-stub" data-testid="runtime-display-rule-panel-stub">
-      <span data-testid="runtime-display-rule-panel-props">{{ productId }}</span>
+      <span data-testid="runtime-display-rule-panel-props">{{ productId }}|{{ Array.isArray(formalPropertyIdentifiers) ? formalPropertyIdentifiers.join(',') : '' }}</span>
     </section>
   `
 })
@@ -2010,7 +2010,7 @@ describe('ProductModelDesignerWorkspace', () => {
 
     expect(wrapper.find('[data-testid="contract-field-runtime-display-rules"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="runtime-display-rule-panel-stub"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="runtime-display-rule-panel-props"]').text()).toBe('1001')
+    expect(wrapper.find('[data-testid="runtime-display-rule-panel-props"]').text()).toBe('1001|value')
     expect(wrapper.find('[data-testid="vendor-suggestion-panel-stub"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="vendor-rule-ledger-panel-stub"]').exists()).toBe(true)
   })

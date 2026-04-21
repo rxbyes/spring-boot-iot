@@ -10,13 +10,21 @@ const {
   mockCreateRuntimeMetricDisplayRule,
   mockUpdateRuntimeMetricDisplayRule,
   mockMessageSuccess,
-  mockMessageError
+  mockMessageError,
+  mockRoute
 } = vi.hoisted(() => ({
   mockListRuntimeMetricDisplayRules: vi.fn(),
   mockCreateRuntimeMetricDisplayRule: vi.fn(),
   mockUpdateRuntimeMetricDisplayRule: vi.fn(),
   mockMessageSuccess: vi.fn(),
-  mockMessageError: vi.fn()
+  mockMessageError: vi.fn(),
+  mockRoute: {
+    query: {} as Record<string, unknown>
+  }
+}))
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute
 }))
 
 vi.mock('@/api/runtimeMetricDisplayRule', () => ({
@@ -51,10 +59,12 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function mountPanel() {
+function mountPanel(props?: Record<string, unknown>) {
   return mount(ProductRuntimeMetricDisplayRulePanel, {
     props: {
-      productId: 1001
+      productId: 1001,
+      formalPropertyIdentifiers: [],
+      ...props
     },
     global: {
       stubs: {
@@ -71,6 +81,7 @@ describe('ProductRuntimeMetricDisplayRulePanel', () => {
     mockUpdateRuntimeMetricDisplayRule.mockReset()
     mockMessageSuccess.mockReset()
     mockMessageError.mockReset()
+    mockRoute.query = {}
 
     mockListRuntimeMetricDisplayRules.mockResolvedValue({
       code: 200,
@@ -192,6 +203,90 @@ describe('ProductRuntimeMetricDisplayRulePanel', () => {
       protocolCode: null
     })
     expect(mockMessageSuccess).toHaveBeenCalledWith('运行态名称/单位治理规则已更新')
+  })
+
+  it('adopts a route-query candidate into the form and shows static preview warnings', async () => {
+    mockRoute.query = {
+      rawIdentifier: 'S1_ZT_1.humidity',
+      displayName: '相对湿度',
+      unit: '%RH',
+      deviceCode: 'DEVICE-001',
+      runtimeGovernanceDraft: '1',
+      source: 'insight'
+    }
+    const wrapper = mountPanel({
+      formalPropertyIdentifiers: ['value']
+    })
+
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('待治理候选')
+    expect(wrapper.text()).toContain('DEVICE-001')
+
+    await wrapper.get('[data-testid="runtime-display-rule-candidate-adopt"]').trigger('click')
+
+    expect((wrapper.get('[data-testid="runtime-display-rule-raw-identifier"]').element as HTMLInputElement).value).toBe(
+      'S1_ZT_1.humidity'
+    )
+    expect((wrapper.get('[data-testid="runtime-display-rule-display-name"]').element as HTMLInputElement).value).toBe(
+      '相对湿度'
+    )
+    expect((wrapper.get('[data-testid="runtime-display-rule-unit"]').element as HTMLInputElement).value).toBe('%RH')
+
+    const preview = wrapper.get('[data-testid="runtime-display-rule-preview"]')
+    expect(preview.text()).toContain('设备属性快照')
+    expect(preview.text()).toContain('历史趋势')
+    expect(preview.text()).toContain('对象洞察')
+    expect(preview.text()).toContain('产品级')
+    expect(preview.text()).toContain('已存在同范围治理规则')
+  })
+
+  it('marks rules covered by formal property identifiers and quick-disables them', async () => {
+    mockListRuntimeMetricDisplayRules.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 100,
+        records: [
+          {
+            id: 9001,
+            productId: 1001,
+            scopeType: 'PRODUCT',
+            rawIdentifier: 'value',
+            displayName: '裂缝值',
+            unit: 'mm',
+            status: 'ACTIVE',
+            versionNo: 3
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountPanel({
+      formalPropertyIdentifiers: ['value']
+    })
+
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已被正式字段覆盖')
+
+    await wrapper.get('[data-testid="runtime-display-rule-disable-9001"]').trigger('click')
+    await flushPromises()
+
+    expect(mockUpdateRuntimeMetricDisplayRule).toHaveBeenCalledWith(1001, 9001, {
+      scopeType: 'PRODUCT',
+      rawIdentifier: 'value',
+      displayName: '裂缝值',
+      unit: 'mm',
+      status: 'DISABLED',
+      scenarioCode: null,
+      deviceFamily: null,
+      protocolCode: null
+    })
   })
 
   it('does not show a second toast for handled creation errors', async () => {

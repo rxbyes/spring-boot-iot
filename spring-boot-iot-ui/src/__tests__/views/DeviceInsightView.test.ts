@@ -3142,4 +3142,91 @@ describe('DeviceInsightView', () => {
       }
     });
   });
+
+  it('routes non-formal snapshot rows to runtime display rule governance with candidate query', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4103,
+        productId: 902,
+        deviceCode: 'DEVICE-001',
+        deviceName: '温湿度采集终端',
+        productKey: 'demo-temperature-terminal',
+        productName: '温湿度采集终端',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-21 09:00:00',
+        lastReportTime: '2026-04-21 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.humidity',
+          propertyName: '相对湿度',
+          propertyValue: '66',
+          valueType: 'double',
+          unit: '%RH',
+          updateTime: '2026-04-21 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 902,
+        productKey: 'demo-temperature-terminal',
+        productName: '温湿度采集终端',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    mockRoute.query = {
+      deviceCode: 'DEVICE-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const governButton = wrapper.find('[data-testid="property-snapshot-govern-S1_ZT_1_humidity"]');
+    expect(governButton.exists()).toBe(true);
+
+    await governButton.trigger('click');
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products/902/mapping-rules',
+      query: {
+        rawIdentifier: 'S1_ZT_1.humidity',
+        displayName: '相对湿度',
+        unit: '%RH',
+        deviceCode: 'DEVICE-001',
+        runtimeGovernanceDraft: '1',
+        source: 'insight'
+      }
+    });
+  });
 });
