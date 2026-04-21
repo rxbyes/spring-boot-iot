@@ -41,6 +41,7 @@ DROP TABLE IF EXISTS iot_governance_ops_alert;
 DROP TABLE IF EXISTS iot_vendor_metric_mapping_rule_snapshot;
 DROP TABLE IF EXISTS iot_vendor_metric_mapping_rule;
 DROP TABLE IF EXISTS iot_vendor_metric_evidence;
+DROP TABLE IF EXISTS iot_runtime_metric_display_rule;
 DROP TABLE IF EXISTS iot_product_model;
 DROP TABLE IF EXISTS iot_product_metric_resolver_snapshot;
 DROP TABLE IF EXISTS iot_product_contract_release_snapshot;
@@ -952,6 +953,31 @@ CREATE TABLE iot_product_model (
   PRIMARY KEY (id),
   UNIQUE KEY uk_product_identifier (product_id, model_type, identifier)
 ) COMMENT='产品物模型表';
+
+-- 表：iot_runtime_metric_display_rule
+-- 说明：运行态字段显示规则表
+CREATE TABLE iot_runtime_metric_display_rule (
+  id BIGINT NOT NULL COMMENT '主键',
+  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
+  scope_type VARCHAR(32) NOT NULL COMMENT '作用域类型',
+  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',
+  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',
+  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',
+  raw_identifier VARCHAR(128) NOT NULL COMMENT '运行态原始字段标识',
+  display_name VARCHAR(128) NOT NULL COMMENT '显示名称',
+  unit VARCHAR(64) DEFAULT NULL COMMENT '显示单位',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',
+  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',
+  create_by BIGINT DEFAULT NULL COMMENT '创建人',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by BIGINT DEFAULT NULL COMMENT '更新人',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (id),
+  KEY idx_runtime_metric_display_rule_lookup (product_id, raw_identifier, scope_type, deleted),
+  KEY idx_runtime_metric_display_rule_scope (scope_type, scenario_code, device_family, protocol_code)
+) COMMENT='运行态字段显示规则表';
 
 -- 表：iot_vendor_metric_evidence
 -- 说明：厂商字段证据表

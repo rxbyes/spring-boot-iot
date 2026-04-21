@@ -5,7 +5,7 @@ Generated from the schema registry. Do not edit by hand.
 | Domain | Objects | Relations | Roles |
 | --- | --- | --- | --- |
 | alarm | 15 | 39 | binding_registry / catalog_registry / domain_master_data / transaction_record |
-| device | 21 | 52 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
+| device | 22 | 54 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
 | governance | 12 | 29 | domain_master_data / governance_master_data |
 | mysql-compatibility | 1 | 2 | compatibility_projection |
 | system | 17 | 26 | governance_master_data |
@@ -117,6 +117,7 @@ graph TD
 | iot_product_contract_release_snapshot | snapshot_baseline | iot_product_contract_release_batch（belongs_to:batch_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于产品合同发布快照表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_product_metric_resolver_snapshot | snapshot_baseline | iot_product_contract_release_batch（belongs_to:release_batch_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于产品指标解析快照表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_product_model | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于产品物模型表的数据持久化与查询，归属设备域并服务真实环境基线。 |
+| iot_runtime_metric_display_rule | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于运行态字段名称/单位治理规则持久化与查询，只补充非正式字段的读侧展示，不改写正式合同真相。 |
 | iot_vendor_metric_evidence | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于厂商字段证据表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_vendor_metric_mapping_rule | domain_master_data | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于厂商字段映射规则表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_vendor_metric_mapping_rule_snapshot | snapshot_baseline | iot_vendor_metric_mapping_rule（belongs_to:rule_id）<br>iot_product（belongs_to:product_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） | 用于厂商字段映射规则正式发布后的快照真相持久化，支撑审批后读取与运行时回放。 |
@@ -188,6 +189,9 @@ graph TD
   iot_product_model["iot_product_model"]
   iot_product_model["iot_product_model"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_product_model["iot_product_model"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_runtime_metric_display_rule["iot_runtime_metric_display_rule"]
+  iot_runtime_metric_display_rule["iot_runtime_metric_display_rule"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_runtime_metric_display_rule["iot_runtime_metric_display_rule"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_vendor_metric_evidence["iot_vendor_metric_evidence"]
   iot_vendor_metric_evidence["iot_vendor_metric_evidence"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_vendor_metric_evidence["iot_vendor_metric_evidence"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]

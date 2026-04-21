@@ -166,6 +166,16 @@ const LedgerPanelStub = defineComponent({
   `
 })
 
+const RuntimeDisplayRulePanelStub = defineComponent({
+  name: 'ProductRuntimeMetricDisplayRulePanel',
+  props: ['productId'],
+  template: `
+    <section class="runtime-display-rule-panel-stub" data-testid="runtime-display-rule-panel-stub">
+      <span data-testid="runtime-display-rule-panel-props">{{ productId }}</span>
+    </section>
+  `
+})
+
 const ElInputStub = defineComponent({
   name: 'ElInput',
   props: ['modelValue', 'type', 'rows', 'placeholder'],
@@ -206,7 +216,7 @@ function mountWorkspace(productOverrides?: Partial<{
   nodeType: number
   deviceCount: number
   metadataJson: string | null
-}>){
+}>, workspaceView?: 'full' | 'contracts' | 'mapping-rules' | 'releases') {
   return mount(ProductModelDesignerWorkspace, {
     props: {
       product: {
@@ -218,7 +228,8 @@ function mountWorkspace(productOverrides?: Partial<{
         deviceCount: 3,
         metadataJson: null,
         ...productOverrides
-      }
+      },
+      ...(workspaceView ? { workspaceView } : {})
     },
     attachTo: document.body,
     global: {
@@ -226,6 +237,7 @@ function mountWorkspace(productOverrides?: Partial<{
         StandardButton: StandardButtonStub,
         ProductModelGovernanceCompareTable: CompareTableStub,
         ProductVendorMappingSuggestionPanel: SuggestionPanelStub,
+        ProductRuntimeMetricDisplayRulePanel: RuntimeDisplayRulePanelStub,
         ProductVendorMappingRuleLedgerPanel: LedgerPanelStub,
         ElInput: ElInputStub,
         ElTag: true
@@ -1988,5 +2000,18 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('样本输入')
     expect(wrapper.text()).toContain('本次生效')
     expect(wrapper.text()).not.toContain('加载失败')
+  })
+
+  it('renders runtime display rule governance in mapping-rules workspace', async () => {
+    const wrapper = mountWorkspace(undefined, 'mapping-rules')
+
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="contract-field-runtime-display-rules"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="runtime-display-rule-panel-stub"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="runtime-display-rule-panel-props"]').text()).toBe('1001')
+    expect(wrapper.find('[data-testid="vendor-suggestion-panel-stub"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="vendor-rule-ledger-panel-stub"]').exists()).toBe(true)
   })
 })

@@ -36,6 +36,7 @@ import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.OrganizationService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -117,6 +119,18 @@ class DeviceServiceImplTest {
                 organizationService,
                 runtimeMetricDisplayRuleService
         ));
+    }
+
+    @Test
+    void springShouldResolveSingleCandidateConstructorForDeviceServiceImpl() {
+        AutowiredAnnotationBeanPostProcessor processor = new AutowiredAnnotationBeanPostProcessor();
+
+        Constructor<?>[] constructors =
+                processor.determineCandidateConstructors(DeviceServiceImpl.class, "deviceServiceImpl");
+
+        assertTrue(constructors != null && constructors.length == 1,
+                "Spring should resolve exactly one candidate constructor for DeviceServiceImpl");
+        assertEquals(11, constructors[0].getParameterCount());
     }
 
     @Test

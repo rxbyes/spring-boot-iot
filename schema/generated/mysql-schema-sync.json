@@ -3847,6 +3847,113 @@
           "name": "tenant_id"
         },
         {
+          "commentZh": "作用域类型",
+          "definition": "VARCHAR(32) NOT NULL",
+          "isTag": false,
+          "name": "scope_type"
+        },
+        {
+          "commentZh": "产品ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "协议编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "protocol_code"
+        },
+        {
+          "commentZh": "场景编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "scenario_code"
+        },
+        {
+          "commentZh": "设备族编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "device_family"
+        },
+        {
+          "commentZh": "运行态原始字段标识",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "raw_identifier"
+        },
+        {
+          "commentZh": "显示名称",
+          "definition": "VARCHAR(128) NOT NULL",
+          "isTag": false,
+          "name": "display_name"
+        },
+        {
+          "commentZh": "显示单位",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "unit"
+        },
+        {
+          "commentZh": "状态",
+          "definition": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "版本号",
+          "definition": "INT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "version_no"
+        },
+        {
+          "commentZh": "创建人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "create_by"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "更新人",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "update_by"
+        },
+        {
+          "commentZh": "更新时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "update_time"
+        },
+        {
+          "commentZh": "逻辑删除标记",
+          "definition": "TINYINT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted"
+        }
+      ],
+      "name": "iot_runtime_metric_display_rule"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
           "commentZh": "产品ID",
           "definition": "BIGINT NOT NULL",
           "isTag": false,
@@ -7165,6 +7272,10 @@
       "sql": "-- 表：iot_product_model\n-- 说明：产品物模型表\nCREATE TABLE iot_product_model (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  model_type VARCHAR(32) NOT NULL COMMENT '模型类型（属性/事件/服务）',\n  identifier VARCHAR(64) NOT NULL COMMENT '标识符',\n  model_name VARCHAR(128) NOT NULL COMMENT '名称',\n  data_type VARCHAR(32) NOT NULL COMMENT '数据类型',\n  specs_json JSON DEFAULT NULL COMMENT '规格JSON',\n  event_type VARCHAR(32) DEFAULT NULL COMMENT '事件类型',\n  service_input_json JSON DEFAULT NULL COMMENT '服务输入定义',\n  service_output_json JSON DEFAULT NULL COMMENT '服务输出定义',\n  sort_no INT NOT NULL DEFAULT 0 COMMENT '排序',\n  required_flag TINYINT NOT NULL DEFAULT 0 COMMENT '是否必填',\n  description VARCHAR(500) DEFAULT NULL COMMENT '描述',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_product_identifier (product_id, model_type, identifier)\n) COMMENT='产品物模型表';"
     },
     {
+      "name": "iot_runtime_metric_display_rule",
+      "sql": "-- 表：iot_runtime_metric_display_rule\n-- 说明：运行态字段显示规则表\nCREATE TABLE iot_runtime_metric_display_rule (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scope_type VARCHAR(32) NOT NULL COMMENT '作用域类型',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',\n  raw_identifier VARCHAR(128) NOT NULL COMMENT '运行态原始字段标识',\n  display_name VARCHAR(128) NOT NULL COMMENT '显示名称',\n  unit VARCHAR(64) DEFAULT NULL COMMENT '显示单位',\n  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_runtime_metric_display_rule_lookup (product_id, raw_identifier, scope_type, deleted),\n  KEY idx_runtime_metric_display_rule_scope (scope_type, scenario_code, device_family, protocol_code)\n) COMMENT='运行态字段显示规则表';"
+    },
+    {
       "name": "iot_vendor_metric_evidence",
       "sql": "-- 表：iot_vendor_metric_evidence\n-- 说明：厂商字段证据表\nCREATE TABLE iot_vendor_metric_evidence (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  product_id BIGINT NOT NULL COMMENT '产品ID',\n  parent_device_code VARCHAR(64) DEFAULT NULL COMMENT '父设备编码',\n  child_device_code VARCHAR(64) DEFAULT NULL COMMENT '子设备编码',\n  raw_identifier VARCHAR(128) NOT NULL COMMENT '原始字段标识',\n  canonical_identifier VARCHAR(64) DEFAULT NULL COMMENT '建议规范字段标识',\n  logical_channel_code VARCHAR(64) DEFAULT NULL COMMENT '逻辑通道编码',\n  evidence_origin VARCHAR(32) NOT NULL COMMENT '证据来源',\n  sample_value VARCHAR(255) DEFAULT NULL COMMENT '样例值',\n  value_type VARCHAR(32) DEFAULT NULL COMMENT '值类型',\n  evidence_count INT NOT NULL DEFAULT 0 COMMENT '命中次数',\n  last_seen_time DATETIME DEFAULT NULL COMMENT '最后出现时间',\n  metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_vendor_metric_evidence (product_id, raw_identifier, logical_channel_code),\n  KEY idx_vendor_metric_product_seen (product_id, last_seen_time)\n) COMMENT='厂商字段证据表';"
     },
@@ -8307,6 +8418,38 @@
           "columns": [
             "product_id",
             "raw_identifier",
+            "scope_type",
+            "deleted"
+          ],
+          "kind": "INDEX",
+          "name": "idx_runtime_metric_display_rule_lookup"
+        },
+        {
+          "columns": [
+            "scope_type",
+            "scenario_code",
+            "device_family",
+            "protocol_code"
+          ],
+          "kind": "INDEX",
+          "name": "idx_runtime_metric_display_rule_scope"
+        }
+      ],
+      "name": "iot_runtime_metric_display_rule"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "product_id",
+            "raw_identifier",
             "logical_channel_code"
           ],
           "kind": "UNIQUE",
@@ -9403,6 +9546,7 @@
     "iot_protocol_family_definition_snapshot": "active",
     "iot_protocol_template_definition": "active",
     "iot_protocol_template_definition_snapshot": "active",
+    "iot_runtime_metric_display_rule": "active",
     "iot_vendor_metric_evidence": "active",
     "iot_vendor_metric_mapping_rule": "active",
     "iot_vendor_metric_mapping_rule_snapshot": "active",

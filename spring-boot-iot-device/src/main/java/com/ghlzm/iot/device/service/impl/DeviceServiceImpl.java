@@ -42,6 +42,8 @@ import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.OrganizationService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -112,6 +114,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         );
     }
 
+    @Autowired
     public DeviceServiceImpl(ProductService productService,
                              DevicePropertyMapper devicePropertyMapper,
                              ProductModelMapper productModelMapper,
@@ -122,7 +125,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                              DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
                              PermissionService permissionService,
                              OrganizationService organizationService,
-                             RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService) {
+                             @Nullable RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;

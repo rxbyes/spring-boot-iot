@@ -631,6 +631,21 @@
       <section
         v-if="showMappingRuleSections"
         class="product-model-designer__stage"
+        data-testid="contract-field-runtime-display-rules"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>运行态名称/单位治理</h3>
+            <p>针对非正式字段补中文名称和单位，供设备属性快照、对象洞察和历史趋势读侧统一复用。</p>
+          </div>
+        </header>
+
+        <ProductRuntimeMetricDisplayRulePanel :product-id="props.product?.id ?? null" />
+      </section>
+
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
         data-testid="contract-field-vendor-suggestions"
       >
         <header class="product-model-designer__stage-head">
@@ -1042,6 +1057,7 @@ import { useRoute, useRouter } from 'vue-router'
 import StandardButton from '@/components/StandardButton.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
+import ProductRuntimeMetricDisplayRulePanel from '@/components/product/ProductRuntimeMetricDisplayRulePanel.vue'
 import ProductVendorMappingRuleLedgerPanel from '@/components/product/ProductVendorMappingRuleLedgerPanel.vue'
 import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
 import { deviceApi } from '@/api/device'

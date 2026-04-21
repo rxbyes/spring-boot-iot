@@ -1003,6 +1003,7 @@
         },
         {
           "name": "idx_runtime_metric_display_rule_lookup",
+          "kind": "INDEX",
           "columns": [
             "product_id",
             "raw_identifier",
@@ -1012,6 +1013,7 @@
         },
         {
           "name": "idx_runtime_metric_display_rule_scope",
+          "kind": "INDEX",
           "columns": [
             "scope_type",
             "scenario_code",

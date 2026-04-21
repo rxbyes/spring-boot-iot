@@ -3101,6 +3101,93 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `scope_type` VARCHAR(32) NOT NULL COMMENT '作用域类型'",
+          "name": "scope_type"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `product_id` BIGINT DEFAULT NULL COMMENT '产品ID'",
+          "name": "product_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `protocol_code` VARCHAR(64) DEFAULT NULL COMMENT '协议编码'",
+          "name": "protocol_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `scenario_code` VARCHAR(64) DEFAULT NULL COMMENT '场景编码'",
+          "name": "scenario_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `device_family` VARCHAR(64) DEFAULT NULL COMMENT '设备族编码'",
+          "name": "device_family"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `raw_identifier` VARCHAR(128) NOT NULL COMMENT '运行态原始字段标识'",
+          "name": "raw_identifier"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `display_name` VARCHAR(128) NOT NULL COMMENT '显示名称'",
+          "name": "display_name"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `unit` VARCHAR(64) DEFAULT NULL COMMENT '显示单位'",
+          "name": "unit"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `status` VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `version_no` INT NOT NULL DEFAULT 1 COMMENT '版本号'",
+          "name": "version_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `create_by` BIGINT DEFAULT NULL COMMENT '创建人'",
+          "name": "create_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `update_by` BIGINT DEFAULT NULL COMMENT '更新人'",
+          "name": "update_by"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+          "name": "update_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：iot_runtime_metric_display_rule\n-- 说明：运行态字段显示规则表\nCREATE TABLE IF NOT EXISTS iot_runtime_metric_display_rule (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scope_type VARCHAR(32) NOT NULL COMMENT '作用域类型',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  protocol_code VARCHAR(64) DEFAULT NULL COMMENT '协议编码',\n  scenario_code VARCHAR(64) DEFAULT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) DEFAULT NULL COMMENT '设备族编码',\n  raw_identifier VARCHAR(128) NOT NULL COMMENT '运行态原始字段标识',\n  display_name VARCHAR(128) NOT NULL COMMENT '显示名称',\n  unit VARCHAR(64) DEFAULT NULL COMMENT '显示单位',\n  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_runtime_metric_display_rule_lookup (product_id, raw_identifier, scope_type, deleted),\n  KEY idx_runtime_metric_display_rule_scope (scope_type, scenario_code, device_family, protocol_code)\n) COMMENT='运行态字段显示规则表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD INDEX `idx_runtime_metric_display_rule_lookup` (`product_id`, `raw_identifier`, `scope_type`, `deleted`)",
+          "name": "idx_runtime_metric_display_rule_lookup"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_runtime_metric_display_rule` ADD INDEX `idx_runtime_metric_display_rule_scope` (`scope_type`, `scenario_code`, `device_family`, `protocol_code`)",
+          "name": "idx_runtime_metric_display_rule_scope"
+        }
+      ],
+      "name": "iot_runtime_metric_display_rule",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `iot_vendor_metric_evidence` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
           "name": "id"
         },
