@@ -25,6 +25,7 @@ import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddErrorVO;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
@@ -83,6 +84,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final DeviceOnboardingSuggestionService deviceOnboardingSuggestionService;
     private final PermissionService permissionService;
     private final OrganizationService organizationService;
+    private final RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
@@ -95,6 +97,32 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                              DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
                              PermissionService permissionService,
                              OrganizationService organizationService) {
+        this(
+                productService,
+                devicePropertyMapper,
+                productModelMapper,
+                riskMetricCatalogReadMapper,
+                unregisteredDeviceRosterService,
+                iotProperties,
+                invalidReportStateService,
+                deviceOnboardingSuggestionService,
+                permissionService,
+                organizationService,
+                null
+        );
+    }
+
+    public DeviceServiceImpl(ProductService productService,
+                             DevicePropertyMapper devicePropertyMapper,
+                             ProductModelMapper productModelMapper,
+                             RiskMetricCatalogReadMapper riskMetricCatalogReadMapper,
+                             UnregisteredDeviceRosterService unregisteredDeviceRosterService,
+                             IotProperties iotProperties,
+                             DeviceInvalidReportStateService invalidReportStateService,
+                             DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
+                             PermissionService permissionService,
+                             OrganizationService organizationService,
+                             RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
@@ -105,6 +133,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         this.deviceOnboardingSuggestionService = deviceOnboardingSuggestionService;
         this.permissionService = permissionService;
         this.organizationService = organizationService;
+        this.runtimeMetricDisplayRuleService = runtimeMetricDisplayRuleService;
     }
 
     @Override
@@ -429,7 +458,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         .eq(DeviceProperty::getDeviceId, device.getId())
                         .orderByDesc(DeviceProperty::getUpdateTime)
         );
-        overlayLatestPropertyNames(device, properties);
+        overlayLatestPropertyMetadata(device, properties);
         return properties;
     }
 
@@ -547,32 +576,79 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 ));
     }
 
-    private void overlayLatestPropertyNames(Device device, List<DeviceProperty> properties) {
+    private void overlayLatestPropertyMetadata(Device device, List<DeviceProperty> properties) {
         if (device == null || device.getProductId() == null || CollectionUtils.isEmpty(properties)) {
             return;
         }
-        Map<String, String> latestNameMap = productModelMapper.selectList(
+        Map<String, ProductPropertyDisplayMetadata> latestMetadataMap = productModelMapper.selectList(
                         new LambdaQueryWrapper<ProductModel>()
                                 .eq(ProductModel::getProductId, device.getProductId())
                                 .eq(ProductModel::getModelType, "property")
                                 .eq(ProductModel::getDeleted, 0)
                 ).stream()
-                .filter(model -> StringUtils.hasText(model.getIdentifier()) && StringUtils.hasText(model.getModelName()))
+                .filter(model -> StringUtils.hasText(model.getIdentifier()))
                 .collect(Collectors.toMap(
                         ProductModel::getIdentifier,
-                        ProductModel::getModelName,
+                        model -> new ProductPropertyDisplayMetadata(
+                                StringUtils.hasText(model.getModelName()) ? model.getModelName() : null,
+                                parseProductModelUnit(model.getSpecsJson())
+                        ),
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
-        if (latestNameMap.isEmpty()) {
+        Product product = null;
+        if (latestMetadataMap.isEmpty() && runtimeMetricDisplayRuleService == null) {
             return;
         }
-        properties.forEach(property -> {
-            String latestName = latestNameMap.get(property.getIdentifier());
-            if (StringUtils.hasText(latestName)) {
-                property.setPropertyName(latestName);
+        for (DeviceProperty property : properties) {
+            ProductPropertyDisplayMetadata latestMetadata = latestMetadataMap.get(property.getIdentifier());
+            if (latestMetadata != null) {
+                if (StringUtils.hasText(latestMetadata.propertyName())) {
+                    property.setPropertyName(latestMetadata.propertyName());
+                }
+                if (StringUtils.hasText(latestMetadata.unit())) {
+                    property.setUnit(latestMetadata.unit());
+                }
+                continue;
             }
-        });
+            if (runtimeMetricDisplayRuleService == null) {
+                continue;
+            }
+            if (product == null) {
+                product = productService.getRequiredById(device.getProductId());
+            }
+            RuntimeMetricDisplayRuleService.DisplayResolution resolution =
+                    runtimeMetricDisplayRuleService.resolveForDisplay(product, property.getIdentifier());
+            if (resolution == null) {
+                continue;
+            }
+            if (StringUtils.hasText(resolution.displayName())) {
+                property.setPropertyName(resolution.displayName());
+            }
+            if (StringUtils.hasText(resolution.unit())) {
+                property.setUnit(resolution.unit());
+            }
+        }
+    }
+
+    private String parseProductModelUnit(String specsJson) {
+        if (!StringUtils.hasText(specsJson)) {
+            return null;
+        }
+        try {
+            JsonNode specs = objectMapper.readTree(specsJson);
+            JsonNode unitNode = specs == null ? null : specs.get("unit");
+            if (unitNode == null || unitNode.isNull()) {
+                return null;
+            }
+            String unit = unitNode.asText();
+            return StringUtils.hasText(unit) ? unit.trim() : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private record ProductPropertyDisplayMetadata(String propertyName, String unit) {
     }
 
     private Device createDeviceRecord(Long currentUserId, DeviceAddDTO dto) {

@@ -12,6 +12,9 @@ import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +30,7 @@ public class DevicePropertyMetadataServiceImpl implements DevicePropertyMetadata
     private final PublishedProductContractSnapshotService snapshotService;
     private final MetricIdentifierResolver metricIdentifierResolver;
     private final DeviceTelemetryMappingResolver telemetryMappingResolver = new DeviceTelemetryMappingResolver();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Autowired
     public DevicePropertyMetadataServiceImpl(ProductModelMapper productModelMapper,
@@ -74,11 +78,29 @@ public class DevicePropertyMetadataServiceImpl implements DevicePropertyMetadata
             metadata.setIdentifier(canonicalIdentifier);
             metadata.setPropertyName(productModel.getModelName());
             metadata.setDataType(productModel.getDataType());
+            metadata.setUnit(parseUnit(productModel.getSpecsJson()));
             TelemetryMetricMapping telemetryMetricMapping =
                     telemetryMappingResolver.resolve(canonicalIdentifier, productModel.getSpecsJson());
             metadata.setTdengineLegacyMapping(telemetryMappingResolver.toLegacyMapping(telemetryMetricMapping));
             metadataMap.putIfAbsent(metadata.getIdentifier(), metadata);
         }
         return metadataMap;
+    }
+
+    private String parseUnit(String specsJson) {
+        if (specsJson == null || specsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode specs = objectMapper.readTree(specsJson);
+            JsonNode unitNode = specs == null ? null : specs.get("unit");
+            if (unitNode == null || unitNode.isNull()) {
+                return null;
+            }
+            String unit = unitNode.asText();
+            return unit == null || unit.isBlank() ? null : unit.trim();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }

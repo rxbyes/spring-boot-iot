@@ -16,6 +16,7 @@ export function createEmptyProductObjectInsightMetric(): ProductObjectInsightCus
     identifier: '',
     displayName: '',
     group: 'runtime',
+    unit: '',
     includeInTrend: true,
     includeInExtension: true,
     analysisTitle: '',
@@ -27,7 +28,7 @@ export function createEmptyProductObjectInsightMetric(): ProductObjectInsightCus
 }
 
 export function createProductObjectInsightMetricFromModel(
-  model: Pick<ProductModel, 'identifier' | 'modelName' | 'sortNo'>,
+  model: Pick<ProductModel, 'identifier' | 'modelName' | 'sortNo' | 'specsJson'>,
   group: ProductObjectInsightMetricGroup
 ): ProductObjectInsightCustomMetricConfig {
   const identifier = normalizeMetricIdentifier(model.identifier)
@@ -37,6 +38,7 @@ export function createProductObjectInsightMetricFromModel(
     identifier,
     displayName,
     group,
+    unit: parseProductModelUnit(model.specsJson),
     includeInTrend: true,
     includeInExtension: false,
     analysisTitle: '',
@@ -67,6 +69,7 @@ export function parseProductObjectInsightMetrics(metadataJson?: string | null): 
           normalizeText(row.identifier),
           normalizeText(row.displayName)
         ),
+        unit: normalizeText(row.unit),
         includeInTrend: typeof row.includeInTrend === 'boolean' ? row.includeInTrend : true,
         includeInExtension: typeof row.includeInExtension === 'boolean' ? row.includeInExtension : true,
         analysisTitle: normalizeText(row.analysisTitle),
@@ -111,12 +114,13 @@ export function buildProductMetadataJson(
 ): string | undefined {
   const normalizedRows = rows
     .map((item) => ({
-      identifier: normalizeText(item.identifier),
-      displayName: normalizeText(item.displayName),
-      group: serializeProductObjectInsightMetricGroup(item.group),
-      includeInTrend: item.includeInTrend ?? true,
-      includeInExtension: item.includeInExtension ?? true,
-      analysisTitle: normalizeText(item.analysisTitle) || undefined,
+        identifier: normalizeText(item.identifier),
+        displayName: normalizeText(item.displayName),
+        group: serializeProductObjectInsightMetricGroup(item.group),
+        unit: normalizeText(item.unit) || undefined,
+        includeInTrend: item.includeInTrend ?? true,
+        includeInExtension: item.includeInExtension ?? true,
+        analysisTitle: normalizeText(item.analysisTitle) || undefined,
       analysisTag: normalizeText(item.analysisTag) || undefined,
       analysisTemplate: normalizeText(item.analysisTemplate) || undefined,
       enabled: item.enabled ?? true,
@@ -161,14 +165,15 @@ export function upsertProductObjectInsightMetric(
   }
 
   const existingMetric = normalizeMetric(rows[targetIndex])
-  const nextMetric: ProductObjectInsightCustomMetricConfig = {
-    ...existingMetric,
-    identifier: normalizedMetric.identifier || existingMetric.identifier,
-    displayName: normalizedMetric.displayName || existingMetric.displayName,
-    group: normalizedMetric.group,
-    includeInTrend: normalizedMetric.includeInTrend ?? existingMetric.includeInTrend,
-    includeInExtension: normalizedMetric.includeInExtension ?? existingMetric.includeInExtension,
-    analysisTitle: normalizedMetric.analysisTitle || existingMetric.analysisTitle,
+    const nextMetric: ProductObjectInsightCustomMetricConfig = {
+      ...existingMetric,
+      identifier: normalizedMetric.identifier || existingMetric.identifier,
+      displayName: normalizedMetric.displayName || existingMetric.displayName,
+      group: normalizedMetric.group,
+      unit: normalizedMetric.unit || existingMetric.unit,
+      includeInTrend: normalizedMetric.includeInTrend ?? existingMetric.includeInTrend,
+      includeInExtension: normalizedMetric.includeInExtension ?? existingMetric.includeInExtension,
+      analysisTitle: normalizedMetric.analysisTitle || existingMetric.analysisTitle,
     analysisTag: normalizedMetric.analysisTag || existingMetric.analysisTag,
     analysisTemplate: normalizedMetric.analysisTemplate || existingMetric.analysisTemplate,
     enabled: normalizedMetric.enabled ?? existingMetric.enabled,
@@ -221,6 +226,7 @@ function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): Produc
     ...metric,
     identifier: normalizeMetricIdentifier(metric.identifier),
     displayName: normalizeText(metric.displayName),
+    unit: normalizeText(metric.unit),
     analysisTitle: normalizeText(metric.analysisTitle),
     analysisTag: normalizeText(metric.analysisTag),
     analysisTemplate: normalizeText(metric.analysisTemplate),
@@ -235,6 +241,28 @@ function normalizeMetric(metric: ProductObjectInsightCustomMetricConfig): Produc
 function normalizeSortNo(value: unknown) {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 10
+}
+
+function parseProductModelUnit(specsJson?: string | null) {
+  const specs = parseJsonObject(specsJson)
+  return normalizeText(specs?.unit)
+}
+
+function parseJsonObject(value?: string | null): Record<string, unknown> | null {
+  const text = normalizeText(value)
+  if (!text) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(text)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
 }
 
 export function inferProductObjectInsightMetricGroup(identifier?: string | null, displayName?: string | null) {

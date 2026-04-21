@@ -40,6 +40,7 @@ export interface ProductObjectInsightCustomMetricConfig {
   identifier: string;
   displayName: string;
   group: ProductObjectInsightMetricGroup;
+  unit?: string | null;
   includeInTrend?: boolean | null;
   includeInExtension?: boolean | null;
   analysisTitle?: string | null;
@@ -345,6 +346,39 @@ export interface VendorMetricMappingRuleCreatePayload {
   normalizationRuleJson?: string | null;
   targetNormativeIdentifier: string;
   status: VendorMetricMappingRuleLifecycleStatus;
+}
+
+export type RuntimeMetricDisplayRuleScopeType = VendorMetricMappingRuleScopeType;
+
+export type RuntimeMetricDisplayRuleStatus = 'ACTIVE' | 'DISABLED' | string;
+
+export interface RuntimeMetricDisplayRule {
+  id?: string | number | null;
+  productId?: string | number | null;
+  scopeType?: RuntimeMetricDisplayRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  displayName?: string | null;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
+  versionNo?: number | null;
+  createBy?: string | number | null;
+  createTime?: string | null;
+  updateBy?: string | number | null;
+  updateTime?: string | null;
+}
+
+export interface RuntimeMetricDisplayRuleUpsertPayload {
+  scopeType: RuntimeMetricDisplayRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  displayName: string;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
 }
 
 export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';

@@ -22,6 +22,7 @@ import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
@@ -85,6 +86,8 @@ class DeviceServiceImplTest {
     private PermissionService permissionService;
     @Mock
     private OrganizationService organizationService;
+    @Mock
+    private RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
 
     private DeviceServiceImpl deviceService;
     private IotProperties iotProperties;
@@ -111,7 +114,8 @@ class DeviceServiceImplTest {
                 invalidReportStateService,
                 deviceOnboardingSuggestionService,
                 permissionService,
-                organizationService
+                organizationService,
+                runtimeMetricDisplayRuleService
         ));
     }
 
@@ -255,6 +259,68 @@ class DeviceServiceImplTest {
 
         assertEquals(1, result.size());
         assertEquals("水平面夹角", result.get(0).getPropertyName());
+    }
+
+    @Test
+    void listPropertiesShouldApplyRuntimeDisplayRuleWhenFormalFieldMissing() {
+        Device device = new Device();
+        device.setId(2001L);
+        device.setProductId(1001L);
+        device.setDeviceCode("SK00TEST01");
+        doReturn(device).when(deviceService).getRequiredByCode("SK00TEST01");
+
+        DeviceProperty property = new DeviceProperty();
+        property.setIdentifier("S1_ZT_1.humidity");
+        property.setPropertyName("humidity");
+        property.setPropertyValue("67.2");
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(property));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(productService.getRequiredById(1001L)).thenReturn(enabledProduct("phase4-rain-gauge-product"));
+        when(runtimeMetricDisplayRuleService.resolveForDisplay(any(Product.class), eq("S1_ZT_1.humidity")))
+                .thenReturn(new RuntimeMetricDisplayRuleService.DisplayResolution(8101L, "PRODUCT", "相对湿度", "%RH"));
+
+        List<DeviceProperty> result = deviceService.listProperties("SK00TEST01");
+
+        assertEquals(1, result.size());
+        assertEquals("相对湿度", result.get(0).getPropertyName());
+        assertEquals("%RH", result.get(0).getUnit());
+    }
+
+    @Test
+    void listPropertiesShouldContinueOverlayAfterFormalFieldMatch() {
+        Device device = new Device();
+        device.setId(2001L);
+        device.setProductId(1001L);
+        device.setDeviceCode("SK00TEST02");
+        doReturn(device).when(deviceService).getRequiredByCode("SK00TEST02");
+
+        DeviceProperty formalProperty = new DeviceProperty();
+        formalProperty.setIdentifier("L1_QJ_1.angle");
+        formalProperty.setPropertyName("angle");
+        formalProperty.setPropertyValue("-6.03");
+
+        DeviceProperty runtimeProperty = new DeviceProperty();
+        runtimeProperty.setIdentifier("S1_ZT_1.humidity");
+        runtimeProperty.setPropertyName("humidity");
+        runtimeProperty.setPropertyValue("67.2");
+
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(formalProperty, runtimeProperty));
+
+        ProductModel model = new ProductModel();
+        model.setIdentifier("L1_QJ_1.angle");
+        model.setModelName("水平面夹角");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(model));
+
+        when(productService.getRequiredById(1001L)).thenReturn(enabledProduct("phase4-rain-gauge-product"));
+        when(runtimeMetricDisplayRuleService.resolveForDisplay(any(Product.class), eq("S1_ZT_1.humidity")))
+                .thenReturn(new RuntimeMetricDisplayRuleService.DisplayResolution(8102L, "PRODUCT", "相对湿度", "%RH"));
+
+        List<DeviceProperty> result = deviceService.listProperties("SK00TEST02");
+
+        assertEquals(2, result.size());
+        assertEquals("水平面夹角", result.get(0).getPropertyName());
+        assertEquals("相对湿度", result.get(1).getPropertyName());
+        assertEquals("%RH", result.get(1).getUnit());
     }
 
     @Test

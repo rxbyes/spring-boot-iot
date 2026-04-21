@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
@@ -60,6 +61,8 @@ class TelemetryQueryServiceImplTest {
     @Mock
     private MetricIdentifierResolver metricIdentifierResolver;
     @Mock
+    private RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
+    @Mock
     private TdengineTelemetryFacade tdengineTelemetryFacade;
     @Mock
     private TelemetryStorageModeResolver storageModeResolver;
@@ -92,7 +95,8 @@ class TelemetryQueryServiceImplTest {
                 legacyTelemetryHistoryReader,
                 telemetryRawHistoryReader,
                 snapshotService,
-                metricIdentifierResolver
+                metricIdentifierResolver,
+                runtimeMetricDisplayRuleService
         );
     }
 
@@ -115,8 +119,8 @@ class TelemetryQueryServiceImplTest {
         when(normalizedTelemetryHistoryReader.listHistory(
                 eq(device), eq(product), anyMap(), any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
         )).thenReturn(List.of(
-                historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0)),
-                historyPoint("S1_ZT_1.sensor_state.L4_NW_1", "传感器在线状态", 1L, LocalDateTime.of(2026, 4, 7, 0, 0))
+                historyPoint("L4_NW_1", "泥水位高程", 2.6D, historyTimeInCurrentWeekWindow()),
+                historyPoint("S1_ZT_1.sensor_state.L4_NW_1", "传感器在线状态", 1L, historyTimeInCurrentWeekWindow())
         ));
 
         TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
@@ -145,6 +149,43 @@ class TelemetryQueryServiceImplTest {
         request.setFillPolicy("ZERO");
 
         assertThrows(BizException.class, () -> telemetryQueryService.getHistoryBatch(request));
+    }
+
+    @Test
+    void getHistoryBatchShouldUseRuntimeDisplayRuleWhenFormalMetadataMissing() {
+        Device device = buildDevice();
+        Product product = buildProduct();
+        DeviceProperty currentProperty = new DeviceProperty();
+        currentProperty.setIdentifier("S1_ZT_1.humidity");
+        currentProperty.setPropertyName("humidity");
+        currentProperty.setValueType("double");
+        when(deviceMapper.selectOne(any())).thenReturn(device);
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(currentProperty));
+        when(storageModeResolver.isTdengineEnabled()).thenReturn(true);
+        when(telemetryReadRouter.historySource()).thenReturn("v2");
+        when(telemetryReadRouter.isLegacyReadFallbackEnabled()).thenReturn(false);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(1001L)).thenReturn(Map.of());
+        when(deviceTelemetryMappingService.listMetricMappingMap(1001L)).thenReturn(Map.of());
+        when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
+        when(telemetryRawHistoryReader.listHistory(
+                eq(device), eq(product), anyMap(), eq(List.of("S1_ZT_1.humidity")),
+                any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
+        )).thenReturn(List.of(
+                historyPoint("S1_ZT_1.humidity", "humidity", 67.2D, historyTimeInCurrentWeekWindow())
+        ));
+        when(runtimeMetricDisplayRuleService.resolveForDisplay(product, "S1_ZT_1.humidity"))
+                .thenReturn(new RuntimeMetricDisplayRuleService.DisplayResolution(8101L, "PRODUCT", "相对湿度", "%RH"));
+
+        TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
+        request.setDeviceId(2001L);
+        request.setIdentifiers(List.of("S1_ZT_1.humidity"));
+        request.setRangeCode("7d");
+        request.setFillPolicy("ZERO");
+
+        TelemetryHistoryBatchResponse result = telemetryQueryService.getHistoryBatch(request);
+
+        assertEquals("相对湿度", result.getPoints().get(0).getDisplayName());
     }
 
     @Test
@@ -186,8 +227,8 @@ class TelemetryQueryServiceImplTest {
                 any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
         ))
                 .thenReturn(List.of(
-                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0)),
-                        historyPoint("S1_ZT_1.sensor_state.L4_NW_1", "传感器在线状态", 1L, LocalDateTime.of(2026, 4, 7, 0, 0))
+                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, historyTimeInCurrentWeekWindow()),
+                        historyPoint("S1_ZT_1.sensor_state.L4_NW_1", "传感器在线状态", 1L, historyTimeInCurrentWeekWindow())
                 ));
 
         TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
@@ -229,7 +270,7 @@ class TelemetryQueryServiceImplTest {
                 any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
         ))
                 .thenReturn(List.of(
-                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0))
+                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, historyTimeInCurrentWeekWindow())
                 ));
         when(normalizedTelemetryHistoryReader.hasHistory(2001L))
                 .thenThrow(new RuntimeException("iot_device_telemetry_point unavailable"));
@@ -268,7 +309,7 @@ class TelemetryQueryServiceImplTest {
                 any(LocalDateTime.class), any(LocalDateTime.class), anyInt()
         ))
                 .thenReturn(List.of(
-                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, LocalDateTime.of(2026, 4, 7, 0, 0))
+                        historyPoint("L4_NW_1", "泥水位高程", 2.6D, historyTimeInCurrentWeekWindow())
                 ));
         when(normalizedTelemetryHistoryReader.hasHistory(2001L)).thenReturn(false);
 
@@ -505,7 +546,7 @@ class TelemetryQueryServiceImplTest {
                 any(LocalDateTime.class),
                 anyInt()
         )).thenReturn(List.of(
-                historyPoint("L4_NW_1", "泥水位", 1L, LocalDateTime.of(2026, 4, 7, 0, 0))
+                historyPoint("L4_NW_1", "泥水位", 1L, historyTimeInCurrentWeekWindow())
         ));
 
         TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
@@ -564,7 +605,7 @@ class TelemetryQueryServiceImplTest {
                 any(LocalDateTime.class),
                 anyInt()
         )).thenReturn(List.of(
-                historyPoint("L1_JS_1.gX", "X轴加速度", 0.1667D, LocalDateTime.of(2026, 4, 12, 21, 0))
+                historyPoint("L1_JS_1.gX", "X轴加速度", 0.1667D, historyTimeInCurrentDayWindow())
         ));
 
         TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
@@ -633,7 +674,7 @@ class TelemetryQueryServiceImplTest {
                 any(LocalDateTime.class),
                 anyInt()
         )).thenReturn(List.of(
-                historyPoint("value", "裂缝值", 0.2136D, LocalDateTime.of(2026, 4, 12, 21, 0))
+                historyPoint("value", "裂缝值", 0.2136D, historyTimeInCurrentDayWindow())
         ));
 
         TelemetryHistoryBatchRequest request = new TelemetryHistoryBatchRequest();
@@ -751,6 +792,23 @@ class TelemetryQueryServiceImplTest {
         metadata.setPropertyName(propertyName);
         metadata.setDataType(dataType);
         return metadata;
+    }
+
+    private LocalDateTime historyTimeInCurrentWeekWindow() {
+        return LocalDateTime.now()
+                .minusDays(1)
+                .withHour(10)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
+    }
+
+    private LocalDateTime historyTimeInCurrentDayWindow() {
+        return LocalDateTime.now()
+                .minusHours(2)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
     }
 
     private TelemetryV2Point historyPoint(String metricCode,

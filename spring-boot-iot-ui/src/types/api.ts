@@ -439,6 +439,7 @@ export interface ProductObjectInsightCustomMetricConfig {
   identifier: string;
   displayName: string;
   group: ProductObjectInsightMetricGroup;
+  unit?: string | null;
   includeInTrend?: boolean | null;
   includeInExtension?: boolean | null;
   analysisTitle?: string | null;
@@ -838,6 +839,39 @@ export interface VendorMetricMappingRuleReplay {
   targetNormativeIdentifier?: string | null;
   canonicalIdentifier?: string | null;
   sampleValue?: string | null;
+}
+
+export type RuntimeMetricDisplayRuleScopeType = VendorMetricMappingRuleScopeType;
+
+export type RuntimeMetricDisplayRuleStatus = 'ACTIVE' | 'DISABLED' | string;
+
+export interface RuntimeMetricDisplayRule {
+  id?: IdType | null;
+  productId?: IdType | null;
+  scopeType?: RuntimeMetricDisplayRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  displayName?: string | null;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
+  versionNo?: number | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface RuntimeMetricDisplayRuleUpsertPayload {
+  scopeType: RuntimeMetricDisplayRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  displayName: string;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
 }
 
 export interface ProtocolGovernancePageQuery {

@@ -12,6 +12,7 @@ import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
 import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
 import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
@@ -69,6 +70,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final TelemetryRawHistoryReader telemetryRawHistoryReader;
     private final PublishedProductContractSnapshotService snapshotService;
     private final MetricIdentifierResolver metricIdentifierResolver;
+    private final RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
 
     @Autowired
     public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
@@ -84,7 +86,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                                      LegacyTelemetryHistoryReader legacyTelemetryHistoryReader,
                                      TelemetryRawHistoryReader telemetryRawHistoryReader,
                                      PublishedProductContractSnapshotService snapshotService,
-                                     MetricIdentifierResolver metricIdentifierResolver) {
+                                     MetricIdentifierResolver metricIdentifierResolver,
+                                     RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService) {
         this.deviceMapper = deviceMapper;
         this.productMapper = productMapper;
         this.devicePropertyMapper = devicePropertyMapper;
@@ -99,6 +102,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         this.telemetryRawHistoryReader = telemetryRawHistoryReader;
         this.snapshotService = snapshotService;
         this.metricIdentifierResolver = metricIdentifierResolver;
+        this.runtimeMetricDisplayRuleService = runtimeMetricDisplayRuleService;
     }
 
     public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
@@ -126,6 +130,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 normalizedTelemetryHistoryReader,
                 legacyTelemetryHistoryReader,
                 telemetryRawHistoryReader,
+                null,
                 null,
                 null
         );
@@ -161,7 +166,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         Device device = requireDevice(request.getDeviceId());
         Product product = device.getProductId() == null ? null : productMapper.selectById(device.getProductId());
-        HistoryIdentifierContext identifierContext = resolveHistoryIdentifierContext(device, identifiers);
+        HistoryIdentifierContext identifierContext = resolveHistoryIdentifierContext(device, product, identifiers);
         List<String> resolvedIdentifiers = identifierContext.identifiers();
         Map<String, DevicePropertyMetadata> metadataMap = identifierContext.metadataMap();
         Map<String, TelemetryMetricMapping> mappingMap = device.getProductId() == null
@@ -256,7 +261,9 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return tdengineTelemetryFacade.listLatestPoints(device, product);
     }
 
-    private HistoryIdentifierContext resolveHistoryIdentifierContext(Device device, List<String> requestedIdentifiers) {
+    private HistoryIdentifierContext resolveHistoryIdentifierContext(Device device,
+                                                                    Product product,
+                                                                    List<String> requestedIdentifiers) {
         PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(device);
         Map<String, DevicePropertyMetadata> productMetadataMap = loadProductHistoryMetadataMap(device);
         Map<String, String> productMetadataCaseInsensitiveMap = buildCaseInsensitiveIdentifierMap(productMetadataMap.keySet());
@@ -279,6 +286,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 resolvedIdentifiers.add(resolvedIdentifier);
             }
             DevicePropertyMetadata metadata = buildResolvedHistoryMetadata(
+                    product,
                     resolvedIdentifier,
                     productMetadataMap,
                     productMetadataCaseInsensitiveMap,
@@ -388,7 +396,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return resolution.canonicalIdentifier();
     }
 
-    private DevicePropertyMetadata buildResolvedHistoryMetadata(String resolvedIdentifier,
+    private DevicePropertyMetadata buildResolvedHistoryMetadata(Product product,
+                                                               String resolvedIdentifier,
                                                                Map<String, DevicePropertyMetadata> productMetadataMap,
                                                                Map<String, String> productMetadataCaseInsensitiveMap,
                                                                Map<String, DeviceProperty> currentPropertyMap,
@@ -405,11 +414,24 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             metadata = new DevicePropertyMetadata();
         }
         metadata.setIdentifier(resolvedIdentifier);
+        RuntimeMetricDisplayRuleService.DisplayResolution displayResolution =
+                runtimeMetricDisplayRuleService == null ? null : runtimeMetricDisplayRuleService.resolveForDisplay(product, resolvedIdentifier);
+        if ((metadata.getPropertyName() == null || metadata.getPropertyName().isBlank())
+                && displayResolution != null && displayResolution.displayName() != null && !displayResolution.displayName().isBlank()) {
+            metadata.setPropertyName(displayResolution.displayName());
+        }
+        if ((metadata.getUnit() == null || metadata.getUnit().isBlank())
+                && displayResolution != null && displayResolution.unit() != null && !displayResolution.unit().isBlank()) {
+            metadata.setUnit(displayResolution.unit());
+        }
         if ((metadata.getPropertyName() == null || metadata.getPropertyName().isBlank()) && currentProperty != null) {
             metadata.setPropertyName(currentProperty.getPropertyName());
         }
         if ((metadata.getDataType() == null || metadata.getDataType().isBlank()) && currentProperty != null) {
             metadata.setDataType(currentProperty.getValueType());
+        }
+        if ((metadata.getUnit() == null || metadata.getUnit().isBlank()) && currentProperty != null) {
+            metadata.setUnit(currentProperty.getUnit());
         }
         return metadata;
     }
@@ -448,6 +470,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         copy.setIdentifier(metadata.getIdentifier());
         copy.setPropertyName(metadata.getPropertyName());
         copy.setDataType(metadata.getDataType());
+        copy.setUnit(metadata.getUnit());
         copy.setTdengineLegacyMapping(metadata.getTdengineLegacyMapping());
         return copy;
     }

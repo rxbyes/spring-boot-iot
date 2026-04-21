@@ -897,6 +897,145 @@
       "businessBoundary": "用于厂商字段证据表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
+      "name": "iot_runtime_metric_display_rule",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-device",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "运行态字段显示规则表",
+      "commentZh": "运行态字段显示规则表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "scope_type",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "作用域类型"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "scenario_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "场景编码"
+        },
+        {
+          "name": "device_family",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备族编码"
+        },
+        {
+          "name": "raw_identifier",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "运行态原始字段标识"
+        },
+        {
+          "name": "display_name",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "显示名称"
+        },
+        {
+          "name": "unit",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "显示单位"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_runtime_metric_display_rule_lookup",
+          "columns": [
+            "product_id",
+            "raw_identifier",
+            "scope_type",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_runtime_metric_display_rule_scope",
+          "columns": [
+            "scope_type",
+            "scenario_code",
+            "device_family",
+            "protocol_code"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "用于运行态字段名称/单位治理规则持久化与查询，只补充非正式字段的读侧展示，不改写正式合同真相。"
+    },
+    {
       "name": "iot_vendor_metric_mapping_rule",
       "storageType": "mysql_table",
       "ownerModule": "spring-boot-iot-device",

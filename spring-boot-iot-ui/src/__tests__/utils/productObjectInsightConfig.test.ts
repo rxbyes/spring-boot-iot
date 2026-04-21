@@ -21,6 +21,7 @@ describe('productObjectInsightConfig', () => {
               identifier: 'S1_ZT_1.humidity',
               displayName: '相对湿度',
               group: 'status',
+              unit: '%',
               includeInTrend: true,
               includeInExtension: true,
               enabled: true,
@@ -34,6 +35,7 @@ describe('productObjectInsightConfig', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].displayName).toBe('相对湿度')
     expect(rows[0].group).toBe('runtime')
+    expect(rows[0].unit).toBe('%')
   })
 
   it('serializes editable rows back into metadataJson.objectInsight.customMetrics', () => {
@@ -43,6 +45,7 @@ describe('productObjectInsightConfig', () => {
         identifier: 'S1_ZT_1.signal_4g',
         displayName: '4G 信号强度',
         group: 'runtime',
+        unit: 'dBm',
         analysisTemplate: '{{label}}当前为{{value}}',
         sortNo: 20
       }
@@ -50,6 +53,7 @@ describe('productObjectInsightConfig', () => {
 
     expect(metadataJson).toContain('objectInsight')
     expect(metadataJson).toContain('S1_ZT_1.signal_4g')
+    expect(metadataJson).toContain('"unit":"dBm"')
   })
 
   it('serializes status-event rows back into the backend status group contract', () => {
@@ -104,7 +108,10 @@ describe('productObjectInsightConfig', () => {
       {
         identifier: 'L1_LF_1.value',
         modelName: '裂缝量',
-        sortNo: 6
+        sortNo: 6,
+        specsJson: JSON.stringify({
+          unit: 'mm'
+        })
       },
       'measure'
     )
@@ -114,6 +121,7 @@ describe('productObjectInsightConfig', () => {
         identifier: 'L1_LF_1.value',
         displayName: '裂缝量',
         group: 'measure',
+        unit: 'mm',
         includeInTrend: true,
         includeInExtension: false,
         enabled: true,
@@ -133,7 +141,10 @@ describe('productObjectInsightConfig', () => {
         {
           identifier: 'L1_LF_1.value',
           modelName: '裂缝量',
-          sortNo: 2
+          sortNo: 2,
+          specsJson: JSON.stringify({
+            unit: 'mm'
+          })
         },
         'measure'
       )
@@ -143,6 +154,7 @@ describe('productObjectInsightConfig', () => {
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.identifier).toBe('L1_LF_1.value')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.group).toBe('measure')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.analysisTemplate).toBe('{{label}}来自旧配置')
+    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.unit).toBe('mm')
     expect(removeProductObjectInsightMetric(updated, 'L1_LF_1.value')).toEqual([])
   })
 })

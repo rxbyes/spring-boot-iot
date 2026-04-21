@@ -11,6 +11,7 @@ public class DevicePropertyMetadata {
     private String identifier;
     private String propertyName;
     private String dataType;
+    private String unit;
     private TdengineLegacyMapping tdengineLegacyMapping;
 
     @Data

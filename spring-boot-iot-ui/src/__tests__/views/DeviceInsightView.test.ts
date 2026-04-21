@@ -287,6 +287,22 @@ const PanelCardStub = defineComponent({
   `
 });
 
+const StandardButtonStub = defineComponent({
+  name: 'StandardButton',
+  props: ['disabled', 'loading'],
+  emits: ['click'],
+  template: `
+    <button
+      class="standard-button-stub"
+      type="button"
+      :disabled="Boolean(disabled) || Boolean(loading)"
+      @click="$emit('click')"
+    >
+      <slot />
+    </button>
+  `
+});
+
 const MetricCardStub = defineComponent({
   name: 'MetricCard',
   props: ['label', 'value'],
@@ -406,15 +422,33 @@ const StandardTableTextColumnStub = defineComponent({
   template: `
     <div class="standard-table-text-column-stub" :data-label="label">
       <span class="standard-table-text-column-stub__label">{{ label }}</span>
-      <template v-if="prop === 'displayUnit' || prop === 'displayName'">
-        <div
-          v-for="(row, index) in rows"
-          :key="index"
-          class="standard-table-text-column-stub__value"
-        >
-          {{ row?.[prop] }}
-        </div>
-      </template>
+      <div
+        v-for="(row, index) in rows"
+        :key="index"
+        class="standard-table-text-column-stub__value"
+      >
+        {{ row?.[prop] }}
+      </div>
+    </div>
+  `
+});
+
+const ElTableColumnStub = defineComponent({
+  name: 'ElTableColumn',
+  props: ['label'],
+  setup() {
+    const rows = inject<any[]>('deviceInsightTableRows', []);
+    return { rows };
+  },
+  template: `
+    <div class="el-table-column-stub" :data-label="label">
+      <div
+        v-for="(row, index) in rows"
+        :key="index"
+        class="el-table-column-stub__cell"
+      >
+        <slot :row="row" />
+      </div>
     </div>
   `
 });
@@ -432,7 +466,7 @@ function mountView() {
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardInlineState: true,
-        StandardButton: true,
+        StandardButton: StandardButtonStub,
         MetricCard: MetricCardStub,
         PanelCard: PanelCardStub,
         CollectorChildInsightPanel: CollectorChildInsightPanelStub,
@@ -446,7 +480,7 @@ function mountView() {
         'el-descriptions-item': true,
         'el-empty': true,
         'el-table': ElTableStub,
-        'el-table-column': true
+        'el-table-column': ElTableColumnStub
       }
     }
   });
@@ -494,7 +528,12 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('传感器在线状态');
     expect(wrapper.text()).toContain('剩余电量');
     expect(wrapper.text()).toContain('属性趋势预览');
-    expect(wrapper.text()).not.toContain('L4_NW_1');
+    expect(
+      wrapper
+        .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__value')
+        .map((node) => node.text().trim())
+        .filter(Boolean)
+    ).toEqual(['泥水位高程', '传感器在线状态', '剩余电量']);
     expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });
@@ -1173,6 +1212,123 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('累计雨量（mm）');
     expect(trendPanelTexts).toContain('累计雨量（mm）');
     expect(trendPanelTexts).not.toContain('L3_YL_1.totalValue');
+  });
+
+  it('uses object-insight configured unit when product model does not provide one', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4501,
+        productId: 705,
+        deviceCode: 'CONFIG-UNIT-001',
+        deviceName: '深部位移监测仪',
+        productName: '深部位移监测仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-21 09:00:00',
+        lastReportTime: '2026-04-21 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_SW_1.dispsX',
+          propertyName: '水平位移',
+          propertyValue: '1.5',
+          valueType: 'double',
+          updateTime: '2026-04-21 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 705,
+        productKey: 'config-unit-product',
+        productName: '深部位移监测仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'L1_SW_1.dispsX',
+                displayName: '水平位移',
+                group: 'measure',
+                unit: 'mm',
+                includeInTrend: true,
+                includeInExtension: false,
+                enabled: true,
+                sortNo: 5
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 15,
+          productId: 705,
+          modelType: 'property',
+          identifier: 'L1_SW_1.dispsX',
+          modelName: '水平位移',
+          dataType: 'double',
+          specsJson: null
+        }
+      ]
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 4501,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'L1_SW_1.dispsX',
+            displayName: '位移值',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-21 09:00:00', value: 1.5, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'CONFIG-UNIT-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const trendPanelTexts = wrapper.find('.trend-panel-stub').findAll('div').map((node) => node.text());
+
+    expect(wrapper.text()).toContain('水平位移（mm）');
+    expect(trendPanelTexts).toContain('水平位移（mm）');
+    expect(wrapper.text()).toContain('单位');
+    expect(wrapper.text()).toContain('mm');
   });
 
   it('only queries explicitly configured trend metrics for collect devices', async () => {
@@ -2692,5 +2848,298 @@ describe('DeviceInsightView', () => {
         rangeCode: '365d'
       })
     }));
+  });
+
+  it('deduplicates short aliases when a unique full-path snapshot field exists', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4101,
+        productId: 901,
+        deviceCode: '15522761',
+        deviceName: '倾角仪 15522761',
+        productKey: 'zhd-monitor-tiltmeter-v1',
+        productName: '中海达 监测型 倾角仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-21 09:00:00',
+        lastReportTime: '2026-04-21 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'AZI',
+          propertyName: 'AZI',
+          propertyValue: '12.8',
+          valueType: 'double',
+          unit: '°',
+          updateTime: '2026-04-21 09:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'L1_QJ_1.AZI',
+          propertyName: '1号倾角测点方位角',
+          propertyValue: '12.8',
+          valueType: 'double',
+          unit: '°',
+          updateTime: '2026-04-21 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 901,
+        productKey: 'zhd-monitor-tiltmeter-v1',
+        productName: '中海达 监测型 倾角仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 101,
+          productId: 901,
+          modelType: 'property',
+          identifier: 'L1_QJ_1.AZI',
+          modelName: '方位角',
+          dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: '°'
+          })
+        }
+      ]
+    });
+    mockRoute.query = {
+      deviceCode: '15522761'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const identifierValues = wrapper
+      .findAll('.standard-table-text-column-stub[data-label="标识符"] .standard-table-text-column-stub__value')
+      .map((node) => node.text().trim())
+      .filter(Boolean);
+    const displayNameValues = wrapper
+      .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__value')
+      .map((node) => node.text().trim())
+      .filter(Boolean);
+
+    expect(identifierValues).toEqual(['L1_QJ_1.AZI']);
+    expect(displayNameValues).toEqual(['1号倾角测点方位角']);
+  });
+
+  it('hides a bare logical-channel status alias when the formal sensor_state field exists', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4102,
+        productId: 901,
+        deviceCode: '15522761',
+        deviceName: '倾角仪 15522761',
+        productKey: 'zhd-monitor-tiltmeter-v1',
+        productName: '中海达 监测型 倾角仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-21 09:00:00',
+        lastReportTime: '2026-04-21 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_QJ_1',
+          propertyName: '1号倾角测点传感器状态',
+          propertyValue: '0',
+          valueType: 'int',
+          updateTime: '2026-04-21 09:05:00'
+        },
+        {
+          id: 2,
+          identifier: 'S1_ZT_1.sensor_state.L1_QJ_1',
+          propertyName: '1号倾角测点传感器状态',
+          propertyValue: '0',
+          valueType: 'int',
+          updateTime: '2026-04-21 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 901,
+        productKey: 'zhd-monitor-tiltmeter-v1',
+        productName: '中海达 监测型 倾角仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 101,
+          productId: 901,
+          modelType: 'property',
+          identifier: 'S1_ZT_1.sensor_state.L1_QJ_1',
+          modelName: '1号倾角测点传感器状态',
+          dataType: 'int',
+          specsJson: null
+        }
+      ]
+    });
+    mockRoute.query = {
+      deviceCode: '15522761'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const identifierValues = wrapper
+      .findAll('.standard-table-text-column-stub[data-label="标识符"] .standard-table-text-column-stub__value')
+      .map((node) => node.text().trim())
+      .filter(Boolean);
+
+    expect(identifierValues).toEqual(['S1_ZT_1.sensor_state.L1_QJ_1']);
+  });
+
+  it('opens the product contract formal-field editor from the snapshot row', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 4102,
+        productId: 901,
+        deviceCode: '15522761',
+        deviceName: '倾角仪 15522761',
+        productKey: 'zhd-monitor-tiltmeter-v1',
+        productName: '中海达 监测型 倾角仪',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-21 09:00:00',
+        lastReportTime: '2026-04-21 09:05:00',
+        metadataJson: null
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1,
+          identifier: 'L1_QJ_1.AZI',
+          propertyName: '1号倾角测点方位角',
+          propertyValue: '12.8',
+          valueType: 'double',
+          unit: '°',
+          updateTime: '2026-04-21 09:05:00'
+        }
+      ]
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 901,
+        productKey: 'zhd-monitor-tiltmeter-v1',
+        productName: '中海达 监测型 倾角仪',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: null
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 101,
+          productId: 901,
+          modelType: 'property',
+          identifier: 'L1_QJ_1.AZI',
+          modelName: '方位角',
+          dataType: 'double',
+          specsJson: JSON.stringify({
+            unit: '°'
+          })
+        }
+      ]
+    });
+    mockRoute.query = {
+      deviceCode: '15522761'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    const editButton = wrapper.find('[data-testid="property-snapshot-edit-L1_QJ_1_AZI"]');
+    expect(editButton.exists()).toBe(true);
+
+    await editButton.trigger('click');
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products/901/contracts',
+      query: {
+        modelIdentifier: 'L1_QJ_1.AZI',
+        renameModel: '1',
+        source: 'insight'
+      }
+    });
   });
 });

@@ -136,7 +136,7 @@
 
           <PanelCard
             title="设备属性快照"
-            description="展示设备当前最新运行态值，名称与单位优先沿用正式字段配置，不用物模型定义替代真实值。"
+            description="展示设备当前最新运行态值；若要修改正式字段名称、单位等定义，可直接跳到产品契约页处理。"
           >
             <el-table
               v-if="propertyTableRows.length"
@@ -151,6 +151,20 @@
               <StandardTableTextColumn prop="displayUnit" label="单位" :min-width="100" />
               <StandardTableTextColumn prop="valueType" label="类型" :min-width="120" />
               <StandardTableTextColumn prop="displayTime" label="更新时间" :min-width="180" />
+              <el-table-column label="治理操作" :min-width="180" fixed="right">
+                <template #default="{ row }">
+                  <StandardButton
+                    v-if="row.canEditFormalField"
+                    action="query"
+                    link
+                    :data-testid="buildPropertySnapshotEditTestId(row.formalIdentifier || row.identifier)"
+                    @click="handleEditFormalField(row)"
+                  >
+                    修改名称/单位
+                  </StandardButton>
+                  <span v-else class="monitoring-snapshot-table__action-hint">未形成正式字段</span>
+                </template>
+              </el-table-column>
             </el-table>
             <div v-else class="empty-state">{{ snapshotEmptyMessage }}</div>
           </PanelCard>
@@ -188,6 +202,7 @@ import {
 } from '@/utils/deviceInsightCapability';
 import { getInsightObjectTypeLabel, getRiskLevelLabel, pickPrimaryBinding } from '@/utils/deviceInsight';
 import { resolveInsightMetricDisplayName } from '@/utils/deviceInsightNaming';
+import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes';
 
 interface InsightTrendBucket {
   time: string;
@@ -213,6 +228,17 @@ interface NarrativeBlock {
   title: string;
   tag: string;
   description: string;
+}
+
+interface PropertySnapshotRow extends Partial<DeviceProperty> {
+  identifier: string;
+  propertyValue: string;
+  valueType: string;
+  displayName: string;
+  displayUnit: string;
+  displayTime: string;
+  formalIdentifier: string;
+  canEditFormalField: boolean;
 }
 
 function resolveRouteDeviceCode(value: unknown) {
@@ -245,6 +271,7 @@ const trendGroups = ref<InsightTrendGroup[]>([]);
 const productModelDisplayNameMap = ref<Map<string, string>>(new Map());
 const productModelDataTypeMap = ref<Map<string, string>>(new Map());
 const productModelUnitMap = ref<Map<string, string>>(new Map());
+const productPropertyIdentifierSet = ref<Set<string>>(new Set());
 const lastFetchTime = ref<string | null>(null);
 const requestVersion = ref(0);
 let syncingRoute = false;
@@ -309,6 +336,14 @@ const configuredSnapshotMetricMap = computed(() => {
     .forEach((metric) => {
       map.set(metric.identifier, metric);
     });
+  return map;
+});
+
+const configuredMetricMap = computed(() => {
+  const map = new Map<string, InsightCapabilityProfile['customMetrics'][number]>();
+  capabilityProfile.value.customMetrics.forEach((metric) => {
+    map.set(metric.identifier, metric);
+  });
   return map;
 });
 
@@ -415,8 +450,8 @@ const analysisParagraphs = computed<NarrativeBlock[]>(() => {
   return blocks;
 });
 
-const propertyTableRows = computed(() => {
-  const orderedIdentifiers = uniqueIdentifiers([
+const propertyTableRows = computed<PropertySnapshotRow[]>(() => {
+  const orderedIdentifiers = dedupeSnapshotIdentifiers([
     ...Array.from(configuredSnapshotMetricMap.value.keys()),
     ...properties.value.map((item) => item.identifier)
   ]);
@@ -426,6 +461,7 @@ const propertyTableRows = computed(() => {
     const series = trendSeriesMap.value.get(identifier);
     const configuredMetric = configuredSnapshotMetricMap.value.get(identifier);
     const latestActualBucket = resolveLatestActualTrendBucket(series);
+    const formalIdentifier = resolveFormalPropertyIdentifier(identifier);
 
     return {
       ...(property ?? {}),
@@ -440,7 +476,9 @@ const propertyTableRows = computed(() => {
         resolveProductModelValue(productModelDisplayNameMap.value, identifier)
       ),
       displayUnit: resolveMetricUnit(identifier, property) || '--',
-      displayTime: formatDateTime(property?.updateTime || property?.reportTime || latestActualBucket?.time)
+      displayTime: formatDateTime(property?.updateTime || property?.reportTime || latestActualBucket?.time),
+      formalIdentifier,
+      canEditFormalField: Boolean(device.value?.productId && formalIdentifier)
     };
   });
 });
@@ -487,6 +525,22 @@ function handleReset() {
   selectedRange.value = DEFAULT_INSIGHT_RANGE;
   resetInsightState();
   syncRoute();
+}
+
+function handleEditFormalField(row: PropertySnapshotRow) {
+  const productId = device.value?.productId;
+  const formalIdentifier = normalizeText(row.formalIdentifier);
+  if (productId === undefined || productId === null || !formalIdentifier) {
+    return;
+  }
+  void router.push({
+    path: buildProductWorkbenchSectionPath(productId, 'contracts'),
+    query: {
+      modelIdentifier: formalIdentifier,
+      renameModel: '1',
+      source: 'insight'
+    }
+  });
 }
 
 function handleRangeChange(value: string | number | boolean) {
@@ -546,6 +600,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
     productModelDataTypeMap.value = productInsightSupplement.modelDataTypeMap;
     productModelUnitMap.value = productInsightSupplement.modelUnitMap;
+    productPropertyIdentifierSet.value = productInsightSupplement.propertyIdentifierSet;
     collectorOverview.value = collectorOverviewResponse?.data ?? null;
 
     const primaryBinding = pickPrimaryBinding(riskBindings.value);
@@ -614,6 +669,7 @@ function resetInsightState() {
   productModelDisplayNameMap.value = new Map();
   productModelDataTypeMap.value = new Map();
   productModelUnitMap.value = new Map();
+  productPropertyIdentifierSet.value = new Set();
   lastFetchTime.value = null;
 }
 
@@ -854,7 +910,8 @@ async function loadProductInsightSupplement(productId?: string | number | null) 
     metadataJson: null as string | null,
     modelDisplayNameMap: new Map<string, string>(),
     modelDataTypeMap: new Map<string, string>(),
-    modelUnitMap: new Map<string, string>()
+    modelUnitMap: new Map<string, string>(),
+    propertyIdentifierSet: new Set<string>()
   };
   if (productId === undefined || productId === null || productId === '') {
     return emptySupplement;
@@ -879,6 +936,11 @@ async function loadProductInsightSupplement(productId?: string | number | null) 
           : []
       ),
       modelUnitMap: buildProductModelUnitMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      ),
+      propertyIdentifierSet: buildProductPropertyIdentifierSet(
         modelResult.status === 'fulfilled' && modelResult.value.code === 200
           ? modelResult.value.data ?? []
           : []
@@ -923,6 +985,15 @@ function buildProductModelUnitMap(models: ProductModel[]) {
   return map;
 }
 
+function buildProductPropertyIdentifierSet(models: ProductModel[]) {
+  return new Set(
+    models
+      .filter((model) => model.modelType === 'property')
+      .map((model) => normalizeText(model.identifier))
+      .filter(Boolean)
+  );
+}
+
 function resolveProductModelUnit(model: ProductModel) {
   return normalizeText(parseSpecsJson(model.specsJson)?.unit);
 }
@@ -947,7 +1018,10 @@ function resolveMetricBaseName(identifier: string, ...candidates: Array<unknown>
 }
 
 function resolveMetricUnit(identifier: string, property?: DeviceProperty | null) {
-  return normalizeText(property?.unit) || resolveProductModelValue(productModelUnitMap.value, identifier) || '';
+  return normalizeText(property?.unit)
+    || resolveConfiguredMetricValue(configuredMetricMap.value, identifier, (metric) => normalizeText(metric.unit))
+    || resolveProductModelValue(productModelUnitMap.value, identifier)
+    || '';
 }
 
 function resolveProductModelValue(map: Map<string, string>, identifier: string) {
@@ -968,6 +1042,205 @@ function resolveProductModelValue(map: Map<string, string>, identifier: string) 
     return compatibleEntries[0]?.[1] || '';
   }
   return '';
+}
+
+function resolveConfiguredMetricValue(
+  map: Map<string, InsightCapabilityProfile['customMetrics'][number]>,
+  identifier: string,
+  selector: (metric: InsightCapabilityProfile['customMetrics'][number]) => string
+) {
+  const exactMetric = map.get(identifier);
+  const exactValue = exactMetric ? selector(exactMetric) : '';
+  if (exactValue) {
+    return exactValue;
+  }
+
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  for (const [key, metric] of map.entries()) {
+    if (key.trim().toLowerCase() === normalizedIdentifier) {
+      const resolvedValue = selector(metric);
+      if (resolvedValue) {
+        return resolvedValue;
+      }
+    }
+  }
+
+  const compatibleEntries = Array.from(map.entries()).filter(([key]) =>
+    isCompatibleProductModelIdentifier(key, identifier)
+  );
+  if (compatibleEntries.length === 1) {
+    return selector(compatibleEntries[0][1]);
+  }
+
+  return '';
+}
+
+function resolveFormalPropertyIdentifier(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return '';
+  }
+  const exactIdentifier = findCaseInsensitiveIdentifier(productPropertyIdentifierSet.value, normalizedIdentifier);
+  if (exactIdentifier) {
+    return exactIdentifier;
+  }
+  const compatibleIdentifiers = Array.from(productPropertyIdentifierSet.value).filter((candidate) =>
+    isSnapshotAliasCompatibleIdentifier(candidate, normalizedIdentifier)
+  );
+  return compatibleIdentifiers.length === 1 ? compatibleIdentifiers[0] ?? '' : '';
+}
+
+function dedupeSnapshotIdentifiers(values: string[]) {
+  const dedupedIdentifiers: string[] = [];
+  const indexByCanonicalIdentifier = new Map<string, number>();
+  values.forEach((value) => {
+    const identifier = normalizeText(value);
+    if (!identifier) {
+      return;
+    }
+    const canonicalIdentifier = resolveSnapshotCanonicalIdentifier(identifier).toLowerCase();
+    const existingIndex = indexByCanonicalIdentifier.get(canonicalIdentifier);
+    if (existingIndex === undefined) {
+      indexByCanonicalIdentifier.set(canonicalIdentifier, dedupedIdentifiers.length);
+      dedupedIdentifiers.push(identifier);
+      return;
+    }
+    const existingIdentifier = dedupedIdentifiers[existingIndex];
+    if (shouldPreferSnapshotIdentifier(identifier, existingIdentifier)) {
+      dedupedIdentifiers[existingIndex] = identifier;
+    }
+  });
+  return dedupedIdentifiers;
+}
+
+function shouldPreferSnapshotIdentifier(candidateIdentifier: string, currentIdentifier: string) {
+  const candidateScore = scoreSnapshotIdentifier(candidateIdentifier);
+  const currentScore = scoreSnapshotIdentifier(currentIdentifier);
+  if (candidateScore !== currentScore) {
+    return candidateScore > currentScore;
+  }
+  return normalizeText(candidateIdentifier).length > normalizeText(currentIdentifier).length;
+}
+
+function scoreSnapshotIdentifier(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+  let score = 0;
+  if (normalizeText(resolveSnapshotCanonicalIdentifier(normalizedIdentifier)).toLowerCase() === normalizedIdentifier.toLowerCase()) {
+    score += 100;
+  }
+  if (isManagedSnapshotIdentifier(normalizedIdentifier)) {
+    score += 40;
+  }
+  if (normalizedIdentifier.includes('.')) {
+    score += 10;
+  }
+  const propertyName = propertyMap.value.get(normalizedIdentifier)?.propertyName;
+  if (propertyName && !isAliasLikeMetricLabel(propertyName, normalizedIdentifier)) {
+    score += 5;
+  }
+  return score;
+}
+
+function resolveSnapshotCanonicalIdentifier(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return '';
+  }
+
+  const managedIdentifiers = resolveManagedSnapshotIdentifiers();
+  const exactManagedIdentifier = findCaseInsensitiveIdentifier(managedIdentifiers, normalizedIdentifier);
+  if (exactManagedIdentifier) {
+    return exactManagedIdentifier;
+  }
+  const propertyIdentifiers = uniqueIdentifiers(properties.value.map((item) => item.identifier));
+  const mirroredSensorStateIdentifier = resolveMirroredSensorStateIdentifier(normalizedIdentifier, [
+    ...managedIdentifiers,
+    ...propertyIdentifiers
+  ]);
+  if (mirroredSensorStateIdentifier) {
+    return mirroredSensorStateIdentifier;
+  }
+
+  const compatibleManagedIdentifiers = managedIdentifiers.filter((candidate) =>
+    isSnapshotAliasCompatibleIdentifier(candidate, normalizedIdentifier)
+  );
+  if (compatibleManagedIdentifiers.length === 1) {
+    return compatibleManagedIdentifiers[0] ?? normalizedIdentifier;
+  }
+
+  const exactPropertyIdentifier = findCaseInsensitiveIdentifier(propertyIdentifiers, normalizedIdentifier);
+  if (exactPropertyIdentifier?.includes('.')) {
+    return exactPropertyIdentifier;
+  }
+
+  const compatibleFullPathIdentifiers = propertyIdentifiers.filter((candidate) =>
+    candidate.includes('.') && isSnapshotAliasCompatibleIdentifier(candidate, normalizedIdentifier)
+  );
+  if (compatibleFullPathIdentifiers.length === 1) {
+    return compatibleFullPathIdentifiers[0] ?? normalizedIdentifier;
+  }
+
+  return exactPropertyIdentifier || normalizedIdentifier;
+}
+
+function resolveMirroredSensorStateIdentifier(identifier: string, candidates: string[]) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier || normalizedIdentifier.includes('.')) {
+    return '';
+  }
+  return findCaseInsensitiveIdentifier(candidates, `S1_ZT_1.sensor_state.${normalizedIdentifier}`);
+}
+
+function resolveManagedSnapshotIdentifiers() {
+  return uniqueIdentifiers([
+    ...Array.from(configuredSnapshotMetricMap.value.keys()),
+    ...Array.from(productPropertyIdentifierSet.value)
+  ]);
+}
+
+function isManagedSnapshotIdentifier(identifier: string) {
+  return Boolean(findCaseInsensitiveIdentifier(resolveManagedSnapshotIdentifiers(), identifier));
+}
+
+function findCaseInsensitiveIdentifier(values: Iterable<string>, target: string) {
+  const normalizedTarget = normalizeText(target).toLowerCase();
+  if (!normalizedTarget) {
+    return '';
+  }
+  for (const value of values) {
+    const normalizedValue = normalizeText(value);
+    if (normalizedValue && normalizedValue.toLowerCase() === normalizedTarget) {
+      return normalizedValue;
+    }
+  }
+  return '';
+}
+
+function buildPropertySnapshotEditTestId(identifier: string) {
+  return `property-snapshot-edit-${normalizeText(identifier).replace(/[^0-9A-Za-z]+/g, '_')}`;
+}
+
+function isSnapshotAliasCompatibleIdentifier(candidateIdentifier: string, targetIdentifier: string) {
+  const normalizedCandidate = normalizeText(candidateIdentifier).toLowerCase();
+  const normalizedTarget = normalizeText(targetIdentifier).toLowerCase();
+  if (!normalizedCandidate || !normalizedTarget) {
+    return false;
+  }
+  if (normalizedCandidate === normalizedTarget) {
+    return true;
+  }
+  const candidateSegments = normalizedCandidate.split('.');
+  const targetSegments = normalizedTarget.split('.');
+  if (candidateSegments.length === 1 && targetSegments.length === 2) {
+    return targetSegments[1] === normalizedCandidate;
+  }
+  if (candidateSegments.length === 2 && targetSegments.length === 1) {
+    return candidateSegments[1] === normalizedTarget;
+  }
+  return false;
 }
 
 function isCompatibleProductModelIdentifier(candidateIdentifier: string, targetIdentifier: string) {
@@ -1184,6 +1457,12 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.monitoring-snapshot-table__action-hint {
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 @media (max-width: 1024px) {

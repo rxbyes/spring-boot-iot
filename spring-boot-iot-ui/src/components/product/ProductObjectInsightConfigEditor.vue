@@ -133,6 +133,15 @@
             />
           </el-form-item>
 
+          <el-form-item label="单位">
+            <el-input
+              :data-testid="`product-object-insight-unit-input-${index}`"
+              :model-value="metric.unit"
+              placeholder="例如 mm、dBm、%"
+              @update:model-value="(value) => updateMetric(index, { unit: normalizeText(value) })"
+            />
+          </el-form-item>
+
           <el-form-item label="指标分组">
             <el-select
               :model-value="metric.group"
@@ -346,7 +355,7 @@ function isRecommendedMetric(identifier: string) {
 
 function resolveMetricStateLabel(identifier: string) {
   const metric = findProductObjectInsightMetric(normalizedMetrics.value, identifier)
-  if (!metric) {
+  if (!metric || metric.enabled === false || metric.includeInTrend === false) {
     if (isRecommendedMetric(identifier)) {
       return '建议优先纳入趋势'
     }

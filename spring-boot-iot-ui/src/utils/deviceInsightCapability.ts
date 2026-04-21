@@ -34,6 +34,7 @@ export interface InsightCustomMetricDefinition {
   identifier: string;
   displayName: string;
   group: ProductObjectInsightMetricGroup;
+  unit?: string;
   includeInTrend?: boolean;
   includeInExtension?: boolean;
   analysisTitle?: string;
@@ -409,6 +410,7 @@ function buildConfiguredMetricDefinition(
     identifier: resolvedIdentifier,
     displayName,
     group,
+    unit: normalizeOptionalText(config.unit) || builtIn?.unit,
     includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : hasExplicitConfig ? true : false,
     includeInExtension: typeof config.includeInExtension === 'boolean' ? config.includeInExtension : !existsInHero,
     analysisTitle: normalizeOptionalText(config.analysisTitle) || builtIn?.analysisTitle,
@@ -431,12 +433,13 @@ function parseObjectInsightMetadata(metadataJson?: string | null): Array<RawInsi
     }
     return [{
       identifier,
-      parameterKey: normalizeOptionalText(config?.parameterKey) || identifier,
-      displayName: normalizeOptionalText(config?.displayName) || undefined,
-      group: typeof config?.group === 'string' ? config.group : undefined,
-      includeInTrend: typeof config?.includeInTrend === 'boolean' ? config.includeInTrend : undefined,
-      includeInExtension: typeof config?.includeInExtension === 'boolean' ? config.includeInExtension : undefined,
-      analysisTitle: normalizeOptionalText(config?.analysisTitle) || undefined,
+        parameterKey: normalizeOptionalText(config?.parameterKey) || identifier,
+        displayName: normalizeOptionalText(config?.displayName) || undefined,
+        group: typeof config?.group === 'string' ? config.group : undefined,
+        unit: normalizeOptionalText(config?.unit) || undefined,
+        includeInTrend: typeof config?.includeInTrend === 'boolean' ? config.includeInTrend : undefined,
+        includeInExtension: typeof config?.includeInExtension === 'boolean' ? config.includeInExtension : undefined,
+        analysisTitle: normalizeOptionalText(config?.analysisTitle) || undefined,
       analysisTag: normalizeOptionalText(config?.analysisTag) || undefined,
       analysisTemplate: normalizeOptionalText(config?.analysisTemplate) || undefined,
       enabled: typeof config?.enabled === 'boolean' ? config.enabled : undefined,
@@ -627,6 +630,7 @@ function mergeCustomMetricDefinition(
   const normalizedParameterKey = normalizeOptionalText(incoming.parameterKey);
   const normalizedIdentifier = normalizeOptionalText(incoming.identifier);
   const normalizedDisplayName = normalizeOptionalText(incoming.displayName);
+  const normalizedUnit = normalizeOptionalText(incoming.unit);
   const normalizedAnalysisTitle = normalizeOptionalText(incoming.analysisTitle);
   const normalizedAnalysisTag = normalizeOptionalText(incoming.analysisTag);
   const normalizedAnalysisTemplate = normalizeOptionalText(incoming.analysisTemplate);
@@ -639,6 +643,9 @@ function mergeCustomMetricDefinition(
   }
   if (normalizedDisplayName) {
     merged.displayName = normalizedDisplayName;
+  }
+  if (normalizedUnit) {
+    merged.unit = normalizedUnit;
   }
   merged.group = normalizeObjectInsightMetricGroup(incoming.group, merged.identifier, merged.displayName);
   if (typeof incoming.includeInTrend === 'boolean') {
