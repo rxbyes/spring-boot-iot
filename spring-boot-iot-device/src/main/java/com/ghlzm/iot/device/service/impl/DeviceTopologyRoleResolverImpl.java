@@ -48,11 +48,9 @@ public class DeviceTopologyRoleResolverImpl implements DeviceTopologyRoleResolve
         Device device = deviceMapper.selectOne(
             new LambdaQueryWrapper<Device>()
                 .eq(Device::getDeviceCode, deviceCode)
-                .eq(Device::getDeleted, 0)
-                .last("LIMIT 1")
         );
         if (device == null) {
-            return DeviceTopologyRole.STANDALONE;
+            throw new IllegalArgumentException("Device not found: " + deviceCode);
         }
         String productKey = null;
         if (device.getProductId() != null) {
@@ -76,7 +74,6 @@ public class DeviceTopologyRoleResolverImpl implements DeviceTopologyRoleResolve
         return deviceRelationMapper.exists(
             new LambdaQueryWrapper<DeviceRelation>()
                 .eq(DeviceRelation::getChildProductId, productId)
-                .eq(DeviceRelation::getDeleted, 0)
         );
     }
 }
