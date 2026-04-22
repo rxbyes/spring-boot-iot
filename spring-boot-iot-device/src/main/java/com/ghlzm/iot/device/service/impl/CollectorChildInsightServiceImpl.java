@@ -7,11 +7,15 @@ import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.CollectorChildInsightService;
 import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.DeviceTopologyRoleResolver;
 import com.ghlzm.iot.device.vo.CollectorChildInsightChildVO;
+import com.ghlzm.iot.device.vo.SensorStateHealth;
 import com.ghlzm.iot.device.vo.CollectorChildInsightMetricVO;
 import com.ghlzm.iot.device.vo.CollectorChildInsightOverviewVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceRelationVO;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,13 +39,16 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
     private final DeviceService deviceService;
     private final DeviceRelationService deviceRelationService;
     private final RiskMetricCatalogReadMapper riskMetricCatalogReadMapper;
+    private final DeviceTopologyRoleResolver topologyRoleResolver;
 
     public CollectorChildInsightServiceImpl(DeviceService deviceService,
                                             DeviceRelationService deviceRelationService,
-                                            RiskMetricCatalogReadMapper riskMetricCatalogReadMapper) {
+                                            RiskMetricCatalogReadMapper riskMetricCatalogReadMapper,
+                                            DeviceTopologyRoleResolver topologyRoleResolver) {
         this.deviceService = deviceService;
         this.deviceRelationService = deviceRelationService;
         this.riskMetricCatalogReadMapper = riskMetricCatalogReadMapper;
+        this.topologyRoleResolver = topologyRoleResolver;
     }
 
     @Override
@@ -63,6 +70,12 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
                 .count());
         overview.setSensorStateReportedCount((int) children.stream()
                 .filter(child -> hasText(child.getSensorStateValue()))
+                .count());
+        overview.setMissingChildCount((int) children.stream()
+                .filter(child -> SensorStateHealth.MISSING.equals(child.getSensorStateHealth()))
+                .count());
+        overview.setStaleChildCount((int) children.stream()
+                .filter(child -> SensorStateHealth.STALE.equals(child.getSensorStateHealth()))
                 .count());
         overview.setRecommendedMetricCount((int) children.stream()
                 .map(CollectorChildInsightChildVO::getRecommendedMetricIdentifiers)
@@ -117,6 +130,7 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
         item.setChildProductKey(firstNonBlank(relation.getChildProductKey(), child.getProductKey()));
         item.setCollectorLinkState(resolveCollectorLinkState(parent, child));
         item.setSensorStateValue(resolvePropertyValue(properties, SENSOR_STATE_IDENTIFIER));
+        item.setSensorStateHealth(resolveSensorStateHealth(child, properties));
         item.setLastReportTime(child.getLastReportTime());
         List<CollectorChildInsightMetricVO> metrics = selectMonitoringMetrics(properties, recommendedMetricSet);
         item.setMetrics(metrics);
@@ -151,6 +165,25 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
             metrics.add(metric);
         }
         return metrics;
+    }
+
+    private SensorStateHealth resolveSensorStateHealth(DeviceDetailVO child, List<DeviceProperty> properties) {
+        String sensorStateValue = resolvePropertyValue(properties, SENSOR_STATE_IDENTIFIER);
+        if (!hasText(sensorStateValue)) {
+            if (child == null || child.getLastReportTime() == null) {
+                return SensorStateHealth.MISSING;
+            }
+            long hoursSinceReport = Duration.between(child.getLastReportTime(), LocalDateTime.now()).toHours();
+            if (hoursSinceReport > 24) {
+                return SensorStateHealth.STALE;
+            }
+            return SensorStateHealth.MISSING;
+        }
+        String normalized = sensorStateValue.trim().toLowerCase(Locale.ROOT);
+        if ("1".equals(normalized) || "online".equals(normalized) || "正常".equals(normalized)) {
+            return SensorStateHealth.REPORTED_NORMAL;
+        }
+        return SensorStateHealth.REPORTED_ABNORMAL;
     }
 
     private String resolvePropertyValue(List<DeviceProperty> properties, String identifier) {
