@@ -13,7 +13,7 @@ Product 对象包含以下字段：
 
 | 字段名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| id | number | 是 | 产品ID |
+| id | number | 是 | 产品编号 |
 | productKey | string | 是 | 产品Key |
 | productName | string | 是 | 产品名称 |
 | protocolCode | string | 是 | 协议编码 |
