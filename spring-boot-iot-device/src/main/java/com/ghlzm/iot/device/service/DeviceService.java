@@ -166,6 +166,11 @@ public interface DeviceService extends IService<Device> {
     List<DeviceProperty> listProperties(Long currentUserId, String deviceCode);
 
     /**
+     * 按当前登录用户上下文查询最新属性列表（按拓扑角色过滤，供洞察侧使用）。
+     */
+    List<DeviceProperty> listPropertiesForInsight(Long currentUserId, String deviceCode);
+
+    /**
      * 查询可用于绑定风险点的设备选项。
      */
     List<DeviceOptionVO> listDeviceOptions(boolean includeDisabled);

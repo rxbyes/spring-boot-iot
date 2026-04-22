@@ -15,6 +15,7 @@ import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.model.DeviceTopologyRole;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
@@ -24,6 +25,7 @@ import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.DeviceTopologyRoleResolver;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
@@ -57,6 +59,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +90,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final PermissionService permissionService;
     private final OrganizationService organizationService;
     private final RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
+    private final DeviceTopologyRoleResolver topologyRoleResolver;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
@@ -110,6 +114,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 deviceOnboardingSuggestionService,
                 permissionService,
                 organizationService,
+                null,
                 null
         );
     }
@@ -125,7 +130,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                              DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
                              PermissionService permissionService,
                              OrganizationService organizationService,
-                             @Nullable RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService) {
+                             @Nullable RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService,
+                             @Nullable DeviceTopologyRoleResolver topologyRoleResolver) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
@@ -137,6 +143,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         this.permissionService = permissionService;
         this.organizationService = organizationService;
         this.runtimeMetricDisplayRuleService = runtimeMetricDisplayRuleService;
+        this.topologyRoleResolver = topologyRoleResolver;
     }
 
     @Override
@@ -463,6 +470,72 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         );
         overlayLatestPropertyMetadata(device, properties);
         return properties;
+    }
+
+    @Override
+    public List<DeviceProperty> listPropertiesForInsight(Long currentUserId, String deviceCode) {
+        Device device = getRequiredByCode(deviceCode);
+        ensureDeviceAccessible(currentUserId, device);
+        String productKey = resolveProductKey(device);
+        DeviceTopologyRole role = topologyRoleResolver != null
+                ? topologyRoleResolver.resolve(device.getProductId(), device.getNodeType(), productKey)
+                : DeviceTopologyRole.STANDALONE;
+        List<DeviceProperty> properties = devicePropertyMapper.selectList(
+                new LambdaQueryWrapper<DeviceProperty>()
+                        .eq(DeviceProperty::getDeviceId, device.getId())
+                        .orderByDesc(DeviceProperty::getUpdateTime)
+        );
+        overlayLatestPropertyMetadata(device, properties);
+        return filterPropertiesByRole(properties, role);
+    }
+
+    private String resolveProductKey(Device device) {
+        if (device.getProductId() == null) {
+            return null;
+        }
+        Product product = productService.getById(device.getProductId());
+        return product != null ? product.getProductKey() : null;
+    }
+
+    private static final Set<String> CHILD_BUSINESS_IDENTIFIERS = Set.of(
+        "dispsx", "dispsy", "value", "sensor_state"
+    );
+
+    private static final Set<String> PARENT_RUNTIME_KEYWORDS = Set.of(
+        "signal_4g", "battery", "temp", "humidity", "ext_power_volt",
+        "solar_volt", "battery_dump_energy", "battery_volt", "supply_power",
+        "consume_power", "temp_out", "humidity_out", "lon", "lat",
+        "signal_nb", "signal_db", "sw_version"
+    );
+
+    private List<DeviceProperty> filterPropertiesByRole(List<DeviceProperty> properties, DeviceTopologyRole role) {
+        if (role == DeviceTopologyRole.STANDALONE) {
+            return properties;
+        }
+        return properties.stream()
+                .filter(property -> shouldIncludeProperty(property, role))
+                .collect(Collectors.toList());
+    }
+
+    private boolean shouldIncludeProperty(DeviceProperty property, DeviceTopologyRole role) {
+        String identifier = property.getIdentifier() == null ? "" : property.getIdentifier().trim().toLowerCase(Locale.ROOT);
+        if (role == DeviceTopologyRole.COLLECTOR_PARENT) {
+            for (String childId : CHILD_BUSINESS_IDENTIFIERS) {
+                if (identifier.equals(childId) || identifier.endsWith("." + childId)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (role == DeviceTopologyRole.COLLECTOR_CHILD) {
+            for (String parentKeyword : PARENT_RUNTIME_KEYWORDS) {
+                if (identifier.contains(parentKeyword) && !identifier.contains("sensor_state")) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return true;
     }
 
     @Override
