@@ -241,7 +241,7 @@
                   />
                   <div class="product-mobile-card__heading">
                     <strong class="product-mobile-card__title">{{ row.productName || '--' }}</strong>
-                    <span class="product-mobile-card__sub">{{ row.productKey || '--' }}</span>
+                    <span class="product-mobile-card__sub">{{ row.id ?? '--' }} | {{ row.productKey || '--' }}</span>
                   </div>
                   <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
                 </div>
@@ -291,6 +291,7 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="id" label="产品编号" :width="160" />
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
             <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
@@ -991,7 +992,7 @@ const formRules: FormRules<ProductFormState> = {
 }
 
 const exportColumns: CsvColumn<Product>[] = [
-  { key: 'id', label: '产品 ID' },
+  { key: 'id', label: '产品编号' },
   { key: 'productKey', label: '产品 Key' },
   { key: 'productName', label: '产品名称' },
   { key: 'protocolCode', label: '协议编码' },
