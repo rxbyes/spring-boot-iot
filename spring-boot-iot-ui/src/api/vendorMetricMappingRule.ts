@@ -91,7 +91,8 @@ export async function listVendorMetricMappingRuleLedger(
       publishedStatus: row.publishedStatus,
       publishedVersionNo: row.publishedVersionNo,
       latestApprovalOrderId: row.approvalOrderId,
-      publishedSource: row.publishedStatus ? 'published_snapshot' : 'draft_table'
+      publishedSource: row.publishedStatus ? 'published_snapshot' : 'draft_table',
+      coveredByFormalField: row.coveredByFormalField,
     }))
   }
 }

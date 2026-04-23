@@ -40,6 +40,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -317,7 +318,7 @@ class ProductServiceImplTest {
     }
 
     @Test
-    void updateProductShouldRejectDuplicateObjectInsightIdentifiers() {
+    void updateProductShouldDeduplicateObjectInsightIdentifiers() {
         doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
 
         ProductAddDTO dto = buildProductDto();
@@ -332,10 +333,13 @@ class ProductServiceImplTest {
                 }
                 """);
 
-        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+        productService.updateProduct(1001L, dto);
 
-        assertEquals("对象洞察自定义指标标识符不能重复: S1_ZT_1.humidity", ex.getMessage());
-        verify(productService, never()).updateById(any(Product.class));
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        String savedMetadata = captor.getValue().getMetadataJson();
+        assertTrue(savedMetadata.contains("重复湿度"));
+        assertFalse(savedMetadata.contains("相对湿度"));
     }
 
     @Test

@@ -48,4 +48,6 @@ public class VendorMetricMappingRuleVO {
     private Long updateBy;
 
     private LocalDateTime updateTime;
+
+    private Boolean coveredByFormalField;
 }

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -510,6 +511,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             PublishedProductContractSnapshot snapshot = loadObjectInsightSnapshot(productId);
             Map<String, String> formalIdentifierMap = loadFormalPropertyIdentifierMap(productId);
             normalizeObjectInsightIdentifiers(root.path("objectInsight"), snapshot, formalIdentifierMap);
+            deduplicateObjectInsightMetrics(root.path("objectInsight"));
             validateObjectInsightConfig(root.path("objectInsight"));
             return objectMapper.writeValueAsString(root);
         } catch (BizException ex) {
@@ -598,14 +600,42 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             if (!"measure".equals(group) && !"status".equals(group) && !"runtime".equals(group)) {
                 throw new BizException("对象洞察指标分组仅支持 measure、status 或 runtime");
             }
-            if (!identifiers.add(identifier)) {
-                throw new BizException("对象洞察自定义指标标识符不能重复: " + identifier);
-            }
+            identifiers.add(identifier);
             String analysisTemplate = resolveMetricText(metricNode, "analysisTemplate");
             if (analysisTemplate != null && analysisTemplate.length() > MAX_OBJECT_INSIGHT_TEMPLATE_LENGTH) {
                 throw new BizException("对象洞察分析描述模板长度不能超过300");
             }
         }
+    }
+
+    private void deduplicateObjectInsightMetrics(JsonNode objectInsightNode) {
+        if (objectInsightNode == null || objectInsightNode.isMissingNode() || objectInsightNode.isNull()) {
+            return;
+        }
+        if (!(objectInsightNode instanceof ObjectNode objectInsightObject)) {
+            return;
+        }
+        JsonNode customMetricsNode = objectInsightNode.path("customMetrics");
+        if (!customMetricsNode.isArray()) {
+            return;
+        }
+        LinkedHashMap<String, JsonNode> lastByIdentifier = new LinkedHashMap<>();
+        for (JsonNode metricNode : customMetricsNode) {
+            String identifier = resolveMetricText(metricNode, "identifier");
+            if (StringUtils.hasText(identifier)) {
+                lastByIdentifier.put(identifier, metricNode);
+            } else {
+                lastByIdentifier.put("@@empty_" + lastByIdentifier.size(), metricNode);
+            }
+        }
+        if (lastByIdentifier.size() == customMetricsNode.size()) {
+            return;
+        }
+        ArrayNode deduped = objectMapper.createArrayNode();
+        for (JsonNode metricNode : lastByIdentifier.values()) {
+            deduped.add(metricNode);
+        }
+        objectInsightObject.set("customMetrics", deduped);
     }
 
     private String normalizeObjectInsightIdentifier(String identifier,

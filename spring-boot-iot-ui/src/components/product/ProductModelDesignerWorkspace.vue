@@ -646,6 +646,25 @@
       <section
         v-if="showMappingRuleSections"
         class="product-model-designer__stage"
+        data-testid="governance-candidate-panel"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>待治理候选</h3>
+            <p>基于运行态证据汇总的高频未正式化字段，建议优先补录名称和单位。</p>
+          </div>
+        </header>
+
+        <ProductVendorMappingGovernanceCandidatePanel
+          :product-id="props.product?.id ?? null"
+          @go-accept="handleCandidateGoAccept"
+          @view-all-suggestions="handleCandidateViewAll"
+        />
+      </section>
+
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
         data-testid="contract-field-vendor-suggestions"
       >
         <header class="product-model-designer__stage-head">
@@ -1060,6 +1079,7 @@ import ProductModelGovernanceCompareTable from '@/components/product/ProductMode
 import ProductRuntimeMetricDisplayRulePanel from '@/components/product/ProductRuntimeMetricDisplayRulePanel.vue'
 import ProductVendorMappingRuleLedgerPanel from '@/components/product/ProductVendorMappingRuleLedgerPanel.vue'
 import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
+import ProductVendorMappingGovernanceCandidatePanel from '@/components/product/ProductVendorMappingGovernanceCandidatePanel.vue'
 import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'
 import {
@@ -2746,6 +2766,20 @@ function clearReleaseBatchDiff() {
 function handleVendorSuggestionAccepted(_payload?: unknown) {
   vendorSuggestionRefreshToken.value += 1
   showSuggestionRefreshHint.value = true
+}
+
+function handleCandidateGoAccept() {
+  const suggestionSection = document.querySelector('[data-testid="contract-field-vendor-suggestions"]');
+  if (suggestionSection) {
+    suggestionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function handleCandidateViewAll() {
+  const suggestionSection = document.querySelector('[data-testid="contract-field-vendor-suggestions"]');
+  if (suggestionSection) {
+    suggestionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function resetVersionLedger() {

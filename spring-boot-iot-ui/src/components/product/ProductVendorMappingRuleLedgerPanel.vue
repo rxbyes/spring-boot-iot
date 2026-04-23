@@ -76,6 +76,12 @@
             <strong>{{ `${row.rawIdentifier || '--'} -> ${row.targetNormativeIdentifier || '--'}` }}</strong>
             <span>{{ `${scopeTypeLabel(row.scopeType)} · ${versionLabel(row)}` }}</span>
             <span>{{ `${row.draftStatus || '--'} · ${row.publishedStatus || '未发布'}` }}</span>
+            <span
+              v-if="row.coveredByFormalField"
+              class="product-vendor-rule-ledger__coverage-tag"
+            >
+              已被正式字段覆盖
+            </span>
           </div>
           <span v-if="row.latestApprovalOrderId != null" class="product-vendor-rule-ledger__approval">
             {{ `审批单 ${row.latestApprovalOrderId}` }}
@@ -89,6 +95,14 @@
         </div>
 
         <div class="product-vendor-rule-ledger__actions">
+          <StandardButton
+            v-if="row.coveredByFormalField && row.draftStatus === 'ACTIVE'"
+            :data-testid="`rule-ledger-disable-covered-${rowIdentity(row)}`"
+            :disabled="isSubmitting(`disable-${rowIdentity(row)}`)"
+            @click="handleDisableCovered(row)"
+          >
+            {{ isSubmitting(`disable-${rowIdentity(row)}`) ? '停用中...' : '一键停用' }}
+          </StandardButton>
           <StandardButton
             :data-testid="`rule-ledger-preview-hit-${rowIdentity(row)}`"
             :disabled="!row.rawIdentifier || isSubmitting(`preview-${rowIdentity(row)}`)"
@@ -131,23 +145,26 @@
         </div>
 
         <div
-          v-if="previewStateByRuleId[rowIdentity(row)]"
+          v-if="previewStateByRuleId[rowIdentity(row)] || replayStateByRuleId[rowIdentity(row)]"
           :data-testid="`rule-ledger-preview-result-${rowIdentity(row)}`"
           class="product-vendor-rule-ledger__preview"
         >
-          <strong>{{ previewMatchedLabel(previewStateByRuleId[rowIdentity(row)]) }}</strong>
-          <span>{{ previewSourceLabel(previewStateByRuleId[rowIdentity(row)]) }}</span>
-        </div>
-
-        <div
-          v-if="replayStateByRuleId[rowIdentity(row)]"
-          :data-testid="`rule-ledger-replay-result-${rowIdentity(row)}`"
-          class="product-vendor-rule-ledger__preview"
-        >
-          <strong>{{ replayMatchedLabel(replayStateByRuleId[rowIdentity(row)]) }}</strong>
-          <span>{{ replaySourceAndScopeLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
-          <span>{{ replayCanonicalLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
-          <span>{{ replaySampleLabel(replayStateByRuleId[rowIdentity(row)]) }}</span>
+          <div v-if="replayStateByRuleId[rowIdentity(row)]" class="product-vendor-rule-ledger__preview-item">
+            <strong>{{ replayStateByRuleId[rowIdentity(row)]?.matched ? '回放命中规则' : '回放未命中规则' }}</strong>
+            <span v-if="replayStateByRuleId[rowIdentity(row)]?.matched">
+              {{ `${scopeTypeLabel(replayStateByRuleId[rowIdentity(row)]?.matchedScopeType) || '--'} · ${replayStateByRuleId[rowIdentity(row)]?.canonicalIdentifier || replayStateByRuleId[rowIdentity(row)]?.targetNormativeIdentifier || '--'}` }}
+            </span>
+          </div>
+          <div v-if="previewStateByRuleId[rowIdentity(row)]" class="product-vendor-rule-ledger__preview-item">
+            <span>{{ previewMatchedLabel(previewStateByRuleId[rowIdentity(row)]) }}</span>
+            <span>{{ previewSourceLabel(previewStateByRuleId[rowIdentity(row)]) }}</span>
+          </div>
+          <div v-if="isPreviewCovered(previewStateByRuleId[rowIdentity(row)])" class="product-vendor-rule-ledger__preview-item product-vendor-rule-ledger__preview-item--warn">
+            已被发布快照覆盖
+          </div>
+          <div class="product-vendor-rule-ledger__preview-item">
+            <span>影响范围：{{ scopeDescription(row.scopeType) }}</span>
+          </div>
         </div>
         </article>
       </div>
@@ -173,6 +190,7 @@ import {
 } from '@/api/vendorMetricMappingRule'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import StandardButton from '@/components/StandardButton.vue'
+import { confirmAction } from '@/utils/confirm'
 import { ElMessage } from '@/utils/message'
 import type {
   IdType,
@@ -437,6 +455,36 @@ async function handleReplay(row: VendorMetricMappingRuleLedgerRow) {
     showRequestErrorMessage(error, '映射规则回放校验失败')
   } finally {
     submittingKey.value = ''
+  }
+}
+
+async function handleDisableCovered(row: VendorMetricMappingRuleLedgerRow) {
+  if (!hasProductId(props.productId) || row.ruleId == null) {
+    return;
+  }
+  try {
+    await confirmAction({
+      title: '停用已被覆盖的规则',
+      message: '此规则已被正式字段覆盖，停用后不再参与运行时解析。确认停用？',
+      type: 'warning',
+      confirmButtonText: '确认停用'
+    });
+  } catch {
+    return;
+  }
+  const disableKey = `disable-${rowIdentity(row)}`;
+  submittingKey.value = disableKey;
+  try {
+    await batchUpdateVendorMetricMappingRuleStatus(props.productId as IdType, {
+      ruleIds: [row.ruleId as IdType],
+      targetStatus: 'DISABLED'
+    });
+    ElMessage.success('已停用被覆盖的规则');
+    await loadRows();
+  } catch (error) {
+    showRequestErrorMessage(error, '停用规则失败');
+  } finally {
+    submittingKey.value = '';
   }
 }
 

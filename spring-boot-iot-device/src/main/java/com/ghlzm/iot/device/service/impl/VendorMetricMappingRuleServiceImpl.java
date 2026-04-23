@@ -9,13 +9,17 @@ import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleBatchStatusDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleReplayDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
+import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRule;
 import com.ghlzm.iot.device.entity.VendorMetricMappingRuleSnapshot;
+import com.ghlzm.iot.device.mapper.NormativeMetricDefinitionMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricMappingRuleSnapshotMapper;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleReplayVO;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
 import com.ghlzm.iot.framework.config.IotProperties;
@@ -23,6 +27,7 @@ import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
 import com.ghlzm.iot.framework.protocol.YamlProtocolSecurityDefinitionProvider;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -57,10 +62,12 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     private final ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider;
     private final ProductMapper productMapper;
     private final VendorMetricMappingRuntimeServiceImpl runtimeService;
+    private final NormativeMetricDefinitionMapper normativeMapper;
+    private final PublishedProductContractSnapshotService snapshotService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper) {
-        this(mapper, null, (ProtocolSecurityDefinitionProvider) null, null, null);
+        this(mapper, null, (ProtocolSecurityDefinitionProvider) null, null, null, null, null);
     }
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
@@ -68,14 +75,13 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
                                               IotProperties iotProperties) {
         this(mapper, snapshotMapper,
                 iotProperties == null ? null : new YamlProtocolSecurityDefinitionProvider(iotProperties),
-                null,
-                null);
+                null, null, null, null);
     }
 
     public VendorMetricMappingRuleServiceImpl(VendorMetricMappingRuleMapper mapper,
                                               VendorMetricMappingRuleSnapshotMapper snapshotMapper,
                                               ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider) {
-        this(mapper, snapshotMapper, protocolSecurityDefinitionProvider, null, null);
+        this(mapper, snapshotMapper, protocolSecurityDefinitionProvider, null, null, null, null);
     }
 
     @Autowired
@@ -83,12 +89,16 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
                                               VendorMetricMappingRuleSnapshotMapper snapshotMapper,
                                               ProtocolSecurityDefinitionProvider protocolSecurityDefinitionProvider,
                                               ProductMapper productMapper,
-                                              VendorMetricMappingRuntimeServiceImpl runtimeService) {
+                                              VendorMetricMappingRuntimeServiceImpl runtimeService,
+                                              NormativeMetricDefinitionMapper normativeMapper,
+                                              PublishedProductContractSnapshotService snapshotService) {
         this.mapper = mapper;
         this.snapshotMapper = snapshotMapper;
         this.protocolSecurityDefinitionProvider = protocolSecurityDefinitionProvider;
         this.productMapper = productMapper;
         this.runtimeService = runtimeService;
+        this.normativeMapper = normativeMapper;
+        this.snapshotService = snapshotService;
     }
 
     @Override
@@ -101,8 +111,9 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
                 .orderByDesc(VendorMetricMappingRule::getUpdateTime)
                 .orderByDesc(VendorMetricMappingRule::getId));
         Map<Long, VendorMetricMappingRuleSnapshot> latestPublishedSnapshots = loadLatestPublishedSnapshots(result.getRecords());
+        Map<String, Boolean> coverageMap = batchCheckCoverage(productId, result.getRecords());
         List<VendorMetricMappingRuleVO> records = result.getRecords().stream()
-                .map(rule -> toVO(rule, latestPublishedSnapshots.get(rule.getId())))
+                .map(rule -> toVO(rule, latestPublishedSnapshots.get(rule.getId()), coverageMap))
                 .toList();
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
     }
@@ -126,7 +137,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     @Transactional(rollbackFor = Exception.class)
     public VendorMetricMappingRuleVO createAndGet(Long productId, Long operatorId, VendorMetricMappingRuleUpsertDTO dto) {
         Long ruleId = createRule(productId, operatorId, dto);
-        return toVO(getRequiredRule(productId, ruleId), null);
+        return toVO(getRequiredRule(productId, ruleId), null, Map.of());
     }
 
     @Override
@@ -144,7 +155,7 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         if (mapper.updateById(rule) <= 0) {
             throw new BizException("厂商字段映射规则更新失败，请稍后重试");
         }
-        return toVO(rule, null);
+        return toVO(rule, null, Map.of());
     }
 
     @Override
@@ -302,7 +313,8 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
     }
 
     private VendorMetricMappingRuleVO toVO(VendorMetricMappingRule rule,
-                                           VendorMetricMappingRuleSnapshot snapshot) {
+                                           VendorMetricMappingRuleSnapshot snapshot,
+                                           Map<String, Boolean> coverageMap) {
         VendorMetricMappingRuleVO vo = new VendorMetricMappingRuleVO();
         vo.setId(rule.getId());
         vo.setProductId(rule.getProductId());
@@ -324,6 +336,10 @@ public class VendorMetricMappingRuleServiceImpl implements VendorMetricMappingRu
         vo.setCreateTime(rule.getCreateTime());
         vo.setUpdateBy(rule.getUpdateBy());
         vo.setUpdateTime(rule.getUpdateTime());
+        String targetId = rule.getTargetNormativeIdentifier();
+        vo.setCoveredByFormalField(Boolean.valueOf(
+            coverageMap != null && targetId != null && Boolean.TRUE.equals(coverageMap.get(targetId))
+        ));
         return vo;
     }
 

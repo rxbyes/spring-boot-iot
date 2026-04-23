@@ -90,16 +90,17 @@ export function validateProductObjectInsightMetrics(rows: ProductObjectInsightCu
   const identifiers = new Set<string>()
   for (const row of rows) {
     const identifier = normalizeText(row.identifier)
+    const identifierKey = identifier.toLowerCase()
     if (!identifier) {
       return '对象洞察指标标识不能为空'
     }
     if (!normalizeText(row.displayName)) {
       return `对象洞察指标 ${identifier} 缺少中文名称`
     }
-    if (identifiers.has(identifier)) {
+    if (identifiers.has(identifierKey)) {
       return `对象洞察配置中存在重复指标标识：${identifier}`
     }
-    identifiers.add(identifier)
+    identifiers.add(identifierKey)
     if (normalizeText(row.analysisTemplate).length > 300) {
       return `对象洞察指标 ${identifier} 的分析描述模板不能超过300字`
     }
@@ -148,7 +149,7 @@ export function findProductObjectInsightMetric(
   identifier: string
 ) {
   const normalizedIdentifier = normalizeMetricIdentifier(identifier)
-  return rows.find((item) => normalizeMetricIdentifier(item.identifier) === normalizedIdentifier)
+  return rows.find((item) => compareMetricIdentifier(item.identifier, normalizedIdentifier))
 }
 
 export function upsertProductObjectInsightMetric(
@@ -157,7 +158,7 @@ export function upsertProductObjectInsightMetric(
 ) {
   const normalizedMetric = normalizeMetric(metric)
   const targetIndex = rows.findIndex(
-    (item) => normalizeMetricIdentifier(item.identifier) === normalizedMetric.identifier
+    (item) => compareMetricIdentifier(item.identifier, normalizedMetric.identifier)
   )
 
   if (targetIndex < 0) {
@@ -188,7 +189,7 @@ export function removeProductObjectInsightMetric(
   identifier: string
 ) {
   const normalizedIdentifier = normalizeMetricIdentifier(identifier)
-  return rows.filter((item) => normalizeMetricIdentifier(item.identifier) !== normalizedIdentifier)
+  return rows.filter((item) => !compareMetricIdentifier(item.identifier, normalizedIdentifier))
 }
 
 function parseProductMetadata(metadataJson?: string | null): ProductMetadata | null {
@@ -214,6 +215,10 @@ function normalizeText(value: unknown): string {
 
 function normalizeMetricIdentifier(value: unknown): string {
   return normalizeText(value)
+}
+
+function compareMetricIdentifier(a: unknown, b: unknown): boolean {
+  return normalizeMetricIdentifier(a).toLowerCase() === normalizeMetricIdentifier(b).toLowerCase()
 }
 
 function serializeProductObjectInsightMetricGroup(group: ProductObjectInsightMetricGroup) {

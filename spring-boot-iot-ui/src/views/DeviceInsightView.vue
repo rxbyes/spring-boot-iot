@@ -162,7 +162,15 @@
                   >
                     修改名称/单位
                   </StandardButton>
-                  <span v-else class="monitoring-snapshot-table__action-hint">未形成正式字段</span>
+                  <StandardButton
+                    v-else
+                    action="query"
+                    link
+                    :data-testid="`promote-mapping-rule-${row.identifier}`"
+                    @click="handlePromoteToMappingRule(row)"
+                  >
+                    补名称/单位
+                  </StandardButton>
                 </template>
               </el-table-column>
             </el-table>
@@ -538,6 +546,21 @@ function handleEditFormalField(row: PropertySnapshotRow) {
     query: {
       modelIdentifier: formalIdentifier,
       renameModel: '1',
+      source: 'insight'
+    }
+  });
+}
+
+function handlePromoteToMappingRule(row: PropertySnapshotRow) {
+  const productId = device.value?.productId;
+  if (productId === undefined || productId === null) {
+    return;
+  }
+  void router.push({
+    path: buildProductWorkbenchSectionPath(productId, 'mapping-rules'),
+    query: {
+      rawIdentifier: row.identifier,
+      scope: 'PRODUCT',
       source: 'insight'
     }
   });

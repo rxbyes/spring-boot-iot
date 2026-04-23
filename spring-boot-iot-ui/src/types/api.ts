@@ -767,6 +767,7 @@ export interface VendorMetricMappingRule {
   createTime?: string | null;
   updateBy?: IdType | null;
   updateTime?: string | null;
+  coveredByFormalField?: boolean | null;
 }
 
 export interface VendorMetricMappingRuleCreatePayload {
@@ -798,6 +799,7 @@ export interface VendorMetricMappingRuleLedgerRow {
   latestApprovalOrderId?: IdType | null;
   publishedSource?: string | null;
   logicalChannelCode?: string | null;
+  coveredByFormalField?: boolean | null;
 }
 
 export interface VendorMetricMappingRuleHitPreview {

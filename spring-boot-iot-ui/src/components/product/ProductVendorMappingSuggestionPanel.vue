@@ -45,6 +45,7 @@
       <article
         v-for="suggestion in suggestions"
         :key="suggestionKey(suggestion)"
+        :data-raw-identifier="suggestion.rawIdentifier"
         class="product-vendor-mapping-suggestion-panel__item"
       >
         <div class="product-vendor-mapping-suggestion-panel__item-main">
@@ -143,18 +144,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router';
 
 import {
   createVendorMetricMappingRule,
-  listVendorMetricMappingRuleSuggestions
+  listVendorMetricMappingRuleSuggestions,
+  previewVendorMetricMappingRuleHit,
+  replayVendorMetricMappingRule
 } from '@/api/vendorMetricMappingRule'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import type {
   IdType,
   VendorMetricMappingRuleCreatePayload,
   VendorMetricMappingRuleSuggestion,
-  VendorMetricMappingRuleSuggestionQuery
+  VendorMetricMappingRuleSuggestionQuery,
+  VendorMetricMappingRuleHitPreview,
+  VendorMetricMappingRuleReplay
 } from '@/types/api'
 
 type SuggestionRow = VendorMetricMappingRuleSuggestion & {
@@ -183,6 +189,41 @@ const errorMessage = ref('')
 const suggestions = ref<SuggestionRow[]>([])
 const scopeDraftsBySuggestionKey = ref<Record<string, ScopeDraft>>({})
 const acceptingRowKey = ref<string | null>(null)
+const previewKey = ref<string | null>(null)
+const previewHitResult = ref<VendorMetricMappingRuleHitPreview | null>(null)
+const replayResult = ref<VendorMetricMappingRuleReplay | null>(null)
+
+const route = useRoute();
+
+const highlightRawIdentifier = computed(() => {
+  const value = route.query.rawIdentifier;
+  return typeof value === 'string' ? value.trim() : '';
+});
+
+const highlightScope = computed(() => {
+  const value = route.query.scope;
+  return typeof value === 'string' ? value.trim() : '';
+});
+
+let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+function applyHighlight() {
+  if (!highlightRawIdentifier.value) return;
+  nextTick(() => {
+    const el = document.querySelector(
+      `.product-vendor-mapping-suggestion-panel__item[data-raw-identifier="${CSS.escape(highlightRawIdentifier.value)}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('product-vendor-mapping-suggestion-panel__item--highlight');
+      if (highlightTimer) clearTimeout(highlightTimer);
+      highlightTimer = setTimeout(() => {
+        el.classList.remove('product-vendor-mapping-suggestion-panel__item--highlight');
+      }, 3000);
+    }
+  });
+}
+
 let messageModulePromise: Promise<typeof import('element-plus').ElMessage> | null = null
 let loadController: AbortController | null = null
 let latestLoadToken = 0
@@ -202,6 +243,14 @@ watch(
   },
   { immediate: true }
 )
+
+watch(
+  () => [suggestions.value, highlightRawIdentifier.value],
+  () => { applyHighlight(); },
+  { immediate: false }
+);
+
+onMounted(() => { applyHighlight(); });
 
 async function loadSuggestions() {
   loadController?.abort()
@@ -279,8 +328,10 @@ function normalizeScopeType(value?: string | null): VendorMetricMappingRuleCreat
 }
 
 function defaultScopeDraft(suggestion: SuggestionRow): ScopeDraft {
+  const isHighlightMatch = highlightRawIdentifier.value
+    && suggestion.rawIdentifier === highlightRawIdentifier.value;
   return {
-    scopeType: normalizeScopeType(suggestion.recommendedScopeType),
+    scopeType: normalizeScopeType(isHighlightMatch && highlightScope.value ? highlightScope.value : suggestion.recommendedScopeType),
     protocolCode: '',
     scenarioCode: '',
     deviceFamily: ''
@@ -544,5 +595,11 @@ async function getMessageApi() {
   color: var(--brand);
   cursor: pointer;
   padding: 0.45rem 0.8rem;
+}
+
+.product-vendor-mapping-suggestion-panel__item--highlight {
+  border-color: var(--brand, #409eff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand, #409eff) 20%, transparent);
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
 </style>
