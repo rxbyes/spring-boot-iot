@@ -10,14 +10,18 @@ const {
   mockUpdatePlan,
   mockDeletePlan,
   mockFetchRiskLevelOptions,
-  mockFetchAlarmLevelOptions
+  mockFetchAlarmLevelOptions,
+  mockRoute
 } = vi.hoisted(() => ({
   mockPagePlanList: vi.fn(),
   mockAddPlan: vi.fn(),
   mockUpdatePlan: vi.fn(),
   mockDeletePlan: vi.fn(),
   mockFetchRiskLevelOptions: vi.fn(),
-  mockFetchAlarmLevelOptions: vi.fn()
+  mockFetchAlarmLevelOptions: vi.fn(),
+  mockRoute: {
+    query: {}
+  }
 }));
 
 vi.mock('@/api/emergencyPlan', () => ({
@@ -56,6 +60,10 @@ vi.mock('@/utils/message', () => ({
   }
 }));
 
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute
+}));
+
 const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   template: '<section class="standard-page-shell-stub"><slot /></section>'
@@ -75,6 +83,20 @@ const StandardWorkbenchPanelStub = defineComponent({
       <div class="emergency-plan-workbench-panel-stub__toolbar"><slot name="toolbar" /></div>
       <div class="emergency-plan-workbench-panel-stub__body"><slot /></div>
       <div class="emergency-plan-workbench-panel-stub__pagination"><slot name="pagination" /></div>
+    </section>
+  `
+});
+
+const StandardFormDrawerStub = defineComponent({
+  name: 'StandardFormDrawer',
+  props: ['modelValue', 'title', 'subtitle'],
+  template: `
+    <section class="standard-form-drawer-stub" :data-model-value="modelValue">
+      <header class="standard-form-drawer-stub__header">
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+      </header>
+      <slot />
     </section>
   `
 });
@@ -109,7 +131,7 @@ function mountView() {
         StandardPagination: true,
         StandardAppliedFiltersBar: true,
         StandardDrawerFooter: true,
-        StandardFormDrawer: true,
+        StandardFormDrawer: StandardFormDrawerStub,
         StandardTableTextColumn: true,
         StandardWorkbenchRowActions: true,
         StandardButton: true,
@@ -138,6 +160,7 @@ describe('EmergencyPlanView', () => {
     mockDeletePlan.mockReset();
     mockFetchRiskLevelOptions.mockReset();
     mockFetchAlarmLevelOptions.mockReset();
+    mockRoute.query = {};
     mockFetchRiskLevelOptions.mockResolvedValue([
       { label: '红色', value: 'red', sortNo: 1 },
       { label: '橙色', value: 'orange', sortNo: 2 },
@@ -171,5 +194,62 @@ describe('EmergencyPlanView', () => {
 
     expect(wrapper.text()).toContain('红色 1 项');
     expect(wrapper.text()).toContain('橙色 1 项');
+  });
+
+  it('hydrates route query filters before loading emergency plans', async () => {
+    mockRoute.query = {
+      planName: '裂缝值应急预案',
+      alarmLevel: 'red',
+      status: '0'
+    };
+    mockPagePlanList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 1, planName: '裂缝值应急预案', alarmLevel: 'red', status: 0 }]
+      }
+    });
+
+    mountView();
+    await flushPromises();
+
+    expect(mockPagePlanList).toHaveBeenCalledWith(expect.objectContaining({
+      planName: '裂缝值应急预案',
+      alarmLevel: 'red',
+      status: 0
+    }));
+  });
+
+  it('auto-opens create drawer from governance-task dispatch context and prefills plan name', async () => {
+    mockRoute.query = {
+      governanceAction: 'create',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_LINKAGE_PLAN',
+      coverageType: 'EMERGENCY_PLAN',
+      dimensionKey: 'EMERGENCY:6203',
+      riskMetricId: '6203',
+      metricIdentifier: 'value',
+      metricName: '裂缝值'
+    };
+    mockPagePlanList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).formVisible).toBe(true);
+    expect((wrapper.vm as any).form.planName).toBe('裂缝值应急预案');
+    expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');
   });
 });

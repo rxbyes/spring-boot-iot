@@ -8,6 +8,7 @@ import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceOpsAlertItemVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReplayVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
@@ -48,9 +49,16 @@ public class RiskGovernanceController {
 
     @GetMapping("/metric-catalogs")
     public R<PageResult<RiskMetricCatalogItemVO>> pageMetricCatalogs(@RequestParam(required = false) Long productId,
+                                                                     @RequestParam(required = false) Long releaseBatchId,
                                                                      @RequestParam(required = false) Long pageNum,
                                                                      @RequestParam(required = false) Long pageSize) {
-        return R.ok(riskGovernanceService.pageMetricCatalogs(productId, pageNum, pageSize));
+        return R.ok(riskGovernanceService.pageMetricCatalogs(productId, releaseBatchId, pageNum, pageSize));
+    }
+
+    @GetMapping("/release-batch-diff")
+    public R<RiskGovernanceReleaseBatchDiffVO> getReleaseBatchDiff(@RequestParam Long baselineBatchId,
+                                                                   @RequestParam Long targetBatchId) {
+        return R.ok(riskGovernanceService.compareReleaseBatches(baselineBatchId, targetBatchId));
     }
 
     @GetMapping("/metric-catalogs/{id}")

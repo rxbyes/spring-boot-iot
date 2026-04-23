@@ -3,12 +3,14 @@ package com.ghlzm.iot.device.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingSuggestionQuery;
 import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingSuggestionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
@@ -164,6 +166,11 @@ public interface DeviceService extends IService<Device> {
     List<DeviceProperty> listProperties(Long currentUserId, String deviceCode);
 
     /**
+     * 按当前登录用户上下文查询最新属性列表（按拓扑角色过滤，供洞察侧使用）。
+     */
+    List<DeviceProperty> listPropertiesForInsight(Long currentUserId, String deviceCode);
+
+    /**
      * 查询可用于绑定风险点的设备选项。
      */
     List<DeviceOptionVO> listDeviceOptions(boolean includeDisabled);
@@ -182,4 +189,14 @@ public interface DeviceService extends IService<Device> {
      * 按当前登录用户上下文查询指定设备的测点选项。
      */
     List<DeviceMetricOptionVO> listMetricOptions(Long currentUserId, Long deviceId);
+
+    /**
+     * 查询未登记设备的接入建议。
+     */
+    DeviceOnboardingSuggestionVO getOnboardingSuggestion(DeviceOnboardingSuggestionQuery query);
+
+    /**
+     * 按当前登录用户上下文查询未登记设备的接入建议。
+     */
+    DeviceOnboardingSuggestionVO getOnboardingSuggestion(Long currentUserId, DeviceOnboardingSuggestionQuery query);
 }

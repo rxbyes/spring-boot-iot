@@ -29,7 +29,8 @@ const {
   mockElMessageSuccess,
   mockElMessageError,
   mockElMessageWarning,
-  mockPermissionStore
+  mockPermissionStore,
+  mockRoute
 } = vi.hoisted(() => ({
   mockPageRiskPointList: vi.fn(),
   mockGetRiskPointById: vi.fn(),
@@ -65,6 +66,9 @@ const {
       orgId: 7101,
       orgName: '平台运维中心'
     }
+  },
+  mockRoute: {
+    query: {}
   }
 }))
 
@@ -126,6 +130,10 @@ vi.mock('@/utils/message', () => ({
 
 vi.mock('@/stores/permission', () => ({
   usePermissionStore: () => mockPermissionStore
+}))
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mockRoute
 }))
 
 const StandardPageShellStub = defineComponent({
@@ -280,15 +288,14 @@ const StandardWorkbenchRowActionsStub = defineComponent({
 const RiskPointDetailDrawerStub = defineComponent({
   name: 'RiskPointDetailDrawer',
   props: ['modelValue', 'riskPointId', 'initialRiskPoint', 'initialSummary'],
-  emits: ['edit', 'maintain-binding', 'pending-promotion', 'close'],
+  emits: ['edit', 'binding-workbench', 'close'],
   template: `
     <section class="risk-point-detail-drawer-stub" :data-model-value="modelValue">
       <h3>风险对象详情</h3>
       <div v-if="initialRiskPoint">{{ initialRiskPoint.riskPointName }}</div>
       <div v-if="initialSummary">待治理 {{ initialSummary.pendingBindingCount ?? 0 }} 条</div>
       <button type="button" data-testid="detail-drawer-edit" @click="$emit('edit')">编辑风险点</button>
-      <button type="button" data-testid="detail-drawer-maintain-binding" @click="$emit('maintain-binding')">维护绑定</button>
-      <button type="button" data-testid="detail-drawer-pending-promotion" @click="$emit('pending-promotion')">待治理转正</button>
+      <button type="button" data-testid="detail-drawer-binding-workbench" @click="$emit('binding-workbench')">风险绑定工作台</button>
       <button type="button" data-testid="detail-drawer-close" @click="$emit('close')">关闭</button>
     </section>
   `
@@ -550,6 +557,7 @@ describe('RiskPointView', () => {
     mockElMessageSuccess.mockReset()
     mockElMessageError.mockReset()
     mockElMessageWarning.mockReset()
+    mockRoute.query = {}
     mockPermissionStore.userInfo = {
       id: 9001,
       username: 'editor',
@@ -1108,6 +1116,31 @@ describe('RiskPointView', () => {
     })
   })
 
+  it('hydrates keyword and status filters from route query before loading the list', async () => {
+    mockRoute.query = {
+      keyword: '北坡风险点',
+      status: '0'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+
+    mountView()
+    await flushPromises()
+
+    expect(mockPageRiskPointList).toHaveBeenCalledWith(expect.objectContaining({
+      keyword: '北坡风险点',
+      status: 0
+    }))
+  })
+
   it('hides the code field in create mode and shows audit fields in edit mode', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
@@ -1171,7 +1204,7 @@ describe('RiskPointView', () => {
         candidates: [
           {
             metricIdentifier: 'dispsX',
-            metricName: 'X向位移',
+            metricName: 'X轴位移',
             recommendationLevel: 'HIGH',
             evidenceSources: ['PRODUCT_MODEL', 'LATEST_PROPERTY', 'MESSAGE_LOG']
           }
@@ -1182,13 +1215,229 @@ describe('RiskPointView', () => {
 
     const wrapper = mountView()
     await flushPromises()
-    await (wrapper.vm as any).handleOpenPendingPromotion(createRiskPointRow())
+    await (wrapper.vm as any).openBindingWorkbench(createRiskPointRow(), 'pending')
     await flushPromises()
 
     expect(mockListPendingBindings).toHaveBeenCalledWith({ riskPointId: 1, pageNum: 1, pageSize: 10 })
+    expect(wrapper.text()).toContain('风险绑定工作台')
     expect(wrapper.text()).toContain('待治理转正')
-    expect(wrapper.text()).toContain('X向位移')
+    expect(wrapper.text()).toContain('X轴位移')
     expect(wrapper.text()).toContain('PRODUCT_MODEL')
+  })
+
+  it('auto-opens pending promotion when entered from governance-task dispatch context', async () => {
+    mockRoute.query = {
+      openRiskPointId: '1',
+      bindingAction: 'pending-promotion',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_RISK_BINDING'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetRiskPointById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createRiskPointRow()
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            metricIdentifier: 'dispsX',
+            metricName: 'X轴位移',
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(mockGetRiskPointById).toHaveBeenCalledWith('1')
+    expect(mockListPendingBindings).toHaveBeenCalledWith({ riskPointId: 1, pageNum: 1, pageSize: 10 })
+    expect(wrapper.text()).toContain('风险绑定工作台')
+    expect(wrapper.text()).toContain('待治理转正')
+    expect(wrapper.text()).toContain('X轴位移')
+  })
+
+  it('shows collector-child governance note when pending promotion comes from child-owned task context', async () => {
+    mockRoute.query = {
+      openRiskPointId: '1',
+      bindingAction: 'pending-promotion',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_RISK_BINDING',
+      governanceBoundary: 'collector-child',
+      subjectOwnership: 'child'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetRiskPointById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createRiskPointRow()
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            metricIdentifier: 'dispsX',
+            metricName: 'X轴位移',
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('风险绑定工作台')
+    expect(wrapper.text()).toContain('当前为采集器-子设备边界场景')
+    expect(wrapper.text()).toContain('不要把采集器当作监测主体')
+  })
+
+  it('marks catalog-backed pending candidates as suggestion-first binding targets', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListPendingBindings.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [{ id: 77, riskPointId: 1, deviceCode: 'DEVICE-2001', deviceName: '一号设备', resolutionStatus: 'PENDING_METRIC_GOVERNANCE' }]
+      }
+    })
+    mockGetPendingCandidates.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        pendingId: 77,
+        riskPointId: 1,
+        deviceCode: 'DEVICE-2001',
+        deviceName: '一号设备',
+        resolutionStatus: 'PENDING_METRIC_GOVERNANCE',
+        candidates: [
+          {
+            riskMetricId: 6102,
+            metricIdentifier: 'value',
+            metricName: '裂缝监测值',
+            catalogRecommended: true,
+            recommendationLevel: 'HIGH',
+            evidenceSources: ['PRODUCT_MODEL', 'LATEST_PROPERTY']
+          }
+        ],
+        promotionHistory: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await (wrapper.vm as any).openBindingWorkbench(createRiskPointRow(), 'pending')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('建议优先绑定')
+    expect(wrapper.text()).toContain('目录指标 #6102')
+    expect(wrapper.text()).toContain('裂缝监测值')
+  })
+
+  it('auto-opens the unified binding workbench on the formal-binding view when governance route requests maintain-binding', async () => {
+    mockRoute.query = {
+      openRiskPointId: '1',
+      bindingAction: 'maintain-binding',
+      governanceSource: 'task',
+      workItemCode: 'PENDING_RISK_BINDING'
+    }
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockGetRiskPointById.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createRiskPointRow()
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(mockGetRiskPointById).toHaveBeenCalledWith('1')
+    expect(wrapper.text()).toContain('风险绑定工作台')
+    expect(wrapper.text()).toContain('维护绑定')
+    expect(mockListPendingBindings).not.toHaveBeenCalled()
   })
 
   it('loads binding summaries for the current page without rendering a binding-status column in the list', async () => {
@@ -1230,7 +1479,7 @@ describe('RiskPointView', () => {
     expect(wrapper.text()).not.toContain('2 台设备 · 5 个测点')
     expect(wrapper.text()).not.toContain('待治理 1 条')
     expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('详情')
-    expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('维护绑定')
+    expect(vm.getRiskPointRowActions().map((item) => item.label)).toContain('风险绑定')
   })
 
   it('keeps pending and unbound summary text out of the list when only the detail drawer owns binding information', async () => {
@@ -1310,7 +1559,7 @@ describe('RiskPointView', () => {
     expect(detailDrawer.props('riskPointId')).toBe(1)
   })
 
-  it('routes detail drawer actions into the existing edit and maintenance flows', async () => {
+  it('routes detail drawer actions into the existing edit and binding-workbench flows', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1372,16 +1621,10 @@ describe('RiskPointView', () => {
     await (wrapper.vm as any).openRiskPointDetail(createRiskPointRow())
     await nextTick()
     detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
-    await detailDrawer.get('[data-testid="detail-drawer-maintain-binding"]').trigger('click')
-    await nextTick()
-    expect(wrapper.findComponent(RiskPointBindingMaintenanceDrawerStub).props('modelValue')).toBe(true)
-
-    await (wrapper.vm as any).openRiskPointDetail(createRiskPointRow())
-    await nextTick()
-    detailDrawer = wrapper.findComponent(RiskPointDetailDrawerStub)
-    await detailDrawer.get('[data-testid="detail-drawer-pending-promotion"]').trigger('click')
+    await detailDrawer.get('[data-testid="detail-drawer-binding-workbench"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('待治理转正')
+    expect(wrapper.text()).toContain('风险绑定工作台')
+    expect(wrapper.text()).toContain('维护绑定')
   })
 
   it('skips completed pending rows and auto-loads the first promotable row', async () => {
@@ -1424,7 +1667,7 @@ describe('RiskPointView', () => {
           candidates: [
             {
               metricIdentifier: 'dispsY',
-              metricName: 'Y向位移',
+              metricName: 'Y轴位移',
               recommendationLevel: 'HIGH',
               evidenceSources: ['LATEST_PROPERTY']
             }
@@ -1436,16 +1679,16 @@ describe('RiskPointView', () => {
 
     const wrapper = mountView()
     await flushPromises()
-    await (wrapper.vm as any).handleOpenPendingPromotion(createRiskPointRow())
+    await (wrapper.vm as any).openBindingWorkbench(createRiskPointRow(), 'pending')
     await flushPromises()
 
     expect(mockGetPendingCandidates).toHaveBeenCalledTimes(1)
     expect(mockGetPendingCandidates).toHaveBeenCalledWith(78)
     expect(wrapper.text()).toContain('DEVICE-PENDING')
-    expect(wrapper.text()).toContain('Y向位移')
+    expect(wrapper.text()).toContain('Y轴位移')
   })
 
-  it('opens the binding maintenance drawer when the row action emits maintain-binding', async () => {
+  it('opens the binding workbench when the row action emits binding-workbench', async () => {
     mockPageRiskPointList.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1474,13 +1717,13 @@ describe('RiskPointView', () => {
     await flushPromises()
 
     const vm = wrapper.vm as unknown as {
-      bindingMaintenanceVisible: boolean
-      bindingMaintenanceRiskPoint: ReturnType<typeof createRiskPointRow> | null
+      bindingWorkbenchVisible: boolean
+      bindingWorkbenchRiskPoint: ReturnType<typeof createRiskPointRow> | null
     }
 
     const actionButton = wrapper
       .findAll('.risk-point-row-actions-stub__item')
-      .find((node) => node.text() === '维护绑定')
+      .find((node) => node.text() === '风险绑定')
 
     expect(actionButton).toBeTruthy()
     await actionButton!.trigger('click')
@@ -1488,9 +1731,10 @@ describe('RiskPointView', () => {
 
     const drawer = wrapper.findComponent(RiskPointBindingMaintenanceDrawerStub)
 
+    expect(wrapper.text()).toContain('风险绑定工作台')
     expect(wrapper.text()).toContain('维护绑定')
-    expect(vm.bindingMaintenanceVisible).toBe(true)
-    expect(vm.bindingMaintenanceRiskPoint?.riskPointName).toBe('示例风险点')
+    expect(vm.bindingWorkbenchVisible).toBe(true)
+    expect(vm.bindingWorkbenchRiskPoint?.riskPointName).toBe('示例风险点')
     expect(drawer.props('riskPointId')).toBe(1)
     expect(drawer.props('riskPointName')).toBe('示例风险点')
     expect(drawer.props('riskPointCode')).toBe('RP-OPSCEN-NORTHS-CRIT-001')
@@ -1528,7 +1772,7 @@ describe('RiskPointView', () => {
 
     const actionButton = wrapper
       .findAll('.risk-point-row-actions-stub__item')
-      .find((node) => node.text() === '维护绑定')
+      .find((node) => node.text() === '风险绑定')
 
     await actionButton!.trigger('click')
     await nextTick()
@@ -1565,9 +1809,8 @@ describe('RiskPointView', () => {
       code: 200,
       msg: 'success',
       data: {
-        pendingId: 77,
-        pendingStatus: 'PROMOTED',
-        items: [{ metricIdentifier: 'dispsX', promotionStatus: 'SUCCESS', bindingId: 9001 }]
+        workItemId: 7001,
+        executionStatus: 'DIRECT_APPLIED'
       }
     })
 
@@ -1578,7 +1821,7 @@ describe('RiskPointView', () => {
     ;(wrapper.vm as any).togglePendingMetric({
       riskMetricId: 6102,
       metricIdentifier: 'dispsX',
-      metricName: 'X向位移',
+      metricName: 'X轴位移',
       evidenceSources: []
     })
     ;(wrapper.vm as any).pendingPromotionForm.completePending = true
@@ -1586,10 +1829,97 @@ describe('RiskPointView', () => {
     await (wrapper.vm as any).handlePendingPromotionSubmit()
 
     expect(mockPromotePendingBinding).toHaveBeenCalledWith(77, {
-      metrics: [{ riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X向位移' }],
+      metrics: [{ riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X轴位移' }],
       completePending: true,
       promotionNote: ''
     })
+  })
+
+  it('renders inline approval feedback when pending promotion is submitted for approval', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockPromotePendingBinding.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        workItemId: 7002,
+        approvalOrderId: 9901,
+        approvalStatus: 'PENDING',
+        executionStatus: 'PENDING_APPROVAL'
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    ;(wrapper.vm as any).bindingWorkbenchVisible = true
+    ;(wrapper.vm as any).bindingWorkbenchMode = 'pending'
+    ;(wrapper.vm as any).bindingWorkbenchRiskPoint = createRiskPointRow()
+    ;(wrapper.vm as any).pendingPromotionForm.pendingId = 77
+    ;(wrapper.vm as any).pendingPromotionForm.riskPointId = 1
+    ;(wrapper.vm as any).pendingPromotionForm.selectedMetrics = [
+      { riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X轴位移' }
+    ]
+
+    await (wrapper.vm as any).handlePendingPromotionSubmit()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('待审批')
+    expect(wrapper.text()).toContain('审批单 9901')
+  })
+
+  it('keeps the bind drawer open and renders approval feedback when bind-device requires approval', async () => {
+    mockPageRiskPointList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockBindDevice.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        workItemId: 7003,
+        approvalOrderId: 9902,
+        approvalStatus: 'PENDING',
+        executionStatus: 'PENDING_APPROVAL'
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    ;(wrapper.vm as any).bindDeviceVisible = true
+    ;(wrapper.vm as any).deviceList = [
+      { id: 2001, deviceCode: 'DEV-2001', deviceName: '北侧监测终端', orgId: 7101, orgName: '平台运维中心' }
+    ]
+    ;(wrapper.vm as any).metricList = [
+      { identifier: 'dispsX', name: 'X轴位移', riskMetricId: 6102 }
+    ]
+    ;(wrapper.vm as any).bindForm.riskPointId = 1
+    ;(wrapper.vm as any).bindForm.riskPointName = '示例风险点'
+    ;(wrapper.vm as any).bindForm.deviceId = 2001
+    ;(wrapper.vm as any).bindForm.deviceCode = 'DEV-2001'
+    ;(wrapper.vm as any).bindForm.deviceName = '北侧监测终端'
+    ;(wrapper.vm as any).bindForm.metricIdentifier = 'dispsX'
+    ;(wrapper.vm as any).bindForm.metricName = 'X轴位移'
+
+    await (wrapper.vm as any).handleBindSubmit()
+    await flushPromises()
+
+    expect((wrapper.vm as any).bindDeviceVisible).toBe(true)
+    expect(wrapper.text()).toContain('待审批')
+    expect(wrapper.text()).toContain('审批单 9902')
   })
 
   it('loads bindable devices from the dedicated risk-point endpoint before opening the bind drawer', async () => {

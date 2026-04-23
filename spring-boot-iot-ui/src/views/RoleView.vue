@@ -2,7 +2,7 @@
   <div class="role-view sys-mgmt-view standard-list-view">
     <StandardWorkbenchPanel
       title="角色权限"
-      description="在角色页统一维护基础信息、页面菜单与按钮权限，导航结构以导航编排页维护结果为准。"
+      description="在角色页统一维护基础信息与目录、页面、按钮全层级权限，导航结构以导航编排页维护结果为准。"
       show-header-actions
       show-filters
       :show-applied-filters="hasAppliedFilters"
@@ -224,7 +224,7 @@
     <StandardFormDrawer
       v-model="dialogVisible"
       :title="dialogTitle"
-      subtitle="通过右侧抽屉维护角色基础信息，并同步配置菜单与按钮权限。"
+      subtitle="通过右侧抽屉维护角色基础信息，并同步配置目录、页面、按钮权限。"
       size="68rem"
       @close="handleDialogClose"
     >
@@ -275,131 +275,73 @@
               <el-radio :value="0">禁用</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="授权摘要">
-            <div class="role-auth-summary">
-              <span class="role-auth-summary__count"
-                >已选 {{ checkedMenuCount }} 项菜单/按钮</span
-              >
-              <div
-                v-if="checkedMenuSummary.length"
-                class="role-auth-summary__tags"
-              >
-                <el-tag
-                  v-for="label in checkedMenuSummary"
-                  :key="label"
-                  size="small"
-                  effect="plain"
-                >
-                  {{ label }}
-                </el-tag>
-                <span
-                  v-if="checkedMenuCount > checkedMenuSummary.length"
-                  class="role-auth-summary__more"
-                >
-                  +{{ checkedMenuCount - checkedMenuSummary.length }}
-                </span>
-              </div>
-              <span v-else class="role-auth-summary__empty"
-                >未配置菜单权限时，登录后将看不到业务导航。</span
-              >
-            </div>
-          </el-form-item>
         </el-form>
 
         <section class="role-form-layout__auth">
           <div class="role-auth-panel">
-            <div class="role-auth-panel__header">
-              <div>
-                <h3>菜单与按钮授权</h3>
+            <div class="role-auth-summary-grid">
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">目录</span>
+                <strong>{{ grantedDirectoryCount }}</strong>
+                <p>已授权目录节点</p>
+              </article>
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">页面</span>
+                <strong>{{ grantedPageCount }}</strong>
+                <p>已授权页面节点</p>
+              </article>
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">按钮</span>
+                <strong>{{ grantedButtonCount }}</strong>
+                <p>已授权按钮节点</p>
+              </article>
+              <article class="role-auth-summary-grid__item">
+                <span class="role-auth-summary-grid__label">当前节点</span>
+                <strong>{{ currentNode ? currentNode.menuName : "未定位" }}</strong>
                 <p>
-                  目录节点仅用于展示层级；勾选页面或按钮时，后端会自动补齐所需父级菜单。
+                  {{ currentNodeStatusLabel }}
+                  <template v-if="currentNodeState">
+                    ，直属子级 {{ currentNodeState.selectedChildCount }}/{{
+                      currentNodeState.totalChildCount
+                    }}
+                  </template>
                 </p>
-              </div>
-              <StandardButton
-                v-permission="
-                  formData.id ? 'system:role:update' : 'system:role:add'
-                "
-                action="refresh"
-                link
-                @click="refreshMenuTree"
-                >刷新菜单树</StandardButton
-              >
+              </article>
             </div>
-
-            <el-alert
-              type="info"
-              show-icon
-              :closable="false"
-              title="导航编排负责维护菜单树与路由元数据；角色权限负责为角色分配可访问页面和按钮权限。"
-            />
-
-            <div class="role-auth-toolbar">
-              <el-input
-                v-model="menuKeyword"
-                clearable
-                placeholder="筛选菜单名称 / 编码 / 路由"
-                class="role-auth-toolbar__search"
-              />
-              <StandardButton
-                v-permission="
-                  formData.id ? 'system:role:update' : 'system:role:add'
-                "
-                action="batch"
-                @click="handleCheckAllMenus"
-                :disabled="menuSelectableIds.length === 0"
-                >全选</StandardButton
-              >
-              <StandardButton
-                v-permission="
-                  formData.id ? 'system:role:update' : 'system:role:add'
-                "
-                action="reset"
-                @click="handleClearMenus"
-                :disabled="checkedMenuCount === 0"
-                >清空</StandardButton
-              >
+            <div class="role-auth-note">
+              左侧统一处理目录、页面和按钮授权；右侧只平铺当前节点直属子级。保存仍沿用既有
+              menuIds 合同，共 {{ checkedMenuCount }} 项授权。
             </div>
-
-            <div v-loading="menuTreeLoading" class="role-auth-tree">
-              <el-tree
-                ref="menuTreeRef"
-                node-key="id"
-                show-checkbox
-                default-expand-all
-                check-strictly
-                highlight-current
-                :data="menuTreeData"
-                :props="menuTreeProps"
-                :filter-node-method="filterMenuTreeNode"
-                empty-text="暂无可授权菜单"
-                @check="handleMenuCheck"
-              >
-                <template #default="{ data }">
-                  <div class="role-tree-node">
-                    <div class="role-tree-node__main">
-                      <span class="role-tree-node__name">{{
-                        data.menuName
-                      }}</span>
-                      <el-tag
-                        size="small"
-                        effect="plain"
-                        :type="menuTypeTagType(data.type)"
-                      >
-                        {{ menuTypeLabel(data.type) }}
-                      </el-tag>
-                      <span
-                        v-if="data.disabled"
-                        class="role-tree-node__disabled-tip"
-                        >目录节点自动补齐</span
-                      >
-                    </div>
-                    <div class="role-tree-node__meta">
-                      <code v-if="data.menuCode">{{ data.menuCode }}</code>
-                      <code v-if="data.path">{{ data.path }}</code>
-                    </div>
-                  </div>
-                </template>
-              </el-tree>
+            <div class="role-auth-workspace">
+              <section aria-label="左侧权限树">
+                <RoleAuthPermissionTreePanel
+                  :tree-data="displayTreeData"
+                  :current-node-id="currentNodeId"
+                  :expanded-keys="treePanelExpandedKeys"
+                  :selection-state-map="menuSelectionStateMap"
+                  :keyword="treeKeyword"
+                  :loading="menuTreeLoading"
+                  @update:keyword="treeKeyword = $event"
+                  @toggle="handleToggleMenu"
+                  @select-node="handleSelectCurrentNode"
+                  @expand="handleExpandNode"
+                  @collapse="handleCollapseNode"
+                  @refresh="refreshMenuTree"
+                />
+              </section>
+              <section aria-label="当前节点详情">
+                <RoleAuthNodeDetailPanel
+                  :current-node="currentNode"
+                  :current-node-state="currentNodeState"
+                  :parent-label="currentNodeParentLabel"
+                  :items="currentNodeDetailItems"
+                  :keyword="detailKeyword"
+                  :loading="menuTreeLoading"
+                  @update:keyword="detailKeyword = $event"
+                  @toggle="handleToggleMenu"
+                  @focus-child="handleSelectCurrentNode"
+                />
+              </section>
             </div>
           </div>
         </section>
@@ -442,11 +384,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import CsvColumnSettingDialog from "@/components/CsvColumnSettingDialog.vue";
 import EmptyState from "@/components/EmptyState.vue";
+import RoleAuthNodeDetailPanel from "@/components/role/RoleAuthNodeDetailPanel.vue";
+import RoleAuthPermissionTreePanel from "@/components/role/RoleAuthPermissionTreePanel.vue";
 import StandardAppliedFiltersBar from "@/components/StandardAppliedFiltersBar.vue";
 import StandardDrawerFooter from "@/components/StandardDrawerFooter.vue";
 import StandardFormDrawer from "@/components/StandardFormDrawer.vue";
@@ -468,6 +412,7 @@ import {
   updateRole,
   type Role,
 } from "@/api/role";
+import type { IdType } from "@/types/api";
 import type { MenuTreeNode } from "@/types/auth";
 import {
   loadCsvColumnSelection,
@@ -478,8 +423,13 @@ import {
 import { downloadRowsAsCsv, type CsvColumn } from "@/utils/csv";
 import { confirmDelete, isConfirmCancelled } from "@/utils/confirm";
 import {
-  resolveRoleCheckedMenuIds,
-  resolveRoleMenuSummary,
+  buildMenuNodeMap,
+  buildMenuSelectionStateMap,
+  filterPermissionTreeByKeyword,
+  resolveGrantedMenuIds,
+  resolveNodeAncestorIds,
+  resolveNodeDetailItems,
+  toggleMenuGrant,
 } from "@/utils/menuAuth";
 import { resolveWorkbenchActionColumnWidth } from "@/utils/adaptiveActionColumn";
 
@@ -490,25 +440,19 @@ interface SearchFormState {
 }
 
 interface RoleFormData {
-  id: number | undefined;
+  id: IdType | undefined;
   roleName: string;
   roleCode: string;
   description: string;
   dataScopeType: string;
   status: number;
-  menuIds: number[];
-}
-
-interface RoleMenuTreeNode extends MenuTreeNode {
-  disabled?: boolean;
-  children: RoleMenuTreeNode[];
+  menuIds: IdType[];
 }
 
 type RoleRowActionCommand = "edit" | "delete";
 
 const formRef = ref();
 const tableRef = ref();
-const menuTreeRef = ref();
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } =
   useServerPagination();
 let latestListRequestId = 0;
@@ -578,8 +522,11 @@ const roleActionColumnWidth = resolveWorkbenchActionColumnWidth({
 
 const menuTreeLoading = ref(false);
 const rawMenuTree = ref<MenuTreeNode[]>([]);
-const menuTreeData = ref<RoleMenuTreeNode[]>([]);
-const menuKeyword = ref("");
+const grantedMenuIds = ref<IdType[]>([]);
+const currentNodeId = ref<IdType | null>(null);
+const treeKeyword = ref("");
+const detailKeyword = ref("");
+const expandedNodeKeys = ref<IdType[]>([]);
 const dataScopeOptions = [
   { label: "全局", value: "ALL" },
   { label: "租户内全部", value: "TENANT" },
@@ -589,22 +536,91 @@ const dataScopeOptions = [
 ];
 
 const formData = ref<RoleFormData>(createEmptyRoleForm());
-const menuTreeProps = {
-  label: "menuName",
-  children: "children",
-  disabled: "disabled",
-};
-
-const checkedMenuCount = computed(() => formData.value.menuIds.length);
-const checkedMenuSummary = computed(() =>
-  resolveRoleMenuSummary(rawMenuTree.value, formData.value.menuIds, 8),
+const menuNodeMap = computed(() => buildMenuNodeMap(rawMenuTree.value));
+const menuSelectionStateMap = computed(() =>
+  buildMenuSelectionStateMap(rawMenuTree.value, grantedMenuIds.value),
 );
-const menuSelectableIds = computed(() =>
-  resolveRoleCheckedMenuIds(
+const displayTreeData = computed(() =>
+  filterPermissionTreeByKeyword(rawMenuTree.value, treeKeyword.value),
+);
+const treePanelExpandedKeys = computed(() => {
+  if (treeKeyword.value.trim()) {
+    const expandedKeySet = new Set<IdType>();
+    const visitVisibleNodes = (nodes: MenuTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children?.length) {
+          expandedKeySet.add(node.id);
+          visitVisibleNodes(node.children);
+        }
+      });
+    };
+    visitVisibleNodes(displayTreeData.value);
+    return Array.from(expandedKeySet);
+  }
+
+  const expandedKeySet = new Set(expandedNodeKeys.value);
+  resolveNodeAncestorIds(rawMenuTree.value, currentNodeId.value).forEach((menuId) => {
+    expandedKeySet.add(menuId);
+  });
+  return Array.from(expandedKeySet);
+});
+const checkedMenuCount = computed(() => grantedMenuIds.value.length);
+const grantedDirectoryCount = computed(() =>
+  grantedMenuIds.value.reduce((count, menuId) => {
+    return menuNodeMap.value.get(menuId)?.type === 0 ? count + 1 : count;
+  }, 0),
+);
+const grantedPageCount = computed(() =>
+  grantedMenuIds.value.reduce((count, menuId) => {
+    return menuNodeMap.value.get(menuId)?.type === 1 ? count + 1 : count;
+  }, 0),
+);
+const grantedButtonCount = computed(() =>
+  grantedMenuIds.value.reduce((count, menuId) => {
+    return menuNodeMap.value.get(menuId)?.type === 2 ? count + 1 : count;
+  }, 0),
+);
+const currentNode = computed(() => {
+  if (currentNodeId.value === null) {
+    return null;
+  }
+  return menuNodeMap.value.get(currentNodeId.value) || null;
+});
+const currentNodeState = computed(() => {
+  if (currentNodeId.value === null) {
+    return null;
+  }
+  return menuSelectionStateMap.value.get(currentNodeId.value) || null;
+});
+const currentNodeParentLabel = computed(() => {
+  if (!currentNode.value || currentNode.value.parentId === null || currentNode.value.parentId === undefined) {
+    return "";
+  }
+  return menuNodeMap.value.get(currentNode.value.parentId)?.menuName || "";
+});
+const currentNodeDetailItems = computed(() =>
+  resolveNodeDetailItems(
     rawMenuTree.value,
-    flattenMenuIds(rawMenuTree.value),
+    currentNodeId.value,
+    detailKeyword.value,
+    menuSelectionStateMap.value,
   ),
 );
+const currentNodeStatusLabel = computed(() => {
+  if (!currentNodeState.value) {
+    return "未授权";
+  }
+  if (currentNodeState.value.checked) {
+    return "全量授权";
+  }
+  if (currentNodeState.value.indeterminate) {
+    return currentNodeState.value.selfSelected ? "部分授权" : "子级部分授权";
+  }
+  if (currentNodeState.value.selfSelected) {
+    return "已授权";
+  }
+  return "未授权";
+});
 const {
   tags: activeFilterTags,
   hasAppliedFilters,
@@ -646,10 +662,6 @@ const formRules = {
   dataScopeType: [{ required: true, message: "请选择数据范围", trigger: "change" }],
 };
 
-watch(menuKeyword, (keyword) => {
-  menuTreeRef.value?.filter(keyword);
-});
-
 function createEmptyRoleForm(): RoleFormData {
   return {
     id: undefined,
@@ -662,26 +674,80 @@ function createEmptyRoleForm(): RoleFormData {
   };
 }
 
-function flattenMenuIds(nodes: MenuTreeNode[]): number[] {
-  const ids: number[] = [];
-  const visit = (items: MenuTreeNode[]) => {
-    items.forEach((item) => {
-      ids.push(item.id);
-      if (item.children?.length) {
-        visit(item.children);
-      }
-    });
-  };
-  visit(nodes);
-  return ids;
+function syncGrantedMenuIdsToForm() {
+  formData.value.menuIds = [...grantedMenuIds.value];
 }
 
-function buildRoleMenuTree(nodes: MenuTreeNode[]): RoleMenuTreeNode[] {
-  return nodes.map((node) => ({
-    ...node,
-    disabled: node.type === 0,
-    children: buildRoleMenuTree(node.children || []),
-  }));
+function ensureExpandedNode(menuId: IdType | null) {
+  if (menuId === null) {
+    return;
+  }
+  const ancestorIds = resolveNodeAncestorIds(rawMenuTree.value, menuId);
+  expandedNodeKeys.value = Array.from(
+    new Set([...expandedNodeKeys.value, ...ancestorIds]),
+  );
+}
+
+function resolveDefaultCurrentNodeId(preferredNodeId: IdType | null = null) {
+  if (
+    preferredNodeId !== null &&
+    menuNodeMap.value.has(preferredNodeId)
+  ) {
+    return preferredNodeId;
+  }
+  if (
+    currentNodeId.value !== null &&
+    menuNodeMap.value.has(currentNodeId.value)
+  ) {
+    return currentNodeId.value;
+  }
+  return grantedMenuIds.value[0] ?? rawMenuTree.value[0]?.id ?? null;
+}
+
+function applyRoleGrantedMenuIds(
+  menuIds: Array<IdType | undefined | null>,
+  preferredNodeId: IdType | null = null,
+) {
+  grantedMenuIds.value = resolveGrantedMenuIds(rawMenuTree.value, menuIds);
+  syncGrantedMenuIdsToForm();
+  currentNodeId.value = resolveDefaultCurrentNodeId(preferredNodeId);
+  ensureExpandedNode(currentNodeId.value);
+}
+
+function handleToggleMenu(menuId: IdType, checked: boolean) {
+  grantedMenuIds.value = toggleMenuGrant(
+    rawMenuTree.value,
+    grantedMenuIds.value,
+    menuId,
+    checked,
+  );
+  syncGrantedMenuIdsToForm();
+  if (currentNodeId.value === null || !menuNodeMap.value.has(currentNodeId.value)) {
+    currentNodeId.value = resolveDefaultCurrentNodeId(menuId);
+  }
+  ensureExpandedNode(menuId);
+}
+
+function handleSelectCurrentNode(menuId: IdType) {
+  if (!menuNodeMap.value.has(menuId)) {
+    return;
+  }
+  currentNodeId.value = menuId;
+  detailKeyword.value = "";
+  ensureExpandedNode(menuId);
+}
+
+function handleExpandNode(menuId: IdType) {
+  if (expandedNodeKeys.value.includes(menuId)) {
+    return;
+  }
+  expandedNodeKeys.value = [...expandedNodeKeys.value, menuId];
+}
+
+function handleCollapseNode(menuId: IdType) {
+  expandedNodeKeys.value = expandedNodeKeys.value.filter(
+    (expandedMenuId) => expandedMenuId !== menuId,
+  );
 }
 
 async function getRoles() {
@@ -728,11 +794,9 @@ async function loadMenuAuthTree() {
     const res = await listMenuTree();
     if (res.code === 200) {
       rawMenuTree.value = res.data || [];
-      menuTreeData.value = buildRoleMenuTree(rawMenuTree.value);
       return true;
     }
     rawMenuTree.value = [];
-    menuTreeData.value = [];
     return false;
   } catch (error) {
     console.error("获取菜单树失败", error);
@@ -743,26 +807,20 @@ async function loadMenuAuthTree() {
   }
 }
 
-function applyCheckedMenuIds(menuIds: number[]) {
-  formData.value.menuIds = resolveRoleCheckedMenuIds(
-    rawMenuTree.value,
-    menuIds,
-  );
-  nextTick(() => {
-    menuTreeRef.value?.setCheckedKeys(formData.value.menuIds);
-    if (menuKeyword.value) {
-      menuTreeRef.value?.filter(menuKeyword.value);
-    }
-  });
-}
-
 async function openRoleDialog(title: string, role: RoleFormData) {
   dialogTitle.value = title;
-  formData.value = role;
+  formData.value = {
+    ...role,
+    menuIds: [],
+  };
+  treeKeyword.value = "";
+  detailKeyword.value = "";
+  currentNodeId.value = null;
+  grantedMenuIds.value = [];
+  expandedNodeKeys.value = [];
   dialogVisible.value = true;
   await loadMenuAuthTree();
-  await nextTick();
-  applyCheckedMenuIds(role.menuIds);
+  applyRoleGrantedMenuIds(role.menuIds);
 }
 
 function handleSearch() {
@@ -856,17 +914,19 @@ function handleExportCurrent() {
 }
 
 async function handleAdd() {
-  menuKeyword.value = "";
   await openRoleDialog("新增角色", createEmptyRoleForm());
 }
 
 async function handleEdit(row: Role) {
-  menuKeyword.value = "";
+  if (row.id === undefined || row.id === null) {
+    ElMessage.error("角色编号缺失，无法编辑");
+    return;
+  }
   try {
-    const res = await getRole(row.id as number);
+    const res = await getRole(row.id);
     if (res.code === 200 && res.data) {
       await openRoleDialog("编辑角色 / 菜单授权", {
-        id: Number(res.data.id),
+        id: res.data.id,
         roleName: res.data.roleName,
         roleCode: res.data.roleCode,
         description: res.data.description || "",
@@ -882,9 +942,13 @@ async function handleEdit(row: Role) {
 }
 
 async function handleDelete(row: Role) {
+  if (row.id === undefined || row.id === null) {
+    ElMessage.error("角色编号缺失，无法删除");
+    return;
+  }
   try {
     await confirmDelete("角色", row.roleName);
-    const res = await deleteRole(row.id as number);
+    const res = await deleteRole(row.id);
     if (res.code === 200) {
       ElMessage.success("删除成功");
       getRoles();
@@ -898,71 +962,14 @@ async function handleDelete(row: Role) {
   }
 }
 
-function collectCheckedMenuIds(): number[] {
-  const checkedKeys = (menuTreeRef.value?.getCheckedKeys(false) ||
-    []) as number[];
-  return checkedKeys.filter((menuId) => typeof menuId === "number");
-}
-
-function handleMenuCheck() {
-  formData.value.menuIds = collectCheckedMenuIds();
-}
-
-function handleCheckAllMenus() {
-  formData.value.menuIds = [...menuSelectableIds.value];
-  menuTreeRef.value?.setCheckedKeys(formData.value.menuIds);
-}
-
-function handleClearMenus() {
-  formData.value.menuIds = [];
-  menuTreeRef.value?.setCheckedKeys([]);
-}
-
 async function refreshMenuTree() {
-  const currentCheckedIds = [...formData.value.menuIds];
+  const currentGrantedMenuIds = [...grantedMenuIds.value];
   const success = await loadMenuAuthTree();
   if (!success) {
     return;
   }
-  await nextTick();
-  applyCheckedMenuIds(currentCheckedIds);
+  applyRoleGrantedMenuIds(currentGrantedMenuIds, currentNodeId.value);
   ElMessage.success("菜单树已刷新");
-}
-
-function filterMenuTreeNode(keyword: string, data: RoleMenuTreeNode) {
-  if (!keyword) {
-    return true;
-  }
-  const normalizedKeyword = keyword.trim().toLowerCase();
-  if (!normalizedKeyword) {
-    return true;
-  }
-  return [data.menuName, data.menuCode, data.path]
-    .filter((item): item is string => Boolean(item))
-    .some((item) => item.toLowerCase().includes(normalizedKeyword));
-}
-
-function menuTypeLabel(type?: number) {
-  if (type === 0) {
-    return "目录";
-  }
-  if (type === 1) {
-    return "页面";
-  }
-  if (type === 2) {
-    return "按钮";
-  }
-  return "未定义";
-}
-
-function menuTypeTagType(type?: number) {
-  if (type === 1) {
-    return "success";
-  }
-  if (type === 2) {
-    return "warning";
-  }
-  return "info";
 }
 
 function resolveDataScopeLabel(dataScopeType?: string) {
@@ -983,7 +990,7 @@ async function handleSubmit() {
     return;
   }
 
-  formData.value.menuIds = collectCheckedMenuIds();
+  formData.value.menuIds = [...grantedMenuIds.value];
   submitLoading.value = true;
   try {
     const payload = {
@@ -993,7 +1000,7 @@ async function handleSubmit() {
       description: formData.value.description,
       dataScopeType: formData.value.dataScopeType,
       status: formData.value.status,
-      menuIds: [...formData.value.menuIds],
+      menuIds: [...grantedMenuIds.value],
     };
     const res = payload.id ? await updateRole(payload) : await addRole(payload);
     if (res.code === 200) {
@@ -1013,8 +1020,11 @@ async function handleSubmit() {
 
 function handleDialogClose() {
   formRef.value?.resetFields();
-  menuTreeRef.value?.setCheckedKeys([]);
-  menuKeyword.value = "";
+  treeKeyword.value = "";
+  detailKeyword.value = "";
+  currentNodeId.value = null;
+  grantedMenuIds.value = [];
+  expandedNodeKeys.value = [];
   formData.value = createEmptyRoleForm();
 }
 
@@ -1050,105 +1060,95 @@ onMounted(async () => {
   gap: 12px;
 }
 
-.role-auth-panel__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.role-auth-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-.role-auth-panel__header h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
+.role-auth-summary-grid__item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.96);
 }
 
-.role-auth-panel__header p {
+.role-auth-summary-grid__label {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.role-auth-summary-grid__item strong {
+  color: var(--text-primary);
+  font-size: 1.02rem;
+}
+
+.role-auth-summary-grid__item p {
   margin: 0;
-  color: var(--el-text-color-secondary);
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  line-height: 1.5;
+}
+
+.role-auth-note {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
-.role-auth-toolbar {
-  display: flex;
-  flex-wrap: wrap;
+.role-auth-workspace {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.92fr) minmax(0, 1.08fr);
   gap: 12px;
+  align-items: start;
 }
 
-.role-auth-toolbar__search {
-  width: min(320px, 100%);
+.role-auth-workspace > section {
+  min-width: 0;
+  min-height: 0;
 }
 
-.role-auth-tree {
-  min-height: 420px;
-  max-height: 520px;
-  overflow: auto;
-  padding: 12px;
-  border: 1px solid var(--el-border-color);
-  border-radius: calc(var(--radius-md) + 2px);
-  background: var(--el-fill-color-blank);
+.role-auth-workspace > section :deep(.role-auth-card) {
+  height: 100%;
 }
 
-.role-tree-node {
-  display: grid;
-  gap: 4px;
-  padding: 2px 0;
-}
-
-.role-tree-node__main {
+.role-auth-workspace > section :deep(.role-auth-card > .el-card__body) {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  height: 100%;
 }
 
-.role-tree-node__name {
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-}
-
-.role-tree-node__disabled-tip {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.role-tree-node__meta {
+.role-auth-workspace > section :deep(.panel-card__content) {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.role-tree-node__meta code {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
-  border-radius: calc(var(--radius-2xs) + 2px);
-  padding: 2px 6px;
-}
-
-.role-auth-summary {
-  display: grid;
-  gap: 8px;
-}
-
-.role-auth-summary__count {
-  color: var(--el-text-color-primary);
-  font-weight: 500;
-}
-
-.role-auth-summary__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.role-auth-summary__more,
-.role-auth-summary__empty {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
 }
 
 @media (max-width: 960px) {
   .role-form-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .role-auth-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .role-auth-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .role-auth-summary-grid {
     grid-template-columns: 1fr;
   }
 }

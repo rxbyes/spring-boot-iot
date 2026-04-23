@@ -25,13 +25,46 @@ class TelemetryV2SchemaSupportTest {
     private TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     @Mock
     private JdbcTemplate jdbcTemplate;
+    @Mock
+    private TdengineSchemaManifestSupport schemaManifestSupport;
 
     private TelemetryV2SchemaSupport schemaSupport;
 
     @BeforeEach
     void setUp() {
         when(jdbcTemplateProvider.getJdbcTemplate()).thenReturn(jdbcTemplate);
-        schemaSupport = new TelemetryV2SchemaSupport(jdbcTemplateProvider, new TelemetryV2TableNamingStrategy());
+        when(schemaManifestSupport.requireObject(TelemetryStreamKind.MEASURE.getStableName()))
+                .thenReturn(new com.ghlzm.iot.framework.schema.SchemaManifestLoader.TdengineSchemaObject(
+                        TelemetryStreamKind.MEASURE.getStableName(),
+                        "tdengine_stable",
+                        "spring-boot-iot-telemetry",
+                        "auto_bootstrap",
+                        "CREATE STABLE IF NOT EXISTS iot_raw_measure_point (...)",
+                        java.util.List.of()
+                ));
+        when(schemaManifestSupport.requireObject(TelemetryStreamKind.STATUS.getStableName()))
+                .thenReturn(new com.ghlzm.iot.framework.schema.SchemaManifestLoader.TdengineSchemaObject(
+                        TelemetryStreamKind.STATUS.getStableName(),
+                        "tdengine_stable",
+                        "spring-boot-iot-telemetry",
+                        "auto_bootstrap",
+                        "CREATE STABLE IF NOT EXISTS iot_raw_status_point (...)",
+                        java.util.List.of()
+                ));
+        when(schemaManifestSupport.requireObject(TelemetryStreamKind.EVENT.getStableName()))
+                .thenReturn(new com.ghlzm.iot.framework.schema.SchemaManifestLoader.TdengineSchemaObject(
+                        TelemetryStreamKind.EVENT.getStableName(),
+                        "tdengine_stable",
+                        "spring-boot-iot-telemetry",
+                        "auto_bootstrap",
+                        "CREATE STABLE IF NOT EXISTS iot_raw_event_point (...)",
+                        java.util.List.of()
+                ));
+        schemaSupport = new TelemetryV2SchemaSupport(
+                jdbcTemplateProvider,
+                new TelemetryV2TableNamingStrategy(),
+                schemaManifestSupport
+        );
     }
 
     @Test

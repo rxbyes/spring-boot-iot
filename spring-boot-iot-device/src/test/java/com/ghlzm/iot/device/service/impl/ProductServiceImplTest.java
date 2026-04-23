@@ -11,12 +11,21 @@ import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
+import com.ghlzm.iot.device.vo.ProductOverviewSummaryVO;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,6 +40,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,6 +62,10 @@ class ProductServiceImplTest {
     @Mock
     private ProductMapper productMapper;
     @Mock
+    private ProductModelMapper productModelMapper;
+    @Mock
+    private ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
+    @Mock
     private DeviceOnlineSessionService deviceOnlineSessionService;
 
     private ProductServiceImpl productService;
@@ -64,7 +78,40 @@ class ProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        productService = spy(new ProductServiceImpl(deviceMapper, deviceOnlineSessionService));
+        productService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                productContractReleaseBatchMapper,
+                deviceOnlineSessionService
+        ));
+    }
+
+    @Test
+    void getOverviewSummaryShouldAggregateProductAndLatestBatch() {
+        ProductDetailVO detail = new ProductDetailVO();
+        detail.setId(1001L);
+        detail.setProductKey("crack-product");
+        detail.setProductName("裂缝监测产品");
+        detail.setDeviceCount(9L);
+        detail.setOnlineDeviceCount(4L);
+        doReturn(detail).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectCount(any())).thenReturn(3L);
+        ProductContractReleaseBatch latestBatch = new ProductContractReleaseBatch();
+        latestBatch.setId(7001L);
+        latestBatch.setReleasedFieldCount(2);
+        latestBatch.setReleaseStatus("RELEASED");
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(latestBatch));
+
+        ProductOverviewSummaryVO summary = productService.getOverviewSummary(1001L);
+
+        assertEquals(1001L, summary.getProductId());
+        assertEquals("crack-product", summary.getProductKey());
+        assertEquals(9L, summary.getDeviceCount());
+        assertEquals(4L, summary.getOnlineDeviceCount());
+        assertEquals(3, summary.getFormalFieldCount());
+        assertEquals(7001L, summary.getLatestReleaseBatchId());
+        assertEquals(2, summary.getLatestReleasedFieldCount());
+        assertEquals("RELEASED", summary.getLatestReleaseStatus());
     }
 
     @Test
@@ -271,7 +318,7 @@ class ProductServiceImplTest {
     }
 
     @Test
-    void updateProductShouldRejectDuplicateObjectInsightIdentifiers() {
+    void updateProductShouldDeduplicateObjectInsightIdentifiers() {
         doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
 
         ProductAddDTO dto = buildProductDto();
@@ -286,10 +333,13 @@ class ProductServiceImplTest {
                 }
                 """);
 
-        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+        productService.updateProduct(1001L, dto);
 
-        assertEquals("对象洞察自定义指标标识符不能重复: S1_ZT_1.humidity", ex.getMessage());
-        verify(productService, never()).updateById(any(Product.class));
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        String savedMetadata = captor.getValue().getMetadataJson();
+        assertTrue(savedMetadata.contains("重复湿度"));
+        assertFalse(savedMetadata.contains("相对湿度"));
     }
 
     @Test
@@ -309,7 +359,7 @@ class ProductServiceImplTest {
 
         BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
 
-        assertEquals("对象洞察指标分组仅支持 measure 或 status", ex.getMessage());
+        assertEquals("对象洞察指标分组仅支持 measure、status 或 runtime", ex.getMessage());
         verify(productService, never()).updateById(any(Product.class));
     }
 
@@ -419,6 +469,168 @@ class ProductServiceImplTest {
         assertTrue(captor.getValue().getMetadataJson().contains("\"objectInsight\""));
     }
 
+    @Test
+    void updateProductShouldAllowRuntimeObjectInsightGroup() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "S1_ZT_1.battery_dump_energy",
+                        "displayName": "电池余量",
+                        "group": "runtime",
+                        "includeInTrend": true,
+                        "includeInExtension": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"group\":\"runtime\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("S1_ZT_1.battery_dump_energy"));
+    }
+
+    @Test
+    void updateProductShouldRejectObjectInsightMetricConfiguredWithUnpublishedAlias() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                      "objectInsight": {
+                        "customMetrics": [
+                          {
+                        "identifier": "value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察指标必须使用已发布合同标识符: value", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldNormalizeObjectInsightIdentifiersToPublishedContractIdentifierCasing() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_GNSS_1.gpsTotalX", "GNSS X"),
+                buildProductModel(1001L, "S1_ZT_1.signal_4g", "4G信号")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "l1_gnss_1.gpstotalx",
+                        "displayName": "GNSS X",
+                        "group": "measure",
+                        "includeInTrend": true
+                      },
+                      {
+                        "identifier": "s1_zt_1.SIGNAL_4G",
+                        "displayName": "4G信号",
+                        "group": "runtime",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_GNSS_1.gpsTotalX\""));
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"S1_ZT_1.signal_4g\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"l1_gnss_1.gpstotalx\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"s1_zt_1.SIGNAL_4G\""));
+    }
+
+    @Test
+    void updateProductShouldKeepFullPathIdentifierWhenLegacyReleasedSnapshotStillUsesShortCanonicalAlias() {
+        PublishedProductContractSnapshotService snapshotService = org.mockito.Mockito.mock(PublishedProductContractSnapshotService.class);
+        MetricIdentifierResolver resolver = org.mockito.Mockito.mock(MetricIdentifierResolver.class);
+        ProductServiceImpl legacyCompatibleService = spy(new ProductServiceImpl(
+                deviceMapper,
+                productModelMapper,
+                productContractReleaseBatchMapper,
+                deviceOnlineSessionService,
+                snapshotService,
+                resolver
+        ));
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(legacyCompatibleService).getRequiredById(1001L);
+        doReturn(true).when(legacyCompatibleService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(legacyCompatibleService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+        when(snapshotService.getRequiredSnapshot(1001L)).thenReturn(PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .publishedIdentifier("value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .canonicalAlias("value", "value")
+                .build());
+        when(resolver.resolveForGovernance(any(), eq("L1_LF_1.value"))).thenReturn(
+                MetricIdentifierResolution.of(
+                        "L1_LF_1.value",
+                        "value",
+                        MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT
+                )
+        );
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        legacyCompatibleService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(legacyCompatibleService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_LF_1.value\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"value\""));
+    }
+
     private Product buildExistingProduct() {
         Product product = new Product();
         product.setId(1001L);
@@ -428,6 +640,16 @@ class ProductServiceImplTest {
         product.setNodeType(1);
         product.setStatus(ProductStatusEnum.ENABLED.getCode());
         return product;
+    }
+
+    private ProductModel buildProductModel(Long productId, String identifier, String modelName) {
+        ProductModel model = new ProductModel();
+        model.setProductId(productId);
+        model.setModelType("property");
+        model.setIdentifier(identifier);
+        model.setModelName(modelName);
+        model.setDeleted(0);
+        return model;
     }
 
     private ProductAddDTO buildProductDto() {

@@ -349,6 +349,14 @@
           <strong>绑定提示</strong>
           <span>绑定完成后，风险对象会直接联动实时监测台、阈值策略和告警运营台，请确认设备与测点归属关系准确。</span>
         </div>
+        <el-alert
+          v-if="bindDeviceVisible && bindApprovalNotice"
+          :title="bindApprovalNotice"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="view-alert"
+        />
         <el-form :model="bindForm" label-position="top" class="ops-drawer-form">
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
@@ -395,35 +403,83 @@
       :initial-summary="detailRiskPoint ? bindingSummaryMap[getIdKey(detailRiskPoint.id)] || null : null"
       @close="handleRiskPointDetailClose"
       @edit="handleEditFromDetail"
-      @maintain-binding="handleMaintainBindingFromDetail"
-      @pending-promotion="handlePendingPromotionFromDetail"
-    />
-
-    <RiskPointBindingMaintenanceDrawer
-      v-model="bindingMaintenanceVisible"
-      :risk-point-id="bindingMaintenanceRiskPoint?.id"
-      :risk-point-name="bindingMaintenanceRiskPoint?.riskPointName"
-      :risk-point-code="bindingMaintenanceRiskPoint?.riskPointCode"
-      :org-name="bindingMaintenanceRiskPoint?.orgName"
-      :pending-binding-count="bindingMaintenanceSummary?.pendingBindingCount ?? 0"
-      @close="handleBindingMaintenanceClose"
-      @updated="handleBindingMaintenanceUpdated"
+      @binding-workbench="handleBindingWorkbenchFromDetail"
     />
 
     <StandardFormDrawer
-      v-model="pendingPromotionVisible"
-      title="待治理转正"
-      subtitle="查看系统推荐候选并提交一个或多个测点转正式绑定。"
+      v-model="bindingWorkbenchVisible"
+      title="风险绑定工作台"
+      :subtitle="bindingWorkbenchSubtitle"
       size="48rem"
-      @close="handlePendingDrawerClose"
+      @close="handleBindingWorkbenchClose"
     >
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
-          <strong>治理提示</strong>
-          <span>系统会基于产品物模型、最近上报属性和历史消息日志生成推荐候选，最终仍需人工确认后提交转正。</span>
+          <strong>工作台说明</strong>
+          <span>统一在此查看正式绑定与待治理转正；正式绑定仍只维护 `risk_point_device`，待治理仍只处理 pending 台账与转正留痕。</span>
+        </div>
+        <div v-if="bindingWorkbenchGovernanceNote" class="ops-drawer-note">
+          <strong>边界提示</strong>
+          <span>{{ bindingWorkbenchGovernanceNote }}</span>
         </div>
 
-        <section class="ops-drawer-section">
+        <section v-if="bindingWorkbenchRiskPoint" class="ops-drawer-section">
+          <div class="ops-drawer-section__header">
+            <div>
+              <h3>{{ bindingWorkbenchRiskPoint.riskPointName || '未命名风险点' }}</h3>
+              <p>{{ bindingWorkbenchRiskPoint.riskPointCode || '尚未生成风险点编号' }}</p>
+            </div>
+          </div>
+          <div class="risk-point-binding-workbench__summary">
+            <span>所属组织 {{ bindingWorkbenchRiskPoint.orgName || '未配置组织' }}</span>
+            <span>{{ bindingWorkbenchSummary?.boundDeviceCount ?? 0 }} 台已绑定设备</span>
+            <span>{{ bindingWorkbenchSummary?.boundMetricCount ?? 0 }} 个正式测点</span>
+            <span>待治理 {{ bindingWorkbenchSummary?.pendingBindingCount ?? 0 }} 条</span>
+          </div>
+          <div class="risk-point-binding-workbench__switcher" role="tablist" aria-label="风险绑定工作台视图切换">
+            <button
+              type="button"
+              class="risk-point-binding-workbench__switch"
+              :class="{ 'is-active': bindingWorkbenchMode === 'formal' }"
+              data-testid="binding-workbench-switch-formal"
+              @click="handleBindingWorkbenchModeChange('formal')"
+            >
+              维护绑定
+            </button>
+            <button
+              type="button"
+              class="risk-point-binding-workbench__switch"
+              :class="{ 'is-active': bindingWorkbenchMode === 'pending' }"
+              data-testid="binding-workbench-switch-pending"
+              @click="handleBindingWorkbenchModeChange('pending')"
+            >
+              待治理转正
+            </button>
+          </div>
+        </section>
+
+        <RiskPointBindingMaintenanceDrawer
+          v-if="bindingWorkbenchMode === 'formal'"
+          :model-value="bindingWorkbenchVisible"
+          embedded
+          :risk-point-id="bindingWorkbenchRiskPoint?.id"
+          :risk-point-name="bindingWorkbenchRiskPoint?.riskPointName"
+          :risk-point-code="bindingWorkbenchRiskPoint?.riskPointCode"
+          :org-name="bindingWorkbenchRiskPoint?.orgName"
+          :pending-binding-count="bindingWorkbenchSummary?.pendingBindingCount ?? 0"
+          @updated="handleBindingWorkbenchUpdated"
+        />
+
+        <template v-else>
+          <el-alert
+            v-if="bindingWorkbenchVisible && pendingPromotionApprovalNotice"
+            :title="pendingPromotionApprovalNotice"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          />
+          <section class="ops-drawer-section">
           <div class="ops-drawer-section__header">
             <div>
               <h3>待治理记录</h3>
@@ -475,6 +531,7 @@
               <div class="risk-point-pending-candidate-list__meta">
                 <span>{{ candidate.metricIdentifier }}</span>
                 <span v-if="candidate.riskMetricId">目录指标 #{{ candidate.riskMetricId }}</span>
+                <span v-if="isCatalogRecommendedCandidate(candidate)">建议优先绑定</span>
                 <span>{{ (candidate.evidenceSources || []).join(' / ') }}</span>
               </div>
               <p v-if="candidate.reasonSummary" class="risk-point-pending-candidate-list__summary">{{ candidate.reasonSummary }}</p>
@@ -522,11 +579,12 @@
             </li>
           </ul>
         </section>
+        </template>
       </div>
-      <template #footer>
+      <template v-if="bindingWorkbenchMode === 'pending'" #footer>
         <StandardDrawerFooter
           :confirm-loading="submitLoading || pendingLoading"
-          @cancel="pendingPromotionVisible = false"
+          @cancel="closeBindingWorkbench"
           @confirm="handlePendingPromotionSubmit"
         />
       </template>
@@ -536,6 +594,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
@@ -563,7 +622,7 @@ import type { Region } from '@/api/region';
 import { getUser } from '@/api/user';
 import type { User } from '@/api/user';
 import { getDeviceMetricOptions } from '@/api/iot';
-import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api';
+import type { DeviceMetricOption, DeviceOption, GovernanceSubmissionResult, IdType } from '@/types/api';
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { getRiskLevelTagType, getRiskLevelText as resolveRiskLevelText, normalizeRiskLevel } from '@/utils/riskLevel';
@@ -574,6 +633,7 @@ import {
 } from '@/utils/riskPointLevel';
 import {
   pageRiskPointList,
+  getRiskPointById,
   addRiskPoint,
   updateRiskPoint,
   deleteRiskPoint,
@@ -604,7 +664,8 @@ type LazyRegionTreeNode = {
   data?: RegionTreeOption;
 };
 type TreeResolveFn = (data: RegionTreeOption[]) => void;
-type RiskPointRowActionCommand = 'detail' | 'edit' | 'maintain-binding' | 'pending-promotion' | 'delete';
+type RiskPointBindingWorkbenchMode = 'formal' | 'pending';
+type RiskPointRowActionCommand = 'detail' | 'edit' | 'binding-workbench' | 'delete';
 
 const PROMOTABLE_PENDING_STATUSES = new Set(['PENDING_METRIC_GOVERNANCE', 'PARTIALLY_PROMOTED']);
 const permissionStore = usePermissionStore();
@@ -613,8 +674,9 @@ const loading = ref(false);
 const formVisible = ref(false);
 const bindDeviceVisible = ref(false);
 const riskPointDetailVisible = ref(false);
-const bindingMaintenanceVisible = ref(false);
-const pendingPromotionVisible = ref(false);
+const bindingWorkbenchVisible = ref(false);
+const bindingWorkbenchMode = ref<RiskPointBindingWorkbenchMode>('formal');
+const handledGovernanceBindingRouteKey = ref('');
 const riskPointList = ref<RiskPoint[]>([]);
 const bindingSummaryMap = ref<Record<string, RiskPointBindingSummary>>({});
 const organizationOptions = ref<Organization[]>([]);
@@ -629,17 +691,18 @@ const pendingBindings = ref<RiskPointPendingBindingItem[]>([]);
 const pendingCandidates = ref<RiskPointPendingMetricCandidate[]>([]);
 const pendingHistory = ref<RiskPointPendingPromotionHistory[]>([]);
 const pendingLoading = ref(false);
+const bindSubmissionResult = ref<GovernanceSubmissionResult | null>(null);
+const pendingPromotionSubmissionResult = ref<GovernanceSubmissionResult | null>(null);
 const missingBindingItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RiskPoint[]>([]);
 const detailRiskPoint = ref<RiskPoint | null>(null);
-const bindingMaintenanceRiskPoint = ref<RiskPoint | null>(null);
+const bindingWorkbenchRiskPoint = ref<RiskPoint | null>(null);
 const riskPointActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
     { command: 'detail', label: '详情' },
     { command: 'edit', label: '编辑' },
-    { command: 'maintain-binding', label: '维护绑定' },
-    { command: 'pending-promotion', label: '待治理转正' },
+    { command: 'binding-workbench', label: '风险绑定' },
     { command: 'delete', label: '删除' }
   ],
 });
@@ -655,6 +718,7 @@ const appliedFilters = reactive({
   status: '' as '' | number
 });
 
+const route = useRoute();
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
 const formRef = ref();
@@ -722,6 +786,16 @@ const isSameId = (left?: IdType | null, right?: IdType | null) => {
   return leftKey === getIdKey(right);
 };
 
+const formatPendingApprovalNotice = (result?: GovernanceSubmissionResult | null) => {
+  if (!result || result.executionStatus !== 'PENDING_APPROVAL') {
+    return '';
+  }
+  if (result.approvalOrderId !== undefined && result.approvalOrderId !== null && result.approvalOrderId !== '') {
+    return `审批单 ${result.approvalOrderId} 已提交，当前状态：待审批`;
+  }
+  return '审批申请已提交，当前状态：待审批';
+};
+
 const enabledCount = computed(() => riskPointList.value.filter((item) => item.status === 0).length);
 const redCount = computed(() =>
   riskPointList.value.filter((item) => normalizeRiskLevel(item.currentRiskLevel || item.riskLevel) === 'red').length
@@ -729,12 +803,34 @@ const redCount = computed(() =>
 const disabledCount = computed(() => riskPointList.value.filter((item) => item.status === 1).length);
 const hasRecords = computed(() => riskPointList.value.length > 0);
 const showListSkeleton = computed(() => loading.value && !hasRecords.value);
-const bindingMaintenanceSummary = computed(() => {
-  if (!bindingMaintenanceRiskPoint.value?.id) {
+const bindingWorkbenchSummary = computed(() => {
+  if (!bindingWorkbenchRiskPoint.value?.id) {
     return null;
   }
-  return bindingSummaryMap.value[getIdKey(bindingMaintenanceRiskPoint.value.id)] || null;
+  return bindingSummaryMap.value[getIdKey(bindingWorkbenchRiskPoint.value.id)] || null;
 });
+const bindingWorkbenchSubtitle = computed(() =>
+  bindingWorkbenchMode.value === 'pending'
+    ? '查看系统推荐候选并提交一个或多个测点转正式绑定。'
+    : '查看正式绑定摘要，并可在同一工作台切换到待治理转正。'
+);
+const bindingWorkbenchGovernanceNote = computed(() => {
+  if (parseRouteStringQuery(route.query.governanceBoundary) !== 'collector-child') {
+    return '';
+  }
+  if (parseRouteStringQuery(route.query.subjectOwnership) !== 'child') {
+    return '';
+  }
+  return '当前为采集器-子设备边界场景，风险绑定对象应保持为子设备正式测点，不要把采集器当作监测主体。';
+});
+const bindApprovalNotice = computed(() =>
+  bindDeviceVisible.value ? formatPendingApprovalNotice(bindSubmissionResult.value) : ''
+);
+const pendingPromotionApprovalNotice = computed(() =>
+  bindingWorkbenchVisible.value && bindingWorkbenchMode.value === 'pending'
+    ? formatPendingApprovalNotice(pendingPromotionSubmissionResult.value)
+    : ''
+);
 const emptyStateTitle = computed(() => (hasAppliedFilters.value ? '没有符合条件的风险点' : '还没有风险对象'));
 const emptyStateDescription = computed(() =>
   hasAppliedFilters.value
@@ -1299,8 +1395,7 @@ const handleSelectionChange = (rows: RiskPoint[]) => {
 const getRiskPointRowActions = () => [
   { command: 'detail' as const, label: '详情' },
   { command: 'edit' as const, label: '编辑' },
-  { command: 'maintain-binding' as const, label: '维护绑定' },
-  { command: 'pending-promotion' as const, label: '待治理转正' },
+  { command: 'binding-workbench' as const, label: '风险绑定' },
   { command: 'delete' as const, label: '删除' }
 ];
 
@@ -1313,12 +1408,8 @@ const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskP
     handleEdit(row);
     return;
   }
-  if (command === 'maintain-binding') {
-    openBindingMaintenance(row);
-    return;
-  }
-  if (command === 'pending-promotion') {
-    void handleOpenPendingPromotion(row);
+  if (command === 'binding-workbench') {
+    void openBindingWorkbench(row, 'formal');
     return;
   }
   handleDelete(row);
@@ -1352,35 +1443,51 @@ const handleEditFromDetail = async () => {
   }
 };
 
-const handleMaintainBindingFromDetail = () => {
+const handleBindingWorkbenchFromDetail = async () => {
   const row = detailRiskPoint.value;
   riskPointDetailVisible.value = false;
   detailRiskPoint.value = null;
   if (row) {
-    openBindingMaintenance(row);
+    await openBindingWorkbench(row, 'formal');
   }
 };
 
-const handlePendingPromotionFromDetail = async () => {
-  const row = detailRiskPoint.value;
-  riskPointDetailVisible.value = false;
-  detailRiskPoint.value = null;
-  if (row) {
-    await handleOpenPendingPromotion(row);
+const openBindingWorkbench = async (row: RiskPoint, mode: RiskPointBindingWorkbenchMode = 'formal') => {
+  bindingWorkbenchRiskPoint.value = row;
+  bindingWorkbenchMode.value = mode;
+  bindingWorkbenchVisible.value = true;
+  if (mode !== 'pending') {
+    resetPendingPromotionState();
+    return;
   }
+  resetPendingPromotionState();
+  pendingPromotionForm.riskPointId = row.id;
+  await loadPendingBindings();
 };
 
-const openBindingMaintenance = (row: RiskPoint) => {
-  bindingMaintenanceRiskPoint.value = row;
-  bindingMaintenanceVisible.value = true;
+const handleBindingWorkbenchModeChange = async (mode: RiskPointBindingWorkbenchMode) => {
+  bindingWorkbenchMode.value = mode;
+  if (mode !== 'pending' || !bindingWorkbenchRiskPoint.value) {
+    return;
+  }
+  if (
+    getIdKey(pendingPromotionForm.riskPointId) === getIdKey(bindingWorkbenchRiskPoint.value.id)
+    && pendingBindings.value.length > 0
+  ) {
+    return;
+  }
+  resetPendingPromotionState();
+  pendingPromotionForm.riskPointId = bindingWorkbenchRiskPoint.value.id;
+  await loadPendingBindings();
 };
 
-const handleBindingMaintenanceClose = () => {
-  bindingMaintenanceRiskPoint.value = null;
-};
-
-const handleBindingMaintenanceUpdated = () => {
+const handleBindingWorkbenchUpdated = () => {
   void loadRiskPointList();
+};
+
+const closeBindingWorkbench = () => {
+  bindingWorkbenchVisible.value = false;
+  handleBindingWorkbenchClose();
 };
 
 const handleRemoveAppliedFilter = (key: string) => {
@@ -1393,6 +1500,31 @@ const handleRemoveAppliedFilter = (key: string) => {
 const handleClearAppliedFilters = () => {
   handleReset();
 };
+
+function applyRouteQueryToFilters() {
+  filters.keyword = parseRouteStringQuery(route.query.keyword);
+  filters.riskPointLevel = parseRouteStringQuery(route.query.riskPointLevel);
+  filters.status = parseRouteNumberQuery(route.query.status) ?? '';
+}
+
+function parseRouteStringQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function parseRouteBindingAction(value: unknown): 'pending-promotion' | 'maintain-binding' | '' {
+  const text = parseRouteStringQuery(value);
+  return text === 'pending-promotion' || text === 'maintain-binding' ? text : '';
+}
+
+function parseRouteNumberQuery(value: unknown) {
+  const text = parseRouteStringQuery(value);
+  if (!text) {
+    return undefined;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
 
 const resetRiskPointForm = () => {
   form.id = undefined;
@@ -1421,6 +1553,7 @@ const resetBindForm = () => {
   bindForm.metricIdentifier = '';
   bindForm.metricName = '';
   metricList.value = [];
+  bindSubmissionResult.value = null;
 };
 
 const resetPendingPromotionState = () => {
@@ -1433,6 +1566,7 @@ const resetPendingPromotionState = () => {
   pendingPromotionForm.selectedMetrics = [];
   pendingPromotionForm.completePending = true;
   pendingPromotionForm.promotionNote = '';
+  pendingPromotionSubmissionResult.value = null;
 };
 
 const handleAdd = () => {
@@ -1542,10 +1676,7 @@ const handleBindDevice = async (row: RiskPoint) => {
 };
 
 const handleOpenPendingPromotion = async (row: RiskPoint) => {
-  resetPendingPromotionState();
-  pendingPromotionForm.riskPointId = row.id;
-  pendingPromotionVisible.value = true;
-  await loadPendingBindings();
+  await openBindingWorkbench(row, 'pending');
 };
 
 const loadPendingBindings = async () => {
@@ -1591,6 +1722,7 @@ const loadPendingBindings = async () => {
 const handleSelectPendingRow = async (pending: RiskPointPendingBindingItem) => {
   pendingPromotionForm.pendingId = pending.id;
   pendingPromotionForm.selectedMetrics = [];
+  pendingPromotionSubmissionResult.value = null;
   if (!isPromotablePending(pending)) {
     pendingCandidates.value = [];
     pendingHistory.value = [];
@@ -1619,6 +1751,9 @@ const isPromotablePending = (pending: RiskPointPendingBindingItem | null | undef
 const isPendingMetricSelected = (metricIdentifier: string) =>
   pendingPromotionForm.selectedMetrics.some((item) => item.metricIdentifier === metricIdentifier);
 
+const isCatalogRecommendedCandidate = (candidate: RiskPointPendingMetricCandidate | null | undefined) =>
+  Boolean(candidate?.catalogRecommended || candidate?.riskMetricId);
+
 const togglePendingMetric = (candidate: RiskPointPendingMetricCandidate) => {
   const nextMetric = {
     riskMetricId: candidate.riskMetricId,
@@ -1641,12 +1776,18 @@ const handlePendingPromotionSubmit = async () => {
   }
   try {
     submitLoading.value = true;
+    pendingPromotionSubmissionResult.value = null;
     const res = await promotePendingBinding(pendingPromotionForm.pendingId, {
       metrics: pendingPromotionForm.selectedMetrics,
       completePending: pendingPromotionForm.completePending,
       promotionNote: pendingPromotionForm.promotionNote
     });
     if (res.code === 200) {
+      pendingPromotionSubmissionResult.value = res.data || null;
+      if (res.data?.executionStatus === 'PENDING_APPROVAL') {
+        ElMessage.success('待治理转正申请已提交审批');
+        return;
+      }
       ElMessage.success('待治理转正成功');
       await loadPendingBindings();
       void loadRiskPointList();
@@ -1666,6 +1807,7 @@ const handleBindSubmit = async () => {
   }
   try {
     submitLoading.value = true;
+    bindSubmissionResult.value = null;
     const selectedDevice = deviceList.value.find((device) => String(device.id) === String(bindForm.deviceId));
     const selectedMetric = metricList.value.find((metric) => metric.identifier === bindForm.metricIdentifier);
     if (!selectedDevice || !selectedMetric) {
@@ -1682,7 +1824,13 @@ const handleBindSubmit = async () => {
       metricName: selectedMetric.name
     });
     if (res.code === 200) {
+      bindSubmissionResult.value = res.data || null;
+      if (res.data?.executionStatus === 'PENDING_APPROVAL') {
+        ElMessage.success('绑定申请已提交审批');
+        return;
+      }
       ElMessage.success('绑定成功');
+      resetBindForm();
       bindDeviceVisible.value = false;
       void loadRiskPointList();
     }
@@ -1703,8 +1851,43 @@ const handleBindDrawerClose = () => {
   resetBindForm();
 };
 
-const handlePendingDrawerClose = () => {
+const handleBindingWorkbenchClose = () => {
+  bindingWorkbenchRiskPoint.value = null;
+  bindingWorkbenchMode.value = 'formal';
   resetPendingPromotionState();
+};
+
+const resolveGovernanceBindingRouteContext = async () => {
+  const openRiskPointId = parseRouteStringQuery(route.query.openRiskPointId);
+  const bindingAction = parseRouteBindingAction(route.query.bindingAction);
+  if (!openRiskPointId || !bindingAction) {
+    handledGovernanceBindingRouteKey.value = '';
+    return;
+  }
+  const routeKey = `${openRiskPointId}:${bindingAction}`;
+  if (handledGovernanceBindingRouteKey.value === routeKey) {
+    return;
+  }
+
+  let targetRiskPoint = riskPointList.value.find((item) => getIdKey(item.id) === openRiskPointId) || null;
+  if (!targetRiskPoint) {
+    try {
+      const response = await getRiskPointById(openRiskPointId);
+      if (response.code === 200 && response.data) {
+        targetRiskPoint = response.data;
+      }
+    } catch (error) {
+      logRiskPointRequestError('治理控制面风险点上下文补数失败', error);
+      return;
+    }
+  }
+
+  if (!targetRiskPoint) {
+    return;
+  }
+
+  handledGovernanceBindingRouteKey.value = routeKey;
+  await openBindingWorkbench(targetRiskPoint, bindingAction === 'maintain-binding' ? 'formal' : 'pending');
 };
 
 watch(
@@ -1762,11 +1945,24 @@ watch(
   }
 );
 
-onMounted(() => {
+watch(
+  () => [route.query.openRiskPointId, route.query.bindingAction],
+  () => {
+    if (!parseRouteStringQuery(route.query.openRiskPointId) || !parseRouteBindingAction(route.query.bindingAction)) {
+      handledGovernanceBindingRouteKey.value = '';
+      return;
+    }
+    void resolveGovernanceBindingRouteContext();
+  }
+);
+
+onMounted(async () => {
+  applyRouteQueryToFilters();
   syncAppliedFilters();
   void loadOrganizationOptions();
   void loadRiskPointLevelOptions();
-  void loadRiskPointList();
+  await loadRiskPointList();
+  await resolveGovernanceBindingRouteContext();
 });
 </script>
 
@@ -1794,6 +1990,39 @@ onMounted(() => {
 
 .risk-point-governance-list strong {
   color: var(--text-primary);
+}
+
+.risk-point-binding-workbench__summary {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.risk-point-binding-workbench__summary span {
+  color: var(--text-primary);
+}
+
+.risk-point-binding-workbench__switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.risk-point-binding-workbench__switch {
+  border: 1px solid var(--border-color, #d0d5dd);
+  background: #fff;
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.risk-point-binding-workbench__switch.is-active {
+  border-color: var(--brand-primary, #d97706);
+  background: color-mix(in srgb, var(--brand-primary, #d97706) 12%, white);
+  color: var(--brand-primary, #d97706);
 }
 
 .risk-point-pending-list,

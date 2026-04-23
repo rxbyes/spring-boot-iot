@@ -1,20 +1,24 @@
 import type { InsightRangeCode, TelemetryHistoryBatchRequest } from '@/api/telemetry';
-import type { DeviceProperty } from '@/types/api';
+import type { DeviceProperty, ProductObjectInsightMetricGroup } from '@/types/api';
 import { resolveInsightObjectType, type InsightObjectType } from '@/utils/deviceInsight';
 import {
   getInsightMetricPriorityBoost,
   hasPrioritizedSnapshotMetrics,
   resolveInsightMetricDisplayName
 } from '@/utils/deviceInsightNaming';
+import {
+  inferObjectInsightStatusGroup,
+  normalizeObjectInsightMetricGroup
+} from '@/utils/objectInsightMetricGroup';
 
 export interface InsightMetricDefinition {
   identifier: string;
   displayName: string;
-  group: 'measure' | 'status';
+  group: ProductObjectInsightMetricGroup;
 }
 
 export interface InsightTrendGroupDefinition {
-  key: 'measure' | 'status';
+  key: ProductObjectInsightMetricGroup;
   title: string;
   identifiers: string[];
 }
@@ -29,7 +33,8 @@ export interface InsightCustomMetricDefinition {
   parameterKey: string;
   identifier: string;
   displayName: string;
-  group: 'measure' | 'status';
+  group: ProductObjectInsightMetricGroup;
+  unit?: string;
   includeInTrend?: boolean;
   includeInExtension?: boolean;
   analysisTitle?: string;
@@ -48,6 +53,10 @@ export interface InsightCapabilityProfile {
   historyIdentifiers: string[];
   customMetrics: InsightCustomMetricDefinition[];
 }
+
+type RawInsightCustomMetricConfig = Omit<Partial<InsightCustomMetricDefinition>, 'group'> & {
+  group?: string;
+};
 
 export const INSIGHT_RANGE_OPTIONS = [
   { label: '近一天', value: '1d' },
@@ -83,8 +92,6 @@ interface RuntimeTemplateConfig {
   statusPriorityKeywords: string[];
 }
 
-const MAX_MEASURE_SERIES = 3;
-const MAX_STATUS_SERIES = 5;
 const MAX_EXTENSION_PARAMETERS = 4;
 const STATUS_METRIC_PATTERN =
   /(sensor_state|status|online|battery|signal|humidity|temperature|temp|voltage|current|network|energy|power|4g|rssi|snr|dbm|strength|state|zt|soc|dump_energy|remaining)/;
@@ -96,11 +103,17 @@ const DISPLAY_NAME_LABELS: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /(temperature|temp|温度)/i, label: '温度' }
 ];
 
+const BASE_TREND_GROUPS: InsightTrendGroupDefinition[] = [
+  { key: 'measure', title: '监测数据', identifiers: [] },
+  { key: 'statusEvent', title: '状态事件', identifiers: [] },
+  { key: 'runtime', title: '运行参数', identifiers: [] }
+];
+
 const BUILTIN_CUSTOM_METRIC_REGISTRY: Record<string, Omit<InsightCustomMetricDefinition, 'parameterKey'>> = {
   's1_zt_1.humidity': {
     identifier: 'S1_ZT_1.humidity',
     displayName: '相对湿度',
-    group: 'status',
+    group: 'runtime',
     analysisTitle: '现场环境补充',
     analysisTag: '系统自定义参数',
     analysisTemplate: '{{label}}当前为{{value}}，可辅助判断现场环境湿润程度。'
@@ -108,7 +121,7 @@ const BUILTIN_CUSTOM_METRIC_REGISTRY: Record<string, Omit<InsightCustomMetricDef
   's1_zt_1.signal_4g': {
     identifier: 'S1_ZT_1.signal_4g',
     displayName: '4G 信号强度',
-    group: 'status',
+    group: 'runtime',
     analysisTitle: '通信状态补充',
     analysisTag: '系统自定义参数',
     analysisTemplate: '{{label}}当前为{{value}}，可辅助判断设备回传链路稳定性。'
@@ -143,28 +156,15 @@ const MUDDY_WATER_PROFILE: InsightCapabilityProfile = {
   objectType: 'detect',
   heroMetrics: [
     { identifier: 'L4_NW_1', displayName: '泥水位高程', group: 'measure' },
-    { identifier: 'S1_ZT_1.sensor_state.L4_NW_1', displayName: '传感器在线状态', group: 'status' },
-    { identifier: 'S1_ZT_1.battery_dump_energy', displayName: '剩余电量', group: 'status' }
+    { identifier: 'S1_ZT_1.sensor_state.L4_NW_1', displayName: '传感器在线状态', group: 'statusEvent' },
+    { identifier: 'S1_ZT_1.battery_dump_energy', displayName: '剩余电量', group: 'runtime' }
   ],
-  trendGroups: [
-    { key: 'measure', title: '监测数据', identifiers: ['L4_NW_1'] },
-    {
-      key: 'status',
-      title: '状态数据',
-      identifiers: ['S1_ZT_1.sensor_state.L4_NW_1', 'S1_ZT_1.battery_dump_energy']
-    }
-  ],
+  trendGroups: BASE_TREND_GROUPS,
   extensionParameters: [
     { parameterKey: 'humidity', identifier: 'S1_ZT_1.humidity', displayName: '相对湿度' },
     { parameterKey: 'signal_4g', identifier: 'S1_ZT_1.signal_4g', displayName: '4G 信号强度' }
   ],
-  historyIdentifiers: [
-    'L4_NW_1',
-    'S1_ZT_1.sensor_state.L4_NW_1',
-    'S1_ZT_1.battery_dump_energy',
-    'S1_ZT_1.humidity',
-    'S1_ZT_1.signal_4g'
-  ],
+  historyIdentifiers: [],
   customMetrics: []
 };
 
@@ -172,10 +172,7 @@ const GENERIC_MONITORING_PROFILE: InsightCapabilityProfile = {
   key: 'generic-monitoring',
   objectType: 'generic',
   heroMetrics: [],
-  trendGroups: [
-    { key: 'measure', title: '监测数据', identifiers: [] },
-    { key: 'status', title: '状态数据', identifiers: [] }
-  ],
+  trendGroups: BASE_TREND_GROUPS,
   extensionParameters: [],
   historyIdentifiers: [],
   customMetrics: []
@@ -250,10 +247,11 @@ function buildRuntimeProfile(source: InsightCapabilitySource): InsightCapability
     .map((item) => ({
       identifier: item.identifier,
       displayName: item.displayName,
-      group: isStatusMetric(item) ? 'status' : 'measure'
+      group: isStatusMetric(item) ? inferObjectInsightStatusGroup(item.identifier, item.displayName) : 'measure'
     }));
 
   const extensionParameters = statusCandidates
+    .filter((item) => inferObjectInsightStatusGroup(item.identifier, item.displayName) === 'runtime')
     .filter((item) => heroMetrics.every((metric) => metric.identifier !== item.identifier))
     .slice(0, MAX_EXTENSION_PARAMETERS)
     .map((item) => ({
@@ -262,26 +260,13 @@ function buildRuntimeProfile(source: InsightCapabilitySource): InsightCapability
       displayName: item.displayName
     }));
 
-  const measureIdentifiers = uniqueIdentifiers([
-    ...heroMetrics.filter((item) => item.group === 'measure').map((item) => item.identifier),
-    ...measureCandidates.slice(0, MAX_MEASURE_SERIES).map((item) => item.identifier)
-  ]);
-  const statusIdentifiers = uniqueIdentifiers([
-    ...heroMetrics.filter((item) => item.group === 'status').map((item) => item.identifier),
-    ...extensionParameters.map((item) => item.identifier),
-    ...statusCandidates.slice(0, MAX_STATUS_SERIES).map((item) => item.identifier)
-  ]);
-
   return {
     key: config.key,
     objectType,
     heroMetrics,
-    trendGroups: [
-      { key: 'measure', title: '监测数据', identifiers: measureIdentifiers },
-      { key: 'status', title: '状态数据', identifiers: statusIdentifiers }
-    ],
+    trendGroups: BASE_TREND_GROUPS,
     extensionParameters,
-    historyIdentifiers: uniqueIdentifiers([...measureIdentifiers, ...statusIdentifiers]),
+    historyIdentifiers: [],
     customMetrics: []
   };
 }
@@ -397,7 +382,7 @@ function resolveMetadataCustomMetrics(
 
 function buildConfiguredMetricDefinition(
   identifier: string | undefined,
-  config: Partial<InsightCustomMetricDefinition>,
+  config: RawInsightCustomMetricConfig,
   profile: InsightCapabilityProfile,
   source: InsightCapabilitySource
 ): InsightCustomMetricDefinition | null {
@@ -405,22 +390,28 @@ function buildConfiguredMetricDefinition(
   if (!normalizedIdentifier) {
     return null;
   }
+  const resolvedIdentifier = resolveRuntimeMetricIdentifier(normalizedIdentifier, source.properties ?? []);
   const builtIn = BUILTIN_CUSTOM_METRIC_REGISTRY[normalizedIdentifier.toLowerCase()];
+  const hasExplicitConfig = Object.keys(config).length > 0;
   const displayName = normalizeOptionalText(config.displayName)
     || builtIn?.displayName
-    || resolveConfiguredMetricDisplayName(normalizedIdentifier, source.properties ?? [])
-    || normalizedIdentifier;
-  const profileGroup = resolveMetricGroup(profile, normalizedIdentifier);
-  const group = config.group === 'measure' || config.group === 'status'
-    ? config.group
-    : builtIn?.group || profileGroup || 'status';
-  const existsInHero = profile.heroMetrics.some((item) => item.identifier === normalizedIdentifier);
+    || resolveConfiguredMetricDisplayName(resolvedIdentifier, source.properties ?? [])
+    || resolvedIdentifier;
+  const profileGroup = resolveMetricGroup(profile, resolvedIdentifier);
+  const fallbackGroup = builtIn?.group
+    || profileGroup
+    || inferObjectInsightStatusGroup(resolvedIdentifier, displayName);
+  const group = config.group === undefined || config.group === null || config.group === ''
+    ? fallbackGroup
+    : normalizeObjectInsightMetricGroup(config.group, resolvedIdentifier, displayName);
+  const existsInHero = profile.heroMetrics.some((item) => item.identifier === resolvedIdentifier);
   return {
-    parameterKey: normalizeOptionalText(config.parameterKey) || normalizedIdentifier,
-    identifier: normalizedIdentifier,
+    parameterKey: normalizeOptionalText(config.parameterKey) || resolvedIdentifier,
+    identifier: resolvedIdentifier,
     displayName,
     group,
-    includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : true,
+    unit: normalizeOptionalText(config.unit) || builtIn?.unit,
+    includeInTrend: typeof config.includeInTrend === 'boolean' ? config.includeInTrend : hasExplicitConfig ? true : false,
     includeInExtension: typeof config.includeInExtension === 'boolean' ? config.includeInExtension : !existsInHero,
     analysisTitle: normalizeOptionalText(config.analysisTitle) || builtIn?.analysisTitle,
     analysisTag: normalizeOptionalText(config.analysisTag) || builtIn?.analysisTag,
@@ -430,7 +421,7 @@ function buildConfiguredMetricDefinition(
   };
 }
 
-function parseObjectInsightMetadata(metadataJson?: string | null): Array<Partial<InsightCustomMetricDefinition> & { identifier: string }> {
+function parseObjectInsightMetadata(metadataJson?: string | null): Array<RawInsightCustomMetricConfig & { identifier: string }> {
   const parsedMetadata = safeParseJson(metadataJson);
   const insightConfig = safeReadObject(parsedMetadata?.objectInsight);
   const customMetrics = Array.isArray(insightConfig?.customMetrics) ? insightConfig.customMetrics : [];
@@ -442,12 +433,13 @@ function parseObjectInsightMetadata(metadataJson?: string | null): Array<Partial
     }
     return [{
       identifier,
-      parameterKey: normalizeOptionalText(config?.parameterKey) || identifier,
-      displayName: normalizeOptionalText(config?.displayName) || undefined,
-      group: config?.group === 'measure' || config?.group === 'status' ? config.group : undefined,
-      includeInTrend: typeof config?.includeInTrend === 'boolean' ? config.includeInTrend : undefined,
-      includeInExtension: typeof config?.includeInExtension === 'boolean' ? config.includeInExtension : undefined,
-      analysisTitle: normalizeOptionalText(config?.analysisTitle) || undefined,
+        parameterKey: normalizeOptionalText(config?.parameterKey) || identifier,
+        displayName: normalizeOptionalText(config?.displayName) || undefined,
+        group: typeof config?.group === 'string' ? config.group : undefined,
+        unit: normalizeOptionalText(config?.unit) || undefined,
+        includeInTrend: typeof config?.includeInTrend === 'boolean' ? config.includeInTrend : undefined,
+        includeInExtension: typeof config?.includeInExtension === 'boolean' ? config.includeInExtension : undefined,
+        analysisTitle: normalizeOptionalText(config?.analysisTitle) || undefined,
       analysisTag: normalizeOptionalText(config?.analysisTag) || undefined,
       analysisTemplate: normalizeOptionalText(config?.analysisTemplate) || undefined,
       enabled: typeof config?.enabled === 'boolean' ? config.enabled : undefined,
@@ -465,7 +457,7 @@ function resolveConfiguredMetricDisplayName(identifier: string, properties: Devi
   return matched?.label || null;
 }
 
-function resolveMetricGroup(profile: InsightCapabilityProfile, identifier: string): 'measure' | 'status' | null {
+function resolveMetricGroup(profile: InsightCapabilityProfile, identifier: string): ProductObjectInsightMetricGroup | null {
   const heroMetric = profile.heroMetrics.find((item) => item.identifier === identifier);
   if (heroMetric) {
     return heroMetric.group;
@@ -509,6 +501,29 @@ function normalizeOptionalText(value: unknown) {
 function normalizeOptionalNumber(value: unknown) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function resolveRuntimeMetricIdentifier(identifier: string, properties: DeviceProperty[]) {
+  const exactMatch = properties.find((item) => item.identifier === identifier);
+  if (exactMatch?.identifier) {
+    return exactMatch.identifier;
+  }
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  const caseInsensitiveMatch = properties.find((item) => item.identifier?.trim().toLowerCase() === normalizedIdentifier);
+  if (caseInsensitiveMatch?.identifier) {
+    return caseInsensitiveMatch.identifier;
+  }
+  const suffixMatches = properties.filter((item) => {
+    const runtimeIdentifier = item.identifier?.trim();
+    if (!runtimeIdentifier) {
+      return false;
+    }
+    return runtimeIdentifier.toLowerCase().endsWith(`.${normalizedIdentifier}`);
+  });
+  if (suffixMatches.length === 1 && suffixMatches[0]?.identifier) {
+    return suffixMatches[0].identifier;
+  }
+  return identifier;
 }
 
 function toRuntimeCandidate(property: DeviceProperty): RuntimeMetricCandidate[] {
@@ -615,6 +630,7 @@ function mergeCustomMetricDefinition(
   const normalizedParameterKey = normalizeOptionalText(incoming.parameterKey);
   const normalizedIdentifier = normalizeOptionalText(incoming.identifier);
   const normalizedDisplayName = normalizeOptionalText(incoming.displayName);
+  const normalizedUnit = normalizeOptionalText(incoming.unit);
   const normalizedAnalysisTitle = normalizeOptionalText(incoming.analysisTitle);
   const normalizedAnalysisTag = normalizeOptionalText(incoming.analysisTag);
   const normalizedAnalysisTemplate = normalizeOptionalText(incoming.analysisTemplate);
@@ -628,9 +644,10 @@ function mergeCustomMetricDefinition(
   if (normalizedDisplayName) {
     merged.displayName = normalizedDisplayName;
   }
-  if (incoming.group === 'measure' || incoming.group === 'status') {
-    merged.group = incoming.group;
+  if (normalizedUnit) {
+    merged.unit = normalizedUnit;
   }
+  merged.group = normalizeObjectInsightMetricGroup(incoming.group, merged.identifier, merged.displayName);
   if (typeof incoming.includeInTrend === 'boolean') {
     merged.includeInTrend = incoming.includeInTrend;
   }

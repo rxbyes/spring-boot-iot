@@ -19,6 +19,8 @@ public class RiskMetricCatalogReadModel {
 
     private String contractIdentifier;
 
+    private Integer insightEnabled;
+
     private Integer enabled;
 
     private Integer deleted;

@@ -13,6 +13,7 @@ $repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
 $outDir = Join-Path $repoRoot 'logs\acceptance'
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 $script:authHeaders = @{}
+$script:governanceApproverId = $null
 $script:selectedPoints = @($PointFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
 $script:selectedModules = @($ModuleFilter | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim().ToLowerInvariant() })
 $script:modulePointMap = @{
@@ -86,6 +87,7 @@ function Invoke-Step {
         [string]$Method,
         [string]$Path,
         [object]$Body = $null,
+        [hashtable]$Headers = @{},
         [bool]$Critical = $true,
         [int]$TimeoutSec = 30
     )
@@ -94,23 +96,28 @@ function Invoke-Step {
     }
     $url = "$baseUrl$Path"
     try {
-        $headers = @{}
-
-        # Attach Authorization header for protected endpoints once login succeeds.
+        $requestHeaders = @{}
         if ($script:authHeaders.Count -gt 0) {
-            $headers = $script:authHeaders
+            foreach ($key in $script:authHeaders.Keys) {
+                $requestHeaders[$key] = $script:authHeaders[$key]
+            }
+        }
+        if ($Headers.Count -gt 0) {
+            foreach ($key in $Headers.Keys) {
+                $requestHeaders[$key] = $Headers[$key]
+            }
         }
 
         if ($null -ne $Body) {
             $json = $Body | ConvertTo-Json -Depth 20
-            if ($headers.Count -gt 0) {
-                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $headers -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
+            if ($requestHeaders.Count -gt 0) {
+                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $requestHeaders -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
             } else {
                 $resp = Invoke-RestMethod -Uri $url -Method $Method -Body $json -ContentType 'application/json; charset=utf-8' -TimeoutSec $TimeoutSec
             }
         } else {
-            if ($headers.Count -gt 0) {
-                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $headers -TimeoutSec $TimeoutSec
+            if ($requestHeaders.Count -gt 0) {
+                $resp = Invoke-RestMethod -Uri $url -Method $Method -Headers $requestHeaders -TimeoutSec $TimeoutSec
             } else {
                 $resp = Invoke-RestMethod -Uri $url -Method $Method -TimeoutSec $TimeoutSec
             }
@@ -194,6 +201,70 @@ function Invoke-ApiRaw {
     return Invoke-RestMethod -Uri $url -Method $Method -TimeoutSec $TimeoutSec
 }
 
+function Resolve-GovernanceApproverId {
+    param([string]$Username = 'governance_reviewer')
+
+    try {
+        $encodedUsername = Url-Encode $Username
+        $resp = Invoke-ApiRaw -Method 'GET' -Path "/api/user/username/$encodedUsername" -TimeoutSec 15
+        if ($resp -and $resp.code -eq 200 -and $resp.data -and $resp.data.id) {
+            return [long]$resp.data.id
+        }
+    } catch {
+        return $null
+    }
+
+    return $null
+}
+
+function Get-GovernanceApproverHeaders {
+    if ($script:governanceApproverId) {
+        return @{ 'X-Governance-Approver-Id' = [string]$script:governanceApproverId }
+    }
+    return @{}
+}
+
+function Get-FirstFormalBindingMetricOption {
+    param([long]$DeviceId)
+
+    if (-not $DeviceId) {
+        return $null
+    }
+
+    try {
+        $resp = Invoke-ApiRaw -Method 'GET' -Path "/api/risk-point/devices/$DeviceId/formal-metrics" -TimeoutSec 30
+        if ($resp -and $resp.code -eq 200 -and $resp.data) {
+            return @($resp.data | Where-Object {
+                    $_ -and $_.riskMetricId -and -not [string]::IsNullOrWhiteSpace([string]$_.identifier)
+                } | Select-Object -First 1)
+        }
+    } catch {
+        return $null
+    }
+
+    return $null
+}
+
+function Invoke-GovernedStep {
+    param(
+        [string]$Point,
+        [string]$Case,
+        [string]$Method,
+        [string]$Path,
+        [object]$Body = $null,
+        [bool]$Critical = $true,
+        [int]$TimeoutSec = 30
+    )
+
+    $headers = Get-GovernanceApproverHeaders
+    if ($headers.Count -eq 0) {
+        Skip-Step -Point $Point -Case $Case -Method $Method -Path $Path -Reason 'governance approver missing' -Critical $Critical
+        return $null
+    }
+
+    return Invoke-Step -Point $Point -Case $Case -Method $Method -Path $Path -Body $Body -Headers $headers -Critical $Critical -TimeoutSec $TimeoutSec
+}
+
 function Flatten-TreeNodes {
     param([object[]]$Nodes)
     $items = New-Object System.Collections.Generic.List[object]
@@ -250,6 +321,12 @@ if ($loginResp -and $loginResp.code -eq 200 -and $loginResp.data -and $loginResp
         $raw = $_.ErrorDetails.Message
         if ([string]::IsNullOrWhiteSpace($raw)) { $raw = $_.Exception.Message }
         Add-Result -Point 'ENV' -Case 'token-check' -Method 'GET' -Path '/api/auth/me' -Status 'FAIL' -Detail (Trim-Text $raw)
+    }
+    $script:governanceApproverId = Resolve-GovernanceApproverId
+    if ($script:governanceApproverId) {
+        Add-Result -Point 'ENV' -Case 'governance-approver-check' -Method 'GET' -Path '/api/user/username/governance_reviewer' -Status 'PASS' -Detail "approverId=$script:governanceApproverId"
+    } else {
+        Add-Result -Point 'ENV' -Case 'governance-approver-check' -Method 'GET' -Path '/api/user/username/governance_reviewer' -Status 'FAIL' -Detail 'governance reviewer missing'
     }
 } else {
     Add-Result -Point 'ENV' -Case 'login-token' -Method 'POST' -Path '/api/auth/login' -Status 'FAIL' -Detail 'login failed or token missing'
@@ -456,7 +533,7 @@ if (-not $riskOrg) {
         regionName       = [string]$riskRegion.regionName
         responsibleUser  = $riskResponsibleUser
         responsiblePhone = $riskResponsiblePhone
-        riskLevel        = 'orange'
+        riskPointLevel   = 'level_1'
         description      = 'auto-test'
         status           = 0
         tenantId         = 1
@@ -466,18 +543,60 @@ $rpId = Id-Of $rp
 Invoke-Step -Point 'RISK-POINT' -Case 'list-risk-points' -Method 'GET' -Path "/api/risk-point/list?riskPointCode=$rpCode" | Out-Null
 if ($rpId) {
     Invoke-Step -Point 'RISK-POINT' -Case 'get-risk-point' -Method 'GET' -Path "/api/risk-point/get/$rpId" | Out-Null
-    Invoke-Step -Point 'RISK-POINT' -Case 'bind-device' -Method 'POST' -Path '/api/risk-point/bind-device' -Body @{
-        riskPointId      = $rpId
-        deviceId         = $deviceId
-        deviceCode       = $deviceCode
-        deviceName       = $deviceName
-        metricIdentifier = 'temperature'
-        metricName       = 'temperature'
-        defaultThreshold = '80'
-        thresholdUnit    = 'C'
-    } | Out-Null
+    $riskBindingDeviceId = $deviceId
+    $riskBindingDeviceCode = $deviceCode
+    $riskBindingDeviceName = $deviceName
+    $riskBindingPath = '/api/risk-point/bind-device'
+    $riskBindingBody = $null
+    $formalMetricOption = if ($deviceId) { Get-FirstFormalBindingMetricOption -DeviceId $deviceId } else { $null }
+    if ($formalMetricOption) {
+        $riskBindingBody = @{
+            riskPointId      = $rpId
+            deviceId         = $riskBindingDeviceId
+            deviceCode       = $riskBindingDeviceCode
+            deviceName       = $riskBindingDeviceName
+            riskMetricId     = [long]$formalMetricOption.riskMetricId
+            metricIdentifier = [string]$formalMetricOption.identifier
+            metricName       = $(if ([string]::IsNullOrWhiteSpace([string]$formalMetricOption.name)) { [string]$formalMetricOption.identifier } else { [string]$formalMetricOption.name })
+            defaultThreshold = '80'
+            thresholdUnit    = 'C'
+        }
+    } else {
+        $warningDeviceCode = "accept-auto-warning-$stamp"
+        $warningDeviceName = "auto-warning-$stamp"
+        $warningDevice = Invoke-Step -Point 'RISK-POINT' -Case 'prepare-capability-device' -Method 'POST' -Path '/api/device/add' -Body @{
+            productKey   = 'zjhy-warning-sound-light-alarm-v1'
+            deviceName   = $warningDeviceName
+            deviceCode   = $warningDeviceCode
+            deviceSecret = '123456'
+            clientId     = $warningDeviceCode
+            username     = $warningDeviceCode
+            password     = '123456'
+        } -Critical $false
+        $warningDeviceId = Id-Of $warningDevice
+        if ($warningDeviceId) {
+            $riskBindingDeviceId = $warningDeviceId
+            $riskBindingDeviceCode = $warningDeviceCode
+            $riskBindingDeviceName = $warningDeviceName
+            $riskBindingPath = '/api/risk-point/bind-device-capability'
+            $riskBindingBody = @{
+                riskPointId           = $rpId
+                deviceId              = $riskBindingDeviceId
+                deviceCapabilityType  = 'WARNING'
+            }
+        }
+    }
+    if ($riskBindingBody) {
+        Invoke-Step -Point 'RISK-POINT' -Case 'bind-device' -Method 'POST' -Path $riskBindingPath -Body $riskBindingBody | Out-Null
+    } else {
+        Skip-Step -Point 'RISK-POINT' -Case 'bind-device' -Method 'POST' -Path $riskBindingPath -Reason 'no formal metric or capability binding device available'
+    }
     Invoke-Step -Point 'RISK-POINT' -Case 'list-bound-devices' -Method 'GET' -Path "/api/risk-point/bound-devices/$rpId" | Out-Null
-    Invoke-Step -Point 'RISK-POINT' -Case 'unbind-device' -Method 'POST' -Path "/api/risk-point/unbind-device?riskPointId=$rpId&deviceId=$deviceId" | Out-Null
+    if ($riskBindingDeviceId) {
+        Invoke-Step -Point 'RISK-POINT' -Case 'unbind-device' -Method 'POST' -Path "/api/risk-point/unbind-device?riskPointId=$rpId&deviceId=$riskBindingDeviceId" | Out-Null
+    } else {
+        Skip-Step -Point 'RISK-POINT' -Case 'unbind-device' -Method 'POST' -Path '/api/risk-point/unbind-device?riskPointId={id}&deviceId={id}' -Reason 'risk binding device missing'
+    }
     Invoke-Step -Point 'RISK-POINT' -Case 'update-risk-point' -Method 'POST' -Path '/api/risk-point/update' -Body @{
         id               = $rpId
         riskPointName    = 'auto-risk-point-upd'
@@ -487,7 +606,7 @@ if ($rpId) {
         regionName       = [string]$riskRegion.regionName
         responsibleUser  = $riskResponsibleUser
         responsiblePhone = $riskResponsiblePhone
-        riskLevel        = 'red'
+        riskPointLevel   = 'level_2'
         description      = 'auto-update'
         status           = 0
         tenantId         = 1
@@ -498,7 +617,7 @@ if ($rpId) {
 }
 
 $ruleName = "AUTO-RULE-$stamp"
-$rule = Invoke-Step -Point 'RULE-DEFINITION' -Case 'add-rule' -Method 'POST' -Path '/api/rule-definition/add' -Body @{
+$rule = Invoke-GovernedStep -Point 'RULE-DEFINITION' -Case 'add-rule' -Method 'POST' -Path '/api/rule-definition/add' -Body @{
     ruleName            = $ruleName
     metricIdentifier    = 'temperature'
     metricName          = 'temperature'
@@ -514,7 +633,7 @@ $ruleId = Id-Of $rule
 Invoke-Step -Point 'RULE-DEFINITION' -Case 'list-rules' -Method 'GET' -Path '/api/rule-definition/list?metricIdentifier=temperature' | Out-Null
 if ($ruleId) {
     Invoke-Step -Point 'RULE-DEFINITION' -Case 'get-rule' -Method 'GET' -Path "/api/rule-definition/get/$ruleId" | Out-Null
-    Invoke-Step -Point 'RULE-DEFINITION' -Case 'update-rule' -Method 'POST' -Path '/api/rule-definition/update' -Body @{
+    Invoke-GovernedStep -Point 'RULE-DEFINITION' -Case 'update-rule' -Method 'POST' -Path '/api/rule-definition/update' -Body @{
         id                 = $ruleId
         ruleName           = "$ruleName-upd"
         metricIdentifier   = 'temperature'
@@ -527,13 +646,13 @@ if ($ruleId) {
         status             = 0
         tenantId           = 1
     } | Out-Null
-    Invoke-Step -Point 'RULE-DEFINITION' -Case 'delete-rule' -Method 'POST' -Path "/api/rule-definition/delete/$ruleId" | Out-Null
+    Invoke-GovernedStep -Point 'RULE-DEFINITION' -Case 'delete-rule' -Method 'POST' -Path "/api/rule-definition/delete/$ruleId" | Out-Null
 } else {
     Skip-Step -Point 'RULE-DEFINITION' -Case 'get-rule' -Method 'GET' -Path '/api/rule-definition/get/{id}' -Reason 'ruleId missing'
 }
 
 $linkName = "AUTO-LINK-$stamp"
-$link = Invoke-Step -Point 'LINKAGE-RULE' -Case 'add-linkage' -Method 'POST' -Path '/api/linkage-rule/add' -Body @{
+$link = Invoke-GovernedStep -Point 'LINKAGE-RULE' -Case 'add-linkage' -Method 'POST' -Path '/api/linkage-rule/add' -Body @{
     ruleName         = $linkName
     description      = 'auto-linkage'
     triggerCondition = '{"metric":"temperature","operator":">","value":80}'
@@ -545,7 +664,7 @@ $linkId = Id-Of $link
 Invoke-Step -Point 'LINKAGE-RULE' -Case 'list-linkage' -Method 'GET' -Path "/api/linkage-rule/list?ruleName=$linkName" | Out-Null
 if ($linkId) {
     Invoke-Step -Point 'LINKAGE-RULE' -Case 'get-linkage' -Method 'GET' -Path "/api/linkage-rule/get/$linkId" | Out-Null
-    Invoke-Step -Point 'LINKAGE-RULE' -Case 'update-linkage' -Method 'POST' -Path '/api/linkage-rule/update' -Body @{
+    Invoke-GovernedStep -Point 'LINKAGE-RULE' -Case 'update-linkage' -Method 'POST' -Path '/api/linkage-rule/update' -Body @{
         id               = $linkId
         ruleName         = "$linkName-upd"
         description      = 'auto-linkage-upd'
@@ -554,13 +673,13 @@ if ($linkId) {
         status           = 0
         tenantId         = 1
     } | Out-Null
-    Invoke-Step -Point 'LINKAGE-RULE' -Case 'delete-linkage' -Method 'POST' -Path "/api/linkage-rule/delete/$linkId" | Out-Null
+    Invoke-GovernedStep -Point 'LINKAGE-RULE' -Case 'delete-linkage' -Method 'POST' -Path "/api/linkage-rule/delete/$linkId" | Out-Null
 }
 
 $planName = "AUTO-PLAN-$stamp"
-$plan = Invoke-Step -Point 'EMERGENCY-PLAN' -Case 'add-plan' -Method 'POST' -Path '/api/emergency-plan/add' -Body @{
+$plan = Invoke-GovernedStep -Point 'EMERGENCY-PLAN' -Case 'add-plan' -Method 'POST' -Path '/api/emergency-plan/add' -Body @{
     planName      = $planName
-    riskLevel     = 'warning'
+    alarmLevel    = 'yellow'
     description   = 'auto-plan'
     responseSteps = '[{"step":1,"action":"check"}]'
     contactList   = '[{"name":"oncall","phone":"13800000000"}]'
@@ -571,17 +690,17 @@ $planId = Id-Of $plan
 Invoke-Step -Point 'EMERGENCY-PLAN' -Case 'list-plans' -Method 'GET' -Path "/api/emergency-plan/list?planName=$planName" | Out-Null
 if ($planId) {
     Invoke-Step -Point 'EMERGENCY-PLAN' -Case 'get-plan' -Method 'GET' -Path "/api/emergency-plan/get/$planId" | Out-Null
-    Invoke-Step -Point 'EMERGENCY-PLAN' -Case 'update-plan' -Method 'POST' -Path '/api/emergency-plan/update' -Body @{
+    Invoke-GovernedStep -Point 'EMERGENCY-PLAN' -Case 'update-plan' -Method 'POST' -Path '/api/emergency-plan/update' -Body @{
         id            = $planId
         planName      = "$planName-upd"
-        riskLevel     = 'critical'
+        alarmLevel    = 'red'
         description   = 'auto-plan-upd'
         responseSteps = '[{"step":1,"action":"act-now"}]'
         contactList   = '[{"name":"owner","phone":"13900000000"}]'
         status        = 0
         tenantId      = 1
     } | Out-Null
-    Invoke-Step -Point 'EMERGENCY-PLAN' -Case 'delete-plan' -Method 'POST' -Path "/api/emergency-plan/delete/$planId" | Out-Null
+    Invoke-GovernedStep -Point 'EMERGENCY-PLAN' -Case 'delete-plan' -Method 'POST' -Path "/api/emergency-plan/delete/$planId" | Out-Null
 }
 
 # 5) reports
@@ -656,7 +775,6 @@ if ($userId) {
         updateBy = 1
     } | Out-Null
     Invoke-Step -Point 'SYS-USER' -Case 'reset-password' -Method 'POST' -Path "/api/user/reset-password/$userId" | Out-Null
-    Invoke-Step -Point 'SYS-USER' -Case 'delete-user' -Method 'DELETE' -Path "/api/user/$userId" | Out-Null
 }
 
 $roleCode = "AUTO_ROLE_$stamp"
@@ -684,6 +802,9 @@ if ($roleId) {
     } | Out-Null
     if ($userId) { Invoke-Step -Point 'SYS-ROLE' -Case 'list-user-roles' -Method 'GET' -Path "/api/role/user/$userId" | Out-Null } else { Skip-Step -Point 'SYS-ROLE' -Case 'list-user-roles' -Method 'GET' -Path '/api/role/user/{userId}' -Reason 'userId missing' }
     Invoke-Step -Point 'SYS-ROLE' -Case 'delete-role' -Method 'DELETE' -Path "/api/role/$roleId" | Out-Null
+}
+if ($userId) {
+    Invoke-Step -Point 'SYS-USER' -Case 'delete-user' -Method 'DELETE' -Path "/api/user/$userId" | Out-Null
 }
 
 $regionCode = "AUTO_REGION_$stamp"

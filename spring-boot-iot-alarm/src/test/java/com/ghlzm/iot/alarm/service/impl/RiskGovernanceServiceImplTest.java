@@ -1,5 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
@@ -23,19 +25,28 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductContractReleaseSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -47,6 +58,16 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RiskGovernanceServiceImplTest {
+
+    @BeforeAll
+    static void initLambdaCache() {
+        if (TableInfoHelper.getTableInfo(RiskMetricCatalog.class) != null) {
+            return;
+        }
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new Configuration(), "");
+        assistant.setCurrentNamespace(RiskMetricCatalog.class.getName());
+        LambdaUtils.installCache(TableInfoHelper.initTableInfo(assistant, RiskMetricCatalog.class));
+    }
 
     @Mock
     private DeviceMapper deviceMapper;
@@ -73,6 +94,9 @@ class RiskGovernanceServiceImplTest {
     private ProductContractReleaseBatchMapper productContractReleaseBatchMapper;
 
     @Mock
+    private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
+
+    @Mock
     private LinkageRuleMapper linkageRuleMapper;
 
     @Mock
@@ -83,6 +107,9 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
+
+    @Mock
+    private VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
 
     @Mock
     private RiskMetricActionBindingBackfillService backfillService;
@@ -119,11 +146,172 @@ class RiskGovernanceServiceImplTest {
         when(riskMetricCatalogMapper.selectPage(any(), any())).thenReturn(new Page<RiskMetricCatalog>(1L, 10L, 1L)
                 .setRecords(List.of(catalog)));
 
-        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, 1L, 10L);
+        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, null, 1L, 10L);
 
         assertEquals(1L, page.getTotal());
         assertEquals("value", page.getRecords().get(0).getContractIdentifier());
         assertEquals("RM_1001_VALUE", page.getRecords().get(0).getRiskMetricCode());
+    }
+
+    @Test
+    void pageMetricCatalogsShouldFilterByReleaseBatchId() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(1001L);
+        catalog.setReleaseBatchId(7001L);
+        catalog.setContractIdentifier("value");
+        catalog.setRiskMetricCode("RM_1001_VALUE");
+        catalog.setRiskMetricName("裂缝监测值");
+        when(riskMetricCatalogMapper.selectPage(any(), any())).thenReturn(new Page<RiskMetricCatalog>(1L, 10L, 1L)
+                .setRecords(List.of(catalog)));
+
+        PageResult<RiskMetricCatalogItemVO> page = service.pageMetricCatalogs(1001L, 7001L, 1L, 10L);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(7001L, page.getRecords().get(0).getReleaseBatchId());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RiskMetricCatalog>> captor =
+                ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(riskMetricCatalogMapper).selectPage(any(), captor.capture());
+        captor.getValue().getSqlSegment();
+        assertTrue(captor.getValue().getParamNameValuePairs().values().contains(1001L));
+        assertTrue(captor.getValue().getParamNameValuePairs().values().contains(7001L));
+    }
+
+    @Test
+    void compareReleaseBatchesShouldReturnContractAndMetricDeltas() throws Exception {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        ReflectionTestUtils.setField(service, "productContractReleaseSnapshotMapper", productContractReleaseSnapshotMapper);
+
+        ProductContractReleaseBatch baselineBatch = new ProductContractReleaseBatch();
+        baselineBatch.setId(7001L);
+        baselineBatch.setProductId(1001L);
+        baselineBatch.setScenarioCode("phase1-crack");
+        baselineBatch.setReleaseStatus("ROLLED_BACK");
+        baselineBatch.setReleasedFieldCount(1);
+        baselineBatch.setCreateTime(LocalDateTime.of(2026, 4, 9, 18, 0));
+        ProductContractReleaseBatch targetBatch = new ProductContractReleaseBatch();
+        targetBatch.setId(7002L);
+        targetBatch.setProductId(1001L);
+        targetBatch.setScenarioCode("phase1-crack");
+        targetBatch.setReleaseStatus("RELEASED");
+        targetBatch.setReleasedFieldCount(2);
+        targetBatch.setCreateTime(LocalDateTime.of(2026, 4, 10, 18, 0));
+        when(productContractReleaseBatchMapper.selectById(7001L)).thenReturn(baselineBatch);
+        when(productContractReleaseBatchMapper.selectById(7002L)).thenReturn(targetBatch);
+
+        ProductContractReleaseSnapshot baselineSnapshot = new ProductContractReleaseSnapshot();
+        baselineSnapshot.setId(8101L);
+        baselineSnapshot.setBatchId(7001L);
+        baselineSnapshot.setProductId(1001L);
+        baselineSnapshot.setSnapshotStage("AFTER_APPLY");
+        baselineSnapshot.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值(旧)","dataType":"double","sortNo":1,"requiredFlag":1},
+                  {"modelType":"property","identifier":"sensor_state","modelName":"传感器状态","dataType":"int","sortNo":2,"requiredFlag":0}
+                ]
+                """);
+        ProductContractReleaseSnapshot targetSnapshot = new ProductContractReleaseSnapshot();
+        targetSnapshot.setId(8102L);
+        targetSnapshot.setBatchId(7002L);
+        targetSnapshot.setProductId(1001L);
+        targetSnapshot.setSnapshotStage("AFTER_APPLY");
+        targetSnapshot.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值(新)","dataType":"double","sortNo":1,"requiredFlag":1},
+                  {"modelType":"property","identifier":"humidity","modelName":"湿度","dataType":"double","sortNo":2,"requiredFlag":0}
+                ]
+                """);
+        when(productContractReleaseSnapshotMapper.selectList(any())).thenReturn(List.of(baselineSnapshot), List.of(targetSnapshot));
+
+        RiskMetricCatalog baselineValue = new RiskMetricCatalog();
+        baselineValue.setId(9101L);
+        baselineValue.setProductId(1001L);
+        baselineValue.setReleaseBatchId(7001L);
+        baselineValue.setContractIdentifier("value");
+        baselineValue.setRiskMetricCode("RM_1001_VALUE");
+        baselineValue.setRiskMetricName("裂缝监测值(旧)");
+        baselineValue.setMetricRole("PRIMARY");
+        baselineValue.setLifecycleStatus("ACTIVE");
+        RiskMetricCatalog baselineState = new RiskMetricCatalog();
+        baselineState.setId(9102L);
+        baselineState.setProductId(1001L);
+        baselineState.setReleaseBatchId(7001L);
+        baselineState.setContractIdentifier("sensor_state");
+        baselineState.setRiskMetricCode("RM_1001_SENSOR_STATE");
+        baselineState.setRiskMetricName("传感器状态");
+        baselineState.setMetricRole("SECONDARY");
+        baselineState.setLifecycleStatus("ACTIVE");
+        RiskMetricCatalog targetValue = new RiskMetricCatalog();
+        targetValue.setId(9201L);
+        targetValue.setProductId(1001L);
+        targetValue.setReleaseBatchId(7002L);
+        targetValue.setContractIdentifier("value");
+        targetValue.setRiskMetricCode("RM_1001_VALUE");
+        targetValue.setRiskMetricName("裂缝监测值");
+        targetValue.setMetricRole("PRIMARY");
+        targetValue.setLifecycleStatus("ACTIVE");
+        RiskMetricCatalog targetHumidity = new RiskMetricCatalog();
+        targetHumidity.setId(9202L);
+        targetHumidity.setProductId(1001L);
+        targetHumidity.setReleaseBatchId(7002L);
+        targetHumidity.setContractIdentifier("humidity");
+        targetHumidity.setRiskMetricCode("RM_1001_HUMIDITY");
+        targetHumidity.setRiskMetricName("湿度监测值");
+        targetHumidity.setMetricRole("SECONDARY");
+        targetHumidity.setLifecycleStatus("ACTIVE");
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(
+                List.of(baselineValue, baselineState),
+                List.of(targetValue, targetHumidity)
+        );
+
+        Object diff = RiskGovernanceServiceImpl.class
+                .getMethod("compareReleaseBatches", Long.class, Long.class)
+                .invoke(service, 7001L, 7002L);
+
+        BeanWrapperImpl wrapper = new BeanWrapperImpl(diff);
+        assertEquals(1001L, wrapper.getPropertyValue("productId"));
+        assertEquals(2, ((Number) wrapper.getPropertyValue("baselineContractFieldCount")).intValue());
+        assertEquals(2, ((Number) wrapper.getPropertyValue("targetContractFieldCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("addedContractCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("removedContractCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("changedContractCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("addedMetricCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("removedMetricCount")).intValue());
+        assertEquals(1, ((Number) wrapper.getPropertyValue("changedMetricCount")).intValue());
+        assertEquals(3, ((List<?>) wrapper.getPropertyValue("contractDiffItems")).size());
+        assertEquals(3, ((List<?>) wrapper.getPropertyValue("metricDiffItems")).size());
+        assertEquals(7001L, new BeanWrapperImpl(wrapper.getPropertyValue("baselineBatch")).getPropertyValue("id"));
+        assertEquals(7002L, new BeanWrapperImpl(wrapper.getPropertyValue("targetBatch")).getPropertyValue("id"));
     }
 
     @Test
@@ -238,6 +426,56 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void getCoverageOverviewShouldExposePublishableContractPropertyCount() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                vendorMetricEvidenceMapper,
+                backfillService
+        );
+
+        ProductModel value = new ProductModel();
+        value.setId(3001L);
+        value.setProductId(1001L);
+        value.setModelType("property");
+        value.setIdentifier("value");
+        ProductModel sensorState = new ProductModel();
+        sensorState.setId(3002L);
+        sensorState.setProductId(1001L);
+        sensorState.setModelType("property");
+        sensorState.setIdentifier("sensor_state");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+
+        RiskMetricCatalog metricValue = new RiskMetricCatalog();
+        metricValue.setId(9101L);
+        metricValue.setProductId(1001L);
+        metricValue.setContractIdentifier("value");
+        metricValue.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(metricValue));
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+
+        RiskGovernanceCoverageOverviewVO overview = service.getCoverageOverview(1001L);
+
+        BeanWrapperImpl wrapper = new BeanWrapperImpl(overview);
+        assertEquals(1L, wrapper.getPropertyValue("publishableContractPropertyCount"));
+        assertEquals(2L, overview.getContractPropertyCount());
+        assertEquals(1L, overview.getPublishedRiskMetricCount());
+    }
+
+    @Test
     void listMissingPolicyAlertSignalsShouldAggregateByRiskMetricIdOrIdentifierAndSkipCoveredMetrics() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,
@@ -257,10 +495,10 @@ class RiskGovernanceServiceImplTest {
 
         RiskPointDevice coveredA = binding(8001L, 5001L, 9101L, "value", "裂缝监测值");
         RiskPointDevice coveredB = binding(8002L, 5002L, 9101L, "value", "裂缝监测值");
-        RiskPointDevice missingByIdA = binding(8101L, 5101L, 9201L, "gpsTotalZ", "Z向累计位移");
-        RiskPointDevice missingByIdB = binding(8102L, 5102L, 9201L, "gpsTotalZ", "Z向累计位移");
-        RiskPointDevice missingByIdentifierA = binding(8201L, 5201L, null, "gpsTotalX", "X向累计位移");
-        RiskPointDevice missingByIdentifierB = binding(8202L, 5202L, null, "gpsTotalX", "X向累计位移");
+        RiskPointDevice missingByIdA = binding(8101L, 5101L, 9201L, "gpsTotalZ", "Z轴累计位移");
+        RiskPointDevice missingByIdB = binding(8102L, 5102L, 9201L, "gpsTotalZ", "Z轴累计位移");
+        RiskPointDevice missingByIdentifierA = binding(8201L, 5201L, null, "gpsTotalX", "X轴累计位移");
+        RiskPointDevice missingByIdentifierB = binding(8202L, 5202L, null, "gpsTotalX", "X轴累计位移");
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
                 coveredA,
                 coveredB,
@@ -401,6 +639,73 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void getDashboardOverviewShouldExposeRawStageVendorAndProductBacklog() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                vendorMetricEvidenceMapper,
+                backfillService
+        );
+
+        Product governedProduct = new Product();
+        governedProduct.setId(1001L);
+        governedProduct.setProductKey("nf-monitor-crack-meter-v1");
+        governedProduct.setProductName("裂缝计");
+        governedProduct.setManufacturer("南方测绘");
+        governedProduct.setCreateTime(LocalDateTime.of(2026, 4, 1, 10, 0));
+
+        Product rawStageProduct = new Product();
+        rawStageProduct.setId(1002L);
+        rawStageProduct.setProductKey("nf-monitor-gnss-v1");
+        rawStageProduct.setProductName("GNSS位移监测仪");
+        rawStageProduct.setManufacturer("中海达");
+        rawStageProduct.setCreateTime(LocalDateTime.of(2026, 4, 2, 10, 0));
+
+        when(productMapper.selectList(any())).thenReturn(List.of(governedProduct, rawStageProduct));
+
+        ProductContractReleaseBatch releaseBatch = new ProductContractReleaseBatch();
+        releaseBatch.setId(5001L);
+        releaseBatch.setProductId(1001L);
+        releaseBatch.setCreateTime(LocalDateTime.of(2026, 4, 3, 10, 0));
+        when(productContractReleaseBatchMapper.selectList(any())).thenReturn(List.of(releaseBatch));
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(1001L);
+        catalog.setContractIdentifier("value");
+        catalog.setEnabled(1);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(linkageBindingMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanBindingMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+        when(vendorMetricEvidenceMapper.selectList(any())).thenReturn(List.of(
+                vendorEvidence(1002L, "gpsTotalX", 9, LocalDateTime.of(2026, 4, 5, 9, 0)),
+                vendorEvidence(1002L, "gpsTotalY", 3, LocalDateTime.of(2026, 4, 5, 8, 0))
+        ));
+
+        RiskGovernanceDashboardOverviewVO overview = service.getDashboardOverview();
+        BeanWrapperImpl wrapper = new BeanWrapperImpl(overview);
+
+        assertEquals(1L, wrapper.getPropertyValue("rawStageProductCount"));
+        assertEquals(1L, wrapper.getPropertyValue("rawStageVendorCount"));
+        assertEquals(List.of("中海达"), wrapper.getPropertyValue("rawStageVendorNames"));
+        assertEquals(List.of("GNSS位移监测仪"), wrapper.getPropertyValue("rawStageProductNames"));
+    }
+
+    @Test
     void getDashboardOverviewShouldOnlySelectColumnsNeededForCatalogProjection() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,
@@ -494,7 +799,7 @@ class RiskGovernanceServiceImplTest {
 
         when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(
                 binding(8001L, 5001L, 9101L, "value", "裂缝监测值"),
-                binding(8001L, 5001L, 9102L, "gpsTotalX", "X向累计位移")
+                binding(8001L, 5001L, 9102L, "gpsTotalX", "X轴累计位移")
         ));
         when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule(6001L, 9101L, "value")));
         when(linkageBindingMapper.selectList(any())).thenReturn(List.of(
@@ -619,6 +924,18 @@ class RiskGovernanceServiceImplTest {
         value.setBindingOrigin(bindingOrigin);
         value.setBindingStatus(bindingStatus);
         value.setDeleted(deleted);
+        return value;
+    }
+
+    private VendorMetricEvidence vendorEvidence(Long productId,
+                                                String rawIdentifier,
+                                                Integer evidenceCount,
+                                                LocalDateTime lastSeenTime) {
+        VendorMetricEvidence value = new VendorMetricEvidence();
+        value.setProductId(productId);
+        value.setRawIdentifier(rawIdentifier);
+        value.setEvidenceCount(evidenceCount);
+        value.setLastSeenTime(lastSeenTime);
         return value;
     }
 }

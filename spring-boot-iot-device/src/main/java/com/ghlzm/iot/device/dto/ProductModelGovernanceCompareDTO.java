@@ -18,6 +18,8 @@ public class ProductModelGovernanceCompareDTO {
 
         private String deviceStructure;
 
+        private String contractIdentifierMode;
+
         private String samplePayload;
 
         private String parentDeviceCode;
@@ -31,5 +33,9 @@ public class ProductModelGovernanceCompareDTO {
         private String logicalChannelCode;
 
         private String childDeviceCode;
+
+        private String canonicalizationStrategy;
+
+        private String statusMirrorStrategy;
     }
 }

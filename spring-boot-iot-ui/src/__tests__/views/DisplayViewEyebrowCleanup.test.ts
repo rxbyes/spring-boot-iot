@@ -68,6 +68,10 @@ vi.mock('../../api/riskGovernance', () => ({
       ruleCoveredRiskMetricCount: 7,
       pendingRiskBindingCount: 4,
       pendingPolicyCount: 2,
+      rawStageVendorCount: 2,
+      rawStageProductCount: 3,
+      rawStageVendorNames: ['南方测绘', '中海达'],
+      rawStageProductNames: ['GNSS位移监测仪', '裂缝计'],
       pendingReplayCount: 1,
       governanceCompletionRate: 80,
       metricBindingCoverageRate: 75,
@@ -160,12 +164,17 @@ describe('display view eyebrow cleanup', () => {
     })
 
     await flushPromises()
+    await wrapper.findAll('button').find((item) => item.text().includes('管理人员'))?.trigger('click')
+    await flushPromises()
 
     const panelCards = wrapper.findAllComponents(PanelCardStub)
 
     expect(panelCards.length).toBeGreaterThan(0)
     expect(panelCards.every((item) => item.props('eyebrow') === undefined)).toBe(true)
     expect(wrapper.text()).not.toContain('Risk Data Cockpit')
+    expect(wrapper.text()).toContain('原始字段阶段 2 个厂商 / 3 个产品')
+    expect(wrapper.text()).toContain('南方测绘 / 中海达')
+    expect(wrapper.text()).toContain('GNSS位移监测仪 / 裂缝计')
   })
 
   it('keeps the future lab cards free from English eyebrow layers', () => {

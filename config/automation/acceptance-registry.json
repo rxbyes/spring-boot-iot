@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-04-02T00:00:00+08:00",
+  "generatedAt": "2026-04-09T00:00:00+08:00",
   "defaultTarget": {
     "frontendBaseUrl": "http://127.0.0.1:5174",
     "backendBaseUrl": "http://127.0.0.1:9999",
@@ -107,6 +107,26 @@
       "runner": {
         "entryScript": "scripts/run-business-function-smoke.ps1",
         "pointFilters": ["ENV", "SYS-ORG", "SYS-USER", "SYS-ROLE"]
+      }
+    },
+    {
+      "id": "governance.control-plane.browser-smoke",
+      "title": "治理控制面与管理驾驶舱浏览器冒烟",
+      "module": "system",
+      "docRef": "docs/21#平台治理与控制面页面",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "blocker",
+      "dependsOn": [],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 12
+      },
+      "runner": {
+        "planRef": "config/automation/governance-control-plane-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"]
       }
     },
     {

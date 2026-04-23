@@ -186,6 +186,10 @@
               <strong>{{ detailOrder?.subjectType || '--' }} · {{ detailOrder?.subjectId ?? '--' }}</strong>
             </div>
             <div class="governance-approval-detail-field">
+              <span>治理任务 ID</span>
+              <strong>{{ detailOrder?.workItemId ?? '--' }}</strong>
+            </div>
+            <div class="governance-approval-detail-field">
               <span>审批意见</span>
               <strong>{{ detailOrder?.approvalComment || '--' }}</strong>
             </div>
@@ -195,6 +199,229 @@
         <section class="governance-approval-detail-section">
           <h3>执行结果</h3>
           <pre class="governance-approval-json-preview">{{ executionResultText }}</pre>
+        </section>
+
+        <section v-if="shouldShowSimulationSection" class="governance-approval-detail-section">
+          <h3>审批预演</h3>
+          <p v-if="detailSimulationLoading" class="governance-approval-detail-empty">正在加载审批预演...</p>
+          <p v-else-if="detailSimulationErrorMessage" class="governance-approval-detail-empty">{{ detailSimulationErrorMessage }}</p>
+          <template v-else-if="detailSimulation">
+            <div class="governance-approval-impact-summary">
+              <div class="governance-approval-impact-summary__card">
+                <span>可执行</span>
+                <strong>{{ detailSimulation.executable ? '可执行' : '需人工复核' }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>影响规模</span>
+                <strong>{{ `预计影响 ${detailSimulation.affectedCount ?? 0} 项` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>影响类型</span>
+                <strong>{{ formatAffectedTypes(detailSimulation.affectedTypes) || '--' }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>回滚性</span>
+                <strong>{{ detailSimulation.rollbackable ? '可回滚' : '需人工恢复' }}</strong>
+              </div>
+            </div>
+
+            <div
+              v-if="detailSimulation.recommendation?.evidenceItems?.length"
+              class="governance-approval-impact-list"
+            >
+              <article
+                v-for="(item, index) in detailSimulation.recommendation.evidenceItems.slice(0, 3)"
+                :key="`${item.sourceId || item.title || '--'}-${index}`"
+                class="governance-approval-impact-item"
+              >
+                <strong>{{ item.title || item.evidenceType || '--' }}</strong>
+                <span>{{ item.summary || '--' }}</span>
+                <span>{{ item.sourceType || '--' }} · {{ item.sourceId || '--' }}</span>
+              </article>
+            </div>
+
+            <div class="governance-approval-detail-grid">
+              <div v-if="detailSimulation.recommendation" class="governance-approval-detail-field">
+                <span>推荐建议</span>
+                <strong>
+                  {{
+                    detailSimulation.recommendation.suggestedAction
+                      || detailSimulation.recommendation.recommendationType
+                      || '--'
+                  }}
+                </strong>
+              </div>
+              <div v-if="detailSimulation.recommendation?.confidence != null" class="governance-approval-detail-field">
+                <span>置信度</span>
+                <strong>{{ `confidence ${detailSimulation.recommendation.confidence}` }}</strong>
+              </div>
+              <div v-if="detailSimulation.rollbackPlanSummary" class="governance-approval-detail-field">
+                <span>回滚方案</span>
+                <strong>{{ detailSimulation.rollbackPlanSummary }}</strong>
+              </div>
+              <div v-if="detailSimulation.autoDraftEligible && detailSimulation.autoDraftComment" class="governance-approval-detail-field">
+                <span>自动草稿</span>
+                <strong>{{ detailSimulation.autoDraftComment }}</strong>
+              </div>
+            </div>
+          </template>
+          <p v-else class="governance-approval-detail-empty">当前审批单暂未生成预演结果。</p>
+        </section>
+
+        <section v-if="shouldShowImpactSection" class="governance-approval-detail-section">
+          <h3>发布影响分析</h3>
+          <p v-if="detailImpactLoading" class="governance-approval-detail-empty">正在加载发布影响分析...</p>
+          <p v-else-if="detailImpactErrorMessage" class="governance-approval-detail-empty">{{ detailImpactErrorMessage }}</p>
+          <template v-else-if="detailImpact">
+            <div class="governance-approval-impact-summary">
+              <div class="governance-approval-impact-summary__card">
+                <span>新增</span>
+                <strong>{{ `新增 ${detailImpact.addedCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>删除</span>
+                <strong>{{ `删除 ${detailImpact.removedCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>变更</span>
+                <strong>{{ `变更 ${detailImpact.changedCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>未变更</span>
+                <strong>{{ `未变更 ${detailImpact.unchangedCount ?? 0}` }}</strong>
+              </div>
+            </div>
+
+            <div
+              v-if="detailImpact.dependencySummary"
+              class="governance-approval-impact-summary governance-approval-impact-summary--dependency"
+            >
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响风险指标</span>
+                <strong>{{ `受影响风险指标 ${detailImpact.dependencySummary.affectedRiskMetricCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响风险点绑定</span>
+                <strong>{{ `受影响风险点绑定 ${detailImpact.dependencySummary.affectedRiskPointBindingCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响阈值规则</span>
+                <strong>{{ `受影响阈值规则 ${detailImpact.dependencySummary.affectedRuleCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响联动</span>
+                <strong>{{ `受影响联动 ${detailImpact.dependencySummary.affectedLinkageBindingCount ?? 0}` }}</strong>
+              </div>
+              <div class="governance-approval-impact-summary__card">
+                <span>受影响预案</span>
+                <strong>{{ `受影响预案 ${detailImpact.dependencySummary.affectedEmergencyPlanBindingCount ?? 0}` }}</strong>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedRiskMetrics?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响风险指标目录</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedRiskMetrics.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedRiskMetrics"
+                  :key="`${item.riskMetricId || item.contractIdentifier || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.riskMetricName || item.contractIdentifier || '--' }}</strong>
+                  <span>{{ item.contractIdentifier || '--' }} · {{ item.riskMetricCode || '--' }}</span>
+                  <span>{{ item.metricRole || '--' }} · {{ item.lifecycleStatus || '--' }}</span>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedRiskPointBindings?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响风险点绑定</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedRiskPointBindings.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedRiskPointBindings"
+                  :key="`${item.bindingId || item.riskPointId || item.deviceCode || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.riskPointName || item.deviceCode || '--' }}</strong>
+                  <span>{{ item.deviceCode || '--' }} · {{ item.metricIdentifier || '--' }}</span>
+                  <StandardButton action="query" link @click="openRiskPointContext(item)">查看风险对象</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedRules?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响阈值策略</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedRules.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedRules"
+                  :key="`${item.ruleId || item.ruleName || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.ruleName || '--' }}</strong>
+                  <span>{{ item.metricIdentifier || '--' }} · {{ item.alarmLevel || '--' }}</span>
+                  <StandardButton action="query" link @click="openRuleContext(item)">查看阈值策略</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedLinkageBindings?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响联动编排</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedLinkageBindings.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedLinkageBindings"
+                  :key="`${item.bindingId || item.linkageRuleId || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.linkageRuleName || '--' }}</strong>
+                  <span>{{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openLinkageContext(item)">查看联动编排</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.dependencySummary?.affectedEmergencyPlanBindings?.length" class="governance-approval-impact-dependency-group">
+              <div class="governance-approval-impact-dependency-group__head">
+                <strong>受影响应急预案</strong>
+                <span>{{ `共 ${detailImpact.dependencySummary.affectedEmergencyPlanBindings.length} 项` }}</span>
+              </div>
+              <div class="governance-approval-impact-list">
+                <article
+                  v-for="item in detailImpact.dependencySummary.affectedEmergencyPlanBindings"
+                  :key="`${item.bindingId || item.emergencyPlanId || '--'}`"
+                  class="governance-approval-impact-item"
+                >
+                  <strong>{{ item.emergencyPlanName || '--' }}</strong>
+                  <span>{{ item.alarmLevel || '--' }} · {{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openEmergencyPlanContext(item)">查看应急预案</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="detailImpact.impactItems?.length" class="governance-approval-impact-list">
+              <article
+                v-for="(item, index) in detailImpact.impactItems"
+                :key="`${item.identifier || '--'}-${item.changeType || '--'}-${index}`"
+                class="governance-approval-impact-item"
+              >
+                <strong>{{ item.identifier || '--' }}</strong>
+                <span>{{ impactChangeTypeLabel(item.changeType) }} · {{ impactModelTypeLabel(item.modelType) }}</span>
+                <span v-if="item.changedFields?.length">变更字段 {{ item.changedFields.join(' / ') }}</span>
+              </article>
+            </div>
+            <p v-else class="governance-approval-detail-empty">当前发布批次没有字段级差异明细。</p>
+          </template>
+          <p v-else class="governance-approval-detail-empty">当前审批单未携带可复盘的发布批次信息。</p>
         </section>
 
         <section class="governance-approval-detail-section">
@@ -229,6 +456,26 @@
             placeholder="请输入新的复核人用户 ID"
           />
         </el-form-item>
+        <div v-if="actionMode === 'approve'" class="governance-approval-draft-banner">
+          <p v-if="actionSimulationLoading" class="governance-approval-detail-empty">正在加载审批预演...</p>
+          <p v-else-if="actionSimulationErrorMessage" class="governance-approval-detail-empty">{{ actionSimulationErrorMessage }}</p>
+          <template v-else-if="actionSimulation">
+            <strong>审批预演</strong>
+            <span>
+              {{
+                `预计影响 ${actionSimulation.affectedCount ?? 0} 项 · ${formatAffectedTypes(actionSimulation.affectedTypes) || '--'}`
+              }}
+            </span>
+            <span v-if="actionSimulation.rollbackPlanSummary">{{ actionSimulation.rollbackPlanSummary }}</span>
+            <div
+              v-if="actionSimulation.autoDraftEligible && actionSimulation.autoDraftComment"
+              class="governance-approval-draft-banner__actions"
+            >
+              <span>系统已填入可编辑审批意见草稿。</span>
+              <StandardButton action="query" link @click="applyActionDraftComment">重新填入草稿</StandardButton>
+            </div>
+          </template>
+        </div>
         <el-form-item label="处理意见">
           <el-input
             v-model="actionComment"
@@ -254,9 +501,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 import { governanceApprovalApi } from '@/api/governanceApproval'
-import { resolveRequestErrorMessage } from '@/api/request'
+import {
+  productApi,
+  type ProductContractReleaseEmergencyPlanBindingDetail,
+  type ProductContractReleaseImpact,
+  type ProductContractReleaseLinkageBindingDetail,
+  type ProductContractReleaseRiskPointBindingDetail,
+  type ProductContractReleaseRuleDetail
+} from '@/api/product'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardButton from '@/components/StandardButton.vue'
@@ -273,10 +529,17 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import { useListAppliedFilters } from '@/composables/useListAppliedFilters'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
+import {
+  buildEmergencyPlanContextLocation,
+  buildLinkageContextLocation,
+  buildRiskPointContextLocation,
+  buildRuleContextLocation
+} from '@/utils/governanceImpact'
 import type {
   GovernanceApprovalOrder,
   GovernanceApprovalOrderDetail,
   GovernanceApprovalPageQuery,
+  GovernanceSimulationResult,
   GovernanceApprovalStatus,
   GovernanceApprovalTransition,
   IdType
@@ -285,6 +548,7 @@ import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 
 type ActionMode = 'approve' | 'reject' | 'cancel' | 'resubmit' | null
 
+const router = useRouter()
 const permissionStore = usePermissionStore()
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize } = useServerPagination()
 
@@ -318,10 +582,19 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailErrorMessage = ref('')
 const detailData = ref<GovernanceApprovalOrderDetail | null>(null)
+const detailSimulationLoading = ref(false)
+const detailSimulationErrorMessage = ref('')
+const detailSimulation = ref<GovernanceSimulationResult | null>(null)
+const detailImpactLoading = ref(false)
+const detailImpactErrorMessage = ref('')
+const detailImpact = ref<ProductContractReleaseImpact | null>(null)
 
 const actionDrawerVisible = ref(false)
 const actionMode = ref<ActionMode>(null)
 const actionTargetOrder = ref<GovernanceApprovalOrder | null>(null)
+const actionSimulationLoading = ref(false)
+const actionSimulationErrorMessage = ref('')
+const actionSimulation = ref<GovernanceSimulationResult | null>(null)
 const actionComment = ref('')
 const actionApproverUserId = ref('')
 const submitLoading = ref(false)
@@ -343,12 +616,23 @@ const detailTitle = computed(() => {
 })
 
 const parsedPayload = computed<Record<string, unknown> | null>(() => parsePayload(detailOrder.value?.payloadJson))
+const parsedExecution = computed<Record<string, unknown> | null>(() => toRecord(parsedPayload.value?.execution))
+const parsedExecutionResult = computed<Record<string, unknown> | null>(() => toRecord(parsedExecution.value?.result))
+const detailReleaseBatchId = computed<IdType | null>(() => {
+  return normalizeId(parsedExecutionResult.value?.releaseBatchId) ?? normalizeId(parsedExecutionResult.value?.rolledBackBatchId)
+})
+const shouldShowSimulationSection = computed(() => {
+  return detailOrder.value?.status === 'PENDING'
+    || detailSimulation.value != null
+    || detailSimulationLoading.value
+    || Boolean(detailSimulationErrorMessage.value)
+})
+const shouldShowImpactSection = computed(() => detailReleaseBatchId.value != null || detailImpact.value != null || detailImpactLoading.value || Boolean(detailImpactErrorMessage.value))
 const executionResultText = computed(() => {
-  const execution = parsedPayload.value?.execution
-  if (!execution || typeof execution !== 'object') {
+  if (!parsedExecution.value) {
     return '暂无执行结果'
   }
-  return JSON.stringify(execution, null, 2)
+  return JSON.stringify(parsedExecution.value, null, 2)
 })
 
 const actionDrawerTitle = computed(() => {
@@ -369,7 +653,9 @@ const actionDrawerTitle = computed(() => {
 const actionDrawerSubtitle = computed(() => {
   switch (actionMode.value) {
     case 'approve':
-      return '审批通过后，系统会执行对应治理动作并回写执行结果。'
+      return actionSimulation.value?.autoDraftEligible
+        ? '审批通过后，系统会执行对应治理动作并回写执行结果。当前已按预演结果生成可编辑草稿。'
+        : '审批通过后，系统会执行对应治理动作并回写执行结果。'
     case 'reject':
       return '驳回时建议明确指出当前审批单需要修正的字段或语义问题。'
     case 'cancel':
@@ -501,7 +787,7 @@ async function loadOrders() {
     orderList.value = response.data?.records ?? []
   } catch (error) {
     orderList.value = []
-    ElMessage.error(resolveRequestErrorMessage(error, '治理审批单加载失败'))
+    showRequestErrorToast(error, '治理审批单加载失败')
   } finally {
     loading.value = false
   }
@@ -513,14 +799,76 @@ async function loadOrderDetail(orderId: IdType, silent = false) {
   }
   detailLoading.value = !silent
   detailErrorMessage.value = ''
+  resetDetailSimulation()
+  resetDetailImpact()
   try {
-    const response = await governanceApprovalApi.getOrderDetail(orderId)
+    const response = await governanceApprovalApi.getOrderDetail(orderId, { suppressErrorToast: true })
     detailData.value = response.data ?? null
+    await loadDetailSimulation(response.data?.order ?? null)
+    await loadDetailImpact()
   } catch (error) {
     detailData.value = null
     detailErrorMessage.value = resolveRequestErrorMessage(error, '审批详情加载失败')
   } finally {
     detailLoading.value = false
+  }
+}
+
+async function loadDetailImpact() {
+  const batchId = detailReleaseBatchId.value
+  if (batchId == null) {
+    resetDetailImpact()
+    return
+  }
+  detailImpactLoading.value = true
+  detailImpactErrorMessage.value = ''
+  try {
+    const response = await productApi.getProductContractReleaseBatchImpact(batchId, { suppressErrorToast: true })
+    detailImpact.value = response.data ?? null
+  } catch (error) {
+    detailImpact.value = null
+    detailImpactErrorMessage.value = resolveRequestErrorMessage(error, '发布影响分析加载失败')
+  } finally {
+    detailImpactLoading.value = false
+  }
+}
+
+async function loadDetailSimulation(order: GovernanceApprovalOrder | null | undefined) {
+  if (!order || order.id == null || order.status !== 'PENDING') {
+    resetDetailSimulation()
+    return
+  }
+  detailSimulationLoading.value = true
+  detailSimulationErrorMessage.value = ''
+  try {
+    const response = await governanceApprovalApi.simulateOrder(order.id, { suppressErrorToast: true })
+    detailSimulation.value = response.data ?? null
+  } catch (error) {
+    detailSimulation.value = null
+    detailSimulationErrorMessage.value = resolveRequestErrorMessage(error, '审批预演加载失败')
+  } finally {
+    detailSimulationLoading.value = false
+  }
+}
+
+async function loadActionSimulation(order: GovernanceApprovalOrder | null | undefined) {
+  if (!order || order.id == null || actionMode.value !== 'approve' || order.status !== 'PENDING') {
+    resetActionSimulation()
+    return
+  }
+  actionSimulationLoading.value = true
+  actionSimulationErrorMessage.value = ''
+  try {
+    const response = await governanceApprovalApi.simulateOrder(order.id, { suppressErrorToast: true })
+    actionSimulation.value = response.data ?? null
+    if (!normalizeText(actionComment.value) && actionSimulation.value?.autoDraftEligible && actionSimulation.value.autoDraftComment) {
+      actionComment.value = actionSimulation.value.autoDraftComment
+    }
+  } catch (error) {
+    actionSimulation.value = null
+    actionSimulationErrorMessage.value = resolveRequestErrorMessage(error, '审批预演加载失败')
+  } finally {
+    actionSimulationLoading.value = false
   }
 }
 
@@ -553,9 +901,13 @@ async function handleRowAction(command: string, row: GovernanceApprovalOrder) {
   }
   actionTargetOrder.value = row
   actionMode.value = command as ActionMode
+  resetActionSimulation()
   actionComment.value = ''
   actionApproverUserId.value = ''
   actionDrawerVisible.value = true
+  if (command === 'approve') {
+    await loadActionSimulation(row)
+  }
 }
 
 function handleSearch() {
@@ -600,8 +952,15 @@ function handleActionDrawerClose() {
   actionDrawerVisible.value = false
   actionMode.value = null
   actionTargetOrder.value = null
+  resetActionSimulation()
   actionComment.value = ''
   actionApproverUserId.value = ''
+}
+
+function applyActionDraftComment() {
+  if (actionSimulation.value?.autoDraftComment) {
+    actionComment.value = actionSimulation.value.autoDraftComment
+  }
 }
 
 async function handleSubmitAction() {
@@ -673,10 +1032,17 @@ async function executeActionWithConfirm(executor: () => Promise<void>) {
     if (isConfirmCancelled(error)) {
       return
     }
-    ElMessage.error(resolveRequestErrorMessage(error, `${actionDrawerTitle.value}失败`))
+    showRequestErrorToast(error, `${actionDrawerTitle.value}失败`)
   } finally {
     submitLoading.value = false
   }
+}
+
+function showRequestErrorToast(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
 }
 
 function sameId(left: IdType | null | undefined, right: IdType | null | undefined) {
@@ -715,6 +1081,76 @@ function parsePayload(payloadJson: string | null | undefined): Record<string, un
   } catch {
     return null
   }
+}
+
+function resetDetailImpact() {
+  detailImpact.value = null
+  detailImpactLoading.value = false
+  detailImpactErrorMessage.value = ''
+}
+
+function resetDetailSimulation() {
+  detailSimulation.value = null
+  detailSimulationLoading.value = false
+  detailSimulationErrorMessage.value = ''
+}
+
+function resetActionSimulation() {
+  actionSimulation.value = null
+  actionSimulationLoading.value = false
+  actionSimulationErrorMessage.value = ''
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function formatAffectedTypes(affectedTypes: string[] | null | undefined) {
+  return affectedTypes?.filter((item) => typeof item === 'string' && item.trim()).join(' / ') ?? ''
+}
+
+function impactChangeTypeLabel(changeType: string | null | undefined) {
+  switch (changeType) {
+    case 'ADDED':
+      return '新增'
+    case 'REMOVED':
+      return '删除'
+    case 'UPDATED':
+      return '变更'
+    case 'UNCHANGED':
+      return '未变更'
+    default:
+      return changeType || '--'
+  }
+}
+
+function impactModelTypeLabel(modelType: string | null | undefined) {
+  switch (modelType) {
+    case 'property':
+      return '属性'
+    case 'event':
+      return '事件'
+    case 'service':
+      return '服务'
+    default:
+      return modelType || '--'
+  }
+}
+
+function openRiskPointContext(detail: ProductContractReleaseRiskPointBindingDetail) {
+  void router.push(buildRiskPointContextLocation(detail))
+}
+
+function openRuleContext(detail: ProductContractReleaseRuleDetail) {
+  void router.push(buildRuleContextLocation(detail))
+}
+
+function openLinkageContext(detail: ProductContractReleaseLinkageBindingDetail) {
+  void router.push(buildLinkageContextLocation(detail))
+}
+
+function openEmergencyPlanContext(detail: ProductContractReleaseEmergencyPlanBindingDetail) {
+  void router.push(buildEmergencyPlanContextLocation(detail))
 }
 </script>
 
@@ -767,6 +1203,31 @@ function parsePayload(payloadJson: string | null | undefined): Record<string, un
   gap: 1rem;
 }
 
+.governance-approval-draft-banner {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.governance-approval-draft-banner strong {
+  color: var(--text-heading);
+}
+
+.governance-approval-draft-banner span {
+  color: var(--text-caption);
+  font-size: 13px;
+}
+
+.governance-approval-draft-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .governance-approval-detail-section {
   display: grid;
   gap: 0.75rem;
@@ -782,6 +1243,59 @@ function parsePayload(payloadJson: string | null | undefined): Record<string, un
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.75rem;
+}
+
+.governance-approval-impact-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.governance-approval-impact-summary__card,
+.governance-approval-impact-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.governance-approval-impact-summary__card strong,
+.governance-approval-impact-item strong {
+  color: var(--text-heading);
+}
+
+.governance-approval-impact-summary__card span,
+.governance-approval-impact-item span {
+  color: var(--text-caption);
+  font-size: 13px;
+}
+
+.governance-approval-impact-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.governance-approval-impact-dependency-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.governance-approval-impact-dependency-group__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.governance-approval-impact-dependency-group__head strong {
+  color: var(--text-heading);
+}
+
+.governance-approval-impact-dependency-group__head span {
+  color: var(--text-caption);
+  font-size: 13px;
 }
 
 .governance-approval-detail-field {

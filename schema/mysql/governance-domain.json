@@ -1,0 +1,1633 @@
+{
+  "domain": "governance",
+  "storageType": "mysql",
+  "objects": [
+    {
+      "name": "sys_governance_approval_order",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "治理审批工单表",
+      "commentZh": "治理审批工单表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "action_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "操作编码"
+        },
+        {
+          "name": "action_name",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "操作名称"
+        },
+        {
+          "name": "subject_type",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "审批主体类型"
+        },
+        {
+          "name": "subject_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批对象ID"
+        },
+        {
+          "name": "work_item_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "工作项ID"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "状态"
+        },
+        {
+          "name": "operator_user_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "操作人用户ID"
+        },
+        {
+          "name": "approver_user_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "复核人用户ID"
+        },
+        {
+          "name": "payload_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "载荷JSON内容"
+        },
+        {
+          "name": "approval_comment",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "审批意见"
+        },
+        {
+          "name": "approved_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "审批时间"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人用户ID"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人用户ID"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_order_subject",
+          "kind": "INDEX",
+          "columns": [
+            "subject_type",
+            "subject_id",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_order_status_time",
+          "kind": "INDEX",
+          "columns": [
+            "status",
+            "create_time",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_order_operator",
+          "kind": "INDEX",
+          "columns": [
+            "operator_user_id",
+            "approver_user_id",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_governance_work_item",
+          "viaField": "work_item_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_user",
+          "viaField": "operator_user_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_user",
+          "viaField": "approver_user_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于治理审批工单表的数据持久化与查询，归属治理域并服务真实环境基线。"
+    },
+    {
+      "name": "sys_governance_approval_transition",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "治理审批流转记录表",
+      "commentZh": "治理审批流转记录表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "order_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "工单ID"
+        },
+        {
+          "name": "from_status",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "原状态"
+        },
+        {
+          "name": "to_status",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "目标状态"
+        },
+        {
+          "name": "actor_user_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "操作人用户ID"
+        },
+        {
+          "name": "transition_comment",
+          "type": "VARCHAR(500) DEFAULT NULL",
+          "commentZh": "流转备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人用户ID"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_transition_order",
+          "kind": "INDEX",
+          "columns": [
+            "order_id",
+            "create_time",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_transition_actor",
+          "kind": "INDEX",
+          "columns": [
+            "actor_user_id",
+            "create_time",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_user",
+          "viaField": "actor_user_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于治理审批流转记录表的数据持久化与查询，归属治理域并服务真实环境基线。"
+    },
+    {
+      "name": "sys_governance_approval_policy",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "治理审批策略表",
+      "commentZh": "治理审批策略表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "scope_type",
+          "type": "VARCHAR(16) NOT NULL",
+          "commentZh": "作用域类型"
+        },
+        {
+          "name": "action_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "操作编码"
+        },
+        {
+          "name": "approver_mode",
+          "type": "VARCHAR(32) NOT NULL",
+          "commentZh": "复核人模式"
+        },
+        {
+          "name": "approver_user_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "复核人用户ID"
+        },
+        {
+          "name": "enabled",
+          "type": "TINYINT NOT NULL DEFAULT 1",
+          "commentZh": "启用标记"
+        },
+        {
+          "name": "remark",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "备注"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人用户ID"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人用户ID"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_governance_approval_policy_scope_action",
+          "kind": "UNIQUE",
+          "columns": [
+            "scope_type",
+            "tenant_id",
+            "action_code",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_policy_enabled",
+          "kind": "INDEX",
+          "columns": [
+            "enabled",
+            "scope_type",
+            "tenant_id",
+            "action_code",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_governance_approval_policy_approver",
+          "kind": "INDEX",
+          "columns": [
+            "approver_user_id",
+            "enabled",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于治理审批策略表的数据持久化与查询，归属治理域并服务真实环境基线。"
+    },
+    {
+      "name": "sys_governance_replay_feedback",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-system",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "治理复盘反馈表",
+      "commentZh": "治理复盘反馈表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "work_item_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "工作项ID"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批单ID"
+        },
+        {
+          "name": "release_batch_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "发布批次ID"
+        },
+        {
+          "name": "adopted_decision",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "采纳结论"
+        },
+        {
+          "name": "execution_outcome",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "执行结果"
+        },
+        {
+          "name": "root_cause_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "根因编码"
+        },
+        {
+          "name": "feedback_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "复盘反馈内容"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人用户ID"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除标记"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_governance_replay_feedback_work_item",
+          "kind": "INDEX",
+          "columns": [
+            "work_item_id",
+            "create_time",
+            "deleted"
+          ]
+        },
+        {
+          "name": "idx_governance_replay_feedback_release_batch",
+          "kind": "INDEX",
+          "columns": [
+            "release_batch_id",
+            "create_time",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_governance_work_item",
+          "viaField": "work_item_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product_contract_release_batch",
+          "viaField": "release_batch_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于治理复盘反馈表的数据持久化与查询，归属治理域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_governance_work_item",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "治理与运营工作项表",
+      "commentZh": "治理与运营工作项表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "work_item_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "工作项编码"
+        },
+        {
+          "name": "subject_type",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "审批主体类型"
+        },
+        {
+          "name": "subject_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主题ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "risk_metric_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险指标ID"
+        },
+        {
+          "name": "release_batch_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "发布批次ID"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批单ID"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "链路追踪ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "产品标识"
+        },
+        {
+          "name": "work_status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'OPEN'",
+          "commentZh": "工作状态业务字段"
+        },
+        {
+          "name": "priority_level",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'P2'",
+          "commentZh": "优先级等级"
+        },
+        {
+          "name": "assignee_user_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "责任人"
+        },
+        {
+          "name": "source_stage",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "来源阶段"
+        },
+        {
+          "name": "blocking_reason",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "阻塞原因"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "上下文快照"
+        },
+        {
+          "name": "task_category",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "生命周期任务分类"
+        },
+        {
+          "name": "domain_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "生命周期域编码"
+        },
+        {
+          "name": "action_code",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "操作编码"
+        },
+        {
+          "name": "execution_status",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "生命周期执行状态"
+        },
+        {
+          "name": "recommendation_snapshot_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "推荐快照"
+        },
+        {
+          "name": "evidence_snapshot_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "证据快照"
+        },
+        {
+          "name": "impact_snapshot_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "影响快照"
+        },
+        {
+          "name": "rollback_snapshot_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "回滚快照"
+        },
+        {
+          "name": "due_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "截止时间"
+        },
+        {
+          "name": "resolved_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "解决时间"
+        },
+        {
+          "name": "closed_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "关闭时间"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_governance_work_item_subject",
+          "kind": "INDEX",
+          "columns": [
+            "subject_type",
+            "subject_id",
+            "work_status",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "用于治理与运营工作项表的数据持久化与查询，归属治理域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_governance_ops_alert",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-alarm",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "治理运维告警表",
+      "commentZh": "治理运维告警表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "alert_type",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "告警类型"
+        },
+        {
+          "name": "alert_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "告警业务编码"
+        },
+        {
+          "name": "subject_type",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "审批主体类型"
+        },
+        {
+          "name": "subject_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "主题ID"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "risk_metric_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险指标ID"
+        },
+        {
+          "name": "release_batch_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "发布批次ID"
+        },
+        {
+          "name": "trace_id",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "链路追踪ID"
+        },
+        {
+          "name": "device_code",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "设备编码"
+        },
+        {
+          "name": "product_key",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "产品标识"
+        },
+        {
+          "name": "alert_status",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'OPEN'",
+          "commentZh": "告警状态"
+        },
+        {
+          "name": "severity_level",
+          "type": "VARCHAR(16) NOT NULL DEFAULT 'WARN'",
+          "commentZh": "严重程度等级"
+        },
+        {
+          "name": "affected_count",
+          "type": "BIGINT NOT NULL DEFAULT 0",
+          "commentZh": "影响数量"
+        },
+        {
+          "name": "alert_title",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "告警标题"
+        },
+        {
+          "name": "alert_message",
+          "type": "VARCHAR(1000) DEFAULT NULL",
+          "commentZh": "告警内容"
+        },
+        {
+          "name": "dimension_key",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "维度键"
+        },
+        {
+          "name": "dimension_label",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "维度标签"
+        },
+        {
+          "name": "source_stage",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "来源阶段"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "JSON DEFAULT NULL",
+          "commentZh": "上下文快照"
+        },
+        {
+          "name": "assignee_user_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "责任人"
+        },
+        {
+          "name": "first_seen_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "首次出现时间"
+        },
+        {
+          "name": "last_seen_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "最近出现时间"
+        },
+        {
+          "name": "resolved_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "恢复时间"
+        },
+        {
+          "name": "closed_time",
+          "type": "DATETIME DEFAULT NULL",
+          "commentZh": "关闭时间"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_governance_ops_alert_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "alert_type",
+            "alert_code",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "domain_master_data",
+      "businessBoundary": "用于治理运维告警表的数据持久化与查询，归属治理域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_protocol_family_definition",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-framework",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "协议族定义治理主表",
+      "commentZh": "协议族定义治理主表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "family_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "协议族编码"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "display_name",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "显示名称"
+        },
+        {
+          "name": "decrypt_profile_code",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "绑定解密档案编码"
+        },
+        {
+          "name": "sign_algorithm",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "签名算法"
+        },
+        {
+          "name": "normalization_strategy",
+          "type": "VARCHAR(64) DEFAULT NULL",
+          "commentZh": "归一化策略"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'DRAFT'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_protocol_family_definition_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "family_code",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于协议族定义草稿、发布与回滚治理的真实环境持久化。"
+    },
+    {
+      "name": "iot_protocol_decrypt_profile",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-framework",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "协议解密档案治理主表",
+      "commentZh": "协议解密档案治理主表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "profile_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "解密档案编码"
+        },
+        {
+          "name": "algorithm",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "解密算法"
+        },
+        {
+          "name": "merchant_source",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "密钥来源"
+        },
+        {
+          "name": "merchant_key",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "商户键"
+        },
+        {
+          "name": "transformation",
+          "type": "VARCHAR(128) DEFAULT NULL",
+          "commentZh": "转换表达式"
+        },
+        {
+          "name": "signature_secret",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "签名密钥"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'DRAFT'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_protocol_decrypt_profile_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "profile_code",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于协议解密档案草稿、发布与回滚治理的真实环境持久化。"
+    },
+    {
+      "name": "iot_protocol_template_definition",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-framework",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "协议模板治理主表",
+      "commentZh": "协议模板治理主表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "template_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "模板编码"
+        },
+        {
+          "name": "family_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "协议族编码"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "display_name",
+          "type": "VARCHAR(255) NOT NULL",
+          "commentZh": "显示名称"
+        },
+        {
+          "name": "expression_json",
+          "type": "LONGTEXT NOT NULL",
+          "commentZh": "表达式JSON"
+        },
+        {
+          "name": "output_mapping_json",
+          "type": "LONGTEXT DEFAULT NULL",
+          "commentZh": "输出映射JSON"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'DRAFT'",
+          "commentZh": "状态"
+        },
+        {
+          "name": "version_no",
+          "type": "INT NOT NULL DEFAULT 1",
+          "commentZh": "版本号"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "update_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "更新人"
+        },
+        {
+          "name": "update_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "commentZh": "更新时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uk_protocol_template_definition_code",
+          "kind": "UNIQUE",
+          "columns": [
+            "tenant_id",
+            "template_code",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于协议模板草稿、直接发布快照与回放治理的真实环境持久化。"
+    },
+    {
+      "name": "iot_protocol_family_definition_snapshot",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-framework",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "协议族定义发布快照表",
+      "commentZh": "协议族定义发布快照表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "family_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "协议族主表ID"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "published_version_no",
+          "type": "INT NOT NULL",
+          "commentZh": "发布版本号"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "LONGTEXT NOT NULL",
+          "commentZh": "发布快照"
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "commentZh": "生命周期状态"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_protocol_family_snapshot_lookup",
+          "kind": "INDEX",
+          "columns": [
+            "family_id",
+            "lifecycle_status",
+            "published_version_no",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_protocol_family_definition",
+          "viaField": "family_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于协议族定义正式发布真相快照的真实环境持久化。"
+    },
+    {
+      "name": "iot_protocol_decrypt_profile_snapshot",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-framework",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "协议解密档案发布快照表",
+      "commentZh": "协议解密档案发布快照表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "profile_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "解密档案主表ID"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "published_version_no",
+          "type": "INT NOT NULL",
+          "commentZh": "发布版本号"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "LONGTEXT NOT NULL",
+          "commentZh": "发布快照"
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "commentZh": "生命周期状态"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_protocol_decrypt_snapshot_lookup",
+          "kind": "INDEX",
+          "columns": [
+            "profile_id",
+            "lifecycle_status",
+            "published_version_no",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_protocol_decrypt_profile",
+          "viaField": "profile_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于协议解密档案正式发布真相快照的真实环境持久化。"
+    },
+    {
+      "name": "iot_protocol_template_definition_snapshot",
+      "storageType": "mysql_table",
+      "ownerModule": "spring-boot-iot-framework",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "tableCommentZh": "协议模板发布快照表",
+      "commentZh": "协议模板发布快照表",
+      "fields": [
+        {
+          "name": "id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "主键ID"
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT NOT NULL DEFAULT 1",
+          "commentZh": "租户ID"
+        },
+        {
+          "name": "template_id",
+          "type": "BIGINT NOT NULL",
+          "commentZh": "协议模板主表ID"
+        },
+        {
+          "name": "template_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "模板编码"
+        },
+        {
+          "name": "family_code",
+          "type": "VARCHAR(128) NOT NULL",
+          "commentZh": "协议族编码"
+        },
+        {
+          "name": "protocol_code",
+          "type": "VARCHAR(64) NOT NULL",
+          "commentZh": "协议编码"
+        },
+        {
+          "name": "published_version_no",
+          "type": "INT NOT NULL",
+          "commentZh": "发布版本号"
+        },
+        {
+          "name": "snapshot_json",
+          "type": "LONGTEXT NOT NULL",
+          "commentZh": "发布快照"
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED'",
+          "commentZh": "生命周期状态"
+        },
+        {
+          "name": "approval_order_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "审批主单ID"
+        },
+        {
+          "name": "submit_reason",
+          "type": "VARCHAR(255) DEFAULT NULL",
+          "commentZh": "提交原因"
+        },
+        {
+          "name": "create_by",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "创建人"
+        },
+        {
+          "name": "create_time",
+          "type": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "commentZh": "创建时间"
+        },
+        {
+          "name": "deleted",
+          "type": "TINYINT NOT NULL DEFAULT 0",
+          "commentZh": "逻辑删除"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "kind": "PRIMARY",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_protocol_template_snapshot_lookup",
+          "kind": "INDEX",
+          "columns": [
+            "template_id",
+            "lifecycle_status",
+            "published_version_no",
+            "deleted"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_protocol_template_definition",
+          "viaField": "template_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_governance_approval_order",
+          "viaField": "approval_order_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "governance_master_data",
+      "businessBoundary": "用于协议模板正式发布真相快照的真实环境持久化。"
+    }
+  ]
+}

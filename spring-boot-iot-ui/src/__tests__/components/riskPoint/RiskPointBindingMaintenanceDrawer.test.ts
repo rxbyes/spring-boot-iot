@@ -6,37 +6,37 @@ import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointB
 
 const {
   mockBindDevice,
+  mockBindDeviceCapability,
   mockListBindableDevices,
   mockListBindingGroups,
+  mockListFormalBindingMetricOptions,
   mockRemoveBinding,
   mockReplaceBinding,
   mockUnbindDevice,
-  mockGetDeviceMetricOptions,
   mockConfirmAction,
   mockIsConfirmCancelled
 } = vi.hoisted(() => ({
   mockBindDevice: vi.fn(),
+  mockBindDeviceCapability: vi.fn(),
   mockListBindableDevices: vi.fn(),
   mockListBindingGroups: vi.fn(),
+  mockListFormalBindingMetricOptions: vi.fn(),
   mockRemoveBinding: vi.fn(),
   mockReplaceBinding: vi.fn(),
   mockUnbindDevice: vi.fn(),
-  mockGetDeviceMetricOptions: vi.fn(),
   mockConfirmAction: vi.fn(),
   mockIsConfirmCancelled: vi.fn(() => false)
 }))
 
 vi.mock('@/api/riskPoint', () => ({
   bindDevice: mockBindDevice,
+  bindDeviceCapability: mockBindDeviceCapability,
   listBindableDevices: mockListBindableDevices,
   listBindingGroups: mockListBindingGroups,
+  listFormalBindingMetricOptions: mockListFormalBindingMetricOptions,
   removeBinding: mockRemoveBinding,
   replaceBinding: mockReplaceBinding,
   unbindDevice: mockUnbindDevice
-}))
-
-vi.mock('@/api/iot', () => ({
-  getDeviceMetricOptions: mockGetDeviceMetricOptions
 }))
 
 vi.mock('@/utils/confirm', () => ({
@@ -127,7 +127,7 @@ const ElFormItemStub = defineComponent({
 
 const ElSelectStub = defineComponent({
   name: 'ElSelect',
-  props: ['modelValue', 'placeholder', 'disabled'],
+  props: ['modelValue', 'placeholder', 'disabled', 'filterable'],
   emits: ['update:modelValue', 'change'],
   methods: {
     normalizeValue(value: string) {
@@ -145,6 +145,7 @@ const ElSelectStub = defineComponent({
       class="el-select-stub"
       :value="modelValue ?? ''"
       :disabled="Boolean(disabled)"
+      :data-filterable="String(filterable === '' || Boolean(filterable))"
       @change="
         $emit('update:modelValue', normalizeValue($event.target.value));
         $emit('change', normalizeValue($event.target.value));
@@ -195,13 +196,17 @@ function createBindingGroups() {
       deviceId: 2001,
       deviceCode: 'DEV-2001',
       deviceName: '北坡一体机',
+      bindingMode: 'METRIC',
+      deviceCapabilityType: 'MONITORING',
+      aiEventExpandable: false,
+      extensionStatus: null,
       metricCount: 2,
       metrics: [
         {
           bindingId: 9001,
           riskMetricId: 6101,
           metricIdentifier: 'tiltX',
-          metricName: 'X向倾角',
+          metricName: 'X轴倾角',
           bindingSource: 'MANUAL',
           createTime: '2026-04-04 09:00:00'
         },
@@ -214,6 +219,17 @@ function createBindingGroups() {
           createTime: '2026-04-04 09:10:00'
         }
       ]
+    },
+    {
+      deviceId: 2004,
+      deviceCode: 'DEV-2004',
+      deviceName: '北坡视频设备',
+      bindingMode: 'DEVICE_ONLY',
+      deviceCapabilityType: 'VIDEO',
+      aiEventExpandable: true,
+      extensionStatus: 'AI_EVENT_RESERVED',
+      metricCount: 0,
+      metrics: []
     }
   ]
 }
@@ -233,17 +249,48 @@ function createBindableDevices() {
       deviceCode: 'DEV-2002',
       deviceName: '南坡一体机',
       productId: 1102,
+      productKey: 'monitor-tilt-v2',
+      productName: '监测型倾角仪',
       orgId: 7102,
-      orgName: '南坡监测站'
+      orgName: '南坡监测站',
+      deviceCapabilityType: 'MONITORING',
+      supportsMetricBinding: true,
+      aiEventExpandable: false
+    },
+    {
+      id: 2003,
+      deviceCode: 'DEV-2003',
+      deviceName: '北坡声光告警器',
+      productId: 1103,
+      productKey: 'warning-horn-v1',
+      productName: '预警型声光告警器',
+      orgId: 7101,
+      orgName: '北坡监测站',
+      deviceCapabilityType: 'WARNING',
+      supportsMetricBinding: false,
+      aiEventExpandable: false
+    },
+    {
+      id: 2004,
+      deviceCode: 'DEV-2004',
+      deviceName: '北坡视频设备',
+      productId: 1104,
+      productKey: 'ipc-camera-v1',
+      productName: '视频摄像机',
+      orgId: 7101,
+      orgName: '北坡监测站',
+      deviceCapabilityType: 'VIDEO',
+      supportsMetricBinding: false,
+      aiEventExpandable: true
     }
   ]
 }
 
 function createMetricOptions() {
   return [
-    { identifier: 'tiltX', name: 'X向倾角', type: 'property', riskMetricId: 6101 },
-    { identifier: 'tiltY', name: 'Y向倾角', type: 'property', riskMetricId: 6103 },
-    { identifier: 'tiltZ', name: 'Z向倾角', type: 'property', riskMetricId: 6104 }
+    { identifier: 'tiltX', name: 'X轴倾角', dataType: 'double', riskMetricId: 6101 },
+    { identifier: 'tiltY', name: 'Y轴倾角', dataType: 'double', riskMetricId: 6103 },
+    { identifier: 'tiltZ', name: 'Z轴倾角', dataType: 'double', riskMetricId: 6104 }
   ]
 }
 
@@ -277,12 +324,13 @@ function mountDrawer(propOverrides: Record<string, unknown> = {}) {
 describe('RiskPointBindingMaintenanceDrawer', () => {
   beforeEach(() => {
     mockBindDevice.mockReset()
+    mockBindDeviceCapability.mockReset()
     mockListBindableDevices.mockReset()
     mockListBindingGroups.mockReset()
+    mockListFormalBindingMetricOptions.mockReset()
     mockRemoveBinding.mockReset()
     mockReplaceBinding.mockReset()
     mockUnbindDevice.mockReset()
-    mockGetDeviceMetricOptions.mockReset()
     mockConfirmAction.mockReset()
     mockIsConfirmCancelled.mockReset()
     mockIsConfirmCancelled.mockReturnValue(false)
@@ -297,12 +345,13 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       msg: 'success',
       data: createBindableDevices()
     })
-    mockGetDeviceMetricOptions.mockResolvedValue({
+    mockListFormalBindingMetricOptions.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: createMetricOptions()
     })
     mockBindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockBindDeviceCapability.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockRemoveBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockReplaceBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockUnbindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
@@ -319,12 +368,25 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(wrapper.text()).toContain('北坡风险点')
     expect(wrapper.text()).toContain('RP-NORTH-001')
     expect(wrapper.text()).toContain('北坡一体机')
-    expect(wrapper.text()).toContain('X向倾角')
+    expect(wrapper.text()).toContain('X轴倾角')
     expect(wrapper.text()).toContain('裂缝宽度')
+    expect(wrapper.text()).toContain('北坡视频设备')
+    expect(wrapper.text()).toContain('设备级正式绑定')
+    expect(wrapper.text()).toContain('AI 事件扩展预留')
     expect(wrapper.text()).toContain('人工维护')
     expect(wrapper.text()).toContain('待治理转正')
     expect(wrapper.text()).toContain('目录指标 #6101')
     expect(wrapper.text()).toContain('待治理 2 条')
+  })
+
+  it('renders the maintenance content without an outer drawer wrapper when embedded mode is enabled', async () => {
+    const wrapper = mountDrawer({ embedded: true })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.standard-form-drawer-stub').exists()).toBe(false)
+    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).toContain('当前正式绑定')
   })
 
   it('adds a formal metric binding through the drawer add form', async () => {
@@ -337,15 +399,103 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
-    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith('2002')
+    expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith('2002')
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: 1,
       deviceId: 2002,
       riskMetricId: 6103,
       metricIdentifier: 'tiltY',
-      metricName: 'Y向倾角'
+      metricName: 'Y轴倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('switches warning devices to device-only binding and skips the metric picker', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2003')
+    await flushPromises()
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="binding-add-metric"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('该设备无正式测点能力，将按设备级正式绑定收口，仅参与被动处置关联。')
+    expect(wrapper.text()).toContain('新增设备级正式绑定')
+    expect(mockListFormalBindingMetricOptions).not.toHaveBeenCalledWith('2003')
+    expect(mockBindDeviceCapability).toHaveBeenCalledWith({
+      riskPointId: 1,
+      deviceId: 2003,
+      deviceCapabilityType: 'WARNING'
+    })
+    expect(mockBindDevice).not.toHaveBeenCalled()
+  })
+
+  it('shows the AI-event reserved hint for video devices and submits device-only binding', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2004')
+    await flushPromises()
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="binding-add-metric"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('该设备当前按设备级正式绑定收口，并预留 AI 事件分析扩展位。')
+    expect(mockBindDeviceCapability).toHaveBeenCalledWith({
+      riskPointId: 1,
+      deviceId: 2004,
+      deviceCapabilityType: 'VIDEO'
+    })
+  })
+
+  it('loads formal metric options from the risk-point API and keeps only published metrics', async () => {
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        { identifier: 'value', name: '激光测距值', dataType: 'double', riskMetricId: 6101 },
+        { identifier: 'dispsX', name: 'X轴位移', dataType: 'double', riskMetricId: 6102 }
+      ]
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await flushPromises()
+
+    expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith('2002')
+    const optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('激光测距值')
+    expect(optionTexts).toContain('X轴位移')
+  })
+
+  it('marks the add-device selector as filterable for device-code lookup', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="binding-add-device"]').attributes('data-filterable')).toBe('true')
+  })
+
+  it('shows an explicit empty hint when the selected device has no formal catalog metrics', async () => {
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
   })
 
   it('keeps unsafe long ids as strings when loading metrics and submitting bindings', async () => {
@@ -368,14 +518,14 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
         }
       ]
     })
-    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
       data: [
         {
           identifier: 'tiltY',
-          name: 'Y向倾角',
-          type: 'property',
+          name: 'Y轴倾角',
+          dataType: 'double',
           riskMetricId: '2041364367361843204'
         }
       ]
@@ -392,24 +542,24 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
-    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith('2041364367361843202')
+    expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith('2041364367361843202')
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: '2041364367361843201',
       deviceId: '2041364367361843202',
       riskMetricId: '2041364367361843204',
       metricIdentifier: 'tiltY',
-      metricName: 'Y向倾角'
+      metricName: 'Y轴倾角'
     })
   })
 
   it('filters already bound metrics out of the add-metric selector for the same device', async () => {
-    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
       data: [
-        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
-        { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
+        { identifier: 'tiltX', name: 'X轴倾角', dataType: 'double' },
+        { identifier: 'tiltY', name: 'Y轴倾角', dataType: 'double' },
+        { identifier: 'crackWidth', name: '裂缝宽度', dataType: 'double' }
       ]
     })
 
@@ -424,8 +574,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .findAll('option')
       .map((node) => node.text())
 
-    expect(optionTexts).toContain('Y向倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).toContain('Y轴倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
     expect(optionTexts).not.toContain('裂缝宽度')
   })
 
@@ -463,23 +613,23 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await wrapper.get('[data-testid="binding-replace-submit-9001"]').trigger('click')
     await flushPromises()
 
-    expect(mockGetDeviceMetricOptions).toHaveBeenCalledWith('2001')
+    expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith('2001')
     expect(mockReplaceBinding).toHaveBeenCalledWith(9001, {
       riskMetricId: 6104,
       metricIdentifier: 'tiltZ',
-      metricName: 'Z向倾角'
+      metricName: 'Z轴倾角'
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
 
   it('filters the current and already bound metrics out of replace choices', async () => {
-    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
       data: [
-        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
-        { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
+        { identifier: 'tiltX', name: 'X轴倾角', dataType: 'double' },
+        { identifier: 'tiltY', name: 'Y轴倾角', dataType: 'double' },
+        { identifier: 'crackWidth', name: '裂缝宽度', dataType: 'double' }
       ]
     })
 
@@ -494,8 +644,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .findAll('option')
       .map((node) => node.text())
 
-    expect(optionTexts).toContain('Y向倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).toContain('Y轴倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
     expect(optionTexts).not.toContain('裂缝宽度')
   })
 
@@ -578,13 +728,13 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
   it('keeps the latest add-device metric options when device selection changes quickly', async () => {
     const firstMetricRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createMetricOptions> }>()
 
-    mockGetDeviceMetricOptions.mockReset()
-    mockGetDeviceMetricOptions
+    mockListFormalBindingMetricOptions.mockReset()
+    mockListFormalBindingMetricOptions
       .mockReturnValueOnce(firstMetricRequest.promise)
       .mockResolvedValueOnce({
         code: 200,
         msg: 'success',
-        data: [{ identifier: 'southTilt', name: '南坡倾角', type: 'property' }]
+        data: [{ identifier: 'southTilt', name: '南坡倾角', dataType: 'double' }]
       })
 
     const wrapper = mountDrawer()
@@ -601,7 +751,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .map((node) => node.text())
 
     expect(optionTexts).toContain('南坡倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
 
     firstMetricRequest.resolve({
       code: 200,
@@ -616,7 +766,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .map((node) => node.text())
 
     expect(optionTexts).toContain('南坡倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
   })
 
   it('re-filters add-metric options after binding groups finish loading late', async () => {
@@ -624,20 +774,20 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     mockListBindingGroups.mockReset()
     mockListBindableDevices.mockReset()
-    mockGetDeviceMetricOptions.mockReset()
+    mockListFormalBindingMetricOptions.mockReset()
     mockListBindingGroups.mockReturnValueOnce(delayedGroupRequest.promise)
     mockListBindableDevices.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
       data: createBindableDevices()
     })
-    mockGetDeviceMetricOptions.mockResolvedValueOnce({
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
       code: 200,
       msg: 'success',
       data: [
-        { identifier: 'tiltX', name: 'X向倾角', type: 'property' },
-        { identifier: 'tiltY', name: 'Y向倾角', type: 'property' },
-        { identifier: 'crackWidth', name: '裂缝宽度', type: 'property' }
+        { identifier: 'tiltX', name: 'X轴倾角', dataType: 'double' },
+        { identifier: 'tiltY', name: 'Y轴倾角', dataType: 'double' },
+        { identifier: 'crackWidth', name: '裂缝宽度', dataType: 'double' }
       ]
     })
 
@@ -659,8 +809,8 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       .findAll('option')
       .map((node) => node.text())
 
-    expect(optionTexts).toContain('Y向倾角')
-    expect(optionTexts).not.toContain('X向倾角')
+    expect(optionTexts).toContain('Y轴倾角')
+    expect(optionTexts).not.toContain('X轴倾角')
     expect(optionTexts).not.toContain('裂缝宽度')
   })
 

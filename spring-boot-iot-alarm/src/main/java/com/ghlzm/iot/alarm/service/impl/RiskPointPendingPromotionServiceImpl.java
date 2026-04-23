@@ -1,12 +1,14 @@
 package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.alarm.dto.RiskPointPendingIgnoreRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionRequest;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
+import com.ghlzm.iot.alarm.governance.RiskPointGovernanceApprovalExecutor;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
@@ -18,6 +20,14 @@ import com.ghlzm.iot.alarm.vo.RiskPointPendingMetricCandidateVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionItemVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
+import com.ghlzm.iot.system.service.model.GovernanceWorkItemCommand;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -46,12 +56,21 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
     private static final String ITEM_SUCCESS = "SUCCESS";
     private static final String ITEM_DUPLICATE_SKIPPED = "DUPLICATE_SKIPPED";
     private static final String ITEM_INVALID_METRIC = "INVALID_METRIC";
+    private static final String WORK_ITEM_CODE_RISK_BINDING = "PENDING_RISK_BINDING";
+    private static final String TASK_CATEGORY_RISK_BINDING = "RISK_BINDING";
+    private static final String DOMAIN_CODE_ALARM = "ALARM";
+    private static final String EXECUTION_STATUS_IN_PROGRESS = "IN_PROGRESS";
+    private static final String EXECUTION_STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
+    private static final String COMMENT_DIRECT_APPLIED = "DIRECT_APPLIED";
 
     private final RiskPointDevicePendingBindingMapper pendingBindingMapper;
     private final RiskPointDevicePendingPromotionMapper promotionMapper;
     private final RiskPointDeviceMapper riskPointDeviceMapper;
     private final RiskPointPendingRecommendationService recommendationService;
     private final RiskPointService riskPointService;
+    private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
+    private final GovernanceApprovalService governanceApprovalService;
+    private final GovernanceWorkItemService governanceWorkItemService;
     private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -60,11 +79,84 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
                                                 RiskPointDeviceMapper riskPointDeviceMapper,
                                                 RiskPointPendingRecommendationService recommendationService,
                                                 RiskPointService riskPointService) {
+        this(
+                pendingBindingMapper,
+                promotionMapper,
+                riskPointDeviceMapper,
+                recommendationService,
+                riskPointService,
+                null,
+                null,
+                null
+        );
+    }
+
+    @Autowired
+    public RiskPointPendingPromotionServiceImpl(RiskPointDevicePendingBindingMapper pendingBindingMapper,
+                                                RiskPointDevicePendingPromotionMapper promotionMapper,
+                                                RiskPointDeviceMapper riskPointDeviceMapper,
+                                                RiskPointPendingRecommendationService recommendationService,
+                                                RiskPointService riskPointService,
+                                                GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
+                                                @Lazy GovernanceApprovalService governanceApprovalService,
+                                                GovernanceWorkItemService governanceWorkItemService) {
         this.pendingBindingMapper = pendingBindingMapper;
         this.promotionMapper = promotionMapper;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
         this.recommendationService = recommendationService;
         this.riskPointService = riskPointService;
+        this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
+        this.governanceApprovalService = governanceApprovalService;
+        this.governanceWorkItemService = governanceWorkItemService;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public GovernanceSubmissionResultVO submitPromotion(Long pendingId,
+                                                        RiskPointPendingPromotionRequest request,
+                                                        Long currentUserId) {
+        RiskPointDevicePendingBinding pending = requirePromotablePending(pendingId);
+        ensureRequestHasMetrics(request);
+        riskPointService.getById(pending.getRiskPointId(), currentUserId);
+        Long subjectId = IdWorker.getId();
+        String snapshotJson = writePromotionSnapshot(pending, request);
+        Long approverUserId = resolveOptionalApproverUserId(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                currentUserId
+        );
+        if (approverUserId == null) {
+            Long workItemId = openWorkItem(
+                    subjectId,
+                    pending.getDeviceCode(),
+                    resolveFirstRiskMetricId(request),
+                    snapshotJson,
+                    EXECUTION_STATUS_IN_PROGRESS,
+                    currentUserId
+            );
+            promote(pendingId, request, currentUserId);
+            resolveWorkItem(subjectId, currentUserId);
+            return GovernanceSubmissionResultVO.directApplied(workItemId);
+        }
+        Long workItemId = openWorkItem(
+                subjectId,
+                pending.getDeviceCode(),
+                resolveFirstRiskMetricId(request),
+                snapshotJson,
+                EXECUTION_STATUS_PENDING_APPROVAL,
+                currentUserId
+        );
+        Long approvalOrderId = requireGovernanceApprovalService().submitAction(new GovernanceApprovalActionCommand(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                "risk point pending promotion",
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                subjectId,
+                workItemId,
+                currentUserId,
+                approverUserId,
+                RiskPointGovernanceApprovalExecutor.writePendingPromotionPayload(pending, request),
+                null
+        ));
+        return GovernanceSubmissionResultVO.pendingApproval(workItemId, approvalOrderId);
     }
 
     @Override
@@ -321,5 +413,121 @@ public class RiskPointPendingPromotionServiceImpl implements RiskPointPendingPro
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private Long openWorkItem(Long subjectId,
+                              String deviceCode,
+                              Long riskMetricId,
+                              String snapshotJson,
+                              String executionStatus,
+                              Long currentUserId) {
+        if (governanceWorkItemService == null) {
+            return null;
+        }
+        return governanceWorkItemService.openOrRefreshAndGetId(new GovernanceWorkItemCommand(
+                WORK_ITEM_CODE_RISK_BINDING,
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                subjectId,
+                null,
+                riskMetricId,
+                null,
+                null,
+                null,
+                normalize(deviceCode),
+                null,
+                null,
+                "RISK_POINT_PENDING_PROMOTION",
+                null,
+                snapshotJson,
+                TASK_CATEGORY_RISK_BINDING,
+                DOMAIN_CODE_ALARM,
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                executionStatus,
+                null,
+                null,
+                null,
+                null,
+                "P2",
+                currentUserId
+        ));
+    }
+
+    private void resolveWorkItem(Long subjectId, Long currentUserId) {
+        if (governanceWorkItemService == null) {
+            return;
+        }
+        governanceWorkItemService.resolve(
+                WORK_ITEM_CODE_RISK_BINDING,
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                subjectId,
+                currentUserId,
+                COMMENT_DIRECT_APPLIED
+        );
+    }
+
+    private Long resolveOptionalApproverUserId(String actionCode, Long currentUserId) {
+        if (governanceApprovalPolicyResolver == null) {
+            return null;
+        }
+        return governanceApprovalPolicyResolver.resolveOptionalApproverUserId(actionCode, currentUserId);
+    }
+
+    private GovernanceApprovalService requireGovernanceApprovalService() {
+        if (governanceApprovalService == null) {
+            throw new BizException("治理审批服务未配置");
+        }
+        return governanceApprovalService;
+    }
+
+    private Long resolveFirstRiskMetricId(RiskPointPendingPromotionRequest request) {
+        if (request == null || request.getMetrics() == null) {
+            return null;
+        }
+        for (RiskPointPendingPromotionMetricDTO metric : request.getMetrics()) {
+            if (metric != null && metric.getRiskMetricId() != null) {
+                return metric.getRiskMetricId();
+            }
+        }
+        return null;
+    }
+
+    private String writePromotionSnapshot(RiskPointDevicePendingBinding pending, RiskPointPendingPromotionRequest request) {
+        ObjectNode root = objectMapper.createObjectNode();
+        writeNullableLong(root, "pendingId", pending == null ? null : pending.getId());
+        writeNullableLong(root, "riskPointId", pending == null ? null : pending.getRiskPointId());
+        writeNullableLong(root, "deviceId", pending == null ? null : pending.getDeviceId());
+        writeNullableText(root, "riskPointCode", pending == null ? null : pending.getRiskPointCode());
+        writeNullableText(root, "riskPointName", pending == null ? null : pending.getRiskPointName());
+        writeNullableText(root, "deviceCode", pending == null ? null : pending.getDeviceCode());
+        writeNullableText(root, "deviceName", pending == null ? null : pending.getDeviceName());
+        if (request != null) {
+            root.put("completePending", Boolean.TRUE.equals(request.getCompletePending()));
+            writeNullableText(root, "promotionNote", request.getPromotionNote());
+            ArrayNode metricsNode = root.putArray("metrics");
+            if (request.getMetrics() != null) {
+                for (RiskPointPendingPromotionMetricDTO metric : request.getMetrics()) {
+                    if (metric == null) {
+                        continue;
+                    }
+                    ObjectNode metricNode = metricsNode.addObject();
+                    writeNullableLong(metricNode, "riskMetricId", metric.getRiskMetricId());
+                    writeNullableText(metricNode, "metricIdentifier", metric.getMetricIdentifier());
+                    writeNullableText(metricNode, "metricName", metric.getMetricName());
+                }
+            }
+        }
+        return root.toString();
+    }
+
+    private void writeNullableLong(ObjectNode node, String fieldName, Long value) {
+        if (node != null && value != null) {
+            node.put(fieldName, value);
+        }
+    }
+
+    private void writeNullableText(ObjectNode node, String fieldName, String value) {
+        if (node != null && StringUtils.hasText(value)) {
+            node.put(fieldName, value.trim());
+        }
     }
 }

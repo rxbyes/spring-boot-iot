@@ -262,8 +262,6 @@
               <StandardWorkbenchRowActions
                 variant="card"
                 :direct-items="getAuditDirectActions(row)"
-                :menu-items="auditMenuItems"
-                menu-label="更多"
                 @command="(command) => handleAuditRowAction(command, row)"
               />
             </article>
@@ -318,8 +316,6 @@
               <StandardWorkbenchRowActions
                 variant="table"
                 :direct-items="getAuditDirectActions(row)"
-                :menu-items="auditMenuItems"
-                menu-label="更多"
                 @command="(command) => handleAuditRowAction(command, row)"
               />
             </template>
@@ -425,15 +421,15 @@ const auditActionColumnWidth = computed(() =>
         ],
   })
 )
-const pageTitle = computed(() => (isSystemMode.value ? '异常台账' : '审计中心'))
+const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
 const panelTitle = computed(() => pageTitle.value)
 const pageDescription = computed(() =>
   isSystemMode.value
-    ? '按异常模块、TraceId、设备编码与请求通道筛查 system_error。'
+    ? '后台异常核对：按异常模块、TraceId、设备编码与请求通道筛查 system_error，并判断下一步回链路追踪还是治理修正。'
     : '按用户、模块与结果查看审计留痕。'
 )
 const detailDialogTitle = computed(() => (isSystemMode.value ? '异常详情' : `${pageTitle.value}详情`))
-const exportDialogTitle = computed(() => (isSystemMode.value ? '异常台账导出列设置' : `${pageTitle.value}导出列设置`))
+const exportDialogTitle = computed(() => (isSystemMode.value ? '异常观测台导出列设置' : `${pageTitle.value}导出列设置`))
 const recordLabel = computed(() => (isSystemMode.value ? '异常记录' : '审计记录'))
 const businessOperationTypeOptions = [
   { label: '新增', value: 'insert' },
@@ -621,7 +617,6 @@ const auditToolbarActions = computed(() => [
     disabled: selectedRows.value.length === 0
   }
 ])
-const auditMenuItems = computed(() => (isSystemMode.value ? [{ command: 'delete', label: '删除' }] : []))
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
     return ''
@@ -639,25 +634,15 @@ const restoredDiagnosticContext = computed(() => {
     topic: requestMethod === 'MQTT' ? requestUrl || route.query.topic : route.query.topic
   } as Record<string, unknown>)
 })
-const systemFindingSummary = computed(() => {
-  if (systemStats.value.total > 0) {
-    return '可回链路追踪继续复盘。'
-  }
-  return '建议回到链路追踪或失败归档继续排查。'
-})
-const systemInlineMessage = computed(() => {
-  const sourceLabel = restoredDiagnosticContext.value
-    ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
+const systemInlineMessage = computed(() =>
+  restoredDiagnosticContext.value
+    ? [
+        `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`,
+        '当前节点：后台异常核对',
+        '下一步回链路追踪台或治理页继续排查。'
+      ].join(' · ')
     : ''
-  if (statsLoading.value) {
-    return [sourceLabel, '异常统计加载中。'].filter(Boolean).join(' · ')
-  }
-  return [
-    sourceLabel,
-    `当前异常 ${systemStats.value.total} 条，今日 ${systemStats.value.todayCount} 条，关联链路 ${systemStats.value.distinctTraceCount} 条。`,
-    systemFindingSummary.value
-  ].filter(Boolean).join(' · ')
-})
+)
 const showSystemInlineState = computed(() => isSystemMode.value && Boolean(systemInlineMessage.value))
 
 // 详情对话框
@@ -1047,7 +1032,8 @@ const getAuditDirectActions = (row: AuditLogRecord) => {
   if (isSystemMode.value) {
     return [
       { command: 'detail', label: '详情' },
-      { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) }
+      { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) },
+      { command: 'delete', label: '删除' }
     ]
   }
 

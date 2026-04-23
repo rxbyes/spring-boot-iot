@@ -5,13 +5,18 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchAddDTO;
 import com.ghlzm.iot.device.dto.DeviceBatchDeleteDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingBatchActivateDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingSuggestionQuery;
 import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.dto.DeviceSecretRotateDTO;
+import com.ghlzm.iot.device.service.DeviceOnboardingActivationService;
 import com.ghlzm.iot.device.service.DeviceSecretCustodyService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingBatchResultVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingSuggestionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
@@ -39,11 +44,14 @@ public class DeviceController {
 
     private final DeviceService deviceService;
     private final DeviceSecretCustodyService deviceSecretCustodyService;
+    private final DeviceOnboardingActivationService deviceOnboardingActivationService;
 
     public DeviceController(DeviceService deviceService,
-                            DeviceSecretCustodyService deviceSecretCustodyService) {
+                            DeviceSecretCustodyService deviceSecretCustodyService,
+                            DeviceOnboardingActivationService deviceOnboardingActivationService) {
         this.deviceService = deviceService;
         this.deviceSecretCustodyService = deviceSecretCustodyService;
+        this.deviceOnboardingActivationService = deviceOnboardingActivationService;
     }
 
     @PostMapping("/api/device/add")
@@ -96,6 +104,18 @@ public class DeviceController {
                 pageNum,
                 pageSize
         ));
+    }
+
+    @GetMapping("/api/device/onboarding/suggestion")
+    public R<DeviceOnboardingSuggestionVO> getOnboardingSuggestion(@Valid DeviceOnboardingSuggestionQuery query,
+                                                                   Authentication authentication) {
+        return R.ok(deviceService.getOnboardingSuggestion(requireCurrentUserId(authentication), query));
+    }
+
+    @PostMapping("/api/device/onboarding/batch-activate")
+    public R<DeviceOnboardingBatchResultVO> batchActivate(@RequestBody @Valid DeviceOnboardingBatchActivateDTO dto,
+                                                          Authentication authentication) {
+        return R.ok(deviceOnboardingActivationService.activate(requireCurrentUserId(authentication), dto));
     }
 
     @PutMapping("/api/device/{id}")

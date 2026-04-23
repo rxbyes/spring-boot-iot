@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service;
 
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
+import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
 
 /**
  * Governance approval service.
@@ -59,4 +60,12 @@ public interface GovernanceApprovalService {
      * @return approval order id
      */
     Long recordApprovedAction(GovernanceApprovalActionCommand command);
+
+    /**
+     * Simulate a pending governance approval order without executing writes.
+     *
+     * @param orderId approval order id
+     * @return simulation summary
+     */
+    GovernanceSimulationResult simulateOrder(Long orderId);
 }

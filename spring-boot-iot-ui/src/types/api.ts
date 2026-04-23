@@ -13,6 +13,182 @@ export interface PageResult<T> {
   records: T[];
 }
 
+export type DeviceOnboardingCaseCurrentStep =
+  | 'PROTOCOL_GOVERNANCE'
+  | 'PRODUCT_GOVERNANCE'
+  | 'CONTRACT_RELEASE'
+  | 'ACCEPTANCE';
+
+export type DeviceOnboardingCaseStatus = 'BLOCKED' | 'IN_PROGRESS' | 'READY';
+
+export type OnboardingTemplatePackStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface DeviceOnboardingAcceptanceSummary {
+  jobId?: string | null;
+  runId?: string | null;
+  status?: 'RUNNING' | 'PASSED' | 'FAILED' | 'BLOCKED' | string | null;
+  summary?: string | null;
+  failedLayers?: string[] | null;
+  jumpPath?: string | null;
+}
+
+export interface DeviceOnboardingCase {
+  id: IdType;
+  tenantId?: IdType | null;
+  caseCode: string;
+  caseName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  templatePackId?: IdType | null;
+  productId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  deviceCode?: string | null;
+  currentStep: DeviceOnboardingCaseCurrentStep;
+  status: DeviceOnboardingCaseStatus;
+  blockers: string[];
+  acceptance?: DeviceOnboardingAcceptanceSummary | null;
+  remark?: string | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface DeviceOnboardingCasePageQuery {
+  tenantId?: IdType | null;
+  keyword?: string;
+  status?: DeviceOnboardingCaseStatus | '';
+  currentStep?: DeviceOnboardingCaseCurrentStep | '';
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface DeviceOnboardingCaseUpsertPayload {
+  tenantId?: IdType | null;
+  caseCode: string;
+  caseName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  templatePackId?: IdType | null;
+  productId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  deviceCode?: string | null;
+  remark?: string | null;
+}
+
+export type DeviceOnboardingCaseCreatePayload = DeviceOnboardingCaseUpsertPayload;
+
+export type DeviceOnboardingCaseUpdatePayload = DeviceOnboardingCaseUpsertPayload;
+
+export interface DeviceOnboardingCaseBatchCreatePayload {
+  items: DeviceOnboardingCaseCreatePayload[];
+}
+
+export interface DeviceOnboardingCaseBatchTemplateApplyPayload {
+  caseIds: IdType[];
+  templatePackId: IdType;
+}
+
+export interface DeviceOnboardingCaseBatchStartAcceptancePayload {
+  caseIds: IdType[];
+}
+
+export interface DeviceOnboardingCaseBatchSuccessItem {
+  caseId?: IdType | null;
+  caseCode?: string | null;
+  caseName?: string | null;
+  currentStep?: DeviceOnboardingCaseCurrentStep | string | null;
+  status?: DeviceOnboardingCaseStatus | string | null;
+  deviceCode?: string | null;
+  acceptanceStatus?: string | null;
+  acceptanceRunId?: string | null;
+}
+
+export interface DeviceOnboardingCaseBatchFailureItem {
+  caseId?: IdType | null;
+  caseCode?: string | null;
+  caseName?: string | null;
+  failureKey?: string | null;
+  message: string;
+}
+
+export interface DeviceOnboardingCaseBatchFailureGroup {
+  failureKey?: string | null;
+  summary: string;
+  count: number;
+  caseCodes: string[];
+}
+
+export interface DeviceOnboardingCaseBatchResult {
+  action?: 'BATCH_CREATE' | 'BATCH_APPLY_TEMPLATE' | 'BATCH_START_ACCEPTANCE' | string | null;
+  requestedCount: number;
+  successCount: number;
+  failedCount: number;
+  successItems: DeviceOnboardingCaseBatchSuccessItem[];
+  failureItems: DeviceOnboardingCaseBatchFailureItem[];
+  failureGroups: DeviceOnboardingCaseBatchFailureGroup[];
+}
+
+export interface OnboardingTemplatePack {
+  id: IdType;
+  tenantId?: IdType | null;
+  packCode: string;
+  packName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  status: OnboardingTemplatePackStatus | string;
+  versionNo?: number | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  defaultGovernanceConfigJson?: string | null;
+  defaultInsightConfigJson?: string | null;
+  defaultAcceptanceProfileJson?: string | null;
+  description?: string | null;
+  remark?: string | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface OnboardingTemplatePackPageQuery {
+  tenantId?: IdType | null;
+  keyword?: string;
+  status?: OnboardingTemplatePackStatus | '';
+  scenarioCode?: string;
+  deviceFamily?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface OnboardingTemplatePackUpsertPayload {
+  tenantId?: IdType | null;
+  packCode: string;
+  packName: string;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  status?: OnboardingTemplatePackStatus | string | null;
+  protocolFamilyCode?: string | null;
+  decryptProfileCode?: string | null;
+  protocolTemplateCode?: string | null;
+  defaultGovernanceConfigJson?: string | null;
+  defaultInsightConfigJson?: string | null;
+  defaultAcceptanceProfileJson?: string | null;
+  description?: string | null;
+  remark?: string | null;
+}
+
+export type OnboardingTemplatePackCreatePayload = OnboardingTemplatePackUpsertPayload;
+
+export type OnboardingTemplatePackUpdatePayload = OnboardingTemplatePackUpsertPayload;
+
 export interface StatsBucket {
   label: string;
   value: string;
@@ -237,10 +413,33 @@ export interface Product {
   maxOnlineDuration?: number | null; // 在线时长（分钟，有会话明细时返回）
 }
 
+export interface ProductOverviewSummary {
+  productId: IdType;
+  productKey: string;
+  productName?: string | null;
+  protocolCode?: string | null;
+  nodeType?: number | null;
+  dataFormat?: string | null;
+  manufacturer?: string | null;
+  description?: string | null;
+  status?: number | null;
+  deviceCount?: number | null;
+  onlineDeviceCount?: number | null;
+  lastReportTime?: string | null;
+  formalFieldCount?: number | null;
+  latestReleaseBatchId?: IdType | null;
+  latestReleasedFieldCount?: number | null;
+  latestReleaseStatus?: string | null;
+  latestReleaseCreateTime?: string | null;
+}
+
+export type ProductObjectInsightMetricGroup = 'measure' | 'statusEvent' | 'runtime';
+
 export interface ProductObjectInsightCustomMetricConfig {
   identifier: string;
   displayName: string;
-  group: 'measure' | 'status';
+  group: ProductObjectInsightMetricGroup;
+  unit?: string | null;
   includeInTrend?: boolean | null;
   includeInExtension?: boolean | null;
   analysisTitle?: string | null;
@@ -254,8 +453,15 @@ export interface ProductObjectInsightConfig {
   customMetrics?: ProductObjectInsightCustomMetricConfig[] | null;
 }
 
+export type ProductGovernanceCapabilityType = 'MONITORING' | 'COLLECTING' | 'WARNING' | 'VIDEO' | 'UNKNOWN';
+
+export interface ProductGovernanceConfig {
+  productCapabilityType?: ProductGovernanceCapabilityType | string | null;
+}
+
 export interface ProductMetadata {
   objectInsight?: ProductObjectInsightConfig | null;
+  governance?: ProductGovernanceConfig | null;
 }
 
 export type ProductModelType = 'property' | 'event' | 'service';
@@ -317,6 +523,7 @@ export interface ProductModelCandidateSummary {
   extractionMode?: string | null;
   sampleType?: string | null;
   sampleDeviceCode?: string | null;
+  resolvedContractIdentifierMode?: ProductModelContractIdentifierMode | null;
   propertyEvidenceCount?: number | null;
   propertyCandidateCount?: number | null;
   eventEvidenceCount?: number | null;
@@ -432,9 +639,12 @@ export interface ProductModelGovernanceCompareResult {
   compareRows: ProductModelGovernanceCompareRow[];
 }
 
+export type ProductModelContractIdentifierMode = 'DIRECT' | 'FULL_PATH';
+
 export interface ProductModelGovernanceManualExtractPayload {
   sampleType: ProductModelManualSampleType;
   deviceStructure: ProductModelGovernanceDeviceStructure;
+  contractIdentifierMode?: ProductModelContractIdentifierMode | null;
   samplePayload: string;
   parentDeviceCode?: string | null;
   relationMappings?: ProductModelGovernanceRelationMappingPayload[] | null;
@@ -445,6 +655,8 @@ export type ProductModelGovernanceDeviceStructure = 'single' | 'composite';
 export interface ProductModelGovernanceRelationMappingPayload {
   logicalChannelCode: string;
   childDeviceCode: string;
+  canonicalizationStrategy?: string | null;
+  statusMirrorStrategy?: string | null;
 }
 
 export interface ProductModelGovernanceComparePayload {
@@ -473,6 +685,7 @@ export interface ProductModelGovernanceApplyPayload {
 }
 
 export interface ProductModelGovernanceApplyResult {
+  submittedItemCount?: number | null;
   createdCount?: number | null;
   updatedCount?: number | null;
   skippedCount?: number | null;
@@ -483,6 +696,355 @@ export interface ProductModelGovernanceApplyResult {
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null;
   executionPending?: boolean | null;
   appliedItems?: ProductModelGovernanceAppliedItem[] | null;
+}
+
+export type VendorMetricMappingSuggestionStatus =
+  | 'READY_TO_CREATE'
+  | 'ALREADY_COVERED'
+  | 'LOW_CONFIDENCE'
+  | 'CONFLICTS_WITH_EXISTING'
+  | `IGNORED_${string}`
+  | string;
+
+export type VendorMetricMappingRuleScopeType =
+  | 'PRODUCT'
+  | 'DEVICE_FAMILY'
+  | 'SCENARIO'
+  | 'PROTOCOL'
+  | 'TENANT_DEFAULT';
+
+export type VendorMetricMappingRuleLifecycleStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'DISABLED'
+  | string;
+
+export type VendorMetricMappingRulePublishedStatus =
+  | 'PUBLISHED'
+  | 'ROLLED_BACK'
+  | string;
+
+export interface VendorMetricMappingRuleSuggestion {
+  id?: IdType | null;
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier: string;
+  recommendedScopeType?: VendorMetricMappingRuleScopeType | null;
+  status: VendorMetricMappingSuggestionStatus | string;
+  confidence?: string | null;
+  evidenceCount?: number | null;
+  sampleValue?: string | null;
+  valueType?: string | null;
+  evidenceOrigin?: string | null;
+  lastSeenTime?: string | null;
+  reason?: string | null;
+  existingRuleId?: IdType | null;
+  existingTargetNormativeIdentifier?: string | null;
+}
+
+export interface VendorMetricMappingRuleSuggestionQuery {
+  includeCovered?: boolean;
+  includeIgnored?: boolean;
+  minEvidenceCount?: number;
+}
+
+export interface VendorMetricMappingRule {
+  id?: IdType | null;
+  productId?: IdType | null;
+  scopeType?: VendorMetricMappingRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  relationConditionJson?: string | null;
+  normalizationRuleJson?: string | null;
+  targetNormativeIdentifier?: string | null;
+  status?: VendorMetricMappingRuleLifecycleStatus | null;
+  versionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+  coveredByFormalField?: boolean | null;
+}
+
+export interface VendorMetricMappingRuleCreatePayload {
+  scopeType: VendorMetricMappingRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  relationConditionJson?: string | null;
+  normalizationRuleJson?: string | null;
+  targetNormativeIdentifier: string;
+  status: VendorMetricMappingRuleLifecycleStatus;
+}
+
+export interface VendorMetricMappingRuleLedgerRow {
+  ruleId?: IdType | null;
+  productId?: IdType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  targetNormativeIdentifier?: string | null;
+  scopeType?: VendorMetricMappingRuleScopeType | null;
+  draftStatus?: VendorMetricMappingRuleLifecycleStatus | null;
+  draftVersionNo?: number | null;
+  publishedStatus?: VendorMetricMappingRulePublishedStatus | null;
+  publishedVersionNo?: number | null;
+  latestApprovalOrderId?: IdType | null;
+  publishedSource?: string | null;
+  logicalChannelCode?: string | null;
+  coveredByFormalField?: boolean | null;
+}
+
+export interface VendorMetricMappingRuleHitPreview {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  ruleId?: IdType | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+}
+
+export interface VendorMetricMappingRuleBatchStatusPayload {
+  ruleIds: IdType[];
+  targetStatus: VendorMetricMappingRuleLifecycleStatus | string;
+}
+
+export interface VendorMetricMappingRuleBatchStatusResult {
+  requestedCount?: number | null;
+  matchedCount?: number | null;
+  changedCount?: number | null;
+  targetStatus?: string | null;
+}
+
+export interface VendorMetricMappingRuleReplayPayload {
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  sampleValue?: string | null;
+}
+
+export interface VendorMetricMappingRuleReplay {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  matchedScopeType?: VendorMetricMappingRuleScopeType | string | null;
+  ruleId?: IdType | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier?: string | null;
+  canonicalIdentifier?: string | null;
+  sampleValue?: string | null;
+}
+
+export type RuntimeMetricDisplayRuleScopeType = VendorMetricMappingRuleScopeType;
+
+export type RuntimeMetricDisplayRuleStatus = 'ACTIVE' | 'DISABLED' | string;
+
+export interface RuntimeMetricDisplayRule {
+  id?: IdType | null;
+  productId?: IdType | null;
+  scopeType?: RuntimeMetricDisplayRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  displayName?: string | null;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
+  versionNo?: number | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface RuntimeMetricDisplayRuleUpsertPayload {
+  scopeType: RuntimeMetricDisplayRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  displayName: string;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
+}
+
+export interface ProtocolGovernancePageQuery {
+  keyword?: string | null;
+  status?: string | null;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface ProtocolGovernanceBatchSubmitPayload {
+  recordIds: IdType[];
+  submitReason?: string | null;
+}
+
+export interface ProtocolGovernanceBatchSubmitResultItem {
+  recordId?: IdType | null;
+  success?: boolean | null;
+  approvalOrderId?: IdType | null;
+  errorMessage?: string | null;
+}
+
+export interface ProtocolGovernanceBatchSubmitResult {
+  totalCount?: number | null;
+  submittedCount?: number | null;
+  failedCount?: number | null;
+  items?: ProtocolGovernanceBatchSubmitResultItem[] | null;
+}
+
+export interface ProtocolFamilyDefinitionUpsertPayload {
+  familyCode: string;
+  protocolCode: string;
+  displayName: string;
+  decryptProfileCode?: string | null;
+  signAlgorithm?: string | null;
+  normalizationStrategy?: string | null;
+}
+
+export interface ProtocolFamilyDefinition {
+  id?: IdType | null;
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  displayName?: string | null;
+  decryptProfileCode?: string | null;
+  signAlgorithm?: string | null;
+  normalizationStrategy?: string | null;
+  status?: string | null;
+  versionNo?: number | null;
+  publishedStatus?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface ProtocolDecryptProfileUpsertPayload {
+  profileCode: string;
+  algorithm: string;
+  merchantSource: string;
+  merchantKey: string;
+  transformation?: string | null;
+  signatureSecret?: string | null;
+}
+
+export interface ProtocolDecryptProfile {
+  id?: IdType | null;
+  profileCode?: string | null;
+  algorithm?: string | null;
+  merchantSource?: string | null;
+  merchantKey?: string | null;
+  transformation?: string | null;
+  signatureSecret?: string | null;
+  status?: string | null;
+  versionNo?: number | null;
+  publishedStatus?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface ProtocolDecryptPreviewPayload {
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  appId?: string | null;
+}
+
+export interface ProtocolDecryptPreview {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  familyCode?: string | null;
+  resolvedProfileCode?: string | null;
+  algorithm?: string | null;
+  merchantSource?: string | null;
+  merchantKey?: string | null;
+  transformation?: string | null;
+}
+
+export interface ProtocolGovernanceReplayPayload {
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  appId?: string | null;
+}
+
+export interface ProtocolGovernanceReplay {
+  matched?: boolean | null;
+  hitSource?: string | null;
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  appId?: string | null;
+  resolvedProfileCode?: string | null;
+  algorithm?: string | null;
+  merchantSource?: string | null;
+  merchantKey?: string | null;
+  transformation?: string | null;
+}
+
+export interface ProtocolTemplateDefinitionUpsertPayload {
+  templateCode: string;
+  familyCode: string;
+  protocolCode: string;
+  displayName: string;
+  expressionJson: string;
+  outputMappingJson?: string | null;
+}
+
+export interface ProtocolTemplateDefinition {
+  id?: IdType | null;
+  templateCode?: string | null;
+  familyCode?: string | null;
+  protocolCode?: string | null;
+  displayName?: string | null;
+  expressionJson?: string | null;
+  outputMappingJson?: string | null;
+  status?: string | null;
+  versionNo?: number | null;
+  publishedStatus?: string | null;
+  publishedVersionNo?: number | null;
+  approvalOrderId?: IdType | null;
+  createBy?: IdType | null;
+  createTime?: string | null;
+  updateBy?: IdType | null;
+  updateTime?: string | null;
+}
+
+export interface ProtocolTemplateSubmitPayload {
+  submitReason?: string | null;
+}
+
+export interface ProtocolTemplateReplayPayload {
+  templateCode: string;
+  payloadJson: string;
+}
+
+export interface ProtocolTemplateReplayChild {
+  logicalChannelCode?: string | null;
+  childProperties?: Record<string, unknown> | null;
+  canonicalizationStrategy?: string | null;
+  statusMirrorApplied?: boolean | null;
+  rawPayload?: string | null;
+}
+
+export interface ProtocolTemplateReplay {
+  templateCode?: string | null;
+  resolvedTemplateCode?: string | null;
+  matched?: boolean | null;
+  summary?: string | null;
+  extractedChildren?: ProtocolTemplateReplayChild[] | null;
 }
 
 export interface ProductModelGovernanceAppliedItem {
@@ -496,12 +1058,20 @@ export interface ProductModelGovernanceAppliedItem {
 
 export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
+export interface GovernanceSubmissionResult {
+  workItemId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  approvalStatus?: GovernanceApprovalStatus | null;
+  executionStatus?: 'DIRECT_APPLIED' | 'PENDING_APPROVAL' | 'REJECTED' | 'CANCELLED' | null;
+}
+
 export interface GovernanceApprovalOrder {
   id: IdType;
   actionCode?: string | null;
   actionName?: string | null;
   subjectType?: string | null;
   subjectId?: IdType | null;
+  workItemId?: IdType | null;
   status?: GovernanceApprovalStatus | null;
   operatorUserId?: IdType | null;
   approverUserId?: IdType | null;
@@ -526,6 +1096,22 @@ export interface GovernanceApprovalOrderDetail {
   transitions?: GovernanceApprovalTransition[] | null;
 }
 
+export interface GovernanceSimulationResult {
+  orderId?: IdType | null;
+  workItemId?: IdType | null;
+  actionCode?: string | null;
+  executable?: boolean | null;
+  affectedCount?: number | null;
+  affectedTypes?: string[] | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
+  autoDraftEligible?: boolean | null;
+  autoDraftComment?: string | null;
+}
+
 export interface GovernanceApprovalPageQuery {
   actionCode?: string | null;
   subjectType?: string | null;
@@ -546,7 +1132,44 @@ export interface GovernanceApprovalResubmitPayload {
   comment?: string | null;
 }
 
-export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'CLOSED';
+export type GovernanceWorkItemStatus = 'OPEN' | 'ACKED' | 'BLOCKED' | 'RESOLVED' | 'CLOSED';
+export type GovernanceWorkItemExecutionStatus =
+  | 'PENDING_APPROVAL'
+  | 'EXECUTED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'IN_PROGRESS'
+  | 'REPLAY_REQUIRED'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export interface GovernanceEvidenceItem {
+  evidenceType?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+}
+
+export interface GovernanceRecommendationSnapshot {
+  recommendationType?: 'PROMOTE' | 'PUBLISH' | 'CREATE_POLICY' | 'REPLAY' | 'IGNORE' | string | null;
+  confidence?: number | null;
+  reasonCodes?: string[] | null;
+  suggestedAction?: string | null;
+  evidenceItems?: GovernanceEvidenceItem[] | null;
+}
+
+export interface GovernanceImpactSnapshot {
+  affectedCount?: number | null;
+  affectedTypes?: string[] | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
+
+export interface GovernanceRollbackSnapshot {
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
 
 export interface GovernanceWorkItem {
   id: IdType;
@@ -566,6 +1189,17 @@ export interface GovernanceWorkItem {
   sourceStage?: string | null;
   blockingReason?: string | null;
   snapshotJson?: string | null;
+  taskCategory?: string | null;
+  domainCode?: string | null;
+  actionCode?: string | null;
+  executionStatus?: GovernanceWorkItemExecutionStatus | string | null;
+  recommendationSnapshotJson?: string | null;
+  evidenceSnapshotJson?: string | null;
+  impactSnapshotJson?: string | null;
+  rollbackSnapshotJson?: string | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
   dueTime?: string | null;
   resolvedTime?: string | null;
   closedTime?: string | null;
@@ -576,11 +1210,13 @@ export interface GovernanceWorkItem {
 export interface GovernanceWorkItemPageQuery {
   workItemCode?: string | null;
   workStatus?: GovernanceWorkItemStatus | string | null;
+  executionStatus?: GovernanceWorkItemExecutionStatus | string | null;
   subjectType?: string | null;
   subjectId?: IdType | null;
   productId?: IdType | null;
   riskMetricId?: IdType | null;
   assigneeUserId?: IdType | null;
+  keyword?: string | null;
   pageNum?: number;
   pageSize?: number;
 }
@@ -589,7 +1225,34 @@ export interface GovernanceWorkItemTransitionPayload {
   comment?: string | null;
 }
 
-export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'CLOSED';
+export interface GovernanceReplayFeedbackPayload {
+  workItemId?: IdType | null;
+  approvalOrderId?: IdType | null;
+  releaseBatchId?: IdType | null;
+  traceId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  recommendedDecision?: string | null;
+  adoptedDecision: string;
+  executionOutcome: string;
+  rootCauseCode: string;
+  operatorSummary?: string | null;
+}
+
+export interface GovernanceDecisionContext {
+  workItemId?: IdType | null;
+  priorityLevel?: string | null;
+  priorityScore?: number | null;
+  problemSummary?: string | null;
+  reasonCodes?: string[] | null;
+  affectedModules?: string[] | null;
+  affectedCount?: number | null;
+  recommendedAction?: string | null;
+  rollbackable?: boolean | null;
+  rollbackPlanSummary?: string | null;
+}
+
+export type GovernanceOpsAlertStatus = 'OPEN' | 'ACKED' | 'SUPPRESSED' | 'RESOLVED' | 'CLOSED';
 
 export interface GovernanceOpsAlert {
   id: IdType;
@@ -613,6 +1276,9 @@ export interface GovernanceOpsAlert {
   sourceStage?: string | null;
   snapshotJson?: string | null;
   assigneeUserId?: IdType | null;
+  recommendation?: GovernanceRecommendationSnapshot | null;
+  impact?: GovernanceImpactSnapshot | null;
+  rollback?: GovernanceRollbackSnapshot | null;
   firstSeenTime?: string | null;
   lastSeenTime?: string | null;
   resolvedTime?: string | null;
@@ -701,6 +1367,49 @@ export interface Device {
   updateTime?: string | null;
 }
 
+export interface DeviceOnboardingSuggestion {
+  traceId: string;
+  deviceCode?: string | null;
+  deviceName?: string | null;
+  assetSourceType?: string | null;
+  productKey?: string | null;
+  protocolCode?: string | null;
+  lastFailureStage?: string | null;
+  lastErrorMessage?: string | null;
+  lastReportTopic?: string | null;
+  lastPayload?: string | null;
+  recommendedProductId?: IdType | null;
+  recommendedProductKey?: string | null;
+  recommendedProductName?: string | null;
+  recommendedFamilyCode?: string | null;
+  recommendedFamilyName?: string | null;
+  recommendedDecryptProfileCode?: string | null;
+  recommendedTemplateCode?: string | null;
+  recommendedTemplateName?: string | null;
+  suggestionStatus?: string | null;
+  ruleGaps: string[];
+}
+
+export interface DeviceOnboardingBatchActivatePayload {
+  traceIds: string[];
+  confirmed: boolean;
+}
+
+export interface DeviceOnboardingBatchError {
+  traceId?: string | null;
+  deviceCode?: string | null;
+  message: string;
+}
+
+export interface DeviceOnboardingBatchResult {
+  requestedCount: number;
+  activatedCount: number;
+  rejectedCount: number;
+  activatedTraceIds: string[];
+  activatedDeviceCodes: string[];
+  errors: DeviceOnboardingBatchError[];
+}
+
 export interface DeviceOption {
   id: IdType;
   productId?: IdType | null;
@@ -715,6 +1424,9 @@ export interface DeviceOption {
   nodeType?: number | null;
   onlineStatus?: number | null;
   deviceStatus?: number | null;
+  deviceCapabilityType?: string | null;
+  supportsMetricBinding?: boolean | null;
+  aiEventExpandable?: boolean | null;
 }
 
 export interface DeviceMetricOption {
@@ -730,8 +1442,40 @@ export interface DeviceProperty {
   propertyName?: string | null;
   propertyValue?: string | null;
   valueType?: string | null;
+  unit?: string | null;
   reportTime?: string | null;
   updateTime?: string | null;
+}
+
+export interface CollectorChildInsightMetric {
+  identifier: string;
+  displayName?: string | null;
+  propertyValue?: string | null;
+  unit?: string | null;
+  recommended?: boolean | null;
+  reportTime?: string | null;
+}
+
+export interface CollectorChildInsightChild {
+  logicalChannelCode: string;
+  childDeviceCode: string;
+  childDeviceName?: string | null;
+  childProductKey?: string | null;
+  collectorLinkState: string;
+  sensorStateValue?: string | null;
+  lastReportTime?: string | null;
+  recommendedMetricIdentifiers?: string[] | null;
+  metrics: CollectorChildInsightMetric[];
+}
+
+export interface CollectorChildInsightOverview {
+  parentDeviceCode: string;
+  parentOnlineStatus?: number | null;
+  childCount: number;
+  reachableChildCount: number;
+  sensorStateReportedCount: number;
+  recommendedMetricCount?: number | null;
+  children: CollectorChildInsightChild[];
 }
 
 export interface DeviceMessageLog {
@@ -830,7 +1574,7 @@ export interface ProductModelUpsertPayload {
   identifier: string;
   modelName: string;
   dataType?: string;
-  specsJson?: string;
+  specsJson?: string | null;
   eventType?: string;
   serviceInputJson?: string;
   serviceOutputJson?: string;

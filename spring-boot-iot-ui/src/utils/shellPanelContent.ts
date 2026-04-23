@@ -141,7 +141,7 @@ const HELP_ENTRY_DEFINITIONS: HelpEntryDefinition[] = [
     id: 'help-reporting-link',
     category: 'technical',
     title: 'HTTP / MQTT 联调指引',
-    description: '通过链路验证中心按设备编码反查接入契约，执行 HTTP / MQTT 明文或密文模拟上报，并核验格式化、协议识别与主链路解析。',
+    description: '以链路验证中心作为排障起点，按设备编码反查接入契约，执行 HTTP / MQTT 模拟上报，再决定进入链路追踪、异常观测还是数据校验。',
     path: '/reporting',
     audienceKeys: ['developer', 'ops', 'super-admin'],
     relatedPaths: ['/reporting']
@@ -150,7 +150,7 @@ const HELP_ENTRY_DEFINITIONS: HelpEntryDefinition[] = [
     id: 'help-trace-troubleshooting',
     category: 'technical',
     title: 'TraceId 链路排障',
-    description: '按 TraceId、设备编码和 Topic 串联接入链路，快速锁定设备上报和分发问题。',
+    description: '围绕主链路复盘按 TraceId、设备编码和 Topic 串联接入链路，判断下一步进入异常观测、数据校验或治理修正。',
     path: '/message-trace',
     audienceKeys: ['developer', 'ops', 'super-admin'],
     relatedPaths: ['/message-trace', '/system-log']
@@ -159,7 +159,7 @@ const HELP_ENTRY_DEFINITIONS: HelpEntryDefinition[] = [
     id: 'help-system-error',
     category: 'technical',
     title: '异常观测与 system_error 排查',
-    description: '集中查看 MQTT、订阅、消息分发等后台异步异常，缩短故障定位路径。',
+    description: '围绕后台异常核对集中查看 MQTT、订阅、消息分发等异步异常，并判断是否回链路追踪或治理页继续修正。',
     path: '/system-log',
     audienceKeys: ['developer', 'ops', 'super-admin'],
     relatedPaths: ['/system-log']

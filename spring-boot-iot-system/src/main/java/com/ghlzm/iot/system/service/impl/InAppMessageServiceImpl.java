@@ -223,7 +223,10 @@ public class InAppMessageServiceImpl extends ServiceImpl<InAppMessageMapper, InA
                 continue;
             }
             stats.setTotalUnreadCount(stats.getTotalUnreadCount() + 1L);
-            switch (message.getMessageType()) {
+            String normalizedMessageType = StringUtils.hasText(message.getMessageType())
+                    ? message.getMessageType().trim().toLowerCase(Locale.ROOT)
+                    : "";
+            switch (normalizedMessageType) {
                 case "system" -> stats.setSystemUnreadCount(stats.getSystemUnreadCount() + 1L);
                 case "business" -> stats.setBusinessUnreadCount(stats.getBusinessUnreadCount() + 1L);
                 case "error" -> stats.setErrorUnreadCount(stats.getErrorUnreadCount() + 1L);

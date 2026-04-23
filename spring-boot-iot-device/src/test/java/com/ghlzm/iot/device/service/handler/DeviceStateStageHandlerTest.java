@@ -4,6 +4,7 @@ import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
 import com.ghlzm.iot.device.service.DeviceSessionService;
+import com.ghlzm.iot.device.service.model.DeviceStateRefreshResult;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -70,5 +71,32 @@ class DeviceStateStageHandlerTest {
         verify(deviceMapper).updateById(updateCaptor.capture());
         assertEquals(reportTime, updateCaptor.getValue().getLastOnlineTime());
         assertEquals(reportTime, updateCaptor.getValue().getLastReportTime());
+    }
+
+    @Test
+    void refreshShouldReportLinkStateBoundaryWithoutTouchingSensorState() {
+        LocalDateTime reportTime = LocalDateTime.of(2026, 4, 9, 13, 47, 28);
+        Device device = new Device();
+        device.setId(3002L);
+        device.setDeviceCode("84330701");
+
+        DeviceUpMessage message = new DeviceUpMessage();
+        message.setDeviceCode("84330701");
+        message.setTopic("$dp");
+        message.setTimestamp(reportTime);
+
+        DeviceProcessingTarget target = new DeviceProcessingTarget();
+        target.setDevice(device);
+        target.setMessage(message);
+        target.setChildTarget(Boolean.TRUE);
+
+        DeviceStateRefreshResult result = deviceStateStageHandler.refresh(target);
+
+        assertEquals("LINK_STATE", result.getBranch());
+        assertEquals("84330701", result.getSummary().get("targetDeviceCode"));
+        assertEquals(Boolean.TRUE, result.getSummary().get("childTarget"));
+        assertEquals("CHILD", result.getSummary().get("targetRole"));
+        assertEquals(Boolean.TRUE, result.getSummary().get("linkStateRefreshed"));
+        assertEquals(Boolean.FALSE, result.getSummary().get("sensorStateTouched"));
     }
 }

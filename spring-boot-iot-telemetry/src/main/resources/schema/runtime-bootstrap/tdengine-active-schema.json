@@ -1,0 +1,524 @@
+{
+  "objects": [
+    {
+      "createSql": "CREATE STABLE IF NOT EXISTS iot_agg_measure_hour (\n  ts TIMESTAMP,\n  metric_id BINARY(128),\n  metric_code BINARY(128),\n  metric_name NCHAR(128),\n  value_type BINARY(32),\n  first_reported_at TIMESTAMP,\n  last_reported_at TIMESTAMP,\n  min_value_double DOUBLE,\n  max_value_double DOUBLE,\n  sum_value_double DOUBLE,\n  last_value_double DOUBLE,\n  sample_count BIGINT,\n  trace_id BINARY(64),\n  source_message_type BINARY(32)\n)\nTAGS (\n  tenant_id BIGINT,\n  device_id BIGINT,\n  product_id BIGINT,\n  sensor_group BINARY(64),\n  location_code BINARY(64),\n  risk_point_id BIGINT\n);",
+      "fieldDictionary": [
+        {
+          "commentZh": "时序时间",
+          "isTag": false,
+          "name": "ts"
+        },
+        {
+          "commentZh": "指标ID",
+          "isTag": false,
+          "name": "metric_id"
+        },
+        {
+          "commentZh": "指标编码",
+          "isTag": false,
+          "name": "metric_code"
+        },
+        {
+          "commentZh": "指标名称",
+          "isTag": false,
+          "name": "metric_name"
+        },
+        {
+          "commentZh": "值类型",
+          "isTag": false,
+          "name": "value_type"
+        },
+        {
+          "commentZh": "首次上报时间",
+          "isTag": false,
+          "name": "first_reported_at"
+        },
+        {
+          "commentZh": "最后上报时间",
+          "isTag": false,
+          "name": "last_reported_at"
+        },
+        {
+          "commentZh": "最小数值",
+          "isTag": false,
+          "name": "min_value_double"
+        },
+        {
+          "commentZh": "最大数值",
+          "isTag": false,
+          "name": "max_value_double"
+        },
+        {
+          "commentZh": "累计数值",
+          "isTag": false,
+          "name": "sum_value_double"
+        },
+        {
+          "commentZh": "最近数值",
+          "isTag": false,
+          "name": "last_value_double"
+        },
+        {
+          "commentZh": "样本数量",
+          "isTag": false,
+          "name": "sample_count"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "来源消息类型",
+          "isTag": false,
+          "name": "source_message_type"
+        },
+        {
+          "commentZh": "租户ID",
+          "isTag": true,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "isTag": true,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "isTag": true,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "传感器分组",
+          "isTag": true,
+          "name": "sensor_group"
+        },
+        {
+          "commentZh": "位置编码",
+          "isTag": true,
+          "name": "location_code"
+        },
+        {
+          "commentZh": "风险点ID",
+          "isTag": true,
+          "name": "risk_point_id"
+        }
+      ],
+      "name": "iot_agg_measure_hour",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "manual_bootstrap_required",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "createSql": "CREATE STABLE IF NOT EXISTS iot_raw_event_point (\n  ts TIMESTAMP,\n  metric_id BINARY(128),\n  reported_at TIMESTAMP,\n  ingested_at TIMESTAMP,\n  value_double DOUBLE,\n  value_long BIGINT,\n  value_bool BOOL,\n  value_text NCHAR(1024),\n  quality_code BINARY(32),\n  alarm_flag BOOL,\n  trace_id BINARY(64),\n  session_id BINARY(64),\n  source_message_type BINARY(32)\n)\nTAGS (\n  tenant_id BIGINT,\n  device_id BIGINT,\n  product_id BIGINT,\n  sensor_group BINARY(64),\n  location_code BINARY(64),\n  risk_point_id BIGINT\n);",
+      "fieldDictionary": [
+        {
+          "commentZh": "时序时间",
+          "isTag": false,
+          "name": "ts"
+        },
+        {
+          "commentZh": "指标ID",
+          "isTag": false,
+          "name": "metric_id"
+        },
+        {
+          "commentZh": "设备上报时间",
+          "isTag": false,
+          "name": "reported_at"
+        },
+        {
+          "commentZh": "平台入库时间",
+          "isTag": false,
+          "name": "ingested_at"
+        },
+        {
+          "commentZh": "数值",
+          "isTag": false,
+          "name": "value_double"
+        },
+        {
+          "commentZh": "整数值",
+          "isTag": false,
+          "name": "value_long"
+        },
+        {
+          "commentZh": "布尔值",
+          "isTag": false,
+          "name": "value_bool"
+        },
+        {
+          "commentZh": "文本值",
+          "isTag": false,
+          "name": "value_text"
+        },
+        {
+          "commentZh": "质量编码",
+          "isTag": false,
+          "name": "quality_code"
+        },
+        {
+          "commentZh": "告警标记",
+          "isTag": false,
+          "name": "alarm_flag"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "会话ID",
+          "isTag": false,
+          "name": "session_id"
+        },
+        {
+          "commentZh": "来源消息类型",
+          "isTag": false,
+          "name": "source_message_type"
+        },
+        {
+          "commentZh": "租户ID",
+          "isTag": true,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "isTag": true,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "isTag": true,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "传感器分组",
+          "isTag": true,
+          "name": "sensor_group"
+        },
+        {
+          "commentZh": "位置编码",
+          "isTag": true,
+          "name": "location_code"
+        },
+        {
+          "commentZh": "风险点ID",
+          "isTag": true,
+          "name": "risk_point_id"
+        }
+      ],
+      "name": "iot_raw_event_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "createSql": "CREATE STABLE IF NOT EXISTS iot_raw_measure_point (\n  ts TIMESTAMP,\n  metric_id BINARY(128),\n  reported_at TIMESTAMP,\n  ingested_at TIMESTAMP,\n  value_double DOUBLE,\n  value_long BIGINT,\n  value_bool BOOL,\n  value_text NCHAR(1024),\n  quality_code BINARY(32),\n  alarm_flag BOOL,\n  trace_id BINARY(64),\n  session_id BINARY(64),\n  source_message_type BINARY(32)\n)\nTAGS (\n  tenant_id BIGINT,\n  device_id BIGINT,\n  product_id BIGINT,\n  sensor_group BINARY(64),\n  location_code BINARY(64),\n  risk_point_id BIGINT\n);",
+      "fieldDictionary": [
+        {
+          "commentZh": "时序时间",
+          "isTag": false,
+          "name": "ts"
+        },
+        {
+          "commentZh": "指标ID",
+          "isTag": false,
+          "name": "metric_id"
+        },
+        {
+          "commentZh": "设备上报时间",
+          "isTag": false,
+          "name": "reported_at"
+        },
+        {
+          "commentZh": "平台入库时间",
+          "isTag": false,
+          "name": "ingested_at"
+        },
+        {
+          "commentZh": "数值",
+          "isTag": false,
+          "name": "value_double"
+        },
+        {
+          "commentZh": "整数值",
+          "isTag": false,
+          "name": "value_long"
+        },
+        {
+          "commentZh": "布尔值",
+          "isTag": false,
+          "name": "value_bool"
+        },
+        {
+          "commentZh": "文本值",
+          "isTag": false,
+          "name": "value_text"
+        },
+        {
+          "commentZh": "质量编码",
+          "isTag": false,
+          "name": "quality_code"
+        },
+        {
+          "commentZh": "告警标记",
+          "isTag": false,
+          "name": "alarm_flag"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "会话ID",
+          "isTag": false,
+          "name": "session_id"
+        },
+        {
+          "commentZh": "来源消息类型",
+          "isTag": false,
+          "name": "source_message_type"
+        },
+        {
+          "commentZh": "租户ID",
+          "isTag": true,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "isTag": true,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "isTag": true,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "传感器分组",
+          "isTag": true,
+          "name": "sensor_group"
+        },
+        {
+          "commentZh": "位置编码",
+          "isTag": true,
+          "name": "location_code"
+        },
+        {
+          "commentZh": "风险点ID",
+          "isTag": true,
+          "name": "risk_point_id"
+        }
+      ],
+      "name": "iot_raw_measure_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "createSql": "CREATE STABLE IF NOT EXISTS iot_raw_status_point (\n  ts TIMESTAMP,\n  metric_id BINARY(128),\n  reported_at TIMESTAMP,\n  ingested_at TIMESTAMP,\n  value_double DOUBLE,\n  value_long BIGINT,\n  value_bool BOOL,\n  value_text NCHAR(1024),\n  quality_code BINARY(32),\n  alarm_flag BOOL,\n  trace_id BINARY(64),\n  session_id BINARY(64),\n  source_message_type BINARY(32)\n)\nTAGS (\n  tenant_id BIGINT,\n  device_id BIGINT,\n  product_id BIGINT,\n  sensor_group BINARY(64),\n  location_code BINARY(64),\n  risk_point_id BIGINT\n);",
+      "fieldDictionary": [
+        {
+          "commentZh": "时序时间",
+          "isTag": false,
+          "name": "ts"
+        },
+        {
+          "commentZh": "指标ID",
+          "isTag": false,
+          "name": "metric_id"
+        },
+        {
+          "commentZh": "设备上报时间",
+          "isTag": false,
+          "name": "reported_at"
+        },
+        {
+          "commentZh": "平台入库时间",
+          "isTag": false,
+          "name": "ingested_at"
+        },
+        {
+          "commentZh": "数值",
+          "isTag": false,
+          "name": "value_double"
+        },
+        {
+          "commentZh": "整数值",
+          "isTag": false,
+          "name": "value_long"
+        },
+        {
+          "commentZh": "布尔值",
+          "isTag": false,
+          "name": "value_bool"
+        },
+        {
+          "commentZh": "文本值",
+          "isTag": false,
+          "name": "value_text"
+        },
+        {
+          "commentZh": "质量编码",
+          "isTag": false,
+          "name": "quality_code"
+        },
+        {
+          "commentZh": "告警标记",
+          "isTag": false,
+          "name": "alarm_flag"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "会话ID",
+          "isTag": false,
+          "name": "session_id"
+        },
+        {
+          "commentZh": "来源消息类型",
+          "isTag": false,
+          "name": "source_message_type"
+        },
+        {
+          "commentZh": "租户ID",
+          "isTag": true,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "isTag": true,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "isTag": true,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "传感器分组",
+          "isTag": true,
+          "name": "sensor_group"
+        },
+        {
+          "commentZh": "位置编码",
+          "isTag": true,
+          "name": "location_code"
+        },
+        {
+          "commentZh": "风险点ID",
+          "isTag": true,
+          "name": "risk_point_id"
+        }
+      ],
+      "name": "iot_raw_status_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_stable"
+    },
+    {
+      "createSql": "CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (\n  ts TIMESTAMP,\n  reported_at TIMESTAMP,\n  tenant_id BIGINT,\n  device_id BIGINT,\n  device_code BINARY(128),\n  product_id BIGINT,\n  product_key BINARY(128),\n  protocol_code BINARY(64),\n  message_type BINARY(32),\n  mqtt_topic BINARY(512),\n  trace_id BINARY(64),\n  metric_code BINARY(128),\n  metric_name NCHAR(128),\n  value_type BINARY(32),\n  value_text NCHAR(1024),\n  value_long BIGINT,\n  value_double DOUBLE,\n  value_bool BOOL\n);",
+      "fieldDictionary": [
+        {
+          "commentZh": "时序时间",
+          "isTag": false,
+          "name": "ts"
+        },
+        {
+          "commentZh": "设备上报时间",
+          "isTag": false,
+          "name": "reported_at"
+        },
+        {
+          "commentZh": "租户ID",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "isTag": false,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "设备编码",
+          "isTag": false,
+          "name": "device_code"
+        },
+        {
+          "commentZh": "产品ID",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "产品标识",
+          "isTag": false,
+          "name": "product_key"
+        },
+        {
+          "commentZh": "协议编码",
+          "isTag": false,
+          "name": "protocol_code"
+        },
+        {
+          "commentZh": "消息类型",
+          "isTag": false,
+          "name": "message_type"
+        },
+        {
+          "commentZh": "MQTT主题",
+          "isTag": false,
+          "name": "mqtt_topic"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "指标编码",
+          "isTag": false,
+          "name": "metric_code"
+        },
+        {
+          "commentZh": "指标名称",
+          "isTag": false,
+          "name": "metric_name"
+        },
+        {
+          "commentZh": "值类型",
+          "isTag": false,
+          "name": "value_type"
+        },
+        {
+          "commentZh": "文本值",
+          "isTag": false,
+          "name": "value_text"
+        },
+        {
+          "commentZh": "整数值",
+          "isTag": false,
+          "name": "value_long"
+        },
+        {
+          "commentZh": "数值",
+          "isTag": false,
+          "name": "value_double"
+        },
+        {
+          "commentZh": "布尔值",
+          "isTag": false,
+          "name": "value_bool"
+        }
+      ],
+      "name": "iot_device_telemetry_point",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "storageType": "tdengine_table"
+    }
+  ]
+}

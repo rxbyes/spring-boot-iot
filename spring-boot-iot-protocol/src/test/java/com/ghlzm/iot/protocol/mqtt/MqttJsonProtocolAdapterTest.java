@@ -2,6 +2,8 @@ package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.protocol.template.ProtocolTemplateDefinitionProvider;
+import com.ghlzm.iot.framework.protocol.template.ProtocolTemplateRuntimeDefinition;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpEnvelopeDecoder;
@@ -344,6 +346,50 @@ class MqttJsonProtocolAdapterTest {
     }
 
     @Test
+    void shouldPreferPublishedTemplateCodeWhenTemplateProviderIsAvailable() {
+        IotProperties properties = new IotProperties();
+        properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
+        IotProperties.Device deviceConfig = new IotProperties.Device();
+        Map<String, String> baseStationMappings = new LinkedHashMap<>();
+        baseStationMappings.put("L1_LF_1", "202018143");
+        deviceConfig.setSubDeviceMappings(Map.of("SK00EA0D1307986", baseStationMappings));
+        properties.setDevice(deviceConfig);
+        ProtocolTemplateDefinitionProvider templateProvider = () -> List.of(
+                new ProtocolTemplateRuntimeDefinition(
+                        "legacy-dp-crack-v1",
+                        "legacy-dp",
+                        "mqtt-json",
+                        "裂缝模板",
+                        "{\"logicalPattern\":\"^L1_LF_\\\\d+$\"}",
+                        "{\"value\":\"$.value\"}",
+                        1
+                )
+        );
+
+        MqttJsonProtocolAdapter configuredAdapter = newAdapter(
+                properties,
+                List.of(),
+                parentDeviceCode -> List.of(),
+                templateProvider
+        );
+        ProtocolContext context = new ProtocolContext();
+        context.setTopic("$dp");
+        context.setMessageType("property");
+
+        DeviceUpMessage message = configuredAdapter.decode(buildPacket((byte) 2, """
+                {"SK00EA0D1307986":{"S1_ZT_1":{"2026-04-04T22:10:35.000Z":{"sensor_state":{"L1_LF_1":0}}},"L1_LF_1":{"2026-04-04T22:10:35.000Z":10.86}}}
+                """), context);
+
+        Object protocolMetadata = getProtocolMetadata(message);
+        Object templateEvidence = readMetadata(protocolMetadata, "getTemplateEvidence");
+        assertNotNull(templateEvidence);
+        assertEquals(List.of("legacy-dp-crack-v1"), readMetadata(templateEvidence, "getTemplateCodes"));
+        @SuppressWarnings("unchecked")
+        List<Object> executions = (List<Object>) readMetadata(templateEvidence, "getExecutions");
+        assertEquals("legacy-dp-crack-v1", readMetadata(executions.get(0), "getTemplateCode"));
+    }
+
+    @Test
     void shouldPreferRelationRegistryRuleOverLegacyConfigFallbackWhenDecodingCollectorPayload() {
         IotProperties properties = new IotProperties();
         properties.getProtocol().getLegacyDp().setNormalizerV2Enabled(true);
@@ -527,6 +573,13 @@ class MqttJsonProtocolAdapterTest {
     private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
                                                List<MqttPayloadDecryptor> decryptors,
                                                LegacyDpRelationResolver relationResolver) {
+        return newAdapter(iotProperties, decryptors, relationResolver, null);
+    }
+
+    private MqttJsonProtocolAdapter newAdapter(IotProperties iotProperties,
+                                               List<MqttPayloadDecryptor> decryptors,
+                                               LegacyDpRelationResolver relationResolver,
+                                               ProtocolTemplateDefinitionProvider templateProvider) {
         ProtocolDecryptProfileResolver resolver = context -> {
             String appId = context == null ? null : context.appId();
             for (MqttPayloadDecryptor decryptor : decryptors) {
@@ -552,7 +605,8 @@ class MqttJsonProtocolAdapterTest {
         return new MqttJsonProtocolAdapter(
                 envelopeDecoder,
                 iotProperties,
-                relationResolver
+                relationResolver,
+                templateProvider
         );
     }
 

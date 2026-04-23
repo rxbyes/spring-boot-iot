@@ -16,6 +16,8 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import com.ghlzm.iot.system.service.GovernanceImpactDependencyQueryService;
+import com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -47,6 +50,8 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
     private final ProductContractReleaseSnapshotMapper releaseSnapshotMapper;
     private final ProductModelMapper productModelMapper;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private GovernanceImpactDependencyQueryService impactDependencyQueryService =
+            (productId, contractIdentifiers) -> GovernanceImpactDependencySummary.empty();
 
     public ProductContractReleaseServiceImpl(ProductContractReleaseBatchMapper releaseBatchMapper,
                                              ProductContractReleaseSnapshotMapper releaseSnapshotMapper,
@@ -54,6 +59,13 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         this.releaseBatchMapper = releaseBatchMapper;
         this.releaseSnapshotMapper = releaseSnapshotMapper;
         this.productModelMapper = productModelMapper;
+    }
+
+    @Autowired(required = false)
+    void setImpactDependencyQueryService(GovernanceImpactDependencyQueryService impactDependencyQueryService) {
+        if (impactDependencyQueryService != null) {
+            this.impactDependencyQueryService = impactDependencyQueryService;
+        }
     }
 
     @Override
@@ -174,6 +186,10 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         impact.setUnchangedCount(unchangedCount);
         impact.setComparedAt(LocalDateTime.now());
         impact.setImpactItems(impactItems);
+        impact.setDependencySummary(toDependencySummary(impactDependencyQueryService.summarizeProductContractImpact(
+                batch.getProductId(),
+                collectImpactedContractIdentifiers(impactItems)
+        )));
         return impact;
     }
 
@@ -371,6 +387,152 @@ public class ProductContractReleaseServiceImpl implements ProductContractRelease
         item.setIdentifier(normalize(identifier));
         item.setChangedFields(changedFields == null ? List.of() : changedFields);
         return item;
+    }
+
+    private Set<String> collectImpactedContractIdentifiers(List<ProductContractReleaseImpactVO.ImpactItem> impactItems) {
+        if (impactItems == null || impactItems.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (ProductContractReleaseImpactVO.ImpactItem impactItem : impactItems) {
+            if (impactItem == null || !"property".equalsIgnoreCase(normalize(impactItem.getModelType()))) {
+                continue;
+            }
+            String identifier = normalize(impactItem.getIdentifier());
+            if (StringUtils.hasText(identifier)) {
+                identifiers.add(identifier);
+            }
+        }
+        return identifiers;
+    }
+
+    private ProductContractReleaseImpactVO.DependencySummary toDependencySummary(GovernanceImpactDependencySummary summary) {
+        GovernanceImpactDependencySummary safeSummary = summary == null ? GovernanceImpactDependencySummary.empty() : summary;
+        ProductContractReleaseImpactVO.DependencySummary dependencySummary = new ProductContractReleaseImpactVO.DependencySummary();
+        dependencySummary.setAffectedRiskMetricCount(safeSummary.affectedRiskMetricCount());
+        dependencySummary.setAffectedRiskPointBindingCount(safeSummary.affectedRiskPointBindingCount());
+        dependencySummary.setAffectedRuleCount(safeSummary.affectedRuleCount());
+        dependencySummary.setAffectedLinkageBindingCount(safeSummary.affectedLinkageBindingCount());
+        dependencySummary.setAffectedEmergencyPlanBindingCount(safeSummary.affectedEmergencyPlanBindingCount());
+        dependencySummary.setAffectedRiskMetrics(toRiskMetricDetails(safeSummary.affectedRiskMetrics()));
+        dependencySummary.setAffectedRiskPointBindings(toRiskPointBindingDetails(safeSummary.affectedRiskPointBindings()));
+        dependencySummary.setAffectedRules(toRuleDetails(safeSummary.affectedRules()));
+        dependencySummary.setAffectedLinkageBindings(toLinkageBindingDetails(safeSummary.affectedLinkageBindings()));
+        dependencySummary.setAffectedEmergencyPlanBindings(toEmergencyPlanBindingDetails(safeSummary.affectedEmergencyPlanBindings()));
+        return dependencySummary;
+    }
+
+    private List<ProductContractReleaseImpactVO.RiskMetricDetail> toRiskMetricDetails(
+            List<GovernanceImpactDependencySummary.RiskMetricDetail> source) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<ProductContractReleaseImpactVO.RiskMetricDetail> details = new ArrayList<>();
+        for (GovernanceImpactDependencySummary.RiskMetricDetail item : source) {
+            if (item == null) {
+                continue;
+            }
+            ProductContractReleaseImpactVO.RiskMetricDetail detail = new ProductContractReleaseImpactVO.RiskMetricDetail();
+            detail.setRiskMetricId(item.riskMetricId());
+            detail.setContractIdentifier(item.contractIdentifier());
+            detail.setNormativeIdentifier(item.normativeIdentifier());
+            detail.setRiskMetricCode(item.riskMetricCode());
+            detail.setRiskMetricName(item.riskMetricName());
+            detail.setMetricRole(item.metricRole());
+            detail.setLifecycleStatus(item.lifecycleStatus());
+            details.add(detail);
+        }
+        return List.copyOf(details);
+    }
+
+    private List<ProductContractReleaseImpactVO.RiskPointBindingDetail> toRiskPointBindingDetails(
+            List<GovernanceImpactDependencySummary.RiskPointBindingDetail> source) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<ProductContractReleaseImpactVO.RiskPointBindingDetail> details = new ArrayList<>();
+        for (GovernanceImpactDependencySummary.RiskPointBindingDetail item : source) {
+            if (item == null) {
+                continue;
+            }
+            ProductContractReleaseImpactVO.RiskPointBindingDetail detail = new ProductContractReleaseImpactVO.RiskPointBindingDetail();
+            detail.setBindingId(item.bindingId());
+            detail.setRiskPointId(item.riskPointId());
+            detail.setRiskPointName(item.riskPointName());
+            detail.setDeviceId(item.deviceId());
+            detail.setDeviceCode(item.deviceCode());
+            detail.setDeviceName(item.deviceName());
+            detail.setRiskMetricId(item.riskMetricId());
+            detail.setMetricIdentifier(item.metricIdentifier());
+            detail.setMetricName(item.metricName());
+            details.add(detail);
+        }
+        return List.copyOf(details);
+    }
+
+    private List<ProductContractReleaseImpactVO.RuleDetail> toRuleDetails(
+            List<GovernanceImpactDependencySummary.RuleDetail> source) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<ProductContractReleaseImpactVO.RuleDetail> details = new ArrayList<>();
+        for (GovernanceImpactDependencySummary.RuleDetail item : source) {
+            if (item == null) {
+                continue;
+            }
+            ProductContractReleaseImpactVO.RuleDetail detail = new ProductContractReleaseImpactVO.RuleDetail();
+            detail.setRuleId(item.ruleId());
+            detail.setRuleName(item.ruleName());
+            detail.setRiskMetricId(item.riskMetricId());
+            detail.setMetricIdentifier(item.metricIdentifier());
+            detail.setMetricName(item.metricName());
+            detail.setAlarmLevel(item.alarmLevel());
+            details.add(detail);
+        }
+        return List.copyOf(details);
+    }
+
+    private List<ProductContractReleaseImpactVO.LinkageBindingDetail> toLinkageBindingDetails(
+            List<GovernanceImpactDependencySummary.LinkageBindingDetail> source) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<ProductContractReleaseImpactVO.LinkageBindingDetail> details = new ArrayList<>();
+        for (GovernanceImpactDependencySummary.LinkageBindingDetail item : source) {
+            if (item == null) {
+                continue;
+            }
+            ProductContractReleaseImpactVO.LinkageBindingDetail detail = new ProductContractReleaseImpactVO.LinkageBindingDetail();
+            detail.setBindingId(item.bindingId());
+            detail.setLinkageRuleId(item.linkageRuleId());
+            detail.setLinkageRuleName(item.linkageRuleName());
+            detail.setRiskMetricId(item.riskMetricId());
+            detail.setBindingStatus(item.bindingStatus());
+            details.add(detail);
+        }
+        return List.copyOf(details);
+    }
+
+    private List<ProductContractReleaseImpactVO.EmergencyPlanBindingDetail> toEmergencyPlanBindingDetails(
+            List<GovernanceImpactDependencySummary.EmergencyPlanBindingDetail> source) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<ProductContractReleaseImpactVO.EmergencyPlanBindingDetail> details = new ArrayList<>();
+        for (GovernanceImpactDependencySummary.EmergencyPlanBindingDetail item : source) {
+            if (item == null) {
+                continue;
+            }
+            ProductContractReleaseImpactVO.EmergencyPlanBindingDetail detail = new ProductContractReleaseImpactVO.EmergencyPlanBindingDetail();
+            detail.setBindingId(item.bindingId());
+            detail.setEmergencyPlanId(item.emergencyPlanId());
+            detail.setEmergencyPlanName(item.emergencyPlanName());
+            detail.setRiskMetricId(item.riskMetricId());
+            detail.setBindingStatus(item.bindingStatus());
+            detail.setAlarmLevel(item.alarmLevel());
+            details.add(detail);
+        }
+        return List.copyOf(details);
     }
 
     private List<String> resolveChangedFields(ReleaseModelSnapshotItem before, ReleaseModelSnapshotItem after) {

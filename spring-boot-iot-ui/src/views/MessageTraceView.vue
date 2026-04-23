@@ -11,7 +11,7 @@
         <StandardWorkbenchPanel
           v-else
           title="链路追踪台"
-          description="按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。"
+          description="主链路复盘：按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路，并判断下一步去异常观测、数据校验还是治理修正。"
           show-filters
           :show-applied-filters="showAppliedFilters"
           :show-inline-state="showTraceInlineState"
@@ -232,7 +232,7 @@
       :title="detailTitle"
       :subtitle="detailSubtitle"
       tag-layout="title-inline"
-      size="56rem"
+      size="68rem"
       :tags="detailTags"
       :empty="!hasDetail"
     >
@@ -384,7 +384,7 @@ const detailTimelineEmptyDescription = computed(() => {
   }
   return '没有 traceId 时，只能查看消息日志本身，无法继续拉取处理时间线。';
 });
-const detailTitle = computed(() => detailData.value.deviceCode || detailData.value.traceId || '链路追踪详情');
+const detailTitle = computed(() => '链路追踪详情');
 const detailSubtitle = computed(() => '');
 const detailPayloadComparison = computed(() =>
   resolveMessageTracePayloadComparison({
@@ -433,27 +433,18 @@ const traceRuleSummary = computed(() => {
     return '时间线查询异常，优先排查 Redis / message-flow 存储';
   }
   if (timelineExpired.value) {
-    return '时间线已过期，仅保留消息日志。';
+    return '时间线已过期，可继续结合 Payload、异常观测与治理页排查。';
   }
-  if (
-    tableData.value.length > 0
-    && (appliedFilters.keyword || appliedFilters.traceId || appliedFilters.deviceCode || appliedFilters.productKey)
-  ) {
-    return '当前链路结果已命中，可继续查看详情复盘。';
-  }
-  if (restoredDiagnosticContext.value) {
-    return '已恢复跨页排查上下文，可继续联动定位。';
-  }
-  return '按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。';
+  return '下一步按证据进入异常观测、数据校验或治理页。';
 });
 const traceInlineMessage = computed(() => {
   const contextSource = restoredDiagnosticContext.value
     ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
     : '';
   if (statsLoading.value) {
-    return [contextSource, '链路追踪统计加载中。'].filter(Boolean).join(' · ');
+    return [contextSource, '当前节点：主链路复盘', '正在同步当前主链路复盘结果。'].filter(Boolean).join(' · ');
   }
-  return [contextSource, traceRuleSummary.value].filter(Boolean).join(' · ');
+  return [contextSource, '当前节点：主链路复盘', traceRuleSummary.value].filter(Boolean).join(' · ');
 });
 const showTraceInlineState = computed(() => Boolean(traceInlineMessage.value));
 

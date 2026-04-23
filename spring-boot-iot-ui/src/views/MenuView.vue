@@ -505,6 +505,14 @@ async function openEdit(id: number | string) {
   }
 }
 
+async function refreshCurrentAuthContext() {
+  try {
+    await permissionStore.fetchCurrentUser()
+  } catch (error) {
+    console.warn('刷新当前登录态菜单权限失败', error)
+  }
+}
+
 async function submitForm() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) {
@@ -515,9 +523,11 @@ async function submitForm() {
   try {
     if (dialogMode.value === 'add') {
       await addMenu(form)
+      await refreshCurrentAuthContext()
       ElMessage.success('新增成功')
     } else {
       await updateMenu(form)
+      await refreshCurrentAuthContext()
       ElMessage.success('更新成功')
     }
     dialogVisible.value = false
@@ -535,6 +545,7 @@ async function removeMenu(id: number | string) {
     const target = tableData.value.find(item => String(item.id) === String(id))
     await confirmDelete('菜单', target?.menuName)
     await deleteMenu(id)
+    await refreshCurrentAuthContext()
     ElMessage.success('删除成功')
     loadMenuPage()
   } catch (error) {

@@ -299,6 +299,29 @@ async function getLocatorCheckedState(locator) {
   return undefined;
 }
 
+async function getLocatorDisabledState(locator) {
+  try {
+    return await locator.isDisabled();
+  } catch {
+    // ignore and fallback to attributes
+  }
+
+  const disabled = await locator.getAttribute('disabled');
+  if (disabled !== null) {
+    return true;
+  }
+
+  const ariaDisabled = await locator.getAttribute('aria-disabled');
+  if (ariaDisabled === 'true') {
+    return true;
+  }
+  if (ariaDisabled === 'false') {
+    return false;
+  }
+
+  return undefined;
+}
+
 async function clickFirstMatchingButton(root, labels) {
   for (const label of labels) {
     const exactButton = root.getByRole('button', { name: label, exact: true }).first();
@@ -399,6 +422,7 @@ function createStepExecutionUtils({ page, helpers, context, options }) {
     resolveFilePaths: (rawValue) => resolveFilePaths(options.workspaceRoot || process.cwd(), rawValue, context),
     getVariable: (name) => context.variables[String(name || '').trim()],
     getLocatorCheckedState,
+    getLocatorDisabledState,
     resolveDialog: (step) => resolveDialog(page, step, context)
   };
 }
@@ -442,7 +466,7 @@ function registerBuiltinPlanStepHandlers() {
 
   registerPlanStepHandler('setChecked', async ({ step, page, utils }) => {
     const locator = utils.resolveLocator(page, step.locator);
-    const desired = parseBooleanStepValue(step.checked ?? utils.interpolateTemplate(step.value || ''));
+    const desired = parseBooleanStepValue(step.checked ?? utils.interpolateTemplate(step.value ?? ''));
 
     if (desired === undefined) {
       throw new Error('checked or value(true/false) is required.');
@@ -531,6 +555,40 @@ function registerBuiltinPlanStepHandlers() {
     }
     return {
       expected
+    };
+  });
+
+  registerPlanStepHandler('assertValue', async ({ step, page, utils }) => {
+    const locator = utils.resolveLocator(page, step.locator);
+    const expected = utils.interpolateTemplate(step.value || '');
+
+    let actual = '';
+    try {
+      actual = await locator.inputValue();
+    } catch {
+      actual = (await locator.getAttribute('value')) || '';
+    }
+
+    if (actual !== expected) {
+      throw new Error(`Expected value "${expected}", got "${actual}".`);
+    }
+
+    return {
+      expected,
+      actual
+    };
+  });
+
+  registerPlanStepHandler('assertDisabled', async ({ step, page, utils }) => {
+    const locator = utils.resolveLocator(page, step.locator);
+    const disabled = await utils.getLocatorDisabledState(locator);
+
+    if (disabled !== true) {
+      throw new Error(`Expected locator to be disabled, got ${disabled}.`);
+    }
+
+    return {
+      disabled
     };
   });
 

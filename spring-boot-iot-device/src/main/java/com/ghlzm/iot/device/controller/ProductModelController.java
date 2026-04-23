@@ -13,6 +13,7 @@ import com.ghlzm.iot.device.vo.ProductModelVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import jakarta.validation.Valid;
@@ -36,13 +37,16 @@ public class ProductModelController {
     private final ProductModelService productModelService;
     private final GovernancePermissionGuard permissionGuard;
     private final GovernanceApprovalService governanceApprovalService;
+    private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
 
     public ProductModelController(ProductModelService productModelService,
                                   GovernancePermissionGuard permissionGuard,
-                                  GovernanceApprovalService governanceApprovalService) {
+                                  GovernanceApprovalService governanceApprovalService,
+                                  GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver) {
         this.productModelService = productModelService;
         this.permissionGuard = permissionGuard;
         this.governanceApprovalService = governanceApprovalService;
+        this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
     }
 
     @GetMapping("/api/device/product/{productId}/models")
@@ -79,12 +83,17 @@ public class ProductModelController {
     @PostMapping("/api/device/product/{productId}/model-governance/apply")
     public R<ProductModelGovernanceApplyResultVO> applyGovernance(@PathVariable Long productId,
                                                                   @RequestBody ProductModelGovernanceApplyDTO dto,
-                                                                  @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                                  @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                                                                   Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(
+                ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_RELEASE_APPLY,
+                currentUserId,
+                approverUserId
+        );
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "产品契约发布",
                 GovernancePermissionCodes.PRODUCT_CONTRACT_RELEASE,
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
@@ -95,7 +104,7 @@ public class ProductModelController {
                 GovernancePermissionCodes.RISK_METRIC_CATALOG_TAG
         );
         permissionGuard.requireAnyPermission(
-                approverUserId,
+                resolvedApproverUserId,
                 "风险指标标注复核",
                 GovernancePermissionCodes.RISK_METRIC_CATALOG_APPROVE,
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
@@ -107,7 +116,7 @@ public class ProductModelController {
                 "PRODUCT",
                 productId,
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 ProductContractGovernanceApprovalPayloads.writeApplyPayload(productId, dto),
                 null
         ));
@@ -147,5 +156,12 @@ public class ProductModelController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
+    }
+
+    private Long resolveApproverUserId(String actionCode, Long currentUserId, Long approverUserId) {
+        if (approverUserId != null && approverUserId > 0) {
+            return approverUserId;
+        }
+        return governanceApprovalPolicyResolver.resolveApproverUserId(actionCode, currentUserId);
     }
 }

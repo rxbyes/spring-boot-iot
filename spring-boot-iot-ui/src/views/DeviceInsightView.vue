@@ -114,6 +114,19 @@
             </PanelCard>
           </section>
 
+          <CollectorChildInsightPanel
+            v-if="collectorOverview?.children?.length"
+            :overview="collectorOverview"
+          />
+
+          <section
+            v-if="collectorRecommendationNotice"
+            class="insight-recommendation-banner"
+            aria-live="polite"
+          >
+            {{ collectorRecommendationNotice }}
+          </section>
+
           <RiskInsightTrendPanel
             :range-code="selectedRange"
             :groups="trendGroups"
@@ -123,7 +136,7 @@
 
           <PanelCard
             title="设备属性快照"
-            description="保留设备当前最新快照，按单行记录核对时序指标与现场状态。"
+            description="展示设备当前最新运行态值；若要修改正式字段名称、单位等定义，可直接跳到产品契约页处理。"
           >
             <el-table
               v-if="propertyTableRows.length"
@@ -135,10 +148,33 @@
               <StandardTableTextColumn prop="identifier" label="标识符" :min-width="180" />
               <StandardTableTextColumn prop="displayName" label="属性名称" :min-width="160" />
               <StandardTableTextColumn prop="propertyValue" label="当前值" :min-width="140" />
+              <StandardTableTextColumn prop="displayUnit" label="单位" :min-width="100" />
               <StandardTableTextColumn prop="valueType" label="类型" :min-width="120" />
               <StandardTableTextColumn prop="displayTime" label="更新时间" :min-width="180" />
+              <el-table-column label="治理操作" :min-width="180" fixed="right">
+                <template #default="{ row }">
+                  <StandardButton
+                    v-if="row.canEditFormalField"
+                    action="query"
+                    link
+                    :data-testid="buildPropertySnapshotEditTestId(row.formalIdentifier || row.identifier)"
+                    @click="handleEditFormalField(row)"
+                  >
+                    修改名称/单位
+                  </StandardButton>
+                  <StandardButton
+                    v-else
+                    action="query"
+                    link
+                    :data-testid="`promote-mapping-rule-${row.identifier}`"
+                    @click="handlePromoteToMappingRule(row)"
+                  >
+                    补名称/单位
+                  </StandardButton>
+                </template>
+              </el-table-column>
             </el-table>
-            <div v-else class="empty-state">当前设备暂无属性快照。</div>
+            <div v-else class="empty-state">{{ snapshotEmptyMessage }}</div>
           </PanelCard>
         </template>
       </div>
@@ -153,8 +189,9 @@ import { ElMessage } from 'element-plus';
 
 import { getTelemetryHistoryBatch, type InsightRangeCode, type TelemetryHistoryBatchResponse } from '@/api/telemetry';
 import { getRiskMonitoringDetail, getRiskMonitoringList, type RiskMonitoringDetail, type RiskMonitoringListItem } from '@/api/riskMonitoring';
-import { getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties } from '@/api/iot';
 import { productApi } from '@/api/product';
+import CollectorChildInsightPanel from '@/components/device/CollectorChildInsightPanel.vue';
 import PanelCard from '@/components/PanelCard.vue';
 import RiskInsightTrendPanel from '@/components/RiskInsightTrendPanel.vue';
 import StandardInlineState from '@/components/StandardInlineState.vue';
@@ -162,7 +199,7 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import type { Device, DeviceProperty } from '@/types/api';
+import type { CollectorChildInsightOverview, Device, DeviceProperty, ProductModel } from '@/types/api';
 import { formatDateTime } from '@/utils/format';
 import {
   DEFAULT_INSIGHT_RANGE,
@@ -173,6 +210,7 @@ import {
 } from '@/utils/deviceInsightCapability';
 import { getInsightObjectTypeLabel, getRiskLevelLabel, pickPrimaryBinding } from '@/utils/deviceInsight';
 import { resolveInsightMetricDisplayName } from '@/utils/deviceInsightNaming';
+import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes';
 
 interface InsightTrendBucket {
   time: string;
@@ -200,6 +238,17 @@ interface NarrativeBlock {
   description: string;
 }
 
+interface PropertySnapshotRow extends Partial<DeviceProperty> {
+  identifier: string;
+  propertyValue: string;
+  valueType: string;
+  displayName: string;
+  displayUnit: string;
+  displayTime: string;
+  formalIdentifier: string;
+  canEditFormalField: boolean;
+}
+
 function resolveRouteDeviceCode(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -222,17 +271,24 @@ const errorMessage = ref('');
 const trendErrorMessage = ref('');
 const device = ref<Device | null>(null);
 const properties = ref<DeviceProperty[]>([]);
+const collectorOverview = ref<CollectorChildInsightOverview | null>(null);
 const riskBindings = ref<RiskMonitoringListItem[]>([]);
 const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const capabilityProfile = ref<InsightCapabilityProfile>(getInsightCapabilityProfile({}));
 const trendGroups = ref<InsightTrendGroup[]>([]);
+const productModelDisplayNameMap = ref<Map<string, string>>(new Map());
+const productModelDataTypeMap = ref<Map<string, string>>(new Map());
+const productModelUnitMap = ref<Map<string, string>>(new Map());
+const productPropertyIdentifierSet = ref<Set<string>>(new Set());
 const lastFetchTime = ref<string | null>(null);
 const requestVersion = ref(0);
 let syncingRoute = false;
 
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
+const isCollectorParentInsight = computed(() => Number(device.value?.nodeType) === 2);
+const hasCollectorChildren = computed(() => Boolean(collectorOverview.value?.children?.length));
 const hasInsightContent = computed(() =>
-  Boolean(device.value || properties.value.length || riskDetail.value || trendGroups.value.length)
+  Boolean(device.value || properties.value.length || riskDetail.value || trendGroups.value.length || collectorOverview.value?.children?.length)
 );
 const objectTypeLabel = computed(() => getInsightObjectTypeLabel(capabilityProfile.value.objectType));
 const onlineStatusLabel = computed(() => (device.value?.onlineStatus === 1 ? '在线' : device.value ? '离线' : '--'));
@@ -274,12 +330,45 @@ const trendSeriesMap = computed(() => {
   return map;
 });
 
+const configuredSnapshotMetricMap = computed(() => {
+  const map = new Map<string, InsightCapabilityProfile['customMetrics'][number]>();
+  capabilityProfile.value.customMetrics
+    .filter((metric) => metric.enabled !== false && metric.includeInTrend !== false)
+    .sort((left, right) => {
+      const sortDiff = (left.sortNo ?? Number.MAX_SAFE_INTEGER) - (right.sortNo ?? Number.MAX_SAFE_INTEGER);
+      if (sortDiff !== 0) {
+        return sortDiff;
+      }
+      return left.identifier.localeCompare(right.identifier);
+    })
+    .forEach((metric) => {
+      map.set(metric.identifier, metric);
+    });
+  return map;
+});
+
+const configuredMetricMap = computed(() => {
+  const map = new Map<string, InsightCapabilityProfile['customMetrics'][number]>();
+  capabilityProfile.value.customMetrics.forEach((metric) => {
+    map.set(metric.identifier, metric);
+  });
+  return map;
+});
+
 const snapshotMetrics = computed(() =>
   capabilityProfile.value.heroMetrics.map((metric) => {
     const property = propertyMap.value.get(metric.identifier);
     const series = trendSeriesMap.value.get(metric.identifier);
     return {
-      label: resolveInsightMetricDisplayName(metric.identifier, metric.displayName || property?.propertyName),
+      label: appendUnitToDisplayName(
+        resolveMetricBaseName(
+          metric.identifier,
+          metric.displayName,
+          property?.propertyName,
+          resolveProductModelValue(productModelDisplayNameMap.value, metric.identifier)
+        ),
+        resolveMetricUnit(metric.identifier, property)
+      ),
       value: property?.propertyValue || resolveLatestTrendValue(series)
     };
   })
@@ -292,7 +381,33 @@ const trendEmptyMessage = computed(() => {
   if (trendErrorMessage.value) {
     return trendErrorMessage.value;
   }
+  if (!capabilityProfile.value.historyIdentifiers.length) {
+    return isCollectorParentInsight.value && hasCollectorChildren.value
+      ? '当前采集器父设备未配置可展示的父设备趋势指标；子设备指标请查看子设备总览，并到 /products 为父设备或对应子产品单独配置对象洞察。'
+      : '当前产品未配置对象洞察重点趋势指标，请到 /products 先将正式字段加入对象洞察后再查看趋势。';
+  }
   return '当前范围暂无可展示的 TDengine 趋势数据';
+});
+
+const snapshotEmptyMessage = computed(() => {
+  if (!normalizedDeviceCode.value) {
+    return '请输入设备编码后开始综合分析';
+  }
+  if (isCollectorParentInsight.value && hasCollectorChildren.value) {
+    return '当前采集器父设备暂无自身运行态属性快照；子设备监测值与 sensor_state 请查看子设备总览或进入子设备对象洞察。';
+  }
+  return '当前设备暂无最新属性快照，请检查设备上报与 latest 属性写入链路。';
+});
+
+const collectorRecommendationNotice = computed(() => {
+  const entries = (collectorOverview.value?.children ?? [])
+    .flatMap((child) => (child.metrics ?? [])
+      .filter((metric) => metric.recommended)
+      .map((metric) => `${child.childDeviceName || child.logicalChannelCode} / ${metric.displayName || metric.identifier}`));
+  if (!entries.length) {
+    return '';
+  }
+  return `建议优先纳入对象洞察：${entries.join('；')}`;
 });
 
 const deviceArchiveEntries = computed(() => [
@@ -343,13 +458,38 @@ const analysisParagraphs = computed<NarrativeBlock[]>(() => {
   return blocks;
 });
 
-const propertyTableRows = computed(() =>
-  properties.value.map((item) => ({
-    ...item,
-    displayName: resolveInsightMetricDisplayName(item.identifier, item.propertyName),
-    displayTime: formatDateTime(item.updateTime || item.reportTime)
-  }))
-);
+const propertyTableRows = computed<PropertySnapshotRow[]>(() => {
+  const orderedIdentifiers = dedupeSnapshotIdentifiers([
+    ...Array.from(configuredSnapshotMetricMap.value.keys()),
+    ...properties.value.map((item) => item.identifier)
+  ]);
+
+  return orderedIdentifiers.map((identifier) => {
+    const property = propertyMap.value.get(identifier);
+    const series = trendSeriesMap.value.get(identifier);
+    const configuredMetric = configuredSnapshotMetricMap.value.get(identifier);
+    const latestActualBucket = resolveLatestActualTrendBucket(series);
+    const formalIdentifier = resolveFormalPropertyIdentifier(identifier);
+
+    return {
+      ...(property ?? {}),
+      identifier,
+      propertyValue: normalizeText(property?.propertyValue) || (latestActualBucket ? String(latestActualBucket.value) : '--'),
+      valueType: normalizeText(property?.valueType) || resolveProductModelValue(productModelDataTypeMap.value, identifier) || '--',
+      displayName: resolveMetricBaseName(
+        identifier,
+        property?.propertyName,
+        configuredMetric?.displayName,
+        series?.displayName,
+        resolveProductModelValue(productModelDisplayNameMap.value, identifier)
+      ),
+      displayUnit: resolveMetricUnit(identifier, property) || '--',
+      displayTime: formatDateTime(property?.updateTime || property?.reportTime || latestActualBucket?.time),
+      formalIdentifier,
+      canEditFormalField: Boolean(device.value?.productId && formalIdentifier)
+    };
+  });
+});
 
 watch(
   () => [route.query.deviceCode, route.query.rangeCode],
@@ -395,6 +535,37 @@ function handleReset() {
   syncRoute();
 }
 
+function handleEditFormalField(row: PropertySnapshotRow) {
+  const productId = device.value?.productId;
+  const formalIdentifier = normalizeText(row.formalIdentifier);
+  if (productId === undefined || productId === null || !formalIdentifier) {
+    return;
+  }
+  void router.push({
+    path: buildProductWorkbenchSectionPath(productId, 'contracts'),
+    query: {
+      modelIdentifier: formalIdentifier,
+      renameModel: '1',
+      source: 'insight'
+    }
+  });
+}
+
+function handlePromoteToMappingRule(row: PropertySnapshotRow) {
+  const productId = device.value?.productId;
+  if (productId === undefined || productId === null) {
+    return;
+  }
+  void router.push({
+    path: buildProductWorkbenchSectionPath(productId, 'mapping-rules'),
+    query: {
+      rawIdentifier: row.identifier,
+      scope: 'PRODUCT',
+      source: 'insight'
+    }
+  });
+}
+
 function handleRangeChange(value: string | number | boolean) {
   if (typeof value !== 'string') {
     return;
@@ -416,6 +587,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
   isLoading.value = true;
   errorMessage.value = '';
   trendErrorMessage.value = '';
+  collectorOverview.value = null;
 
   try {
     const deviceResponse = await getDeviceByCode(code);
@@ -425,14 +597,22 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     device.value = deviceResponse.data;
 
-    const [propertyResponse, bindingResponse, productMetadataJson] = await Promise.all([
+    const collectorOverviewRequest = shouldLoadCollectorInsightOverview(deviceResponse.data)
+      ? getCollectorChildInsightOverview(code).catch((error) => {
+        console.warn('采集器子设备总览加载失败', error);
+        return null;
+      })
+      : Promise.resolve(null);
+
+    const [propertyResponse, bindingResponse, productInsightSupplement, collectorOverviewResponse] = await Promise.all([
       getDeviceProperties(code),
       getRiskMonitoringList({
         deviceCode: code,
         pageNum: 1,
         pageSize: 50
       }),
-      loadProductMetadataJson(deviceResponse.data?.productId)
+      loadProductInsightSupplement(deviceResponse.data?.productId),
+      collectorOverviewRequest
     ]);
     if (version !== requestVersion.value) {
       return;
@@ -440,6 +620,11 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     properties.value = propertyResponse.data ?? [];
     riskBindings.value = bindingResponse.data.records ?? [];
+    productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
+    productModelDataTypeMap.value = productInsightSupplement.modelDataTypeMap;
+    productModelUnitMap.value = productInsightSupplement.modelUnitMap;
+    productPropertyIdentifierSet.value = productInsightSupplement.propertyIdentifierSet;
+    collectorOverview.value = collectorOverviewResponse?.data ?? null;
 
     const primaryBinding = pickPrimaryBinding(riskBindings.value);
     if (primaryBinding) {
@@ -460,7 +645,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
       riskPointName: riskDetail.value?.riskPointName,
       properties: properties.value,
       deviceMetadataJson: device.value?.metadataJson,
-      productMetadataJson
+      productMetadataJson: productInsightSupplement.metadataJson
     });
 
     if (device.value?.id && capabilityProfile.value.historyIdentifiers.length) {
@@ -500,9 +685,14 @@ function resetInsightState() {
   trendErrorMessage.value = '';
   device.value = null;
   properties.value = [];
+  collectorOverview.value = null;
   riskBindings.value = [];
   riskDetail.value = null;
   trendGroups.value = [];
+  productModelDisplayNameMap.value = new Map();
+  productModelDataTypeMap.value = new Map();
+  productModelUnitMap.value = new Map();
+  productPropertyIdentifierSet.value = new Set();
   lastFetchTime.value = null;
 }
 
@@ -520,43 +710,191 @@ function syncRoute() {
 }
 
 function buildTrendGroups(data: TelemetryHistoryBatchResponse, profile: InsightCapabilityProfile) {
-  const pointMap = new Map((data.points ?? []).map((item) => [item.identifier, item]));
-  return profile.trendGroups
+  const points = data.points ?? [];
+  const resolvedGroups = profile.trendGroups
     .map((group) => ({
-      key: group.key,
+      key: resolveTrendGroupViewKey(group.key),
       title: group.title,
-      description: group.key === 'measure'
-        ? '展示设备本体的监测值折线变化。'
-        : '展示在线状态、电量等状态值折线变化。',
+      description: resolveTrendGroupDescription(group.key),
       series: group.identifiers
         .map((identifier) => {
-          const point = pointMap.get(identifier);
+          const point = resolveTelemetryHistoryPoint(points, identifier);
           if (!point) {
             return null;
           }
+          const property = propertyMap.value.get(identifier);
+          const profileDisplayName = resolveDisplayName(profile, identifier);
           return {
             identifier,
-            displayName: resolveInsightMetricDisplayName(
-              identifier,
-              point.displayName || propertyMap.value.get(identifier)?.propertyName || resolveDisplayName(profile, identifier)
+            displayName: appendUnitToDisplayName(
+              resolveMetricBaseName(
+                identifier,
+                profileDisplayName,
+                property?.propertyName,
+                point.displayName,
+                resolveProductModelValue(productModelDisplayNameMap.value, identifier)
+              ),
+              resolveMetricUnit(identifier, property)
             ),
-            seriesType: point.seriesType || group.key,
+            seriesType: resolveTrendSeriesType(point.seriesType, group.key),
             buckets: point.buckets ?? []
           };
         })
         .filter((item): item is InsightTrendSeries => Boolean(item))
     }))
     .filter((group) => group.series.length > 0);
+
+  return resolvedGroups.flatMap((group) => splitTrendGroup(group));
+}
+
+function resolveTelemetryHistoryPoint(
+  points: TelemetryHistoryBatchResponse['points'],
+  identifier: string
+) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return null;
+  }
+
+  const exactPoint = points.find((item) => normalizeText(item.identifier) === normalizedIdentifier);
+  if (exactPoint) {
+    return exactPoint;
+  }
+
+  const lowerCaseIdentifier = normalizedIdentifier.toLowerCase();
+  const caseInsensitivePoint = points.find((item) => normalizeText(item.identifier).toLowerCase() === lowerCaseIdentifier);
+  if (caseInsensitivePoint) {
+    return caseInsensitivePoint;
+  }
+
+  if (normalizedIdentifier.includes('.')) {
+    const suffixIdentifier = normalizedIdentifier.split('.').pop();
+    if (!suffixIdentifier) {
+      return null;
+    }
+    return resolveUniqueTelemetryHistoryPoint(points, (itemIdentifier) => itemIdentifier.toLowerCase() === suffixIdentifier.toLowerCase());
+  }
+
+  return resolveUniqueTelemetryHistoryPoint(points, (itemIdentifier) =>
+    itemIdentifier.toLowerCase().endsWith(`.${lowerCaseIdentifier}`)
+  );
+}
+
+function resolveUniqueTelemetryHistoryPoint(
+  points: TelemetryHistoryBatchResponse['points'],
+  matcher: (identifier: string) => boolean
+) {
+  const matchedPoints = points.filter((item) => {
+    const itemIdentifier = normalizeText(item.identifier);
+    return itemIdentifier ? matcher(itemIdentifier) : false;
+  });
+  return matchedPoints.length === 1 ? matchedPoints[0] : null;
+}
+
+function splitTrendGroup(group: InsightTrendGroup) {
+  if (group.key !== 'status') {
+    return [group];
+  }
+
+  const eventSeries = group.series
+    .filter((series) => isStatusEventSeries(series))
+    .map((series) => ({
+      ...series,
+      seriesType: 'event'
+    }));
+  const runtimeSeries = group.series.filter((series) => !isStatusEventSeries(series));
+  const nextGroups: InsightTrendGroup[] = [];
+
+  if (eventSeries.length) {
+    nextGroups.push({
+      key: 'status-event',
+      title: '状态事件',
+      description: '展示设备状态码与离散状态变化。',
+      series: eventSeries
+    });
+  }
+
+  if (runtimeSeries.length) {
+    nextGroups.push({
+      key: 'status-runtime',
+      title: '运行参数',
+      description: '展示电量、信号等连续运行参数变化。',
+      series: runtimeSeries
+    });
+  }
+
+  return nextGroups.length ? nextGroups : [group];
+}
+
+function resolveTrendGroupViewKey(groupKey: string) {
+  if (groupKey === 'statusEvent') {
+    return 'status-event';
+  }
+  if (groupKey === 'runtime') {
+    return 'status-runtime';
+  }
+  return groupKey;
+}
+
+function resolveTrendGroupDescription(groupKey: string) {
+  if (groupKey === 'measure') {
+    return '展示设备本体的监测值折线变化。';
+  }
+  if (groupKey === 'statusEvent') {
+    return '展示设备状态码与离散状态变化。';
+  }
+  if (groupKey === 'runtime') {
+    return '展示电量、信号等连续运行参数变化。';
+  }
+  return '展示设备趋势变化。';
+}
+
+function resolveTrendSeriesType(seriesType: string | null | undefined, groupKey: string) {
+  if (seriesType?.trim()) {
+    return seriesType;
+  }
+  if (groupKey === 'statusEvent') {
+    return 'event';
+  }
+  if (groupKey === 'runtime') {
+    return 'status';
+  }
+  return groupKey;
+}
+
+function isStatusEventSeries(series: InsightTrendSeries) {
+  const semanticSource = `${series.identifier} ${series.displayName}`.toLowerCase();
+  if (/(battery|signal|humidity|temperature|temp|voltage|current|power|energy|network|4g|rssi|snr|dbm|湿度|温度|电量|信号|电压|电流|功率|能量)/.test(semanticSource)) {
+    return false;
+  }
+  if (/(sensor_state|online|alarm|warn|status|state|switch|enable|relay|valve|pump|door|light|horn|开关|启停|开启|关闭|阀|泵|门|声光|告警|预警|报警|在线|状态)/.test(semanticSource)) {
+    return true;
+  }
+
+  const actualValues = series.buckets
+    .filter((bucket) => bucket.filled === false)
+    .map((bucket) => Number(bucket.value))
+    .filter((value) => Number.isFinite(value));
+
+  if (!actualValues.length) {
+    return false;
+  }
+
+  return actualValues.every((value) => Number.isInteger(value) && value >= -3 && value <= 1);
 }
 
 function resolveDisplayName(profile: InsightCapabilityProfile, identifier: string) {
   const heroMetric = profile.heroMetrics.find((item) => item.identifier === identifier);
   if (heroMetric) {
-    return resolveInsightMetricDisplayName(identifier, heroMetric.displayName);
+    return resolveMetricBaseName(identifier, heroMetric.displayName);
   }
   const extensionMetric = profile.extensionParameters.find((item) => item.identifier === identifier);
   if (extensionMetric) {
-    return resolveInsightMetricDisplayName(identifier, extensionMetric.displayName);
+    return resolveMetricBaseName(identifier, extensionMetric.displayName);
+  }
+  const productModelDisplayName = resolveProductModelValue(productModelDisplayNameMap.value, identifier);
+  if (productModelDisplayName) {
+    return resolveMetricBaseName(identifier, productModelDisplayName);
   }
   return identifier;
 }
@@ -569,17 +907,427 @@ function resolveLatestTrendValue(series?: InsightTrendSeries) {
   return String(latestBucket.value);
 }
 
-async function loadProductMetadataJson(productId?: string | number | null) {
+function resolveLatestActualTrendBucket(series?: InsightTrendSeries) {
+  return [...(series?.buckets ?? [])]
+    .reverse()
+    .find((bucket) => bucket.filled !== true && bucket.value !== null && bucket.value !== undefined);
+}
+
+function resolvePropertyUnit(item: DeviceProperty) {
+  return resolveMetricUnit(item.identifier, item) || '--';
+}
+
+function shouldLoadCollectorInsightOverview(currentDevice?: Device | null) {
+  if (!currentDevice) {
+    return false;
+  }
+  if (Number(currentDevice.nodeType) === 2) {
+    return true;
+  }
+  // `nf-collect-rtu-v1` 仍按 nodeType=1 建档，但对象洞察读侧要继续按采集器父设备处理。
+  return (currentDevice.productKey || '').trim().toLowerCase() === 'nf-collect-rtu-v1';
+}
+
+async function loadProductInsightSupplement(productId?: string | number | null) {
+  const emptySupplement = {
+    metadataJson: null as string | null,
+    modelDisplayNameMap: new Map<string, string>(),
+    modelDataTypeMap: new Map<string, string>(),
+    modelUnitMap: new Map<string, string>(),
+    propertyIdentifierSet: new Set<string>()
+  };
   if (productId === undefined || productId === null || productId === '') {
+    return emptySupplement;
+  }
+  try {
+    const [productResult, modelResult] = await Promise.allSettled([
+      productApi.getProductById(productId),
+      productApi.listProductModels(productId)
+    ]);
+    return {
+      metadataJson: productResult.status === 'fulfilled' && productResult.value.code === 200
+        ? productResult.value.data?.metadataJson ?? null
+        : null,
+      modelDisplayNameMap: buildProductModelDisplayNameMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      ),
+      modelDataTypeMap: buildProductModelDataTypeMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      ),
+      modelUnitMap: buildProductModelUnitMap(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      ),
+      propertyIdentifierSet: buildProductPropertyIdentifierSet(
+        modelResult.status === 'fulfilled' && modelResult.value.code === 200
+          ? modelResult.value.data ?? []
+          : []
+      )
+    };
+  } catch (error) {
+    console.warn('对象洞察产品配置补充失败', error);
+    return emptySupplement;
+  }
+}
+
+function buildProductModelDisplayNameMap(models: ProductModel[]) {
+  const map = new Map<string, string>();
+  models.forEach((model) => {
+    const displayName = normalizeText(model.modelName);
+    if (displayName) {
+      map.set(model.identifier, displayName);
+    }
+  });
+  return map;
+}
+
+function buildProductModelDataTypeMap(models: ProductModel[]) {
+  const map = new Map<string, string>();
+  models.forEach((model) => {
+    const dataType = normalizeText(model.dataType);
+    if (dataType) {
+      map.set(model.identifier, dataType);
+    }
+  });
+  return map;
+}
+
+function buildProductModelUnitMap(models: ProductModel[]) {
+  const map = new Map<string, string>();
+  models.forEach((model) => {
+    const unit = resolveProductModelUnit(model);
+    if (unit) {
+      map.set(model.identifier, unit);
+    }
+  });
+  return map;
+}
+
+function buildProductPropertyIdentifierSet(models: ProductModel[]) {
+  return new Set(
+    models
+      .filter((model) => model.modelType === 'property')
+      .map((model) => normalizeText(model.identifier))
+      .filter(Boolean)
+  );
+}
+
+function resolveProductModelUnit(model: ProductModel) {
+  return normalizeText(parseSpecsJson(model.specsJson)?.unit);
+}
+
+function resolveMetricBaseName(identifier: string, ...candidates: Array<unknown>) {
+  let rawFallback = '';
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeText(candidate);
+    if (!normalizedCandidate) {
+      continue;
+    }
+    const resolved = resolveInsightMetricDisplayName(identifier, normalizedCandidate);
+    if (resolved) {
+      if (isAliasLikeMetricLabel(resolved, identifier)) {
+        rawFallback = rawFallback || resolved;
+        continue;
+      }
+      return resolved;
+    }
+  }
+  return rawFallback || resolveInsightMetricDisplayName(identifier);
+}
+
+function resolveMetricUnit(identifier: string, property?: DeviceProperty | null) {
+  return normalizeText(property?.unit)
+    || resolveConfiguredMetricValue(configuredMetricMap.value, identifier, (metric) => normalizeText(metric.unit))
+    || resolveProductModelValue(productModelUnitMap.value, identifier)
+    || '';
+}
+
+function resolveProductModelValue(map: Map<string, string>, identifier: string) {
+  const exactValue = map.get(identifier);
+  if (exactValue) {
+    return exactValue;
+  }
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  for (const [key, value] of map.entries()) {
+    if (key.trim().toLowerCase() === normalizedIdentifier) {
+      return value;
+    }
+  }
+  const compatibleEntries = Array.from(map.entries()).filter(([key]) =>
+    isCompatibleProductModelIdentifier(key, identifier)
+  );
+  if (compatibleEntries.length === 1) {
+    return compatibleEntries[0]?.[1] || '';
+  }
+  return '';
+}
+
+function resolveConfiguredMetricValue(
+  map: Map<string, InsightCapabilityProfile['customMetrics'][number]>,
+  identifier: string,
+  selector: (metric: InsightCapabilityProfile['customMetrics'][number]) => string
+) {
+  const exactMetric = map.get(identifier);
+  const exactValue = exactMetric ? selector(exactMetric) : '';
+  if (exactValue) {
+    return exactValue;
+  }
+
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  for (const [key, metric] of map.entries()) {
+    if (key.trim().toLowerCase() === normalizedIdentifier) {
+      const resolvedValue = selector(metric);
+      if (resolvedValue) {
+        return resolvedValue;
+      }
+    }
+  }
+
+  const compatibleEntries = Array.from(map.entries()).filter(([key]) =>
+    isCompatibleProductModelIdentifier(key, identifier)
+  );
+  if (compatibleEntries.length === 1) {
+    return selector(compatibleEntries[0][1]);
+  }
+
+  return '';
+}
+
+function resolveFormalPropertyIdentifier(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return '';
+  }
+  const exactIdentifier = findCaseInsensitiveIdentifier(productPropertyIdentifierSet.value, normalizedIdentifier);
+  if (exactIdentifier) {
+    return exactIdentifier;
+  }
+  const compatibleIdentifiers = Array.from(productPropertyIdentifierSet.value).filter((candidate) =>
+    isSnapshotAliasCompatibleIdentifier(candidate, normalizedIdentifier)
+  );
+  return compatibleIdentifiers.length === 1 ? compatibleIdentifiers[0] ?? '' : '';
+}
+
+function dedupeSnapshotIdentifiers(values: string[]) {
+  const dedupedIdentifiers: string[] = [];
+  const indexByCanonicalIdentifier = new Map<string, number>();
+  values.forEach((value) => {
+    const identifier = normalizeText(value);
+    if (!identifier) {
+      return;
+    }
+    const canonicalIdentifier = resolveSnapshotCanonicalIdentifier(identifier).toLowerCase();
+    const existingIndex = indexByCanonicalIdentifier.get(canonicalIdentifier);
+    if (existingIndex === undefined) {
+      indexByCanonicalIdentifier.set(canonicalIdentifier, dedupedIdentifiers.length);
+      dedupedIdentifiers.push(identifier);
+      return;
+    }
+    const existingIdentifier = dedupedIdentifiers[existingIndex];
+    if (shouldPreferSnapshotIdentifier(identifier, existingIdentifier)) {
+      dedupedIdentifiers[existingIndex] = identifier;
+    }
+  });
+  return dedupedIdentifiers;
+}
+
+function shouldPreferSnapshotIdentifier(candidateIdentifier: string, currentIdentifier: string) {
+  const candidateScore = scoreSnapshotIdentifier(candidateIdentifier);
+  const currentScore = scoreSnapshotIdentifier(currentIdentifier);
+  if (candidateScore !== currentScore) {
+    return candidateScore > currentScore;
+  }
+  return normalizeText(candidateIdentifier).length > normalizeText(currentIdentifier).length;
+}
+
+function scoreSnapshotIdentifier(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+  let score = 0;
+  if (normalizeText(resolveSnapshotCanonicalIdentifier(normalizedIdentifier)).toLowerCase() === normalizedIdentifier.toLowerCase()) {
+    score += 100;
+  }
+  if (isManagedSnapshotIdentifier(normalizedIdentifier)) {
+    score += 40;
+  }
+  if (normalizedIdentifier.includes('.')) {
+    score += 10;
+  }
+  const propertyName = propertyMap.value.get(normalizedIdentifier)?.propertyName;
+  if (propertyName && !isAliasLikeMetricLabel(propertyName, normalizedIdentifier)) {
+    score += 5;
+  }
+  return score;
+}
+
+function resolveSnapshotCanonicalIdentifier(identifier: string) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier) {
+    return '';
+  }
+
+  const managedIdentifiers = resolveManagedSnapshotIdentifiers();
+  const exactManagedIdentifier = findCaseInsensitiveIdentifier(managedIdentifiers, normalizedIdentifier);
+  if (exactManagedIdentifier) {
+    return exactManagedIdentifier;
+  }
+  const propertyIdentifiers = uniqueIdentifiers(properties.value.map((item) => item.identifier));
+  const mirroredSensorStateIdentifier = resolveMirroredSensorStateIdentifier(normalizedIdentifier, [
+    ...managedIdentifiers,
+    ...propertyIdentifiers
+  ]);
+  if (mirroredSensorStateIdentifier) {
+    return mirroredSensorStateIdentifier;
+  }
+
+  const compatibleManagedIdentifiers = managedIdentifiers.filter((candidate) =>
+    isSnapshotAliasCompatibleIdentifier(candidate, normalizedIdentifier)
+  );
+  if (compatibleManagedIdentifiers.length === 1) {
+    return compatibleManagedIdentifiers[0] ?? normalizedIdentifier;
+  }
+
+  const exactPropertyIdentifier = findCaseInsensitiveIdentifier(propertyIdentifiers, normalizedIdentifier);
+  if (exactPropertyIdentifier?.includes('.')) {
+    return exactPropertyIdentifier;
+  }
+
+  const compatibleFullPathIdentifiers = propertyIdentifiers.filter((candidate) =>
+    candidate.includes('.') && isSnapshotAliasCompatibleIdentifier(candidate, normalizedIdentifier)
+  );
+  if (compatibleFullPathIdentifiers.length === 1) {
+    return compatibleFullPathIdentifiers[0] ?? normalizedIdentifier;
+  }
+
+  return exactPropertyIdentifier || normalizedIdentifier;
+}
+
+function resolveMirroredSensorStateIdentifier(identifier: string, candidates: string[]) {
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedIdentifier || normalizedIdentifier.includes('.')) {
+    return '';
+  }
+  return findCaseInsensitiveIdentifier(candidates, `S1_ZT_1.sensor_state.${normalizedIdentifier}`);
+}
+
+function resolveManagedSnapshotIdentifiers() {
+  return uniqueIdentifiers([
+    ...Array.from(configuredSnapshotMetricMap.value.keys()),
+    ...Array.from(productPropertyIdentifierSet.value)
+  ]);
+}
+
+function isManagedSnapshotIdentifier(identifier: string) {
+  return Boolean(findCaseInsensitiveIdentifier(resolveManagedSnapshotIdentifiers(), identifier));
+}
+
+function findCaseInsensitiveIdentifier(values: Iterable<string>, target: string) {
+  const normalizedTarget = normalizeText(target).toLowerCase();
+  if (!normalizedTarget) {
+    return '';
+  }
+  for (const value of values) {
+    const normalizedValue = normalizeText(value);
+    if (normalizedValue && normalizedValue.toLowerCase() === normalizedTarget) {
+      return normalizedValue;
+    }
+  }
+  return '';
+}
+
+function buildPropertySnapshotEditTestId(identifier: string) {
+  return `property-snapshot-edit-${normalizeText(identifier).replace(/[^0-9A-Za-z]+/g, '_')}`;
+}
+
+function isSnapshotAliasCompatibleIdentifier(candidateIdentifier: string, targetIdentifier: string) {
+  const normalizedCandidate = normalizeText(candidateIdentifier).toLowerCase();
+  const normalizedTarget = normalizeText(targetIdentifier).toLowerCase();
+  if (!normalizedCandidate || !normalizedTarget) {
+    return false;
+  }
+  if (normalizedCandidate === normalizedTarget) {
+    return true;
+  }
+  const candidateSegments = normalizedCandidate.split('.');
+  const targetSegments = normalizedTarget.split('.');
+  if (candidateSegments.length === 1 && targetSegments.length === 2) {
+    return targetSegments[1] === normalizedCandidate;
+  }
+  if (candidateSegments.length === 2 && targetSegments.length === 1) {
+    return candidateSegments[1] === normalizedTarget;
+  }
+  return false;
+}
+
+function isCompatibleProductModelIdentifier(candidateIdentifier: string, targetIdentifier: string) {
+  const normalizedCandidate = normalizeText(candidateIdentifier).toLowerCase();
+  const normalizedTarget = normalizeText(targetIdentifier).toLowerCase();
+  if (!normalizedCandidate || !normalizedTarget) {
+    return false;
+  }
+  if (normalizedCandidate === normalizedTarget) {
+    return true;
+  }
+  const targetTail = normalizedTarget.split('.').pop() || normalizedTarget;
+  return normalizedCandidate === targetTail
+    || normalizedCandidate.endsWith(`.${targetTail}`)
+    || normalizedTarget.endsWith(`.${normalizedCandidate}`);
+}
+
+function isAliasLikeMetricLabel(label: string, identifier: string) {
+  const normalizedLabel = normalizeText(label);
+  const normalizedIdentifier = normalizeText(identifier);
+  if (!normalizedLabel) {
+    return true;
+  }
+  if (!normalizedIdentifier) {
+    return false;
+  }
+  if (normalizedLabel.trim().toLowerCase() === normalizedIdentifier.trim().toLowerCase()) {
+    return true;
+  }
+  if (/[\u4e00-\u9fff]/.test(normalizedLabel)) {
+    return false;
+  }
+  return !/\s/.test(normalizedLabel);
+}
+
+function appendUnitToDisplayName(displayName: string, unit?: string) {
+  const normalizedDisplayName = normalizeText(displayName);
+  const normalizedUnit = normalizeText(unit);
+  if (!normalizedDisplayName || !normalizedUnit || normalizedDisplayName.includes(normalizedUnit)) {
+    return normalizedDisplayName;
+  }
+  return `${normalizedDisplayName}（${normalizedUnit}）`;
+}
+
+function parseSpecsJson(specsJson?: string | null) {
+  if (!specsJson) {
     return null;
   }
   try {
-    const response = await productApi.getProductById(productId);
-    return response.code === 200 ? response.data?.metadataJson ?? null : null;
-  } catch (error) {
-    console.warn('对象洞察产品配置补充失败', error);
+    const parsed = JSON.parse(specsJson);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
     return null;
   }
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function uniqueIdentifiers(values: string[]) {
+  return values.filter((value, index) => Boolean(value) && values.indexOf(value) === index);
 }
 
 function getRangeLabel(rangeCode: InsightRangeCode) {
@@ -593,7 +1341,8 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 .insight-hero,
 .archive-card,
 .narrative-card,
-.highlight-card {
+.highlight-card,
+.insight-recommendation-banner {
   border-radius: var(--radius-lg);
   border: 1px solid var(--panel-border);
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
@@ -603,6 +1352,14 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 .empty-state--hero,
 .insight-hero {
   padding: 1.4rem;
+}
+
+.insight-recommendation-banner {
+  padding: 1rem 1.15rem;
+  color: #9a3412;
+  border-color: color-mix(in srgb, #f59e0b 24%, var(--panel-border));
+  background: linear-gradient(140deg, rgba(255, 251, 235, 0.98), rgba(255, 255, 255, 0.98));
+  line-height: 1.7;
 }
 
 .insight-hero {
@@ -723,6 +1480,12 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.monitoring-snapshot-table__action-hint {
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 @media (max-width: 1024px) {

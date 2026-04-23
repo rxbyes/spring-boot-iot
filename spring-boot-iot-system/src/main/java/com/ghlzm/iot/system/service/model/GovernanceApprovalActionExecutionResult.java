@@ -5,5 +5,13 @@ package com.ghlzm.iot.system.service.model;
  *
  * @param payloadJson updated payload json persisted back to the approval order
  */
-public record GovernanceApprovalActionExecutionResult(String payloadJson) {
+public record GovernanceApprovalActionExecutionResult(
+        String payloadJson,
+        String impactSnapshotJson,
+        String rollbackSnapshotJson
+) {
+
+    public GovernanceApprovalActionExecutionResult(String payloadJson) {
+        this(payloadJson, null, null);
+    }
 }

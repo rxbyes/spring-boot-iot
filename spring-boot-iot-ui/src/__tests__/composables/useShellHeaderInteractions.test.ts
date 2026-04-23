@@ -381,4 +381,21 @@ describe('useShellHeaderInteractions', () => {
     expect(state.unreadNoticeCount.value).toBe(1)
     wrapper.unmount()
   })
+
+  it('ignores keydown events whose key is missing instead of throwing', async () => {
+    const { state, wrapper } = mountSubject()
+
+    await flushPromises()
+
+    const event = new Event('keydown') as KeyboardEvent
+    Object.defineProperty(event, 'key', {
+      configurable: true,
+      value: undefined
+    })
+
+    expect(() => document.dispatchEvent(event)).not.toThrow()
+    expect(state.showCommandPalette.value).toBe(false)
+
+    wrapper.unmount()
+  })
 })

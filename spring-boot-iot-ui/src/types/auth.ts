@@ -1,5 +1,7 @@
+import type { IdType } from './api';
+
 export interface RoleSummary {
-  id: number;
+  id: IdType;
   roleCode: string;
   roleName: string;
 }
@@ -13,8 +15,8 @@ export interface MenuMeta {
 }
 
 export interface MenuTreeNode {
-  id: number;
-  parentId?: number | null;
+  id: IdType;
+  parentId?: IdType | null;
   menuName: string;
   menuCode?: string;
   path?: string;
@@ -27,10 +29,10 @@ export interface MenuTreeNode {
 }
 
 export interface UserAuthContext {
-  userId: number;
-  tenantId?: number;
+  userId: IdType;
+  tenantId?: IdType;
   tenantName?: string;
-  orgId?: number;
+  orgId?: IdType;
   orgName?: string;
   username: string;
   nickname?: string;
@@ -59,7 +61,7 @@ export interface LoginResult {
   tokenType?: string;
   expiresIn?: number;
   tokenHeader?: string;
-  userId?: number;
+  userId?: IdType;
   username?: string;
   realName?: string;
   authContext: UserAuthContext;

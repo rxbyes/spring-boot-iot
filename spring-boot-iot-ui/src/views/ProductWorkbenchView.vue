@@ -2,7 +2,7 @@
   <StandardPageShell class="product-asset-view">
     <StandardWorkbenchPanel
       title="产品定义中心"
-      description="统一维护产品台账、协议绑定与接入契约。"
+      description="统一维护产品定义，并承接契约治理、版本治理与风险目录入口。"
       show-filters
       :show-applied-filters="hasAppliedFilters"
       show-notices
@@ -78,7 +78,22 @@
             class="view-alert"
           />
           <el-alert
-            v-else-if="governanceTaskItems.length"
+            v-if="governanceCapabilityNotice"
+            :title="governanceCapabilityNotice.title"
+            type="info"
+            :closable="false"
+            show-icon
+            class="view-alert"
+          >
+            <div class="product-governance-capability-note">
+              <span>{{ governanceCapabilityNotice.detail }}</span>
+              <StandardButton action="query" link @click="openGovernanceCapabilityAction(governanceCapabilityNotice.path)">
+                {{ governanceCapabilityNotice.actionLabel }}
+              </StandardButton>
+            </div>
+          </el-alert>
+          <el-alert
+            v-if="!governanceErrorMessage && governanceTaskItems.length"
             :title="`当前聚焦产品仍有 ${governanceTaskItems.length} 项治理待办`"
             type="warning"
             :closable="false"
@@ -96,8 +111,8 @@
             </ul>
           </el-alert>
           <el-alert
-            v-else-if="governanceFocusProduct && !governanceLoading"
-            title="当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。"
+            v-if="!governanceErrorMessage && !governanceTaskItems.length && governanceFocusProduct && !governanceLoading"
+            :title="governanceClosedoutTitle"
             type="success"
             :closable="false"
             show-icon
@@ -226,7 +241,7 @@
                   />
                   <div class="product-mobile-card__heading">
                     <strong class="product-mobile-card__title">{{ row.productName || '--' }}</strong>
-                    <span class="product-mobile-card__sub">{{ row.productKey || '--' }}</span>
+                    <span class="product-mobile-card__sub">{{ row.id ?? '--' }} | {{ row.productKey || '--' }}</span>
                   </div>
                   <el-tag :type="row.status === 1 ? 'success' : 'danger'" round>{{ getStatusText(row.status) }}</el-tag>
                 </div>
@@ -276,6 +291,7 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
+            <StandardTableTextColumn prop="id" label="产品编号" :width="160" />
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
             <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
@@ -341,64 +357,6 @@
       </template>
     </StandardWorkbenchPanel>
 
-    <ProductBusinessWorkbenchDrawer
-      v-model="businessWorkbenchVisible"
-      :active-view="businessWorkbenchActiveView"
-      :product="businessWorkbenchProduct"
-      @update:activeView="handleBusinessWorkbenchViewChange"
-    >
-      <template #header-actions>
-        <StandardButton data-testid="open-product-workbench-edit" @click="handleBusinessWorkbenchEdit">
-          编辑档案
-        </StandardButton>
-      </template>
-
-      <template #overview>
-        <ProductDetailWorkbench
-          v-if="businessWorkbenchLoadedViews.overview && (detailData || businessWorkbenchProduct)"
-          :product="detailData || businessWorkbenchProduct"
-        />
-      </template>
-
-      <template #models>
-        <ProductModelDesignerWorkspace
-          v-if="businessWorkbenchLoadedViews.models && businessWorkbenchProduct"
-          :product="businessWorkbenchProduct"
-          @product-updated="handleBusinessWorkbenchProductUpdated"
-        />
-      </template>
-
-      <template #devices>
-        <ProductDeviceListWorkspace
-          v-if="businessWorkbenchLoadedViews.devices && businessWorkbenchProduct"
-          :devices="deviceListData"
-          :loading="devicesLoading && deviceListData.length === 0 && !deviceListErrorMessage"
-          :error-message="deviceListErrorMessage"
-          :empty="!devicesLoading && !deviceListErrorMessage && deviceListTotal === 0"
-          :devices-loading="devicesLoading"
-          @view-device="handleViewDevice"
-        />
-      </template>
-
-      <template #edit>
-        <ProductEditWorkspace
-          v-if="businessWorkbenchLoadedViews.edit"
-          ref="editWorkspaceRef"
-          :model="formData"
-          :object-insight-metrics="objectInsightMetricRows"
-          :available-models="editAvailableModels"
-          :rules="formRules"
-          :editing="Boolean(editingProductId)"
-          :submit-loading="submitLoading"
-          :refresh-state="formRefreshState"
-          :refresh-message="formRefreshMessage"
-          @update:object-insight-metrics="handleObjectInsightMetricsChange"
-          @cancel="handleCancelEdit"
-          @submit="handleSubmit"
-        />
-      </template>
-    </ProductBusinessWorkbenchDrawer>
-
     <StandardFormDrawer
       v-model="formVisible"
       :title="formTitle"
@@ -443,6 +401,15 @@
                   <el-option label="网关设备" :value="2" />
                 </el-select>
               </el-form-item>
+              <el-form-item label="产品能力">
+                <el-select v-model="productCapabilityType" placeholder="请选择产品能力">
+                  <el-option label="监测型" value="MONITORING" />
+                  <el-option label="采集型" value="COLLECTING" />
+                  <el-option label="预警型" value="WARNING" />
+                  <el-option label="视频型" value="VIDEO" />
+                  <el-option label="待确认" value="UNKNOWN" />
+                </el-select>
+              </el-form-item>
               <el-form-item label="数据格式">
                 <el-input id="data-format" v-model="formData.dataFormat" placeholder="请输入数据格式，例如 JSON" />
               </el-form-item>
@@ -468,7 +435,7 @@
 
           <ProductObjectInsightConfigEditor
             :model-value="objectInsightMetricRows"
-            :available-models="[]"
+            :available-models="editAvailableModels"
             @update:model-value="handleObjectInsightMetricsChange"
           />
         </el-form>
@@ -529,25 +496,18 @@ import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
 import StandardTableToolbar from '@/components/StandardTableToolbar.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
-import ProductBusinessWorkbenchDrawer, {
-  type ProductBusinessWorkbenchView
-} from '@/components/product/ProductBusinessWorkbenchDrawer.vue'
-import ProductDeviceListWorkspace from '@/components/product/ProductDeviceListWorkspace.vue'
-import ProductDetailWorkbench from '@/components/product/ProductDetailWorkbench.vue'
-import ProductEditWorkspace from '@/components/product/ProductEditWorkspace.vue'
-import ProductModelDesignerWorkspace from '@/components/product/ProductModelDesignerWorkspace.vue'
 import ProductObjectInsightConfigEditor from '@/components/product/ProductObjectInsightConfigEditor.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import { productApi, type ProductContractReleaseBatch } from '@/api/product'
-import { deviceApi } from '@/api/device'
 import { getRiskGovernanceCoverageOverview, type RiskGovernanceCoverageOverview } from '@/api/riskGovernance'
 import { useServerPagination } from '@/composables/useServerPagination'
+import { recordActivity } from '@/stores/activity'
 import { usePermissionStore } from '@/stores/permission'
 import type {
-  Device,
   PageResult,
   Product,
   ProductAddPayload,
+  ProductGovernanceCapabilityType,
   ProductModel,
   ProductObjectInsightCustomMetricConfig
 } from '@/types/api'
@@ -589,10 +549,21 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 import { describeDiagnosticSource, resolveDiagnosticContext } from '@/utils/iotAccessDiagnostics'
 import {
+  buildProductWorkbenchPathFromLegacyView,
+  buildProductWorkbenchSectionPath,
+  type LegacyProductWorkbenchView
+} from '@/utils/productWorkbenchRoutes'
+import {
   buildProductMetadataJson,
   parseProductObjectInsightMetrics,
   validateProductObjectInsightMetrics
 } from '@/utils/productObjectInsightConfig'
+import {
+  buildProductGovernanceMetadataJson,
+  getProductGovernanceCapabilityLabel,
+  resolveProductGovernanceApplicability,
+  resolveProductGovernanceCapabilityType
+} from '@/utils/productGovernanceCapability'
 
 function formatCount(value?: number | null) {
   const count = Number(value)
@@ -607,6 +578,20 @@ function formatPercentValue(value?: number | null, digits = 1) {
   return `${numeric.toFixed(digits)}%`
 }
 
+function resolvePublishableContractPropertyCount(coverage?: RiskGovernanceCoverageOverview | null) {
+  const publishableCount = Number(coverage?.publishableContractPropertyCount)
+  if (Number.isFinite(publishableCount) && publishableCount >= 0) {
+    return publishableCount
+  }
+  const fallbackContractCount = Number(coverage?.contractPropertyCount)
+  return Number.isFinite(fallbackContractCount) && fallbackContractCount >= 0 ? fallbackContractCount : 0
+}
+
+function resolveGovernanceCount(value?: number | null) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : 0
+}
+
 interface ProductSearchForm {
   productName: string
   nodeType: number | undefined
@@ -616,11 +601,6 @@ interface ProductSearchForm {
 type ProductFilterKey = keyof ProductSearchForm
 
 interface ProductFormState extends ProductAddPayload {}
-
-interface ProductEditWorkspaceExposed {
-  validate: () => Promise<boolean>
-  clearValidate: () => void
-}
 
 interface ProductRowAction {
   key?: string
@@ -651,42 +631,29 @@ interface GovernanceTaskItem {
   path: string
 }
 
+interface GovernanceCapabilityNotice {
+  title: string
+  detail: string
+  actionLabel: string
+  path: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const permissionStore = usePermissionStore()
 const tableRef = ref<TableInstance>()
 const createFormRef = ref<FormInstance>()
-const editWorkspaceRef = ref<ProductEditWorkspaceExposed>()
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const formVisible = ref(false)
 const formRefreshing = ref(false)
-const detailLoading = ref(false)
 const diagnosticContext = computed(() => resolveDiagnosticContext(route.query as Record<string, unknown>))
-const businessWorkbenchVisible = ref(false)
-const businessWorkbenchActiveView = ref<ProductBusinessWorkbenchView>('overview')
-const businessWorkbenchProduct = ref<Product | null>(null)
-const businessWorkbenchLoadedViews = reactive<Record<ProductBusinessWorkbenchView, boolean>>({
-  overview: false,
-  models: false,
-  devices: false,
-  edit: false
-})
-
-// 设备列表抽屉相关状态
-const deviceListData = ref<Device[]>([])
-const deviceListTotal = ref(0)
-const deviceListOnlineCount = ref(0)
-const deviceListOfflineCount = ref(0)
-const devicesLoading = ref(false)
-const deviceListErrorMessage = ref('')
+const handledGovernanceWorkbenchRouteKey = ref('')
 
 // 当前选择的产品
 const currentProduct = ref<Product | null>(null)
 const editAvailableModels = ref<ProductModel[]>([])
-const detailRefreshing = ref(false)
-const detailErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
 const formRefreshMessage = ref('')
@@ -701,6 +668,7 @@ const governanceLoading = ref(false)
 const governanceErrorMessage = ref('')
 const governanceCoverageOverview = ref<RiskGovernanceCoverageOverview | null>(null)
 const latestContractReleaseBatch = ref<ProductContractReleaseBatch | null>(null)
+const productCapabilityType = ref<ProductGovernanceCapabilityType>('UNKNOWN')
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'product-definition-center'
@@ -774,14 +742,28 @@ const diagnosticEntryMessage = computed(() => {
   }
   const sourceLabel = describeDiagnosticSource(diagnosticContext.value.sourcePage)
   const traceLabel = diagnosticContext.value.traceId ? `Trace ${diagnosticContext.value.traceId}` : ''
-  return [sourceLabel ? `来自${sourceLabel}` : '', traceLabel, '优先核对产品契约、协议编码与物模型完整性。']
+  return [
+    sourceLabel ? `来自${sourceLabel}` : '',
+    traceLabel,
+    '优先核对产品定义与契约基线，必要时进入契约字段继续完成治理修正。'
+  ]
     .filter(Boolean)
     .join(' · ')
 })
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
-const governanceFocusProduct = computed(() => businessWorkbenchProduct.value || currentProduct.value || tableData.value[0] || null)
+const governanceFocusProduct = computed(() => currentProduct.value || tableData.value[0] || null)
+const governanceApplicability = computed(() => resolveProductGovernanceApplicability(governanceFocusProduct.value))
+const productWorkbenchRouteContextKeys = [
+  'openProductId',
+  'workbenchView',
+  'governanceSource',
+  'workItemCode',
+  'governanceBoundary',
+  'subjectOwnership',
+  'governanceFocus'
+] as const
 const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
   if (!governanceFocusProduct.value || governanceLoading.value || !governanceCoverageOverview.value) {
     return []
@@ -791,39 +773,50 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
   const coverage = governanceCoverageOverview.value
   const productId = governanceFocusProduct.value.id
   const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+  const applicability = governanceApplicability.value
+  const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
+  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
+  const publishedRiskMetricCount = resolveGovernanceCount(coverage.publishedRiskMetricCount)
+  const boundRiskMetricCount = resolveGovernanceCount(coverage.boundRiskMetricCount)
+  const ruleCoveredRiskMetricCount = resolveGovernanceCount(coverage.ruleCoveredRiskMetricCount)
+  const hasFormalFieldsWithoutReleaseBatch =
+    !hasReleaseBatch && publishableContractPropertyCount === 0 && contractPropertyCount > 0
 
-  if (!hasReleaseBatch) {
+  if (!hasReleaseBatch && !hasFormalFieldsWithoutReleaseBatch) {
     tasks.push({
       key: 'pending-contract-release',
       title: '待发布合同',
-      detail: '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
-      path: buildGovernanceTaskPath(productId, 'PENDING_CONTRACT_RELEASE')
+      detail:
+        publishableContractPropertyCount === 0
+          ? '当前产品还没有正式合同发布批次，请先在产品详情页的“契约字段”完成 compare/apply 并发布；该产品当前暂无可入目录字段，发布后不会进入目录发布、风险点绑定与策略覆盖流程。'
+          : '当前产品还没有正式合同发布批次，请先完成 compare/apply 并发布。',
+      path: buildProductWorkbenchPath(productId, 'models')
     })
   }
 
-  if (Number(coverage.contractMetricCoverageRate ?? 0) < 100) {
+  if (applicability.supportsMetricGovernance && publishableContractPropertyCount > 0 && publishableContractPropertyCount > publishedRiskMetricCount) {
     tasks.push({
       key: 'pending-metric-publish',
       title: '待发布风险指标目录',
-      detail: `合同字段 ${formatCount(coverage.contractPropertyCount)} 项中，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项。`,
-      path: '/products'
+      detail: `可入目录字段 ${formatCount(publishableContractPropertyCount)} 项中，目录发布 ${formatCount(publishedRiskMetricCount)} 项。`,
+      path: buildProductWorkbenchPath(productId, 'models')
     })
   }
 
-  if (Number(coverage.bindingCoverageRate ?? 0) < 100) {
+  if (applicability.supportsMetricGovernance && publishedRiskMetricCount > 0 && boundRiskMetricCount < publishedRiskMetricCount) {
     tasks.push({
       key: 'pending-risk-binding',
       title: '待绑定风险点',
-      detail: `目录指标 ${formatCount(coverage.publishedRiskMetricCount)} 项中，已绑定 ${formatCount(coverage.boundRiskMetricCount)} 项。`,
+      detail: `目录指标 ${formatCount(publishedRiskMetricCount)} 项中，已绑定 ${formatCount(boundRiskMetricCount)} 项。`,
       path: buildGovernanceTaskPath(productId, 'PENDING_RISK_BINDING')
     })
   }
 
-  if (Number(coverage.ruleCoverageRate ?? 0) < 100) {
+  if (applicability.supportsMetricGovernance && boundRiskMetricCount > 0 && ruleCoveredRiskMetricCount < boundRiskMetricCount) {
     tasks.push({
       key: 'pending-policy',
       title: '待补阈值策略',
-      detail: `已绑定指标 ${formatCount(coverage.boundRiskMetricCount)} 项中，策略覆盖 ${formatCount(coverage.ruleCoveredRiskMetricCount)} 项。`,
+      detail: `已绑定指标 ${formatCount(boundRiskMetricCount)} 项中，策略覆盖 ${formatCount(ruleCoveredRiskMetricCount)} 项。`,
       path: '/rule-definition'
     })
   }
@@ -833,7 +826,7 @@ const governanceTaskItems = computed<GovernanceTaskItem[]>(() => {
 const governanceSummaryTitle = computed(() => {
   const focusProduct = governanceFocusProduct.value
   if (!focusProduct) {
-    return '请先选择产品，系统会自动展示当前聚焦产品的治理链路进度。'
+    return '当前页同时承接产品定义、契约治理、版本治理与风险目录入口。请选择产品后查看当前聚焦产品的治理进度。'
   }
   if (governanceLoading.value) {
     return `正在同步 ${focusProduct.productName || focusProduct.productKey || '当前产品'} 的治理进度...`
@@ -843,7 +836,97 @@ const governanceSummaryTitle = computed(() => {
   }
 
   const coverage = governanceCoverageOverview.value
-  return `当前聚焦产品：${focusProduct.productName || focusProduct.productKey || '--'}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项，目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项，风险点绑定 ${formatCount(coverage.boundRiskMetricCount)} 项，策略覆盖率 ${formatPercentValue(coverage.ruleCoverageRate)}。`
+  const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
+  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
+  const applicability = governanceApplicability.value
+  const capabilityLabel = getProductGovernanceCapabilityLabel(applicability.capabilityType)
+  const productName = focusProduct.productName || focusProduct.productKey || '--'
+  const hasReleaseBatch = Boolean(latestContractReleaseBatch.value?.id)
+  const formalFieldsWithoutReleaseBatch = !hasReleaseBatch && contractPropertyCount > 0
+
+  if (applicability.supportsDeviceOnlyRiskBinding) {
+    const suffix = formalFieldsWithoutReleaseBatch
+      ? '当前已存在正式字段，但尚未查到正式发布批次；当前已生效字段已是正式真相，如需补做首个批次，请回到产品详情页的“契约字段”重新 compare/apply。'
+      : '合同发布入口在产品详情页的“契约字段”。'
+    return `当前聚焦产品：${productName}，合同字段 ${formatCount(contractPropertyCount)} 项。当前产品为${capabilityLabel}，不进入风险指标目录与阈值策略治理；支持设备级风险点绑定。${suffix}`
+  }
+
+  if (applicability.capabilityType === 'UNKNOWN') {
+    return `当前聚焦产品：${productName}，合同字段 ${formatCount(contractPropertyCount)} 项。产品能力待确认；请先完善产品能力，再决定是否进入风险指标目录、设备级风险点绑定或阈值策略治理。`
+  }
+
+  if (publishableContractPropertyCount === 0) {
+    if (!latestContractReleaseBatch.value?.id && contractPropertyCount > 0) {
+      return `当前聚焦产品：${productName}，合同字段 ${formatCount(contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。当前已存在正式字段，但尚未查到正式发布批次；当前已生效字段已是正式真相，如需补做首个批次，请回到产品详情页的“契约字段”重新 compare/apply。`
+    }
+    return `当前聚焦产品：${productName}，合同字段 ${formatCount(coverage.contractPropertyCount)} 项。当前暂无可入目录字段，目录发布、风险点绑定与策略覆盖暂不适用。合同发布入口在产品详情页的“契约字段”。`
+  }
+  const summarySegments = [
+    `当前聚焦产品：${productName}`,
+    `合同字段 ${formatCount(coverage.contractPropertyCount)} 项`,
+    publishableContractPropertyCount < Number(coverage.contractPropertyCount ?? 0)
+      ? `可入目录 ${formatCount(publishableContractPropertyCount)} 项`
+      : null,
+    `目录发布 ${formatCount(coverage.publishedRiskMetricCount)} 项`,
+    `风险点绑定 ${formatCount(coverage.boundRiskMetricCount)} 项`,
+    `策略覆盖率 ${formatPercentValue(coverage.ruleCoverageRate)}`
+  ].filter((segment): segment is string => Boolean(segment))
+  return `${summarySegments.join('，')}。`
+})
+const governanceClosedoutTitle = computed(() => {
+  if (!governanceFocusProduct.value || !governanceCoverageOverview.value) {
+    return '当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。'
+  }
+  const coverage = governanceCoverageOverview.value
+  const contractPropertyCount = resolveGovernanceCount(coverage.contractPropertyCount)
+  const publishableContractPropertyCount = resolvePublishableContractPropertyCount(coverage)
+  const applicability = governanceApplicability.value
+  const capabilityLabel = getProductGovernanceCapabilityLabel(applicability.capabilityType)
+
+  if (applicability.supportsDeviceOnlyRiskBinding) {
+    return `当前产品为${capabilityLabel}；合同治理与版本台账可继续抽检，如需继续风险治理请前往风险点绑定执行设备级绑定。`
+  }
+
+  if (applicability.capabilityType === 'UNKNOWN') {
+    return '当前产品能力待确认；请先完善产品能力，再继续后续治理。'
+  }
+
+  if (publishableContractPropertyCount === 0) {
+    if (!latestContractReleaseBatch.value?.id && contractPropertyCount > 0) {
+      return '当前已生效字段已是正式真相；若后续仍需补做首个正式发布批次，请回到“契约字段”重新 compare/apply。'
+    }
+    return '当前产品暂无可入目录字段；请仅在“契约字段”完成合同发布与版本台账核对，无需继续目录发布、风险点绑定与策略覆盖流程。'
+  }
+  return '当前聚焦产品治理链路已收口，可继续抽检契约发布与策略有效性。'
+})
+const governanceCapabilityNotice = computed<GovernanceCapabilityNotice | null>(() => {
+  const focusProduct = governanceFocusProduct.value
+  if (!focusProduct) {
+    return null
+  }
+
+  const applicability = governanceApplicability.value
+  const capabilityLabel = getProductGovernanceCapabilityLabel(applicability.capabilityType)
+
+  if (applicability.supportsDeviceOnlyRiskBinding) {
+    return {
+      title: `当前产品为${capabilityLabel}，不进入风险指标目录与阈值策略治理；支持设备级风险点绑定。`,
+      detail: '后续风险治理请直接前往风险点绑定执行设备级绑定，不再生成目录发布、风险点数量和阈值策略覆盖伪待办。',
+      actionLabel: '去风险点绑定',
+      path: '/risk-point'
+    }
+  }
+
+  if (applicability.capabilityType === 'UNKNOWN') {
+    return {
+      title: '产品能力待确认',
+      detail: '请先打开当前产品的编辑表单，确认产品是监测型、采集型、预警型还是视频型，再决定后续治理链路。',
+      actionLabel: '去完善产品能力',
+      path: buildProductWorkbenchPath(focusProduct.id, 'edit')
+    }
+  }
+
+  return null
 })
 const productRowActions = computed<ProductRowAction[]>(() => [])
 const productActionColumnWidth = computed(() =>
@@ -909,7 +992,7 @@ const formRules: FormRules<ProductFormState> = {
 }
 
 const exportColumns: CsvColumn<Product>[] = [
-  { key: 'id', label: '产品 ID' },
+  { key: 'id', label: '产品编号' },
   { key: 'productKey', label: '产品 Key' },
   { key: 'productName', label: '产品名称' },
   { key: 'protocolCode', label: '协议编码' },
@@ -967,10 +1050,19 @@ function getProductDirectActions(variant: 'table' | 'card'): ProductDirectAction
       key: 'detail',
       command: 'detail',
       label: '进入工作台',
-      title: '进入产品经营工作台',
+      title: '进入产品详情页',
       dataTestid: 'open-product-business-workbench'
     }
   ]
+
+  if (permissionStore.hasPermission('iot:products:update')) {
+    actions.push({
+      key: 'edit',
+      command: 'edit',
+      label: '编辑',
+      dataTestid: 'open-product-edit-workbench'
+    })
+  }
 
   if (permissionStore.hasPermission('iot:products:delete')) {
     actions.push({
@@ -1074,6 +1166,7 @@ function resetFormData(source?: Partial<Product>) {
     metadataJson: source?.metadataJson || '',
     status: source?.status ?? 1
   })
+  productCapabilityType.value = resolveProductGovernanceCapabilityType(source)
   objectInsightMetricRows.value = parseProductObjectInsightMetrics(source?.metadataJson)
 }
 
@@ -1101,57 +1194,8 @@ function handleObjectInsightMetricsChange(value: ProductObjectInsightCustomMetri
   objectInsightMetricRows.value = value
 }
 
-function handleBusinessWorkbenchProductUpdated(product: Product) {
-  cacheProductDetail(product)
-  currentProduct.value = product
-  detailData.value = product
-  businessWorkbenchProduct.value = product
-  if (matchesCurrentFilters(product)) {
-    mergeLocalTableRow(product)
-  } else {
-    removeLocalTableRow(product)
-  }
-  rebuildVisibleProductPageCache()
-  if (editingProductId.value && String(editingProductId.value) === String(product.id) && !formDirtySinceOpen) {
-    applyFormDataWithoutDirty(product)
-  }
-}
-
-function markBusinessWorkbenchViewLoaded(view: ProductBusinessWorkbenchView) {
-  businessWorkbenchLoadedViews[view] = true
-}
-
-function resetBusinessWorkbenchLoadedViews() {
-  businessWorkbenchLoadedViews.overview = false
-  businessWorkbenchLoadedViews.models = false
-  businessWorkbenchLoadedViews.devices = false
-  businessWorkbenchLoadedViews.edit = false
-}
-
-function getBusinessWorkbenchProductKey() {
-  return businessWorkbenchProduct.value?.productKey || currentProduct.value?.productKey || ''
-}
-
-function handleBusinessWorkbenchViewChange(view: ProductBusinessWorkbenchView) {
-  businessWorkbenchActiveView.value = view
-  markBusinessWorkbenchViewLoaded(view)
-
-  if (view === 'devices') {
-    const productKey = getBusinessWorkbenchProductKey()
-    if (productKey) {
-      void loadDeviceList(productKey)
-    }
-  }
-}
-
-function handleCancelEdit() {
-  const snapshot = businessWorkbenchProduct.value || currentProduct.value
-  applyFormDataWithoutDirty(snapshot ?? undefined)
-  clearFormRefreshState()
-  editWorkspaceRef.value?.clearValidate()
-  if (businessWorkbenchVisible.value) {
-    handleBusinessWorkbenchViewChange('overview')
-  }
+function handleProductCapabilityTypeChange(value: ProductGovernanceCapabilityType) {
+  productCapabilityType.value = value
 }
 
 function isAbortError(error: unknown) {
@@ -1529,6 +1573,22 @@ function applyRouteQueryToFilters() {
   pagination.pageSize = parseRoutePositiveIntQuery(route.query.pageSize, defaultPageSize)
 }
 
+function parseRouteStringQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return undefined
+  }
+  const trimmed = raw.trim()
+  return trimmed || undefined
+}
+
+function resolveRouteWorkbenchView(value: unknown): LegacyProductWorkbenchView {
+  const view = parseRouteStringQuery(value)
+  return view === 'overview' || view === 'models' || view === 'devices' || view === 'edit'
+    ? view
+    : 'overview'
+}
+
 function parseRouteNumberQuery(value: unknown) {
   const raw = Array.isArray(value) ? value[0] : value
   if (typeof raw !== 'string' || raw.trim() === '') {
@@ -1597,13 +1657,6 @@ async function syncListRouteQuery() {
   })
 }
 
-function buildDetailPreview(row: Product) {
-  return {
-    ...row,
-    description: row.description ?? null
-  }
-}
-
 async function loadProductPage(options: { silent?: boolean; force?: boolean; silentMessage?: string } = {}) {
   const requestId = ++latestListRequestId
   const query = buildCurrentProductPageQuery()
@@ -1665,6 +1718,7 @@ async function loadProductPage(options: { silent?: boolean; force?: boolean; sil
       cacheProductPage(query, res.data)
       void syncTableSelection()
       void prefetchNextProductPage(query, res.data.total)
+      await resolveGovernanceRouteWorkbench()
     }
   } catch (error) {
     if (requestId !== latestListRequestId || isAbortError(error)) {
@@ -1687,58 +1741,6 @@ async function loadProductPage(options: { silent?: boolean; force?: boolean; sil
     if (listAbortController === controller) {
       listAbortController = null
     }
-  }
-}
-
-async function openDetail(row: Product) {
-  const requestId = ++latestDetailRequestId
-  const cachedDetail = getCachedProductDetail(row)
-  const detailSnapshot = resolveDetailSnapshot(row, cachedDetail)
-  abortDetailRequest()
-
-  currentProduct.value = row
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange('overview')
-  detailLoading.value = false
-  detailErrorMessage.value = ''
-  detailData.value = detailSnapshot
-  businessWorkbenchProduct.value = detailSnapshot
-
-  // 如果没有缓存或者需要刷新详情，则发起后台补数请求
-  if (!cachedDetail && shouldRefreshProductDetail(row, cachedDetail)) {
-    const controller = new AbortController()
-    detailAbortController = controller
-    detailRefreshing.value = true
-
-    try {
-      const res = await productApi.getProductById(row.id, {
-        signal: controller.signal
-      })
-      if (requestId !== latestDetailRequestId) {
-        return
-      }
-      if (res.code === 200 && res.data) {
-        detailData.value = res.data
-        businessWorkbenchProduct.value = res.data
-        cacheProductDetail(res.data)
-      }
-    } catch (error) {
-      if (requestId !== latestDetailRequestId || isAbortError(error)) {
-        return
-      }
-      // 静默失败，不显示红色提示，保持现有数据（detailSnapshot）
-      console.warn('完整详情补充失败', error)
-    } finally {
-      if (requestId === latestDetailRequestId) {
-        detailLoading.value = false
-        detailRefreshing.value = false
-      }
-      if (detailAbortController === controller) {
-        detailAbortController = null
-      }
-    }
-  } else {
-    detailRefreshing.value = false
   }
 }
 
@@ -1771,7 +1773,7 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
       cacheProductDetail(res.data)
       if (!formDirtySinceOpen) {
         applyFormDataWithoutDirty(res.data)
-        editWorkspaceRef.value?.clearValidate()
+        createFormRef.value?.clearValidate?.()
         clearFormRefreshState()
       } else {
         formRefreshState.value = 'warning'
@@ -1798,6 +1800,45 @@ async function refreshEditableDetail(row: Product, editSessionId: number, cached
       editAbortController = null
     }
   }
+}
+
+async function resolveGovernanceRouteWorkbench() {
+  const openProductId = parseRouteStringQuery(route.query.openProductId)
+  if (!openProductId) {
+    handledGovernanceWorkbenchRouteKey.value = ''
+    return
+  }
+  const targetView = resolveRouteWorkbenchView(route.query.workbenchView)
+  const routeKey = `${openProductId}:${targetView}`
+  if (handledGovernanceWorkbenchRouteKey.value === routeKey) {
+    return
+  }
+
+  let targetProduct = tableData.value.find((item) => String(item.id) === openProductId) || null
+  if (!targetProduct) {
+    try {
+      const response = await productApi.getProductById(openProductId, {})
+      if (response.code === 200 && response.data) {
+        targetProduct = response.data
+      }
+    } catch (error) {
+      console.warn('治理控制面产品上下文补数失败', error)
+      return
+    }
+  }
+
+  if (!targetProduct) {
+    return
+  }
+
+  handledGovernanceWorkbenchRouteKey.value = routeKey
+
+  if (targetView === 'edit') {
+    openEditWorkbench(targetProduct, targetProduct)
+    return
+  }
+
+  await router.replace(buildProductWorkbenchPath(targetProduct.id, targetView))
 }
 
 async function refreshEditAvailableModels(productId: string | number, editSessionId: number) {
@@ -1874,6 +1915,8 @@ function handleAdd() {
   formDirtySinceOpen = false
   clearFormRefreshState()
   applyFormDataWithoutDirty()
+  currentProduct.value = null
+  detailData.value = null
   formVisible.value = true
 }
 
@@ -1888,12 +1931,13 @@ function openEditWorkbench(row: Product, initialProduct?: Product | null) {
   formDirtySinceOpen = false
   clearFormRefreshState()
   applyFormDataWithoutDirty(editSnapshot)
-  currentProduct.value = row
-  businessWorkbenchProduct.value = editSnapshot
+  currentProduct.value = editSnapshot
+  detailData.value = editSnapshot
   editAvailableModels.value = []
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange('edit')
-  editWorkspaceRef.value?.clearValidate()
+  formVisible.value = true
+  nextTick(() => {
+    createFormRef.value?.clearValidate?.()
+  })
   void refreshEditAvailableModels(row.id, editSessionId)
   void refreshEditableDetail(row, editSessionId, cachedDetail)
 }
@@ -1903,29 +1947,15 @@ function handleEdit(row: Product) {
 }
 
 function handleOpenDetail(row: Product) {
-  void openDetail(row)
+  void router.push(buildProductWorkbenchSectionPath(row.id, 'overview'))
 }
 
 function handleOpenDeviceListDrawer(row: Product) {
-  currentProduct.value = row
-  businessWorkbenchProduct.value = row
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange('devices')
+  void router.push(buildProductWorkbenchSectionPath(row.id, 'devices'))
 }
 
 function handleOpenProductModelDesigner(row: Product) {
-  currentProduct.value = row
-  businessWorkbenchProduct.value = row
-  businessWorkbenchVisible.value = true
-  handleBusinessWorkbenchViewChange('models')
-}
-
-function handleBusinessWorkbenchEdit() {
-  const sourceProduct = businessWorkbenchProduct.value || currentProduct.value
-  if (!sourceProduct) {
-    return
-  }
-  openEditWorkbench(currentProduct.value || sourceProduct, sourceProduct)
+  void router.push(buildProductWorkbenchSectionPath(row.id, 'contracts'))
 }
 
 function openGovernanceTask(path: string) {
@@ -1938,6 +1968,16 @@ function openGovernanceTask(path: string) {
   void router.push(path)
 }
 
+function openGovernanceCapabilityAction(path: string) {
+  const focusProduct = governanceFocusProduct.value
+  recordActivity({
+    title: `产品治理能力入口跳转 · ${path}`,
+    detail: `聚焦产品 ${focusProduct?.productKey || '--'} 进入 ${path}`,
+    tag: 'product-governance-capability'
+  })
+  void router.push(path)
+}
+
 function buildGovernanceTaskPath(productId: number | string | null | undefined, workItemCode: string) {
   const query = new URLSearchParams()
   if (productId != null && String(productId).trim()) {
@@ -1946,6 +1986,35 @@ function buildGovernanceTaskPath(productId: number | string | null | undefined, 
   query.set('workStatus', 'OPEN')
   query.set('workItemCode', workItemCode)
   return `/governance-task?${query.toString()}`
+}
+
+function buildProductWorkbenchPath(
+  productId: number | string | null | undefined,
+  workbenchView: LegacyProductWorkbenchView = 'models'
+) {
+  return buildProductWorkbenchPathFromLegacyView(productId, workbenchView)
+}
+
+async function clearProductWorkbenchRouteContext() {
+  if (!parseRouteStringQuery(route.query.openProductId)) {
+    return
+  }
+  const nextQuery: Record<string, unknown> = { ...route.query }
+  let changed = false
+  for (const key of productWorkbenchRouteContextKeys) {
+    if (key in nextQuery) {
+      delete nextQuery[key]
+      changed = true
+    }
+  }
+  if (!changed) {
+    return
+  }
+  handledGovernanceWorkbenchRouteKey.value = ''
+  await router.replace({
+    path: route.path,
+    query: nextQuery
+  })
 }
 
 async function loadGovernanceSnapshot(product: Product | null) {
@@ -1983,41 +2052,6 @@ async function loadGovernanceSnapshot(product: Product | null) {
     if (requestId === latestGovernanceRequestId) {
       governanceLoading.value = false
     }
-  }
-}
-
-// 查看设备
-function handleViewDevice(device: Device) {
-  console.log('view device', device)
-  // TODO: 实现查看设备的逻辑
-}
-
-// 加载设备列表
-async function loadDeviceList(productKey: string) {
-  devicesLoading.value = true
-  deviceListErrorMessage.value = ''
-  try {
-    const res = await deviceApi.pageDevices({
-      productKey,
-      pageNum: 1,
-      pageSize: 100
-    })
-    if (res.code === 200 && res.data) {
-      const devices = res.data.records || []
-      deviceListData.value = devices
-      deviceListTotal.value = res.data.total || 0
-      deviceListOnlineCount.value = devices.filter((d) => d.onlineStatus === 1).length
-      deviceListOfflineCount.value = devices.filter((d) => d.onlineStatus !== 1).length
-    }
-  } catch (error) {
-    console.error('获取设备列表失败', error)
-    deviceListErrorMessage.value = error instanceof Error ? error.message : '获取设备列表失败'
-    deviceListData.value = []
-    deviceListTotal.value = 0
-    deviceListOnlineCount.value = 0
-    deviceListOfflineCount.value = 0
-  } finally {
-    devicesLoading.value = false
   }
 }
 
@@ -2204,9 +2238,7 @@ async function handleDelete(row: Product) {
 }
 
 async function handleSubmit() {
-  const valid = editingProductId.value
-    ? await editWorkspaceRef.value?.validate()
-    : await createFormRef.value?.validate().catch(() => false)
+  const valid = await createFormRef.value?.validate().catch(() => false)
   if (!valid) {
     return
   }
@@ -2219,7 +2251,10 @@ async function handleSubmit() {
 
   const payload: ProductAddPayload = {
     ...formData,
-    metadataJson: buildProductMetadataJson(objectInsightMetricRows.value, formData.metadataJson)
+    metadataJson: buildProductGovernanceMetadataJson(
+      productCapabilityType.value,
+      buildProductMetadataJson(objectInsightMetricRows.value, formData.metadataJson)
+    )
   }
 
   submitLoading.value = true
@@ -2229,7 +2264,6 @@ async function handleSubmit() {
       cacheProductDetail(res.data)
       currentProduct.value = res.data
       detailData.value = res.data
-      businessWorkbenchProduct.value = res.data
       if (matchesCurrentFilters(res.data)) {
         mergeLocalTableRow(res.data)
       } else {
@@ -2237,7 +2271,7 @@ async function handleSubmit() {
       }
       rebuildVisibleProductPageCache()
       applyFormDataWithoutDirty(res.data)
-      editWorkspaceRef.value?.clearValidate()
+      createFormRef.value?.clearValidate?.()
       clearFormRefreshState()
       formDirtySinceOpen = false
       ElMessage.success('更新成功')
@@ -2305,6 +2339,17 @@ watch(
 )
 
 watch(
+  () => [route.query.openProductId, route.query.workbenchView],
+  () => {
+    if (!parseRouteStringQuery(route.query.openProductId)) {
+      handledGovernanceWorkbenchRouteKey.value = ''
+      return
+    }
+    void resolveGovernanceRouteWorkbench()
+  }
+)
+
+watch(
   () => String(governanceFocusProduct.value?.id || ''),
   () => {
     void loadGovernanceSnapshot(governanceFocusProduct.value)
@@ -2312,36 +2357,33 @@ watch(
   { immediate: true }
 )
 
-watch(businessWorkbenchVisible, (visible) => {
-  if (visible) {
-    return
+watch(
+  formVisible,
+  (visible) => {
+    if (visible) {
+      return
+    }
+    void clearProductWorkbenchRouteContext()
+    latestDetailRequestId += 1
+    abortDetailRequest()
+    detailData.value = null
+    if (editingProductId.value) {
+      activeEditSessionId += 1
+      abortEditRequest()
+      latestEditModelRequestId += 1
+      editAvailableModels.value = []
+      clearFormRefreshState()
+      formDirtySinceOpen = false
+      applyFormDataWithoutDirty()
+      editingProductId.value = null
+    }
   }
-  latestDetailRequestId += 1
-  abortDetailRequest()
-  detailLoading.value = false
-  detailRefreshing.value = false
-  detailErrorMessage.value = ''
-  detailData.value = null
-  businessWorkbenchProduct.value = null
-  deviceListErrorMessage.value = ''
-  resetBusinessWorkbenchLoadedViews()
-  if (editingProductId.value) {
-    activeEditSessionId += 1
-    abortEditRequest()
-    latestEditModelRequestId += 1
-    editAvailableModels.value = []
-    editWorkspaceRef.value?.clearValidate()
-    clearFormRefreshState()
-    formDirtySinceOpen = false
-    applyFormDataWithoutDirty()
-    editingProductId.value = null
-  }
-})
+)
 
 watch(
   formData,
   () => {
-    if (!businessWorkbenchVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
+    if (!formVisible.value || !editingProductId.value || suppressFormDirtyTracking) {
       return
     }
     formDirtySinceOpen = true
@@ -2440,6 +2482,19 @@ onMounted(async () => {
 }
 
 .product-governance-task-list__content span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.product-governance-capability-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.72rem;
+}
+
+.product-governance-capability-note span {
   color: var(--text-secondary);
   font-size: 0.82rem;
   line-height: 1.5;

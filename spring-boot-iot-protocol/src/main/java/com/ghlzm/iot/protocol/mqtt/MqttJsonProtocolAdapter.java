@@ -2,6 +2,7 @@ package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.protocol.template.ProtocolTemplateDefinitionProvider;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceDownMessage;
@@ -15,6 +16,7 @@ import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpFamilyResolver;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpNormalizeResult;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpPropertyNormalizer;
 import com.ghlzm.iot.protocol.mqtt.legacy.LegacyDpRelationResolver;
+import com.ghlzm.iot.protocol.mqtt.legacy.template.LegacyDpChildTemplateRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -66,23 +68,37 @@ public class MqttJsonProtocolAdapter implements ProtocolAdapter {
     @Autowired
     public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
                                    IotProperties iotProperties,
-                                   ObjectProvider<LegacyDpRelationResolver> relationResolverProvider) {
-        this(legacyDpEnvelopeDecoder, iotProperties, relationResolverProvider.getIfAvailable(LegacyDpRelationResolver::noop));
+                                   ObjectProvider<LegacyDpRelationResolver> relationResolverProvider,
+                                   ObjectProvider<ProtocolTemplateDefinitionProvider> templateDefinitionProvider) {
+        this(legacyDpEnvelopeDecoder,
+                iotProperties,
+                relationResolverProvider.getIfAvailable(LegacyDpRelationResolver::noop),
+                templateDefinitionProvider == null ? null : templateDefinitionProvider.getIfAvailable());
     }
 
     public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
                                    IotProperties iotProperties) {
-        this(legacyDpEnvelopeDecoder, iotProperties, LegacyDpRelationResolver.noop());
+        this(legacyDpEnvelopeDecoder, iotProperties, LegacyDpRelationResolver.noop(), null);
     }
 
     public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
                                    IotProperties iotProperties,
                                    LegacyDpRelationResolver relationResolver) {
+        this(legacyDpEnvelopeDecoder, iotProperties, relationResolver, null);
+    }
+
+    public MqttJsonProtocolAdapter(LegacyDpEnvelopeDecoder legacyDpEnvelopeDecoder,
+                                   IotProperties iotProperties,
+                                   LegacyDpRelationResolver relationResolver,
+                                   ProtocolTemplateDefinitionProvider templateDefinitionProvider) {
         this.legacyDpEnvelopeDecoder = legacyDpEnvelopeDecoder;
         this.iotProperties = iotProperties;
         this.legacyDpFamilyResolver = new LegacyDpFamilyResolver();
         this.legacyDpPropertyNormalizer = new LegacyDpPropertyNormalizer(this.legacyDpFamilyResolver);
-        this.legacyDpChildMessageSplitter = new LegacyDpChildMessageSplitter(iotProperties, relationResolver);
+        LegacyDpChildTemplateRegistry templateRegistry = templateDefinitionProvider == null
+                ? new LegacyDpChildTemplateRegistry()
+                : new LegacyDpChildTemplateRegistry(templateDefinitionProvider);
+        this.legacyDpChildMessageSplitter = new LegacyDpChildMessageSplitter(iotProperties, relationResolver, templateRegistry);
     }
 
     @Override

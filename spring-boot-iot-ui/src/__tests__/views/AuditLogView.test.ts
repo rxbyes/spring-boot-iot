@@ -372,11 +372,24 @@ describe('AuditLogView', () => {
     await nextTick();
 
     expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
-    expect(wrapper.text()).toContain('异常台账');
+    expect(wrapper.text()).toContain('异常观测台');
+    expect(wrapper.text()).toContain('后台异常核对');
     expect(wrapper.text()).toContain('追踪');
+    expect(wrapper.text()).toContain('删除');
     expect(wrapper.text()).not.toContain('链路追踪台');
     expect(wrapper.text()).not.toContain('失败归档');
     expect(wrapper.text()).not.toContain('OBSERVABILITY DESK');
+
+    const rowActions = wrapper.findAll('.audit-log-row-actions-stub');
+
+    expect(rowActions.length).toBeGreaterThan(0);
+    rowActions.forEach((item) => {
+      expect(item.text()).toContain('详情');
+      expect(item.text()).toContain('追踪');
+      expect(item.text()).toContain('删除');
+      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('0');
+      expect(item.attributes('data-menu-label')).toBeUndefined();
+    });
   });
 
   it('uses anomaly-oriented detail and export titles in system mode', async () => {
@@ -385,7 +398,7 @@ describe('AuditLogView', () => {
     await nextTick();
 
     expect(wrapper.findComponent(AuditLogDetailDrawerStub).props('title')).toBe('异常详情');
-    expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常台账导出列设置');
+    expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常观测台导出列设置');
   });
 
   it('keeps refresh as the only direct toolbar action and moves export utilities into more actions', async () => {
@@ -478,7 +491,11 @@ describe('AuditLogView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('来自链路追踪台');
-    expect(wrapper.text()).toContain('当前异常 1 条');
+    expect(wrapper.text()).toContain('当前节点：后台异常核对');
+    expect(wrapper.text()).toContain('下一步回链路追踪台或治理页继续排查。');
+    expect(wrapper.text()).not.toContain('当前异常 1 条');
+    expect(wrapper.text()).not.toContain('关联链路 1 条');
+    expect(wrapper.text()).not.toContain('可回链路追踪继续复盘。');
     expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-001',
       deviceCode: 'demo-device-01',
@@ -526,6 +543,7 @@ describe('AuditLogView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('来自链路追踪台');
+    expect(wrapper.text()).toContain('当前节点：后台异常核对');
     expect(pageLogs).toHaveBeenCalledWith(expect.objectContaining({
       requestMethod: 'MQTT',
       requestUrl: '$dp'
@@ -573,5 +591,6 @@ describe('AuditLogView', () => {
     expect(source).toContain('standard-mobile-record-grid');
     expect(source).not.toContain('gap="compact"');
     expect(source).not.toContain("gap: 'compact'");
+    expect(source).not.toContain('menu-label="更多"');
   });
 });

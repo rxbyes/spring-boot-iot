@@ -7,6 +7,7 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.time.LocalDateTime;
@@ -37,11 +38,19 @@ class ProductContractReleaseControllerTest {
     @Mock
     private GovernanceApprovalService governanceApprovalService;
 
+    @Mock
+    private GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
+
     private ProductContractReleaseController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductContractReleaseController(productContractReleaseService, permissionGuard, governanceApprovalService);
+        controller = new ProductContractReleaseController(
+                productContractReleaseService,
+                permissionGuard,
+                governanceApprovalService,
+                governanceApprovalPolicyResolver
+        );
     }
 
     @Test
@@ -117,6 +126,28 @@ class ProductContractReleaseControllerTest {
         verify(governanceApprovalService).submitAction(any());
         verify(productContractReleaseService).getBatch(7001L);
         verify(productContractReleaseService, never()).rollbackLatestBatch(7001L, 10001L);
+    }
+
+    @Test
+    void rollbackBatchShouldResolveFixedApproverWhenHeaderIsMissing() {
+        Authentication authentication = authentication(10001L);
+        when(governanceApprovalPolicyResolver.resolveApproverUserId("PRODUCT_CONTRACT_ROLLBACK", 10001L))
+                .thenReturn(99000001L);
+        when(productContractReleaseService.getBatch(7001L))
+                .thenReturn(batchVO(7001L, "phase1-crack", "manual_compare_apply", 3));
+        when(governanceApprovalService.submitAction(any())).thenReturn(99001L);
+
+        R<ProductContractReleaseRollbackResultVO> response = controller.rollbackBatch(7001L, null, authentication);
+
+        assertEquals(99001L, response.getData().getApprovalOrderId());
+        verify(governanceApprovalPolicyResolver).resolveApproverUserId("PRODUCT_CONTRACT_ROLLBACK", 10001L);
+        verify(permissionGuard).requireDualControl(
+                10001L,
+                99000001L,
+                "合同发布回滚",
+                "iot:product-contract:rollback",
+                "iot:product-contract:approve"
+        );
     }
 
     private ProductContractReleaseBatchVO batchVO(Long id,

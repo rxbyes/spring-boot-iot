@@ -2,20 +2,27 @@ package com.ghlzm.iot.protocol.mqtt;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.framework.config.IotProperties;
+import com.ghlzm.iot.framework.protocol.ProtocolSecurityDefinitionProvider;
+import com.ghlzm.iot.framework.protocol.YamlProtocolSecurityDefinitionProvider;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-
-import java.util.Map;
 
 @Component
 public class IotPropertiesProtocolDecryptProfileResolver implements ProtocolDecryptProfileResolver {
 
     private static final String DEFAULT_PROTOCOL_CODE = "mqtt-json";
 
-    private final IotProperties iotProperties;
+    private final ProtocolSecurityDefinitionProvider definitionProvider;
+
+    @Autowired
+    public IotPropertiesProtocolDecryptProfileResolver(ProtocolSecurityDefinitionProvider definitionProvider) {
+        this.definitionProvider = definitionProvider;
+    }
 
     public IotPropertiesProtocolDecryptProfileResolver(IotProperties iotProperties) {
-        this.iotProperties = iotProperties;
+        this(new YamlProtocolSecurityDefinitionProvider(iotProperties));
     }
 
     @Override
@@ -40,7 +47,7 @@ public class IotPropertiesProtocolDecryptProfileResolver implements ProtocolDecr
                 : DEFAULT_PROTOCOL_CODE;
         for (String familyCode : context.familyCodes()) {
             IotProperties.Protocol.FamilyDefinition familyDefinition =
-                    iotProperties.getProtocol().getFamilyDefinitions().get(familyCode);
+                    definitionProvider.getFamilyDefinition(familyCode);
             if (familyDefinition == null || !isEnabled(familyDefinition.getEnabled())) {
                 continue;
             }
@@ -58,7 +65,7 @@ public class IotPropertiesProtocolDecryptProfileResolver implements ProtocolDecr
             throw new BizException("family 未配置 decrypt profile: " + familyCode);
         }
         IotProperties.Protocol.DecryptProfile configuredProfile =
-                iotProperties.getProtocol().getDecryptProfiles().get(profileCode);
+                definitionProvider.getDecryptProfile(profileCode);
         if (configuredProfile == null) {
             throw new BizException("family 绑定的 decrypt profile 不存在: " + profileCode);
         }
@@ -73,7 +80,7 @@ public class IotPropertiesProtocolDecryptProfileResolver implements ProtocolDecr
             return null;
         }
         for (Map.Entry<String, IotProperties.Protocol.DecryptProfile> entry
-                : iotProperties.getProtocol().getDecryptProfiles().entrySet()) {
+                : definitionProvider.listDecryptProfiles().entrySet()) {
             IotProperties.Protocol.DecryptProfile configuredProfile = entry.getValue();
             if (configuredProfile == null || !isEnabled(configuredProfile.getEnabled())) {
                 continue;

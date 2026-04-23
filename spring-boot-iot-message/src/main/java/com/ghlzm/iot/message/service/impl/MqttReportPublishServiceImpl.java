@@ -76,7 +76,8 @@ public class MqttReportPublishServiceImpl implements MqttReportPublishService {
                 command.getPayloadEncoding()
         );
         MessageFlowSubmitResult submitResult = buildSubmitResult(command, payloadBytes);
-        mqttDownMessagePublisher.publishRaw(command.getTopic(), payloadBytes, actualQos, retained);
+        // 模拟设备上行必须使用独立 publisher，避免 leader 订阅客户端自发自收时阻塞 HTTP 返回。
+        mqttDownMessagePublisher.publishRawIsolated(command.getTopic(), payloadBytes, actualQos, retained);
         return submitResult;
     }
 

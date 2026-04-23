@@ -56,6 +56,18 @@
             </el-table-column>
           </el-table>
         </div>
+
+        <div v-if="pagination.total > 0" class="device-workspace__pagination">
+          <StandardPagination
+            :current-page="pagination.pageNum"
+            :page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @current-change="handlePageChange"
+            @size-change="handlePageSizeChange"
+          />
+        </div>
       </section>
     </div>
   </div>
@@ -64,14 +76,17 @@
 <script setup lang="ts">
 import { toRefs } from 'vue'
 
+import StandardPagination from '@/components/StandardPagination.vue'
 import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowActions.vue'
 import type { Device } from '@/types/api'
+import type { ServerPaginationState } from '@/composables/useServerPagination'
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 import { formatDateTime } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
     devices: Device[]
+    pagination?: ServerPaginationState
     loading?: boolean
     loadingText?: string
     errorMessage?: string
@@ -80,6 +95,11 @@ const props = withDefaults(
     devicesLoading?: boolean
   }>(),
   {
+    pagination: () => ({
+      pageNum: 1,
+      pageSize: 10,
+      total: 0
+    }),
     loading: false,
     loadingText: '正在加载设备...',
     errorMessage: '',
@@ -91,6 +111,7 @@ const props = withDefaults(
 
 const {
   devices,
+  pagination,
   loading,
   loadingText,
   errorMessage,
@@ -101,6 +122,8 @@ const {
 
 const emit = defineEmits<{
   (event: 'viewDevice', device: Device): void
+  (event: 'page-change', page: number): void
+  (event: 'page-size-change', size: number): void
 }>()
 const deviceLedgerRowActions = [{ command: 'view' as const, label: '查看' }]
 
@@ -110,6 +133,14 @@ const deviceLedgerActionColumnWidth = resolveWorkbenchActionColumnWidth({
 
 function handleViewDevice(device: Device) {
   emit('viewDevice', device)
+}
+
+function handlePageChange(page: number) {
+  emit('page-change', page)
+}
+
+function handlePageSizeChange(size: number) {
+  emit('page-size-change', size)
 }
 </script>
 
@@ -141,6 +172,11 @@ function handleViewDevice(device: Device) {
 
 .device-workspace__registry-sheet {
   gap: 0.88rem;
+}
+
+.device-workspace__pagination {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .device-workspace__registry-card {

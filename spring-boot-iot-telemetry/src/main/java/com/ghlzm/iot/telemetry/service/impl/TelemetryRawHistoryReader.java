@@ -5,6 +5,8 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.Set;
  */
 @Service
 public class TelemetryRawHistoryReader {
+
+    private static final Logger log = LoggerFactory.getLogger(TelemetryRawHistoryReader.class);
 
     private static final String SELECT_COLUMNS = """
             SELECT
@@ -58,6 +62,16 @@ public class TelemetryRawHistoryReader {
                                               Map<String, DevicePropertyMetadata> metadataMap,
                                               List<String> identifiers,
                                               int batchSize) {
+        return listHistory(device, product, metadataMap, identifiers, null, null, batchSize);
+    }
+
+    public List<TelemetryV2Point> listHistory(Device device,
+                                              Product product,
+                                              Map<String, DevicePropertyMetadata> metadataMap,
+                                              List<String> identifiers,
+                                              LocalDateTime windowStart,
+                                              LocalDateTime windowEnd,
+                                              int batchSize) {
         if (device == null || device.getId() == null || identifiers == null || identifiers.isEmpty()) {
             return List.of();
         }
@@ -67,7 +81,7 @@ public class TelemetryRawHistoryReader {
         List<TelemetryV2Point> points = new ArrayList<>();
         for (TelemetryStreamKind streamKind : streamKinds) {
             String childTable = tableNamingStrategy.resolveChildTableName(streamKind, device.getTenantId(), device.getId());
-            points.addAll(readChildTable(jdbcTemplate, childTable, streamKind, device, product, metadataMap, identifiers, batchSize));
+            points.addAll(readChildTable(jdbcTemplate, childTable, streamKind, device, product, metadataMap, identifiers, windowStart, windowEnd, batchSize));
         }
         points.sort((left, right) -> {
             LocalDateTime leftTime = resolveHistoryTime(left);
@@ -93,8 +107,17 @@ public class TelemetryRawHistoryReader {
                                                   Product product,
                                                   Map<String, DevicePropertyMetadata> metadataMap,
                                                   List<String> identifiers,
+                                                  LocalDateTime windowStart,
+                                                  LocalDateTime windowEnd,
                                                   int batchSize) {
-        String sql = buildSelectSql(childTable, identifiers, batchSize);
+        String sql = buildSelectSql(childTable, identifiers, windowStart, windowEnd, batchSize);
+        List<Object> args = new ArrayList<>(identifiers);
+        if (windowStart != null && windowEnd != null) {
+            args.add(Timestamp.valueOf(windowStart));
+            args.add(Timestamp.valueOf(windowEnd));
+            args.add(Timestamp.valueOf(windowStart));
+            args.add(Timestamp.valueOf(windowEnd));
+        }
         try {
             return jdbcTemplate.query(sql, rs -> {
                 List<TelemetryV2Point> points = new ArrayList<>();
@@ -142,8 +165,12 @@ public class TelemetryRawHistoryReader {
                     points.add(point);
                 }
                 return points;
-            }, identifiers.toArray());
+            }, args.toArray());
         } catch (Exception ex) {
+            log.warn("读取 telemetry v2 raw 历史失败, table={}, deviceId={}, error={}",
+                    childTable,
+                    device == null ? null : device.getId(),
+                    ex.getMessage());
             return List.of();
         }
     }
@@ -168,13 +195,28 @@ public class TelemetryRawHistoryReader {
         return kinds;
     }
 
-    private String buildSelectSql(String childTable, List<String> identifiers, int batchSize) {
+    private String buildSelectSql(String childTable,
+                                  List<String> identifiers,
+                                  LocalDateTime windowStart,
+                                  LocalDateTime windowEnd,
+                                  int batchSize) {
         String placeholders = String.join(", ", identifiers.stream().map(item -> "?").toList());
-        return SELECT_COLUMNS
-                + childTable
-                + " WHERE metric_id IN (" + placeholders + ")"
-                + " ORDER BY ts ASC"
-                + " LIMIT " + Math.max(batchSize, 1);
+        StringBuilder sql = new StringBuilder(SELECT_COLUMNS)
+                .append(childTable)
+                .append(" WHERE metric_id IN (")
+                .append(placeholders)
+                .append(")");
+        if (windowStart != null && windowEnd != null) {
+            sql.append(" AND ((")
+                    .append("ingested_at >= ? AND ingested_at < ?")
+                    .append(") OR (")
+                    .append("ingested_at IS NULL AND ts >= ? AND ts < ?")
+                    .append("))");
+        }
+        sql.append(" ORDER BY ts ASC")
+                .append(" LIMIT ")
+                .append(Math.max(batchSize, 1));
+        return sql.toString();
     }
 
     private LocalDateTime resolveHistoryTime(TelemetryV2Point point) {

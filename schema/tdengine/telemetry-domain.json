@@ -1,0 +1,761 @@
+{
+  "domain": "telemetry",
+  "storageType": "tdengine",
+  "objects": [
+    {
+      "name": "iot_device_telemetry_point",
+      "storageType": "tdengine_table",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "设备时序兼容点位表",
+      "commentZh": "设备时序兼容点位表",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "时序时间",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "设备上报时间",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "租户ID",
+          "isTag": false
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "设备ID",
+          "isTag": false
+        },
+        {
+          "name": "device_code",
+          "type": "BINARY(128)",
+          "commentZh": "设备编码",
+          "isTag": false
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "产品ID",
+          "isTag": false
+        },
+        {
+          "name": "product_key",
+          "type": "BINARY(128)",
+          "commentZh": "产品标识",
+          "isTag": false
+        },
+        {
+          "name": "protocol_code",
+          "type": "BINARY(64)",
+          "commentZh": "协议编码",
+          "isTag": false
+        },
+        {
+          "name": "message_type",
+          "type": "BINARY(32)",
+          "commentZh": "消息类型",
+          "isTag": false
+        },
+        {
+          "name": "mqtt_topic",
+          "type": "BINARY(512)",
+          "commentZh": "MQTT主题",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "链路追踪ID",
+          "isTag": false
+        },
+        {
+          "name": "metric_code",
+          "type": "BINARY(128)",
+          "commentZh": "指标编码",
+          "isTag": false
+        },
+        {
+          "name": "metric_name",
+          "type": "NCHAR(128)",
+          "commentZh": "指标名称",
+          "isTag": false
+        },
+        {
+          "name": "value_type",
+          "type": "BINARY(32)",
+          "commentZh": "值类型",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "文本值",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "整数值",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "数值",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "布尔值",
+          "isTag": false
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_compatibility_fallback",
+      "businessBoundary": "用于设备时序兼容点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_raw_measure_point",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "原始数值点位表",
+      "commentZh": "原始数值点位表",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "时序时间",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "指标ID",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "设备上报时间",
+          "isTag": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "TIMESTAMP",
+          "commentZh": "平台入库时间",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "数值",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "整数值",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "布尔值",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "文本值",
+          "isTag": false
+        },
+        {
+          "name": "quality_code",
+          "type": "BINARY(32)",
+          "commentZh": "质量编码",
+          "isTag": false
+        },
+        {
+          "name": "alarm_flag",
+          "type": "BOOL",
+          "commentZh": "告警标记",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "链路追踪ID",
+          "isTag": false
+        },
+        {
+          "name": "session_id",
+          "type": "BINARY(64)",
+          "commentZh": "会话ID",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "来源消息类型",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "租户ID",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "设备ID",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "产品ID",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "传感器分组",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "位置编码",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "风险点ID",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_raw_timeseries",
+      "businessBoundary": "用于原始数值点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_raw_status_point",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "原始状态点位表",
+      "commentZh": "原始状态点位表",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "时序时间",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "指标ID",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "设备上报时间",
+          "isTag": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "TIMESTAMP",
+          "commentZh": "平台入库时间",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "数值",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "整数值",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "布尔值",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "文本值",
+          "isTag": false
+        },
+        {
+          "name": "quality_code",
+          "type": "BINARY(32)",
+          "commentZh": "质量编码",
+          "isTag": false
+        },
+        {
+          "name": "alarm_flag",
+          "type": "BOOL",
+          "commentZh": "告警标记",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "链路追踪ID",
+          "isTag": false
+        },
+        {
+          "name": "session_id",
+          "type": "BINARY(64)",
+          "commentZh": "会话ID",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "来源消息类型",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "租户ID",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "设备ID",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "产品ID",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "传感器分组",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "位置编码",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "风险点ID",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_raw_timeseries",
+      "businessBoundary": "用于原始状态点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_raw_event_point",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": true,
+      "runtimeBootstrapMode": "auto_bootstrap",
+      "tableCommentZh": "原始事件点位表",
+      "commentZh": "原始事件点位表",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "时序时间",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "指标ID",
+          "isTag": false
+        },
+        {
+          "name": "reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "设备上报时间",
+          "isTag": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "TIMESTAMP",
+          "commentZh": "平台入库时间",
+          "isTag": false
+        },
+        {
+          "name": "value_double",
+          "type": "DOUBLE",
+          "commentZh": "数值",
+          "isTag": false
+        },
+        {
+          "name": "value_long",
+          "type": "BIGINT",
+          "commentZh": "整数值",
+          "isTag": false
+        },
+        {
+          "name": "value_bool",
+          "type": "BOOL",
+          "commentZh": "布尔值",
+          "isTag": false
+        },
+        {
+          "name": "value_text",
+          "type": "NCHAR(1024)",
+          "commentZh": "文本值",
+          "isTag": false
+        },
+        {
+          "name": "quality_code",
+          "type": "BINARY(32)",
+          "commentZh": "质量编码",
+          "isTag": false
+        },
+        {
+          "name": "alarm_flag",
+          "type": "BOOL",
+          "commentZh": "告警标记",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "链路追踪ID",
+          "isTag": false
+        },
+        {
+          "name": "session_id",
+          "type": "BINARY(64)",
+          "commentZh": "会话ID",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "来源消息类型",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "租户ID",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "设备ID",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "产品ID",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "传感器分组",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "位置编码",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "风险点ID",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_raw_timeseries",
+      "businessBoundary": "用于原始事件点位表的数据持久化与查询，归属时序域并服务真实环境基线。"
+    },
+    {
+      "name": "iot_agg_measure_hour",
+      "storageType": "tdengine_stable",
+      "ownerModule": "spring-boot-iot-telemetry",
+      "lifecycle": "active",
+      "includedInInit": true,
+      "includedInSchemaSync": false,
+      "runtimeBootstrapMode": "manual_bootstrap_required",
+      "tableCommentZh": "数值点位小时聚合表",
+      "commentZh": "数值点位小时聚合表",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "TIMESTAMP",
+          "commentZh": "时序时间",
+          "isTag": false
+        },
+        {
+          "name": "metric_id",
+          "type": "BINARY(128)",
+          "commentZh": "指标ID",
+          "isTag": false
+        },
+        {
+          "name": "metric_code",
+          "type": "BINARY(128)",
+          "commentZh": "指标编码",
+          "isTag": false
+        },
+        {
+          "name": "metric_name",
+          "type": "NCHAR(128)",
+          "commentZh": "指标名称",
+          "isTag": false
+        },
+        {
+          "name": "value_type",
+          "type": "BINARY(32)",
+          "commentZh": "值类型",
+          "isTag": false
+        },
+        {
+          "name": "first_reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "首次上报时间",
+          "isTag": false
+        },
+        {
+          "name": "last_reported_at",
+          "type": "TIMESTAMP",
+          "commentZh": "最后上报时间",
+          "isTag": false
+        },
+        {
+          "name": "min_value_double",
+          "type": "DOUBLE",
+          "commentZh": "最小数值",
+          "isTag": false
+        },
+        {
+          "name": "max_value_double",
+          "type": "DOUBLE",
+          "commentZh": "最大数值",
+          "isTag": false
+        },
+        {
+          "name": "sum_value_double",
+          "type": "DOUBLE",
+          "commentZh": "累计数值",
+          "isTag": false
+        },
+        {
+          "name": "last_value_double",
+          "type": "DOUBLE",
+          "commentZh": "最近数值",
+          "isTag": false
+        },
+        {
+          "name": "sample_count",
+          "type": "BIGINT",
+          "commentZh": "样本数量",
+          "isTag": false
+        },
+        {
+          "name": "trace_id",
+          "type": "BINARY(64)",
+          "commentZh": "链路追踪ID",
+          "isTag": false
+        },
+        {
+          "name": "source_message_type",
+          "type": "BINARY(32)",
+          "commentZh": "来源消息类型",
+          "isTag": false
+        },
+        {
+          "name": "tenant_id",
+          "type": "BIGINT",
+          "commentZh": "租户ID",
+          "isTag": true
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT",
+          "commentZh": "设备ID",
+          "isTag": true
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT",
+          "commentZh": "产品ID",
+          "isTag": true
+        },
+        {
+          "name": "sensor_group",
+          "type": "BINARY(64)",
+          "commentZh": "传感器分组",
+          "isTag": true
+        },
+        {
+          "name": "location_code",
+          "type": "BINARY(64)",
+          "commentZh": "位置编码",
+          "isTag": true
+        },
+        {
+          "name": "risk_point_id",
+          "type": "BIGINT",
+          "commentZh": "风险点ID",
+          "isTag": true
+        }
+      ],
+      "indexes": [],
+      "relations": [
+        {
+          "type": "belongs_to",
+          "target": "iot_device",
+          "viaField": "device_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "iot_product",
+          "viaField": "product_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "risk_point",
+          "viaField": "risk_point_id"
+        },
+        {
+          "type": "belongs_to",
+          "target": "sys_tenant",
+          "viaField": "tenant_id"
+        }
+      ],
+      "lineageRole": "telemetry_hourly_aggregate",
+      "businessBoundary": "用于数值点位小时聚合表的数据持久化与查询，归属时序域并服务真实环境基线。"
+    }
+  ]
+}

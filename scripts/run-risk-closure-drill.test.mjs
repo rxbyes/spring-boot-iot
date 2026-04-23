@@ -8,6 +8,7 @@ import {
   findBindingForDeviceMetric,
   normalizeEntityId,
   resolveMetricOptionWithWarmup,
+  selectExistingDeviceLiveCandidate,
   summarizeRiskClosureDrill,
   resolveRiskClosureFixture
 } from './auto/run-risk-closure-drill.mjs';
@@ -139,4 +140,84 @@ test('fresh risk drill provisioning uses riskPointLevel instead of legacy riskLe
 
   assert.match(source, /riskPointLevel:\s*'level_1'/);
   assert.doesNotMatch(source, /riskLevel:\s*'warning'/);
+});
+
+test('resolves the shared leader live-device fixture for the real deep displacement scenario', () => {
+  const fixture = resolveRiskClosureFixture({
+    backendBaseUrl: 'http://127.0.0.1:9999',
+    scenarioId: 'risk.live-deep-displacement.real-device-red-chain'
+  });
+
+  assert.equal(fixture.mode, 'existing_device_live');
+  assert.equal(fixture.metricIdentifier, 'dispsY');
+  assert.equal(Array.isArray(fixture.candidates), true);
+  assert.ok(fixture.candidates.length >= 2);
+  assert.equal(fixture.cleanupAfterRun, true);
+  assert.equal(fixture.expectedAlarmDelta, 1);
+  assert.equal(fixture.expectedEventDelta, 1);
+  assert.equal(fixture.expectedWorkOrderDelta, 1);
+});
+
+test('selects the first fresh live-device candidate with formal metrics and non-zero latest value', () => {
+  const selected = selectExistingDeviceLiveCandidate(
+    [
+      {
+        deviceCode: 'STALE01',
+        reportTime: '2026-04-18T00:00:00',
+        metricIdentifier: 'dispsY',
+        hasFormalMetric: true,
+        latestValue: -0.045
+      },
+      {
+        deviceCode: 'ZERO01',
+        reportTime: '2026-04-19T10:00:00',
+        metricIdentifier: 'dispsY',
+        hasFormalMetric: true,
+        latestValue: 0
+      },
+      {
+        deviceCode: 'READY01',
+        reportTime: '2026-04-19T10:03:00',
+        metricIdentifier: 'dispsY',
+        hasFormalMetric: true,
+        latestValue: -0.0368
+      }
+    ],
+    {
+      nowText: '2026-04-19T10:05:00',
+      maxReportAgeMinutes: 30
+    }
+  );
+
+  assert.equal(selected?.deviceCode, 'READY01');
+});
+
+test('skips live-device candidates that already have a recent alarm in the duplicate cooldown window', () => {
+  const selected = selectExistingDeviceLiveCandidate(
+    [
+      {
+        deviceCode: 'COOLDOWN01',
+        reportTime: '2026-04-19T10:03:00',
+        metricIdentifier: 'dispsY',
+        hasFormalMetric: true,
+        latestValue: -0.0368,
+        recentAlarmLevels: ['red']
+      },
+      {
+        deviceCode: 'READY02',
+        reportTime: '2026-04-19T10:04:00',
+        metricIdentifier: 'dispsY',
+        hasFormalMetric: true,
+        latestValue: -0.0368,
+        recentAlarmLevels: []
+      }
+    ],
+    {
+      nowText: '2026-04-19T10:05:00',
+      maxReportAgeMinutes: 30,
+      requiredAlarmLevel: 'red'
+    }
+  );
+
+  assert.equal(selected?.deviceCode, 'READY02');
 });

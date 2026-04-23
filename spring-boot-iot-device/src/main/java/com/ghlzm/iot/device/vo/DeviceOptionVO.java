@@ -31,4 +31,7 @@ public class DeviceOptionVO {
     private Integer nodeType;
     private Integer onlineStatus;
     private Integer deviceStatus;
+    private String deviceCapabilityType;
+    private Boolean supportsMetricBinding;
+    private Boolean aiEventExpandable;
 }

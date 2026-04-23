@@ -1,5 +1,6 @@
 package com.ghlzm.iot.alarm.controller;
 
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
@@ -11,8 +12,10 @@ import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
@@ -125,22 +128,29 @@ public class RiskPointController {
             return R.ok(page);
       }
 
-      /**
+     /**
        * 绑定风险点与设备
        */
-      @PostMapping("/bind-device")
-      public R<Void> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
-            riskPointService.bindDevice(riskPointDevice, requireCurrentUserId(authentication));
-            return R.ok();
+     @PostMapping("/bind-device")
+      public R<GovernanceSubmissionResultVO> bindDevice(@RequestBody RiskPointDevice riskPointDevice, Authentication authentication) {
+            return R.ok(bindingMaintenanceService.submitBindDevice(riskPointDevice, requireCurrentUserId(authentication)));
+      }
+
+      /**
+       * 绑定风险点与设备级能力。
+       */
+      @PostMapping("/bind-device-capability")
+      public R<GovernanceSubmissionResultVO> bindDeviceCapability(@RequestBody RiskPointDeviceCapabilityBindingRequest request,
+                                                                  Authentication authentication) {
+            return R.ok(bindingMaintenanceService.submitBindDeviceCapability(request, requireCurrentUserId(authentication)));
       }
 
       /**
        * 解绑风险点与设备
        */
       @PostMapping("/unbind-device")
-      public R<Void> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId, Authentication authentication) {
-            riskPointService.unbindDevice(riskPointId, deviceId, requireCurrentUserId(authentication));
-            return R.ok();
+      public R<GovernanceSubmissionResultVO> unbindDevice(@RequestParam Long riskPointId, @RequestParam Long deviceId, Authentication authentication) {
+            return R.ok(bindingMaintenanceService.submitUnbindDevice(riskPointId, deviceId, requireCurrentUserId(authentication)));
       }
 
       /**
@@ -185,6 +195,18 @@ public class RiskPointController {
                     requireCurrentUserId(authentication)
             );
             return R.ok(groups);
+      }
+
+      /**
+       * 查询风险点正式绑定可选测点列表。
+       */
+      @GetMapping("/devices/{deviceId}/formal-metrics")
+      public R<List<DeviceMetricOptionVO>> listFormalBindingMetricOptions(@PathVariable Long deviceId,
+                                                                          Authentication authentication) {
+            return R.ok(bindingMaintenanceService.listFormalBindingMetricOptions(
+                    deviceId,
+                    requireCurrentUserId(authentication)
+            ));
       }
 
       /**

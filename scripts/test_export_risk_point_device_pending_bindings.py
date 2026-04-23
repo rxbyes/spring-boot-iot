@@ -11,6 +11,12 @@ import unittest
 from pathlib import Path
 from zipfile import ZipFile
 
+from scripts.schema_contract_test_support import (
+    extract_create_table_statement,
+    get_schema_sync_create_entry,
+    read_init_sql,
+)
+
 
 SCRIPT_PATH = Path(__file__).resolve().parent / "export-risk-point-device-pending-bindings.py"
 
@@ -159,9 +165,24 @@ class PendingImportScriptTest(unittest.TestCase):
         self.assertIn("RISK_POINT_NOT_FOUND;DEVICE_NOT_FOUND", sql)
         self.assertIn("DEV-001", sql)
 
-    def test_sql_baseline_contains_pending_binding_table(self) -> None:
-        sql_text = (Path(__file__).resolve().parent.parent / "sql" / "init.sql").read_text(encoding="utf-8")
-        self.assertIn("CREATE TABLE risk_point_device_pending_binding", sql_text)
+    def test_schema_truth_sources_contain_pending_binding_table(self) -> None:
+        init_sql = extract_create_table_statement(
+            read_init_sql(),
+            "risk_point_device_pending_binding",
+        )
+        schema_sync_entry = get_schema_sync_create_entry("risk_point_device_pending_binding")
+        expected_snippets = [
+            "CREATE TABLE risk_point_device_pending_binding",
+            "resolution_status VARCHAR(64) NOT NULL DEFAULT 'PENDING_METRIC_GOVERNANCE'",
+            "metric_identifier VARCHAR(64) DEFAULT NULL",
+            "UNIQUE KEY uk_pending_binding_batch_row (tenant_id, batch_no, source_row_no)",
+            "KEY idx_pending_binding_status (tenant_id, resolution_status, deleted)",
+        ]
+
+        self.assertEqual("active", schema_sync_entry["lifecycle"])
+        for snippet in expected_snippets:
+            self.assertIn(snippet, init_sql)
+            self.assertIn(snippet, schema_sync_entry["sql"])
 
     def test_cli_writes_sql_file_with_summary(self) -> None:
         result = subprocess.run(

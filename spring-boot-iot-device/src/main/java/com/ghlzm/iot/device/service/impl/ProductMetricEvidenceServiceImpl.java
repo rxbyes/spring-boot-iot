@@ -5,12 +5,14 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
 import com.ghlzm.iot.protocol.core.model.DeviceUpProtocolMetadata;
 import com.ghlzm.iot.protocol.core.model.ProtocolMetricEvidence;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -21,10 +23,18 @@ import org.springframework.util.StringUtils;
 public class ProductMetricEvidenceServiceImpl implements ProductMetricEvidenceService {
 
     private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
+    private final VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
     private final ProductModelNormativeMatcher normativeMatcher = new ProductModelNormativeMatcher();
 
-    public ProductMetricEvidenceServiceImpl(VendorMetricEvidenceMapper vendorMetricEvidenceMapper) {
+    @Autowired
+    public ProductMetricEvidenceServiceImpl(VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
+                                            VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService) {
         this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
+        this.vendorMetricMappingRuntimeService = vendorMetricMappingRuntimeService;
+    }
+
+    public ProductMetricEvidenceServiceImpl(VendorMetricEvidenceMapper vendorMetricEvidenceMapper) {
+        this(vendorMetricEvidenceMapper, null);
     }
 
     @Override
@@ -45,11 +55,12 @@ public class ProductMetricEvidenceServiceImpl implements ProductMetricEvidenceSe
         if (!StringUtils.hasText(scenarioCode)) {
             return;
         }
-        List<VendorMetricEvidence> evidences = buildRuntimeEvidence(upMessage, metadata.getMetricEvidence());
+        List<VendorMetricEvidence> evidences = buildRuntimeEvidence(product, upMessage, metadata.getMetricEvidence());
         saveEvidence(product.getId(), scenarioCode, evidences);
     }
 
-    private List<VendorMetricEvidence> buildRuntimeEvidence(DeviceUpMessage upMessage,
+    private List<VendorMetricEvidence> buildRuntimeEvidence(Product product,
+                                                            DeviceUpMessage upMessage,
                                                             List<ProtocolMetricEvidence> metricEvidence) {
         if (metricEvidence == null || metricEvidence.isEmpty()) {
             return List.of();
@@ -66,7 +77,7 @@ public class ProductMetricEvidenceServiceImpl implements ProductMetricEvidenceSe
             }
             VendorMetricEvidence evidence = new VendorMetricEvidence();
             evidence.setRawIdentifier(item.getRawIdentifier());
-            evidence.setCanonicalIdentifier(normalizeText(item.getCanonicalIdentifier()));
+            evidence.setCanonicalIdentifier(resolveCanonicalIdentifier(product, upMessage, item));
             evidence.setLogicalChannelCode(normalizeText(item.getLogicalChannelCode()));
             evidence.setParentDeviceCode(normalizeText(item.getParentDeviceCode()));
             evidence.setChildDeviceCode(normalizeText(item.getChildDeviceCode()));
@@ -78,6 +89,27 @@ public class ProductMetricEvidenceServiceImpl implements ProductMetricEvidenceSe
             evidences.add(evidence);
         }
         return evidences;
+    }
+
+    private String resolveCanonicalIdentifier(Product product,
+                                              DeviceUpMessage upMessage,
+                                              ProtocolMetricEvidence evidence) {
+        if (vendorMetricMappingRuntimeService != null && evidence != null && StringUtils.hasText(evidence.getRawIdentifier())) {
+            VendorMetricMappingRuntimeService.MappingResolution resolution =
+                    vendorMetricMappingRuntimeService.resolveForRuntime(
+                            product,
+                            upMessage,
+                            evidence.getRawIdentifier(),
+                            evidence.getLogicalChannelCode()
+                    );
+            if (resolution != null && StringUtils.hasText(resolution.targetNormativeIdentifier())) {
+                return normalizeText(resolution.targetNormativeIdentifier());
+            }
+        }
+        return firstNonBlank(
+                normalizeText(evidence == null ? null : evidence.getCanonicalIdentifier()),
+                normalizeText(evidence == null ? null : evidence.getRawIdentifier())
+        );
     }
 
     private boolean belongsToTargetDevice(String targetDeviceCode, ProtocolMetricEvidence evidence) {

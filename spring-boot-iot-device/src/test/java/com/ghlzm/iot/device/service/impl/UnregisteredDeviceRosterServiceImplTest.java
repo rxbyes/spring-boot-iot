@@ -201,6 +201,49 @@ class UnregisteredDeviceRosterServiceImplTest {
         assertEquals("missing-01", records.get(0).getDeviceCode());
     }
 
+    @Test
+    void findByTraceIdShouldReturnLatestUnregisteredCandidate() {
+        when(invalidReportStateSchemaSupport.getColumns()).thenReturn(new LinkedHashSet<>(List.of(
+                "id",
+                "device_code",
+                "product_key",
+                "protocol_code",
+                "failure_stage",
+                "sample_error_message",
+                "topic",
+                "last_trace_id",
+                "last_payload",
+                "last_seen_time",
+                "reason_code",
+                "resolved",
+                "deleted"
+        )));
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<DevicePageVO>>any(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    @SuppressWarnings("unchecked")
+                    RowMapper<DevicePageVO> rowMapper = invocation.getArgument(1, RowMapper.class);
+                    return List.of(rowMapper.mapRow(mockMergedResultSet(
+                            2036009677345259601L,
+                            "missing-01",
+                            "south_rtu",
+                            "mqtt-json",
+                            "invalid_report_state",
+                            "device_validate",
+                            "设备不存在: missing-01",
+                            "$dp",
+                            "trace-unregistered-001",
+                            "{\"deviceCode\":\"missing-01\"}",
+                            LocalDateTime.of(2026, 4, 18, 10, 0, 0)
+                    ), 0));
+                });
+
+        DevicePageVO result = service.findByTraceId(null, "trace-unregistered-001");
+
+        assertEquals("missing-01", result.getDeviceCode());
+        assertEquals("trace-unregistered-001", result.getLastTraceId());
+        assertEquals("south_rtu", result.getProductKey());
+    }
+
     private ResultSet mockMergedResultSet(Long sourceRecordId,
                                           String deviceCode,
                                           String productKey,

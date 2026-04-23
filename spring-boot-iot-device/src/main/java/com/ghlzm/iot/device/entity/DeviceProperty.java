@@ -29,6 +29,8 @@ public class DeviceProperty {
     private String propertyName;
     private String propertyValue;
     private String valueType;
+    @TableField(exist = false)
+    private String unit;
     private LocalDateTime reportTime;
 
     @TableField(fill = FieldFill.INSERT)

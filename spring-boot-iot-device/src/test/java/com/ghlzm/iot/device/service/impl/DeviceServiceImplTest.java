@@ -8,7 +8,9 @@ import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingSuggestionQuery;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.ProductModel;
@@ -18,11 +20,15 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
+import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingSuggestionVO;
+import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.framework.config.IotProperties;
 import com.ghlzm.iot.system.entity.Organization;
@@ -30,6 +36,7 @@ import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.OrganizationService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,6 +49,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,9 +83,13 @@ class DeviceServiceImplTest {
     @Mock
     private DeviceInvalidReportStateService invalidReportStateService;
     @Mock
+    private DeviceOnboardingSuggestionService deviceOnboardingSuggestionService;
+    @Mock
     private PermissionService permissionService;
     @Mock
     private OrganizationService organizationService;
+    @Mock
+    private RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
 
     private DeviceServiceImpl deviceService;
     private IotProperties iotProperties;
@@ -102,9 +114,23 @@ class DeviceServiceImplTest {
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
+                deviceOnboardingSuggestionService,
                 permissionService,
-                organizationService
+                organizationService,
+                runtimeMetricDisplayRuleService
         ));
+    }
+
+    @Test
+    void springShouldResolveSingleCandidateConstructorForDeviceServiceImpl() {
+        AutowiredAnnotationBeanPostProcessor processor = new AutowiredAnnotationBeanPostProcessor();
+
+        Constructor<?>[] constructors =
+                processor.determineCandidateConstructors(DeviceServiceImpl.class, "deviceServiceImpl");
+
+        assertTrue(constructors != null && constructors.length == 1,
+                "Spring should resolve exactly one candidate constructor for DeviceServiceImpl");
+        assertEquals(11, constructors[0].getParameterCount());
     }
 
     @Test
@@ -250,6 +276,68 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void listPropertiesShouldApplyRuntimeDisplayRuleWhenFormalFieldMissing() {
+        Device device = new Device();
+        device.setId(2001L);
+        device.setProductId(1001L);
+        device.setDeviceCode("SK00TEST01");
+        doReturn(device).when(deviceService).getRequiredByCode("SK00TEST01");
+
+        DeviceProperty property = new DeviceProperty();
+        property.setIdentifier("S1_ZT_1.humidity");
+        property.setPropertyName("humidity");
+        property.setPropertyValue("67.2");
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(property));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(productService.getRequiredById(1001L)).thenReturn(enabledProduct("phase4-rain-gauge-product"));
+        when(runtimeMetricDisplayRuleService.resolveForDisplay(any(Product.class), eq("S1_ZT_1.humidity")))
+                .thenReturn(new RuntimeMetricDisplayRuleService.DisplayResolution(8101L, "PRODUCT", "相对湿度", "%RH"));
+
+        List<DeviceProperty> result = deviceService.listProperties("SK00TEST01");
+
+        assertEquals(1, result.size());
+        assertEquals("相对湿度", result.get(0).getPropertyName());
+        assertEquals("%RH", result.get(0).getUnit());
+    }
+
+    @Test
+    void listPropertiesShouldContinueOverlayAfterFormalFieldMatch() {
+        Device device = new Device();
+        device.setId(2001L);
+        device.setProductId(1001L);
+        device.setDeviceCode("SK00TEST02");
+        doReturn(device).when(deviceService).getRequiredByCode("SK00TEST02");
+
+        DeviceProperty formalProperty = new DeviceProperty();
+        formalProperty.setIdentifier("L1_QJ_1.angle");
+        formalProperty.setPropertyName("angle");
+        formalProperty.setPropertyValue("-6.03");
+
+        DeviceProperty runtimeProperty = new DeviceProperty();
+        runtimeProperty.setIdentifier("S1_ZT_1.humidity");
+        runtimeProperty.setPropertyName("humidity");
+        runtimeProperty.setPropertyValue("67.2");
+
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(formalProperty, runtimeProperty));
+
+        ProductModel model = new ProductModel();
+        model.setIdentifier("L1_QJ_1.angle");
+        model.setModelName("水平面夹角");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(model));
+
+        when(productService.getRequiredById(1001L)).thenReturn(enabledProduct("phase4-rain-gauge-product"));
+        when(runtimeMetricDisplayRuleService.resolveForDisplay(any(Product.class), eq("S1_ZT_1.humidity")))
+                .thenReturn(new RuntimeMetricDisplayRuleService.DisplayResolution(8102L, "PRODUCT", "相对湿度", "%RH"));
+
+        List<DeviceProperty> result = deviceService.listProperties("SK00TEST02");
+
+        assertEquals(2, result.size());
+        assertEquals("水平面夹角", result.get(0).getPropertyName());
+        assertEquals("相对湿度", result.get(1).getPropertyName());
+        assertEquals("%RH", result.get(1).getUnit());
+    }
+
+    @Test
     void applyRelationFieldsShouldIgnoreNullRelationIdsWhenMapIsEmpty() throws Exception {
         DevicePageVO row = new DevicePageVO();
         Method applyRelationFieldsMethod = DeviceServiceImpl.class
@@ -353,6 +441,33 @@ class DeviceServiceImplTest {
         assertEquals(List.of("shadow-device-01"), result.getRecords().stream().map(DevicePageVO::getDeviceCode).toList());
         assertEquals(List.of(0), result.getRecords().stream().map(DevicePageVO::getRegistrationStatus).toList());
         verify(deviceService, never()).count(any());
+    }
+
+    @Test
+    void getOnboardingSuggestionShouldDelegateWithScopedTenant() {
+        when(permissionService.getDataPermissionContext(101L))
+                .thenReturn(new DataPermissionContext(101L, 8L, null, DataScopeType.TENANT, false));
+        DeviceOnboardingSuggestionVO suggestion = new DeviceOnboardingSuggestionVO();
+        suggestion.setTraceId("trace-unregistered-001");
+        suggestion.setRecommendedProductKey("south_rtu");
+        when(deviceOnboardingSuggestionService.suggest(eq(8L), any())).thenReturn(suggestion);
+
+        DeviceOnboardingSuggestionQuery query = new DeviceOnboardingSuggestionQuery("trace-unregistered-001");
+        DeviceOnboardingSuggestionVO result = deviceService.getOnboardingSuggestion(101L, query);
+
+        assertEquals("south_rtu", result.getRecommendedProductKey());
+        verify(deviceOnboardingSuggestionService).suggest(eq(8L), eq(query));
+    }
+
+    @Test
+    void getOnboardingSuggestionShouldRejectOrganizationScopedUser() {
+        when(permissionService.getDataPermissionContext(101L))
+                .thenReturn(new DataPermissionContext(101L, 8L, 7101L, DataScopeType.ORG, false));
+
+        BizException error = assertThrows(BizException.class,
+                () -> deviceService.getOnboardingSuggestion(101L, new DeviceOnboardingSuggestionQuery("trace-unregistered-001")));
+
+        assertEquals("当前数据权限暂不支持未登记设备接入建议", error.getMessage());
     }
 
     @Test
@@ -492,6 +607,29 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void listDeviceOptionsShouldInferVideoCapabilityFromDeviceNameWhenProductMissing() {
+        Device videoDevice = new Device();
+        videoDevice.setId(4005L);
+        videoDevice.setProductId(0L);
+        videoDevice.setOrgId(7101L);
+        videoDevice.setDeviceCode("3c2c1e3d-5f57-4db3-a42a-1cc2a5b21963");
+        videoDevice.setDeviceName("G30甘肃天水宝天段K1328+850上行水毁监控");
+        videoDevice.setDeviceStatus(DeviceStatusEnum.ENABLED.getCode());
+
+        doReturn(List.of(videoDevice)).when(deviceService).list(any(LambdaQueryWrapper.class));
+        when(productService.listByIds(any())).thenReturn(List.of());
+        when(riskMetricCatalogReadMapper.selectList(any())).thenReturn(List.of());
+
+        List<DeviceOptionVO> result = deviceService.listDeviceOptions(false);
+
+        assertEquals(1, result.size());
+        assertEquals(DeviceBindingCapabilityType.VIDEO.name(), result.get(0).getDeviceCapabilityType());
+        assertEquals(Boolean.FALSE, result.get(0).getSupportsMetricBinding());
+        assertEquals(Boolean.TRUE, result.get(0).getAiEventExpandable());
+        assertEquals("3c2c1e3d-5f57-4db3-a42a-1cc2a5b21963", result.get(0).getDeviceCode());
+    }
+
+    @Test
     void listMetricOptionsShouldRejectCrossTenantDevice() {
         Device crossTenantDevice = new Device();
         crossTenantDevice.setId(4003L);
@@ -556,6 +694,7 @@ class DeviceServiceImplTest {
                 unregisteredDeviceRosterService,
                 iotProperties,
                 invalidReportStateService,
+                deviceOnboardingSuggestionService,
                 permissionService,
                 organizationService
         ));

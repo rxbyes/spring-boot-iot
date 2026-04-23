@@ -19,7 +19,7 @@ describe('deviceInsightCapability', () => {
       '传感器在线状态',
       '剩余电量'
     ]);
-    expect(profile.trendGroups.map((item) => item.title)).toEqual(['监测数据', '状态数据']);
+    expect(profile.trendGroups.map((item) => item.title)).toEqual(['监测数据', '状态事件', '运行参数']);
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('相对湿度');
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('4G 信号强度');
   });
@@ -31,9 +31,7 @@ describe('deviceInsightCapability', () => {
     expect(request.deviceId).toBe(2001);
     expect(request.rangeCode).toBe('1d');
     expect(request.fillPolicy).toBe('ZERO');
-    expect(request.identifiers).toContain('L4_NW_1');
-    expect(request.identifiers).toContain('S1_ZT_1.sensor_state.L4_NW_1');
-    expect(request.identifiers).toContain('S1_ZT_1.battery_dump_energy');
+    expect(request.identifiers).toEqual([]);
   });
 
   it('preserves snowflake device ids instead of coercing them to unsafe numbers', () => {
@@ -89,16 +87,12 @@ describe('deviceInsightCapability', () => {
     expect(profile.heroMetrics.map((item) => item.displayName)).toEqual([
       '裂缝量',
       '水平面夹角',
-      'X向加速度'
+      'X轴加速度'
     ]);
-    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([
-      'L1_LF_1.value',
-      'L1_QJ_1.angle',
-      'L1_JS_1.gX'
-    ]);
+    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([]);
   });
 
-  it('builds collect-device profile from runtime properties instead of falling back to empty generic template', () => {
+  it('builds collect-device snapshot metrics without auto-filling trend groups', () => {
     const profile = getInsightCapabilityProfile({
       deviceCode: 'COLLECT-001',
       productName: '雨量采集终端',
@@ -140,9 +134,10 @@ describe('deviceInsightCapability', () => {
       '采集通道在线状态',
       '4G 信号强度'
     ]);
-    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toContain('YL_1');
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).toContain('S1_ZT_1.humidity');
-    expect(profile.extensionParameters.map((item) => item.displayName)).toContain('相对湿度');
+    expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers).toEqual([]);
+    expect(profile.trendGroups.find((item) => item.key === 'statusEvent')?.identifiers).toEqual([]);
+    expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers).toEqual([]);
+    expect(profile.historyIdentifiers).toEqual([]);
   });
 
   it('builds warning-device profile with warning-centric metrics and dynamic status extensions', () => {
@@ -189,8 +184,7 @@ describe('deviceInsightCapability', () => {
       '剩余电量'
     ]);
     expect(profile.extensionParameters.map((item) => item.displayName)).toContain('4G 信号强度');
-    expect(profile.historyIdentifiers).toContain('warning_level');
-    expect(profile.historyIdentifiers).toContain('S1_ZT_1.signal_4g');
+    expect(profile.historyIdentifiers).toEqual([]);
   });
 
   it('merges metadataJson custom metrics and analysis templates into the capability profile', () => {
@@ -247,6 +241,38 @@ describe('deviceInsightCapability', () => {
     expect(
       profile.customMetrics.find((item) => item.identifier === 'S1_ZT_1.signal_4g')?.displayName
     ).toBe('传输信号');
+  });
+
+  it('rewrites short configured identifiers to the unique full-path runtime identifier', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'COLLECT-ALIAS-001',
+      productName: '雨量采集终端',
+      metadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'signal_4g',
+              displayName: '传输信号',
+              group: 'status',
+              includeInTrend: true,
+              includeInExtension: false
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G 信号强度',
+          propertyValue: '-82',
+          valueType: 'int'
+        }
+      ]
+    });
+
+    expect(profile.historyIdentifiers).toEqual(['S1_ZT_1.signal_4g']);
+    expect(profile.customMetrics.find((item) => item.displayName === '传输信号')?.identifier).toBe('S1_ZT_1.signal_4g');
   });
 
   it('prefers device metadata over product metadata while preserving product-level fallback metrics', () => {
@@ -399,8 +425,115 @@ describe('deviceInsightCapability', () => {
     });
 
     expect(profile.trendGroups.find((item) => item.key === 'measure')?.identifiers[0]).toBe('YL_1');
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers[0]).toBe('S1_ZT_1.signal_4g');
-    expect(profile.trendGroups.find((item) => item.key === 'status')?.identifiers).not.toContain('S1_ZT_1.humidity');
+    expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers[0]).toBe('S1_ZT_1.signal_4g');
+    expect(profile.trendGroups.find((item) => item.key === 'runtime')?.identifiers).not.toContain('S1_ZT_1.humidity');
     expect(profile.historyIdentifiers).not.toContain('S1_ZT_1.humidity');
+  });
+
+  it('aligns metadata custom metric identifiers to runtime property casing before building history identifiers', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'SK11EB0D1308100AZ',
+      productName: '南方测绘 监测型 多维位移监测仪',
+      productMetadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'l1_js_1.gx',
+              displayName: '1号加速度测点gX',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            },
+            {
+              identifier: 'l1_lf_1.value',
+              displayName: '裂缝值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            },
+            {
+              identifier: 's1_zt_1.signal_4g',
+              displayName: '4G 信号',
+              group: 'runtime',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'L1_JS_1.gX',
+          propertyName: 'X轴加速度',
+          propertyValue: '0.1667',
+          valueType: 'double'
+        },
+        {
+          id: 2,
+          identifier: 'L1_LF_1.value',
+          propertyName: '裂缝值',
+          propertyValue: '0.2136',
+          valueType: 'double'
+        },
+        {
+          id: 3,
+          identifier: 'S1_ZT_1.signal_4g',
+          propertyName: '4G信号',
+          propertyValue: '-55',
+          valueType: 'int'
+        }
+      ]
+    });
+
+    expect(profile.historyIdentifiers).toEqual(
+      expect.arrayContaining(['L1_JS_1.gX', 'L1_LF_1.value', 'S1_ZT_1.signal_4g'])
+    );
+    expect(profile.historyIdentifiers).not.toEqual(
+      expect.arrayContaining(['l1_js_1.gx', 'l1_lf_1.value', 's1_zt_1.signal_4g'])
+    );
+  });
+
+  it('keeps short configured identifiers unchanged when multiple runtime suffix matches exist', () => {
+    const profile = getInsightCapabilityProfile({
+      deviceCode: 'COLLECT-CANONICAL-001',
+      productName: '雨量采集终端',
+      productMetadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'value',
+              displayName: '监测值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true
+            }
+          ]
+        }
+      }),
+      properties: [
+        {
+          id: 1,
+          identifier: 'L1_LF_1.value',
+          propertyName: '裂缝量',
+          propertyValue: '0.18',
+          valueType: 'double'
+        },
+        {
+          id: 2,
+          identifier: 'L1_SW_1.value',
+          propertyName: '深部位移值',
+          propertyValue: '0.03',
+          valueType: 'double'
+        }
+      ]
+    });
+
+    expect(profile.historyIdentifiers).toEqual(['value']);
+    expect(profile.customMetrics.find((item) => item.displayName === '监测值')?.identifier).toBe('value');
   });
 });

@@ -2,6 +2,7 @@ import { buildQueryString } from './query'
 import { request } from './request'
 import type {
   ApiEnvelope,
+  GovernanceDecisionContext,
   GovernanceWorkItem,
   GovernanceWorkItemPageQuery,
   GovernanceWorkItemTransitionPayload,
@@ -9,14 +10,16 @@ import type {
   PageResult
 } from '@/types/api'
 
+export type GovernanceWorkItemPageResult = PageResult<GovernanceWorkItem>
+
 export function pageGovernanceWorkItems(
   params: GovernanceWorkItemPageQuery = {}
-): Promise<ApiEnvelope<PageResult<GovernanceWorkItem>>> {
+): Promise<ApiEnvelope<GovernanceWorkItemPageResult>> {
   const queryString = buildQueryString(params)
   const path = queryString
     ? `/api/governance/work-items?${queryString}`
     : '/api/governance/work-items'
-  return request<PageResult<GovernanceWorkItem>>(path, {
+  return request<GovernanceWorkItemPageResult>(path, {
     method: 'GET'
   })
 }
@@ -51,8 +54,17 @@ export function closeGovernanceWorkItem(
   })
 }
 
+export function getGovernanceWorkItemDecisionContext(
+  id: IdType
+): Promise<ApiEnvelope<GovernanceDecisionContext>> {
+  return request<GovernanceDecisionContext>(`/api/governance/work-items/${id}/decision-context`, {
+    method: 'GET'
+  })
+}
+
 export const governanceWorkItemApi = {
   pageWorkItems: pageGovernanceWorkItems,
+  getDecisionContext: getGovernanceWorkItemDecisionContext,
   ackWorkItem: ackGovernanceWorkItem,
   blockWorkItem: blockGovernanceWorkItem,
   closeWorkItem: closeGovernanceWorkItem

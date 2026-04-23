@@ -34,10 +34,13 @@ export interface Product {
   updatedAt: string;
 }
 
+export type ProductObjectInsightMetricGroup = 'measure' | 'statusEvent' | 'runtime';
+
 export interface ProductObjectInsightCustomMetricConfig {
   identifier: string;
   displayName: string;
-  group: 'measure' | 'status';
+  group: ProductObjectInsightMetricGroup;
+  unit?: string | null;
   includeInTrend?: boolean | null;
   includeInExtension?: boolean | null;
   analysisTitle?: string | null;
@@ -51,8 +54,15 @@ export interface ProductObjectInsightConfig {
   customMetrics?: ProductObjectInsightCustomMetricConfig[] | null;
 }
 
+export type ProductGovernanceCapabilityType = 'MONITORING' | 'COLLECTING' | 'WARNING' | 'VIDEO' | 'UNKNOWN';
+
+export interface ProductGovernanceConfig {
+  productCapabilityType?: ProductGovernanceCapabilityType | string | null;
+}
+
 export interface ProductMetadata {
   objectInsight?: ProductObjectInsightConfig | null;
+  governance?: ProductGovernanceConfig | null;
 }
 
 export interface ProductAddPayload {
@@ -90,7 +100,7 @@ export interface ProductModelUpsertPayload {
   identifier: string;
   modelName: string;
   dataType?: string;
-  specsJson?: string;
+  specsJson?: string | null;
   eventType?: string;
   serviceInputJson?: string;
   serviceOutputJson?: string;
@@ -179,10 +189,35 @@ export interface ProductModelGovernanceSummary {
   lastComparedAt?: string | null;
 }
 
+export type ProductModelContractIdentifierMode = 'DIRECT' | 'FULL_PATH';
+
+export interface ProductModelCandidateSummary {
+  extractionMode?: string | null;
+  sampleType?: string | null;
+  sampleDeviceCode?: string | null;
+  resolvedContractIdentifierMode?: ProductModelContractIdentifierMode | null;
+  propertyEvidenceCount?: number | null;
+  propertyCandidateCount?: number | null;
+  eventEvidenceCount?: number | null;
+  eventCandidateCount?: number | null;
+  serviceEvidenceCount?: number | null;
+  serviceCandidateCount?: number | null;
+  needsReviewCount?: number | null;
+  existingModelCount?: number | null;
+  createdCount?: number | null;
+  skippedCount?: number | null;
+  conflictCount?: number | null;
+  eventHint?: string | null;
+  serviceHint?: string | null;
+  ignoredFieldCount?: number | null;
+  lastExtractedAt?: string | null;
+}
+
 export interface ProductModelGovernanceComparePayload {
   manualExtract?: {
     sampleType: 'business' | 'status';
     deviceStructure: 'single' | 'composite';
+    contractIdentifierMode?: ProductModelContractIdentifierMode | null;
     samplePayload: string;
     parentDeviceCode?: string | null;
     relationMappings?: Array<{
@@ -195,8 +230,8 @@ export interface ProductModelGovernanceComparePayload {
 export interface ProductModelGovernanceCompareResult {
   productId: string | number;
   summary: ProductModelGovernanceSummary;
-  manualSummary?: Record<string, unknown> | null;
-  runtimeSummary?: Record<string, unknown> | null;
+  manualSummary?: ProductModelCandidateSummary | null;
+  runtimeSummary?: ProductModelCandidateSummary | null;
   formalSummary?: ProductModelGovernanceSummary | null;
   compareRows: ProductModelGovernanceCompareRow[];
 }
@@ -232,6 +267,118 @@ export interface ProductModelGovernanceApplyResult {
   approvalOrderId?: string | number | null;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | null;
   executionPending?: boolean | null;
+}
+
+export type VendorMetricMappingSuggestionStatus =
+  | 'READY_TO_CREATE'
+  | 'ALREADY_COVERED'
+  | 'LOW_CONFIDENCE'
+  | 'CONFLICTS_WITH_EXISTING'
+  | `IGNORED_${string}`
+  | string;
+
+export type VendorMetricMappingRuleScopeType =
+  | 'PRODUCT'
+  | 'DEVICE_FAMILY'
+  | 'SCENARIO'
+  | 'PROTOCOL'
+  | 'TENANT_DEFAULT';
+
+export type VendorMetricMappingRuleLifecycleStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'DISABLED'
+  | string;
+
+export interface VendorMetricMappingRuleSuggestion {
+  id?: string | number | null;
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  targetNormativeIdentifier: string;
+  recommendedScopeType?: VendorMetricMappingRuleScopeType | null;
+  status: VendorMetricMappingSuggestionStatus | string;
+  confidence?: string | null;
+  evidenceCount?: number | null;
+  sampleValue?: string | null;
+  valueType?: string | null;
+  evidenceOrigin?: string | null;
+  lastSeenTime?: string | null;
+  reason?: string | null;
+  existingRuleId?: string | number | null;
+  existingTargetNormativeIdentifier?: string | null;
+}
+
+export interface VendorMetricMappingRuleSuggestionQuery {
+  includeCovered?: boolean;
+  includeIgnored?: boolean;
+  minEvidenceCount?: number;
+}
+
+export interface VendorMetricMappingRule {
+  id?: string | number | null;
+  productId?: string | number | null;
+  scopeType?: VendorMetricMappingRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  logicalChannelCode?: string | null;
+  relationConditionJson?: string | null;
+  normalizationRuleJson?: string | null;
+  targetNormativeIdentifier?: string | null;
+  status?: VendorMetricMappingRuleLifecycleStatus | null;
+  versionNo?: number | null;
+  approvalOrderId?: string | number | null;
+  createBy?: string | number | null;
+  createTime?: string | null;
+  updateBy?: string | number | null;
+  updateTime?: string | null;
+}
+
+export interface VendorMetricMappingRuleCreatePayload {
+  scopeType: VendorMetricMappingRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  logicalChannelCode?: string | null;
+  relationConditionJson?: string | null;
+  normalizationRuleJson?: string | null;
+  targetNormativeIdentifier: string;
+  status: VendorMetricMappingRuleLifecycleStatus;
+}
+
+export type RuntimeMetricDisplayRuleScopeType = VendorMetricMappingRuleScopeType;
+
+export type RuntimeMetricDisplayRuleStatus = 'ACTIVE' | 'DISABLED' | string;
+
+export interface RuntimeMetricDisplayRule {
+  id?: string | number | null;
+  productId?: string | number | null;
+  scopeType?: RuntimeMetricDisplayRuleScopeType | null;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier?: string | null;
+  displayName?: string | null;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
+  versionNo?: number | null;
+  createBy?: string | number | null;
+  createTime?: string | null;
+  updateBy?: string | number | null;
+  updateTime?: string | null;
+}
+
+export interface RuntimeMetricDisplayRuleUpsertPayload {
+  scopeType: RuntimeMetricDisplayRuleScopeType;
+  protocolCode?: string | null;
+  scenarioCode?: string | null;
+  deviceFamily?: string | null;
+  rawIdentifier: string;
+  displayName: string;
+  unit?: string | null;
+  status?: RuntimeMetricDisplayRuleStatus | null;
 }
 
 export type GovernanceApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';

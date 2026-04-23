@@ -10,6 +10,8 @@ import lombok.Data;
 @Data
 public class ProductModelGovernanceApplyResultVO {
 
+    private Integer submittedItemCount;
+
     private Integer createdCount;
 
     private Integer updatedCount;

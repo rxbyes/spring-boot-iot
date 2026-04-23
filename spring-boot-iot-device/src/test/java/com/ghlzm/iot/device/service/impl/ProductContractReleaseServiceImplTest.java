@@ -11,10 +11,17 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.vo.ProductContractReleaseBatchVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseImpactVO;
 import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
+import com.ghlzm.iot.system.service.GovernanceImpactDependencyQueryService;
+import com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary;
+import java.lang.reflect.Constructor;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.PropertyAccessorFactory;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +45,9 @@ class ProductContractReleaseServiceImplTest {
 
     @Mock
     private ProductModelMapper productModelMapper;
+
+    @Mock
+    private GovernanceImpactDependencyQueryService impactDependencyQueryService;
 
     @Test
     void createBatchShouldPersistCurrentReleaseBatchFields() {
@@ -216,6 +226,121 @@ class ProductContractReleaseServiceImplTest {
         assertEquals(1, impact.getChangedCount());
         assertEquals(0, impact.getUnchangedCount());
         assertEquals(3, impact.getImpactItems().size());
+    }
+
+    @Test
+    void analyzeBatchImpactShouldIncludeDownstreamDependencySummaryAndDetails() {
+        ProductContractReleaseServiceImpl service = new ProductContractReleaseServiceImpl(
+                releaseBatchMapper,
+                releaseSnapshotMapper,
+                productModelMapper
+        );
+        ReflectionTestUtils.setField(service, "impactDependencyQueryService", impactDependencyQueryService);
+
+        ProductContractReleaseBatch target = batch(7001L, 1001L, "phase1-crack", "manual_compare_apply", 3);
+        ProductContractReleaseSnapshot before = new ProductContractReleaseSnapshot();
+        before.setId(8201L);
+        before.setBatchId(7001L);
+        before.setSnapshotStage(ProductContractReleaseServiceImpl.SNAPSHOT_STAGE_BEFORE_APPLY);
+        before.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"temp","modelName":"温度","dataType":"double","sortNo":1,"requiredFlag":0},
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值-旧","dataType":"double","sortNo":2,"requiredFlag":1}
+                ]
+                """);
+        ProductContractReleaseSnapshot after = new ProductContractReleaseSnapshot();
+        after.setId(8202L);
+        after.setBatchId(7001L);
+        after.setSnapshotStage(ProductContractReleaseServiceImpl.SNAPSHOT_STAGE_AFTER_APPLY);
+        after.setSnapshotJson("""
+                [
+                  {"modelType":"property","identifier":"value","modelName":"裂缝值-新","dataType":"double","sortNo":2,"requiredFlag":1},
+                  {"modelType":"property","identifier":"humidity","modelName":"湿度","dataType":"double","sortNo":3,"requiredFlag":0}
+                ]
+                """);
+        when(releaseBatchMapper.selectById(7001L)).thenReturn(target);
+        when(releaseSnapshotMapper.selectList(any())).thenReturn(List.of(before), List.of(after));
+        when(impactDependencyQueryService.summarizeProductContractImpact(1001L, Set.of("temp", "value", "humidity")))
+                .thenReturn(buildDependencySummaryWithDetails());
+
+        ProductContractReleaseImpactVO impact = service.analyzeBatchImpact(7001L);
+
+        BeanWrapper impactWrapper = PropertyAccessorFactory.forBeanPropertyAccess(impact);
+        Object dependencySummary = impactWrapper.getPropertyValue("dependencySummary");
+        assertNotNull(dependencySummary);
+        BeanWrapper summaryWrapper = PropertyAccessorFactory.forBeanPropertyAccess(dependencySummary);
+        assertEquals(1L, ((Number) summaryWrapper.getPropertyValue("affectedRiskMetricCount")).longValue());
+        assertEquals(2L, ((Number) summaryWrapper.getPropertyValue("affectedRiskPointBindingCount")).longValue());
+        assertEquals(3L, ((Number) summaryWrapper.getPropertyValue("affectedRuleCount")).longValue());
+        assertEquals(4L, ((Number) summaryWrapper.getPropertyValue("affectedLinkageBindingCount")).longValue());
+        assertEquals(5L, ((Number) summaryWrapper.getPropertyValue("affectedEmergencyPlanBindingCount")).longValue());
+        assertEquals(1, ((List<?>) summaryWrapper.getPropertyValue("affectedRiskMetrics")).size());
+        assertEquals(1, ((List<?>) summaryWrapper.getPropertyValue("affectedRiskPointBindings")).size());
+        assertEquals(1, ((List<?>) summaryWrapper.getPropertyValue("affectedRules")).size());
+        assertEquals(1, ((List<?>) summaryWrapper.getPropertyValue("affectedLinkageBindings")).size());
+        assertEquals(1, ((List<?>) summaryWrapper.getPropertyValue("affectedEmergencyPlanBindings")).size());
+        verify(impactDependencyQueryService).summarizeProductContractImpact(1001L, Set.of("temp", "value", "humidity"));
+    }
+
+    private GovernanceImpactDependencySummary buildDependencySummaryWithDetails() {
+        try {
+            Constructor<GovernanceImpactDependencySummary> constructor = GovernanceImpactDependencySummary.class.getConstructor(
+                    long.class,
+                    long.class,
+                    long.class,
+                    long.class,
+                    long.class,
+                    List.class,
+                    List.class,
+                    List.class,
+                    List.class,
+                    List.class
+            );
+            return constructor.newInstance(
+                    1L,
+                    2L,
+                    3L,
+                    4L,
+                    5L,
+                    List.of(instantiateDependencyRecord(
+                            "com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary$RiskMetricDetail",
+                            9101L, "value", "value", "metric.value", "裂缝值", "MEASURE", "ACTIVE"
+                    )),
+                    List.of(instantiateDependencyRecord(
+                            "com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary$RiskPointBindingDetail",
+                            7001L, 5001L, "北坡风险点", 3001L, "DEVICE-3001", "北坡设备", 9101L, "value", "裂缝值"
+                    )),
+                    List.of(instantiateDependencyRecord(
+                            "com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary$RuleDetail",
+                            8101L, "裂缝值红色阈值", 9101L, "value", "裂缝值", "red"
+                    )),
+                    List.of(instantiateDependencyRecord(
+                            "com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary$LinkageBindingDetail",
+                            8201L, 8301L, "裂缝值联动", 9101L, "ACTIVE"
+                    )),
+                    List.of(instantiateDependencyRecord(
+                            "com.ghlzm.iot.system.service.model.GovernanceImpactDependencySummary$EmergencyPlanBindingDetail",
+                            8401L, 8501L, "裂缝值应急预案", 9101L, "ACTIVE", "red"
+                    ))
+            );
+        } catch (Exception ex) {
+            throw new IllegalStateException("Unable to construct governance dependency summary", ex);
+        }
+    }
+
+    private Object instantiateDependencyRecord(String className, Object... arguments) throws Exception {
+        Class<?> recordClass = Class.forName(className);
+        Class<?>[] argumentTypes = new Class<?>[arguments.length];
+        for (int index = 0; index < arguments.length; index++) {
+            Object argument = arguments[index];
+            if (argument instanceof Long) {
+                argumentTypes[index] = Long.class;
+            } else {
+                argumentTypes[index] = String.class;
+            }
+        }
+        Constructor<?> constructor = recordClass.getDeclaredConstructor(argumentTypes);
+        return constructor.newInstance(arguments);
     }
 
     private ProductContractReleaseBatch batch(Long id,

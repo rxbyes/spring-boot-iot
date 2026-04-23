@@ -69,6 +69,19 @@ class DeviceTelemetryMappingServiceImplTest {
         assertIterableEquals(List.of(TelemetryMetricMapping.REASON_MAPPING_NOT_CONFIGURED), voltage.getFallbackReasons());
     }
 
+    @Test
+    void listMetricMappingMapShouldKeepPublishedMixedCaseCanonicalIdentifier() {
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                productModel("L1_GNSS_1.gpsTotalX",
+                        "{\"tdengineLegacy\":{\"enabled\":true,\"stable\":\"s1_zt_1\",\"column\":\"gpsx\"}}")
+        ));
+
+        Map<String, TelemetryMetricMapping> mappingMap = deviceTelemetryMappingService.listMetricMappingMap(1001L);
+
+        assertTrue(mappingMap.containsKey("gpsTotalX"));
+        assertFalse(mappingMap.containsKey("gpstotalx"));
+    }
+
     private ProductModel productModel(String identifier, String specsJson) {
         ProductModel productModel = new ProductModel();
         productModel.setIdentifier(identifier);

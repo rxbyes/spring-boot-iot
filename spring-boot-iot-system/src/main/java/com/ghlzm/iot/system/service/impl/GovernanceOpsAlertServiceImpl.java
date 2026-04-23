@@ -81,19 +81,22 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         refreshed.setTraceId(normalize(normalized.traceId()));
         refreshed.setDeviceCode(normalize(normalized.deviceCode()));
         refreshed.setProductKey(normalize(normalized.productKey()));
-        refreshed.setAlertStatus(STATUS_OPEN);
+        refreshed.setAlertStatus(resolveAlertStatus(existing));
         refreshed.setSeverityLevel(defaultSeverity(normalized.severityLevel()));
         refreshed.setAffectedCount(defaultAffectedCount(normalized.affectedCount()));
         refreshed.setAlertTitle(normalize(normalized.alertTitle()));
-        refreshed.setAlertMessage(normalize(normalized.alertMessage()));
+        refreshed.setAlertMessage(resolveAlertMessage(existing, normalized));
         refreshed.setDimensionKey(normalize(normalized.dimensionKey()));
         refreshed.setDimensionLabel(normalize(normalized.dimensionLabel()));
         refreshed.setSourceStage(normalize(normalized.sourceStage()));
         refreshed.setSnapshotJson(normalize(normalized.snapshotJson()));
         refreshed.setLastSeenTime(now);
-        refreshed.setResolvedTime(null);
-        refreshed.setClosedTime(null);
+        refreshed.setResolvedTime(shouldReopen(existing) ? null : existing.getResolvedTime());
+        refreshed.setClosedTime(shouldReopen(existing) ? null : existing.getClosedTime());
         refreshed.setUpdateBy(normalized.operatorUserId());
+        if (!shouldReopen(existing) && existing.getAssigneeUserId() != null) {
+            refreshed.setAssigneeUserId(existing.getAssigneeUserId());
+        }
         alertMapper.updateById(refreshed);
     }
 
@@ -113,6 +116,7 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
     public PageResult<GovernanceOpsAlertVO> pageAlerts(GovernanceOpsAlertPageQuery query, Long currentUserId) {
         Page<GovernanceOpsAlert> page = PageQueryUtils.buildPage(query == null ? null : query.getPageNum(), query == null ? null : query.getPageSize());
         Page<GovernanceOpsAlert> result = alertMapper.selectPage(page, buildPageWrapper(query));
+        result.getRecords().forEach(this::hydrateStructuredSnapshots);
         List<GovernanceOpsAlertVO> rows = result.getRecords().stream().map(this::toVO).toList();
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), rows);
     }
@@ -124,7 +128,7 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         update.setId(alert.getId());
         update.setAlertStatus(STATUS_ACKED);
         update.setAssigneeUserId(currentUserId);
-        update.setAlertMessage(normalize(comment));
+        update.setAlertMessage(resolveManualComment(alert.getAlertMessage(), comment));
         update.setUpdateBy(currentUserId);
         alertMapper.updateById(update);
     }
@@ -136,7 +140,7 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         update.setId(alert.getId());
         update.setAlertStatus(STATUS_SUPPRESSED);
         update.setAssigneeUserId(currentUserId);
-        update.setAlertMessage(normalize(comment));
+        update.setAlertMessage(resolveManualComment(alert.getAlertMessage(), comment));
         update.setUpdateBy(currentUserId);
         alertMapper.updateById(update);
     }
@@ -148,9 +152,33 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         update.setId(alert.getId());
         update.setAlertStatus(STATUS_CLOSED);
         update.setClosedTime(new Date());
-        update.setAlertMessage(normalize(comment));
+        update.setAlertMessage(resolveManualComment(alert.getAlertMessage(), comment));
         update.setUpdateBy(currentUserId);
         alertMapper.updateById(update);
+    }
+
+    private String resolveAlertStatus(GovernanceOpsAlert existing) {
+        if (existing == null || shouldReopen(existing)) {
+            return STATUS_OPEN;
+        }
+        return StringUtils.hasText(existing.getAlertStatus()) ? existing.getAlertStatus() : STATUS_OPEN;
+    }
+
+    private boolean shouldReopen(GovernanceOpsAlert existing) {
+        return existing == null || STATUS_RESOLVED.equals(existing.getAlertStatus());
+    }
+
+    private String resolveAlertMessage(GovernanceOpsAlert existing, GovernanceOpsAlertCommand command) {
+        String generated = normalize(command.alertMessage());
+        if (existing == null || shouldReopen(existing)) {
+            return generated;
+        }
+        return StringUtils.hasText(existing.getAlertMessage()) ? existing.getAlertMessage() : generated;
+    }
+
+    private String resolveManualComment(String existingMessage, String comment) {
+        String normalizedComment = normalize(comment);
+        return StringUtils.hasText(normalizedComment) ? normalizedComment : normalize(existingMessage);
     }
 
     private GovernanceOpsAlert requireByNaturalKey(String alertType, String alertCode) {
@@ -231,6 +259,9 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
         vo.setSourceStage(item.getSourceStage());
         vo.setSnapshotJson(item.getSnapshotJson());
         vo.setAssigneeUserId(item.getAssigneeUserId());
+        vo.setRecommendation(item.getRecommendation());
+        vo.setImpact(item.getImpact());
+        vo.setRollback(item.getRollback());
         vo.setFirstSeenTime(item.getFirstSeenTime());
         vo.setLastSeenTime(item.getLastSeenTime());
         vo.setResolvedTime(item.getResolvedTime());
@@ -247,6 +278,58 @@ public class GovernanceOpsAlertServiceImpl implements GovernanceOpsAlertService 
 
     private Long defaultAffectedCount(Long affectedCount) {
         return affectedCount == null || affectedCount < 0 ? 0L : affectedCount;
+    }
+
+    private void hydrateStructuredSnapshots(GovernanceOpsAlert item) {
+        if (item == null) {
+            return;
+        }
+        item.setRecommendation(GovernanceSnapshotResolver.resolveRecommendation(
+                null,
+                null,
+                item.getSnapshotJson(),
+                defaultRecommendationType(item.getAlertType()),
+                defaultSuggestedAction(item.getAlertMessage(), item.getAlertTitle())
+        ));
+        item.setImpact(GovernanceSnapshotResolver.resolveImpact(
+                null,
+                null,
+                item.getSnapshotJson(),
+                item.getAffectedCount(),
+                defaultAffectedType(item.getSubjectType(), item.getAlertType())
+        ));
+        item.setRollback(GovernanceSnapshotResolver.resolveRollback(
+                null,
+                null,
+                item.getSnapshotJson()
+        ));
+    }
+
+    private String defaultRecommendationType(String alertType) {
+        String normalized = normalize(alertType);
+        if ("FIELD_DRIFT".equals(normalized) || "CONTRACT_DIFF".equals(normalized)) {
+            return "PUBLISH";
+        }
+        if ("MISSING_RISK_METRIC".equals(normalized)) {
+            return "CREATE_POLICY";
+        }
+        return "IGNORE";
+    }
+
+    private String defaultSuggestedAction(String alertMessage, String alertTitle) {
+        String normalizedMessage = normalize(alertMessage);
+        if (StringUtils.hasText(normalizedMessage)) {
+            return normalizedMessage;
+        }
+        return normalize(alertTitle);
+    }
+
+    private String defaultAffectedType(String subjectType, String alertType) {
+        String normalizedSubjectType = normalize(subjectType);
+        if (StringUtils.hasText(normalizedSubjectType)) {
+            return normalizedSubjectType;
+        }
+        return normalize(alertType);
     }
 
     private String normalize(String value) {

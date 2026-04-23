@@ -6,8 +6,8 @@
         :key="metric.key"
         class="product-detail-workbench__metric-card"
       >
-        <span class="product-detail-workbench__copy-label">{{ metric.label }}</span>
-        <strong class="product-detail-workbench__copy-value">{{ metric.value }}</strong>
+        <span class="product-detail-workbench__copy-label product-detail-workbench__copy-label--metric">{{ metric.label }}</span>
+        <strong class="product-detail-workbench__copy-value product-detail-workbench__copy-value--metric">{{ metric.value }}</strong>
       </article>
     </section>
 
@@ -116,12 +116,12 @@ const archiveSummaryItems = computed(() => [
 }
 
 .product-detail-workbench {
-  gap: 0.88rem;
+  gap: 0.96rem;
 }
 
 .product-detail-workbench__metrics-row {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.88rem;
+  gap: 0.8rem;
 }
 
 .product-detail-workbench__metric-card,
@@ -136,30 +136,40 @@ const archiveSummaryItems = computed(() => [
 }
 
 .product-detail-workbench__metric-card {
-  gap: 0.34rem;
+  gap: 0.3rem;
   min-width: 0;
-  padding: 0.78rem 0.9rem;
+  padding: 0.72rem 0.84rem;
 }
 
 .product-detail-workbench__copy-label {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   line-height: 1.5;
+}
+
+.product-detail-workbench__copy-label--metric {
+  color: var(--text-caption);
+  letter-spacing: 0.01em;
 }
 
 .product-detail-workbench__copy-value {
   color: var(--text-heading);
-  font-size: 1.1rem;
-  line-height: 1.34;
+  font-size: 0.96rem;
+  line-height: 1.38;
+}
+
+.product-detail-workbench__copy-value--metric {
+  font-size: 1rem;
+  line-height: 1.28;
 }
 
 .product-detail-workbench__copy-value--body {
-  font-size: 1.02rem;
+  font-size: 0.94rem;
 }
 
 .product-detail-workbench__archive-card {
   gap: 0.72rem;
-  padding: 0.86rem 0.9rem;
+  padding: 0.82rem 0.88rem;
 }
 
 .product-detail-workbench__archive-header {

@@ -158,6 +158,10 @@ describe('RiskPointDetailDrawer', () => {
           deviceId: 21,
           deviceCode: 'DEVICE-021',
           deviceName: '一号倾角仪',
+          bindingMode: 'METRIC',
+          deviceCapabilityType: 'MONITORING',
+          aiEventExpandable: false,
+          extensionStatus: null,
           metricCount: 2,
           metrics: [
             {
@@ -173,6 +177,17 @@ describe('RiskPointDetailDrawer', () => {
               bindingSource: 'PENDING_PROMOTION'
             }
           ]
+        },
+        {
+          deviceId: 22,
+          deviceCode: 'DEVICE-022',
+          deviceName: '北坡视频设备',
+          bindingMode: 'DEVICE_ONLY',
+          deviceCapabilityType: 'VIDEO',
+          aiEventExpandable: true,
+          extensionStatus: 'AI_EVENT_RESERVED',
+          metricCount: 0,
+          metrics: []
         }
       ]
     })
@@ -186,12 +201,15 @@ describe('RiskPointDetailDrawer', () => {
     expect(mockListBindingGroups).toHaveBeenCalledWith(1)
     expect(wrapper.text()).toContain('示例风险点')
     expect(wrapper.text()).toContain('绑定概况')
-    expect(wrapper.text()).toContain('1 台已绑定设备')
+    expect(wrapper.text()).toContain('2 台已绑定设备')
     expect(wrapper.text()).toContain('2 个正式测点')
     expect(wrapper.text()).toContain('已绑定 / 待治理')
     expect(wrapper.text()).toContain('风险点档案')
     expect(wrapper.text()).toContain('一号倾角仪')
     expect(wrapper.text()).toContain('L1_QJ_1.AZI')
+    expect(wrapper.text()).toContain('北坡视频设备')
+    expect(wrapper.text()).toContain('设备级正式绑定')
+    expect(wrapper.text()).toContain('AI 事件扩展预留')
     expect(wrapper.text()).toContain('待治理 1 条')
     expect(wrapper.text()).toContain('最新描述')
   })
@@ -240,16 +258,14 @@ describe('RiskPointDetailDrawer', () => {
     expect(wrapper.text()).not.toContain('旧风险点')
   })
 
-  it('emits edit, maintain-binding, and pending-promotion actions from the footer', async () => {
+  it('emits edit and binding-workbench actions from the footer', async () => {
     const wrapper = mountDrawer()
     await flushPromises()
 
     await wrapper.get('[data-testid="detail-edit-action"]').trigger('click')
-    await wrapper.get('[data-testid="detail-maintain-binding-action"]').trigger('click')
-    await wrapper.get('[data-testid="detail-pending-promotion-action"]').trigger('click')
+    await wrapper.get('[data-testid="detail-binding-workbench-action"]').trigger('click')
 
     expect(wrapper.emitted('edit')).toHaveLength(1)
-    expect(wrapper.emitted('maintain-binding')).toHaveLength(1)
-    expect(wrapper.emitted('pending-promotion')).toHaveLength(1)
+    expect(wrapper.emitted('binding-workbench')).toHaveLength(1)
   })
 })

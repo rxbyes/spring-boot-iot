@@ -5,6 +5,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
+import com.ghlzm.iot.device.vo.ProductOverviewSummaryVO;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import java.util.List;
 
@@ -27,6 +28,8 @@ public interface ProductService extends IService<Product> {
      * 按主键查询产品详情。
      */
     ProductDetailVO getDetailById(Long id);
+
+    ProductOverviewSummaryVO getOverviewSummary(Long id);
 
     /**
      * 分页查询产品台账。

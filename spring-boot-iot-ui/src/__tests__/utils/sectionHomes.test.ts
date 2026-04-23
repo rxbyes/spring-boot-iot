@@ -44,7 +44,7 @@ describe('sectionHomes config', () => {
       'quality-workbench',
       'rd-workbench'
     ]);
-    expect(groups[0]?.items[0]?.label).toBe('产品定义中心');
+    expect(groups[0]?.items[0]?.label).toBe('无代码接入台');
   });
 
   it('matches activities by path and keywords for recent usage', () => {
@@ -212,12 +212,20 @@ describe('sectionHomes config', () => {
   it('exposes updated iot access hub overview copy', () => {
     const config = getSectionHomeConfigByPath('/device-access');
     expect(config).toBeTruthy();
-    expect(config?.intro).toContain('先去哪处理');
-    expect(config?.description).toBe('接入智维总览只负责入口分组和快速判断，不再重复子页说明墙。');
-    expect(config?.cards).toHaveLength(6);
-    expect(config?.hubJudgement).toBe('先进入资产底座，再切换到诊断排障。');
-    expect(config?.hubLeadTitle).toBe('优先处理资产底座与最近异常联动');
-    expect(config?.hubLeadDescription).toBe('产品与设备先稳住，链路验证、异常观测、链路追踪、数据校验只保留强相关联动。');
+    expect(config?.intro).toContain('排障树哪一段');
+    expect(config?.description).toBe('接入智维总览负责回答先去哪、再去哪、最后去哪修。');
+    expect(config?.cards).toHaveLength(8);
+    expect(config?.hubJudgement).toBe('先做链路验证，再按证据分流到诊断页，最后回产品或设备治理修正。');
+    expect(config?.hubLeadTitle).toBe('标准排障路径');
+    expect(config?.hubLeadDescription).toBe('标准排障路径固定为：链路验证 -> 链路追踪 / 异常观测 / 数据校验 -> 产品定义中心 / 设备资产中心。');
     expect(config?.hubLeadPath).toBe('/products');
+    expect(config?.steps).toEqual([
+      '先到链路验证中心拿到本次验证结果。',
+      '再按问题类型进入链路追踪台、异常观测台或数据校验台。',
+      '最后回产品定义中心或设备资产中心完成修正。'
+    ]);
+    expect(config?.cards.find((item) => item.path === '/products')?.description).toBe('维护产品定义，并承接契约治理、版本治理与风险目录入口。');
+    expect(config?.cards.find((item) => item.path === '/protocol-governance')?.description).toBe('维护协议族定义、解密档案和发布审批入口。');
+    expect(config?.cards.find((item) => item.path === '/reporting')?.description).toBe('排障起点：先发起模拟验证，再决定进入哪一条诊断分支。');
   });
 });

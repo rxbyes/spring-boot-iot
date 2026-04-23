@@ -1,298 +1,242 @@
 CREATE DATABASE IF NOT EXISTS iot;
 USE iot;
 
--- ========================================
--- TDengine 初始化基线
--- 项目：spring-boot-iot
--- 目标：
--- 1. 创建 TDengine 数据库 `iot`
--- 2. 初始化 telemetry legacy 兼容回退表
--- 3. 初始化 telemetry v2 raw stable
--- 4. 初始化 telemetry v2 MEASURE 小时聚合 stable
--- 说明：
--- - 本脚本支持重复执行，不要求先删库
--- - 本脚本不预创建设备子表；子表由运行时按 tenant + device + stream 自动派生
--- - 历史现场自定义 legacy stable 仍由环境侧治理，不在本脚本中创建
--- ========================================
+-- 本文件由 scripts/schema/render_artifacts.py 生成，不要手工编辑。
 
 -- ========================================
--- 表：iot_device_telemetry_point
--- 表介绍：
--- - TDengine legacy 兼容路径下的标准化回退表
--- - 一条标准化指标占一行，便于兼容查询和历史迁移
--- - 主要用于 legacy fallback 查询，以及手动迁移到 telemetry v2 raw/latest
--- 字段含义：
--- - ts：TDengine 行键时间，要求同表内足够唯一，避免同时间戳覆盖
--- - reported_at：设备真实上报时间
--- - tenant_id：租户 ID
--- - device_id：设备主键
--- - device_code：设备编码
--- - product_id：产品主键
--- - product_key：产品标识
--- - protocol_code：协议编码
--- - message_type：标准化消息类型，如 property/status/event
--- - mqtt_topic：标准化后的原始 Topic
--- - trace_id：全链路追踪 ID
--- - metric_code：标准化指标编码
--- - metric_name：指标显示名称
--- - value_type：标准化值类型
--- - value_text：文本值
--- - value_long：整型值
--- - value_double：浮点值
--- - value_bool：布尔值
--- ========================================
-CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
-    ts TIMESTAMP,
-    reported_at TIMESTAMP,
-    tenant_id BIGINT,
-    device_id BIGINT,
-    device_code BINARY(128),
-    product_id BIGINT,
-    product_key BINARY(128),
-    protocol_code BINARY(64),
-    message_type BINARY(32),
-    mqtt_topic BINARY(512),
-    trace_id BINARY(64),
-    metric_code BINARY(128),
-    metric_name NCHAR(128),
-    value_type BINARY(32),
-    value_text NCHAR(1024),
-    value_long BIGINT,
-    value_double DOUBLE,
-    value_bool BOOL
-);
-
--- ========================================
--- Telemetry v2 raw stable 基线
--- 表介绍：
--- - telemetry v2 正式 raw 时序存储
--- - 运行时按 stream kind 自动派生 child table：
---   tb_m_<tenantId>_<deviceId>
---   tb_s_<tenantId>_<deviceId>
---   tb_e_<tenantId>_<deviceId>
--- 共享字段含义：
--- - ts：入库时间行键，趋势默认按该时间轴读取
--- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表同时间多测点覆盖
--- - reported_at：真实上报/采集时间，仅用于追溯和 latest 判新
--- - ingested_at：进入平台的写入时间
--- - value_double/value_long/value_bool/value_text：按类型拆分后的指标值
--- - quality_code：质量码
--- - alarm_flag：是否为告警相关点位
--- - trace_id：全链路追踪 ID
--- - session_id：message-flow 会话 ID
--- - source_message_type：标准化后的来源消息类型
--- 共享 tags 含义：
--- - tenant_id：租户 ID
--- - device_id：设备主键
--- - product_id：产品主键
--- - sensor_group：传感器分组或逻辑流分组
--- - location_code：位置编码
--- - risk_point_id：绑定的风险点 ID
--- stable 对应关系：
--- - iot_raw_measure_point：测量类指标
--- - iot_raw_status_point：状态类指标
--- - iot_raw_event_point：事件类指标
--- ========================================
-
--- ----------------------------------------
--- stable：iot_raw_measure_point
--- 表介绍：
--- - telemetry v2 测量类 raw stable
--- - 承载温度、湿度、雨量、位移、倾角等连续测量指标
--- - 运行时通过 `tb_m_<tenantId>_<deviceId>` 派生设备子表
--- 字段含义：
--- - ts：入库时间行键，趋势默认按该时间轴读取
--- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表多测点覆盖
--- - reported_at：设备真实上报/采集时间，仅用于追溯和 latest 判新
--- - ingested_at：平台写入时间
--- - value_double：浮点型测量值
--- - value_long：整型测量值
--- - value_bool：布尔型测量值
--- - value_text：文本型测量值
--- - quality_code：质量码
--- - alarm_flag：是否为告警关联点位
--- - trace_id：全链路追踪 ID
--- - session_id：message-flow 会话 ID
--- - source_message_type：来源消息类型
--- tags 含义：
--- - tenant_id：租户 ID
--- - device_id：设备主键
--- - product_id：产品主键
--- - sensor_group：测点分组
--- - location_code：位置编码
--- - risk_point_id：绑定风险点 ID
--- ----------------------------------------
-CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
-    ts TIMESTAMP,
-    metric_id BINARY(128),
-    reported_at TIMESTAMP,
-    ingested_at TIMESTAMP,
-    value_double DOUBLE,
-    value_long BIGINT,
-    value_bool BOOL,
-    value_text NCHAR(1024),
-    quality_code BINARY(32),
-    alarm_flag BOOL,
-    trace_id BINARY(64),
-    session_id BINARY(64),
-    source_message_type BINARY(32)
-) TAGS (
-    tenant_id BIGINT,
-    device_id BIGINT,
-    product_id BIGINT,
-    sensor_group BINARY(64),
-    location_code BINARY(64),
-    risk_point_id BIGINT
-);
-
--- ----------------------------------------
--- stable：iot_raw_status_point
--- 表介绍：
--- - telemetry v2 状态类 raw stable
--- - 承载在线状态、开关状态、运行状态、故障状态等离散状态指标
--- - 运行时通过 `tb_s_<tenantId>_<deviceId>` 派生设备子表
--- 字段含义：
--- - ts：入库时间行键，趋势默认按该时间轴读取
--- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表多状态覆盖
--- - reported_at：设备真实上报/采集时间，仅用于追溯和 latest 判新
--- - ingested_at：平台写入时间
--- - value_double：浮点型状态值
--- - value_long：整型状态值
--- - value_bool：布尔型状态值
--- - value_text：文本型状态值
--- - quality_code：质量码
--- - alarm_flag：是否为告警关联点位
--- - trace_id：全链路追踪 ID
--- - session_id：message-flow 会话 ID
--- - source_message_type：来源消息类型
--- tags 含义：
--- - tenant_id：租户 ID
--- - device_id：设备主键
--- - product_id：产品主键
--- - sensor_group：状态分组
--- - location_code：位置编码
--- - risk_point_id：绑定风险点 ID
--- ----------------------------------------
-CREATE STABLE IF NOT EXISTS iot_raw_status_point (
-    ts TIMESTAMP,
-    metric_id BINARY(128),
-    reported_at TIMESTAMP,
-    ingested_at TIMESTAMP,
-    value_double DOUBLE,
-    value_long BIGINT,
-    value_bool BOOL,
-    value_text NCHAR(1024),
-    quality_code BINARY(32),
-    alarm_flag BOOL,
-    trace_id BINARY(64),
-    session_id BINARY(64),
-    source_message_type BINARY(32)
-) TAGS (
-    tenant_id BIGINT,
-    device_id BIGINT,
-    product_id BIGINT,
-    sensor_group BINARY(64),
-    location_code BINARY(64),
-    risk_point_id BIGINT
-);
-
--- ----------------------------------------
--- stable：iot_raw_event_point
--- 表介绍：
--- - telemetry v2 事件类 raw stable
--- - 承载告警事件、动作事件、业务事件等事件型指标
--- - 运行时通过 `tb_e_<tenantId>_<deviceId>` 派生设备子表
--- 字段含义：
--- - ts：入库时间行键，趋势默认按该时间轴读取
--- - metric_id：标准化指标 ID；当前共享 TDengine 基线不依赖 COMPOSITE KEY，运行时通过唯一单调 ts 避免同子表多事件覆盖
--- - reported_at：事件真实发生/上报时间，仅用于追溯和 latest 判新
--- - ingested_at：平台写入时间
--- - value_double：浮点型事件值
--- - value_long：整型事件值
--- - value_bool：布尔型事件值
--- - value_text：文本型事件值或事件描述
--- - quality_code：质量码
--- - alarm_flag：是否为告警事件
--- - trace_id：全链路追踪 ID
--- - session_id：message-flow 会话 ID
--- - source_message_type：来源消息类型
--- tags 含义：
--- - tenant_id：租户 ID
--- - device_id：设备主键
--- - product_id：产品主键
--- - sensor_group：事件分组
--- - location_code：位置编码
--- - risk_point_id：绑定风险点 ID
--- ----------------------------------------
-CREATE STABLE IF NOT EXISTS iot_raw_event_point (
-    ts TIMESTAMP,
-    metric_id BINARY(128),
-    reported_at TIMESTAMP,
-    ingested_at TIMESTAMP,
-    value_double DOUBLE,
-    value_long BIGINT,
-    value_bool BOOL,
-    value_text NCHAR(1024),
-    quality_code BINARY(32),
-    alarm_flag BOOL,
-    trace_id BINARY(64),
-    session_id BINARY(64),
-    source_message_type BINARY(32)
-) TAGS (
-    tenant_id BIGINT,
-    device_id BIGINT,
-    product_id BIGINT,
-    sensor_group BINARY(64),
-    location_code BINARY(64),
-    risk_point_id BIGINT
-);
-
--- ========================================
--- Telemetry v2 MEASURE 小时聚合 stable 基线
--- 表介绍：
--- - iot_agg_measure_hour 承载设备维度、指标维度的小时级数值聚合结果
--- - 当前只覆盖 MEASURE 数值类指标，不承载 STATUS / EVENT 聚合
--- - 该 stable 必须通过本脚本手动初始化；应用运行时不会自动创建 stable
--- - 运行时按设备自动派生 child table：tb_ah_<tenantId>_<deviceId>
--- - 当前共享 TDengine 基线同样不接受 COMPOSITE KEY 语法；如需开启小时聚合，请先在目标版本复验同小时多指标写入语义
--- 字段含义：
--- - ts：小时窗口起点时间，同时作为行键时间
--- - metric_id：标准化指标 ID
--- - metric_code / metric_name：指标编码与显示名称
--- - value_type：值类型，当前统一为 double 聚合
--- - first_reported_at / last_reported_at：窗口内最早 / 最晚真实上报时间
--- - min_value_double / max_value_double / sum_value_double / last_value_double：窗口内最小、最大、求和、最后值
--- - sample_count：窗口内样本数
--- - trace_id：最后一次更新该聚合记录的 TraceId
--- - source_message_type：最后一次更新该聚合记录的来源消息类型
--- tags 含义：
--- - tenant_id：租户 ID
--- - device_id：设备主键
--- - product_id：产品主键
--- - sensor_group：测点分组
--- - location_code：位置编码
--- - risk_point_id：绑定风险点 ID
--- ========================================
+-- 对象：iot_agg_measure_hour
+-- 类型：tdengine_stable
+-- 说明：数值点位小时聚合表
+-- 字段字典：
+-- - ts: 时序时间
+-- - metric_id: 指标ID
+-- - metric_code: 指标编码
+-- - metric_name: 指标名称
+-- - value_type: 值类型
+-- - first_reported_at: 首次上报时间
+-- - last_reported_at: 最后上报时间
+-- - min_value_double: 最小数值
+-- - max_value_double: 最大数值
+-- - sum_value_double: 累计数值
+-- - last_value_double: 最近数值
+-- - sample_count: 样本数量
+-- - trace_id: 链路追踪ID
+-- - source_message_type: 来源消息类型
+-- - tenant_id: 租户ID（TAG）
+-- - device_id: 设备ID（TAG）
+-- - product_id: 产品ID（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
+-- - risk_point_id: 风险点ID（TAG）
 CREATE STABLE IF NOT EXISTS iot_agg_measure_hour (
-    ts TIMESTAMP,
-    metric_id BINARY(128),
-    metric_code BINARY(128),
-    metric_name NCHAR(128),
-    value_type BINARY(32),
-    first_reported_at TIMESTAMP,
-    last_reported_at TIMESTAMP,
-    min_value_double DOUBLE,
-    max_value_double DOUBLE,
-    sum_value_double DOUBLE,
-    last_value_double DOUBLE,
-    sample_count BIGINT,
-    trace_id BINARY(64),
-    source_message_type BINARY(32)
-) TAGS (
-    tenant_id BIGINT,
-    device_id BIGINT,
-    product_id BIGINT,
-    sensor_group BINARY(64),
-    location_code BINARY(64),
-    risk_point_id BIGINT
+  ts TIMESTAMP,
+  metric_id BINARY(128),
+  metric_code BINARY(128),
+  metric_name NCHAR(128),
+  value_type BINARY(32),
+  first_reported_at TIMESTAMP,
+  last_reported_at TIMESTAMP,
+  min_value_double DOUBLE,
+  max_value_double DOUBLE,
+  sum_value_double DOUBLE,
+  last_value_double DOUBLE,
+  sample_count BIGINT,
+  trace_id BINARY(64),
+  source_message_type BINARY(32)
+)
+TAGS (
+  tenant_id BIGINT,
+  device_id BIGINT,
+  product_id BIGINT,
+  sensor_group BINARY(64),
+  location_code BINARY(64),
+  risk_point_id BIGINT
+);
+
+-- ========================================
+-- 对象：iot_raw_event_point
+-- 类型：tdengine_stable
+-- 说明：原始事件点位表
+-- 字段字典：
+-- - ts: 时序时间
+-- - metric_id: 指标ID
+-- - reported_at: 设备上报时间
+-- - ingested_at: 平台入库时间
+-- - value_double: 数值
+-- - value_long: 整数值
+-- - value_bool: 布尔值
+-- - value_text: 文本值
+-- - quality_code: 质量编码
+-- - alarm_flag: 告警标记
+-- - trace_id: 链路追踪ID
+-- - session_id: 会话ID
+-- - source_message_type: 来源消息类型
+-- - tenant_id: 租户ID（TAG）
+-- - device_id: 设备ID（TAG）
+-- - product_id: 产品ID（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
+-- - risk_point_id: 风险点ID（TAG）
+CREATE STABLE IF NOT EXISTS iot_raw_event_point (
+  ts TIMESTAMP,
+  metric_id BINARY(128),
+  reported_at TIMESTAMP,
+  ingested_at TIMESTAMP,
+  value_double DOUBLE,
+  value_long BIGINT,
+  value_bool BOOL,
+  value_text NCHAR(1024),
+  quality_code BINARY(32),
+  alarm_flag BOOL,
+  trace_id BINARY(64),
+  session_id BINARY(64),
+  source_message_type BINARY(32)
+)
+TAGS (
+  tenant_id BIGINT,
+  device_id BIGINT,
+  product_id BIGINT,
+  sensor_group BINARY(64),
+  location_code BINARY(64),
+  risk_point_id BIGINT
+);
+
+-- ========================================
+-- 对象：iot_raw_measure_point
+-- 类型：tdengine_stable
+-- 说明：原始数值点位表
+-- 字段字典：
+-- - ts: 时序时间
+-- - metric_id: 指标ID
+-- - reported_at: 设备上报时间
+-- - ingested_at: 平台入库时间
+-- - value_double: 数值
+-- - value_long: 整数值
+-- - value_bool: 布尔值
+-- - value_text: 文本值
+-- - quality_code: 质量编码
+-- - alarm_flag: 告警标记
+-- - trace_id: 链路追踪ID
+-- - session_id: 会话ID
+-- - source_message_type: 来源消息类型
+-- - tenant_id: 租户ID（TAG）
+-- - device_id: 设备ID（TAG）
+-- - product_id: 产品ID（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
+-- - risk_point_id: 风险点ID（TAG）
+CREATE STABLE IF NOT EXISTS iot_raw_measure_point (
+  ts TIMESTAMP,
+  metric_id BINARY(128),
+  reported_at TIMESTAMP,
+  ingested_at TIMESTAMP,
+  value_double DOUBLE,
+  value_long BIGINT,
+  value_bool BOOL,
+  value_text NCHAR(1024),
+  quality_code BINARY(32),
+  alarm_flag BOOL,
+  trace_id BINARY(64),
+  session_id BINARY(64),
+  source_message_type BINARY(32)
+)
+TAGS (
+  tenant_id BIGINT,
+  device_id BIGINT,
+  product_id BIGINT,
+  sensor_group BINARY(64),
+  location_code BINARY(64),
+  risk_point_id BIGINT
+);
+
+-- ========================================
+-- 对象：iot_raw_status_point
+-- 类型：tdengine_stable
+-- 说明：原始状态点位表
+-- 字段字典：
+-- - ts: 时序时间
+-- - metric_id: 指标ID
+-- - reported_at: 设备上报时间
+-- - ingested_at: 平台入库时间
+-- - value_double: 数值
+-- - value_long: 整数值
+-- - value_bool: 布尔值
+-- - value_text: 文本值
+-- - quality_code: 质量编码
+-- - alarm_flag: 告警标记
+-- - trace_id: 链路追踪ID
+-- - session_id: 会话ID
+-- - source_message_type: 来源消息类型
+-- - tenant_id: 租户ID（TAG）
+-- - device_id: 设备ID（TAG）
+-- - product_id: 产品ID（TAG）
+-- - sensor_group: 传感器分组（TAG）
+-- - location_code: 位置编码（TAG）
+-- - risk_point_id: 风险点ID（TAG）
+CREATE STABLE IF NOT EXISTS iot_raw_status_point (
+  ts TIMESTAMP,
+  metric_id BINARY(128),
+  reported_at TIMESTAMP,
+  ingested_at TIMESTAMP,
+  value_double DOUBLE,
+  value_long BIGINT,
+  value_bool BOOL,
+  value_text NCHAR(1024),
+  quality_code BINARY(32),
+  alarm_flag BOOL,
+  trace_id BINARY(64),
+  session_id BINARY(64),
+  source_message_type BINARY(32)
+)
+TAGS (
+  tenant_id BIGINT,
+  device_id BIGINT,
+  product_id BIGINT,
+  sensor_group BINARY(64),
+  location_code BINARY(64),
+  risk_point_id BIGINT
+);
+
+-- ========================================
+-- 对象：iot_device_telemetry_point
+-- 类型：tdengine_table
+-- 说明：设备时序兼容点位表
+-- 字段字典：
+-- - ts: 时序时间
+-- - reported_at: 设备上报时间
+-- - tenant_id: 租户ID
+-- - device_id: 设备ID
+-- - device_code: 设备编码
+-- - product_id: 产品ID
+-- - product_key: 产品标识
+-- - protocol_code: 协议编码
+-- - message_type: 消息类型
+-- - mqtt_topic: MQTT主题
+-- - trace_id: 链路追踪ID
+-- - metric_code: 指标编码
+-- - metric_name: 指标名称
+-- - value_type: 值类型
+-- - value_text: 文本值
+-- - value_long: 整数值
+-- - value_double: 数值
+-- - value_bool: 布尔值
+CREATE TABLE IF NOT EXISTS iot_device_telemetry_point (
+  ts TIMESTAMP,
+  reported_at TIMESTAMP,
+  tenant_id BIGINT,
+  device_id BIGINT,
+  device_code BINARY(128),
+  product_id BIGINT,
+  product_key BINARY(128),
+  protocol_code BINARY(64),
+  message_type BINARY(32),
+  mqtt_topic BINARY(512),
+  trace_id BINARY(64),
+  metric_code BINARY(128),
+  metric_name NCHAR(128),
+  value_type BINARY(32),
+  value_text NCHAR(1024),
+  value_long BIGINT,
+  value_double DOUBLE,
+  value_bool BOOL
 );

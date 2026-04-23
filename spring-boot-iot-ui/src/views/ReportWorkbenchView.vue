@@ -736,9 +736,9 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
     return {
       kind: 'timeline',
       level: 'success',
-      title: '已拿到 trace，可进入链路追踪',
-      summary: '继续链路追踪查看固定 Pipeline 阶段结果。',
-      reason: '当前 session 已绑定 traceId，可跨页联查。',
+      title: '下一步进入链路追踪台复盘固定 Pipeline。',
+      summary: '当前 session 已绑定 traceId，可跨页联查。',
+      reason: '链路验证已拿到 trace 证据，可继续联动排查。',
       nextActionLabel: '继续链路追踪',
       nextActionTarget: '/message-trace'
     };
@@ -747,8 +747,8 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
     return {
       kind: 'correlation',
       level: 'warning',
-      title: 'MQTT 已发布，等待消费回流',
-      summary: '保留当前上下文，等待 traceId 绑定后继续追踪。',
+      title: '当前仍在等待 trace 回流。',
+      summary: '若等待超过关联窗口，下一步转异常观测核对消费回流。',
       reason: '当前处于 correlation pending，trace 尚未回填。',
       nextActionLabel: '查看异常观测',
       nextActionTarget: '/system-log'
@@ -758,8 +758,8 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
     return {
       kind: 'contract',
       level: 'success',
-      title: '设备身份已就绪，可直接发送',
-      summary: '可直接发送模拟报文，发送后继续链路追踪。',
+      title: '设备身份已就绪，可发起链路验证。',
+      summary: '先发送模拟报文，再按 trace 或证据进入链路追踪、异常观测或数据校验。',
       reason: '设备契约和发送参数已准备完成。',
       nextActionLabel: '打开数据校验',
       nextActionTarget: '/file-debug'
@@ -768,8 +768,8 @@ const currentDiagnosticFinding = computed<DiagnosticFinding>(() => {
   return {
     kind: 'identity',
     level: 'warning',
-    title: '设备身份未校准',
-    summary: '请先查询设备，再进入发送与链路动作。',
+    title: '设备身份未校准。',
+    summary: '请先查询设备，再发起链路验证并决定后续诊断分支。',
     reason: '设备身份上下文缺失，无法稳定关联后续诊断。',
     nextActionLabel: '查询设备'
   };

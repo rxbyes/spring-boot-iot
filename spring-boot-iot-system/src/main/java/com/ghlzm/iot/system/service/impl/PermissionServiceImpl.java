@@ -211,12 +211,16 @@ public class PermissionServiceImpl implements PermissionService {
         if (role == null || Integer.valueOf(1).equals(role.getDeleted())) {
             return List.of();
         }
-        Set<Long> activeMenuIds = listActiveMenus(role.getTenantId()).stream()
+        List<Long> activeMenuIds = listActiveMenus(role.getTenantId()).stream()
                 .map(Menu::getId)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+                .toList();
+        if (SUPER_ADMIN_ROLE_CODE.equalsIgnoreCase(role.getRoleCode())) {
+            return activeMenuIds;
+        }
+        Set<Long> activeMenuIdSet = new LinkedHashSet<>(activeMenuIds);
         return roleMenuMapper.selectMenuIdsByRoleId(roleId).stream()
-                .filter(activeMenuIds::contains)
+                .filter(activeMenuIdSet::contains)
                 .toList();
     }
 

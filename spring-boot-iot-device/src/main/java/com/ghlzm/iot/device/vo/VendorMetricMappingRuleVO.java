@@ -35,6 +35,10 @@ public class VendorMetricMappingRuleVO {
 
     private Integer versionNo;
 
+    private String publishedStatus;
+
+    private Integer publishedVersionNo;
+
     private Long approvalOrderId;
 
     private Long createBy;
@@ -44,4 +48,6 @@ public class VendorMetricMappingRuleVO {
     private Long updateBy;
 
     private LocalDateTime updateTime;
+
+    private Boolean coveredByFormalField;
 }

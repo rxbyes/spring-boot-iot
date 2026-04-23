@@ -9,6 +9,7 @@ import com.ghlzm.iot.device.vo.ProductModelGovernanceApplyResultVO;
 import com.ghlzm.iot.device.vo.ProductModelGovernanceCompareVO;
 import com.ghlzm.iot.device.vo.ProductModelVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
@@ -39,11 +40,19 @@ class ProductModelControllerTest {
     @Mock
     private GovernanceApprovalService governanceApprovalService;
 
+    @Mock
+    private GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
+
     private ProductModelController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductModelController(productModelService, permissionGuard, governanceApprovalService);
+        controller = new ProductModelController(
+                productModelService,
+                permissionGuard,
+                governanceApprovalService,
+                governanceApprovalPolicyResolver
+        );
     }
 
     @Test
@@ -148,6 +157,7 @@ class ProductModelControllerTest {
 
         R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, 2002L, authentication);
 
+        assertEquals(1, response.getData().getSubmittedItemCount());
         assertEquals(1, response.getData().getCreatedCount());
         assertEquals(0, response.getData().getUpdatedCount());
         assertEquals(0, response.getData().getSkippedCount());
@@ -175,6 +185,39 @@ class ProductModelControllerTest {
         );
         verify(governanceApprovalService).submitAction(any());
         verify(productModelService, never()).applyGovernance(1001L, dto, 1001L);
+    }
+
+    @Test
+    void applyGovernanceShouldResolveFixedApproverWhenHeaderIsMissing() {
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        ProductModelGovernanceApplyDTO.ApplyItem item = new ProductModelGovernanceApplyDTO.ApplyItem();
+        item.setDecision("create");
+        item.setModelType("property");
+        item.setIdentifier("value");
+        item.setModelName("crack value");
+        dto.setItems(List.of(item));
+        Authentication authentication = authentication(1001L);
+        when(governanceApprovalPolicyResolver.resolveApproverUserId("PRODUCT_CONTRACT_RELEASE_APPLY", 1001L))
+                .thenReturn(99000001L);
+        when(governanceApprovalService.submitAction(any())).thenReturn(88001L);
+
+        R<ProductModelGovernanceApplyResultVO> response = controller.applyGovernance(1001L, dto, null, authentication);
+
+        assertEquals(88001L, response.getData().getApprovalOrderId());
+        verify(governanceApprovalPolicyResolver).resolveApproverUserId("PRODUCT_CONTRACT_RELEASE_APPLY", 1001L);
+        verify(permissionGuard).requireDualControl(
+                1001L,
+                99000001L,
+                "产品契约发布",
+                "iot:product-contract:release",
+                "iot:product-contract:approve"
+        );
+        verify(permissionGuard).requireAnyPermission(
+                99000001L,
+                "风险指标标注复核",
+                "risk:metric-catalog:approve",
+                "iot:product-contract:approve"
+        );
     }
 
     private Authentication authentication(Long userId) {

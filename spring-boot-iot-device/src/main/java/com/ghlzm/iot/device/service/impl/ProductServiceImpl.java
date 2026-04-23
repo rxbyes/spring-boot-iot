@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -14,12 +16,21 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.ProductAddDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceOnlineSessionService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.ProductActivityStatRow;
 import com.ghlzm.iot.device.vo.ProductDetailVO;
+import com.ghlzm.iot.device.vo.ProductOverviewSummaryVO;
 import com.ghlzm.iot.device.vo.ProductDeviceStatRow;
 import com.ghlzm.iot.device.vo.ProductPageVO;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
@@ -28,8 +39,10 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -45,12 +58,40 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     private static final int MAX_OBJECT_INSIGHT_TEMPLATE_LENGTH = 300;
 
     private final DeviceMapper deviceMapper;
+    private final ProductModelMapper productModelMapper;
+    private final ProductContractReleaseBatchMapper releaseBatchMapper;
     private final DeviceOnlineSessionService deviceOnlineSessionService;
+    private final PublishedProductContractSnapshotService snapshotService;
+    private final MetricIdentifierResolver metricIdentifierResolver;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
-    public ProductServiceImpl(DeviceMapper deviceMapper, DeviceOnlineSessionService deviceOnlineSessionService) {
+    @Autowired
+    public ProductServiceImpl(DeviceMapper deviceMapper,
+                              ProductModelMapper productModelMapper,
+                              ProductContractReleaseBatchMapper releaseBatchMapper,
+                              DeviceOnlineSessionService deviceOnlineSessionService,
+                              PublishedProductContractSnapshotService snapshotService,
+                              MetricIdentifierResolver metricIdentifierResolver) {
         this.deviceMapper = deviceMapper;
+        this.productModelMapper = productModelMapper;
+        this.releaseBatchMapper = releaseBatchMapper;
         this.deviceOnlineSessionService = deviceOnlineSessionService;
+        this.snapshotService = snapshotService;
+        this.metricIdentifierResolver = metricIdentifierResolver;
+    }
+
+    public ProductServiceImpl(DeviceMapper deviceMapper,
+                              ProductModelMapper productModelMapper,
+                              ProductContractReleaseBatchMapper releaseBatchMapper,
+                              DeviceOnlineSessionService deviceOnlineSessionService) {
+        this(
+                deviceMapper,
+                productModelMapper,
+                releaseBatchMapper,
+                deviceOnlineSessionService,
+                new PublishedProductContractSnapshotServiceImpl(productModelMapper, releaseBatchMapper),
+                new DefaultMetricIdentifierResolver()
+        );
     }
 
     @Override
@@ -84,6 +125,34 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         ProductDeviceStatRow stat = loadProductDeviceStatMap(List.of(id)).get(id);
         ProductActivityStatRow activityStat = loadProductActivityStat(id);
         return toDetailVO(product, stat, activityStat);
+    }
+
+    @Override
+    public ProductOverviewSummaryVO getOverviewSummary(Long id) {
+        ProductDetailVO detail = getDetailById(id);
+        ProductOverviewSummaryVO summary = new ProductOverviewSummaryVO();
+        summary.setProductId(detail.getId());
+        summary.setProductKey(detail.getProductKey());
+        summary.setProductName(detail.getProductName());
+        summary.setProtocolCode(detail.getProtocolCode());
+        summary.setNodeType(detail.getNodeType());
+        summary.setDataFormat(detail.getDataFormat());
+        summary.setManufacturer(detail.getManufacturer());
+        summary.setDescription(detail.getDescription());
+        summary.setStatus(detail.getStatus());
+        summary.setDeviceCount(detail.getDeviceCount());
+        summary.setOnlineDeviceCount(detail.getOnlineDeviceCount());
+        summary.setLastReportTime(detail.getLastReportTime());
+        summary.setFormalFieldCount(resolveFormalFieldCount(id));
+
+        ProductContractReleaseBatch latestBatch = loadLatestReleaseBatch(id);
+        if (latestBatch != null) {
+            summary.setLatestReleaseBatchId(latestBatch.getId());
+            summary.setLatestReleasedFieldCount(latestBatch.getReleasedFieldCount());
+            summary.setLatestReleaseStatus(latestBatch.getReleaseStatus());
+            summary.setLatestReleaseCreateTime(latestBatch.getCreateTime());
+        }
+        return summary;
     }
 
     @Override
@@ -194,7 +263,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setDataFormat(resolveOptionalText(dto.getDataFormat(), "JSON"));
         product.setManufacturer(resolveOptionalText(dto.getManufacturer(), null));
         product.setDescription(resolveOptionalText(dto.getDescription(), null));
-        product.setMetadataJson(normalizeMetadataJson(dto.getMetadataJson()));
+        product.setMetadataJson(normalizeMetadataJson(product.getId(), dto.getMetadataJson()));
         product.setStatus(resolveProductStatus(dto.getStatus()));
     }
 
@@ -310,6 +379,37 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return activityStat;
     }
 
+    private Integer resolveFormalFieldCount(Long productId) {
+        if (productId == null || productModelMapper == null) {
+            return 0;
+        }
+        Long count = productModelMapper.selectCount(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, productId)
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+        );
+        return count == null ? 0 : Math.toIntExact(count);
+    }
+
+    private ProductContractReleaseBatch loadLatestReleaseBatch(Long productId) {
+        if (productId == null || releaseBatchMapper == null) {
+            return null;
+        }
+        List<ProductContractReleaseBatch> batches = releaseBatchMapper.selectList(
+                new LambdaQueryWrapper<ProductContractReleaseBatch>()
+                        .eq(ProductContractReleaseBatch::getProductId, productId)
+                        .eq(ProductContractReleaseBatch::getDeleted, 0)
+                        .orderByDesc(ProductContractReleaseBatch::getCreateTime)
+                        .orderByDesc(ProductContractReleaseBatch::getId)
+                        .last("limit 1")
+        );
+        if (CollectionUtils.isEmpty(batches)) {
+            return null;
+        }
+        return batches.get(0);
+    }
+
     private ProductPageVO toPageVO(Product product, ProductDeviceStatRow stat) {
         ProductPageVO row = new ProductPageVO();
         row.setId(product.getId());
@@ -399,7 +499,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return value.trim();
     }
 
-    private String normalizeMetadataJson(String metadataJson) {
+    private String normalizeMetadataJson(Long productId, String metadataJson) {
         if (!StringUtils.hasText(metadataJson)) {
             return null;
         }
@@ -408,12 +508,66 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             if (root == null || !root.isObject()) {
                 throw new BizException("产品扩展元数据必须是合法JSON对象");
             }
+            PublishedProductContractSnapshot snapshot = loadObjectInsightSnapshot(productId);
+            Map<String, String> formalIdentifierMap = loadFormalPropertyIdentifierMap(productId);
+            normalizeObjectInsightIdentifiers(root.path("objectInsight"), snapshot, formalIdentifierMap);
+            deduplicateObjectInsightMetrics(root.path("objectInsight"));
             validateObjectInsightConfig(root.path("objectInsight"));
             return objectMapper.writeValueAsString(root);
         } catch (BizException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new BizException("产品扩展元数据必须是合法JSON对象");
+        }
+    }
+
+    private Map<String, String> loadFormalPropertyIdentifierMap(Long productId) {
+        if (productId == null || productModelMapper == null) {
+            return Map.of();
+        }
+        List<ProductModel> productModels = productModelMapper.selectList(
+                new LambdaQueryWrapper<ProductModel>()
+                        .eq(ProductModel::getProductId, productId)
+                        .eq(ProductModel::getModelType, "property")
+                        .eq(ProductModel::getDeleted, 0)
+                        .orderByAsc(ProductModel::getSortNo)
+                        .orderByAsc(ProductModel::getIdentifier)
+        );
+        if (CollectionUtils.isEmpty(productModels)) {
+            return Map.of();
+        }
+        Map<String, String> formalIdentifierMap = new LinkedHashMap<>();
+        for (ProductModel productModel : productModels) {
+            if (productModel == null || !StringUtils.hasText(productModel.getIdentifier())) {
+                continue;
+            }
+            String identifier = productModel.getIdentifier().trim();
+            formalIdentifierMap.putIfAbsent(identifier.toLowerCase(Locale.ROOT), identifier);
+        }
+        return formalIdentifierMap;
+    }
+
+    private void normalizeObjectInsightIdentifiers(JsonNode objectInsightNode,
+                                                   PublishedProductContractSnapshot snapshot,
+                                                   Map<String, String> formalIdentifierMap) {
+        if (objectInsightNode == null
+                || objectInsightNode.isMissingNode()
+                || objectInsightNode.isNull()) {
+            return;
+        }
+        JsonNode customMetricsNode = objectInsightNode.path("customMetrics");
+        if (!customMetricsNode.isArray()) {
+            return;
+        }
+        for (JsonNode metricNode : customMetricsNode) {
+            if (!(metricNode instanceof ObjectNode metricObject)) {
+                continue;
+            }
+            String identifier = resolveMetricText(metricNode, "identifier");
+            if (!StringUtils.hasText(identifier)) {
+                continue;
+            }
+            metricObject.put("identifier", normalizeObjectInsightIdentifier(identifier, snapshot, formalIdentifierMap));
         }
     }
 
@@ -443,17 +597,86 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             String identifier = requireMetricText(metricNode, "identifier", "对象洞察指标标识不能为空");
             requireMetricText(metricNode, "displayName", "对象洞察指标中文名称不能为空");
             String group = requireMetricText(metricNode, "group", "对象洞察指标分组不能为空");
-            if (!"measure".equals(group) && !"status".equals(group)) {
-                throw new BizException("对象洞察指标分组仅支持 measure 或 status");
+            if (!"measure".equals(group) && !"status".equals(group) && !"runtime".equals(group)) {
+                throw new BizException("对象洞察指标分组仅支持 measure、status 或 runtime");
             }
-            if (!identifiers.add(identifier)) {
-                throw new BizException("对象洞察自定义指标标识符不能重复: " + identifier);
-            }
+            identifiers.add(identifier);
             String analysisTemplate = resolveMetricText(metricNode, "analysisTemplate");
             if (analysisTemplate != null && analysisTemplate.length() > MAX_OBJECT_INSIGHT_TEMPLATE_LENGTH) {
                 throw new BizException("对象洞察分析描述模板长度不能超过300");
             }
         }
+    }
+
+    private void deduplicateObjectInsightMetrics(JsonNode objectInsightNode) {
+        if (objectInsightNode == null || objectInsightNode.isMissingNode() || objectInsightNode.isNull()) {
+            return;
+        }
+        if (!(objectInsightNode instanceof ObjectNode objectInsightObject)) {
+            return;
+        }
+        JsonNode customMetricsNode = objectInsightNode.path("customMetrics");
+        if (!customMetricsNode.isArray()) {
+            return;
+        }
+        LinkedHashMap<String, JsonNode> lastByIdentifier = new LinkedHashMap<>();
+        for (JsonNode metricNode : customMetricsNode) {
+            String identifier = resolveMetricText(metricNode, "identifier");
+            if (StringUtils.hasText(identifier)) {
+                lastByIdentifier.put(identifier, metricNode);
+            } else {
+                lastByIdentifier.put("@@empty_" + lastByIdentifier.size(), metricNode);
+            }
+        }
+        if (lastByIdentifier.size() == customMetricsNode.size()) {
+            return;
+        }
+        ArrayNode deduped = objectMapper.createArrayNode();
+        for (JsonNode metricNode : lastByIdentifier.values()) {
+            deduped.add(metricNode);
+        }
+        objectInsightObject.set("customMetrics", deduped);
+    }
+
+    private String normalizeObjectInsightIdentifier(String identifier,
+                                                    PublishedProductContractSnapshot snapshot,
+                                                    Map<String, String> formalIdentifierMap) {
+        if (!StringUtils.hasText(identifier)) {
+            return identifier;
+        }
+        String normalizedIdentifier = identifier.trim();
+        String formalIdentifier = CollectionUtils.isEmpty(formalIdentifierMap)
+                ? normalizedIdentifier
+                : formalIdentifierMap.getOrDefault(normalizedIdentifier.toLowerCase(Locale.ROOT), normalizedIdentifier);
+        if (snapshot != null
+                && !CollectionUtils.isEmpty(snapshot.publishedIdentifiers())
+                && metricIdentifierResolver != null) {
+            MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForGovernance(snapshot, identifier);
+            if (resolution == null || !StringUtils.hasText(resolution.canonicalIdentifier())) {
+                throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
+            }
+            if (snapshot.containsPublishedIdentifier(identifier)) {
+                return resolution.canonicalIdentifier();
+            }
+            if (StringUtils.hasText(formalIdentifier)
+                    && !formalIdentifier.equalsIgnoreCase(resolution.canonicalIdentifier())
+                    && snapshot.containsPublishedIdentifier(resolution.canonicalIdentifier())) {
+                return formalIdentifier;
+            }
+            throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
+        }
+        if (CollectionUtils.isEmpty(formalIdentifierMap)) {
+            return normalizedIdentifier;
+        }
+        return formalIdentifier;
+    }
+
+    private PublishedProductContractSnapshot loadObjectInsightSnapshot(Long productId) {
+        if (productId == null || snapshotService == null) {
+            return PublishedProductContractSnapshot.empty(productId);
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(productId);
+        return snapshot == null ? PublishedProductContractSnapshot.empty(productId) : snapshot;
     }
 
     private String requireMetricText(JsonNode metricNode, String fieldName, String message) {

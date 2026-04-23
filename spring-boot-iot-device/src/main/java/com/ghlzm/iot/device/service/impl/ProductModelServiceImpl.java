@@ -8,12 +8,17 @@ import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceApplyDTO;
 import com.ghlzm.iot.device.dto.ProductModelGovernanceCompareDTO;
 import com.ghlzm.iot.device.dto.ProductModelUpsertDTO;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
 import com.ghlzm.iot.device.service.ProductContractReleaseService;
 import com.ghlzm.iot.device.service.ProductModelGovernanceReceiptStore;
@@ -64,16 +69,27 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private static final String STATUS_NEEDS_REVIEW = "needs_review";
     private static final String EXTRACTION_MODE_RUNTIME = "runtime";
     private static final String EXTRACTION_MODE_MANUAL = "manual";
+    private static final String STATUS_PREFIX = "S1_ZT_1.";
     private static final String PARENT_SENSOR_STATE_PREFIX = "S1_ZT_1.sensor_state.";
     private static final String SAMPLE_TYPE_BUSINESS = "business";
     private static final String SAMPLE_TYPE_STATUS = "status";
     private static final String DEVICE_STRUCTURE_SINGLE = "single";
     private static final String DEVICE_STRUCTURE_COMPOSITE = "composite";
+    private static final String CONTRACT_IDENTIFIER_MODE_DIRECT = "DIRECT";
+    private static final String CONTRACT_IDENTIFIER_MODE_FULL_PATH = "FULL_PATH";
     private static final String RELEASE_SOURCE_MANUAL_COMPARE_APPLY = "manual_compare_apply";
+    private static final String LASER_RANGEFINDER_PRODUCT_KEY = "nf-monitor-laser-rangefinder-v1";
+    private static final String RAIN_GAUGE_PRODUCT_KEY = "nf-monitor-tipping-bucket-rain-gauge-v1";
     private static final Pattern POINT_IDENTIFIER_PATTERN = Pattern.compile("^L(\\d+)_([A-Z]+)_\\d+$");
     private static final Pattern TIMESTAMP_KEY_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}T.+$");
     private static final String SNAPSHOT_STAGE_BEFORE_APPLY = "BEFORE_APPLY";
     private static final String SNAPSHOT_STAGE_AFTER_APPLY = "AFTER_APPLY";
+    private static final Set<String> SUPPORTED_COMPOSITE_CANONICALIZATION_STRATEGIES = Set.of("LEGACY", "LF_VALUE");
+    private static final Set<String> SUPPORTED_COMPOSITE_STATUS_MIRROR_STRATEGIES = Set.of("NONE", "SENSOR_STATE");
+    private static final Set<String> SUPPORTED_CONTRACT_IDENTIFIER_MODES = Set.of(
+            CONTRACT_IDENTIFIER_MODE_DIRECT,
+            CONTRACT_IDENTIFIER_MODE_FULL_PATH
+    );
     private static final Set<String> ROOT_WRAPPER_KEYS = Set.of(
             "properties",
             "property",
@@ -126,6 +142,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("gpssinglex", "GNSS 单期位移 X"),
             Map.entry("gpssingley", "GNSS 单期位移 Y"),
             Map.entry("gpssinglez", "GNSS 单期位移 Z"),
+            Map.entry("totalvalue", "累计雨量"),
+            Map.entry("dispsx", "顺滑动方向累计变形量"),
+            Map.entry("dispsy", "垂直坡面方向累计变形量"),
             Map.entry("lat", "纬度"),
             Map.entry("lon", "经度"),
             Map.entry("longitude", "经度"),
@@ -139,8 +158,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             Map.entry("signal_db", "信号值"),
             Map.entry("singal_nb", "NB 信号强度"),
             Map.entry("singal_db", "信号值"),
+            Map.entry("ext_power_volt", "外接电源电压"),
             Map.entry("solar_volt", "太阳能电压"),
+            Map.entry("supply_power", "供电功率"),
+            Map.entry("consume_power", "耗电功率"),
             Map.entry("battery_volt", "电池电压"),
+            Map.entry("sw_version", "软件版本"),
             Map.entry("battery_dump_energy", "电池剩余电量")
     );
     private static final Set<String> TELEMETRY_LAST_SEGMENTS = Set.of(
@@ -158,12 +181,18 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
             "gpstotalz",
             "gpssinglex",
             "gpssingley",
-            "gpssinglez"
+            "gpssinglez",
+            "totalvalue",
+            "dispsx",
+            "dispsy"
     );
 
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final ProductMapper productMapper;
     private final ProductModelMapper productModelMapper;
+    private final DeviceMapper deviceMapper;
+    private final DevicePropertyMapper devicePropertyMapper;
+    private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final NormativeMetricDefinitionService normativeMetricDefinitionService;
     private final ProductMetricEvidenceService productMetricEvidenceService;
     private final ProductContractReleaseService productContractReleaseService;
@@ -173,9 +202,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     private final ProductModelGovernanceReceiptStore governanceReceiptStore;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService;
+    private final CollectorChildMetricBoundaryPolicy collectorChildMetricBoundaryPolicy =
+            new CollectorChildMetricBoundaryPolicy();
 
     public ProductModelServiceImpl(ProductMapper productMapper,
                                    ProductModelMapper productModelMapper,
+                                   DeviceMapper deviceMapper,
+                                   DevicePropertyMapper devicePropertyMapper,
+                                   VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                    NormativeMetricDefinitionService normativeMetricDefinitionService,
                                    ProductMetricEvidenceService productMetricEvidenceService,
                                    ProductContractReleaseService productContractReleaseService,
@@ -184,6 +218,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                    VendorMetricMappingRuntimeService vendorMetricMappingRuntimeService) {
         this.productMapper = productMapper;
         this.productModelMapper = productModelMapper;
+        this.deviceMapper = deviceMapper;
+        this.devicePropertyMapper = devicePropertyMapper;
+        this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
         this.normativeMetricDefinitionService = normativeMetricDefinitionService;
         this.productMetricEvidenceService = productMetricEvidenceService;
         this.productContractReleaseService = productContractReleaseService;
@@ -206,13 +243,24 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ProductModelVO createModel(Long productId, ProductModelUpsertDTO dto) {
-        getRequiredProduct(productId);
+        Product product = getRequiredProduct(productId);
         String modelType = normalizeModelType(dto.getModelType());
         String identifier = normalizeRequired(dto.getIdentifier(), "物模型标识");
         validateByModelType(modelType, dto);
-        ensureIdentifierUnique(productId, identifier, null);
+        List<ProductModel> existingModels = loadModelsByIdentifierIncludingDeleted(productId, identifier);
+        if (resolveActiveModel(existingModels, null) != null) {
+            throw duplicateIdentifierException(identifier);
+        }
+        ProductModel deletedModel = resolveDeletedModelForRevive(existingModels, modelType);
+        if (deletedModel != null) {
+            return reviveDeletedModel(product, deletedModel, modelType, identifier, dto);
+        }
+        if (!existingModels.isEmpty()) {
+            throw historicalDuplicateIdentifierException(identifier);
+        }
 
         ProductModel model = new ProductModel();
+        model.setTenantId(defaultTenantId(product.getTenantId()));
         model.setProductId(productId);
         applyEditableFields(model, modelType, identifier, dto);
         productModelMapper.insert(model);
@@ -223,8 +271,24 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     public ProductModelGovernanceCompareVO compareGovernance(Long productId, ProductModelGovernanceCompareDTO dto) {
         Product product = getRequiredProduct(productId);
         List<ProductModel> existingModels = listActiveModels(productId);
-        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(product, existingModels.size(), dto);
-        ProductModelCandidateResultVO runtimeResult = emptyCandidateResult(productId, existingModels.size(), EXTRACTION_MODE_RUNTIME);
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract = dto == null ? null : dto.getManualExtract();
+        if (manualExtract == null) {
+            throw new BizException("请先提供上报样本");
+        }
+        ManualSampleSnapshot snapshot = parseManualSample(product, manualExtract);
+        String resolvedContractIdentifierMode =
+                resolveContractIdentifierMode(product, manualExtract, snapshot, existingModels);
+        ProductModelCandidateResultVO manualResult = buildManualGovernanceCandidates(
+                product,
+                existingModels.size(),
+                snapshot,
+                resolvedContractIdentifierMode
+        );
+        ProductModelCandidateResultVO runtimeResult = buildRuntimeGovernanceCandidates(
+                product,
+                existingModels.size(),
+                resolvedContractIdentifierMode
+        );
         ProductModelGovernanceCompareVO compareResult =
                 governanceComparator.compare(productId, existingModels, manualResult, runtimeResult);
         decorateCompareResultWithNormativeMetadata(product, compareResult);
@@ -253,6 +317,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         int updatedCount = 0;
         int skippedCount = 0;
         List<ProductModelGovernanceApplyDTO.ApplyItem> normalizedItems = normalizeApplyItems(product, safeApplyItems(dto));
+        validateCollectorOwnedIdentifiers(product, normalizedItems);
         for (ProductModelGovernanceApplyDTO.ApplyItem item : normalizedItems) {
             String decision = normalizeRequired(item.getDecision(), "治理决策").toLowerCase(Locale.ROOT);
             switch (decision) {
@@ -344,11 +409,13 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                                                String extractionMode,
                                                                String sampleType,
                                                                String sampleDeviceCode,
-                                                               int ignoredFieldCount) {
+                                                               int ignoredFieldCount,
+                                                               String resolvedContractIdentifierMode) {
         ProductModelCandidateSummaryVO summary = new ProductModelCandidateSummaryVO();
         summary.setExtractionMode(extractionMode);
         summary.setSampleType(sampleType);
         summary.setSampleDeviceCode(sampleDeviceCode);
+        summary.setResolvedContractIdentifierMode(resolvedContractIdentifierMode);
         summary.setPropertyEvidenceCount(propertyBundle.evidenceCount());
         summary.setPropertyCandidateCount(propertyBundle.candidates().size());
         summary.setEventEvidenceCount(eventBundle.evidenceCount());
@@ -378,12 +445,35 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private ProductModelCandidateResultVO buildManualGovernanceCandidates(Product product,
                                                                           int existingModelCount,
-                                                                          ProductModelGovernanceCompareDTO dto) {
-        if (dto == null || dto.getManualExtract() == null) {
-            throw new BizException("请先提供上报样本");
-        }
-        ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(product, existingModelCount, dto.getManualExtract());
+                                                                          ManualSampleSnapshot snapshot,
+                                                                          String resolvedContractIdentifierMode) {
+        ProductModelCandidateResultVO result = manualExtractGovernanceCandidates(
+                product,
+                existingModelCount,
+                snapshot,
+                resolvedContractIdentifierMode
+        );
         refreshCandidateSummary(result, existingModelCount);
+        return result;
+    }
+
+    private ProductModelCandidateResultVO buildRuntimeGovernanceCandidates(Product product,
+                                                                           int existingModelCount,
+                                                                           String resolvedContractIdentifierMode) {
+        PropertyEvidenceBundle propertyBundle = collectRuntimePropertyCandidates(product);
+        ProductModelCandidateResultVO result = buildCandidateResult(
+                product == null ? null : product.getId(),
+                existingModelCount,
+                propertyBundle,
+                new EventEvidenceBundle(List.of(), 0, "运行时提炼当前仅生成属性候选，事件请继续走正式模型治理。"),
+                new ServiceEvidenceBundle(List.of(), 0, "运行时提炼当前仅生成属性候选，服务请继续走正式模型治理。"),
+                EXTRACTION_MODE_RUNTIME,
+                null,
+                null,
+                0,
+                resolvedContractIdentifierMode
+        );
+        normalizePropertyCandidateIdentifiers(product, result, resolvedContractIdentifierMode);
         return result;
     }
 
@@ -402,6 +492,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (definitions.isEmpty()) {
             return;
         }
+        Map<String, String> displayAliases = resolveNormativeDisplayAliases(product);
         for (ProductModelGovernanceCompareRowVO row : compareResult.getCompareRows()) {
             if (row == null || !MODEL_TYPE_PROPERTY.equals(normalizeOptional(row.getModelType()))) {
                 continue;
@@ -419,7 +510,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 continue;
             }
             row.setNormativeIdentifier(match.normativeIdentifier());
-            row.setNormativeName(match.normativeName());
+            row.setNormativeName(displayAliases.getOrDefault(match.normativeIdentifier(), match.normativeName()));
             row.setRiskReady(match.riskReady());
             row.setRawIdentifiers(match.rawIdentifiers());
             if (match.riskReady() && !row.getRiskFlags().contains("risk_ready")) {
@@ -428,8 +519,28 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
     }
 
+    private Map<String, String> resolveNormativeDisplayAliases(Product product) {
+        String productKey = normalizeOptional(product == null ? null : product.getProductKey());
+        if (productKey == null) {
+            return Map.of();
+        }
+        if (LASER_RANGEFINDER_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return Map.of(
+                    "value", "激光测距值",
+                    "sensor_state", "传感器状态"
+            );
+        }
+        if (RAIN_GAUGE_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return Map.of(
+                    "value", "当前雨量",
+                    "totalValue", "累计雨量"
+            );
+        }
+        return Map.of();
+    }
+
     private void persistManualMetricEvidence(Product product,
-                                             ProductModelCandidateResultVO manualResult) {
+                                            ProductModelCandidateResultVO manualResult) {
         if (product == null || manualResult == null || manualResult.getPropertyCandidates() == null) {
             return;
         }
@@ -594,8 +705,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private ProductModelCandidateResultVO manualExtractGovernanceCandidates(Product product,
                                                                             int existingModelCount,
-                                                                            ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract) {
-        ManualSampleSnapshot snapshot = parseManualSample(product == null ? null : product.getId(), manualExtract);
+                                                                            ManualSampleSnapshot snapshot,
+                                                                            String resolvedContractIdentifierMode) {
         PropertyEvidenceBundle propertyBundle = collectManualPropertyCandidates(product, snapshot, Set.of());
         EventEvidenceBundle eventBundle = new EventEvidenceBundle(
                 List.of(),
@@ -607,7 +718,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 0,
                 "手动提炼当前仅生成属性候选，服务请在正式模型中人工补充。"
         );
-        return buildCandidateResult(
+        ProductModelCandidateResultVO result = buildCandidateResult(
                 product == null ? null : product.getId(),
                 existingModelCount,
                 propertyBundle,
@@ -616,8 +727,73 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 EXTRACTION_MODE_MANUAL,
                 snapshot.sampleType(),
                 snapshot.deviceCode(),
-                snapshot.ignoredFieldCount()
+                snapshot.ignoredFieldCount(),
+                resolvedContractIdentifierMode
         );
+        normalizePropertyCandidateIdentifiers(product, result, resolvedContractIdentifierMode);
+        return result;
+    }
+
+    private PropertyEvidenceBundle collectRuntimePropertyCandidates(Product product) {
+        if (product == null || product.getId() == null) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        List<Device> devices = deviceMapper.selectList(new LambdaQueryWrapper<Device>()
+                .eq(Device::getProductId, product.getId())
+                .eq(Device::getDeleted, 0));
+        if (devices == null || devices.isEmpty()) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        List<Long> deviceIds = devices.stream()
+                .map(Device::getId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        if (deviceIds.isEmpty()) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        List<DeviceProperty> properties = devicePropertyMapper.selectList(new LambdaQueryWrapper<DeviceProperty>()
+                .in(DeviceProperty::getDeviceId, deviceIds));
+        if (properties == null || properties.isEmpty()) {
+            return new PropertyEvidenceBundle(List.of(), 0, 0);
+        }
+        Map<String, RuntimeEvidenceSnapshot> runtimeEvidenceByIdentifier = loadRuntimeEvidenceByIdentifier(product.getId());
+        Map<String, PropertyAccumulator> accumulators = new LinkedHashMap<>();
+        int evidenceCount = 0;
+        for (DeviceProperty property : properties) {
+            String propertyIdentifier = normalizeOptional(property == null ? null : property.getIdentifier());
+            if (propertyIdentifier == null) {
+                continue;
+            }
+            evidenceCount++;
+            ProductModelPropertyCandidateFilter.NormalizedPropertyIdentifier normalizedIdentifier =
+                    propertyCandidateFilter.normalizeIdentifier(propertyIdentifier);
+            List<String> observedRawIdentifiers = mergeRawIdentifiers(
+                    List.of(propertyIdentifier),
+                    normalizedIdentifier.rawIdentifiers()
+            );
+            String identifier = resolveGovernanceCandidateIdentifier(product, normalizedIdentifier.identifier(), observedRawIdentifiers);
+            if (identifier == null) {
+                continue;
+            }
+            accumulators.computeIfAbsent(identifier, PropertyAccumulator::new)
+                    .acceptRuntimeProperty(property, observedRawIdentifiers);
+        }
+        for (Map.Entry<String, PropertyAccumulator> entry : accumulators.entrySet()) {
+            RuntimeEvidenceSnapshot runtimeEvidence = runtimeEvidenceByIdentifier.get(entry.getKey());
+            if (runtimeEvidence != null) {
+                entry.getValue().enrichRuntimeEvidence(runtimeEvidence);
+            }
+        }
+        List<ProductModelCandidateVO> candidates = accumulators.values().stream()
+                .map(accumulator -> toPropertyCandidate(product, accumulator))
+                .sorted(Comparator
+                        .comparing(ProductModelCandidateVO::getNeedsReview)
+                        .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getSortNo, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getIdentifier))
+                .toList();
+        return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
     }
 
     private ProductModelCandidateResultVO emptyCandidateResult(Long productId, int existingModelCount, String extractionMode) {
@@ -630,8 +806,132 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 extractionMode,
                 null,
                 null,
-                0
+                0,
+                null
         );
+    }
+
+    private String resolveContractIdentifierMode(Product product,
+                                                 ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract,
+                                                 ManualSampleSnapshot snapshot,
+                                                 List<ProductModel> existingModels) {
+        String explicitMode = normalizeContractIdentifierMode(
+                manualExtract == null ? null : manualExtract.getContractIdentifierMode()
+        );
+        if (explicitMode != null) {
+            return explicitMode;
+        }
+        String deviceStructure = normalizeDeviceStructure(manualExtract == null ? null : manualExtract.getDeviceStructure());
+        if (DEVICE_STRUCTURE_COMPOSITE.equals(deviceStructure)) {
+            return CONTRACT_IDENTIFIER_MODE_DIRECT;
+        }
+        if (snapshot != null
+                && SAMPLE_TYPE_STATUS.equals(normalizeOptional(snapshot.sampleType()))
+                && snapshot.leaves().stream()
+                .map(ManualLeafEvidence::identifier)
+                .map(this::normalizeOptional)
+                .anyMatch(identifier -> identifier != null && identifier.startsWith(STATUS_PREFIX))) {
+            return CONTRACT_IDENTIFIER_MODE_FULL_PATH;
+        }
+        boolean hasPublishedStatusFullPath = (existingModels == null ? List.<ProductModel>of() : existingModels).stream()
+                .map(ProductModel::getIdentifier)
+                .map(this::normalizeOptional)
+                .anyMatch(identifier -> identifier != null && identifier.startsWith(STATUS_PREFIX));
+        if (hasPublishedStatusFullPath) {
+            return CONTRACT_IDENTIFIER_MODE_FULL_PATH;
+        }
+        return CONTRACT_IDENTIFIER_MODE_DIRECT;
+    }
+
+    private String normalizeContractIdentifierMode(String contractIdentifierMode) {
+        String normalized = normalizeOptional(contractIdentifierMode);
+        if (normalized == null) {
+            return null;
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_CONTRACT_IDENTIFIER_MODES.contains(upper)) {
+            throw new BizException("契约字段标识模式不支持: " + contractIdentifierMode);
+        }
+        return upper;
+    }
+
+    private void normalizePropertyCandidateIdentifiers(Product product,
+                                                       ProductModelCandidateResultVO result,
+                                                       String resolvedContractIdentifierMode) {
+        if (result == null || result.getPropertyCandidates() == null || result.getPropertyCandidates().isEmpty()) {
+            return;
+        }
+        for (ProductModelCandidateVO candidate : result.getPropertyCandidates()) {
+            if (candidate == null) {
+                continue;
+            }
+            candidate.setIdentifier(resolveCandidateIdentifierForContractMode(
+                    product,
+                    candidate.getIdentifier(),
+                    candidate.getRawIdentifiers(),
+                    resolvedContractIdentifierMode
+            ));
+        }
+    }
+
+    private String resolveCandidateIdentifierForContractMode(Product product,
+                                                             String identifier,
+                                                             List<String> rawIdentifiers,
+                                                             String resolvedContractIdentifierMode) {
+        String normalizedIdentifier = normalizeOptional(identifier);
+        if (normalizedIdentifier == null) {
+            return null;
+        }
+        String mode = normalizeContractIdentifierMode(resolvedContractIdentifierMode);
+        if (mode == null) {
+            return normalizedIdentifier;
+        }
+        if (CONTRACT_IDENTIFIER_MODE_DIRECT.equals(mode)
+                && normalizedIdentifier.startsWith(STATUS_PREFIX)
+                && !normalizedIdentifier.startsWith(PARENT_SENSOR_STATE_PREFIX)) {
+            return normalizeOptional(normalizedIdentifier.substring(STATUS_PREFIX.length()));
+        }
+        if (!CONTRACT_IDENTIFIER_MODE_FULL_PATH.equals(mode)) {
+            return normalizedIdentifier;
+        }
+        if (normalizedIdentifier.startsWith(STATUS_PREFIX)) {
+            String strippedIdentifier = normalizeOptional(normalizedIdentifier.substring(STATUS_PREFIX.length()));
+            return isDirectNormativeIdentifier(product, strippedIdentifier) ? strippedIdentifier : normalizedIdentifier;
+        }
+        if (isDirectNormativeIdentifier(product, normalizedIdentifier)) {
+            return normalizedIdentifier;
+        }
+        String preferredStatusFullPath = selectPreferredStatusFullPathIdentifier(rawIdentifiers);
+        if (preferredStatusFullPath != null) {
+            return preferredStatusFullPath;
+        }
+        return STATUS_PREFIX + normalizedIdentifier;
+    }
+
+    private String selectPreferredStatusFullPathIdentifier(List<String> rawIdentifiers) {
+        if (rawIdentifiers == null || rawIdentifiers.isEmpty()) {
+            return null;
+        }
+        return rawIdentifiers.stream()
+                .map(this::normalizeOptional)
+                .filter(identifier -> identifier != null && identifier.startsWith(STATUS_PREFIX))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isDirectNormativeIdentifier(Product product, String identifier) {
+        String normalizedIdentifier = normalizeOptional(identifier);
+        if (normalizedIdentifier == null) {
+            return false;
+        }
+        String scenarioCode = normativeMatcher.resolveScenarioCode(product);
+        if (!StringUtils.hasText(scenarioCode)) {
+            return false;
+        }
+        return safeNormativeDefinitions(normativeMetricDefinitionService.listByScenario(scenarioCode)).stream()
+                .map(NormativeMetricDefinition::getIdentifier)
+                .map(this::normalizeOptional)
+                .anyMatch(normalizedIdentifier::equalsIgnoreCase);
     }
 
     private void refreshCandidateSummary(ProductModelCandidateResultVO result, int existingModelCount) {
@@ -687,6 +987,23 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 .stream()
                 .map(item -> normalizeApplyItem(product, item))
                 .toList();
+    }
+
+    private void validateCollectorOwnedIdentifiers(Product product,
+                                                   List<ProductModelGovernanceApplyDTO.ApplyItem> items) {
+        if (!collectorChildMetricBoundaryPolicy.appliesToProduct(product) || items == null || items.isEmpty()) {
+            return;
+        }
+        List<String> invalidIdentifiers = items.stream()
+                .filter(item -> item != null && !"skip".equalsIgnoreCase(normalizeOptional(item.getDecision())))
+                .map(ProductModelGovernanceApplyDTO.ApplyItem::getIdentifier)
+                .map(this::normalizeOptional)
+                .filter(collectorChildMetricBoundaryPolicy::isChildOwnedFormalIdentifier)
+                .distinct()
+                .toList();
+        if (!invalidIdentifiers.isEmpty()) {
+            throw new BizException("采集器产品不能发布子设备正式字段: " + String.join(",", invalidIdentifiers));
+        }
     }
 
     private ProductModelGovernanceApplyDTO.ApplyItem normalizeApplyItem(Product product,
@@ -772,10 +1089,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
 
         List<ProductModelCandidateVO> candidates = accumulators.values().stream()
-                .map(this::toPropertyCandidate)
+                .map(accumulator -> toPropertyCandidate(product, accumulator))
                 .sorted(Comparator
                         .comparing(ProductModelCandidateVO::getNeedsReview)
                         .thenComparing(ProductModelCandidateVO::getGroupKey, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(ProductModelCandidateVO::getSortNo, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(ProductModelCandidateVO::getIdentifier))
                 .toList();
         return new PropertyEvidenceBundle(candidates, evidenceCount, countNeedsReview(candidates));
@@ -800,14 +1118,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return normalizeOptional(defaultIdentifier);
     }
 
-    private ManualSampleSnapshot parseManualSample(Long productId,
+    private ManualSampleSnapshot parseManualSample(Product product,
                                                    ProductModelGovernanceCompareDTO.ManualExtractInput input) {
         String deviceStructure = normalizeDeviceStructure(input == null ? null : input.getDeviceStructure());
         ManualSampleSnapshot rawSnapshot = parseManualSampleRaw(input);
         if (DEVICE_STRUCTURE_SINGLE.equals(deviceStructure)) {
             return rawSnapshot;
         }
-        return applyCompositeManualSnapshot(input, rawSnapshot);
+        return applyCompositeManualSnapshot(product, input, rawSnapshot);
     }
 
     private ManualSampleSnapshot parseManualSampleRaw(ProductModelGovernanceCompareDTO.ManualExtractInput input) {
@@ -837,13 +1155,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         }
     }
 
-    private ManualSampleSnapshot applyCompositeManualSnapshot(ProductModelGovernanceCompareDTO.ManualExtractInput input,
+    private ManualSampleSnapshot applyCompositeManualSnapshot(Product product,
+                                                             ProductModelGovernanceCompareDTO.ManualExtractInput input,
                                                              ManualSampleSnapshot rawSnapshot) {
         String parentDeviceCode = normalizeRequired(input == null ? null : input.getParentDeviceCode(), "父设备编码");
         if (!parentDeviceCode.equals(rawSnapshot.deviceCode())) {
             throw new BizException("父设备编码与样本根设备不一致");
         }
-        List<ProductModelGovernanceCompareDTO.RelationMappingInput> relationMappings = normalizeRelationMappings(input);
+        List<NormalizedRelationMapping> relationMappings = normalizeRelationMappings(input);
+        if (collectorChildMetricBoundaryPolicy.applies(product, input == null ? null : input.getDeviceStructure())) {
+            return applyCollectorCompositeManualSnapshot(parentDeviceCode, rawSnapshot, relationMappings);
+        }
         List<ManualLeafEvidence> canonicalLeaves = new ArrayList<>();
         for (ManualLeafEvidence leaf : rawSnapshot.leaves()) {
             String canonicalIdentifier = canonicalizeCompositeIdentifier(leaf.identifier(), rawSnapshot.sampleType(), relationMappings);
@@ -865,21 +1187,64 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         );
     }
 
-    private List<ProductModelGovernanceCompareDTO.RelationMappingInput> normalizeRelationMappings(
+    private ManualSampleSnapshot applyCollectorCompositeManualSnapshot(String parentDeviceCode,
+                                                                      ManualSampleSnapshot rawSnapshot,
+                                                                      List<NormalizedRelationMapping> relationMappings) {
+        List<String> logicalChannelCodes = relationMappings == null
+                ? List.of()
+                : relationMappings.stream()
+                .map(NormalizedRelationMapping::logicalChannelCode)
+                .toList();
+        List<ManualLeafEvidence> collectorLeaves = new ArrayList<>();
+        for (ManualLeafEvidence leaf : rawSnapshot.leaves()) {
+            if (!collectorChildMetricBoundaryPolicy.shouldKeepLeaf(rawSnapshot.sampleType(), leaf.identifier(), logicalChannelCodes)) {
+                continue;
+            }
+            String collectorIdentifier =
+                    collectorChildMetricBoundaryPolicy.toCollectorIdentifier(rawSnapshot.sampleType(), leaf.identifier());
+            if (collectorIdentifier == null) {
+                continue;
+            }
+            collectorLeaves.add(new ManualLeafEvidence(
+                    collectorIdentifier,
+                    leaf.sampleValue(),
+                    leaf.valueType(),
+                    mergeRawIdentifiers(leaf.rawIdentifiers(), List.of(leaf.identifier()))
+            ));
+        }
+        return new ManualSampleSnapshot(
+                parentDeviceCode,
+                rawSnapshot.sampleType(),
+                collectorLeaves,
+                rawSnapshot.ignoredFieldCount() + Math.max(0, rawSnapshot.leaves().size() - collectorLeaves.size())
+        );
+    }
+
+    private List<NormalizedRelationMapping> normalizeRelationMappings(
             ProductModelGovernanceCompareDTO.ManualExtractInput input) {
         List<ProductModelGovernanceCompareDTO.RelationMappingInput> sourceItems =
                 input == null || input.getRelationMappings() == null ? List.of() : input.getRelationMappings();
-        Map<String, ProductModelGovernanceCompareDTO.RelationMappingInput> normalized = new LinkedHashMap<>();
+        Map<String, NormalizedRelationMapping> normalized = new LinkedHashMap<>();
         for (ProductModelGovernanceCompareDTO.RelationMappingInput item : sourceItems) {
             String logicalChannelCode = normalizeOptional(item == null ? null : item.getLogicalChannelCode());
             String childDeviceCode = normalizeOptional(item == null ? null : item.getChildDeviceCode());
             if (logicalChannelCode == null || childDeviceCode == null) {
                 continue;
             }
-            ProductModelGovernanceCompareDTO.RelationMappingInput normalizedItem =
-                    new ProductModelGovernanceCompareDTO.RelationMappingInput();
-            normalizedItem.setLogicalChannelCode(logicalChannelCode);
-            normalizedItem.setChildDeviceCode(childDeviceCode);
+            String canonicalizationStrategy = normalizeCompositeCanonicalizationStrategy(
+                    item == null ? null : item.getCanonicalizationStrategy(),
+                    logicalChannelCode
+            );
+            String statusMirrorStrategy = normalizeCompositeStatusMirrorStrategy(
+                    item == null ? null : item.getStatusMirrorStrategy(),
+                    logicalChannelCode
+            );
+            NormalizedRelationMapping normalizedItem = new NormalizedRelationMapping(
+                    logicalChannelCode,
+                    childDeviceCode,
+                    canonicalizationStrategy,
+                    statusMirrorStrategy
+            );
             normalized.put(logicalChannelCode, normalizedItem);
         }
         if (normalized.isEmpty()) {
@@ -890,28 +1255,80 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
 
     private String canonicalizeCompositeIdentifier(String identifier,
                                                    String sampleType,
-                                                   List<ProductModelGovernanceCompareDTO.RelationMappingInput> relationMappings) {
+                                                   List<NormalizedRelationMapping> relationMappings) {
         String normalizedIdentifier = normalizeOptional(identifier);
         if (normalizedIdentifier == null || relationMappings == null || relationMappings.isEmpty()) {
             return null;
         }
-        for (ProductModelGovernanceCompareDTO.RelationMappingInput item : relationMappings) {
-            String logicalChannelCode = normalizeOptional(item == null ? null : item.getLogicalChannelCode());
+        for (NormalizedRelationMapping item : relationMappings) {
+            String logicalChannelCode = item == null ? null : item.logicalChannelCode();
             if (logicalChannelCode == null) {
                 continue;
             }
             if (SAMPLE_TYPE_STATUS.equals(sampleType)) {
-                if (normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)) {
+                if ("SENSOR_STATE".equals(item.statusMirrorStrategy())
+                        && normalizedIdentifier.equals(PARENT_SENSOR_STATE_PREFIX + logicalChannelCode)) {
                     return "sensor_state";
                 }
                 continue;
             }
-            if (normalizedIdentifier.equals(logicalChannelCode)
-                    || normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
+            if (normalizedIdentifier.equals(logicalChannelCode)) {
+                return "value";
+            }
+            if (!normalizedIdentifier.startsWith(logicalChannelCode + ".")) {
+                continue;
+            }
+            if ("LEGACY".equals(item.canonicalizationStrategy())) {
+                return normalizeOptional(normalizedIdentifier.substring(logicalChannelCode.length() + 1));
+            }
+            if ("LF_VALUE".equals(item.canonicalizationStrategy())) {
                 return "value";
             }
         }
         return null;
+    }
+
+    private String normalizeCompositeCanonicalizationStrategy(String strategy, String logicalChannelCode) {
+        String normalized = normalizeOptional(strategy);
+        if (normalized == null) {
+            return inferCompositeCanonicalizationStrategy(logicalChannelCode);
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_COMPOSITE_CANONICALIZATION_STRATEGIES.contains(upper)) {
+            throw new BizException("复合设备归一化策略不支持: " + strategy);
+        }
+        return upper;
+    }
+
+    private String normalizeCompositeStatusMirrorStrategy(String strategy, String logicalChannelCode) {
+        String normalized = normalizeOptional(strategy);
+        if (normalized == null) {
+            return inferCompositeStatusMirrorStrategy(logicalChannelCode);
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_COMPOSITE_STATUS_MIRROR_STRATEGIES.contains(upper)) {
+            throw new BizException("复合设备状态镜像策略不支持: " + strategy);
+        }
+        return upper;
+    }
+
+    private String inferCompositeCanonicalizationStrategy(String logicalChannelCode) {
+        String normalizedLogicalChannelCode = normalizeOptional(logicalChannelCode);
+        if (normalizedLogicalChannelCode != null
+                && normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_SW_")) {
+            return "LEGACY";
+        }
+        return "LF_VALUE";
+    }
+
+    private String inferCompositeStatusMirrorStrategy(String logicalChannelCode) {
+        String normalizedLogicalChannelCode = normalizeOptional(logicalChannelCode);
+        if (normalizedLogicalChannelCode != null
+                && (normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_LF_")
+                || normalizedLogicalChannelCode.toUpperCase(Locale.ROOT).contains("_SW_"))) {
+            return "SENSOR_STATE";
+        }
+        return "NONE";
     }
 
     private void collectManualLeafValues(JsonNode node,
@@ -993,11 +1410,11 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return null;
     }
 
-    private ProductModelCandidateVO toPropertyCandidate(PropertyAccumulator accumulator) {
+    private ProductModelCandidateVO toPropertyCandidate(Product product, PropertyAccumulator accumulator) {
         String groupKey = classifyPropertyGroup(accumulator.identifier);
         boolean needsReview = isSuspiciousIdentifier(accumulator.identifier)
                 || "unknown".equals(groupKey);
-        String modelName = suggestPropertyModelName(accumulator.identifier, accumulator.propertyName, groupKey);
+        String modelName = suggestPropertyModelName(product, accumulator.identifier, accumulator.propertyName, groupKey);
         String description = buildPropertyDescription(
                 accumulator.identifier,
                 modelName,
@@ -1011,7 +1428,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         candidate.setIdentifier(accumulator.identifier);
         candidate.setModelName(modelName);
         candidate.setDataType(resolvePropertyDataType(accumulator.valueType, accumulator.sampleValue, accumulator.identifier));
-        candidate.setSortNo(defaultSortNo(groupKey));
+        candidate.setSortNo(resolvePropertySortNo(product, accumulator.identifier, groupKey));
         candidate.setRequiredFlag(0);
         candidate.setDescription(description);
         candidate.setGroupKey(groupKey);
@@ -1035,17 +1452,72 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
     }
 
     private void ensureIdentifierUnique(Long productId, String identifier, Long excludeId) {
-        LambdaQueryWrapper<ProductModel> wrapper = new LambdaQueryWrapper<ProductModel>()
-                .eq(ProductModel::getProductId, productId)
-                .eq(ProductModel::getIdentifier, identifier)
-                .eq(ProductModel::getDeleted, 0);
-        if (excludeId != null) {
-            wrapper.ne(ProductModel::getId, excludeId);
+        List<ProductModel> existingModels = loadModelsByIdentifierIncludingDeleted(productId, identifier);
+        if (resolveActiveModel(existingModels, excludeId) != null) {
+            throw duplicateIdentifierException(identifier);
         }
-        ProductModel existing = productModelMapper.selectOne(wrapper);
-        if (existing != null) {
-            throw new BizException("同一产品下物模型标识已存在: " + identifier);
+        boolean hasHistoricalConflict = existingModels.stream()
+                .filter(model -> model != null && (excludeId == null || !excludeId.equals(model.getId())))
+                .anyMatch(model -> Integer.valueOf(1).equals(model.getDeleted()));
+        if (hasHistoricalConflict) {
+            throw historicalDuplicateIdentifierException(identifier);
         }
+    }
+
+    private List<ProductModel> loadModelsByIdentifierIncludingDeleted(Long productId, String identifier) {
+        List<ProductModel> models = productModelMapper.selectAnyByProductAndIdentifier(productId, identifier);
+        return models == null ? List.of() : models;
+    }
+
+    private ProductModel resolveActiveModel(List<ProductModel> models, Long excludeId) {
+        if (models == null || models.isEmpty()) {
+            return null;
+        }
+        return models.stream()
+                .filter(model -> model != null && !Integer.valueOf(1).equals(model.getDeleted()))
+                .filter(model -> excludeId == null || !excludeId.equals(model.getId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private ProductModel resolveDeletedModelForRevive(List<ProductModel> models, String modelType) {
+        if (models == null || models.isEmpty()) {
+            return null;
+        }
+        List<ProductModel> deletedModels = models.stream()
+                .filter(model -> model != null && Integer.valueOf(1).equals(model.getDeleted()))
+                .toList();
+        if (deletedModels.size() != 1) {
+            return null;
+        }
+        ProductModel deletedModel = deletedModels.get(0);
+        if (!modelType.equals(normalizeOptional(deletedModel.getModelType()))) {
+            return null;
+        }
+        return deletedModel;
+    }
+
+    private ProductModelVO reviveDeletedModel(Product product,
+                                              ProductModel deletedModel,
+                                              String modelType,
+                                              String identifier,
+                                              ProductModelUpsertDTO dto) {
+        deletedModel.setTenantId(defaultTenantId(product == null ? null : product.getTenantId()));
+        deletedModel.setProductId(product == null ? null : product.getId());
+        deletedModel.setDeleted(0);
+        applyEditableFields(deletedModel, modelType, identifier, dto);
+        if (productModelMapper.reviveDeletedById(deletedModel) <= 0) {
+            throw new BizException("产品物模型恢复失败，请稍后重试");
+        }
+        return toVO(deletedModel);
+    }
+
+    private BizException duplicateIdentifierException(String identifier) {
+        return new BizException("同一产品下物模型标识已存在: " + identifier);
+    }
+
+    private BizException historicalDuplicateIdentifierException(String identifier) {
+        return new BizException("同一产品下物模型标识已存在历史记录，请先恢复或更换标识: " + identifier);
     }
 
     private void applyEditableFields(ProductModel model, String modelType, String identifier, ProductModelUpsertDTO dto) {
@@ -1157,6 +1629,29 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 .count();
     }
 
+    private Map<String, RuntimeEvidenceSnapshot> loadRuntimeEvidenceByIdentifier(Long productId) {
+        if (productId == null) {
+            return Map.of();
+        }
+        List<VendorMetricEvidence> evidences = vendorMetricEvidenceMapper.selectList(new LambdaQueryWrapper<VendorMetricEvidence>()
+                .eq(VendorMetricEvidence::getProductId, productId)
+                .eq(VendorMetricEvidence::getDeleted, 0)
+                .ne(VendorMetricEvidence::getEvidenceOrigin, "manual_compare"));
+        if (evidences == null || evidences.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, RuntimeEvidenceSnapshot> result = new LinkedHashMap<>();
+        for (VendorMetricEvidence evidence : evidences) {
+            String identifier = normalizeOptional(evidence == null ? null : evidence.getCanonicalIdentifier());
+            if (identifier == null) {
+                continue;
+            }
+            RuntimeEvidenceSnapshot current = result.get(identifier);
+            result.put(identifier, RuntimeEvidenceSnapshot.merge(current, evidence));
+        }
+        return result;
+    }
+
     private String classifyPropertyGroup(String identifier) {
         String normalized = identifier.toLowerCase(Locale.ROOT);
         String lastSegment = lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT);
@@ -1176,9 +1671,8 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if ("value".equals(lastSegment)) {
             return "telemetry";
         }
-        if (normalized.startsWith("l")
-                && (TELEMETRY_LAST_SEGMENTS.contains(lastSegment)
-                || normalized.contains("disps"))) {
+        if (TELEMETRY_LAST_SEGMENTS.contains(lastSegment)
+                || lastSegment.startsWith("disps")) {
             return "telemetry";
         }
         return "unknown";
@@ -1189,7 +1683,15 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return normalized.startsWith("codex_verify_") || normalized.contains("singal_");
     }
 
-    private String suggestPropertyModelName(String identifier, String propertyName, String groupKey) {
+    private String suggestPropertyModelName(Product product, String identifier, String propertyName, String groupKey) {
+        String productSpecificLabel = resolveProductSpecificPropertyLabel(product, identifier);
+        if (productSpecificLabel != null) {
+            String pointLabel = resolvePointLabel(identifier);
+            if (pointLabel != null && "telemetry".equals(groupKey) && !productSpecificLabel.contains(pointLabel)) {
+                return pointLabel + productSpecificLabel;
+            }
+            return productSpecificLabel;
+        }
         String normalizedPropertyName = normalizeOptional(propertyName);
         if (normalizedPropertyName != null && !looksLikeIdentifierLabel(identifier, normalizedPropertyName)) {
             if ("telemetry".equals(groupKey)) {
@@ -1217,6 +1719,49 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         return baseLabel;
     }
 
+    private String resolveProductSpecificPropertyLabel(Product product, String identifier) {
+        String productKey = normalizeOptional(product == null ? null : product.getProductKey());
+        if (productKey == null) {
+            return null;
+        }
+        String lastSegment = lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT);
+        if (LASER_RANGEFINDER_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return switch (lastSegment) {
+                case "value" -> "激光测距值";
+                case "sensor_state" -> "传感器状态";
+                default -> null;
+            };
+        }
+        if (RAIN_GAUGE_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return switch (lastSegment) {
+                case "value" -> "当前雨量";
+                case "totalvalue" -> "累计雨量";
+                default -> null;
+            };
+        }
+        return null;
+    }
+
+    private Integer resolvePropertySortNo(Product product, String identifier, String groupKey) {
+        int base = defaultSortNo(groupKey);
+        String productKey = normalizeOptional(product == null ? null : product.getProductKey());
+        String lastSegment = lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT);
+        if (RAIN_GAUGE_PRODUCT_KEY.equalsIgnoreCase(productKey)) {
+            return switch (lastSegment) {
+                case "value" -> base;
+                case "totalvalue" -> base + 10;
+                default -> base;
+            };
+        }
+        return switch (lastSegment) {
+            case "value", "dispsx", "gpstotalx", "temp" -> base;
+            case "dispsy", "gpstotaly", "humidity" -> base + 10;
+            case "gpstotalz", "signal_4g" -> base + 20;
+            case "gpsinitial" -> base + 30;
+            default -> base;
+        };
+    }
+
     private String resolvePointLabel(String identifier) {
         int splitIndex = identifier.indexOf('.');
         String pointIdentifier = splitIndex >= 0 ? identifier.substring(0, splitIndex) : identifier;
@@ -1241,6 +1786,7 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         String normalizedName = propertyName.toLowerCase(Locale.ROOT);
         String normalizedIdentifier = identifier.toLowerCase(Locale.ROOT);
         return normalizedName.equals(normalizedIdentifier)
+                || normalizedName.equals(lastIdentifierSegment(identifier).toLowerCase(Locale.ROOT))
                 || propertyName.contains(".")
                 || normalizedName.startsWith("l1_")
                 || normalizedName.startsWith("s1_zt_");
@@ -1434,6 +1980,66 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                         int ignoredFieldCount) {
     }
 
+    private record RuntimeEvidenceSnapshot(List<String> rawIdentifiers,
+                                           Integer evidenceCount,
+                                           Integer messageEvidenceCount,
+                                           LocalDateTime lastSeenTime,
+                                           String sampleValue,
+                                           String valueType) {
+
+        private static RuntimeEvidenceSnapshot merge(RuntimeEvidenceSnapshot current, VendorMetricEvidence evidence) {
+            List<String> rawIdentifiers = current == null
+                    ? new ArrayList<>()
+                    : new ArrayList<>(current.rawIdentifiers());
+            String rawIdentifier = normalizeText(evidence == null ? null : evidence.getRawIdentifier());
+            if (rawIdentifier != null && !rawIdentifiers.contains(rawIdentifier)) {
+                rawIdentifiers.add(rawIdentifier);
+            }
+            int currentEvidenceCount = current == null || current.evidenceCount() == null ? 0 : current.evidenceCount();
+            int increment = evidence == null || evidence.getEvidenceCount() == null ? 0 : Math.max(evidence.getEvidenceCount(), 0);
+            LocalDateTime lastSeenTime = firstLater(
+                    current == null ? null : current.lastSeenTime(),
+                    evidence == null ? null : evidence.getLastSeenTime()
+            );
+            return new RuntimeEvidenceSnapshot(
+                    List.copyOf(rawIdentifiers),
+                    currentEvidenceCount + increment,
+                    currentEvidenceCount + increment,
+                    lastSeenTime,
+                    firstNonBlank(
+                            current == null ? null : current.sampleValue(),
+                            evidence == null ? null : evidence.getSampleValue()
+                    ),
+                    firstNonBlank(
+                            current == null ? null : current.valueType(),
+                            evidence == null ? null : evidence.getValueType()
+                    )
+            );
+        }
+
+        private static String normalizeText(String value) {
+            if (value == null) {
+                return null;
+            }
+            String normalized = value.trim();
+            return normalized.isEmpty() ? null : normalized;
+        }
+
+        private static LocalDateTime firstLater(LocalDateTime left, LocalDateTime right) {
+            if (left == null) {
+                return right;
+            }
+            if (right == null) {
+                return left;
+            }
+            return right.isAfter(left) ? right : left;
+        }
+
+        private static String firstNonBlank(String left, String right) {
+            return normalizeText(left) != null ? normalizeText(left) : normalizeText(right);
+        }
+    }
+
     private List<NormativeMetricDefinition> safeNormativeDefinitions(List<NormativeMetricDefinition> definitions) {
         return definitions == null ? List.of() : definitions;
     }
@@ -1461,6 +2067,14 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         Matcher matcher = POINT_IDENTIFIER_PATTERN.matcher(normalized);
         if (matcher.matches()) {
             return normalized;
+        }
+        int firstSeparatorIndex = normalized.indexOf('.');
+        if (firstSeparatorIndex > 0) {
+            String pointIdentifier = normalized.substring(0, firstSeparatorIndex);
+            Matcher pointMatcher = POINT_IDENTIFIER_PATTERN.matcher(pointIdentifier);
+            if (pointMatcher.matches()) {
+                return pointIdentifier;
+            }
         }
         return null;
     }
@@ -1531,6 +2145,12 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                                       List<String> rawIdentifiers) {
     }
 
+    private record NormalizedRelationMapping(String logicalChannelCode,
+                                             String childDeviceCode,
+                                             String canonicalizationStrategy,
+                                             String statusMirrorStrategy) {
+    }
+
     private static final class ManualLeafCollector {
         private final List<ManualLeafEvidence> leaves = new ArrayList<>();
         private int ignoredFieldCount;
@@ -1588,6 +2208,48 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 sampleValue = normalizeText(evidence.sampleValue());
             }
             updateLastReportTime(reportTime);
+        }
+
+        private void acceptRuntimeProperty(DeviceProperty property, List<String> observedRawIdentifiers) {
+            evidenceCount++;
+            sourceTables.add("iot_device_property");
+            appendRawIdentifiers(observedRawIdentifiers);
+            String candidatePropertyName = normalizeText(property == null ? null : property.getPropertyName());
+            if (candidatePropertyName != null) {
+                propertyName = candidatePropertyName;
+            }
+            String candidateValueType = normalizeText(property == null ? null : property.getValueType());
+            if (candidateValueType != null) {
+                valueType = candidateValueType;
+            }
+            String candidateSampleValue = normalizeText(property == null ? null : property.getPropertyValue());
+            if (candidateSampleValue != null) {
+                sampleValue = candidateSampleValue;
+            }
+            updateLastReportTime(property == null ? null : property.getReportTime());
+        }
+
+        private void enrichRuntimeEvidence(RuntimeEvidenceSnapshot runtimeEvidence) {
+            if (runtimeEvidence == null) {
+                return;
+            }
+            sourceTables.add("iot_vendor_metric_evidence");
+            appendRawIdentifiers(runtimeEvidence.rawIdentifiers());
+            if (runtimeEvidence.evidenceCount() != null) {
+                evidenceCount = Math.max(evidenceCount, runtimeEvidence.evidenceCount());
+            }
+            if (runtimeEvidence.messageEvidenceCount() != null) {
+                messageEvidenceCount = Math.max(messageEvidenceCount, runtimeEvidence.messageEvidenceCount());
+            }
+            String candidateValueType = normalizeText(runtimeEvidence.valueType());
+            if (candidateValueType != null) {
+                valueType = candidateValueType;
+            }
+            String candidateSampleValue = normalizeText(runtimeEvidence.sampleValue());
+            if (candidateSampleValue != null) {
+                sampleValue = candidateSampleValue;
+            }
+            updateLastReportTime(runtimeEvidence.lastSeenTime());
         }
 
         private void updateLastReportTime(LocalDateTime candidateTime) {

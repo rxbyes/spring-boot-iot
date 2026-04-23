@@ -15,7 +15,11 @@
           <strong>{{ group.title }}</strong>
         </header>
 
-        <div :ref="(element) => registerChartRef(group.key, element)" class="trend-group__chart" />
+        <div
+          :ref="(element) => registerChartRef(group.key, element)"
+          class="trend-group__chart"
+          :class="{ 'trend-group__chart--compact': shouldCompactGroup(group) }"
+        />
       </section>
     </div>
     <div v-else class="empty-state">{{ emptyMessage }}</div>
@@ -55,12 +59,36 @@ interface TrendGroup {
   series: TrendSeries[];
 }
 
+const TREND_SERIES_COLORS = [
+  '#1f6feb',
+  '#13b38b',
+  '#ff7a1a',
+  '#8f5cff',
+  '#e55381',
+  '#12a6c8',
+  '#c28a00',
+  '#2f855a',
+  '#d9485f',
+  '#5b8def',
+  '#fb8c00',
+  '#7c4dff'
+];
+
+const STATUS_EVENT_TEXT_MAP: Record<number, string> = {
+  [-4]: '未上报',
+  0: '正常',
+  [-1]: '供电异常',
+  [-2]: '传感器数据异常',
+  [-3]: '采样间隔内未采集到数据'
+};
+const STATUS_EVENT_MISSING_SENTINEL = -4;
+
 const props = withDefaults(defineProps<{
   rangeCode?: InsightRangeCode;
   groups?: TrendGroup[];
   emptyMessage?: string;
 }>(), {
-  rangeCode: '7d',
+  rangeCode: '1d',
   groups: () => [],
   emptyMessage: '暂无趋势数据'
 });
@@ -142,11 +170,15 @@ function renderAllCharts() {
       chartInstances.delete(key);
     }
   });
-  activeGroups.value.forEach((group) => renderGroupChart(group));
+  let colorOffset = 0;
+  activeGroups.value.forEach((group) => {
+    renderGroupChart(group, colorOffset);
+    colorOffset += group.series.length;
+  });
   observeCharts();
 }
 
-function renderGroupChart(group: TrendGroup) {
+function renderGroupChart(group: TrendGroup, colorOffset: number) {
   const container = chartRefs.get(group.key);
   if (!container) {
     return;
@@ -163,11 +195,11 @@ function renderGroupChart(group: TrendGroup) {
     chartInstances.set(group.key, chart);
   }
 
+  const yAxisConfig = buildYAxisConfig(group);
+
   chart.setOption({
     animationDuration: 300,
-    color: group.key === 'measure'
-      ? ['#1f6feb', '#4da3ff', '#13b38b']
-      : ['#ff7a1a', '#f5b440', '#6a8dff'],
+    color: group.series.map((_, index) => resolveTrendSeriesColor(colorOffset + index)),
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255, 255, 255, 0.98)',
@@ -178,17 +210,21 @@ function renderGroupChart(group: TrendGroup) {
       formatter: (params: Array<Record<string, unknown>>) => formatTooltip(params)
     },
     legend: {
-      top: 0,
+      type: 'scroll',
+      top: 4,
+      left: 20,
+      right: 20,
+      itemGap: 16,
       data: group.series.map((series) => series.displayName),
       textStyle: {
         color: '#5a6d85'
       }
     },
     grid: {
-      top: 42,
-      right: 18,
-      bottom: 24,
-      left: 16,
+      top: 64,
+      right: 24,
+      bottom: 52,
+      left: 28,
       containLabel: true
     },
     xAxis: {
@@ -197,7 +233,8 @@ function renderGroupChart(group: TrendGroup) {
       data: axisLabels,
       axisLabel: {
         color: '#6c7e97',
-        hideOverlap: true
+        hideOverlap: true,
+        margin: 16
       },
       axisLine: {
         lineStyle: {
@@ -205,34 +242,30 @@ function renderGroupChart(group: TrendGroup) {
         }
       }
     },
-    yAxis: {
-      type: 'value',
-      axisLabel: {
-        color: '#6c7e97'
-      },
-      splitLine: {
+    yAxis: yAxisConfig,
+    series: group.series.map((series) => {
+      const useStepLine = shouldUseStepLine(series, group);
+      return {
+        name: series.displayName,
+        type: 'line',
+        smooth: false,
+        step: useStepLine ? 'middle' : false,
+        showSymbol: useStepLine ? false : props.rangeCode === '1d',
+        symbolSize: props.rangeCode === '1d' ? 7 : 5,
         lineStyle: {
-          color: 'rgba(67, 98, 148, 0.12)'
-        }
-      }
-    },
-    series: group.series.map((series) => ({
-      name: series.displayName,
-      type: 'line',
-      smooth: false,
-      showSymbol: props.rangeCode === '1d',
-      symbolSize: props.rangeCode === '1d' ? 7 : 5,
-      lineStyle: {
-        width: 3
-      },
-      data: axisLabels.map((time) => {
-        const bucket = series.buckets.find((item) => item.time === time);
-        return {
-          value: bucket?.value ?? 0,
-          filled: bucket?.filled ?? true
-        };
-      })
-    }))
+          width: 3
+        },
+        data: axisLabels.map((time) => {
+          const bucket = series.buckets.find((item) => item.time === time);
+          const rawValue = resolveTrendPointValue(series, group, bucket);
+          return {
+            value: rawValue,
+            filled: bucket?.filled ?? true,
+            statusText: useStepLine ? resolveStatusText(series, group, rawValue, bucket?.filled ?? true) : undefined
+          };
+        })
+      };
+    })
   }, {
     notMerge: true
   });
@@ -279,12 +312,217 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
   const lines = params.map((item) => {
     const marker = String(item.marker ?? '');
     const seriesName = String(item.seriesName ?? '');
-    const data = item.data as { value?: number; filled?: boolean } | undefined;
+    const data = item.data as { value?: number; filled?: boolean; statusText?: string } | undefined;
     const value = data?.value ?? 0;
-    const suffix = data?.filled ? '（补零补齐）' : '';
-    return `${marker}${seriesName}：${value}${suffix}`;
+    const binaryStatusText = data?.filled ? '' : resolveBinaryStatusTextFromSemanticSource(seriesName, Number(value));
+    const labelValue = data?.statusText || binaryStatusText || value;
+    return `${marker}${seriesName}：${labelValue}`;
   });
   return [axisValue, ...lines].join('<br/>');
+}
+
+function resolveTrendSeriesColor(index: number) {
+  if (index < TREND_SERIES_COLORS.length) {
+    return TREND_SERIES_COLORS[index];
+  }
+  const hue = (index * 47) % 360;
+  return `hsl(${hue}, 68%, 48%)`;
+}
+
+function shouldUseStepLine(series: TrendSeries, group: TrendGroup) {
+  const actualValues = extractActualValues(series);
+  if (!actualValues.length) {
+    return false;
+  }
+
+  if (isStatusEventGroup(group, series)) {
+    return actualValues.every((value) => Number.isInteger(value));
+  }
+
+  const isStatusSeries = series.seriesType === 'status' || isRuntimeStatusGroup(group);
+  if (!isStatusSeries) {
+    return false;
+  }
+  return actualValues.every((value) => value === 0 || value === 1);
+}
+
+function resolveStatusText(series: TrendSeries, group: TrendGroup, value: number, filled: boolean) {
+  const numericValue = Number(value);
+  if (isStatusEventGroup(group, series)) {
+    const eventText = resolveStatusEventText(numericValue, filled);
+    if (eventText) {
+      return eventText;
+    }
+  }
+  if (numericValue !== 0 && numericValue !== 1) {
+    return String(value);
+  }
+
+  return resolveBinaryStatusTextFromSemanticSource(
+    `${series.identifier ?? ''} ${series.displayName}`,
+    numericValue
+  );
+}
+
+function resolveStatusEventText(numericValue: number, filled: boolean) {
+  if (filled || numericValue === STATUS_EVENT_MISSING_SENTINEL) {
+    return STATUS_EVENT_TEXT_MAP[STATUS_EVENT_MISSING_SENTINEL];
+  }
+  if (!Number.isFinite(numericValue)) {
+    return '';
+  }
+  if (STATUS_EVENT_TEXT_MAP[numericValue]) {
+    return STATUS_EVENT_TEXT_MAP[numericValue];
+  }
+  if (numericValue === 0) {
+    return '正常';
+  }
+  if (numericValue === 1) {
+    return '异常';
+  }
+  return `异常(${numericValue})`;
+}
+
+function resolveBinaryStatusTextFromSemanticSource(semanticSource: string, numericValue: number) {
+  if (numericValue !== 0 && numericValue !== 1) {
+    return '';
+  }
+
+  const normalizedSource = semanticSource.toLowerCase();
+  if (/(sensor_state|online|在线)/.test(normalizedSource)) {
+    return numericValue === 1 ? '在线' : '离线';
+  }
+  if (/(alarm|warn|告警|预警|报警)/.test(normalizedSource)) {
+    return numericValue === 1 ? '告警' : '正常';
+  }
+  if (/(switch|enable|open|close|relay|valve|pump|door|light|horn|开关|启停|开启|关闭|阀|泵|门|声光)/.test(normalizedSource)) {
+    return numericValue === 1 ? '开启' : '关闭';
+  }
+  return '';
+}
+
+function buildYAxisConfig(group: TrendGroup) {
+  const values = group.series
+    .flatMap((series) => series.buckets.map((bucket) => Number(bucket.value)))
+    .filter((value) => Number.isFinite(value));
+
+  const baseConfig = {
+    type: 'value' as const,
+    splitNumber: 4,
+    scale: true,
+    axisLabel: {
+      color: '#6c7e97'
+    },
+    splitLine: {
+      lineStyle: {
+        color: 'rgba(67, 98, 148, 0.12)'
+      }
+    }
+  };
+
+  if (isStatusEventGroup(group)) {
+    const visualValues = group.series
+      .flatMap((series) =>
+        series.buckets.map((bucket) => bucket.filled ? STATUS_EVENT_MISSING_SENTINEL : Number(bucket.value))
+      )
+      .filter((value) => Number.isFinite(value));
+    const visibleStatusValues = new Set(
+      visualValues
+        .map((value) => Math.round(value))
+        .filter((value) => Number.isFinite(value))
+    );
+    if (!visualValues.length) {
+      return baseConfig;
+    }
+
+    const minValue = Math.floor(Math.min(...visualValues)) - 1;
+    const maxValue = Math.ceil(Math.max(...visualValues)) + 1;
+
+    return {
+      ...baseConfig,
+      min: minValue,
+      max: maxValue,
+      interval: 1,
+      splitNumber: Math.min(5, Math.max(2, maxValue - minValue)),
+      axisLabel: {
+        ...baseConfig.axisLabel,
+        formatter: (value: number) => {
+          const roundedValue = Math.round(Number(value));
+          if (!visibleStatusValues.has(roundedValue)) {
+            return '';
+          }
+          return resolveStatusEventText(roundedValue, roundedValue === STATUS_EVENT_MISSING_SENTINEL);
+        }
+      }
+    };
+  }
+
+  if (!values.length) {
+    return baseConfig;
+  }
+
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const dataSpan = maxValue - minValue;
+  const midpoint = (maxValue + minValue) / 2;
+  const padding = dataSpan === 0
+    ? Math.max(Math.abs(midpoint) * 0.002, midpoint === 0 ? 1 : 0.2)
+    : Math.max(dataSpan * 0.4, Math.abs(midpoint) * 0.0005, 0.02);
+
+  return {
+    ...baseConfig,
+    min: normalizeAxisNumber(minValue - padding),
+    max: normalizeAxisNumber(maxValue + padding)
+  };
+}
+
+function normalizeAxisNumber(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Number(value.toFixed(6));
+}
+
+function extractActualValues(series: TrendSeries) {
+  return series.buckets
+    .filter((bucket) => bucket.filled === false)
+    .map((bucket) => Number(bucket.value))
+    .filter((value) => Number.isFinite(value));
+}
+
+function resolveTrendPointValue(series: TrendSeries, group: TrendGroup, bucket?: TrendBucketPoint) {
+  if (isStatusEventGroup(group, series) && bucket?.filled) {
+    return STATUS_EVENT_MISSING_SENTINEL;
+  }
+  return bucket?.value ?? 0;
+}
+
+function isStatusEventGroup(group: TrendGroup, series?: TrendSeries) {
+  return group.key === 'status-event'
+    || group.key === 'statusEvent'
+    || series?.seriesType === 'event';
+}
+
+function isRuntimeStatusGroup(group: TrendGroup) {
+  return group.key === 'status'
+    || group.key === 'status-runtime'
+    || group.key === 'runtime';
+}
+
+function shouldCompactGroup(group: TrendGroup) {
+  if (!isStatusEventGroup(group)) {
+    return false;
+  }
+  const uniqueValues = new Set(
+    group.series
+      .flatMap((series) =>
+        series.buckets
+          .filter((bucket) => bucket.filled === false)
+          .map((bucket) => Number(bucket.value))
+      )
+      .filter((value) => Number.isFinite(value))
+  );
+  return uniqueValues.size <= 2;
 }
 
 </script>
@@ -334,6 +572,10 @@ function formatTooltip(params: Array<Record<string, unknown>>) {
 .trend-group__chart {
   width: 100%;
   height: 20rem;
+}
+
+.trend-group__chart--compact {
+  height: 15rem;
 }
 
 @media (max-width: 1024px) {

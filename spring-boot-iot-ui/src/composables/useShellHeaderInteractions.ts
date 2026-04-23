@@ -1128,7 +1128,8 @@ export function useShellHeaderInteractions({
   }
 
   function handleDocumentKeydown(event: KeyboardEvent) {
-    const pressedKey = event.key.toLowerCase()
+    const rawKey = typeof event.key === 'string' ? event.key : ''
+    const pressedKey = rawKey.toLowerCase()
     if ((event.ctrlKey || event.metaKey) && pressedKey === 'k') {
       event.preventDefault()
       closeHeaderPanels()
@@ -1137,7 +1138,7 @@ export function useShellHeaderInteractions({
       return
     }
 
-    if (event.key !== 'Escape') {
+    if (rawKey !== 'Escape') {
       return
     }
     if (showCommandPalette.value) {

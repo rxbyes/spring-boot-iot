@@ -2,7 +2,7 @@
   <StandardPageShell class="page-stack file-payload-debug-view" :show-title="false">
     <StandardWorkbenchPanel
       title="数据校验台"
-      description="保留单设备校验节奏，按快照、聚合和原始响应四段查看结果。"
+      description="数据与原始响应校验：按文件快照、固件聚合与原始响应核对当前设备数据，并判断下一步回链路追踪还是治理修正。"
       show-filters
       :show-inline-state="showInlineState"
     >
@@ -127,13 +127,15 @@ const inlineStateMessage = computed(() => {
   const sourceLabel = restoredDiagnosticContext.value
     ? `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`
     : '';
+  const currentNode = '当前节点：数据与原始响应校验';
+  const nextStep = '下一步确认是否回链路追踪台或治理页。';
   if (errorMessage.value) {
-    return [sourceLabel, errorMessage.value].filter(Boolean).join(' · ');
+    return [sourceLabel, currentNode, errorMessage.value, nextStep].filter(Boolean).join(' · ');
   }
   const summary = lastFetchTime.value
     ? `最近一次抓取：${formatDateTime(lastFetchTime.value)}，文件快照 ${fileSnapshots.value.length} 条，固件聚合 ${firmwareAggregates.value.length} 条。`
     : `当前设备 ${normalizedDeviceCode.value || '--'}，等待刷新校验结果。`;
-  return [sourceLabel, summary].filter(Boolean).join(' · ');
+  return [sourceLabel, currentNode, summary, nextStep].filter(Boolean).join(' · ');
 });
 const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
 const showInlineState = computed(() => Boolean(inlineStateMessage.value));

@@ -22,4 +22,8 @@ public interface RiskMetricCatalogService {
     RiskMetricCatalog getById(Long riskMetricId);
 
     List<RiskMetricCatalog> listEnabledByProduct(Long productId);
+
+    List<String> listObjectInsightRecommendedIdentifiers(Long productId);
+
+    List<String> listRiskBindingRecommendedIdentifiers(Long productId);
 }

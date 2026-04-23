@@ -123,7 +123,7 @@ describe('ProductObjectInsightConfigEditor', () => {
       expect.objectContaining({
         identifier: '',
         displayName: '',
-        group: 'status',
+        group: 'runtime',
         analysisTag: '系统自定义参数'
       })
     ])
@@ -135,7 +135,7 @@ describe('ProductObjectInsightConfigEditor', () => {
           {
             identifier: 'S1_ZT_1.humidity',
             displayName: '相对湿度',
-            group: 'status',
+            group: 'runtime',
             includeInTrend: true,
             includeInExtension: true,
             analysisTitle: '现场环境补充',
@@ -182,7 +182,10 @@ describe('ProductObjectInsightConfigEditor', () => {
             identifier: 'L1_LF_1.value',
             modelName: '裂缝量',
             dataType: 'double',
-            sortNo: 6
+            sortNo: 6,
+            specsJson: JSON.stringify({
+              unit: 'mm'
+            })
           }
         ],
         'onUpdate:modelValue': updateSpy
@@ -209,11 +212,136 @@ describe('ProductObjectInsightConfigEditor', () => {
         identifier: 'L1_LF_1.value',
         displayName: '裂缝量',
         group: 'measure',
+        unit: 'mm',
         includeInTrend: true,
         includeInExtension: false,
         enabled: true,
         sortNo: 6
       })
     ])
+  })
+
+  it('updates metric unit through the edit form', async () => {
+    const updateSpy = vi.fn()
+    const wrapper = mount(ProductObjectInsightConfigEditor, {
+      props: {
+        modelValue: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            group: 'measure',
+            unit: 'mm',
+            includeInTrend: true,
+            includeInExtension: false,
+            enabled: true,
+            sortNo: 6
+          }
+        ],
+        'onUpdate:modelValue': updateSpy
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          ElInput: ElInputStub,
+          ElInputNumber: ElInputNumberStub,
+          ElSelect: ElSelectStub,
+          ElOption: ElOptionStub,
+          ElSwitch: ElSwitchStub,
+          ElAlert: ElAlertStub,
+          ElTag: ElTagStub,
+          ElFormItem: ElFormItemStub
+        }
+      }
+    })
+
+    await wrapper.get('[data-testid="product-object-insight-unit-input-0"] input').setValue('cm')
+
+    expect(updateSpy).toHaveBeenCalledWith([
+      expect.objectContaining({
+        identifier: 'L1_LF_1.value',
+        unit: 'cm'
+      })
+    ])
+  })
+
+  it('shows metrics with includeInTrend disabled as not yet added to trend', () => {
+    const wrapper = mount(ProductObjectInsightConfigEditor, {
+      props: {
+        modelValue: [
+          {
+            identifier: 'S1_ZT_1.humidity',
+            displayName: '相对湿度',
+            group: 'runtime',
+            includeInTrend: false,
+            includeInExtension: true,
+            enabled: true,
+            sortNo: 10
+          }
+        ],
+        availableModels: [
+          {
+            id: 21,
+            productId: 1001,
+            modelType: 'property',
+            identifier: 'S1_ZT_1.humidity',
+            modelName: '相对湿度',
+            dataType: 'double',
+            sortNo: 10
+          }
+        ]
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          ElInput: ElInputStub,
+          ElInputNumber: ElInputNumberStub,
+          ElSelect: ElSelectStub,
+          ElOption: ElOptionStub,
+          ElSwitch: ElSwitchStub,
+          ElAlert: ElAlertStub,
+          ElTag: ElTagStub,
+          ElFormItem: ElFormItemStub
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('当前未加入趋势')
+  })
+
+  it('shows three aligned object-insight groups for formal property models', () => {
+    const wrapper = mount(ProductObjectInsightConfigEditor, {
+      props: {
+        modelValue: [],
+        availableModels: [
+          {
+            id: 11,
+            productId: 1001,
+            modelType: 'property',
+            identifier: 'S1_ZT_1.sensor_state',
+            modelName: '设备状态',
+            dataType: 'int',
+            sortNo: 2
+          }
+        ]
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          ElInput: ElInputStub,
+          ElInputNumber: ElInputNumberStub,
+          ElSelect: ElSelectStub,
+          ElOption: ElOptionStub,
+          ElSwitch: ElSwitchStub,
+          ElAlert: ElAlertStub,
+          ElTag: ElTagStub,
+          ElFormItem: ElFormItemStub
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('监测数据')
+    expect(wrapper.text()).toContain('状态事件')
+    expect(wrapper.text()).toContain('运行参数')
+    expect(wrapper.text()).not.toContain('状态趋势')
   })
 })

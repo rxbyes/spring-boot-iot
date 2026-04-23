@@ -45,21 +45,22 @@ export function resolveReportingDiagnosis(
   if (!hasReplayContext) {
     return buildDiagnosis({
       verdict: 'idle',
-      title: '尚未验证',
-      summary: '先发起一次模拟验证，再进入结果复盘和最近记录。',
-      blockerLabel: '下一步',
-      blocker: '先发送模拟验证',
+      title: '排障起点',
+      summary: '先发起一次模拟验证，再决定进入哪一条诊断分支。',
+      blockerLabel: '当前节点',
+      blocker: '链路验证',
       actions: [{ target: 'simulate', label: '前往模拟验证' }]
     });
   }
 
   if (isFailed(session, timeline, failedStep)) {
+    const failedStage = normalizeText(failedStep?.stage);
     return buildDiagnosis({
       verdict: 'failed',
-      title: '验证失败',
-      summary: normalizeText(failedStep?.errorMessage) || '主链路存在失败阶段，请继续追踪并排查异常日志。',
-      blockerLabel: '当前卡点',
-      blocker: normalizeText(failedStep?.stage) || '主链路存在失败阶段',
+      title: '当前节点：链路验证',
+      summary: normalizeText(failedStep?.errorMessage) || '当前验证失败，下一步进入链路追踪或异常观测定位证据。',
+      blockerLabel: '下一步',
+      blocker: failedStage ? `链路追踪 / 异常观测（先核对 ${failedStage}）` : '链路追踪 / 异常观测',
       actions: [
         { target: 'message-trace', label: '继续链路追踪' },
         { target: 'system-log', label: '查看异常观测' }
@@ -70,10 +71,10 @@ export function resolveReportingDiagnosis(
   if (transportMode === 'mqtt' && Boolean(session?.correlationPending) && !traceId) {
     return buildDiagnosis({
       verdict: 'pending',
-      title: '等待回流',
-      summary: 'MQTT 模拟已发出，正在等待消费链路完成 trace 绑定。',
-      blockerLabel: '当前卡点',
-      blocker: '等待 trace 绑定',
+      title: '当前节点：链路验证',
+      summary: 'MQTT 模拟已发出，下一步等待消费回流完成 trace 绑定，超时后转异常观测继续排查。',
+      blockerLabel: '下一步',
+      blocker: '等待回流 / 异常观测',
       actions: [
         { target: 'system-log', label: '查看异常观测' },
         { target: 'simulate', label: '返回模拟验证' }
@@ -82,12 +83,13 @@ export function resolveReportingDiagnosis(
   }
 
   if (hasText(params.lookupError) || (Boolean(params.lookupMissing) && Boolean(params.expectedTimeline))) {
+    const degradedReason = normalizeText(params.lookupError) || '时间线暂不可用';
     return buildDiagnosis({
       verdict: 'degraded',
-      title: '复盘受限',
-      summary: normalizeText(params.lookupError) || '当前时间线暂不可用，但仍可带着上下文继续排查。',
-      blockerLabel: '当前卡点',
-      blocker: normalizeText(params.lookupError) || '时间线暂不可用',
+      title: '当前节点：链路验证',
+      summary: normalizeText(params.lookupError) || '当前验证已完成，但时间线暂不可用；下一步先去异常观测，再决定是否继续链路追踪。',
+      blockerLabel: '下一步',
+      blocker: `异常观测（${degradedReason}）`,
       actions: [
         { target: 'system-log', label: '查看异常观测' },
         { target: 'simulate', label: '返回模拟验证' }
@@ -97,10 +99,10 @@ export function resolveReportingDiagnosis(
 
   return buildDiagnosis({
     verdict: 'validated',
-    title: '验证成功',
-    summary: '已拿到完整复盘上下文，可以继续查看固定 Pipeline 和下游证据。',
-    blockerLabel: '当前卡点',
-    blocker: '已拿到完整复盘结果',
+    title: '当前节点：链路验证',
+    summary: '本轮链路验证已完成，下一步进入链路追踪台复盘固定 Pipeline。',
+    blockerLabel: '下一步',
+    blocker: '链路追踪台 / 数据校验',
     actions: [
       { target: 'message-trace', label: '继续链路追踪' },
       { target: 'file-debug', label: '打开数据校验' }

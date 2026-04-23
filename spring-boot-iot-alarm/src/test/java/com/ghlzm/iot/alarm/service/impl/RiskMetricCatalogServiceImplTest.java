@@ -10,6 +10,8 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.NormativeMetricDefinitionService;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -17,8 +19,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,6 +45,9 @@ class RiskMetricCatalogServiceImplTest {
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
 
+    @Mock
+    private PublishedProductContractSnapshotService snapshotService;
+
     @Test
     void publishFromReleasedContractShouldPersistSemanticMetadataForRiskEnabledMetric() {
         RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
@@ -45,7 +55,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(1001L);
@@ -106,14 +117,15 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(1001L);
         product.setTenantId(1L);
         product.setProductKey("phase1-crack-product");
         when(productMapper.selectById(1001L)).thenReturn(product);
-        when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
+        org.mockito.Mockito.lenient().when(normativeMetricDefinitionService.listByScenario("phase1-crack")).thenReturn(List.of(
                 normative("phase1-crack", "value", "mm", 1, "{\"thresholdKind\":\"absolute\"}")
         ));
 
@@ -140,7 +152,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(3003L);
@@ -187,7 +200,8 @@ class RiskMetricCatalogServiceImplTest {
                 productMapper,
                 normativeMetricDefinitionService,
                 List.of(customResolver, new KeywordRiskMetricScenarioResolver()),
-                applicationEventPublisher
+                applicationEventPublisher,
+                snapshotService
         );
         Product product = new Product();
         product.setId(4004L);
@@ -216,6 +230,93 @@ class RiskMetricCatalogServiceImplTest {
                         && "ratio".equals(row.getThresholdType())
                         && "cm".equals(row.getMetricUnit())
         ));
+    }
+
+    @Test
+    void publishFromReleasedContractsShouldUseCanonicalIdentifiersFromResolverSnapshot() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher,
+                snapshotService
+        );
+        Product product = new Product();
+        product.setId(1001L);
+        product.setTenantId(1L);
+        product.setProductKey("nf-monitor-laser-rangefinder-v1");
+        when(productMapper.selectById(1001L)).thenReturn(product);
+        when(snapshotService.getRequiredSnapshot(1001L)).thenReturn(PublishedProductContractSnapshot.builder()
+                .productId(1001L)
+                .releaseBatchId(7001L)
+                .publishedIdentifier("value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .build());
+
+        ProductModel releasedAlias = new ProductModel();
+        releasedAlias.setId(3101L);
+        releasedAlias.setProductId(1001L);
+        releasedAlias.setIdentifier("L1_LF_1.value");
+        releasedAlias.setModelName("激光测距值");
+        releasedAlias.setDataType("double");
+
+        service.publishFromReleasedContracts(1001L, 7001L, List.of(releasedAlias), Set.of("value"));
+
+        verify(riskMetricCatalogMapper).insert(argThat((RiskMetricCatalog row) ->
+                Long.valueOf(7001L).equals(row.getReleaseBatchId())
+                        && "value".equals(row.getNormativeIdentifier())
+                        && "value".equals(row.getContractIdentifier())
+                        && "RM_1001_VALUE".equals(row.getRiskMetricCode())
+                        && "激光测距值".equals(row.getRiskMetricName())
+        ));
+    }
+
+    @Test
+    void listObjectInsightRecommendedIdentifiersShouldOnlyKeepInsightEnabledCatalogMetrics() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher,
+                snapshotService
+        );
+        RiskMetricCatalog value = new RiskMetricCatalog();
+        value.setProductId(1001L);
+        value.setContractIdentifier("value");
+        value.setInsightEnabled(1);
+        value.setEnabled(1);
+        value.setDeleted(0);
+
+        RiskMetricCatalog sensorState = new RiskMetricCatalog();
+        sensorState.setProductId(1001L);
+        sensorState.setContractIdentifier("sensor_state");
+        sensorState.setInsightEnabled(0);
+        sensorState.setEnabled(1);
+        sensorState.setDeleted(0);
+
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+
+        assertEquals(List.of("value"), service.listObjectInsightRecommendedIdentifiers(1001L));
+        assertEquals(List.of("value", "sensor_state"), service.listRiskBindingRecommendedIdentifiers(1001L));
+    }
+
+    @Test
+    void springContextShouldInstantiateRiskMetricCatalogServiceBean() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(RiskMetricCatalogMapper.class, () -> riskMetricCatalogMapper);
+            context.registerBean(ProductMapper.class, () -> productMapper);
+            context.registerBean(NormativeMetricDefinitionService.class, () -> normativeMetricDefinitionService);
+            context.registerBean(ApplicationEventPublisher.class, () -> applicationEventPublisher);
+            context.registerBean(PublishedProductContractSnapshotService.class, () -> snapshotService);
+            context.registerBean("keywordRiskMetricScenarioResolver", RiskMetricScenarioResolver.class,
+                    KeywordRiskMetricScenarioResolver::new);
+            context.register(RiskMetricCatalogServiceImpl.class);
+
+            assertDoesNotThrow(context::refresh);
+            assertNotNull(context.getBean(RiskMetricCatalogServiceImpl.class));
+        }
     }
 
     private NormativeMetricDefinition normative(String scenarioCode,

@@ -1,7 +1,7 @@
 <template>
   <StandardWorkbenchPanel
     title="接入失败归档台"
-    description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，快速回放失败上下文。"
+    description="查看 MQTT / $dp 接入失败归档、契约快照与原始报文，并决定下一步回链路追踪、异常观测还是治理修正。"
     show-filters
     :show-applied-filters="hasAppliedFilters"
     :show-inline-state="showInlineState"
@@ -191,10 +191,7 @@
 
             <StandardWorkbenchRowActions
               variant="card"
-              gap="compact"
               :direct-items="getArchiveDirectActions(row)"
-              :menu-items="accessErrorMenuItems"
-              menu-label="更多"
               @command="(command) => handleArchiveRowAction(command, row)"
             />
           </article>
@@ -240,10 +237,7 @@
           <template #default="{ row }">
             <StandardWorkbenchRowActions
               variant="table"
-              gap="compact"
               :direct-items="getArchiveDirectActions(row)"
-              :menu-items="accessErrorMenuItems"
-              menu-label="更多"
               @command="(command) => handleArchiveRowAction(command, row)"
             />
           </template>
@@ -275,134 +269,107 @@
     :error-message="detailErrorMessage"
     :empty="!hasDetail"
   >
-    <section class="detail-panel detail-panel--hero">
-      <div class="detail-section-header">
-        <div>
-          <h3>失败概览</h3>
-          <p>先看失败阶段、归档时间、设备与协议编码，再决定是回查异常观测台还是继续复盘接入链路。</p>
+    <div class="access-error-detail-workbench">
+      <section class="access-error-detail-workbench__stage" data-testid="access-error-detail-summary-stage">
+        <div class="access-error-detail-workbench__stage-header">
+          <h3>失败态势与处理概况</h3>
         </div>
-      </div>
-      <div class="detail-summary-grid">
-        <article class="detail-summary-card">
-          <span class="detail-summary-card__label">失败阶段</span>
-          <strong class="detail-summary-card__value">{{ getFailureStageLabel(detailData.failureStage) }}</strong>
-          <p class="detail-summary-card__hint">异常编码：{{ formatValue(detailData.errorCode) }}</p>
-        </article>
-        <article class="detail-summary-card">
-          <span class="detail-summary-card__label">归档时间</span>
-          <strong class="detail-summary-card__value">{{ detailDisplayTime }}</strong>
-          <p class="detail-summary-card__hint">日志 ID：{{ formatValue(detailData.id) }}</p>
-        </article>
-        <article class="detail-summary-card">
-          <span class="detail-summary-card__label">设备编码</span>
-          <strong class="detail-summary-card__value">{{ formatValue(detailData.deviceCode) }}</strong>
-          <p class="detail-summary-card__hint">产品标识：{{ formatValue(detailData.productKey) }}</p>
-        </article>
-        <article class="detail-summary-card">
-          <span class="detail-summary-card__label">协议编码</span>
-          <strong class="detail-summary-card__value">{{ formatValue(detailData.protocolCode) }}</strong>
-          <p class="detail-summary-card__hint">路由类型：{{ formatValue(detailData.topicRouteType) }}</p>
-        </article>
-        <article class="detail-summary-card">
-          <span class="detail-summary-card__label">TraceId</span>
-          <strong class="detail-summary-card__value">{{ formatValue(detailData.traceId) }}</strong>
-          <p class="detail-summary-card__hint">可回查异常观测台与链路追踪台</p>
-        </article>
-      </div>
-    </section>
 
-    <section class="detail-panel">
-      <div class="detail-section-header">
-        <div>
-          <h3>接入上下文</h3>
-          <p>统一展示 topic、clientId、messageType、payload 信息和异常摘要，避免只剩一条异常消息无法定位。</p>
+        <div class="access-error-detail-workbench__summary-grid">
+          <article
+            v-for="card in detailSummaryCards"
+            :key="card.key"
+            class="access-error-detail-workbench__summary-card"
+          >
+            <span class="access-error-detail-workbench__summary-label">{{ card.label }}</span>
+            <span class="access-error-detail-workbench__summary-value">{{ card.value }}</span>
+            <span v-if="card.hint" class="access-error-detail-workbench__summary-hint">{{ card.hint }}</span>
+          </article>
         </div>
-      </div>
-      <div class="detail-grid">
-        <div class="detail-field">
-          <span class="detail-field__label">产品标识</span>
-          <strong class="detail-field__value">{{ formatValue(detailData.productKey) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">消息类型</span>
-          <strong class="detail-field__value">{{ formatValue(detailData.messageType) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">ClientId</span>
-          <strong class="detail-field__value">{{ formatValue(detailData.clientId) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">请求通道</span>
-          <strong class="detail-field__value">{{ formatValue(detailData.requestMethod) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">载荷长度</span>
-          <strong class="detail-field__value">{{ formatValue(detailData.payloadSize) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">载荷编码</span>
-          <strong class="detail-field__value">{{ formatValue(detailData.payloadEncoding) }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">是否截断</span>
-          <strong class="detail-field__value">{{ detailPayloadTruncatedText }}</strong>
-        </div>
-        <div class="detail-field">
-          <span class="detail-field__label">异常类型</span>
-          <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailData.exceptionClass) }}</strong>
-        </div>
-        <div class="detail-field detail-field--full">
-          <span class="detail-field__label">Topic</span>
-          <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailData.topic) }}</strong>
-        </div>
-        <div class="detail-field detail-field--full">
-          <span class="detail-field__label">异常摘要</span>
-          <strong class="detail-field__value detail-field__value--plain">{{ formatValue(detailData.errorMessage) }}</strong>
-        </div>
-      </div>
-      <div class="detail-notice detail-notice--danger">
-        <span class="detail-notice__label">排查建议</span>
-        <strong class="detail-notice__value">{{ detailRouteAdvice }}</strong>
-      </div>
-    </section>
+      </section>
 
-    <section class="detail-panel">
-      <div class="detail-section-header">
-        <div>
-          <h3>契约快照</h3>
-          <p>对照 expected / actual protocol、产品归属和路由来源，快速确认失败是否来自建档契约或协议漂移。</p>
+      <section
+        class="access-error-detail-workbench__stage access-error-detail-workbench__stage--subtle"
+        data-testid="access-error-detail-identity-stage"
+      >
+        <div class="access-error-detail-workbench__stage-header">
+          <h3>链路与主体台账</h3>
         </div>
-      </div>
-      <div class="detail-grid">
-        <div class="detail-field detail-field--full">
-          <span class="detail-field__label">contractSnapshot</span>
-          <div class="detail-field__value detail-field__value--pre">{{ detailContractSnapshot }}</div>
-        </div>
-      </div>
-      <div class="detail-notice__actions">
-        <StandardButton action="refresh" link :disabled="!detailData.productKey" @click="jumpToProductGovernance">
-          产品定义中心
-        </StandardButton>
-        <StandardButton action="refresh" link :disabled="!detailData.deviceCode" @click="jumpToDeviceGovernance">
-          设备资产中心
-        </StandardButton>
-      </div>
-    </section>
 
-    <section class="detail-panel">
-      <div class="detail-section-header">
-        <div>
-          <h3>原始报文</h3>
-          <p>保留失败发生时的原始 payload 快照，用于核对编码、topic 结构和协议解码前输入。</p>
+        <div class="access-error-detail-workbench__fact-table">
+          <div
+            v-for="item in detailIdentityItems"
+            :key="item.key"
+            :class="[
+              'access-error-detail-workbench__fact-row',
+              { 'access-error-detail-workbench__fact-row--stacked': item.wide }
+            ]"
+          >
+            <span class="access-error-detail-workbench__fact-label">{{ item.label }}</span>
+            <span class="access-error-detail-workbench__fact-value">{{ item.value }}</span>
+          </div>
         </div>
-      </div>
-      <div class="detail-grid">
-        <div class="detail-field detail-field--full">
-          <span class="detail-field__label">rawPayload</span>
-          <div class="detail-field__value detail-field__value--pre">{{ detailPayload }}</div>
+      </section>
+
+      <section
+        class="access-error-detail-workbench__stage access-error-detail-workbench__stage--subtle"
+        data-testid="access-error-detail-diagnosis-stage"
+      >
+        <div class="access-error-detail-workbench__stage-header">
+          <h3>异常诊断与回跳</h3>
         </div>
-      </div>
-    </section>
+
+        <div class="access-error-detail-workbench__fact-table">
+          <div
+            v-for="item in detailDiagnosisItems"
+            :key="item.key"
+            :class="[
+              'access-error-detail-workbench__fact-row',
+              { 'access-error-detail-workbench__fact-row--stacked': item.wide }
+            ]"
+          >
+            <span class="access-error-detail-workbench__fact-label">{{ item.label }}</span>
+            <span class="access-error-detail-workbench__fact-value">{{ item.value }}</span>
+          </div>
+        </div>
+
+        <div class="access-error-detail-workbench__notice access-error-detail-workbench__notice--danger">
+          <span class="access-error-detail-workbench__notice-label">排查建议</span>
+          <strong class="access-error-detail-workbench__notice-value">{{ detailRouteAdvice }}</strong>
+          <div class="access-error-detail-workbench__notice-actions">
+            <StandardButton action="refresh" link :disabled="!canJumpToSystemLog(detailData)" @click="jumpToSystemLog(detailData)">
+              异常观测台
+            </StandardButton>
+            <StandardButton action="refresh" link :disabled="!canJumpToTrace(detailData)" @click="jumpToMessageTrace(detailData)">
+              链路追踪台
+            </StandardButton>
+            <StandardButton action="refresh" link :disabled="!detailData.productKey" @click="jumpToProductGovernance">
+              产品定义中心
+            </StandardButton>
+            <StandardButton action="refresh" link :disabled="!detailData.deviceCode" @click="jumpToDeviceGovernance">
+              设备资产中心
+            </StandardButton>
+          </div>
+        </div>
+      </section>
+
+      <section class="access-error-detail-workbench__stage" data-testid="access-error-detail-snapshot-stage">
+        <div class="access-error-detail-workbench__stage-header">
+          <h3>契约与报文快照</h3>
+        </div>
+
+        <div class="access-error-detail-workbench__payload-stack">
+          <article class="access-error-detail-workbench__payload-panel">
+            <div class="access-error-detail-workbench__payload-header">契约快照</div>
+            <pre class="access-error-detail-workbench__code-block">{{ detailContractSnapshot }}</pre>
+          </article>
+          <article class="access-error-detail-workbench__payload-panel">
+            <div class="access-error-detail-workbench__payload-header">原始报文</div>
+            <pre class="access-error-detail-workbench__code-block">{{ detailPayload }}</pre>
+          </article>
+        </div>
+      </section>
+    </div>
   </StandardDetailDrawer>
 </template>
 
@@ -433,6 +400,20 @@ import {
   resolveDiagnosticContext
 } from '@/utils/iotAccessDiagnostics';
 
+interface DetailSummaryCard {
+  key: string;
+  label: string;
+  value: string;
+  hint?: string;
+}
+
+interface DetailLedgerItem {
+  key: string;
+  label: string;
+  value: string;
+  wide?: boolean;
+}
+
 const route = useRoute();
 const router = useRouter();
 const accessErrorActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -440,12 +421,8 @@ const accessErrorActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'detail', label: '详情' },
     { command: 'trace', label: '追踪' },
     { command: 'observe', label: '观测' }
-  ],
-  gap: 'compact'
+  ]
 });
-const accessErrorMenuItems = [
-  { command: 'observe', label: '观测' }
-];
 
 const searchForm = reactive({
   traceId: '',
@@ -514,21 +491,63 @@ const detailPayloadTruncatedText = computed(() => {
 });
 const detailRouteAdvice = computed(() => {
   if (detailData.value.traceId) {
-    return `建议先回查 TraceId（${detailData.value.traceId}）对应的异常观测台，再切回链路追踪核对主链路是否已落消息日志。`;
+    return `建议先到链路追踪台核对失败阶段（TraceId：${detailData.value.traceId}），再视证据回异常观测台或治理页修正。`;
   }
   if (detailData.value.deviceCode) {
-    return `建议按设备编码 ${detailData.value.deviceCode} 回查异常观测台和链路追踪台，确认失败发生在建档校验前还是分发阶段。`;
+    return `建议先按设备编码 ${detailData.value.deviceCode} 回链路追踪台补齐主链路证据，再决定去异常观测台还是治理页修正。`;
   }
-  return '建议结合 Topic、协议编码和契约快照继续排查失败发生点。';
+  return '建议先结合 Topic、协议编码和契约快照定位失败发生点，再决定回链路追踪台还是治理页。';
 });
+const detailSummaryCards = computed<DetailSummaryCard[]>(() => [
+  {
+    key: 'failureStage',
+    label: '失败阶段',
+    value: getFailureStageLabel(detailData.value.failureStage),
+    hint: `异常编码：${formatValue(detailData.value.errorCode)}`
+  },
+  {
+    key: 'archiveTime',
+    label: '归档时间',
+    value: detailDisplayTime.value,
+    hint: `日志 ID：${formatValue(detailData.value.id)}`
+  },
+  {
+    key: 'deviceCode',
+    label: '设备编码',
+    value: formatValue(detailData.value.deviceCode),
+    hint: `产品标识：${formatValue(detailData.value.productKey)}`
+  },
+  {
+    key: 'protocolCode',
+    label: '协议编码',
+    value: formatValue(detailData.value.protocolCode),
+    hint: `请求通道：${formatValue(detailData.value.requestMethod)}`
+  }
+]);
+const detailIdentityItems = computed<DetailLedgerItem[]>(() => [
+  { key: 'traceId', label: 'TraceId', value: formatValue(detailData.value.traceId), wide: true },
+  { key: 'productKey', label: '产品标识', value: formatValue(detailData.value.productKey) },
+  { key: 'clientId', label: 'ClientId', value: formatValue(detailData.value.clientId) },
+  { key: 'gatewayDeviceCode', label: '网关设备', value: formatValue(detailData.value.gatewayDeviceCode) },
+  { key: 'subDeviceCode', label: '子设备', value: formatValue(detailData.value.subDeviceCode) },
+  { key: 'topicRouteType', label: '路由类型', value: formatValue(detailData.value.topicRouteType) },
+  { key: 'topic', label: 'Topic', value: formatValue(detailData.value.topic), wide: true }
+]);
+const detailDiagnosisItems = computed<DetailLedgerItem[]>(() => [
+  { key: 'messageType', label: '消息类型', value: formatValue(detailData.value.messageType) },
+  { key: 'payloadSize', label: '载荷长度', value: formatValue(detailData.value.payloadSize) },
+  { key: 'payloadEncoding', label: '载荷编码', value: formatValue(detailData.value.payloadEncoding) },
+  { key: 'payloadTruncated', label: '是否截断', value: detailPayloadTruncatedText.value },
+  { key: 'exceptionClass', label: '异常类型', value: formatValue(detailData.value.exceptionClass), wide: true },
+  { key: 'errorMessage', label: '异常摘要', value: formatValue(detailData.value.errorMessage), wide: true }
+]);
 const detailTags = computed(() => {
   if (!hasDetail.value) {
     return [];
   }
   return [
     { label: getFailureStageLabel(detailData.value.failureStage), type: 'warning' as const },
-    ...(detailData.value.errorCode ? [{ label: `Code ${detailData.value.errorCode}`, type: 'danger' as const }] : []),
-    ...(detailData.value.traceId ? [{ label: `Trace ${detailData.value.traceId}`, type: 'info' as const }] : [])
+    ...(detailData.value.errorCode ? [{ label: `Code ${detailData.value.errorCode}`, type: 'danger' as const }] : [])
   ];
 });
 const {
@@ -760,7 +779,8 @@ function handlePageChange(page: number) {
 function getArchiveDirectActions(row: DeviceAccessErrorLog) {
   return [
     { command: 'detail', label: '详情' },
-    { command: 'trace', label: '追踪', disabled: !canJumpToTrace(row) }
+    { command: 'trace', label: '追踪', disabled: !canJumpToTrace(row) },
+    { command: 'observe', label: '观测', disabled: !canJumpToSystemLog(row) }
   ];
 }
 
@@ -990,9 +1010,169 @@ onMounted(() => {
   margin: 0;
 }
 
-.access-error-notice-grid {
+.access-error-detail-workbench {
   display: grid;
-  gap: 0.72rem;
+  gap: 1rem;
+}
+
+.access-error-detail-workbench__stage,
+.access-error-detail-workbench__payload-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-inset-highlight-78);
+}
+
+.access-error-detail-workbench__stage--subtle,
+.access-error-detail-workbench__payload-panel {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.access-error-detail-workbench__stage-header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.access-error-detail-workbench__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.access-error-detail-workbench__summary-card {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(203, 213, 225, 0.86);
+  border-radius: calc(var(--radius-md) + 2px);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(244, 248, 255, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.access-error-detail-workbench__summary-label,
+.access-error-detail-workbench__fact-label,
+.access-error-detail-workbench__notice-label {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.access-error-detail-workbench__summary-value {
+  color: var(--text-heading);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.access-error-detail-workbench__summary-hint {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.access-error-detail-workbench__fact-table {
+  overflow: hidden;
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.access-error-detail-workbench__fact-row {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  min-width: 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.access-error-detail-workbench__fact-row:last-child {
+  border-bottom: none;
+}
+
+.access-error-detail-workbench__fact-row--stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.access-error-detail-workbench__fact-label,
+.access-error-detail-workbench__fact-value {
+  min-width: 0;
+  padding: 0.88rem 1rem;
+  line-height: 1.6;
+}
+
+.access-error-detail-workbench__fact-label {
+  display: flex;
+  align-items: center;
+  background: rgba(248, 250, 252, 0.96);
+  border-right: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.access-error-detail-workbench__fact-row--stacked .access-error-detail-workbench__fact-label {
+  border-right: none;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.access-error-detail-workbench__fact-value,
+.access-error-detail-workbench__notice-value {
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.access-error-detail-workbench__notice {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.92rem 1rem;
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  border-radius: calc(var(--radius-md) + 2px);
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(244, 248, 255, 0.94) 100%);
+}
+
+.access-error-detail-workbench__notice--danger {
+  border-color: color-mix(in srgb, var(--danger, #d45d5d) 26%, var(--panel-border));
+  background: color-mix(in srgb, #fff7f7 72%, rgba(255, 255, 255, 0.92));
+}
+
+.access-error-detail-workbench__notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.access-error-detail-workbench__payload-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.access-error-detail-workbench__payload-header {
+  margin: -1rem -1rem 0;
+  padding: 0.78rem 1rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.45;
+  background: rgba(248, 250, 252, 0.96);
+}
+
+.access-error-detail-workbench__code-block {
+  margin: 0;
+  min-height: 11rem;
+  padding: 1rem 0;
+  border: none;
+  background: transparent;
+  color: var(--text-heading);
+  font-size: 13px;
+  line-height: 1.72;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .access-error-table-wrap {
@@ -1074,6 +1254,16 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .access-error-detail-workbench__summary-grid,
+  .access-error-detail-workbench__fact-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .access-error-detail-workbench__fact-label {
+    border-right: none;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+  }
+
   .access-error-mobile-list {
     display: block;
   }

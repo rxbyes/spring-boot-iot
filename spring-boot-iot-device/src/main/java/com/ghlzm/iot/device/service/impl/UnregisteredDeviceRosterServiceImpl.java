@@ -131,6 +131,35 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
         return listFromDispatchFailure(tenantId, keyword, productKey, productName, deviceCode, safeOffset, safeLimit);
     }
 
+    @Override
+    public DevicePageVO findByTraceId(Long tenantId, String traceId) {
+        String normalizedTraceId = StringUtils.hasText(traceId) ? traceId.trim() : null;
+        if (!StringUtils.hasText(normalizedTraceId)) {
+            return null;
+        }
+        if (supportsInvalidReportStateSource()) {
+            try {
+                DevicePageVO row = findFromInvalidStateMergedSources(tenantId, normalizedTraceId);
+                if (row != null) {
+                    return row;
+                }
+            } catch (Exception ex) {
+                log.warn("按 traceId 查询未登记设备最新态失败，回退失败轨迹来源, traceId={}, error={}", normalizedTraceId, ex.getMessage());
+            }
+        }
+        if (supportsAccessErrorSource()) {
+            try {
+                DevicePageVO row = findFromMergedSources(tenantId, normalizedTraceId);
+                if (row != null) {
+                    return row;
+                }
+            } catch (Exception ex) {
+                log.warn("按 traceId 查询未登记设备失败，回退失败轨迹来源, traceId={}, error={}", normalizedTraceId, ex.getMessage());
+            }
+        }
+        return findFromDispatchFailure(tenantId, normalizedTraceId);
+    }
+
     private boolean supportsAccessErrorSource() {
         return accessErrorLogSchemaSupport.getColumns().containsAll(REQUIRED_ACCESS_ERROR_COLUMNS);
     }
@@ -338,6 +367,202 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 """);
         Long result = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
         return result == null ? 0L : result;
+    }
+
+    private DevicePageVO findFromInvalidStateMergedSources(Long tenantId, String traceId) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                  merged.source_record_id,
+                  merged.device_code,
+                  merged.product_key,
+                  merged.protocol_code,
+                  merged.asset_source_type,
+                  merged.failure_stage,
+                  merged.error_message,
+                  merged.topic,
+                  merged.trace_id,
+                  merged.payload,
+                  merged.report_time
+                FROM (
+                    SELECT
+                      s.id AS source_record_id,
+                      s.device_code,
+                      s.product_key,
+                      s.protocol_code,
+                      'invalid_report_state' AS asset_source_type,
+                      s.failure_stage,
+                      s.sample_error_message AS error_message,
+                      s.topic,
+                      s.last_trace_id AS trace_id,
+                      s.last_payload AS payload,
+                      s.last_seen_time AS report_time
+                    FROM iot_device_invalid_report_state s
+                    LEFT JOIN iot_device d
+                      ON d.device_code = s.device_code
+                     AND d.deleted = 0
+                    WHERE s.deleted = 0
+                      AND s.resolved = 0
+                      AND s.reason_code = 'DEVICE_NOT_FOUND'
+                      AND s.device_code IS NOT NULL
+                      AND TRIM(s.device_code) <> ''
+                      AND d.id IS NULL
+                      AND s.last_trace_id = ?
+                """);
+        params.add(traceId);
+        appendTenantEquals(sql, params, "s.tenant_id", tenantId);
+        sql.append("""
+                    UNION ALL
+                    SELECT
+                      m.id AS source_record_id,
+                      m.device_code,
+                      m.product_key,
+                      NULL AS protocol_code,
+                      'dispatch_failed' AS asset_source_type,
+                      'message_dispatch' AS failure_stage,
+                      '未登记设备最近一次上报已记录到失败轨迹。' AS error_message,
+                      m.topic,
+                      m.trace_id,
+                      m.payload,
+                      m.report_time
+                    FROM iot_device_message_log m
+                    LEFT JOIN iot_device d2
+                      ON d2.device_code = m.device_code
+                     AND d2.deleted = 0
+                    WHERE m.device_id = ?
+                      AND m.message_type = ?
+                      AND m.device_code IS NOT NULL
+                      AND TRIM(m.device_code) <> ''
+                      AND d2.id IS NULL
+                      AND m.trace_id = ?
+                """);
+        params.add(UNKNOWN_DEVICE_ID);
+        params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        params.add(traceId);
+        appendTenantEquals(sql, params, "m.tenant_id", tenantId);
+        sql.append("""
+                ) merged
+                ORDER BY merged.report_time DESC, merged.source_record_id DESC
+                LIMIT 1
+                """);
+        List<DevicePageVO> records = jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
+        return records == null || records.isEmpty() ? null : records.get(0);
+    }
+
+    private DevicePageVO findFromMergedSources(Long tenantId, String traceId) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                  merged.source_record_id,
+                  merged.device_code,
+                  merged.product_key,
+                  merged.protocol_code,
+                  merged.asset_source_type,
+                  merged.failure_stage,
+                  merged.error_message,
+                  merged.topic,
+                  merged.trace_id,
+                  merged.payload,
+                  merged.report_time
+                FROM (
+                    SELECT
+                      e.id AS source_record_id,
+                      e.device_code,
+                      e.product_key,
+                      e.protocol_code,
+                      'access_error' AS asset_source_type,
+                      e.failure_stage,
+                      e.error_message,
+                      e.topic,
+                      e.trace_id,
+                      e.raw_payload AS payload,
+                      e.create_time AS report_time
+                    FROM iot_device_access_error_log e
+                    LEFT JOIN iot_device d
+                      ON d.device_code = e.device_code
+                     AND d.deleted = 0
+                    WHERE e.deleted = 0
+                      AND e.device_code IS NOT NULL
+                      AND TRIM(e.device_code) <> ''
+                      AND d.id IS NULL
+                      AND e.trace_id = ?
+                """);
+        params.add(traceId);
+        appendTenantEquals(sql, params, "e.tenant_id", tenantId);
+        sql.append("""
+                    UNION ALL
+                    SELECT
+                      m.id AS source_record_id,
+                      m.device_code,
+                      m.product_key,
+                      NULL AS protocol_code,
+                      'dispatch_failed' AS asset_source_type,
+                      'message_dispatch' AS failure_stage,
+                      '未登记设备最近一次上报已记录到失败轨迹。' AS error_message,
+                      m.topic,
+                      m.trace_id,
+                      m.payload,
+                      m.report_time
+                    FROM iot_device_message_log m
+                    LEFT JOIN iot_device d2
+                      ON d2.device_code = m.device_code
+                     AND d2.deleted = 0
+                    WHERE m.device_id = ?
+                      AND m.message_type = ?
+                      AND m.device_code IS NOT NULL
+                      AND TRIM(m.device_code) <> ''
+                      AND d2.id IS NULL
+                      AND m.trace_id = ?
+                """);
+        params.add(UNKNOWN_DEVICE_ID);
+        params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        params.add(traceId);
+        appendTenantEquals(sql, params, "m.tenant_id", tenantId);
+        sql.append("""
+                ) merged
+                ORDER BY merged.report_time DESC, merged.source_record_id DESC
+                LIMIT 1
+                """);
+        List<DevicePageVO> records = jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
+        return records == null || records.isEmpty() ? null : records.get(0);
+    }
+
+    private DevicePageVO findFromDispatchFailure(Long tenantId, String traceId) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                  m.id AS source_record_id,
+                  m.device_code,
+                  m.product_key,
+                  NULL AS protocol_code,
+                  'dispatch_failed' AS asset_source_type,
+                  'message_dispatch' AS failure_stage,
+                  '未登记设备最近一次上报已记录到失败轨迹。' AS error_message,
+                  m.topic,
+                  m.trace_id,
+                  m.payload,
+                  m.report_time
+                FROM iot_device_message_log m
+                LEFT JOIN iot_device d
+                  ON d.device_code = m.device_code
+                 AND d.deleted = 0
+                WHERE m.device_id = ?
+                  AND m.message_type = ?
+                  AND m.device_code IS NOT NULL
+                  AND TRIM(m.device_code) <> ''
+                  AND d.id IS NULL
+                  AND m.trace_id = ?
+                """);
+        params.add(UNKNOWN_DEVICE_ID);
+        params.add(DISPATCH_FAILED_MESSAGE_TYPE);
+        params.add(traceId);
+        appendTenantEquals(sql, params, "m.tenant_id", tenantId);
+        sql.append("""
+                ORDER BY m.report_time DESC, m.id DESC
+                LIMIT 1
+                """);
+        List<DevicePageVO> records = jdbcTemplate.query(sql.toString(), (rs, rowNum) -> mapMergedRow(rs), params.toArray());
+        return records == null || records.isEmpty() ? null : records.get(0);
     }
 
     private void appendAccessErrorLatestSelection(StringBuilder sql,

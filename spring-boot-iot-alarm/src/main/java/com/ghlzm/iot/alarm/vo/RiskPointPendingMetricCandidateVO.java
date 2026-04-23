@@ -31,5 +31,7 @@ public class RiskPointPendingMetricCandidateVO {
 
     private String recommendationLevel;
 
+    private Boolean catalogRecommended;
+
     private String reasonSummary;
 }

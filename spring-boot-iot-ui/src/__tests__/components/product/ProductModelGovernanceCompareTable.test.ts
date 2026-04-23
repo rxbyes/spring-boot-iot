@@ -89,12 +89,13 @@ describe('ProductModelGovernanceCompareTable', () => {
     expect(wrapper.text()).toContain('待确认')
     expect(wrapper.text()).toContain('继续观察')
     expect(wrapper.text()).toContain('存在差异')
-    expect(wrapper.text()).toContain('识别结果')
+    expect(wrapper.text()).toContain('候选中文名')
     expect(wrapper.text()).toContain('样例值')
     expect(wrapper.text()).toContain('正式字段：暂无')
-    expect(wrapper.text()).toContain('identifier:')
+    expect(wrapper.text()).toContain('正式字段标识：')
     expect(wrapper.text()).toContain('类型:')
     expect(wrapper.text()).toContain('规范字段：设备重启')
+    expect(wrapper.text()).toContain('当前建议：')
     expect(wrapper.text()).toContain('原始字段：restart / reboot')
     expect(wrapper.text()).toContain('可进入风险闭环')
     expect(wrapper.text()).toContain('来自上报样本')
@@ -237,5 +238,34 @@ describe('ProductModelGovernanceCompareTable', () => {
 
     expect(wrapper.text()).not.toContain('来自父设备归一')
     expect(wrapper.text()).not.toContain('查看技术依据')
+  })
+
+  it('marks the row title as candidate display name so it is not confused with the formal identifier', () => {
+    const wrapper = mount(ProductModelGovernanceCompareTable, {
+      props: {
+        rows: [
+          {
+            modelType: 'property',
+            identifier: 'S1_ZT_1.battery_dump_energy',
+            compareStatus: 'manual_only',
+            suggestedAction: '继续观察',
+            riskFlags: ['runtime_missing'],
+            suspectedMatches: [],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'S1_ZT_1.battery_dump_energy',
+              modelName: '电池剩余电量',
+              dataType: 'integer',
+              evidenceOrigin: 'sample_json',
+              sourceTables: ['manual_sample']
+            }
+          }
+        ]
+      }
+    })
+
+    expect(wrapper.text()).toContain('候选中文名')
+    expect(wrapper.text()).toContain('电池剩余电量')
+    expect(wrapper.text()).toContain('正式字段标识：S1_ZT_1.battery_dump_energy')
   })
 })

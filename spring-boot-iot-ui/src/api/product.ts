@@ -11,6 +11,7 @@ import type {
   ProductModelGovernanceComparePayload,
   ProductModelGovernanceCompareResult,
   ProductModel,
+  ProductOverviewSummary,
   ProductModelUpsertPayload
 } from '../types/api';
 
@@ -53,7 +54,92 @@ export interface ProductContractReleaseRollbackResult {
   executionPending?: boolean | null
 }
 
-type ProductRequestOptions = Pick<RequestOptions, 'signal'>
+export interface ProductContractReleaseImpactItem {
+  changeType?: string | null
+  modelType?: string | null
+  identifier?: string | null
+  changedFields?: string[] | null
+}
+
+export interface ProductContractReleaseDependencySummary {
+  affectedRiskMetricCount?: number | null
+  affectedRiskPointBindingCount?: number | null
+  affectedRuleCount?: number | null
+  affectedLinkageBindingCount?: number | null
+  affectedEmergencyPlanBindingCount?: number | null
+  affectedRiskMetrics?: ProductContractReleaseRiskMetricDetail[] | null
+  affectedRiskPointBindings?: ProductContractReleaseRiskPointBindingDetail[] | null
+  affectedRules?: ProductContractReleaseRuleDetail[] | null
+  affectedLinkageBindings?: ProductContractReleaseLinkageBindingDetail[] | null
+  affectedEmergencyPlanBindings?: ProductContractReleaseEmergencyPlanBindingDetail[] | null
+}
+
+export interface ProductContractReleaseRiskMetricDetail {
+  riskMetricId?: IdType | null
+  contractIdentifier?: string | null
+  normativeIdentifier?: string | null
+  riskMetricCode?: string | null
+  riskMetricName?: string | null
+  metricRole?: string | null
+  lifecycleStatus?: string | null
+}
+
+export interface ProductContractReleaseRiskPointBindingDetail {
+  bindingId?: IdType | null
+  riskPointId?: IdType | null
+  riskPointName?: string | null
+  deviceId?: IdType | null
+  deviceCode?: string | null
+  deviceName?: string | null
+  riskMetricId?: IdType | null
+  metricIdentifier?: string | null
+  metricName?: string | null
+}
+
+export interface ProductContractReleaseRuleDetail {
+  ruleId?: IdType | null
+  ruleName?: string | null
+  riskMetricId?: IdType | null
+  metricIdentifier?: string | null
+  metricName?: string | null
+  alarmLevel?: string | null
+}
+
+export interface ProductContractReleaseLinkageBindingDetail {
+  bindingId?: IdType | null
+  linkageRuleId?: IdType | null
+  linkageRuleName?: string | null
+  riskMetricId?: IdType | null
+  bindingStatus?: string | null
+}
+
+export interface ProductContractReleaseEmergencyPlanBindingDetail {
+  bindingId?: IdType | null
+  emergencyPlanId?: IdType | null
+  emergencyPlanName?: string | null
+  riskMetricId?: IdType | null
+  bindingStatus?: string | null
+  alarmLevel?: string | null
+}
+
+export interface ProductContractReleaseImpact {
+  batchId?: IdType | null
+  productId?: IdType | null
+  scenarioCode?: string | null
+  releaseSource?: string | null
+  releasedFieldCount?: number | null
+  totalBeforeCount?: number | null
+  totalAfterCount?: number | null
+  addedCount?: number | null
+  removedCount?: number | null
+  changedCount?: number | null
+  unchangedCount?: number | null
+  comparedAt?: string | null
+  impactItems?: ProductContractReleaseImpactItem[] | null
+  dependencySummary?: ProductContractReleaseDependencySummary | null
+}
+
+type ProductRequestOptions = Pick<RequestOptions, 'signal' | 'suppressErrorToast'>
 
 function buildQuery(params: Record<string, unknown>) {
   const query = new URLSearchParams()
@@ -63,15 +149,6 @@ function buildQuery(params: Record<string, unknown>) {
     }
   })
   return query.toString()
-}
-
-function buildGovernanceApproverHeaders(approverUserId?: IdType | null): HeadersInit | undefined {
-  if (approverUserId === undefined || approverUserId === null || approverUserId === '') {
-    return undefined
-  }
-  return {
-    'X-Governance-Approver-Id': String(approverUserId)
-  }
 }
 
 /**
@@ -107,6 +184,13 @@ export const productApi = {
    */
   getProductById(id: IdType, options: ProductRequestOptions = {}) {
     return request<Product>(`/api/device/product/${id}`, options);
+  },
+
+  getProductOverviewSummary(id: IdType, options: ProductRequestOptions = {}) {
+    return request<ProductOverviewSummary>(`/api/device/product/${id}/overview-summary`, {
+      method: 'GET',
+      ...options
+    })
   },
 
   /**
@@ -161,12 +245,12 @@ export const productApi = {
   applyProductModelGovernance(
     productId: IdType,
     payload: ProductModelGovernanceApplyPayload,
-    options: { approverUserId?: IdType | null } = {}
+    options: ProductRequestOptions = {}
   ): Promise<ApiEnvelope<ProductModelGovernanceApplyResult>> {
     return request<ProductModelGovernanceApplyResult>(`/api/device/product/${productId}/model-governance/apply`, {
       method: 'POST',
       body: payload,
-      headers: buildGovernanceApproverHeaders(options.approverUserId)
+      ...options
     });
   },
 
@@ -185,17 +269,29 @@ export const productApi = {
     return request<ProductContractReleaseBatch>(`/api/device/product/contract-release-batches/${batchId}`, { method: 'GET' })
   },
 
-  rollbackProductContractReleaseBatch(
+  getProductContractReleaseBatchImpact(
     batchId: IdType,
-    approverUserId?: IdType | null
-  ): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {
+    options: ProductRequestOptions = {}
+  ): Promise<ApiEnvelope<ProductContractReleaseImpact>> {
+    return request<ProductContractReleaseImpact>(`/api/device/product/contract-release-batches/${batchId}/impact`, {
+      method: 'GET',
+      ...options
+    })
+  },
+
+  rollbackProductContractReleaseBatch(batchId: IdType): Promise<ApiEnvelope<ProductContractReleaseRollbackResult>> {
     return request<ProductContractReleaseRollbackResult>(
       `/api/device/product/contract-release-batches/${batchId}/rollback`,
       {
-        method: 'POST',
-        headers: buildGovernanceApproverHeaders(approverUserId)
+        method: 'POST'
       }
     )
+  },
+
+  resubmitProductGovernanceApproval(orderId: IdType): Promise<ApiEnvelope<void>> {
+    return request<void>(`/api/device/product/governance-approval/${orderId}/resubmit`, {
+      method: 'POST'
+    })
   },
 
   /**

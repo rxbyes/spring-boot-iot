@@ -1,30 +1,44 @@
 import { computed, defineComponent, inject, provide } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ElMessage } from 'element-plus'
 
+import { createRequestError } from '@/api/request'
 import GovernanceApprovalView from '@/views/GovernanceApprovalView.vue'
 
 const {
   mockPageOrders,
   mockGetOrderDetail,
+  mockSimulateOrder,
   mockApproveOrder,
   mockRejectOrder,
   mockCancelOrder,
   mockResubmitOrder,
+  mockGetProductContractReleaseBatchImpact,
   mockConfirmAction,
-  mockPermissionStore
+  mockPermissionStore,
+  mockRouter,
+  mockRoute
 } = vi.hoisted(() => ({
   mockPageOrders: vi.fn(),
   mockGetOrderDetail: vi.fn(),
+  mockSimulateOrder: vi.fn(),
   mockApproveOrder: vi.fn(),
   mockRejectOrder: vi.fn(),
   mockCancelOrder: vi.fn(),
   mockResubmitOrder: vi.fn(),
+  mockGetProductContractReleaseBatchImpact: vi.fn(),
   mockConfirmAction: vi.fn(),
   mockPermissionStore: {
     userInfo: {
       id: 2002
     }
+  },
+  mockRouter: {
+    push: vi.fn()
+  },
+  mockRoute: {
+    query: {}
   }
 }))
 
@@ -32,6 +46,7 @@ vi.mock('@/api/governanceApproval', () => ({
   governanceApprovalApi: {
     pageOrders: mockPageOrders,
     getOrderDetail: mockGetOrderDetail,
+    simulateOrder: mockSimulateOrder,
     approveOrder: mockApproveOrder,
     rejectOrder: mockRejectOrder,
     cancelOrder: mockCancelOrder,
@@ -39,8 +54,19 @@ vi.mock('@/api/governanceApproval', () => ({
   }
 }))
 
+vi.mock('@/api/product', () => ({
+  productApi: {
+    getProductContractReleaseBatchImpact: mockGetProductContractReleaseBatchImpact
+  }
+}))
+
 vi.mock('@/stores/permission', () => ({
   usePermissionStore: () => mockPermissionStore
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => mockRouter,
+  useRoute: () => mockRoute
 }))
 
 vi.mock('@/utils/confirm', () => ({
@@ -284,6 +310,7 @@ function mountView() {
 function createPendingOrder() {
   return {
     id: 88001,
+    workItemId: 73001,
     actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
     actionName: '合同发布',
     subjectType: 'PRODUCT',
@@ -298,6 +325,7 @@ function createPendingOrder() {
 function createRejectedOrder() {
   return {
     id: 88002,
+    workItemId: 73002,
     actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
     actionName: '合同发布',
     subjectType: 'PRODUCT',
@@ -314,11 +342,18 @@ describe('GovernanceApprovalView', () => {
   beforeEach(() => {
     mockPageOrders.mockReset()
     mockGetOrderDetail.mockReset()
+    mockSimulateOrder.mockReset()
     mockApproveOrder.mockReset()
     mockRejectOrder.mockReset()
     mockCancelOrder.mockReset()
     mockResubmitOrder.mockReset()
+    mockGetProductContractReleaseBatchImpact.mockReset()
     mockConfirmAction.mockReset()
+    mockRouter.push.mockReset()
+    mockRoute.query = {}
+    vi.mocked(ElMessage.success).mockReset()
+    vi.mocked(ElMessage.error).mockReset()
+    vi.mocked(ElMessage.warning).mockReset()
     mockConfirmAction.mockResolvedValue(undefined)
     mockPermissionStore.userInfo.id = 2002
 
@@ -364,6 +399,126 @@ describe('GovernanceApprovalView', () => {
         ]
       }
     })
+    mockGetProductContractReleaseBatchImpact.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchId: 99001,
+        addedCount: 1,
+        removedCount: 1,
+        changedCount: 2,
+        unchangedCount: 3,
+        dependencySummary: {
+          affectedRiskMetricCount: 2,
+          affectedRiskPointBindingCount: 4,
+          affectedRuleCount: 1,
+          affectedLinkageBindingCount: 1,
+          affectedEmergencyPlanBindingCount: 1,
+          affectedRiskMetrics: [
+            {
+              riskMetricId: 6101,
+              contractIdentifier: 'value',
+              normativeIdentifier: 'value',
+              riskMetricCode: 'metric.value',
+              riskMetricName: '裂缝值',
+              metricRole: 'MEASURE',
+              lifecycleStatus: 'ACTIVE'
+            }
+          ],
+          affectedRiskPointBindings: [
+            {
+              bindingId: 7101,
+              riskPointId: 5101,
+              riskPointName: '北坡风险点',
+              deviceId: 3101,
+              deviceCode: 'DEVICE-3101',
+              deviceName: '北坡设备',
+              riskMetricId: 6101,
+              metricIdentifier: 'value',
+              metricName: '裂缝值'
+            }
+          ],
+          affectedRules: [
+            {
+              ruleId: 8101,
+              ruleName: '裂缝值红色阈值',
+              riskMetricId: 6101,
+              metricIdentifier: 'value',
+              metricName: '裂缝值',
+              alarmLevel: 'red'
+            }
+          ],
+          affectedLinkageBindings: [
+            {
+              bindingId: 8201,
+              linkageRuleId: 8301,
+              linkageRuleName: '裂缝值联动',
+              riskMetricId: 6101,
+              bindingStatus: 'ACTIVE'
+            }
+          ],
+          affectedEmergencyPlanBindings: [
+            {
+              bindingId: 8401,
+              emergencyPlanId: 8501,
+              emergencyPlanName: '裂缝值应急预案',
+              riskMetricId: 6101,
+              bindingStatus: 'ACTIVE',
+              alarmLevel: 'red'
+            }
+          ]
+        },
+        impactItems: [
+          {
+            changeType: 'UPDATED',
+            modelType: 'property',
+            identifier: 'value',
+            changedFields: ['modelName']
+          }
+        ]
+      }
+    })
+    mockSimulateOrder.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        orderId: 88001,
+        workItemId: 73001,
+        actionCode: 'PRODUCT_CONTRACT_RELEASE_APPLY',
+        executable: true,
+        affectedCount: 1,
+        affectedTypes: ['RISK_METRIC', 'RISK_POINT', 'RULE'],
+        rollbackable: true,
+        rollbackPlanSummary: '可通过合同回滚恢复正式批次',
+        autoDraftEligible: true,
+        autoDraftComment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。',
+        recommendation: {
+          recommendationType: 'PUBLISH',
+          confidence: 0.96,
+          reasonCodes: ['HIGH_CONFIDENCE'],
+          suggestedAction: '建议生成审批意见草稿',
+          evidenceItems: [
+            {
+              evidenceType: 'RUNTIME_PAYLOAD',
+              title: '厂商字段证据',
+              summary: '当前样本已稳定命中正式契约字段',
+              sourceType: 'WORK_ITEM',
+              sourceId: '73001'
+            }
+          ]
+        },
+        impact: {
+          affectedCount: 1,
+          affectedTypes: ['RISK_METRIC', 'RISK_POINT', 'RULE'],
+          rollbackable: true,
+          rollbackPlanSummary: '可通过合同回滚恢复正式批次'
+        },
+        rollback: {
+          rollbackable: true,
+          rollbackPlanSummary: '可通过合同回滚恢复正式批次'
+        }
+      }
+    })
   })
 
   it('loads approval orders and renders pending status', async () => {
@@ -379,6 +534,15 @@ describe('GovernanceApprovalView', () => {
     expect(wrapper.text()).toContain('待审批')
   })
 
+  it('does not show a second toast when the approval order page request error is already handled', async () => {
+    mockPageOrders.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    mountView()
+    await flushPromises()
+
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
+  })
+
   it('opens detail drawer and renders execution result from payloadJson', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -386,10 +550,119 @@ describe('GovernanceApprovalView', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
     await flushPromises()
 
-    expect(mockGetOrderDetail).toHaveBeenCalledWith(88001)
+    expect(mockGetOrderDetail).toHaveBeenCalledWith(88001, { suppressErrorToast: true })
+    expect(mockSimulateOrder).toHaveBeenCalledWith(88001, { suppressErrorToast: true })
     expect(wrapper.text()).toContain('审批概览')
     expect(wrapper.text()).toContain('99001')
+    expect(wrapper.text()).toContain('73001')
     expect(wrapper.text()).toContain('submit')
+  })
+
+  it('loads and renders dry-run simulation summary for pending orders', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockSimulateOrder).toHaveBeenCalledWith(88001, { suppressErrorToast: true })
+    expect(wrapper.text()).toContain('审批预演')
+    expect(wrapper.text()).toContain('预计影响 1 项')
+    expect(wrapper.text()).toContain('RISK_METRIC / RISK_POINT / RULE')
+    expect(wrapper.text()).toContain('可通过合同回滚恢复正式批次')
+    expect(wrapper.text()).toContain('系统已生成审批意见草稿')
+  })
+
+  it('loads and renders release batch impact when approval detail exposes releaseBatchId', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001, { suppressErrorToast: true })
+    expect(wrapper.text()).toContain('发布影响分析')
+    expect(wrapper.text()).toContain('新增 1')
+    expect(wrapper.text()).toContain('删除 1')
+    expect(wrapper.text()).toContain('变更 2')
+    expect(wrapper.text()).toContain('受影响风险指标 2')
+    expect(wrapper.text()).toContain('受影响风险点绑定 4')
+    expect(wrapper.text()).toContain('受影响阈值规则 1')
+    expect(wrapper.text()).toContain('裂缝值')
+    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).toContain('裂缝值红色阈值')
+    expect(wrapper.text()).toContain('裂缝值联动')
+    expect(wrapper.text()).toContain('裂缝值应急预案')
+    expect(wrapper.text()).toContain('value')
+    expect(wrapper.text()).toContain('modelName')
+  })
+
+  it('keeps detail impact failures inline without adding a global busy toast', async () => {
+    mockGetProductContractReleaseBatchImpact.mockImplementationOnce((_batchId, options) => {
+      if (!options?.suppressErrorToast) {
+        ElMessage.error('系统繁忙，请稍后重试！')
+      }
+      return Promise.reject(createRequestError('系统繁忙，请稍后重试！', true, 500))
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductContractReleaseBatchImpact).toHaveBeenCalledWith(99001, { suppressErrorToast: true })
+    expect(wrapper.text()).toContain('发布影响分析')
+    expect(wrapper.text()).toContain('系统繁忙，请稍后重试！')
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
+  })
+
+  it('navigates to downstream context when dependency detail jump is clicked', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('查看阈值策略'))?.trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/rule-definition',
+      query: {
+        ruleName: '裂缝值红色阈值',
+        metricIdentifier: 'value'
+      }
+    })
+  })
+
+  it('does not load release impact when approval detail has no release batch context', async () => {
+    mockGetOrderDetail.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        order: {
+          ...createPendingOrder(),
+          payloadJson: JSON.stringify({
+            version: 1,
+            execution: {
+              result: {
+                createdCount: 1
+              }
+            }
+          })
+        },
+        transitions: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('详情'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockGetProductContractReleaseBatchImpact).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('发布影响分析')
   })
 
   it('submits approve action from the action drawer', async () => {
@@ -401,14 +674,33 @@ describe('GovernanceApprovalView', () => {
 
     const actionDrawer = wrapper.get('.governance-approval-form-drawer-stub')
     const commentInput = actionDrawer.get('textarea.el-input-stub')
-    await commentInput.setValue('审批通过')
+    expect((commentInput.element as HTMLTextAreaElement).value).toContain('系统已生成审批意见草稿')
     await actionDrawer.findAll('button').find((button) => button.text().includes('确认通过'))?.trigger('click')
     await flushPromises()
 
     expect(mockConfirmAction).toHaveBeenCalled()
     expect(mockApproveOrder).toHaveBeenCalledWith(88001, {
-      comment: '审批通过'
+      comment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。'
     })
+  })
+
+  it('does not add a second toast when approve submission fails with an already handled busy error', async () => {
+    mockApproveOrder.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('通过'))?.trigger('click')
+    await flushPromises()
+
+    const actionDrawer = wrapper.get('.governance-approval-form-drawer-stub')
+    await actionDrawer.findAll('button').find((button) => button.text().includes('确认通过'))?.trigger('click')
+    await flushPromises()
+
+    expect(mockApproveOrder).toHaveBeenCalledWith(88001, {
+      comment: '系统已生成审批意见草稿：建议生成审批意见草稿，预计影响 1 项（RISK_METRIC/RISK_POINT/RULE），可通过合同回滚恢复正式批次。请人工复核后决定是否通过。'
+    })
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
   })
 
   it('supports resubmitting a rejected order for the original operator', async () => {

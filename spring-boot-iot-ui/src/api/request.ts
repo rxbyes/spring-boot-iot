@@ -5,16 +5,17 @@ export interface RequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
   body?: BodyInit | Record<string, unknown> | unknown | null;
   headers?: HeadersInit;
   errorHandler?: (error: Error) => void;
+  suppressErrorToast?: boolean;
 }
 
 export interface RequestInterceptor {
   onRequest?: (options: RequestOptions) => RequestOptions | Promise<RequestOptions>;
-  onerror?: (error: Error) => Error | Promise<Error>;
+  onerror?: (error: Error, options: RequestOptions) => Error | Promise<Error>;
 }
 
 export interface ResponseInterceptor<T = unknown> {
-  onsuccess?: (data: ApiEnvelope<T>) => ApiEnvelope<T> | Promise<ApiEnvelope<T>>;
-  onerror?: (error: Error) => Error | Promise<Error>;
+  onsuccess?: (data: ApiEnvelope<T>, options: RequestOptions) => ApiEnvelope<T> | Promise<ApiEnvelope<T>>;
+  onerror?: (error: Error, options: RequestOptions) => Error | Promise<Error>;
 }
 
 export interface RequestError extends Error {
@@ -24,6 +25,7 @@ export interface RequestError extends Error {
 }
 
 export const SYSTEM_BUSY_MESSAGE = '系统繁忙，请稍后重试！';
+const SERVER_BUSY_MESSAGE_VARIANTS = new Set([SYSTEM_BUSY_MESSAGE, '系统繁忙，请稍后再试']);
 
 const UNSAFE_ID_JSON_FIELD_PATTERN =
   /(^|[{\[,])(\s*)"([A-Za-z_][A-Za-z0-9_]*(?:Id|ID|_id)|id)"\s*:\s*(-?\d{16,})(?=\s*[,}\]])/gm;
@@ -32,7 +34,7 @@ export function createRequestError(message: string, handled = false, status?: nu
   const error = new Error(message) as RequestError;
   error.handled = handled;
   error.status = status;
-  if (rawMessage && rawMessage !== message) {
+  if (rawMessage) {
     error.rawMessage = rawMessage;
   }
   return error;
@@ -42,11 +44,24 @@ export function isHandledRequestError(error: unknown): error is RequestError {
   return Boolean(error && typeof error === 'object' && (error as RequestError).handled);
 }
 
+export function isGenericServerBusyMessage(message?: string | null): boolean {
+  const normalized = message?.trim();
+  return !normalized || SERVER_BUSY_MESSAGE_VARIANTS.has(normalized);
+}
+
+export function resolveServerErrorMessage(rawMessage?: string | null, fallbackMessage = SYSTEM_BUSY_MESSAGE): string {
+  const normalized = rawMessage?.trim();
+  if (normalized && !isGenericServerBusyMessage(normalized)) {
+    return normalized;
+  }
+  return fallbackMessage;
+}
+
 export function resolveRequestErrorMessage(error: unknown, fallbackMessage: string): string {
   if (error instanceof Error) {
     const requestError = error as RequestError;
     if (requestError.status === 500) {
-      return SYSTEM_BUSY_MESSAGE;
+      return resolveServerErrorMessage(requestError.rawMessage, SYSTEM_BUSY_MESSAGE);
     }
     const message = error.message?.trim();
     if (message) {
@@ -110,28 +125,28 @@ class InterceptorManager {
     return result;
   }
 
-  async applyResponseInterceptors<T>(payload: ApiEnvelope<T>): Promise<ApiEnvelope<T>> {
+  async applyResponseInterceptors<T>(payload: ApiEnvelope<T>, options: RequestOptions): Promise<ApiEnvelope<T>> {
     let result = payload;
     for (const interceptor of this.responseInterceptors) {
       if (interceptor.onsuccess) {
-        result = await interceptor.onsuccess(result);
+        result = await interceptor.onsuccess(result, options);
       }
     }
     return result;
   }
 
-  async applyRequestErrorInterceptors(error: Error): Promise<void> {
+  async applyRequestErrorInterceptors(error: Error, options: RequestOptions): Promise<void> {
     for (const interceptor of this.requestInterceptors) {
       if (interceptor.onerror) {
-        await interceptor.onerror(error);
+        await interceptor.onerror(error, options);
       }
     }
   }
 
-  async applyResponseErrorInterceptors(error: Error): Promise<void> {
+  async applyResponseErrorInterceptors(error: Error, options: RequestOptions): Promise<void> {
     for (const interceptor of this.responseInterceptors) {
       if (interceptor.onerror) {
-        await interceptor.onerror(error);
+        await interceptor.onerror(error, options);
       }
     }
   }
@@ -152,24 +167,31 @@ function normalizeBody(body: RequestOptions['body'], headers: Headers): BodyInit
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
-  const { body, headers, errorHandler, ...rest } = options;
+  const { body, headers, errorHandler, suppressErrorToast, ...rest } = options;
   const requestHeaders = new Headers(headers);
 
   const url = `${runtimeState.apiBaseUrl}${path}`;
   const finalOptions = await interceptorManager.applyRequestInterceptors({
     ...rest,
     headers: requestHeaders,
-    body: normalizeBody(body, requestHeaders)
+    body: normalizeBody(body, requestHeaders),
+    errorHandler,
+    suppressErrorToast
   });
+  const {
+    errorHandler: finalErrorHandler,
+    suppressErrorToast: finalSuppressErrorToast,
+    ...fetchOptions
+  } = finalOptions;
 
   try {
-    const response = await fetch(url, finalOptions as RequestInit);
+    const response = await fetch(url, fetchOptions as RequestInit);
     const rawText = await response.text();
     const bodyText = rawText.trim();
     const payload = parseApiEnvelope<T>(bodyText);
 
     if (payload) {
-      const processedPayload = await interceptorManager.applyResponseInterceptors(payload);
+      const processedPayload = await interceptorManager.applyResponseInterceptors(payload, finalOptions);
       if (!response.ok) {
         const statusMessage = response.statusText ? `${response.status} ${response.statusText}` : String(response.status);
         const message = processedPayload.msg || resolveHttpErrorMessage(response.status, bodyText, `请求失败: ${statusMessage}`);
@@ -189,11 +211,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
   } catch (error) {
     if (error instanceof Error) {
-      if (errorHandler) {
-        errorHandler(error);
+      if (finalSuppressErrorToast) {
+        (error as RequestError).handled = true;
       }
-      await interceptorManager.applyRequestErrorInterceptors(error);
-      await interceptorManager.applyResponseErrorInterceptors(error);
+      if (finalErrorHandler) {
+        finalErrorHandler(error);
+      }
+      await interceptorManager.applyRequestErrorInterceptors(error, finalOptions);
+      await interceptorManager.applyResponseErrorInterceptors(error, finalOptions);
     }
     throw error;
   }

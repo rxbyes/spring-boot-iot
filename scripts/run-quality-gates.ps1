@@ -49,15 +49,34 @@ function Invoke-LoggedCommand {
     )
 
     Write-Log "START $Step"
-    Push-Location $WorkingDirectory
+    $stdoutFile = [System.IO.Path]::GetTempFileName()
+    $stderrFile = [System.IO.Path]::GetTempFileName()
     try {
-        & $Executable @Arguments 2>&1 |
-            Tee-Object -FilePath $logFile -Append
-        if ($LASTEXITCODE -ne 0) {
-            throw "$Step failed with exit code $LASTEXITCODE"
+        $process = Start-Process -FilePath $Executable `
+            -ArgumentList $Arguments `
+            -WorkingDirectory $WorkingDirectory `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdoutFile `
+            -RedirectStandardError $stderrFile
+
+        foreach ($streamFile in @($stdoutFile, $stderrFile)) {
+            if ((Test-Path $streamFile) -and (Get-Item $streamFile).Length -gt 0) {
+                Get-Content -Path $streamFile -Encoding UTF8 |
+                    Tee-Object -FilePath $logFile -Append
+            }
+        }
+
+        if ($process.ExitCode -ne 0) {
+            throw "$Step failed with exit code $($process.ExitCode)"
         }
     } finally {
-        Pop-Location
+        foreach ($streamFile in @($stdoutFile, $stderrFile)) {
+            if (Test-Path $streamFile) {
+                Remove-Item -LiteralPath $streamFile -Force
+            }
+        }
     }
     Write-Log "PASS $Step"
 }
@@ -100,5 +119,7 @@ Invoke-LoggedCommand -Step 'frontend list guard' -WorkingDirectory $uiRoot -Exec
 Invoke-LoggedCommand -Step 'frontend style guard' -WorkingDirectory $uiRoot -Executable $npmCmd -Arguments @('run', 'style:guard')
 $schemaArgs = Get-PythonUnittestArgs -PythonExecutablePath $pythonCmd
 Invoke-LoggedCommand -Step 'schema baseline guard' -WorkingDirectory $repoRoot -Executable $pythonCmd -Arguments $schemaArgs
+Invoke-LoggedCommand -Step 'governance registry guard' -WorkingDirectory $repoRoot -Executable $pythonCmd -Arguments @('scripts/governance/check_governance_registry.py')
+Invoke-LoggedCommand -Step 'governance contract gates' -WorkingDirectory $repoRoot -Executable $nodeCmd -Arguments @('scripts/run-governance-contract-gates.mjs')
 Invoke-LoggedCommand -Step 'docs topology check' -WorkingDirectory $repoRoot -Executable $nodeCmd -Arguments @('scripts/docs/check-topology.mjs')
 Write-Log 'All local minimum quality gates passed'

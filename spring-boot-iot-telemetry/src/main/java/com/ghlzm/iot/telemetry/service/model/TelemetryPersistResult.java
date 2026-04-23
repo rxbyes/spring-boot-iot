@@ -21,6 +21,9 @@ public class TelemetryPersistResult {
     private Integer fallbackMetricCount;
     private List<String> fallbackReasons = List.of();
     private Integer skippedMetricCount;
+    private String targetDeviceCode;
+    private Boolean childTarget = Boolean.FALSE;
+    private String targetRole;
     private boolean skipped;
 
     public static TelemetryPersistResult persisted(int pointCount) {

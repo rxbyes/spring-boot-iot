@@ -6,6 +6,8 @@ import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.Map;
  */
 @Service
 public class LegacyTelemetryHistoryReader {
+
+    private static final Logger log = LoggerFactory.getLogger(LegacyTelemetryHistoryReader.class);
 
     private final TdengineTelemetryJdbcTemplateProvider jdbcTemplateProvider;
     private final LegacyTdengineSchemaInspector schemaInspector;
@@ -40,6 +44,16 @@ public class LegacyTelemetryHistoryReader {
                                               Map<String, DevicePropertyMetadata> metadataMap,
                                               Map<String, TelemetryMetricMapping> mappingMap,
                                               int batchSize) {
+        return listHistory(device, product, metadataMap, mappingMap, null, null, batchSize);
+    }
+
+    public List<TelemetryV2Point> listHistory(Device device,
+                                              Product product,
+                                              Map<String, DevicePropertyMetadata> metadataMap,
+                                              Map<String, TelemetryMetricMapping> mappingMap,
+                                              LocalDateTime windowStart,
+                                              LocalDateTime windowEnd,
+                                              int batchSize) {
         if (device == null || mappingMap == null || mappingMap.isEmpty() || metadataMap == null || metadataMap.isEmpty()) {
             return List.of();
         }
@@ -52,7 +66,7 @@ public class LegacyTelemetryHistoryReader {
             String stable = entry.getKey();
             LegacyTdengineSchemaInspector.LegacyTdengineTableSchema schema = schemaInspector.describeStable(stable);
             String subTable = deviceMetadataResolver.resolveSubTableName(deviceMetadata, stable);
-            points.addAll(readStableRows(jdbcTemplate, device, product, subTable, schema, entry.getValue()));
+            points.addAll(readStableRows(jdbcTemplate, device, product, subTable, schema, entry.getValue(), windowStart, windowEnd, batchSize));
         }
         points.sort((left, right) -> {
             LocalDateTime leftTime = left.getReportedAt();
@@ -91,7 +105,10 @@ public class LegacyTelemetryHistoryReader {
                                                   Product product,
                                                   String subTable,
                                                   LegacyTdengineSchemaInspector.LegacyTdengineTableSchema schema,
-                                                  List<MappedMetric> metrics) {
+                                                  List<MappedMetric> metrics,
+                                                  LocalDateTime windowStart,
+                                                  LocalDateTime windowEnd,
+                                                  int batchSize) {
         if (metrics.isEmpty()) {
             return List.of();
         }
@@ -101,7 +118,26 @@ public class LegacyTelemetryHistoryReader {
         for (MappedMetric metric : metrics) {
             sql.append(", ").append(metric.column());
         }
-        sql.append(" FROM ").append(subTable).append(" ORDER BY ts ASC");
+        List<Object> args = new ArrayList<>();
+        sql.append(" FROM ").append(subTable);
+        if (windowStart != null && windowEnd != null) {
+            if (schema.hasColumn("rd")) {
+                sql.append(" WHERE ((")
+                        .append("rd >= ? AND rd < ?")
+                        .append(") OR (")
+                        .append("rd IS NULL AND ts >= ? AND ts < ?")
+                        .append("))");
+                args.add(Timestamp.valueOf(windowStart));
+                args.add(Timestamp.valueOf(windowEnd));
+                args.add(Timestamp.valueOf(windowStart));
+                args.add(Timestamp.valueOf(windowEnd));
+            } else {
+                sql.append(" WHERE ts >= ? AND ts < ?");
+                args.add(Timestamp.valueOf(windowStart));
+                args.add(Timestamp.valueOf(windowEnd));
+            }
+        }
+        sql.append(" ORDER BY ts ASC LIMIT ").append(Math.max(batchSize, 1));
         try {
             return jdbcTemplate.query(sql.toString(), rs -> {
                 List<TelemetryV2Point> points = new ArrayList<>();
@@ -146,8 +182,12 @@ public class LegacyTelemetryHistoryReader {
                     }
                 }
                 return points;
-            });
+            }, args.toArray());
         } catch (Exception ex) {
+            log.warn("读取 legacy telemetry 历史失败, table={}, deviceId={}, error={}",
+                    subTable,
+                    device == null ? null : device.getId(),
+                    ex.getMessage());
             return List.of();
         }
     }

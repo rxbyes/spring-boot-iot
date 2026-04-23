@@ -19,22 +19,29 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductContractReleaseBatch;
+import com.ghlzm.iot.device.entity.ProductContractReleaseSnapshot;
 import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.entity.VendorMetricEvidence;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductContractReleaseBatchMapper;
+import com.ghlzm.iot.device.mapper.ProductContractReleaseSnapshotMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
+import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -51,6 +58,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 风险治理缺口服务实现。
@@ -70,8 +80,43 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final EmergencyPlanMapper emergencyPlanMapper;
     private final RiskMetricLinkageBindingMapper linkageBindingMapper;
     private final RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper;
+    private final VendorMetricEvidenceMapper vendorMetricEvidenceMapper;
     private final RiskMetricActionBindingBackfillService backfillService;
+    private final RiskMetricCatalogPublishRule riskMetricCatalogPublishRule = new DefaultRiskMetricCatalogPublishRule();
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
+    private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
+
+    RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
+                              RiskPointMapper riskPointMapper,
+                              RiskPointDeviceMapper riskPointDeviceMapper,
+                              RuleDefinitionMapper ruleDefinitionMapper,
+                              RiskMetricCatalogMapper riskMetricCatalogMapper,
+                              ProductModelMapper productModelMapper,
+                              ProductMapper productMapper,
+                              ProductContractReleaseBatchMapper productContractReleaseBatchMapper,
+                              LinkageRuleMapper linkageRuleMapper,
+                              EmergencyPlanMapper emergencyPlanMapper,
+                              RiskMetricLinkageBindingMapper linkageBindingMapper,
+                              RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper,
+                              RiskMetricActionBindingBackfillService backfillService) {
+        this(deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                null,
+                backfillService);
+    }
+
+    @Autowired
     public RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                                      RiskPointMapper riskPointMapper,
                                      RiskPointDeviceMapper riskPointDeviceMapper,
@@ -84,6 +129,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                                      EmergencyPlanMapper emergencyPlanMapper,
                                      RiskMetricLinkageBindingMapper linkageBindingMapper,
                                      RiskMetricEmergencyPlanBindingMapper emergencyPlanBindingMapper,
+                                     VendorMetricEvidenceMapper vendorMetricEvidenceMapper,
                                      RiskMetricActionBindingBackfillService backfillService) {
         this.deviceMapper = deviceMapper;
         this.riskPointMapper = riskPointMapper;
@@ -97,7 +143,13 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.emergencyPlanMapper = emergencyPlanMapper;
         this.linkageBindingMapper = linkageBindingMapper;
         this.emergencyPlanBindingMapper = emergencyPlanBindingMapper;
+        this.vendorMetricEvidenceMapper = vendorMetricEvidenceMapper;
         this.backfillService = backfillService;
+    }
+
+    @Autowired(required = false)
+    void setProductContractReleaseSnapshotMapper(ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper) {
+        this.productContractReleaseSnapshotMapper = productContractReleaseSnapshotMapper;
     }
 
     @Override
@@ -176,11 +228,15 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     }
 
     @Override
-    public PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long pageNum, Long pageSize) {
+    public PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId,
+                                                                  Long releaseBatchId,
+                                                                  Long pageNum,
+                                                                  Long pageSize) {
         Page<RiskMetricCatalog> page = PageQueryUtils.buildPage(pageNum, pageSize);
         Page<RiskMetricCatalog> result = riskMetricCatalogMapper.selectPage(page, new LambdaQueryWrapper<RiskMetricCatalog>()
                 .eq(RiskMetricCatalog::getDeleted, 0)
                 .eq(productId != null, RiskMetricCatalog::getProductId, productId)
+                .eq(releaseBatchId != null, RiskMetricCatalog::getReleaseBatchId, releaseBatchId)
                 .orderByDesc(RiskMetricCatalog::getUpdateTime)
                 .orderByDesc(RiskMetricCatalog::getCreateTime)
                 .orderByDesc(RiskMetricCatalog::getId));
@@ -188,6 +244,115 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .map(this::toMetricCatalogItem)
                 .toList();
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), records);
+    }
+
+    @Override
+    public RiskGovernanceReleaseBatchDiffVO compareReleaseBatches(Long baselineBatchId, Long targetBatchId) {
+        if (baselineBatchId == null || targetBatchId == null) {
+            throw new BizException("请指定基线批次和目标批次");
+        }
+        if (Objects.equals(baselineBatchId, targetBatchId)) {
+            throw new BizException("基线批次与目标批次不能相同");
+        }
+        if (productContractReleaseSnapshotMapper == null) {
+            throw new BizException("批次快照读侧未启用");
+        }
+
+        ProductContractReleaseBatch baselineBatch = requireReleaseBatch(baselineBatchId);
+        ProductContractReleaseBatch targetBatch = requireReleaseBatch(targetBatchId);
+        if (!Objects.equals(baselineBatch.getProductId(), targetBatch.getProductId())) {
+            throw new BizException("仅支持对比同一产品的发布批次");
+        }
+
+        Map<String, ReleaseModelSnapshotItem> baselineContracts = toSnapshotMap(parseSnapshotItems(
+                loadBatchSnapshot(baselineBatchId, "AFTER_APPLY").getSnapshotJson()
+        ));
+        Map<String, ReleaseModelSnapshotItem> targetContracts = toSnapshotMap(parseSnapshotItems(
+                loadBatchSnapshot(targetBatchId, "AFTER_APPLY").getSnapshotJson()
+        ));
+        Map<String, RiskMetricCatalog> baselineMetrics = toMetricCatalogMap(selectReleaseBatchCatalogs(baselineBatchId));
+        Map<String, RiskMetricCatalog> targetMetrics = toMetricCatalogMap(selectReleaseBatchCatalogs(targetBatchId));
+
+        int addedContractCount = 0;
+        int removedContractCount = 0;
+        int changedContractCount = 0;
+        int unchangedContractCount = 0;
+        List<RiskGovernanceReleaseBatchDiffVO.ContractDiffItem> contractDiffItems = new ArrayList<>();
+        Set<String> contractKeys = new LinkedHashSet<>();
+        contractKeys.addAll(baselineContracts.keySet());
+        contractKeys.addAll(targetContracts.keySet());
+        for (String contractKey : contractKeys) {
+            ReleaseModelSnapshotItem baselineItem = baselineContracts.get(contractKey);
+            ReleaseModelSnapshotItem targetItem = targetContracts.get(contractKey);
+            if (baselineItem == null && targetItem != null) {
+                addedContractCount++;
+                contractDiffItems.add(toContractDiffItem("ADDED", targetItem.modelType(), targetItem.identifier(), List.of()));
+                continue;
+            }
+            if (baselineItem != null && targetItem == null) {
+                removedContractCount++;
+                contractDiffItems.add(toContractDiffItem("REMOVED", baselineItem.modelType(), baselineItem.identifier(), List.of()));
+                continue;
+            }
+            List<String> changedFields = resolveChangedFields(baselineItem, targetItem);
+            if (changedFields.isEmpty()) {
+                unchangedContractCount++;
+            } else {
+                changedContractCount++;
+                contractDiffItems.add(toContractDiffItem("UPDATED", baselineItem.modelType(), baselineItem.identifier(), changedFields));
+            }
+        }
+
+        int addedMetricCount = 0;
+        int removedMetricCount = 0;
+        int changedMetricCount = 0;
+        int unchangedMetricCount = 0;
+        List<RiskGovernanceReleaseBatchDiffVO.MetricDiffItem> metricDiffItems = new ArrayList<>();
+        Set<String> metricKeys = new LinkedHashSet<>();
+        metricKeys.addAll(baselineMetrics.keySet());
+        metricKeys.addAll(targetMetrics.keySet());
+        for (String metricKey : metricKeys) {
+            RiskMetricCatalog baselineMetric = baselineMetrics.get(metricKey);
+            RiskMetricCatalog targetMetric = targetMetrics.get(metricKey);
+            if (baselineMetric == null && targetMetric != null) {
+                addedMetricCount++;
+                metricDiffItems.add(toMetricDiffItem("ADDED", targetMetric, List.of()));
+                continue;
+            }
+            if (baselineMetric != null && targetMetric == null) {
+                removedMetricCount++;
+                metricDiffItems.add(toMetricDiffItem("REMOVED", baselineMetric, List.of()));
+                continue;
+            }
+            List<String> changedFields = resolveMetricChangedFields(baselineMetric, targetMetric);
+            if (changedFields.isEmpty()) {
+                unchangedMetricCount++;
+            } else {
+                changedMetricCount++;
+                metricDiffItems.add(toMetricDiffItem("UPDATED", targetMetric, changedFields));
+            }
+        }
+
+        RiskGovernanceReleaseBatchDiffVO diff = new RiskGovernanceReleaseBatchDiffVO();
+        diff.setProductId(baselineBatch.getProductId());
+        diff.setBaselineBatch(toBatchSummary(baselineBatch));
+        diff.setTargetBatch(toBatchSummary(targetBatch));
+        diff.setBaselineContractFieldCount(baselineContracts.size());
+        diff.setTargetContractFieldCount(targetContracts.size());
+        diff.setBaselineMetricCount(baselineMetrics.size());
+        diff.setTargetMetricCount(targetMetrics.size());
+        diff.setAddedContractCount(addedContractCount);
+        diff.setRemovedContractCount(removedContractCount);
+        diff.setChangedContractCount(changedContractCount);
+        diff.setUnchangedContractCount(unchangedContractCount);
+        diff.setAddedMetricCount(addedMetricCount);
+        diff.setRemovedMetricCount(removedMetricCount);
+        diff.setChangedMetricCount(changedMetricCount);
+        diff.setUnchangedMetricCount(unchangedMetricCount);
+        diff.setComparedAt(LocalDateTime.now());
+        diff.setContractDiffItems(contractDiffItems);
+        diff.setMetricDiffItems(metricDiffItems);
+        return diff;
     }
 
     @Override
@@ -211,6 +376,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        long publishableContractPropertyCount = riskMetricCatalogPublishRule
+                .resolveRiskEnabledIdentifiers(null, propertyModels)
+                .size();
 
         List<RiskMetricCatalog> catalogs = selectEnabledCatalogs(productId);
         Set<Long> catalogIds = catalogs.stream()
@@ -268,13 +436,18 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         RiskGovernanceCoverageOverviewVO overview = new RiskGovernanceCoverageOverviewVO();
         overview.setProductId(productId);
         overview.setContractPropertyCount(contractPropertyCount);
+        overview.setPublishableContractPropertyCount(publishableContractPropertyCount);
         overview.setPublishedRiskMetricCount(publishedRiskMetricCount);
         overview.setBoundRiskMetricCount(boundRiskMetricCount);
         overview.setRuleCoveredRiskMetricCount(ruleCoveredRiskMetricCount);
         overview.setLinkageCoveredRiskMetricCount(linkageCoveredRiskMetricCount);
         overview.setEmergencyPlanCoveredRiskMetricCount(emergencyPlanCoveredRiskMetricCount);
         overview.setLinkagePlanCoveredRiskMetricCount(linkagePlanCoveredRiskMetricCount);
-        overview.setContractMetricCoverageRate(calculateRate(publishedRiskMetricCount, contractPropertyCount));
+        overview.setContractMetricCoverageRate(
+                publishableContractPropertyCount <= 0L
+                        ? 100D
+                        : calculateRate(publishedRiskMetricCount, publishableContractPropertyCount)
+        );
         overview.setBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
         overview.setRuleCoverageRate(calculateRate(ruleCoveredRiskMetricCount, boundRiskMetricCount));
         overview.setLinkageCoverageRate(calculateRate(linkageCoveredRiskMetricCount, boundMetricDimensionCount));
@@ -393,6 +566,21 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 firstReleaseTimeByProduct,
                 releasedProductIds
         );
+        List<RawStageProductAccumulator> rawStageProducts = listRawStageProducts(productMap, governedProductIds);
+        long rawStageProductCount = rawStageProducts.size();
+        List<String> rawStageProductNames = rawStageProducts.stream()
+                .map(RawStageProductAccumulator::productDisplayName)
+                .limit(3)
+                .toList();
+        List<String> rawStageVendorNames = rawStageProducts.stream()
+                .map(RawStageProductAccumulator::vendorDisplayName)
+                .distinct()
+                .limit(3)
+                .toList();
+        long rawStageVendorCount = rawStageProducts.stream()
+                .map(RawStageProductAccumulator::vendorDisplayName)
+                .distinct()
+                .count();
 
         RiskGovernanceDashboardOverviewVO overview = new RiskGovernanceDashboardOverviewVO();
         overview.setTotalProductCount(totalProductCount);
@@ -410,6 +598,10 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         overview.setPendingEmergencyPlanCount(pendingEmergencyPlanCount);
         overview.setPendingLinkagePlanCount(pendingLinkagePlanCount);
         overview.setPendingReplayCount(pendingReplayCount);
+        overview.setRawStageProductCount(rawStageProductCount);
+        overview.setRawStageVendorCount(rawStageVendorCount);
+        overview.setRawStageProductNames(rawStageProductNames);
+        overview.setRawStageVendorNames(rawStageVendorNames);
         overview.setGovernanceCompletionRate(calculateRate(governedProductCount, totalProductCount));
         overview.setMetricBindingCoverageRate(calculateRate(boundRiskMetricCount, publishedRiskMetricCount));
         overview.setPolicyCoverageRate(policyCoverageRate);
@@ -516,6 +708,219 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         item.setCreateTime(catalog.getCreateTime());
         item.setUpdateTime(catalog.getUpdateTime());
         return item;
+    }
+
+    private ProductContractReleaseBatch requireReleaseBatch(Long batchId) {
+        ProductContractReleaseBatch batch = productContractReleaseBatchMapper.selectById(batchId);
+        if (batch == null) {
+            throw new BizException("契约发布批次不存在: " + batchId);
+        }
+        return batch;
+    }
+
+    private ProductContractReleaseSnapshot loadBatchSnapshot(Long batchId, String snapshotStage) {
+        List<ProductContractReleaseSnapshot> snapshots = productContractReleaseSnapshotMapper.selectList(
+                new LambdaQueryWrapper<ProductContractReleaseSnapshot>()
+                        .eq(ProductContractReleaseSnapshot::getDeleted, 0)
+                        .eq(ProductContractReleaseSnapshot::getBatchId, batchId)
+                        .eq(ProductContractReleaseSnapshot::getSnapshotStage, snapshotStage)
+                        .orderByDesc(ProductContractReleaseSnapshot::getCreateTime)
+                        .orderByDesc(ProductContractReleaseSnapshot::getId)
+                        .last("limit 1")
+        );
+        if (snapshots == null || snapshots.isEmpty()) {
+            throw new BizException("发布批次缺少快照: " + snapshotStage);
+        }
+        ProductContractReleaseSnapshot snapshot = snapshots.get(0);
+        if (!StringUtils.hasText(snapshot.getSnapshotJson())) {
+            throw new BizException("发布批次快照为空: " + snapshotStage);
+        }
+        return snapshot;
+    }
+
+    private List<ReleaseModelSnapshotItem> parseSnapshotItems(String snapshotJson) {
+        if (!StringUtils.hasText(snapshotJson)) {
+            return List.of();
+        }
+        try {
+            List<ReleaseModelSnapshotItem> parsed = objectMapper.readValue(
+                    snapshotJson,
+                    new TypeReference<List<ReleaseModelSnapshotItem>>() {
+                    }
+            );
+            if (parsed == null || parsed.isEmpty()) {
+                return List.of();
+            }
+            List<ReleaseModelSnapshotItem> result = new ArrayList<>();
+            for (ReleaseModelSnapshotItem item : parsed) {
+                if (item == null || !StringUtils.hasText(item.modelType()) || !StringUtils.hasText(item.identifier())) {
+                    continue;
+                }
+                result.add(item);
+            }
+            result.sort(Comparator
+                    .comparing(ReleaseModelSnapshotItem::modelType)
+                    .thenComparing(ReleaseModelSnapshotItem::identifier));
+            return result;
+        } catch (Exception ex) {
+            throw new BizException("发布批次快照格式无效");
+        }
+    }
+
+    private Map<String, ReleaseModelSnapshotItem> toSnapshotMap(List<ReleaseModelSnapshotItem> items) {
+        Map<String, ReleaseModelSnapshotItem> map = new LinkedHashMap<>();
+        if (items == null || items.isEmpty()) {
+            return map;
+        }
+        for (ReleaseModelSnapshotItem item : items) {
+            String key = buildModelKey(item.modelType(), item.identifier());
+            if (StringUtils.hasText(key) && !map.containsKey(key)) {
+                map.put(key, item);
+            }
+        }
+        return map;
+    }
+
+    private String buildModelKey(String modelType, String identifier) {
+        String normalizedModelType = normalizeText(modelType);
+        String normalizedIdentifier = normalizeText(identifier);
+        if (!StringUtils.hasText(normalizedModelType) || !StringUtils.hasText(normalizedIdentifier)) {
+            return null;
+        }
+        return normalizedModelType + "#" + normalizedIdentifier;
+    }
+
+    private List<RiskMetricCatalog> selectReleaseBatchCatalogs(Long releaseBatchId) {
+        if (releaseBatchId == null) {
+            return List.of();
+        }
+        return riskMetricCatalogMapper.selectList(new QueryWrapper<RiskMetricCatalog>()
+                .eq("deleted", 0)
+                .eq("release_batch_id", releaseBatchId)
+                .orderByAsc("contract_identifier")
+                .orderByAsc("id"));
+    }
+
+    private Map<String, RiskMetricCatalog> toMetricCatalogMap(List<RiskMetricCatalog> catalogs) {
+        Map<String, RiskMetricCatalog> map = new LinkedHashMap<>();
+        if (catalogs == null || catalogs.isEmpty()) {
+            return map;
+        }
+        for (RiskMetricCatalog catalog : catalogs) {
+            String key = toMetricCatalogKey(catalog);
+            if (StringUtils.hasText(key) && !map.containsKey(key)) {
+                map.put(key, catalog);
+            }
+        }
+        return map;
+    }
+
+    private String toMetricCatalogKey(RiskMetricCatalog catalog) {
+        if (catalog == null) {
+            return null;
+        }
+        String contractIdentifier = normalizeText(catalog.getContractIdentifier());
+        if (StringUtils.hasText(contractIdentifier)) {
+            return contractIdentifier;
+        }
+        String riskMetricCode = normalizeText(catalog.getRiskMetricCode());
+        if (StringUtils.hasText(riskMetricCode)) {
+            return riskMetricCode;
+        }
+        return null;
+    }
+
+    private RiskGovernanceReleaseBatchDiffVO.BatchSummary toBatchSummary(ProductContractReleaseBatch batch) {
+        RiskGovernanceReleaseBatchDiffVO.BatchSummary summary = new RiskGovernanceReleaseBatchDiffVO.BatchSummary();
+        summary.setId(batch.getId());
+        summary.setProductId(batch.getProductId());
+        summary.setScenarioCode(batch.getScenarioCode());
+        summary.setReleaseSource(batch.getReleaseSource());
+        summary.setReleasedFieldCount(batch.getReleasedFieldCount());
+        summary.setApprovalOrderId(batch.getApprovalOrderId());
+        summary.setReleaseReason(batch.getReleaseReason());
+        summary.setReleaseStatus(batch.getReleaseStatus());
+        summary.setCreateTime(batch.getCreateTime());
+        summary.setRollbackTime(batch.getRollbackTime());
+        return summary;
+    }
+
+    private RiskGovernanceReleaseBatchDiffVO.ContractDiffItem toContractDiffItem(String changeType,
+                                                                                 String modelType,
+                                                                                 String identifier,
+                                                                                 List<String> changedFields) {
+        RiskGovernanceReleaseBatchDiffVO.ContractDiffItem item = new RiskGovernanceReleaseBatchDiffVO.ContractDiffItem();
+        item.setChangeType(changeType);
+        item.setModelType(normalizeText(modelType));
+        item.setIdentifier(normalizeText(identifier));
+        item.setChangedFields(changedFields == null ? List.of() : changedFields);
+        return item;
+    }
+
+    private RiskGovernanceReleaseBatchDiffVO.MetricDiffItem toMetricDiffItem(String changeType,
+                                                                             RiskMetricCatalog catalog,
+                                                                             List<String> changedFields) {
+        RiskGovernanceReleaseBatchDiffVO.MetricDiffItem item = new RiskGovernanceReleaseBatchDiffVO.MetricDiffItem();
+        item.setChangeType(changeType);
+        item.setContractIdentifier(catalog == null ? null : normalizeText(catalog.getContractIdentifier()));
+        item.setRiskMetricCode(catalog == null ? null : normalizeText(catalog.getRiskMetricCode()));
+        item.setRiskMetricName(catalog == null ? null : normalizeText(catalog.getRiskMetricName()));
+        item.setMetricRole(catalog == null ? null : normalizeText(catalog.getMetricRole()));
+        item.setLifecycleStatus(catalog == null ? null : normalizeText(catalog.getLifecycleStatus()));
+        item.setChangedFields(changedFields == null ? List.of() : changedFields);
+        return item;
+    }
+
+    private List<String> resolveChangedFields(ReleaseModelSnapshotItem baseline, ReleaseModelSnapshotItem target) {
+        if (baseline == null || target == null) {
+            return List.of();
+        }
+        List<String> changed = new ArrayList<>();
+        addChangedField(changed, "modelName", normalizeText(baseline.modelName()), normalizeText(target.modelName()));
+        addChangedField(changed, "dataType", normalizeText(baseline.dataType()), normalizeText(target.dataType()));
+        addChangedField(changed, "specsJson", normalizeText(baseline.specsJson()), normalizeText(target.specsJson()));
+        addChangedField(changed, "eventType", normalizeText(baseline.eventType()), normalizeText(target.eventType()));
+        addChangedField(changed, "serviceInputJson", normalizeText(baseline.serviceInputJson()), normalizeText(target.serviceInputJson()));
+        addChangedField(changed, "serviceOutputJson", normalizeText(baseline.serviceOutputJson()), normalizeText(target.serviceOutputJson()));
+        addChangedField(changed, "sortNo", baseline.sortNo(), target.sortNo());
+        addChangedField(changed, "requiredFlag", baseline.requiredFlag(), target.requiredFlag());
+        addChangedField(changed, "description", normalizeText(baseline.description()), normalizeText(target.description()));
+        return changed;
+    }
+
+    private List<String> resolveMetricChangedFields(RiskMetricCatalog baseline, RiskMetricCatalog target) {
+        if (baseline == null || target == null) {
+            return List.of();
+        }
+        List<String> changed = new ArrayList<>();
+        addChangedField(changed, "normativeIdentifier", normalizeText(baseline.getNormativeIdentifier()), normalizeText(target.getNormativeIdentifier()));
+        addChangedField(changed, "riskMetricCode", normalizeText(baseline.getRiskMetricCode()), normalizeText(target.getRiskMetricCode()));
+        addChangedField(changed, "riskMetricName", normalizeText(baseline.getRiskMetricName()), normalizeText(target.getRiskMetricName()));
+        addChangedField(changed, "riskCategory", normalizeText(baseline.getRiskCategory()), normalizeText(target.getRiskCategory()));
+        addChangedField(changed, "metricRole", normalizeText(baseline.getMetricRole()), normalizeText(target.getMetricRole()));
+        addChangedField(changed, "lifecycleStatus", normalizeText(baseline.getLifecycleStatus()), normalizeText(target.getLifecycleStatus()));
+        addChangedField(changed, "sourceScenarioCode", normalizeText(baseline.getSourceScenarioCode()), normalizeText(target.getSourceScenarioCode()));
+        addChangedField(changed, "metricUnit", normalizeText(baseline.getMetricUnit()), normalizeText(target.getMetricUnit()));
+        addChangedField(changed, "metricDimension", normalizeText(baseline.getMetricDimension()), normalizeText(target.getMetricDimension()));
+        addChangedField(changed, "thresholdType", normalizeText(baseline.getThresholdType()), normalizeText(target.getThresholdType()));
+        addChangedField(changed, "semanticDirection", normalizeText(baseline.getSemanticDirection()), normalizeText(target.getSemanticDirection()));
+        addChangedField(changed, "thresholdDirection", normalizeText(baseline.getThresholdDirection()), normalizeText(target.getThresholdDirection()));
+        addChangedField(changed, "trendEnabled", baseline.getTrendEnabled(), target.getTrendEnabled());
+        addChangedField(changed, "gisEnabled", baseline.getGisEnabled(), target.getGisEnabled());
+        addChangedField(changed, "insightEnabled", baseline.getInsightEnabled(), target.getInsightEnabled());
+        addChangedField(changed, "analyticsEnabled", baseline.getAnalyticsEnabled(), target.getAnalyticsEnabled());
+        addChangedField(changed, "enabled", baseline.getEnabled(), target.getEnabled());
+        return changed;
+    }
+
+    private void addChangedField(List<String> changedFields, String fieldName, Object baseline, Object target) {
+        if (!Objects.equals(baseline, target)) {
+            changedFields.add(fieldName);
+        }
+    }
+
+    private String normalizeText(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private String toBindingMetricKey(RiskPointDevice binding) {
@@ -704,6 +1109,39 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return totalHours / validSampleCount;
     }
 
+    private List<RawStageProductAccumulator> listRawStageProducts(Map<Long, Product> productMap,
+                                                                  Set<Long> governedProductIds) {
+        if (vendorMetricEvidenceMapper == null || productMap == null || productMap.isEmpty()) {
+            return List.of();
+        }
+        QueryWrapper<VendorMetricEvidence> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("product_id", "raw_identifier", "evidence_count", "last_seen_time")
+                .eq("deleted", 0)
+                .isNotNull("product_id");
+        List<VendorMetricEvidence> evidenceList = vendorMetricEvidenceMapper.selectList(queryWrapper);
+        if (evidenceList == null || evidenceList.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, RawStageProductAccumulator> rawStageByProduct = new LinkedHashMap<>();
+        for (VendorMetricEvidence evidence : evidenceList) {
+            Long productId = evidence == null ? null : evidence.getProductId();
+            if (productId == null || (governedProductIds != null && governedProductIds.contains(productId))) {
+                continue;
+            }
+            Product product = productMap.get(productId);
+            if (product == null) {
+                continue;
+            }
+            rawStageByProduct.computeIfAbsent(productId, ignored -> new RawStageProductAccumulator(product))
+                    .add(evidence);
+        }
+        return rawStageByProduct.values().stream()
+                .sorted(Comparator.comparingInt(RawStageProductAccumulator::totalEvidenceCount).reversed()
+                        .thenComparing(RawStageProductAccumulator::lastSeenTime, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(RawStageProductAccumulator::productDisplayName))
+                .toList();
+    }
+
     private String normalizeLower(String value) {
         if (!StringUtils.hasText(value)) {
             return "";
@@ -768,6 +1206,21 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return StringUtils.hasText(metricName) ? metricName.trim() : null;
     }
 
+    record ReleaseModelSnapshotItem(
+            String modelType,
+            String identifier,
+            String modelName,
+            String dataType,
+            String specsJson,
+            String eventType,
+            String serviceInputJson,
+            String serviceOutputJson,
+            Integer sortNo,
+            Integer requiredFlag,
+            String description
+    ) {
+    }
+
     private long normalizePageNum(RiskGovernanceGapQuery query) {
         return query == null || query.getPageNum() == null || query.getPageNum() < 1 ? 1L : query.getPageNum();
     }
@@ -786,6 +1239,58 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     }
 
     private record MetricBindingDimension(String dimensionKey, String metricIdentifier, String metricName) {
+    }
+
+    private static final class RawStageProductAccumulator {
+        private final Product product;
+        private int totalEvidenceCount;
+        private LocalDateTime lastSeenTime;
+
+        private RawStageProductAccumulator(Product product) {
+            this.product = product;
+        }
+
+        private void add(VendorMetricEvidence evidence) {
+            int currentCount = evidence == null || evidence.getEvidenceCount() == null || evidence.getEvidenceCount() < 1
+                    ? 1
+                    : evidence.getEvidenceCount();
+            totalEvidenceCount += currentCount;
+            LocalDateTime candidateTime = evidence == null ? null : evidence.getLastSeenTime();
+            if (candidateTime != null && (lastSeenTime == null || candidateTime.isAfter(lastSeenTime))) {
+                lastSeenTime = candidateTime;
+            }
+        }
+
+        private int totalEvidenceCount() {
+            return totalEvidenceCount;
+        }
+
+        private LocalDateTime lastSeenTime() {
+            return lastSeenTime;
+        }
+
+        private String vendorDisplayName() {
+            if (product == null) {
+                return "未标注厂商";
+            }
+            if (StringUtils.hasText(product.getManufacturer())) {
+                return product.getManufacturer().trim();
+            }
+            return "未标注厂商";
+        }
+
+        private String productDisplayName() {
+            if (product == null) {
+                return "--";
+            }
+            if (StringUtils.hasText(product.getProductName())) {
+                return product.getProductName().trim();
+            }
+            if (StringUtils.hasText(product.getProductKey())) {
+                return product.getProductKey().trim();
+            }
+            return String.valueOf(product.getId());
+        }
     }
 
     private static final class MissingPolicyAlertAccumulator {

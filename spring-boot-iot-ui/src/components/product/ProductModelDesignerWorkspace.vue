@@ -16,13 +16,10 @@
     </div>
 
     <template v-else>
-      <section class="product-model-designer__summary-sheet">
+      <section v-if="showSummarySheet" class="product-model-designer__summary-sheet">
         <div class="product-model-designer__summary-copy">
           <span class="product-model-designer__summary-kicker">契约字段</span>
           <h3 class="product-model-designer__summary-title">基于现有上报手动提炼契约字段</h3>
-          <p class="product-model-designer__summary-description">
-            在同一页面完成样本录入、字段提取、结果确认和正式字段查看，不再打开二层抽屉。
-          </p>
         </div>
 
         <div class="product-model-designer__summary-actions">
@@ -58,9 +55,371 @@
             <strong>{{ selectedApplyItems.length }}</strong>
           </article>
         </div>
+
+        <section class="product-model-designer__governance-steps" data-testid="contract-field-governance-steps">
+          <div class="product-model-designer__rollback-preview-head">
+            <div>
+              <strong>治理下一步</strong>
+              <p>{{ governanceStepsIntroText }}</p>
+            </div>
+          </div>
+
+          <div class="product-model-designer__governance-step-grid">
+            <article
+              v-for="(step, index) in governanceStepCards"
+              :key="step.key"
+              class="product-model-designer__governance-step-card"
+            >
+              <span class="product-model-designer__governance-step-kicker">{{ `步骤 ${index + 1}` }}</span>
+              <strong>{{ step.title }}</strong>
+              <span class="product-model-designer__governance-step-status">{{ step.status }}</span>
+              <p>{{ step.description }}</p>
+              <div v-if="step.actionLabel && step.actionKey" class="product-model-designer__governance-step-actions">
+                <StandardButton
+                  action="query"
+                  link
+                  :data-testid="step.actionTestid"
+                  @click="handleGovernanceStepAction(step.actionKey)"
+                >
+                  {{ step.actionLabel }}
+                </StandardButton>
+              </div>
+            </article>
+          </div>
+
+          <div
+            v-if="showGovernanceBoundaryNote"
+            class="product-model-designer__governance-note"
+            data-testid="contract-field-downstream-boundary-note"
+          >
+            <strong>{{ governanceBoundaryNoteTitle }}</strong>
+            <p>{{ governanceBoundaryNoteDescription }}</p>
+          </div>
+        </section>
+
+        <section
+          v-if="showReleaseSections && latestReleaseBatchId"
+          class="product-model-designer__rollback-preview"
+          data-testid="contract-field-rollback-preview"
+        >
+          <div class="product-model-designer__rollback-preview-head">
+            <div>
+              <strong>回滚试算</strong>
+              <p>基于最新发布批次快照，预估回滚后会删除、恢复或回退哪些正式字段。</p>
+            </div>
+            <span>批次 {{ latestReleaseBatchId }}</span>
+          </div>
+
+          <p v-if="rollbackPreviewLoading" class="product-model-designer__detail-tip">正在加载回滚试算...</p>
+          <p v-else-if="rollbackPreviewErrorMessage" class="product-model-designer__detail-tip">{{ rollbackPreviewErrorMessage }}</p>
+          <template v-else-if="rollbackPreview">
+            <div class="product-model-designer__receipt">
+              <article class="product-model-designer__summary-card">
+                <span>将删除</span>
+                <strong>{{ `将删除 ${rollbackPreview.addedCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>将恢复</span>
+                <strong>{{ `将恢复 ${rollbackPreview.removedCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>将回退</span>
+                <strong>{{ `将回退 ${rollbackPreview.changedCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>无需处理</span>
+                <strong>{{ `无需处理 ${rollbackPreview.unchangedCount ?? 0}` }}</strong>
+              </article>
+            </div>
+
+            <div
+              v-if="rollbackPreview.dependencySummary"
+              class="product-model-designer__receipt"
+              data-testid="contract-field-rollback-dependency-summary"
+            >
+              <article class="product-model-designer__summary-card">
+                <span>受影响风险指标</span>
+                <strong>{{ `受影响风险指标 ${rollbackPreview.dependencySummary.affectedRiskMetricCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响风险点绑定</span>
+                <strong>{{ `受影响风险点绑定 ${rollbackPreview.dependencySummary.affectedRiskPointBindingCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响阈值规则</span>
+                <strong>{{ `受影响阈值规则 ${rollbackPreview.dependencySummary.affectedRuleCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响联动</span>
+                <strong>{{ `受影响联动 ${rollbackPreview.dependencySummary.affectedLinkageBindingCount ?? 0}` }}</strong>
+              </article>
+              <article class="product-model-designer__summary-card">
+                <span>受影响预案</span>
+                <strong>{{ `受影响预案 ${rollbackPreview.dependencySummary.affectedEmergencyPlanBindingCount ?? 0}` }}</strong>
+              </article>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedRiskMetrics?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响风险指标目录</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedRiskMetrics.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedRiskMetrics"
+                  :key="`${item.riskMetricId || item.contractIdentifier || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.riskMetricName || item.contractIdentifier || '--' }}</strong>
+                  <span>{{ item.contractIdentifier || '--' }} · {{ item.riskMetricCode || '--' }}</span>
+                  <span>{{ item.metricRole || '--' }} · {{ item.lifecycleStatus || '--' }}</span>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedRiskPointBindings?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响风险点绑定</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedRiskPointBindings.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedRiskPointBindings"
+                  :key="`${item.bindingId || item.riskPointId || item.deviceCode || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.riskPointName || item.deviceCode || '--' }}</strong>
+                  <span>{{ item.deviceCode || '--' }} · {{ item.metricIdentifier || '--' }}</span>
+                  <StandardButton action="query" link @click="openRiskPointContext(item)">查看风险对象</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedRules?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响阈值策略</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedRules.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedRules"
+                  :key="`${item.ruleId || item.ruleName || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.ruleName || '--' }}</strong>
+                  <span>{{ item.metricIdentifier || '--' }} · {{ item.alarmLevel || '--' }}</span>
+                  <StandardButton action="query" link @click="openRuleContext(item)">查看阈值策略</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedLinkageBindings?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响联动编排</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedLinkageBindings.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedLinkageBindings"
+                  :key="`${item.bindingId || item.linkageRuleId || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.linkageRuleName || '--' }}</strong>
+                  <span>{{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openLinkageContext(item)">查看联动编排</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.dependencySummary?.affectedEmergencyPlanBindings?.length" class="product-model-designer__rollback-dependency-group">
+              <div class="product-model-designer__rollback-dependency-head">
+                <strong>受影响应急预案</strong>
+                <span>{{ `共 ${rollbackPreview.dependencySummary.affectedEmergencyPlanBindings.length} 项` }}</span>
+              </div>
+              <div class="product-model-designer__rollback-preview-list">
+                <article
+                  v-for="item in rollbackPreview.dependencySummary.affectedEmergencyPlanBindings"
+                  :key="`${item.bindingId || item.emergencyPlanId || '--'}`"
+                  class="product-model-designer__rollback-preview-item"
+                >
+                  <strong>{{ item.emergencyPlanName || '--' }}</strong>
+                  <span>{{ item.alarmLevel || '--' }} · {{ item.bindingStatus || '--' }}</span>
+                  <StandardButton action="query" link @click="openEmergencyPlanContext(item)">查看应急预案</StandardButton>
+                </article>
+              </div>
+            </div>
+
+            <div v-if="rollbackPreview.impactItems?.length" class="product-model-designer__rollback-preview-list">
+              <article
+                v-for="(item, index) in rollbackPreview.impactItems"
+                :key="`${item.identifier || '--'}-${item.changeType || '--'}-${index}`"
+                class="product-model-designer__rollback-preview-item"
+              >
+                <strong>{{ item.identifier || '--' }}</strong>
+                <span>{{ rollbackPreviewActionLabel(item.changeType) }} · {{ rollbackPreviewModelTypeLabel(item.modelType) }}</span>
+                <span v-if="item.changedFields?.length">差异字段 {{ item.changedFields.join(' / ') }}</span>
+              </article>
+            </div>
+          </template>
+        </section>
+
+        <section
+          v-if="showReleaseSections && releaseLedgerRows.length"
+          ref="versionLedgerStageRef"
+          class="product-model-designer__version-ledger"
+          data-testid="contract-version-ledger"
+        >
+          <div class="product-model-designer__rollback-preview-head">
+            <div>
+              <strong>版本台账</strong>
+              <p>查看每次合同发布批次，以及该批次同步发布的风险指标目录。</p>
+            </div>
+            <span>共 {{ releaseLedgerRows.length }} 个批次</span>
+          </div>
+
+          <div class="product-model-designer__version-ledger-grid">
+            <button
+              v-for="batch in releaseLedgerRows"
+              :key="String(batch.id)"
+              type="button"
+              class="product-model-designer__version-ledger-batch"
+              :class="{ 'is-active': String(selectedLedgerBatchId ?? '') === String(batch.id ?? '') }"
+              @click="selectLedgerBatch(batch.id)"
+            >
+              <strong>{{ `批次 ${batch.id ?? '--'}` }}</strong>
+              <span>{{ batch.releaseStatus || '--' }} · {{ batch.scenarioCode || '--' }}</span>
+              <span>{{ `字段 ${batch.releasedFieldCount ?? 0} 项` }}</span>
+            </button>
+          </div>
+
+          <p v-if="versionLedgerLoading" class="product-model-designer__detail-tip">正在加载批次风险指标...</p>
+          <p v-else-if="versionLedgerErrorMessage" class="product-model-designer__detail-tip">{{ versionLedgerErrorMessage }}</p>
+          <div v-else-if="selectedLedgerMetrics.length" class="product-model-designer__rollback-preview-list">
+            <article
+              v-for="metric in selectedLedgerMetrics"
+              :key="`${metric.id || metric.contractIdentifier || '--'}`"
+              class="product-model-designer__rollback-preview-item"
+            >
+              <strong>{{ metric.riskMetricName || metric.contractIdentifier || '--' }}</strong>
+              <span>{{ metric.contractIdentifier || '--' }} · {{ metric.metricRole || '--' }}</span>
+              <span>{{ metric.lifecycleStatus || '--' }}</span>
+            </article>
+          </div>
+          <div v-else class="product-model-designer__empty">
+            <strong>当前批次暂无风险指标目录</strong>
+            <p>该批次还没有同步发布可进入风险闭环的风险指标。</p>
+          </div>
+
+          <section class="product-model-designer__version-diff">
+            <div class="product-model-designer__rollback-preview-head">
+              <div>
+                <strong>跨批次差异对账</strong>
+                <p>对比两个正式合同发布批次的字段变化，以及同步发布的风险指标目录差异。</p>
+              </div>
+              <span v-if="selectedLedgerBatchId && comparisonBaselineBatchId">
+                {{ `批次 ${selectedLedgerBatchId} 对比 ${comparisonBaselineBatchId}` }}
+              </span>
+              <span v-else>至少需要两个发布批次</span>
+            </div>
+
+            <div v-if="comparisonLedgerRows.length" class="product-model-designer__version-ledger-grid">
+              <button
+                v-for="batch in comparisonLedgerRows"
+                :key="`baseline-${String(batch.id)}`"
+                type="button"
+                class="product-model-designer__version-ledger-batch"
+                :class="{ 'is-active': String(comparisonBaselineBatchId ?? '') === String(batch.id ?? '') }"
+                @click="selectComparisonBaselineBatch(batch.id)"
+              >
+                <strong>{{ `基线批次 ${batch.id ?? '--'}` }}</strong>
+                <span>{{ batch.releaseStatus || '--' }} · {{ batch.scenarioCode || '--' }}</span>
+                <span>{{ `字段 ${batch.releasedFieldCount ?? 0} 项` }}</span>
+              </button>
+            </div>
+
+            <div v-if="!comparisonLedgerRows.length" class="product-model-designer__empty">
+              <strong>当前还无法进行批次对账</strong>
+              <p>至少需要两个正式发布批次，才能查看跨批次差异。</p>
+            </div>
+            <p v-else-if="versionDiffLoading" class="product-model-designer__detail-tip">正在加载跨批次差异...</p>
+            <p v-else-if="versionDiffErrorMessage" class="product-model-designer__detail-tip">{{ versionDiffErrorMessage }}</p>
+            <template v-else-if="releaseBatchDiff">
+              <div class="product-model-designer__receipt">
+                <article class="product-model-designer__summary-card">
+                  <span>基线合同字段</span>
+                  <strong>{{ releaseBatchDiff.baselineContractFieldCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>当前合同字段</span>
+                  <strong>{{ releaseBatchDiff.targetContractFieldCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>合同差异</span>
+                  <strong>{{ `新增 ${releaseBatchDiff.addedContractCount ?? 0} / 删除 ${releaseBatchDiff.removedContractCount ?? 0} / 变更 ${releaseBatchDiff.changedContractCount ?? 0}` }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>基线风险指标</span>
+                  <strong>{{ releaseBatchDiff.baselineMetricCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>当前风险指标</span>
+                  <strong>{{ releaseBatchDiff.targetMetricCount ?? 0 }}</strong>
+                </article>
+                <article class="product-model-designer__summary-card">
+                  <span>指标差异</span>
+                  <strong>{{ `新增 ${releaseBatchDiff.addedMetricCount ?? 0} / 删除 ${releaseBatchDiff.removedMetricCount ?? 0} / 变更 ${releaseBatchDiff.changedMetricCount ?? 0}` }}</strong>
+                </article>
+              </div>
+
+              <div
+                v-if="releaseBatchDiff.contractDiffItems?.length"
+                class="product-model-designer__rollback-dependency-group"
+              >
+                <div class="product-model-designer__rollback-dependency-head">
+                  <strong>合同字段差异</strong>
+                  <span>{{ `共 ${releaseBatchDiff.contractDiffItems.length} 项` }}</span>
+                </div>
+                <div class="product-model-designer__rollback-preview-list">
+                  <article
+                    v-for="item in releaseBatchDiff.contractDiffItems"
+                    :key="`${item.identifier || '--'}-${item.changeType || '--'}`"
+                    class="product-model-designer__rollback-preview-item"
+                  >
+                    <strong>{{ item.identifier || '--' }}</strong>
+                    <span>{{ releaseDiffChangeTypeLabel(item.changeType) }} · {{ rollbackPreviewModelTypeLabel(item.modelType) }}</span>
+                    <span v-if="item.changedFields?.length">差异字段 {{ item.changedFields.join(' / ') }}</span>
+                  </article>
+                </div>
+              </div>
+
+              <div
+                v-if="releaseBatchDiff.metricDiffItems?.length"
+                class="product-model-designer__rollback-dependency-group"
+              >
+                <div class="product-model-designer__rollback-dependency-head">
+                  <strong>风险指标目录差异</strong>
+                  <span>{{ `共 ${releaseBatchDiff.metricDiffItems.length} 项` }}</span>
+                </div>
+                <div class="product-model-designer__rollback-preview-list">
+                  <article
+                    v-for="item in releaseBatchDiff.metricDiffItems"
+                    :key="`${item.contractIdentifier || item.riskMetricCode || '--'}-${item.changeType || '--'}`"
+                    class="product-model-designer__rollback-preview-item"
+                  >
+                    <strong>{{ item.riskMetricName || item.contractIdentifier || '--' }}</strong>
+                    <span>{{ releaseDiffChangeTypeLabel(item.changeType) }} · {{ item.contractIdentifier || '--' }}</span>
+                    <span>{{ item.metricRole || '--' }} · {{ item.lifecycleStatus || '--' }}</span>
+                    <span v-if="item.changedFields?.length">差异字段 {{ item.changedFields.join(' / ') }}</span>
+                  </article>
+                </div>
+              </div>
+            </template>
+          </section>
+        </section>
       </section>
 
       <section
+        v-if="showContractSections"
         ref="sampleStageRef"
         class="product-model-designer__stage"
         data-testid="contract-field-sample-stage"
@@ -68,7 +427,7 @@
         <header class="product-model-designer__stage-head">
           <div>
             <h3>样本输入</h3>
-            <p>只支持基于手动粘贴的上报 JSON 提取契约字段。</p>
+            <p>粘贴上报 JSON 后提取契约字段。</p>
           </div>
         </header>
 
@@ -120,6 +479,19 @@
           </div>
         </div>
 
+        <div class="product-model-designer__governance-note" data-testid="contract-field-sample-note">
+          <strong>字段标识按当前产品契约形态收口</strong>
+          <p>
+            单台样本会按当前产品形态自动识别正式字段口径：单台多能力产品保留监测类型编码 + 数据字段这类全路径标识，只有单能力/规范产品才收口为直接字段。
+          </p>
+          <p>
+            单台设备的业务数据与状态数据（如 4G、剩余电量、温湿度、电压）都走同一套识别规则，不会拆成第三种设备结构。
+          </p>
+          <p>
+            复合设备会按父设备关系映射归一到子产品直接字段；逻辑通道编码只用于归属线索和原始证据，不直接等于正式字段标识。
+          </p>
+        </div>
+
         <section
           v-if="deviceStructure === 'composite'"
           class="product-model-designer__relation-stage"
@@ -127,11 +499,20 @@
           <div class="product-model-designer__relation-head">
             <div>
               <strong>复合设备关系映射</strong>
-              <p>当前页只暴露父设备编码、逻辑通道编码和子设备编码，其他归一策略按内部固定口径处理。</p>
+              <p>当前页只暴露父设备编码、逻辑通道编码和子设备编码；归一策略优先沿用已登记设备关系，未登记时按逻辑通道类型兼容推断。</p>
             </div>
             <StandardButton action="query" :loading="relationLoading" @click="handleLoadRelations">
               读取已有关系
             </StandardButton>
+          </div>
+
+          <div
+            v-if="isCollectorCompositeMode"
+            class="product-model-designer__governance-note"
+            data-testid="collector-boundary-note"
+          >
+            <strong>采集器产品只治理自身状态字段</strong>
+            <p>子设备字段请到子产品治理，监测值和 sensor_state 不在采集器页发布。</p>
           </div>
 
           <div class="product-model-designer__relation-grid">
@@ -195,13 +576,35 @@
         </div>
       </section>
 
-      <section class="product-model-designer__stage">
+      <section
+        v-if="showContractSections"
+        ref="formalFieldStageRef"
+        class="product-model-designer__stage"
+      >
         <header class="product-model-designer__stage-head">
           <div>
             <h3>识别结果</h3>
-            <p>当前只展示基于手动样本识别出的 compare 结果。</p>
+            <p v-if="compareResult" data-testid="contract-field-compare-source-hint">
+              识别结果会合并展示本次样本、运行态补证和当前正式字段；“合并对比”不是本次样本新增数。
+            </p>
           </div>
         </header>
+
+        <div
+          v-if="compareSourceSummaryCards.length"
+          class="product-model-designer__summary-grid"
+          data-testid="contract-field-compare-source-summary"
+        >
+          <article
+            v-for="item in compareSourceSummaryCards"
+            :key="item.key"
+            class="product-model-designer__summary-card"
+            :data-testid="`contract-field-compare-source-${item.key}`"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </article>
+        </div>
 
         <ProductModelGovernanceCompareTable
           v-if="compareRows.length"
@@ -210,17 +613,102 @@
           @change-decision="handleDecisionChange"
         />
 
+        <div
+          v-else-if="showCollectorBoundaryEmpty"
+          class="product-model-designer__empty"
+          data-testid="collector-boundary-empty"
+        >
+          <strong>当前采集器没有可治理的子设备正式字段</strong>
+          <p>子设备字段请到子产品治理；采集器页只展示子设备总览，不回写采集器契约。</p>
+        </div>
+
         <div v-else class="product-model-designer__empty">
           <strong>暂无识别结果</strong>
           <p>贴上报数据并完成提取后，这里会展示本次识别出的字段。</p>
         </div>
       </section>
 
-      <section class="product-model-designer__stage">
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
+        data-testid="contract-field-runtime-display-rules"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>运行态名称/单位治理</h3>
+            <p>针对非正式字段补中文名称和单位，供设备属性快照、对象洞察和历史趋势读侧统一复用。</p>
+          </div>
+        </header>
+
+        <ProductRuntimeMetricDisplayRulePanel :product-id="props.product?.id ?? null" />
+      </section>
+
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
+        data-testid="governance-candidate-panel"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>待治理候选</h3>
+            <p>基于运行态证据汇总的高频未正式化字段，建议优先补录名称和单位。</p>
+          </div>
+        </header>
+
+        <ProductVendorMappingGovernanceCandidatePanel
+          :product-id="props.product?.id ?? null"
+          @go-accept="handleCandidateGoAccept"
+          @view-all-suggestions="handleCandidateViewAll"
+        />
+      </section>
+
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
+        data-testid="contract-field-vendor-suggestions"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>映射规则建议</h3>
+            <p>基于运行态证据和现有规则，展示当前产品值得人工采纳的厂商字段映射建议。</p>
+          </div>
+        </header>
+
+        <ProductVendorMappingSuggestionPanel
+          :product-id="props.product?.id ?? null"
+          :refresh-token="vendorSuggestionRefreshToken"
+          @accepted="handleVendorSuggestionAccepted"
+        />
+
+        <div
+          v-if="showSuggestionRefreshHint"
+          class="product-model-designer__governance-note"
+          data-testid="contract-field-suggestion-refresh-hint"
+        >
+          <strong>映射规则草稿已创建</strong>
+          <p>若要让本次识别结果使用新规则，请重新执行识别。</p>
+        </div>
+      </section>
+
+      <section
+        v-if="showMappingRuleSections"
+        class="product-model-designer__stage"
+        data-testid="contract-field-rule-ledger"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>映射规则台账</h3>
+            <p>查看当前草稿、已发布版本、审批单状态和命中试算结果，不在产品页复制另一套协议治理整页。</p>
+          </div>
+        </header>
+
+        <ProductVendorMappingRuleLedgerPanel :product-id="props.product?.id ?? null" />
+      </section>
+
+      <section v-if="showContractSections" class="product-model-designer__stage">
         <header class="product-model-designer__stage-head">
           <div>
             <h3>本次生效</h3>
-            <p>确认后将把当前选中的字段写入正式字段。</p>
           </div>
         </header>
 
@@ -243,6 +731,11 @@
           </article>
         </div>
 
+        <div v-else-if="showCollectorBoundaryEmpty" class="product-model-designer__empty">
+          <strong>当前采集器没有待生效字段</strong>
+          <p>采集器总览可以查看子设备最新值和状态，但子设备字段请到子产品治理。</p>
+        </div>
+
         <div v-else class="product-model-designer__empty">
           <strong>当前还没有待生效字段</strong>
           <p>请先在识别结果中选择要纳入的字段。</p>
@@ -250,14 +743,11 @@
 
         <div class="product-model-designer__apply-footer">
           <p>{{ footerSummaryText }}</p>
-          <label class="product-model-designer__input-field product-model-designer__approver-field">
-            <span>复核人用户 ID</span>
-            <ElInput
-              v-model="governanceApproverId"
-              data-testid="governance-approver-id"
-              placeholder="发布或回滚关键动作都需要填写复核人 ID"
-            />
-          </label>
+          <div class="product-model-designer__input-field product-model-designer__approver-field product-model-designer__governance-note">
+            <span>复核机制</span>
+            <strong>系统固定复核人</strong>
+            <p>发布、回滚和原单重提会自动分配给系统治理复核人，无需手工填写用户 ID。</p>
+          </div>
           <StandardButton
             action="confirm"
             :loading="applyLoading"
@@ -364,7 +854,7 @@
         >
           <div class="product-model-designer__approval-head">
             <div>
-              <strong>审批跟踪</strong>
+              <strong>{{ applyApprovalStageTitle }}</strong>
               <p>{{ applyApprovalSummaryText }}</p>
             </div>
             <div class="product-model-designer__approval-actions">
@@ -426,11 +916,10 @@
         </section>
       </section>
 
-      <section class="product-model-designer__stage">
+      <section v-if="showContractSections" class="product-model-designer__stage">
         <header class="product-model-designer__stage-head">
           <div>
             <h3>当前已生效字段</h3>
-            <p>这里只展示当前已经正式生效的字段。</p>
           </div>
         </header>
 
@@ -449,7 +938,13 @@
         </div>
 
         <div v-if="activeModels.length" class="product-model-designer__formal-list">
-          <article v-for="model in activeModels" :key="String(model.id)" class="product-model-designer__formal-card">
+          <article
+            v-for="model in activeModels"
+            :key="String(model.id)"
+            :ref="(element) => registerFormalModelCardRef(model, element)"
+            :data-testid="`formal-model-card-${model.id}`"
+            class="product-model-designer__formal-card"
+          >
             <div class="product-model-designer__formal-card-head">
               <div v-if="isRenamingModel(model)" class="product-model-designer__formal-rename">
                 <ElInput
@@ -457,6 +952,13 @@
                   :data-testid="`formal-model-name-input-${model.id}`"
                   placeholder="请输入正式中文名称"
                   @update:model-value="(value) => renamingModelName = typeof value === 'string' ? value : ''"
+                />
+                <ElInput
+                  v-if="model.modelType === 'property'"
+                  :model-value="renamingModelUnit"
+                  :data-testid="`formal-model-unit-input-${model.id}`"
+                  placeholder="请输入单位，例如 mm、m/s²"
+                  @update:model-value="(value) => renamingModelUnit = typeof value === 'string' ? value : ''"
                 />
                 <div class="product-model-designer__formal-rename-actions">
                   <StandardButton
@@ -474,19 +976,35 @@
                 <strong>{{ model.modelName }}</strong>
                 <span>{{ model.identifier }}</span>
               </div>
-              <StandardButton
+              <div
                 v-if="model.id !== undefined && model.id !== null && !isRenamingModel(model)"
-                :data-testid="`formal-model-rename-${model.id}`"
-                action="query"
-                link
-                @click="startRenameModel(model)"
+                class="product-model-designer__formal-card-head-actions"
               >
-                改名
-              </StandardButton>
+                <StandardButton
+                  :data-testid="`formal-model-rename-${model.id}`"
+                  action="query"
+                  link
+                  :disabled="isDeletingModel(model.id)"
+                  @click="startRenameModel(model)"
+                >
+                  改名
+                </StandardButton>
+                <StandardButton
+                  :data-testid="`formal-model-delete-${model.id}`"
+                  action="delete"
+                  link
+                  :loading="isDeletingModel(model.id)"
+                  :disabled="isDeletingModel(model.id)"
+                  @click="handleDeleteModel(model)"
+                >
+                  删除
+                </StandardButton>
+              </div>
             </div>
             <div class="product-model-designer__formal-card-meta">
               <span>{{ model.modelType }}</span>
               <span>{{ model.dataType || model.eventType || formatServiceSummary(model) || '--' }}</span>
+              <span v-if="model.modelType === 'property'">单位 {{ resolveModelUnit(model) || '--' }}</span>
               <span>排序 {{ model.sortNo ?? '--' }}</span>
             </div>
             <div v-if="model.modelType === 'property'" class="product-model-designer__formal-card-actions">
@@ -499,21 +1017,32 @@
                 action="query"
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'measure')"
-                :disabled="trendMetricSubmitting"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
                 @click="handleSetTrendMetric(model, 'measure')"
               >
-                设为监测趋势
+                设为监测数据
               </StandardButton>
               <StandardButton
                 v-if="model.id !== undefined && model.id !== null"
-                :data-testid="`formal-model-trend-status-${model.id}`"
+                :data-testid="`formal-model-trend-status-event-${model.id}`"
                 action="query"
                 link
-                :loading="isTrendMetricSubmitting(model.id, 'status')"
-                :disabled="trendMetricSubmitting"
-                @click="handleSetTrendMetric(model, 'status')"
+                :loading="isTrendMetricSubmitting(model.id, 'statusEvent')"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                @click="handleSetTrendMetric(model, 'statusEvent')"
               >
-                设为状态趋势
+                设为状态事件
+              </StandardButton>
+              <StandardButton
+                v-if="model.id !== undefined && model.id !== null"
+                :data-testid="`formal-model-trend-runtime-${model.id}`"
+                action="query"
+                link
+                :loading="isTrendMetricSubmitting(model.id, 'runtime')"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                @click="handleSetTrendMetric(model, 'runtime')"
+              >
+                设为运行参数
               </StandardButton>
               <StandardButton
                 v-if="model.id !== undefined && model.id !== null && resolveTrendMetricConfig(model)"
@@ -521,7 +1050,7 @@
                 action="delete"
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'remove')"
-                :disabled="trendMetricSubmitting"
+                :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
                 @click="handleRemoveTrendMetric(model)"
               >
                 取消趋势展示
@@ -542,27 +1071,58 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import StandardButton from '@/components/StandardButton.vue'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
+import ProductRuntimeMetricDisplayRulePanel from '@/components/product/ProductRuntimeMetricDisplayRulePanel.vue'
+import ProductVendorMappingRuleLedgerPanel from '@/components/product/ProductVendorMappingRuleLedgerPanel.vue'
+import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
+import ProductVendorMappingGovernanceCandidatePanel from '@/components/product/ProductVendorMappingGovernanceCandidatePanel.vue'
 import { deviceApi } from '@/api/device'
 import { governanceApprovalApi } from '@/api/governanceApproval'
-import { productApi, type ProductContractReleaseRollbackResult } from '@/api/product'
+import {
+  productApi,
+  type ProductContractReleaseBatch,
+  type ProductContractReleaseEmergencyPlanBindingDetail,
+  type ProductContractReleaseImpact,
+  type ProductContractReleaseLinkageBindingDetail,
+  type ProductContractReleaseRiskPointBindingDetail,
+  type ProductContractReleaseRollbackResult,
+  type ProductContractReleaseRuleDetail
+} from '@/api/product'
+import {
+  getRiskGovernanceReleaseBatchDiff,
+  pageRiskMetricCatalogs,
+  type RiskGovernanceReleaseBatchDiff,
+  type RiskMetricCatalogItem
+} from '@/api/riskGovernance'
+import {
+  buildEmergencyPlanContextLocation,
+  buildLinkageContextLocation,
+  buildRiskPointContextLocation,
+  buildRuleContextLocation
+} from '@/utils/governanceImpact'
 import type {
   GovernanceApprovalOrderDetail,
   GovernanceApprovalStatus,
   IdType,
   Product,
   ProductAddPayload,
+  ProductModelCandidateSummary,
   ProductModel,
+  ProductModelGovernanceSummary,
   ProductModelGovernanceApplyItem,
   ProductModelGovernanceApplyResult,
   ProductModelGovernanceCompareResult,
   ProductModelGovernanceCompareRow,
   ProductModelGovernanceDecision,
-  ProductModelType
+  ProductModelType,
+  ProductObjectInsightMetricGroup
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
+import { getObjectInsightMetricGroupLabel } from '@/utils/objectInsightMetricGroup'
 import {
   buildProductMetadataJson,
   createProductObjectInsightMetricFromModel,
@@ -571,6 +1131,13 @@ import {
   removeProductObjectInsightMetric,
   upsertProductObjectInsightMetric
 } from '@/utils/productObjectInsightConfig'
+import {
+  getProductGovernanceCapabilityLabel,
+  resolveProductGovernanceApplicability
+} from '@/utils/productGovernanceCapability'
+
+const route = useRoute()
+const router = useRouter()
 
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
 type SampleType = 'business' | 'status'
@@ -580,6 +1147,26 @@ interface RelationMappingRow {
   key: string
   logicalChannelCode: string
   childDeviceCode: string
+  canonicalizationStrategy: string
+  statusMirrorStrategy: string
+}
+
+type GovernanceStepActionKey = 'ledger' | 'contract' | 'risk-point' | 'rule' | 'edit'
+
+interface GovernanceStepCard {
+  key: string
+  title: string
+  status: string
+  description: string
+  actionLabel?: string
+  actionKey?: GovernanceStepActionKey
+  actionTestid?: string
+}
+
+interface CompareSourceSummaryCard {
+  key: 'merged' | 'manual' | 'runtime' | 'formal'
+  label: string
+  value: number
 }
 
 interface GovernanceApprovalPayloadExecution<TResult> {
@@ -593,8 +1180,11 @@ interface GovernanceApprovalPayload<TResult, TRequest = unknown> {
   execution?: GovernanceApprovalPayloadExecution<TResult> | null
 }
 
+type ProductModelDesignerWorkspaceView = 'full' | 'contracts' | 'mapping-rules' | 'releases'
+
 const props = defineProps<{
   product: Product | null
+  workspaceView?: ProductModelDesignerWorkspaceView
 }>()
 
 const emit = defineEmits<{
@@ -613,7 +1203,7 @@ const sampleTypeOptions: Array<{ label: string; value: SampleType }> = [
 ]
 
 const deviceStructureOptions: Array<{ label: string; value: DeviceStructure }> = [
-  { label: '单台设备', value: 'single' },
+  { label: '单台设备（按产品形态自动识别）', value: 'single' },
   { label: '复合设备', value: 'composite' }
 ]
 
@@ -627,16 +1217,27 @@ const loading = ref(false)
 const compareLoading = ref(false)
 const applyLoading = ref(false)
 const rollbackLoading = ref(false)
+const rollbackPreviewLoading = ref(false)
+const versionLedgerLoading = ref(false)
+const versionDiffLoading = ref(false)
 const relationLoading = ref(false)
 const loadErrorMessage = ref('')
 const samplePayloadError = ref('')
 const models = ref<ProductModel[]>([])
+const releaseLedgerRows = ref<ProductContractReleaseBatch[]>([])
+const selectedLedgerBatchId = ref<IdType | null>(null)
+const comparisonBaselineBatchId = ref<IdType | null>(null)
+const selectedLedgerMetrics = ref<RiskMetricCatalogItem[]>([])
+const releaseBatchDiff = ref<RiskGovernanceReleaseBatchDiff | null>(null)
 const compareResult = ref<ProductModelGovernanceCompareResult | null>(null)
 const applyResult = ref<ProductModelGovernanceApplyResult | null>(null)
 const rollbackResult = ref<ProductContractReleaseRollbackResult | null>(null)
+const rollbackPreview = ref<ProductContractReleaseImpact | null>(null)
+const rollbackPreviewErrorMessage = ref('')
+const versionLedgerErrorMessage = ref('')
+const versionDiffErrorMessage = ref('')
 const applyApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
 const rollbackApprovalDetail = ref<GovernanceApprovalOrderDetail | null>(null)
-const governanceApproverId = ref('')
 const latestReleaseBatchId = ref<string | number | null>(null)
 const decisionState = ref<Record<string, GovernanceDecisionUi>>({})
 const sampleType = ref<SampleType>('business')
@@ -646,19 +1247,35 @@ const parentDeviceCode = ref('')
 const relationMappings = ref<RelationMappingRow[]>([createRelationRow()])
 const activeType = ref<ProductModelType>('property')
 const sampleStageRef = ref<HTMLElement | null>(null)
+const versionLedgerStageRef = ref<HTMLElement | null>(null)
+const formalFieldStageRef = ref<HTMLElement | null>(null)
 const applyApprovalLoading = ref(false)
 const rollbackApprovalLoading = ref(false)
 const applyResubmitLoading = ref(false)
 const rollbackResubmitLoading = ref(false)
+const vendorSuggestionRefreshToken = ref(0)
+const showSuggestionRefreshHint = ref(false)
 const renamingModelId = ref<IdType | null>(null)
 const renamingModelName = ref('')
+const renamingModelUnit = ref('')
 const renameSubmitting = ref(false)
 const productSnapshot = ref<Product | null>(null)
 const trendMetricSubmitting = ref(false)
 const trendMetricSubmittingKey = ref('')
+const deletingModelId = ref<IdType | null>(null)
+const formalModelCardRefs = new Map<string, HTMLElement>()
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
+const comparisonLedgerRows = computed(() =>
+  releaseLedgerRows.value.filter((batch) => !isSameId(batch.id ?? null, selectedLedgerBatchId.value))
+)
+const isCollectorCompositeMode = computed(() =>
+  Number(props.product?.nodeType) === 2 && deviceStructure.value === 'composite'
+)
+const showCollectorBoundaryEmpty = computed(() =>
+  isCollectorCompositeMode.value && Boolean(compareResult.value) && compareRows.value.length === 0
+)
 const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
@@ -676,13 +1293,305 @@ const selectedApplyItems = computed<ProductModelGovernanceApplyItem[]>(() => sel
 const canRollbackCurrentBatch = computed(() =>
   Boolean(latestReleaseBatchId.value) && !applyLoading.value && !rollbackLoading.value && !rollbackApprovalLoading.value
 )
-const entryActionText = computed(() => (models.value.length ? '继续核对字段' : '开始补齐契约'))
+const selectedLedgerMetricCount = computed(() => selectedLedgerMetrics.value.length)
+const singleSelectedLedgerMetric = computed(() =>
+  selectedLedgerMetrics.value.length === 1 ? selectedLedgerMetrics.value[0] ?? null : null
+)
+const currentGovernanceProduct = computed(() => productSnapshot.value ?? props.product ?? null)
+const showContractSections = computed(() => props.workspaceView !== 'mapping-rules' && props.workspaceView !== 'releases')
+const showMappingRuleSections = computed(() => props.workspaceView === 'full' || props.workspaceView === 'mapping-rules' || props.workspaceView == null)
+const showReleaseSections = computed(() => props.workspaceView === 'full' || props.workspaceView === 'releases' || props.workspaceView == null)
+const showSummarySheet = computed(() => props.workspaceView !== 'mapping-rules')
+const governanceApplicability = computed(() => resolveProductGovernanceApplicability(currentGovernanceProduct.value))
+const governanceCapabilityLabel = computed(() => getProductGovernanceCapabilityLabel(governanceApplicability.value.capabilityType))
+const canOpenRiskPointWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
+const canOpenRuleWorkbench = computed(() => selectedLedgerMetricCount.value > 0)
+const canOpenDeviceOnlyRiskPointWorkbench = computed(() => Boolean(currentGovernanceProduct.value?.id))
+const hasFormalFieldsWithoutReleaseBatch = computed(() => !latestReleaseBatchId.value && models.value.length > 0)
+const showMetricGovernanceBoundaryNote = computed(
+  () => Boolean(latestReleaseBatchId.value) && !versionLedgerLoading.value && selectedLedgerMetricCount.value === 0
+)
+const entryActionText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '重新提取字段'
+  }
+  return models.value.length ? '继续核对字段' : '开始补齐契约'
+})
+const contractStepStatusText = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return '已发布批次'
+  }
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
+  return '待发布'
+})
+const contractStepDescription = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return `当前已形成正式发布批次 ${latestReleaseBatchId.value}，可继续查看版本台账与回滚试算。`
+  }
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return `当前已存在 ${models.value.length} 项正式字段，但尚未查到正式发布批次；底部“当前已生效字段”已是当前正式真相，如需补做首个批次，请重新提取字段并完成 compare/apply。`
+  }
+  return '先完成样本提取、确认本次生效，再提交审批形成正式合同发布批次。'
+})
+const versionLedgerStepStatusText = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return '已形成批次'
+  }
+  return '待合同发布'
+})
+const versionLedgerStepDescription = computed(() => {
+  if (latestReleaseBatchId.value) {
+    return `当前已形成正式发布批次 ${latestReleaseBatchId.value}，可继续查看版本台账与跨批次对账。`
+  }
+  return '完成合同发布后，这里会沉淀版本台账并支持跨批次字段 / 指标目录对账。'
+})
+const metricCatalogStepStatusText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
+  if (!latestReleaseBatchId.value) {
+    return '待合同发布'
+  }
+  if (versionLedgerLoading.value) {
+    return '同步中'
+  }
+  if (selectedLedgerMetricCount.value > 0) {
+    return '已随批次同步'
+  }
+  return '暂不适用'
+})
+const metricCatalogStepDescription = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '当前尚未查到可追溯的正式发布批次，暂时无法判断是否存在目录指标；如需补做首个批次，请先重新提取字段。'
+  }
+  if (!latestReleaseBatchId.value) {
+    return '合同发布后，风险指标目录会按正式批次自动同步，不需要单独找第二个发布入口。'
+  }
+  if (versionLedgerLoading.value) {
+    return '正在读取当前批次同步发布的风险指标目录...'
+  }
+  if (selectedLedgerMetricCount.value > 0) {
+    return `目录发布已随合同批次同步，当前批次已发布 ${selectedLedgerMetricCount.value} 项风险指标。`
+  }
+  return '当前批次暂无可入目录字段，目录发布后续暂不适用。'
+})
+const riskPointStepStatusText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
+  if (!latestReleaseBatchId.value) {
+    return '待合同发布'
+  }
+  if (versionLedgerLoading.value) {
+    return '等待目录读取'
+  }
+  if (canOpenRiskPointWorkbench.value) {
+    return '待绑定'
+  }
+  return '暂不适用'
+})
+const riskPointStepDescription = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '当前尚未查到可追溯的正式发布批次，暂时不进入风险点绑定；若需补做首个批次，请先回到契约字段重新 compare/apply。'
+  }
+  if (!latestReleaseBatchId.value) {
+    return '先完成合同发布，再决定是否进入风险点绑定。'
+  }
+  if (versionLedgerLoading.value) {
+    return '正在判断当前批次是否已有可绑定的目录指标。'
+  }
+  if (canOpenRiskPointWorkbench.value) {
+    return '当前批次目录指标已可进入风险对象中心，下一步请完成风险点绑定。'
+  }
+  return '当前批次没有风险指标目录，风险点绑定暂不适用。'
+})
+const ruleStepStatusText = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '未查到批次'
+  }
+  if (!latestReleaseBatchId.value) {
+    return '待合同发布'
+  }
+  if (versionLedgerLoading.value) {
+    return '等待目录读取'
+  }
+  if (canOpenRuleWorkbench.value) {
+    return '待覆盖'
+  }
+  return '暂不适用'
+})
+const ruleStepDescription = computed(() => {
+  if (hasFormalFieldsWithoutReleaseBatch.value) {
+    return '当前尚未查到可追溯的正式发布批次，暂时不进入阈值策略；若需补做首个批次，请先回到契约字段重新 compare/apply。'
+  }
+  if (!latestReleaseBatchId.value) {
+    return '先完成合同发布，再继续补阈值策略。'
+  }
+  if (versionLedgerLoading.value) {
+    return '正在判断当前批次是否需要补阈值策略。'
+  }
+  if (canOpenRuleWorkbench.value) {
+    return '风险点绑定完成后，请继续到阈值策略页补齐覆盖。'
+  }
+  return '当前批次没有风险指标目录，阈值策略暂不适用。'
+})
+const governanceStepsIntroText = computed(() => {
+  if (governanceApplicability.value.supportsMetricGovernance) {
+    return '把“合同发布 → 风险指标目录 → 风险点绑定 → 阈值策略”固定成显式路径；其中风险指标目录会随正式发布批次自动同步。'
+  }
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return `当前产品为${governanceCapabilityLabel.value}，工作区只保留合同发布、版本台账与设备级风险点绑定语义。`
+  }
+  return '当前产品能力待确认，工作区先保留合同发布与版本台账，并等待确认后续治理路径。'
+})
+const governanceStepCards = computed<GovernanceStepCard[]>(() => {
+  const contractStep: GovernanceStepCard = {
+    key: 'contract-release',
+    title: '合同发布',
+    status: contractStepStatusText.value,
+    description: contractStepDescription.value,
+    actionLabel: latestReleaseBatchId.value ? '查看版本台账' : entryActionText.value,
+    actionKey: latestReleaseBatchId.value ? 'ledger' : 'contract',
+    actionTestid: latestReleaseBatchId.value ? 'contract-field-next-ledger' : 'contract-field-next-contract'
+  }
+
+  if (governanceApplicability.value.supportsMetricGovernance) {
+    return [
+      contractStep,
+      {
+        key: 'metric-catalog',
+        title: '风险指标目录',
+        status: metricCatalogStepStatusText.value,
+        description: metricCatalogStepDescription.value,
+        actionLabel: releaseLedgerRows.value.length ? '查看版本台账' : undefined,
+        actionKey: releaseLedgerRows.value.length ? 'ledger' : undefined
+      },
+      {
+        key: 'risk-point',
+        title: '风险点绑定',
+        status: riskPointStepStatusText.value,
+        description: riskPointStepDescription.value,
+        actionLabel: canOpenRiskPointWorkbench.value ? '去风险对象中心' : undefined,
+        actionKey: canOpenRiskPointWorkbench.value ? 'risk-point' : undefined,
+        actionTestid: canOpenRiskPointWorkbench.value ? 'contract-field-next-risk-point' : undefined
+      },
+      {
+        key: 'rule',
+        title: '阈值策略',
+        status: ruleStepStatusText.value,
+        description: ruleStepDescription.value,
+        actionLabel: canOpenRuleWorkbench.value ? '去阈值策略' : undefined,
+        actionKey: canOpenRuleWorkbench.value ? 'rule' : undefined,
+        actionTestid: canOpenRuleWorkbench.value ? 'contract-field-next-rule' : undefined
+      }
+    ]
+  }
+
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return [
+      contractStep,
+      {
+        key: 'version-ledger',
+        title: '版本台账',
+        status: versionLedgerStepStatusText.value,
+        description: versionLedgerStepDescription.value,
+        actionLabel: latestReleaseBatchId.value ? '查看版本台账' : undefined,
+        actionKey: latestReleaseBatchId.value ? 'ledger' : undefined,
+        actionTestid: latestReleaseBatchId.value ? 'contract-field-next-ledger' : undefined
+      },
+      {
+        key: 'device-risk-point',
+        title: '设备级风险点绑定',
+        status: '设备级绑定',
+        description: `当前产品为${governanceCapabilityLabel.value}，风险治理按设备级正式绑定收口，不依赖风险指标目录。`,
+        actionLabel: canOpenDeviceOnlyRiskPointWorkbench.value ? '去风险点绑定' : undefined,
+        actionKey: canOpenDeviceOnlyRiskPointWorkbench.value ? 'risk-point' : undefined,
+        actionTestid: canOpenDeviceOnlyRiskPointWorkbench.value ? 'contract-field-next-risk-point' : undefined
+      }
+    ]
+  }
+
+  return [
+    contractStep,
+    {
+      key: 'version-ledger',
+      title: '版本台账',
+      status: versionLedgerStepStatusText.value,
+      description: versionLedgerStepDescription.value,
+      actionLabel: latestReleaseBatchId.value ? '查看版本台账' : undefined,
+      actionKey: latestReleaseBatchId.value ? 'ledger' : undefined,
+      actionTestid: latestReleaseBatchId.value ? 'contract-field-next-ledger' : undefined
+    },
+    {
+      key: 'capability-pending',
+      title: '能力待确认',
+      status: '待确认',
+      description: '请先打开当前产品的编辑表单，确认产品能力后再决定是否进入风险指标目录或设备级风险点绑定。',
+      actionLabel: currentGovernanceProduct.value?.id ? '去完善产品能力' : undefined,
+      actionKey: currentGovernanceProduct.value?.id ? 'edit' : undefined,
+      actionTestid: currentGovernanceProduct.value?.id ? 'contract-field-next-capability' : undefined
+    }
+  ]
+})
+const showGovernanceBoundaryNote = computed(() => {
+  if (governanceApplicability.value.supportsMetricGovernance) {
+    return showMetricGovernanceBoundaryNote.value
+  }
+  return governanceApplicability.value.supportsDeviceOnlyRiskBinding || governanceApplicability.value.capabilityType === 'UNKNOWN'
+})
+const governanceBoundaryNoteTitle = computed(() => {
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return '目录发布与阈值策略仅监测型适用'
+  }
+  if (governanceApplicability.value.capabilityType === 'UNKNOWN') {
+    return '请先确认产品能力再进入后续治理'
+  }
+  return '当前只保留合同发布与版本台账语义'
+})
+const governanceBoundaryNoteDescription = computed(() => {
+  if (governanceApplicability.value.supportsDeviceOnlyRiskBinding) {
+    return `当前产品为${governanceCapabilityLabel.value}，后续风险治理直接通过设备级风险点绑定收口，不再展示目录发布或阈值策略入口。`
+  }
+  if (governanceApplicability.value.capabilityType === 'UNKNOWN') {
+    return '请先打开当前产品的编辑表单，确认产品能力后再决定是否进入风险指标目录、设备级风险点绑定或阈值策略治理。'
+  }
+  return '本批次没有命中可进入风险闭环的目录指标，所以不会出现单独的目录发布、风险点绑定或阈值策略入口。'
+})
+const compareMergedCount = computed(() => {
+  const count = resolveGovernanceSummaryCount(compareResult.value?.summary ?? null)
+  return count > 0 ? count : compareRows.value.length
+})
+const compareManualCount = computed(() =>
+  resolveCandidateSummaryCount(compareResult.value?.manualSummary ?? null)
+)
+const compareRuntimeCount = computed(() =>
+  resolveCandidateSummaryCount(compareResult.value?.runtimeSummary ?? null)
+)
+const compareFormalCount = computed(() =>
+  resolveGovernanceSummaryCount(compareResult.value?.formalSummary ?? null)
+)
+const compareSourceSummaryCards = computed<CompareSourceSummaryCard[]>(() => {
+  if (!compareResult.value) {
+    return []
+  }
+  return [
+    { key: 'merged', label: '合并对比', value: compareMergedCount.value },
+    { key: 'manual', label: '本次样本识别', value: compareManualCount.value },
+    { key: 'runtime', label: '运行态补证', value: compareRuntimeCount.value },
+    { key: 'formal', label: '当前正式字段', value: compareFormalCount.value }
+  ]
+})
 const footerSummaryText = computed(() => {
+  if (showCollectorBoundaryEmpty.value) {
+    return '采集器页只治理自身字段；子设备字段请到子产品治理后再确认并提交审批'
+  }
   if (selectedApplyItems.value.length) {
     return `已选 ${selectedApplyItems.value.length} 项，确认后将提交审批`
   }
   if (compareRows.value.length) {
-    return `已识别 ${compareRows.value.length} 个字段，请选择需要生效的项`
+    return `当前合并对比 ${compareMergedCount.value} 项，其中本次样本 ${compareManualCount.value} 项、运行态补证 ${compareRuntimeCount.value} 项、正式字段 ${compareFormalCount.value} 项，请选择需要生效的项`
   }
   return '贴上报数据后，系统会提取契约字段'
 })
@@ -746,6 +1655,7 @@ const canResubmitRollbackApproval = computed(() =>
   rollbackReceiptStatus.value === 'REJECTED' && Boolean(rollbackApprovalOrderId.value) && !rollbackResubmitLoading.value
 )
 const applyExecutionTimeText = computed(() => applyApprovalPayload.value?.execution?.executedAt ?? null)
+const applyApprovalStageTitle = computed(() => (applyExecutionCompleted.value ? '正式发布结果' : '审批提交回执'))
 const rollbackExecutionTimeText = computed(() =>
   rollbackApprovalPayload.value?.execution?.executedAt ?? rollbackExecutedResult.value?.rollbackTime ?? null
 )
@@ -761,7 +1671,7 @@ const applyApprovalSummaryText = computed(() => {
     case 'CANCELLED':
       return `审批单 ${approvalOrderId ?? '--'} 已撤销`
     case 'PENDING':
-      return `审批单 ${approvalOrderId ?? '--'} 已提交，待复核人处理`
+      return `审批单 ${approvalOrderId ?? '--'} 已提交，待系统固定复核人处理`
     default:
       return '审批单已提交，等待状态同步'
   }
@@ -789,8 +1699,8 @@ const rollbackReceiptText = computed(() => {
 })
 const samplePayloadPlaceholder = computed(() =>
   deviceStructure.value === 'composite'
-    ? '请粘贴单台父设备的复合上报 JSON，例如 {"SK00EA0D1307986":{"L1_LF_1":{"2026-04-05T20:14:06.000Z":10.86}}}'
-    : '请粘贴单台设备的上报 JSON，例如 {"device-001":{"temperature":{"2026-04-05T20:14:06.000Z":26.5}}}'
+    ? '请粘贴单台父设备的复合上报 JSON，例如 {"SK00EA0D1307967":{"S1_ZT_1":{"2026-04-19T02:54:08.000Z":{"ext_power_volt":11.94,"sensor_state":{"L1_LF_1":0}}}}}'
+    : '请粘贴单台设备的上报 JSON，例如 {"SK11EB0D1308028AZ":{"S1_ZT_1":{"2026-04-19T02:32:10.000Z":{"temp":10.8,"signal_4g":-55,"sensor_state":{"L1_QJ_1":0,"L1_LF_1":0}}}}}'
 )
 const trendMetricRows = computed(() =>
   parseProductObjectInsightMetrics(productSnapshot.value?.metadataJson ?? props.product?.metadataJson)
@@ -821,11 +1731,110 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => [props.workspaceView, props.product?.id, route.query.modelIdentifier, route.query.renameModel, models.value.length] as const,
+  async ([workspaceView, productId, focusedIdentifier, renameModel]) => {
+    if (!productId || !supportsFormalFieldFocus(workspaceView)) {
+      return
+    }
+    const targetIdentifier = readRouteQueryString(focusedIdentifier)
+    if (!targetIdentifier || !models.value.length) {
+      return
+    }
+    const targetModel = findFormalPropertyModel(targetIdentifier)
+    if (!targetModel) {
+      return
+    }
+    activeType.value = targetModel.modelType
+    await nextTick()
+    if (readRouteQueryString(renameModel) === '1') {
+      startRenameModel(targetModel)
+      await nextTick()
+    }
+    focusFormalModelCard(targetModel)
+    void clearFocusedFormalModelQuery()
+  },
+  { immediate: true }
+)
+
+function supportsFormalFieldFocus(workspaceView?: ProductModelDesignerWorkspaceView) {
+  return workspaceView !== 'mapping-rules' && workspaceView !== 'releases'
+}
+
+function readRouteQueryString(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+function findFormalPropertyModel(identifier: string) {
+  const normalizedIdentifier = readRouteQueryString(identifier).toLowerCase()
+  if (!normalizedIdentifier) {
+    return null
+  }
+  const exactModel = models.value.find((model) =>
+    model.modelType === 'property' && model.identifier?.trim().toLowerCase() === normalizedIdentifier
+  )
+  if (exactModel) {
+    return exactModel
+  }
+  const compatibleModels = models.value.filter((model) =>
+    model.modelType === 'property' && isCompatibleModelIdentifier(model.identifier, identifier)
+  )
+  return compatibleModels.length === 1 ? compatibleModels[0] ?? null : null
+}
+
+function registerFormalModelCardRef(model: ProductModel, element: Element | null) {
+  const key = formalModelCardKey(model)
+  if (element instanceof HTMLElement) {
+    formalModelCardRefs.set(key, element)
+    return
+  }
+  formalModelCardRefs.delete(key)
+}
+
+function formalModelCardKey(model: ProductModel) {
+  return `${model.modelType}:${model.identifier}`
+}
+
+function focusFormalModelCard(model: ProductModel) {
+  const card = formalModelCardRefs.get(formalModelCardKey(model))
+  const target = card ?? formalFieldStageRef.value
+  target?.scrollIntoView?.({ block: 'center' })
+}
+
+async function clearFocusedFormalModelQuery() {
+  const nextQuery = { ...(route.query ?? {}) }
+  delete nextQuery.modelIdentifier
+  delete nextQuery.renameModel
+  delete nextQuery.source
+  await router.replace({
+    path: route.path,
+    query: nextQuery
+  })
+}
+
+function isCompatibleModelIdentifier(candidateIdentifier?: string | null, targetIdentifier?: string | null) {
+  const normalizedCandidate = candidateIdentifier?.trim().toLowerCase() ?? ''
+  const normalizedTarget = targetIdentifier?.trim().toLowerCase() ?? ''
+  if (!normalizedCandidate || !normalizedTarget) {
+    return false
+  }
+  if (normalizedCandidate === normalizedTarget) {
+    return true
+  }
+  const targetTail = normalizedTarget.split('.').pop() || normalizedTarget
+  return normalizedCandidate === targetTail
+    || normalizedCandidate.endsWith(`.${targetTail}`)
+    || normalizedTarget.endsWith(`.${normalizedCandidate}`)
+}
+
 function createRelationRow(): RelationMappingRow {
   return {
     key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     logicalChannelCode: '',
-    childDeviceCode: ''
+    childDeviceCode: '',
+    canonicalizationStrategy: '',
+    statusMirrorStrategy: ''
   }
 }
 
@@ -859,11 +1868,37 @@ function resolveTrendMetricStateLabel(model: ProductModel) {
   if (!metric || metric.includeInTrend === false || metric.enabled === false) {
     return '当前未加入对象洞察趋势'
   }
-  return metric.group === 'measure' ? '当前为监测趋势重点' : '当前为状态趋势重点'
+  return `当前为${getObjectInsightMetricGroupLabel(metric.group)}重点`
 }
 
-function isTrendMetricSubmitting(modelId: IdType, group: 'measure' | 'status' | 'remove') {
+function safeCount(value?: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function resolveCandidateSummaryCount(summary?: ProductModelCandidateSummary | null) {
+  return safeCount(summary?.propertyCandidateCount)
+    + safeCount(summary?.eventCandidateCount)
+    + safeCount(summary?.serviceCandidateCount)
+}
+
+function resolveGovernanceSummaryCount(summary?: ProductModelGovernanceSummary | null) {
+  const typedCount = safeCount(summary?.propertyCount)
+    + safeCount(summary?.eventCount)
+    + safeCount(summary?.serviceCount)
+  if (typedCount > 0) {
+    return typedCount
+  }
+  return safeCount(summary?.manualCount)
+    + safeCount(summary?.runtimeCount)
+    + safeCount(summary?.formalCount)
+}
+
+function isTrendMetricSubmitting(modelId: IdType, group: ProductObjectInsightMetricGroup | 'remove') {
   return trendMetricSubmittingKey.value === `${String(modelId)}:${group}`
+}
+
+function isDeletingModel(modelId: IdType) {
+  return deletingModelId.value !== null && String(deletingModelId.value) === String(modelId)
 }
 
 async function loadModels(productId: string | number) {
@@ -872,16 +1907,127 @@ async function loadModels(productId: string | number) {
   try {
     const [modelResponse, releaseResponse] = await Promise.all([
       productApi.listProductModels(productId),
-      productApi.pageProductContractReleaseBatches(productId, { pageNum: 1, pageSize: 1 })
+      productApi.pageProductContractReleaseBatches(productId, { pageNum: 1, pageSize: 20 })
     ])
     models.value = modelResponse.data ?? []
-    latestReleaseBatchId.value = releaseResponse.data?.records?.[0]?.id ?? null
+    releaseLedgerRows.value = releaseResponse.data?.records ?? []
+    latestReleaseBatchId.value = releaseLedgerRows.value[0]?.id ?? null
+    selectedLedgerBatchId.value = releaseLedgerRows.value[0]?.id ?? null
+    comparisonBaselineBatchId.value = resolveDefaultComparisonBaselineBatchId(selectedLedgerBatchId.value)
+    await Promise.all([
+      loadRollbackPreview(latestReleaseBatchId.value),
+      loadReleaseLedgerMetrics(),
+      loadReleaseBatchDiff()
+    ])
   } catch (error) {
     models.value = []
+    releaseLedgerRows.value = []
+    selectedLedgerBatchId.value = null
+    comparisonBaselineBatchId.value = null
+    selectedLedgerMetrics.value = []
+    releaseBatchDiff.value = null
     latestReleaseBatchId.value = null
+    resetRollbackPreview()
+    resetVersionLedger()
     loadErrorMessage.value = error instanceof Error ? error.message : '加载产品物模型失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadReleaseLedgerMetrics() {
+  if (!props.product?.id || selectedLedgerBatchId.value === undefined || selectedLedgerBatchId.value === null || selectedLedgerBatchId.value === '') {
+    selectedLedgerMetrics.value = []
+    versionLedgerErrorMessage.value = ''
+    versionLedgerLoading.value = false
+    return
+  }
+  versionLedgerLoading.value = true
+  versionLedgerErrorMessage.value = ''
+  try {
+    const response = await pageRiskMetricCatalogs({
+      productId: props.product.id,
+      releaseBatchId: selectedLedgerBatchId.value,
+      pageNum: 1,
+      pageSize: 20
+    })
+    selectedLedgerMetrics.value = response.data?.records ?? []
+  } catch (error) {
+    selectedLedgerMetrics.value = []
+    versionLedgerErrorMessage.value = error instanceof Error ? error.message : '批次风险指标目录加载失败'
+  } finally {
+    versionLedgerLoading.value = false
+  }
+}
+
+async function loadReleaseBatchDiff() {
+  if (
+    selectedLedgerBatchId.value === undefined
+    || selectedLedgerBatchId.value === null
+    || selectedLedgerBatchId.value === ''
+    || comparisonBaselineBatchId.value === undefined
+    || comparisonBaselineBatchId.value === null
+    || comparisonBaselineBatchId.value === ''
+    || isSameId(selectedLedgerBatchId.value, comparisonBaselineBatchId.value)
+  ) {
+    clearReleaseBatchDiff()
+    return
+  }
+  versionDiffLoading.value = true
+  versionDiffErrorMessage.value = ''
+  try {
+    const response = await getRiskGovernanceReleaseBatchDiff({
+      baselineBatchId: comparisonBaselineBatchId.value,
+      targetBatchId: selectedLedgerBatchId.value
+    })
+    releaseBatchDiff.value = response.data ?? null
+  } catch (error) {
+    releaseBatchDiff.value = null
+    versionDiffErrorMessage.value = error instanceof Error ? error.message : '跨批次差异对账加载失败'
+  } finally {
+    versionDiffLoading.value = false
+  }
+}
+
+async function selectLedgerBatch(batchId: IdType | null | undefined) {
+  if (batchId === undefined || batchId === null || batchId === '') {
+    resetVersionLedger()
+    return
+  }
+  selectedLedgerBatchId.value = batchId
+  if (!comparisonBaselineBatchId.value || isSameId(comparisonBaselineBatchId.value, batchId)) {
+    comparisonBaselineBatchId.value = resolveDefaultComparisonBaselineBatchId(batchId)
+  }
+  await Promise.all([
+    loadReleaseLedgerMetrics(),
+    loadReleaseBatchDiff()
+  ])
+}
+
+async function selectComparisonBaselineBatch(batchId: IdType | null | undefined) {
+  if (batchId === undefined || batchId === null || batchId === '' || isSameId(batchId, selectedLedgerBatchId.value)) {
+    clearReleaseBatchDiff()
+    return
+  }
+  comparisonBaselineBatchId.value = batchId
+  await loadReleaseBatchDiff()
+}
+
+async function loadRollbackPreview(batchId: IdType | null | undefined) {
+  if (batchId === undefined || batchId === null || batchId === '') {
+    resetRollbackPreview()
+    return
+  }
+  rollbackPreviewLoading.value = true
+  rollbackPreviewErrorMessage.value = ''
+  try {
+    const response = await productApi.getProductContractReleaseBatchImpact(batchId)
+    rollbackPreview.value = response.data ?? null
+  } catch (error) {
+    rollbackPreview.value = null
+    rollbackPreviewErrorMessage.value = error instanceof Error ? error.message : '回滚试算加载失败'
+  } finally {
+    rollbackPreviewLoading.value = false
   }
 }
 
@@ -921,11 +2067,27 @@ async function refreshRollbackApprovalDetail() {
 function startRenameModel(model: ProductModel) {
   renamingModelId.value = model.id ?? null
   renamingModelName.value = model.modelName?.trim() || model.identifier
+  renamingModelUnit.value = model.modelType === 'property' ? resolveModelUnit(model) : ''
 }
 
 function cancelRenameModel() {
   renamingModelId.value = null
   renamingModelName.value = ''
+  renamingModelUnit.value = ''
+}
+
+function showRequestErrorMessage(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
+}
+
+function showRequestWarningMessage(error: unknown, fallbackMessage: string) {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.warning(resolveRequestErrorMessage(error, fallbackMessage))
 }
 
 async function handleRenameModel(model: ProductModel) {
@@ -938,14 +2100,19 @@ async function handleRenameModel(model: ProductModel) {
     ElMessage.warning('正式字段名称不能为空')
     return
   }
+  const nextModelUnit = model.modelType === 'property' ? renamingModelUnit.value.trim() : ''
+  const nextSpecsJson = model.modelType === 'property'
+    ? buildUpdatedModelSpecsJson(model, nextModelUnit)
+    : model.specsJson || undefined
   renameSubmitting.value = true
   try {
+    const currentProduct = productSnapshot.value ?? props.product
     const response = await productApi.updateProductModel(productId, model.id, {
       modelType: model.modelType,
       identifier: model.identifier,
       modelName: nextModelName,
       dataType: model.dataType || undefined,
-      specsJson: model.specsJson || undefined,
+      specsJson: nextSpecsJson,
       eventType: model.eventType || undefined,
       serviceInputJson: model.serviceInputJson || undefined,
       serviceOutputJson: model.serviceOutputJson || undefined,
@@ -953,9 +2120,11 @@ async function handleRenameModel(model: ProductModel) {
       requiredFlag: model.requiredFlag ?? undefined,
       description: model.description || undefined
     })
-    const updatedModel = response.data ?? {
+    const updatedModel = {
       ...model,
-      modelName: nextModelName
+      ...response.data,
+      modelName: response.data?.modelName ?? nextModelName,
+      specsJson: response.data?.specsJson ?? nextSpecsJson ?? null
     }
     models.value = models.value.map((item) =>
       String(item.id) === String(model.id)
@@ -965,16 +2134,36 @@ async function handleRenameModel(model: ProductModel) {
           }
         : item
     )
-    ElMessage.success('正式字段名称已更新')
+    const matchedMetric = resolveTrendMetricConfig(model)
+    if (currentProduct?.id && matchedMetric) {
+      try {
+        const updatedProduct = await updateProductObjectInsightMetrics(
+          currentProduct,
+          trendMetricRows.value.map((item) =>
+            item.identifier === matchedMetric.identifier
+              ? {
+                  ...item,
+                  displayName: nextModelName
+                }
+              : item
+          )
+        )
+        productSnapshot.value = updatedProduct
+        emit('product-updated', updatedProduct)
+      } catch (error) {
+        showRequestWarningMessage(error, '正式字段名称已更新，但对象洞察配置同步失败')
+      }
+    }
+    ElMessage.success(model.modelType === 'property' ? '正式字段名称与单位已更新' : '正式字段名称已更新')
     cancelRenameModel()
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '更新正式字段名称失败')
+    showRequestErrorMessage(error, '更新正式字段名称或单位失败')
   } finally {
     renameSubmitting.value = false
   }
 }
 
-async function handleSetTrendMetric(model: ProductModel, group: 'measure' | 'status') {
+async function handleSetTrendMetric(model: ProductModel, group: ProductObjectInsightMetricGroup) {
   const product = productSnapshot.value ?? props.product
   if (!product?.id) {
     return
@@ -1007,6 +2196,39 @@ async function handleRemoveTrendMetric(model: ProductModel) {
   )
 }
 
+async function handleDeleteModel(model: ProductModel) {
+  const product = productSnapshot.value ?? props.product
+  if (!product?.id || model.id === undefined || model.id === null) {
+    return
+  }
+
+  deletingModelId.value = model.id
+  try {
+    await productApi.deleteProductModel(product.id, model.id)
+    models.value = models.value.filter((item) => String(item.id) !== String(model.id))
+    cancelRenameModel()
+
+    if (resolveTrendMetricConfig(model)) {
+      try {
+        const updatedProduct = await updateProductObjectInsightMetrics(
+          product,
+          removeProductObjectInsightMetric(trendMetricRows.value, model.identifier)
+        )
+        productSnapshot.value = updatedProduct
+        emit('product-updated', updatedProduct)
+      } catch (error) {
+        ElMessage.warning(error instanceof Error ? error.message : '正式字段已删除，但对象洞察配置清理失败')
+      }
+    }
+
+    ElMessage.success('正式字段已删除')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '删除正式字段失败')
+  } finally {
+    deletingModelId.value = null
+  }
+}
+
 async function persistTrendMetricConfig(
   product: Product,
   rows: ReturnType<typeof parseProductObjectInsightMetrics>,
@@ -1016,20 +2238,27 @@ async function persistTrendMetricConfig(
   trendMetricSubmitting.value = true
   trendMetricSubmittingKey.value = submittingKey
   try {
-    const metadataJson = buildProductMetadataJson(rows, product.metadataJson)
-    const response = await productApi.updateProduct(product.id, buildProductUpdatePayload(product, metadataJson))
-    const updatedProduct: Product = response.data ?? {
-      ...product,
-      metadataJson: metadataJson ?? null
-    }
+    const updatedProduct = await updateProductObjectInsightMetrics(product, rows)
     productSnapshot.value = updatedProduct
     emit('product-updated', updatedProduct)
     ElMessage.success(successMessage)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '更新对象洞察趋势配置失败')
+    showRequestErrorMessage(error, '更新对象洞察趋势配置失败')
   } finally {
     trendMetricSubmitting.value = false
     trendMetricSubmittingKey.value = ''
+  }
+}
+
+async function updateProductObjectInsightMetrics(
+  product: Product,
+  rows: ReturnType<typeof parseProductObjectInsightMetrics>
+) {
+  const metadataJson = buildProductMetadataJson(rows, product.metadataJson)
+  const response = await productApi.updateProduct(product.id, buildProductUpdatePayload(product, metadataJson))
+  return response.data ?? {
+    ...product,
+    metadataJson: metadataJson ?? null
   }
 }
 
@@ -1037,15 +2266,9 @@ async function handleResubmitApplyApproval() {
   if (!applyApprovalOrderId.value || !canResubmitApplyApproval.value) {
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   applyResubmitLoading.value = true
   try {
-    await governanceApprovalApi.resubmitOrder(applyApprovalOrderId.value, {
-      approverUserId
-    })
+    await productApi.resubmitProductGovernanceApproval(applyApprovalOrderId.value)
     if (applyResult.value) {
       applyResult.value = {
         ...applyResult.value,
@@ -1067,15 +2290,9 @@ async function handleResubmitRollbackApproval() {
   if (!rollbackApprovalOrderId.value || !canResubmitRollbackApproval.value) {
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   rollbackResubmitLoading.value = true
   try {
-    await governanceApprovalApi.resubmitOrder(rollbackApprovalOrderId.value, {
-      approverUserId
-    })
+    await productApi.resubmitProductGovernanceApproval(rollbackApprovalOrderId.value)
     if (rollbackResult.value) {
       rollbackResult.value = {
         ...rollbackResult.value,
@@ -1113,6 +2330,71 @@ function focusSampleStage() {
   })
 }
 
+function focusVersionLedgerStage() {
+  nextTick(() => {
+    const stage = versionLedgerStageRef.value
+    if (stage && typeof stage.scrollIntoView === 'function') {
+      stage.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
+
+function openRiskPointWorkbench() {
+  void router.push({ path: '/risk-point' })
+}
+
+function openRuleWorkbench() {
+  const metric = singleSelectedLedgerMetric.value
+  if (metric) {
+    void router.push({
+      path: '/rule-definition',
+      query: {
+        governanceSource: 'task',
+        workItemCode: 'PENDING_THRESHOLD_POLICY',
+        governanceAction: 'create',
+        riskMetricId: metric.id ?? undefined,
+        metricIdentifier: metric.contractIdentifier ?? undefined,
+        metricName: metric.riskMetricName ?? undefined
+      }
+    })
+    return
+  }
+  void router.push({ path: '/rule-definition' })
+}
+
+function openCapabilityConfirmationWorkbench() {
+  if (!currentGovernanceProduct.value?.id) {
+    return
+  }
+  void router.push({
+    path: '/products',
+    query: {
+      openProductId: String(currentGovernanceProduct.value.id),
+      workbenchView: 'edit'
+    }
+  })
+}
+
+function handleGovernanceStepAction(actionKey: GovernanceStepActionKey) {
+  switch (actionKey) {
+    case 'ledger':
+      focusVersionLedgerStage()
+      return
+    case 'contract':
+      focusSampleStage()
+      return
+    case 'risk-point':
+      openRiskPointWorkbench()
+      return
+    case 'rule':
+      openRuleWorkbench()
+      return
+    case 'edit':
+      openCapabilityConfirmationWorkbench()
+      return
+  }
+}
+
 function handleDeviceStructureChange(value: DeviceStructure) {
   deviceStructure.value = value
   samplePayloadError.value = ''
@@ -1136,10 +2418,21 @@ function removeRelationRow(key: string) {
 
 function normalizeRelationMappings() {
   return relationMappings.value
-    .map((item) => ({
-      logicalChannelCode: item.logicalChannelCode.trim(),
-      childDeviceCode: item.childDeviceCode.trim()
-    }))
+    .map((item) => {
+      const logicalChannelCode = item.logicalChannelCode.trim()
+      const childDeviceCode = item.childDeviceCode.trim()
+      const strategy = inferRelationStrategies(
+        logicalChannelCode,
+        item.canonicalizationStrategy,
+        item.statusMirrorStrategy
+      )
+      return {
+        logicalChannelCode,
+        childDeviceCode,
+        canonicalizationStrategy: strategy.canonicalizationStrategy,
+        statusMirrorStrategy: strategy.statusMirrorStrategy
+      }
+    })
     .filter((item) => item.logicalChannelCode && item.childDeviceCode)
 }
 
@@ -1156,7 +2449,9 @@ async function handleLoadRelations() {
     const items = (response.data ?? []).map((item) => ({
       key: `${item.logicalChannelCode}-${item.childDeviceCode}`,
       logicalChannelCode: item.logicalChannelCode,
-      childDeviceCode: item.childDeviceCode
+      childDeviceCode: item.childDeviceCode,
+      canonicalizationStrategy: item.canonicalizationStrategy || inferRelationStrategies(item.logicalChannelCode).canonicalizationStrategy,
+      statusMirrorStrategy: item.statusMirrorStrategy || inferRelationStrategies(item.logicalChannelCode).statusMirrorStrategy
     }))
     relationMappings.value = items.length ? items : [createRelationRow()]
   } catch (error) {
@@ -1216,6 +2511,7 @@ async function handleCompare() {
     return
   }
   compareLoading.value = true
+  showSuggestionRefreshHint.value = false
   applyResult.value = null
   rollbackResult.value = null
   applyApprovalDetail.value = null
@@ -1290,17 +2586,11 @@ async function handleApply() {
   if (!props.product?.id || !selectedApplyItems.value.length) {
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   applyLoading.value = true
   try {
     const response = await productApi.applyProductModelGovernance(props.product.id, {
       items: selectedApplyItems.value
-    }, {
-      approverUserId
-    })
+    }, {})
     applyResult.value = response.data ?? null
     rollbackResult.value = null
     compareResult.value = null
@@ -1322,13 +2612,9 @@ async function handleRollbackCurrentBatch() {
     ElMessage.warning('当前没有可回滚的发布批次')
     return
   }
-  const approverUserId = resolveApproverUserId()
-  if (!approverUserId) {
-    return
-  }
   rollbackLoading.value = true
   try {
-    const response = await productApi.rollbackProductContractReleaseBatch(latestReleaseBatchId.value, approverUserId)
+    const response = await productApi.rollbackProductContractReleaseBatch(latestReleaseBatchId.value)
     rollbackResult.value = response.data ?? null
     applyResult.value = null
     compareResult.value = null
@@ -1345,17 +2631,36 @@ async function handleRollbackCurrentBatch() {
   }
 }
 
-function resolveApproverUserId() {
-  const normalized = governanceApproverId.value.trim()
-  if (!normalized) {
-    ElMessage.warning('请先输入复核人用户 ID')
+function resolveModelUnit(model: ProductModel) {
+  return normalizeOptionalText(parseSpecsJsonObject(model.specsJson)?.unit)
+}
+
+function buildUpdatedModelSpecsJson(model: ProductModel, unit: string) {
+  const specs = parseSpecsJsonObject(model.specsJson) ?? {}
+  if (unit) {
+    specs.unit = unit
+  } else {
+    delete specs.unit
+  }
+  return Object.keys(specs).length ? JSON.stringify(specs) : null
+}
+
+function parseSpecsJsonObject(specsJson?: string | null) {
+  if (!specsJson) {
     return null
   }
-  if (!/^\d+$/.test(normalized)) {
-    ElMessage.warning('复核人用户 ID 必须为正整数')
+  try {
+    const parsed = JSON.parse(specsJson)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null
+  } catch {
     return null
   }
-  return normalized
+}
+
+function normalizeOptionalText(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
 function approvalStatusLabel(status: GovernanceApprovalStatus | null | undefined) {
@@ -1446,10 +2751,55 @@ function resolveApprovalComment(
   return transition?.transitionComment?.trim() || detail.order?.approvalComment?.trim() || ''
 }
 
+function resetRollbackPreview() {
+  rollbackPreview.value = null
+  rollbackPreviewLoading.value = false
+  rollbackPreviewErrorMessage.value = ''
+}
+
+function clearReleaseBatchDiff() {
+  versionDiffLoading.value = false
+  versionDiffErrorMessage.value = ''
+  releaseBatchDiff.value = null
+}
+
+function handleVendorSuggestionAccepted(_payload?: unknown) {
+  vendorSuggestionRefreshToken.value += 1
+  showSuggestionRefreshHint.value = true
+}
+
+function handleCandidateGoAccept() {
+  const suggestionSection = document.querySelector('[data-testid="contract-field-vendor-suggestions"]');
+  if (suggestionSection) {
+    suggestionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function handleCandidateViewAll() {
+  const suggestionSection = document.querySelector('[data-testid="contract-field-vendor-suggestions"]');
+  if (suggestionSection) {
+    suggestionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function resetVersionLedger() {
+  versionLedgerLoading.value = false
+  versionLedgerErrorMessage.value = ''
+  selectedLedgerBatchId.value = null
+  comparisonBaselineBatchId.value = null
+  selectedLedgerMetrics.value = []
+  clearReleaseBatchDiff()
+}
+
 function resetSession() {
   compareResult.value = null
   applyResult.value = null
   rollbackResult.value = null
+  vendorSuggestionRefreshToken.value = 0
+  showSuggestionRefreshHint.value = false
+  resetRollbackPreview()
+  releaseLedgerRows.value = []
+  resetVersionLedger()
   applyApprovalDetail.value = null
   rollbackApprovalDetail.value = null
   applyApprovalLoading.value = false
@@ -1457,7 +2807,6 @@ function resetSession() {
   applyResubmitLoading.value = false
   rollbackResubmitLoading.value = false
   decisionState.value = {}
-  governanceApproverId.value = ''
   latestReleaseBatchId.value = null
   sampleType.value = 'business'
   deviceStructure.value = 'single'
@@ -1467,12 +2816,118 @@ function resetSession() {
   samplePayloadError.value = ''
   cancelRenameModel()
 }
+
+function rollbackPreviewActionLabel(changeType?: string | null) {
+  switch (changeType) {
+    case 'ADDED':
+      return '回滚后删除'
+    case 'REMOVED':
+      return '回滚后恢复'
+    case 'UPDATED':
+      return '回滚后回退'
+    case 'UNCHANGED':
+      return '无需处理'
+    default:
+      return changeType || '--'
+  }
+}
+
+function rollbackPreviewModelTypeLabel(modelType?: string | null) {
+  switch (modelType) {
+    case 'property':
+      return '属性'
+    case 'event':
+      return '事件'
+    case 'service':
+      return '服务'
+    default:
+      return modelType || '--'
+  }
+}
+
+function resolveDefaultComparisonBaselineBatchId(targetBatchId: IdType | null | undefined) {
+  return releaseLedgerRows.value.find((batch) => !isSameId(batch.id ?? null, targetBatchId ?? null))?.id ?? null
+}
+
+function isSameId(left: IdType | null | undefined, right: IdType | null | undefined) {
+  if (left === undefined || left === null || left === '' || right === undefined || right === null || right === '') {
+    return false
+  }
+  return String(left) === String(right)
+}
+
+function releaseDiffChangeTypeLabel(changeType?: string | null) {
+  switch (changeType) {
+    case 'ADDED':
+      return '新增'
+    case 'REMOVED':
+      return '删除'
+    case 'UPDATED':
+      return '变更'
+    default:
+      return changeType || '--'
+  }
+}
+
+function openRiskPointContext(detail: ProductContractReleaseRiskPointBindingDetail) {
+  void router.push(buildRiskPointContextLocation(detail))
+}
+
+function openRuleContext(detail: ProductContractReleaseRuleDetail) {
+  void router.push(buildRuleContextLocation(detail))
+}
+
+function openLinkageContext(detail: ProductContractReleaseLinkageBindingDetail) {
+  void router.push(buildLinkageContextLocation(detail))
+}
+
+function openEmergencyPlanContext(detail: ProductContractReleaseEmergencyPlanBindingDetail) {
+  void router.push(buildEmergencyPlanContextLocation(detail))
+}
+
+function inferRelationStrategies(
+  logicalChannelCode?: string,
+  canonicalizationStrategy?: string,
+  statusMirrorStrategy?: string
+) {
+  const normalizedLogicalChannelCode = logicalChannelCode?.trim().toUpperCase() ?? ''
+  const inferredStrategy = normalizedLogicalChannelCode.includes('_LF_')
+    ? {
+        canonicalizationStrategy: 'LF_VALUE',
+        statusMirrorStrategy: 'SENSOR_STATE'
+      }
+    : normalizedLogicalChannelCode.includes('_SW_')
+      ? {
+          canonicalizationStrategy: 'LEGACY',
+          statusMirrorStrategy: 'SENSOR_STATE'
+        }
+    : {
+        canonicalizationStrategy: 'LEGACY',
+        statusMirrorStrategy: 'NONE'
+      }
+
+  const normalizedCanonicalizationStrategy = canonicalizationStrategy?.trim().toUpperCase()
+  const normalizedStatusMirrorStrategy = statusMirrorStrategy?.trim().toUpperCase()
+  if (normalizedCanonicalizationStrategy || normalizedStatusMirrorStrategy) {
+    return {
+      canonicalizationStrategy: normalizedCanonicalizationStrategy || inferredStrategy.canonicalizationStrategy,
+      statusMirrorStrategy: normalizedStatusMirrorStrategy || inferredStrategy.statusMirrorStrategy
+    }
+  }
+
+  return inferredStrategy
+}
 </script>
 
 <style scoped>
 .product-model-designer-workspace,
 .product-model-designer__summary-sheet,
 .product-model-designer__summary-grid,
+.product-model-designer__governance-steps,
+.product-model-designer__governance-step-grid,
+.product-model-designer__version-ledger,
+.product-model-designer__version-diff,
+.product-model-designer__version-ledger-grid,
 .product-model-designer__stage,
 .product-model-designer__approval-stage,
 .product-model-designer__sample-toolbar,
@@ -1538,7 +2993,6 @@ function resetSession() {
   line-height: 1.2;
 }
 
-.product-model-designer__summary-description,
 .product-model-designer__stage-head p,
 .product-model-designer__relation-head p,
 .product-model-designer__apply-card p,
@@ -1562,7 +3016,112 @@ function resetSession() {
   gap: 0.72rem;
 }
 
+.product-model-designer__governance-steps {
+  grid-column: 1 / -1;
+  gap: 0.72rem;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.78rem;
+  background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__governance-step-grid {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.72rem;
+}
+
+.product-model-designer__rollback-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.78rem;
+  background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__version-ledger {
+  grid-column: 1 / -1;
+  gap: 0.72rem;
+  padding: 0.9rem 0.94rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.78rem;
+  background: color-mix(in srgb, var(--brand-light) 8%, white);
+}
+
+.product-model-designer__version-diff {
+  gap: 0.72rem;
+  padding-top: 0.16rem;
+}
+
+.product-model-designer__version-ledger-grid {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.72rem;
+}
+
+.product-model-designer__version-ledger-batch {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.8rem 0.88rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  border-radius: 0.72rem;
+  background: white;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-model-designer__version-ledger-batch strong {
+  color: var(--text-heading);
+}
+
+.product-model-designer__version-ledger-batch.is-active {
+  border-color: color-mix(in srgb, var(--brand) 36%, white);
+  background: color-mix(in srgb, var(--brand-light) 16%, white);
+}
+
+.product-model-designer__rollback-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.product-model-designer__rollback-preview-head strong,
+.product-model-designer__rollback-preview-item strong {
+  color: var(--text-heading);
+}
+
+.product-model-designer__rollback-preview-head p,
+.product-model-designer__detail-tip {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.56;
+}
+
+.product-model-designer__rollback-preview-head span,
+.product-model-designer__rollback-preview-item span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.56;
+}
+
+.product-model-designer__rollback-preview-list {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.product-model-designer__rollback-preview-item {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.8rem 0.88rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: 0.72rem;
+  background: white;
+}
+
 .product-model-designer__summary-card,
+.product-model-designer__governance-step-card,
 .product-model-designer__apply-card,
 .product-model-designer__formal-card,
 .product-model-designer__formal-tab {
@@ -1570,7 +3129,8 @@ function resetSession() {
   gap: 0.28rem;
 }
 
-.product-model-designer__summary-card {
+.product-model-designer__summary-card,
+.product-model-designer__governance-step-card {
   min-width: 0;
   padding: 0.8rem 0.88rem;
   border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
@@ -1579,6 +3139,8 @@ function resetSession() {
 }
 
 .product-model-designer__summary-card span,
+.product-model-designer__governance-step-kicker,
+.product-model-designer__governance-step-status,
 .product-model-designer__field-label,
 .product-model-designer__formal-tab span,
 .product-model-designer__apply-card-meta,
@@ -1590,10 +3152,32 @@ function resetSession() {
 }
 
 .product-model-designer__summary-card strong,
+.product-model-designer__governance-step-card strong,
 .product-model-designer__formal-tab strong {
   color: var(--text-heading);
   font-size: 1.06rem;
   line-height: 1.38;
+}
+
+.product-model-designer__governance-step-status {
+  display: inline-flex;
+  width: max-content;
+  padding: 0.08rem 0.48rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand-light) 22%, white);
+}
+
+.product-model-designer__governance-step-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.64;
+}
+
+.product-model-designer__governance-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.56rem;
+  align-items: center;
 }
 
 .product-model-designer__stage-head {
@@ -1733,6 +3317,14 @@ function resetSession() {
   flex: 1;
 }
 
+.product-model-designer__formal-card-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.56rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .product-model-designer__formal-rename-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1777,6 +3369,25 @@ function resetSession() {
   min-width: min(24rem, 100%);
 }
 
+.product-model-designer__governance-note {
+  padding: 0.72rem 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  border-radius: 0.72rem;
+  background: color-mix(in srgb, var(--brand-light) 10%, white);
+}
+
+.product-model-designer__governance-note strong {
+  color: var(--text-heading);
+  font-size: 0.96rem;
+  line-height: 1.42;
+}
+
+.product-model-designer__governance-note p {
+  margin: 0.18rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.56;
+}
+
 .product-model-designer__formal-tabs {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.72rem;
@@ -1800,7 +3411,9 @@ function resetSession() {
   .product-model-designer__summary-sheet,
   .product-model-designer__sample-toolbar,
   .product-model-designer__summary-grid,
+  .product-model-designer__governance-step-grid,
   .product-model-designer__receipt,
+  .product-model-designer__version-ledger-grid,
   .product-model-designer__formal-tabs {
     grid-template-columns: 1fr;
   }
@@ -1809,6 +3422,7 @@ function resetSession() {
 @media (max-width: 720px) {
   .product-model-designer__approval-head,
   .product-model-designer__approval-inline,
+  .product-model-designer__rollback-preview-head,
   .product-model-designer__relation-head,
   .product-model-designer__apply-footer,
   .product-model-designer__stage-head,

@@ -18,7 +18,11 @@ const {
   mockListOrganizations,
   mockPageChannels,
   mockPageHelpDocuments,
-  mockListRoles
+  mockListRoles,
+  mockFetchChannelTypeOptions,
+  mockFetchHelpDocCategoryOptions,
+  mockHasPermission,
+  mockFetchCurrentUser
 } = vi.hoisted(() => ({
   mockRouterPush: vi.fn(),
   mockPageMenus: vi.fn(),
@@ -29,7 +33,11 @@ const {
   mockListOrganizations: vi.fn(),
   mockPageChannels: vi.fn(),
   mockPageHelpDocuments: vi.fn(),
-  mockListRoles: vi.fn()
+  mockListRoles: vi.fn(),
+  mockFetchChannelTypeOptions: vi.fn(),
+  mockFetchHelpDocCategoryOptions: vi.fn(),
+  mockHasPermission: vi.fn(() => true),
+  mockFetchCurrentUser: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock('vue-router', () => ({
@@ -71,6 +79,7 @@ vi.mock('@/api/channel', () => ({
     { label: 'Webhook', value: 'webhook' }
   ],
   pageChannels: mockPageChannels,
+  fetchChannelTypeOptions: mockFetchChannelTypeOptions,
   getChannelByCode: vi.fn(),
   addChannel: vi.fn(),
   updateChannel: vi.fn(),
@@ -85,6 +94,7 @@ vi.mock('@/api/helpDoc', () => ({
     { label: '常见问题', value: 'faq' }
   ],
   pageHelpDocuments: mockPageHelpDocuments,
+  fetchHelpDocCategoryOptions: mockFetchHelpDocCategoryOptions,
   getHelpDocument: vi.fn(),
   addHelpDocument: vi.fn(),
   updateHelpDocument: vi.fn(),
@@ -93,6 +103,13 @@ vi.mock('@/api/helpDoc', () => ({
 
 vi.mock('@/api/role', () => ({
   listRoles: mockListRoles
+}))
+
+vi.mock('@/stores/permission', () => ({
+  usePermissionStore: () => ({
+    hasPermission: mockHasPermission,
+    fetchCurrentUser: mockFetchCurrentUser
+  })
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -230,9 +247,11 @@ function mountView(component: object) {
         StandardTableTextColumn: StandardTableTextColumnStub,
         StandardTableToolbar: true,
         StandardButton: true,
+        StandardWorkbenchRowActions: true,
         StandardRowActions: true,
         StandardActionLink: true,
         CsvColumnSettingDialog: true,
+        EmptyState: true,
         'el-table': ElTableStub,
         'el-table-column': ElTableColumnStub,
         'el-form': true,
@@ -256,6 +275,17 @@ describe('system governance refinement batch two', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    mockHasPermission.mockReturnValue(true)
+    mockFetchCurrentUser.mockResolvedValue(undefined)
+    mockFetchChannelTypeOptions.mockResolvedValue([
+      { label: '閭欢', value: 'email', sortNo: 1 },
+      { label: 'Webhook', value: 'webhook', sortNo: 2 }
+    ])
+    mockFetchHelpDocCategoryOptions.mockResolvedValue([
+      { label: 'Business', value: 'business' },
+      { label: 'Technical', value: 'technical' },
+      { label: 'FAQ', value: 'faq' }
+    ])
 
     mockPageMenus.mockResolvedValue({
       code: 200,

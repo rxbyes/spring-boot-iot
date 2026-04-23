@@ -551,6 +551,8 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('来自链路验证中心');
+    expect(wrapper.text()).toContain('当前节点：主链路复盘');
+    expect(wrapper.text()).toContain('下一步按证据进入异常观测、数据校验或治理页。');
     expect(messageApi.pageMessageTraceLogs).toHaveBeenCalledWith(expect.objectContaining({
       traceId: 'trace-route-001',
       deviceCode: 'stored-device-01',
@@ -736,16 +738,24 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('[data-testid="message-trace-detail-lead-sheet"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="message-trace-detail-chain-stage"]').exists()).toBe(true);
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub);
+
+    expect(wrapper.find('[data-testid="message-trace-detail-summary-stage"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-trace-detail-lead-sheet"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="message-trace-detail-hero"]').exists()).toBe(false);
+    expect(detailDrawer.props('title')).toBe('链路追踪详情');
     expect(wrapper.text()).toContain('属性上报');
-    expect(wrapper.text()).toContain('链路标识');
-    expect(wrapper.text()).toContain('接入上下文');
-    expect(wrapper.text()).toContain('消息概览');
-    expect(wrapper.text()).toContain('链路信息');
+    expect(wrapper.text()).toContain('消息态势与处理概况');
+    expect(wrapper.text()).toContain('链路与接入台账');
+    expect(wrapper.text()).toContain('链路概览');
+    expect(wrapper.text()).toContain('接入概览');
     expect(wrapper.text()).toContain('Payload 对照');
     expect(wrapper.text()).toContain('处理时间线');
+    expect(wrapper.text()).not.toContain('消息概览');
+    expect(wrapper.text()).not.toContain('链路信息');
+    expect(wrapper.text()).not.toContain('链路标识');
+    expect(wrapper.text()).not.toContain('接入上下文');
     expect(wrapper.text()).not.toContain('先从消息类型、上报时间与 Topic 拓扑建立判断');
     expect(wrapper.text()).not.toContain('继续完整保留链路章节');
     expect(wrapper.text()).not.toContain('固定并排查看原始报文');
@@ -801,7 +811,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    const chainStageText = wrapper.find('[data-testid="message-trace-detail-chain-stage"]').text();
+    const chainStageText = wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').text();
 
     expect(wrapper.text()).toContain('状态上报');
     expect(chainStageText).not.toContain('消息类型');
@@ -846,7 +856,7 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    const chainStageText = wrapper.find('[data-testid="message-trace-detail-chain-stage"]').text();
+    const chainStageText = wrapper.find('[data-testid="message-trace-detail-ledger-stage"]').text();
 
     expect(wrapper.text()).toContain('2026/04/05 10:50:35');
     expect(wrapper.text()).toContain('创建时间');
@@ -911,7 +921,7 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(messageApi.getMessageFlowTrace).toHaveBeenCalledWith('trace-001');
-    expect(wrapper.text()).toContain('时间线已过期，但 payload 对照已从消息日志恢复。');
+    expect(wrapper.text()).toContain('时间线已过期，Payload 仍可继续复盘');
     expect(wrapper.text()).toContain('Redis 中的短期时间线已过期，但消息日志、Payload 和基础链路信息仍可继续排查。');
   });
 
@@ -1042,7 +1052,7 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('链路追踪台');
     expect(wrapper.text()).toContain('失败归档');
     expect(wrapper.text()).toContain('TraceId');
-    expect(wrapper.text()).toContain('按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路。');
+    expect(wrapper.text()).toContain('主链路复盘：按 TraceId、设备编码、产品标识与 Topic 串联同一条接入链路，并判断下一步去异常观测、数据校验还是治理修正。');
     expect(wrapper.text()).not.toContain('TRACE CENTER');
     expect(wrapper.text()).not.toContain('运维看板');
     expect(wrapper.text()).not.toContain('最近会话');
@@ -1095,7 +1105,8 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('存储异常');
+    expect(wrapper.text()).toContain('message-flow / Redis 读取异常');
     expect(wrapper.text()).toContain('当前 trace 查询返回异常，优先排查 Redis 可用性与 message-flow 存储日志。');
     expect(ElMessage.error).not.toHaveBeenCalled();
   });
@@ -1115,7 +1126,8 @@ describe('MessageTraceView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('存储异常');
+    expect(wrapper.text()).toContain('message-flow / Redis 读取异常');
     expect(wrapper.text()).toContain('时间线查询异常，优先排查 Redis / message-flow 存储');
     expect(wrapper.text()).not.toContain('时间线已过期');
     expect(ElMessage.error).not.toHaveBeenCalled();
@@ -1159,7 +1171,8 @@ describe('MessageTraceView', () => {
     expect(wrapper.text()).toContain('解密后明文');
     expect(wrapper.text()).toContain('解析结果');
     expect(wrapper.text()).toContain('humidity');
-    expect(wrapper.text()).toContain('message-flow 存储异常/Redis 不可用');
+    expect(wrapper.text()).toContain('存储异常');
+    expect(wrapper.text()).toContain('message-flow / Redis 读取异常');
     expect(ElMessage.error).not.toHaveBeenCalled();
   });
 
@@ -1385,7 +1398,6 @@ describe('MessageTraceView', () => {
     await nextTick();
 
     expect(findButtonByText(wrapper, '观测')).toBeUndefined();
-    expect(wrapper.text()).not.toContain('观测');
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(window.sessionStorage.getItem('iot-access:diagnostic-context')).toBeNull();
   });

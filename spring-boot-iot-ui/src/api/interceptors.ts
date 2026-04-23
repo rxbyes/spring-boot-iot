@@ -4,6 +4,7 @@ import router from '../router';
 import { getStoredAccessToken, usePermissionStore } from '@/stores/permission';
 import { createRequestError } from './request';
 import { interceptorManager } from './request';
+import { resolveServerErrorMessage } from './request';
 import type { RequestError, RequestInterceptor, ResponseInterceptor } from './request';
 
 const ERROR_CODE_MAP: Record<number, string> = {
@@ -24,7 +25,7 @@ const ERROR_TOAST_DEDUPE_MS = 1200;
 
 function resolveResponseErrorMessage(code: number, rawMessage?: string) {
   if (code >= 500 && ERROR_CODE_MAP[code]) {
-    return ERROR_CODE_MAP[code];
+    return resolveServerErrorMessage(rawMessage, ERROR_CODE_MAP[code]);
   }
   return rawMessage || ERROR_CODE_MAP[code] || '请求失败';
 }
@@ -89,7 +90,7 @@ export const loadingRequestInterceptor: RequestInterceptor = {
 };
 
 export const errorResponseInterceptor: ResponseInterceptor = {
-  async onsuccess(data) {
+  async onsuccess(data, options) {
     if (data.code !== 200) {
       const rawMessage = data.msg;
       const message = resolveResponseErrorMessage(data.code, rawMessage);
@@ -98,7 +99,9 @@ export const errorResponseInterceptor: ResponseInterceptor = {
         await handleUnauthorized();
         throw createRequestError(message, true, 401, rawMessage);
       }
-      showErrorMessage(message);
+      if (!options.suppressErrorToast) {
+        showErrorMessage(message);
+      }
       throw createRequestError(message, true, data.code, rawMessage);
     }
     return data;

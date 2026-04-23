@@ -6,7 +6,9 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.GovernanceWorkItemTransitionDTO;
 import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.service.model.GovernanceReplayFeedbackCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
+import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +32,12 @@ public class GovernanceWorkItemController {
     public R<PageResult<GovernanceWorkItemVO>> pageWorkItems(GovernanceWorkItemPageQuery query,
                                                              Authentication authentication) {
         return R.ok(governanceWorkItemService.pageWorkItems(query, requireCurrentUserId(authentication)));
+    }
+
+    @GetMapping("/{id:[0-9]+}/decision-context")
+    public R<GovernanceDecisionContextVO> getDecisionContext(@PathVariable Long id,
+                                                             Authentication authentication) {
+        return R.ok(governanceWorkItemService.getDecisionContext(id, requireCurrentUserId(authentication)));
     }
 
     @PostMapping("/{id:[0-9]+}/ack")
@@ -56,6 +64,13 @@ public class GovernanceWorkItemController {
         return R.ok();
     }
 
+    @PostMapping("/replay-feedback")
+    public R<Void> closeReplayWithFeedback(@RequestBody GovernanceWorkItemTransitionDTO dto,
+                                           Authentication authentication) {
+        governanceWorkItemService.closeReplayWithFeedback(replayFeedbackCommandOf(dto), requireCurrentUserId(authentication));
+        return R.ok();
+    }
+
     private Long requireCurrentUserId(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
             throw new BizException(401, "未认证，请先登录");
@@ -65,5 +80,36 @@ public class GovernanceWorkItemController {
 
     private String commentOf(GovernanceWorkItemTransitionDTO dto) {
         return dto == null ? null : dto.getComment();
+    }
+
+    private GovernanceReplayFeedbackCommand replayFeedbackCommandOf(GovernanceWorkItemTransitionDTO dto) {
+        if (dto == null) {
+            return new GovernanceReplayFeedbackCommand(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+        return new GovernanceReplayFeedbackCommand(
+                dto.getWorkItemId(),
+                dto.getApprovalOrderId(),
+                dto.getReleaseBatchId(),
+                dto.getTraceId(),
+                dto.getDeviceCode(),
+                dto.getProductKey(),
+                dto.getRecommendedDecision(),
+                dto.getAdoptedDecision(),
+                dto.getExecutionOutcome(),
+                dto.getRootCauseCode(),
+                dto.getOperatorSummary()
+        );
     }
 }

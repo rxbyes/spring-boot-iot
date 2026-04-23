@@ -1,11 +1,8 @@
 <template>
-  <StandardFormDrawer
-    :model-value="modelValue"
-    title="维护绑定"
-    subtitle="查看正式绑定摘要，并继续维护设备与测点关系。"
-    size="42rem"
-    @update:model-value="handleModelValueChange"
-    @close="handleClose"
+  <component
+    :is="wrapperComponent"
+    v-bind="wrapperProps"
+    v-on="wrapperListeners"
   >
     <div class="risk-point-binding-maintenance-drawer">
       <div class="ops-drawer-note">
@@ -44,7 +41,7 @@
           <div class="ops-drawer-section__header">
             <div>
               <h3>新增正式绑定</h3>
-              <p>先选择设备，再从该设备测点列表中补充正式绑定。</p>
+              <p>{{ addSectionDescription }}</p>
             </div>
           </div>
           <div class="ops-drawer-grid">
@@ -52,7 +49,8 @@
               <el-select
                 v-model="addForm.deviceId"
                 data-testid="binding-add-device"
-                placeholder="请选择设备"
+                filterable
+                placeholder="请输入设备编号或选择设备"
                 :disabled="bindableDevices.length === 0 || addSubmitting"
                 @change="handleAddDeviceChange"
               >
@@ -64,7 +62,7 @@
                 />
               </el-select>
             </el-form-item>
-            <el-form-item label="测点">
+            <el-form-item v-if="showAddMetricSelector" label="测点">
               <el-select
                 v-model="addForm.metricIdentifier"
                 data-testid="binding-add-metric"
@@ -80,6 +78,12 @@
               </el-select>
             </el-form-item>
           </div>
+          <p
+            v-if="addDeviceHint"
+            class="risk-point-binding-maintenance-drawer__detail-tip"
+          >
+            {{ addDeviceHint }}
+          </p>
           <div class="risk-point-binding-maintenance-drawer__actions">
             <button
               type="button"
@@ -88,7 +92,7 @@
               :disabled="addSubmitting"
               @click="handleAddBinding"
             >
-              新增正式绑定
+              {{ addSubmitLabel }}
             </button>
           </div>
         </section>
@@ -119,7 +123,11 @@
               <div class="risk-point-binding-maintenance-drawer__group-header">
                 <div>
                   <h4>{{ group.deviceName || '未命名设备' }}</h4>
-                  <p>{{ group.deviceCode || '--' }} · {{ group.metricCount }} 个正式测点</p>
+                  <p>
+                    {{ group.deviceCode || '--' }}
+                    ·
+                    {{ isDeviceOnlyGroup(group) ? '设备级正式绑定' : `${group.metricCount} 个正式测点` }}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -132,7 +140,13 @@
                 </button>
               </div>
 
-              <div class="risk-point-binding-maintenance-drawer__metric-list">
+              <div v-if="isDeviceOnlyGroup(group)" class="risk-point-binding-maintenance-drawer__device-only-card">
+                <strong>设备级正式绑定</strong>
+                <p>{{ getGroupCapabilityLabel(group) }}</p>
+                <p v-if="isAiEventReserved(group)">AI 事件扩展预留</p>
+              </div>
+
+              <div v-else class="risk-point-binding-maintenance-drawer__metric-list">
                 <div
                   v-for="metric in group.metrics"
                   :key="String(metric.bindingId)"
@@ -203,19 +217,20 @@
         </section>
       </template>
     </div>
-  </StandardFormDrawer>
+  </component>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
-import { getDeviceMetricOptions } from '@/api/iot'
 import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api'
 import {
   bindDevice,
+  bindDeviceCapability,
   listBindableDevices,
   listBindingGroups,
+  listFormalBindingMetricOptions,
   removeBinding,
   replaceBinding,
   unbindDevice,
@@ -224,10 +239,20 @@ import {
 } from '@/api/riskPoint'
 import { confirmAction, isConfirmCancelled } from '@/utils/confirm'
 import { ElMessage } from '@/utils/message'
+import {
+  getDeviceCapabilityLabel,
+  getDeviceOnlyBindingButtonLabel,
+  getDeviceOnlyBindingHint,
+  isAiEventReserved,
+  isDeviceOnlyBindingMode,
+  resolveBindingGroupCapabilityType,
+  supportsMetricBinding
+} from '@/utils/riskPointDeviceBindingCapability'
 
 const props = withDefaults(
   defineProps<{
     modelValue: boolean
+    embedded?: boolean
     riskPointId?: IdType | null
     riskPointName?: string
     riskPointCode?: string
@@ -236,6 +261,7 @@ const props = withDefaults(
   }>(),
   {
     riskPointId: undefined,
+    embedded: false,
     riskPointName: '',
     riskPointCode: '',
     orgName: '',
@@ -254,6 +280,7 @@ const addSubmitting = ref(false)
 const actionLoadingKey = ref('')
 const bindingGroups = ref<RiskPointBindingDeviceGroup[]>([])
 const bindableDevices = ref<DeviceOption[]>([])
+const selectedAddDevice = ref<DeviceOption | null>(null)
 const addMetricOptions = ref<DeviceMetricOption[]>([])
 const activeReplaceBindingId = ref<string | null>(null)
 const metricOptionCache = reactive<Record<string, DeviceMetricOption[]>>({})
@@ -270,6 +297,43 @@ const addForm = reactive({
 const totalBoundMetricCount = computed(() =>
   bindingGroups.value.reduce((sum, group) => sum + Number(group.metricCount || group.metrics?.length || 0), 0)
 )
+const showAddMetricSelector = computed(() => supportsMetricBinding(selectedAddDevice.value))
+const addSectionDescription = computed(() =>
+  !selectedAddDevice.value
+    ? '先选择设备，再按设备能力补充正式绑定。'
+    : showAddMetricSelector.value
+    ? '先选择设备，再从该设备已发布的正式目录字段中补充正式绑定。'
+    : '先选择设备，再按设备级正式绑定收口预警型或视频类设备。'
+)
+const addSubmitLabel = computed(() => getDeviceOnlyBindingButtonLabel(selectedAddDevice.value))
+const addDeviceHint = computed(() => {
+  if (!addForm.deviceId || addSubmitting.value) {
+    return ''
+  }
+  if (!showAddMetricSelector.value) {
+    return getDeviceOnlyBindingHint(selectedAddDevice.value)
+  }
+  return addMetricOptions.value.length === 0 ? '当前设备所属产品暂无可用于风险绑定的正式目录字段。' : ''
+})
+const wrapperComponent = computed(() => (props.embedded ? 'div' : StandardFormDrawer))
+const wrapperProps = computed(() =>
+  props.embedded
+    ? {}
+    : {
+        modelValue: props.modelValue,
+        title: '维护绑定',
+        subtitle: '查看正式绑定摘要，并继续维护设备与测点关系。',
+        size: '42rem'
+      }
+)
+const wrapperListeners = computed(() =>
+  props.embedded
+    ? {}
+    : {
+        'update:modelValue': handleModelValueChange,
+        close: handleClose
+      }
+)
 
 const bindingSourceLabelMap: Record<RiskPointBindingMetric['bindingSource'], string> = {
   MANUAL: '人工维护',
@@ -278,6 +342,9 @@ const bindingSourceLabelMap: Record<RiskPointBindingMetric['bindingSource'], str
 }
 
 const getBindingSourceLabel = (source: RiskPointBindingMetric['bindingSource']) => bindingSourceLabelMap[source] || bindingSourceLabelMap.UNKNOWN
+const isDeviceOnlyGroup = (group: RiskPointBindingDeviceGroup) => isDeviceOnlyBindingMode(group)
+const getGroupCapabilityLabel = (group: RiskPointBindingDeviceGroup) =>
+  `${getDeviceCapabilityLabel(resolveBindingGroupCapabilityType(group))} · 设备级正式绑定`
 
 const getIdKey = (value?: IdType | null) => {
   if (value === undefined || value === null || value === '') {
@@ -326,10 +393,10 @@ const getMetricOptions = async (deviceId: IdType) => {
   if (!deviceIdKey) {
     return []
   }
-  if (metricOptionCache[deviceIdKey]?.length) {
+  if (Object.prototype.hasOwnProperty.call(metricOptionCache, deviceIdKey)) {
     return metricOptionCache[deviceIdKey]
   }
-  const res = await getDeviceMetricOptions(deviceIdKey)
+  const res = await listFormalBindingMetricOptions(deviceIdKey)
   if (res.code !== 200) {
     metricOptionCache[deviceIdKey] = []
     return []
@@ -354,6 +421,7 @@ const resetDrawerState = () => {
   addMetricOptions.value = []
   addForm.deviceId = ''
   addForm.metricIdentifier = ''
+  selectedAddDevice.value = null
   activeReplaceBindingId.value = null
   actionLoadingKey.value = ''
   Object.keys(metricOptionCache).forEach((key) => {
@@ -387,6 +455,15 @@ const loadBindableDeviceOptions = async (riskPointId: IdType, requestId: number)
     return
   }
   bindableDevices.value = res.code === 200 ? res.data || [] : []
+  const currentSelectedDevice = bindableDevices.value.find((item) => isSameId(item.id, addForm.deviceId))
+  if (currentSelectedDevice) {
+    selectedAddDevice.value = currentSelectedDevice
+    return
+  }
+  if (getIdKey(addForm.deviceId) && isSameId(selectedAddDevice.value?.id, addForm.deviceId)) {
+    return
+  }
+  selectedAddDevice.value = null
 }
 
 const loadDrawerData = async () => {
@@ -441,6 +518,12 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
   addForm.metricIdentifier = ''
   addMetricOptions.value = []
   if (!deviceId) {
+    selectedAddDevice.value = null
+    return
+  }
+  const device = bindableDevices.value.find((item) => isSameId(item.id, deviceId)) || null
+  selectedAddDevice.value = device
+  if (!supportsMetricBinding(device)) {
     return
   }
   try {
@@ -470,27 +553,31 @@ const handleAddBinding = async () => {
     ElMessage.warning('请先选择设备')
     return
   }
-  if (!addForm.metricIdentifier) {
+  if (showAddMetricSelector.value && !addForm.metricIdentifier) {
     ElMessage.warning('请选择要绑定的测点')
     return
   }
 
-  const option = getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)
   try {
     addSubmitting.value = true
-    const res = await bindDevice({
-      riskPointId: props.riskPointId,
-      deviceId: addForm.deviceId,
-      riskMetricId: option?.riskMetricId ?? undefined,
-      metricIdentifier: addForm.metricIdentifier,
-      metricName: option?.name || addForm.metricIdentifier
-    })
+    const res = showAddMetricSelector.value
+      ? await bindDevice({
+          riskPointId: props.riskPointId,
+          deviceId: addForm.deviceId,
+          riskMetricId: getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)?.riskMetricId ?? undefined,
+          metricIdentifier: addForm.metricIdentifier,
+          metricName: getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)?.name || addForm.metricIdentifier
+        })
+      : await bindDeviceCapability({
+          riskPointId: props.riskPointId,
+          deviceId: addForm.deviceId,
+          deviceCapabilityType: selectedAddDevice.value?.deviceCapabilityType || undefined
+        })
     if (res.code !== 200) {
-      ElMessage.error(res.msg || '新增正式绑定失败')
+      ElMessage.error(res.msg || `${addSubmitLabel.value}失败`)
       return
     }
-    await handleMutationSuccess('新增正式绑定成功', () => {
-      addForm.deviceId = ''
+    await handleMutationSuccess(`${addSubmitLabel.value}成功`, () => {
       addForm.metricIdentifier = ''
       addMetricOptions.value = []
     })
@@ -510,7 +597,7 @@ const handleWholeDeviceUnbind = async (group: RiskPointBindingDeviceGroup) => {
     actionLoadingKey.value = `unbind:${group.deviceId}`
     await confirmAction({
       title: '整机解绑',
-      message: `确认解绑设备“${group.deviceName || group.deviceCode || group.deviceId}”下的全部正式测点吗？`,
+      message: `确认解绑设备“${group.deviceName || group.deviceCode || group.deviceId}”下的全部正式绑定吗？`,
       confirmButtonText: '确认解绑'
     })
     const res = await unbindDevice(props.riskPointId, group.deviceId)
@@ -689,6 +776,12 @@ watch(
   justify-content: flex-end;
 }
 
+.risk-point-binding-maintenance-drawer__detail-tip {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
 .risk-point-binding-maintenance-drawer__button {
   border: 1px solid var(--border-color, #d0d5dd);
   background: white;
@@ -746,6 +839,20 @@ watch(
 .risk-point-binding-maintenance-drawer__metric-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.risk-point-binding-maintenance-drawer__device-only-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--brand-primary, #d97706) 8%, white);
+  color: var(--text-primary);
+}
+
+.risk-point-binding-maintenance-drawer__device-only-card p {
+  margin: 0;
+  color: var(--text-secondary);
 }
 
 .risk-point-binding-maintenance-drawer__metric-row {

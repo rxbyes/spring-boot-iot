@@ -1,13 +1,17 @@
 package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
+import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -21,6 +25,68 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RiskPointControllerTest {
+
+    @Test
+    void bindDeviceShouldExtractCurrentUserAndDelegateToGovernanceSubmission() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
+        RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(7001L);
+        request.setDeviceId(3001L);
+        request.setMetricIdentifier("dispsX");
+        request.setMetricName("X轴位移");
+        GovernanceSubmissionResultVO result = new GovernanceSubmissionResultVO();
+        result.setWorkItemId(8801L);
+        result.setExecutionStatus("DIRECT_APPLIED");
+        when(maintenanceService.submitBindDevice(request, 1001L)).thenReturn(result);
+
+        R<GovernanceSubmissionResultVO> response = controller.bindDevice(request, authentication(1001L));
+
+        assertEquals(8801L, response.getData().getWorkItemId());
+        assertEquals("DIRECT_APPLIED", response.getData().getExecutionStatus());
+        verify(maintenanceService).submitBindDevice(request, 1001L);
+    }
+
+    @Test
+    void bindDeviceCapabilityShouldExtractCurrentUserAndDelegateToGovernanceSubmission() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
+        RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
+        RiskPointDeviceCapabilityBindingRequest request = new RiskPointDeviceCapabilityBindingRequest();
+        request.setRiskPointId(7001L);
+        request.setDeviceId(3002L);
+        request.setDeviceCapabilityType("VIDEO");
+        GovernanceSubmissionResultVO result = new GovernanceSubmissionResultVO();
+        result.setWorkItemId(8803L);
+        result.setExecutionStatus("DIRECT_APPLIED");
+        when(maintenanceService.submitBindDeviceCapability(request, 1001L)).thenReturn(result);
+
+        R<GovernanceSubmissionResultVO> response = controller.bindDeviceCapability(request, authentication(1001L));
+
+        assertEquals(8803L, response.getData().getWorkItemId());
+        assertEquals("DIRECT_APPLIED", response.getData().getExecutionStatus());
+        verify(maintenanceService).submitBindDeviceCapability(request, 1001L);
+    }
+
+    @Test
+    void unbindDeviceShouldExtractCurrentUserAndDelegateToGovernanceSubmission() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
+        RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
+        GovernanceSubmissionResultVO result = new GovernanceSubmissionResultVO();
+        result.setWorkItemId(8802L);
+        result.setApprovalOrderId(9902L);
+        result.setApprovalStatus("PENDING");
+        result.setExecutionStatus("PENDING_APPROVAL");
+        when(maintenanceService.submitUnbindDevice(7001L, 3001L, 1001L)).thenReturn(result);
+
+        R<GovernanceSubmissionResultVO> response = controller.unbindDevice(7001L, 3001L, authentication(1001L));
+
+        assertEquals(9902L, response.getData().getApprovalOrderId());
+        assertEquals("PENDING_APPROVAL", response.getData().getExecutionStatus());
+        verify(maintenanceService).submitUnbindDevice(7001L, 3001L, 1001L);
+    }
 
     @Test
     void listBindingSummariesShouldExtractCurrentUserAndDelegate() {
@@ -54,7 +120,7 @@ class RiskPointControllerTest {
         metric.setBindingId(88L);
         metric.setRiskMetricId(6101L);
         metric.setMetricIdentifier("dispsX");
-        metric.setMetricName("X向位移");
+        metric.setMetricName("X轴位移");
         metric.setBindingSource("PENDING_PROMOTION");
         metric.setCreateTime(new Date(1000L));
         RiskPointBindingDeviceGroupVO group = new RiskPointBindingDeviceGroupVO();
@@ -72,6 +138,26 @@ class RiskPointControllerTest {
         assertEquals(6101L, response.getData().get(0).getMetrics().get(0).getRiskMetricId());
         assertEquals("PENDING_PROMOTION", response.getData().get(0).getMetrics().get(0).getBindingSource());
         verify(maintenanceService).listBindingGroups(7001L, 1001L);
+    }
+
+    @Test
+    void listFormalBindingMetricOptionsShouldExtractCurrentUserAndDelegate() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointBindingMaintenanceService maintenanceService = mock(RiskPointBindingMaintenanceService.class);
+        RiskPointController controller = new RiskPointController(riskPointService, maintenanceService);
+        DeviceMetricOptionVO option = new DeviceMetricOptionVO();
+        option.setIdentifier("value");
+        option.setName("激光测距值");
+        option.setDataType("double");
+        option.setRiskMetricId(6101L);
+        when(maintenanceService.listFormalBindingMetricOptions(3001L, 1001L)).thenReturn(List.of(option));
+
+        R<List<DeviceMetricOptionVO>> response = controller.listFormalBindingMetricOptions(3001L, authentication(1001L));
+
+        assertEquals(1, response.getData().size());
+        assertEquals("value", response.getData().get(0).getIdentifier());
+        assertEquals(6101L, response.getData().get(0).getRiskMetricId());
+        verify(maintenanceService).listFormalBindingMetricOptions(3001L, 1001L);
     }
 
     @Test

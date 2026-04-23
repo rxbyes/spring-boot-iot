@@ -4,6 +4,7 @@ import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
 import java.util.List;
@@ -19,7 +20,9 @@ public interface RiskGovernanceService {
 
     List<MissingPolicyAlertSignal> listMissingPolicyAlertSignals();
 
-    PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long pageNum, Long pageSize);
+    PageResult<RiskMetricCatalogItemVO> pageMetricCatalogs(Long productId, Long releaseBatchId, Long pageNum, Long pageSize);
+
+    RiskGovernanceReleaseBatchDiffVO compareReleaseBatches(Long baselineBatchId, Long targetBatchId);
 
     RiskMetricCatalogItemVO getMetricCatalog(Long id);
 

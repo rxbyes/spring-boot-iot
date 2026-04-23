@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-04-04T00:00:00+08:00",
+  "generatedAt": "2026-04-09T00:00:00+08:00",
   "packages": [
     {
       "packageCode": "product-device",
@@ -131,7 +131,7 @@
     {
       "packageCode": "platform-governance",
       "packageName": "平台治理基础",
-      "description": "覆盖组织、用户、角色与平台治理 API 冒烟验收。",
+      "description": "覆盖组织、用户、角色，以及治理控制面与管理驾驶舱的共享 dev 验收。",
       "targetRoles": ["acceptance", "product", "manager"],
       "supportedEnvironments": ["dev", "test"],
       "defaultAccountTemplate": "manager-default",
@@ -158,6 +158,18 @@
             "apiRef": "GET /system/user/list",
             "pageAction": "打开账号中心并检查角色分配结果",
             "summary": "账号与角色治理结果需要结合接口返回复核。"
+          }
+        },
+        {
+          "moduleCode": "control-plane-cockpit",
+          "moduleName": "治理控制面与经营驾驶舱",
+          "scenarioRefs": ["governance.control-plane.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "切换管理视角并校验治理控制面页面",
+            "apiRef": "GET /api/risk-governance/dashboard-overview；GET /api/governance/work-items；GET /api/governance/ops-alerts",
+            "pageAction": "进入首页管理视角、治理任务台和治理运维台，检查 KPI、待办与告警列表是否可达",
+            "summary": "治理控制面与管理驾驶舱需要结合浏览器冒烟结果和页面证据复核。"
           }
         }
       ]

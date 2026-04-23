@@ -21,9 +21,11 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
     /**
      * 以场景键聚合可发布指标，后续扩展只需追加场景与字段集合。
      */
-    private static final Map<String, Set<String>> SCENARIO_PUBLISHABLE_IDENTIFIERS = Map.of(
-            "phase1-crack", Set.of("value"),
-            "phase2-gnss", Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ")
+    private static final Map<String, List<String>> SCENARIO_PUBLISHABLE_IDENTIFIERS = Map.of(
+            "phase1-crack", List.of("value"),
+            "phase2-gnss", List.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"),
+            "phase3-deep-displacement", List.of("dispsX", "dispsY"),
+            "phase4-rain-gauge", List.of("value")
     );
 
     @Override
@@ -36,7 +38,7 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
             return Set.of();
         }
         Set<String> enabledIdentifiers = new LinkedHashSet<>();
-        for (Set<String> publishableIdentifiers : SCENARIO_PUBLISHABLE_IDENTIFIERS.values()) {
+        for (List<String> publishableIdentifiers : SCENARIO_PUBLISHABLE_IDENTIFIERS.values()) {
             for (String identifier : publishableIdentifiers) {
                 if (releasedIdentifiers.contains(identifier)) {
                     enabledIdentifiers.add(identifier);

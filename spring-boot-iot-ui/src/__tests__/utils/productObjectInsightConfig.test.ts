@@ -21,6 +21,7 @@ describe('productObjectInsightConfig', () => {
               identifier: 'S1_ZT_1.humidity',
               displayName: '相对湿度',
               group: 'status',
+              unit: '%',
               includeInTrend: true,
               includeInExtension: true,
               enabled: true,
@@ -33,7 +34,8 @@ describe('productObjectInsightConfig', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0].displayName).toBe('相对湿度')
-    expect(rows[0].group).toBe('status')
+    expect(rows[0].group).toBe('runtime')
+    expect(rows[0].unit).toBe('%')
   })
 
   it('serializes editable rows back into metadataJson.objectInsight.customMetrics', () => {
@@ -42,7 +44,8 @@ describe('productObjectInsightConfig', () => {
         ...createEmptyProductObjectInsightMetric(),
         identifier: 'S1_ZT_1.signal_4g',
         displayName: '4G 信号强度',
-        group: 'status',
+        group: 'runtime',
+        unit: 'dBm',
         analysisTemplate: '{{label}}当前为{{value}}',
         sortNo: 20
       }
@@ -50,6 +53,22 @@ describe('productObjectInsightConfig', () => {
 
     expect(metadataJson).toContain('objectInsight')
     expect(metadataJson).toContain('S1_ZT_1.signal_4g')
+    expect(metadataJson).toContain('"unit":"dBm"')
+  })
+
+  it('serializes status-event rows back into the backend status group contract', () => {
+    const metadataJson = buildProductMetadataJson([
+      {
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'S1_ZT_1.sensor_state',
+        displayName: '设备状态',
+        group: 'statusEvent',
+        sortNo: 12
+      }
+    ])
+
+    expect(metadataJson).toContain('"group":"status"')
+    expect(metadataJson).not.toContain('"group":"statusEvent"')
   })
 
   it('rejects duplicate identifiers before submit', () => {
@@ -58,13 +77,13 @@ describe('productObjectInsightConfig', () => {
         ...createEmptyProductObjectInsightMetric(),
         identifier: 'S1_ZT_1.humidity',
         displayName: '相对湿度',
-        group: 'status'
+        group: 'runtime'
       },
       {
         ...createEmptyProductObjectInsightMetric(),
         identifier: 'S1_ZT_1.humidity',
         displayName: '重复湿度',
-        group: 'status'
+        group: 'runtime'
       }
     ])
 
@@ -76,7 +95,7 @@ describe('productObjectInsightConfig', () => {
       ...createEmptyProductObjectInsightMetric(),
       identifier: `S1_ZT_1.metric_${index + 1}`,
       displayName: `指标${index + 1}`,
-      group: 'status' as const
+      group: 'runtime' as const
     }))
 
     const message = validateProductObjectInsightMetrics(rows)
@@ -89,7 +108,10 @@ describe('productObjectInsightConfig', () => {
       {
         identifier: 'L1_LF_1.value',
         modelName: '裂缝量',
-        sortNo: 6
+        sortNo: 6,
+        specsJson: JSON.stringify({
+          unit: 'mm'
+        })
       },
       'measure'
     )
@@ -99,6 +121,7 @@ describe('productObjectInsightConfig', () => {
         identifier: 'L1_LF_1.value',
         displayName: '裂缝量',
         group: 'measure',
+        unit: 'mm',
         includeInTrend: true,
         includeInExtension: false,
         enabled: true,
@@ -110,7 +133,7 @@ describe('productObjectInsightConfig', () => {
       [
         {
           ...created,
-          group: 'status',
+          group: 'runtime',
           analysisTemplate: '{{label}}来自旧配置'
         }
       ],
@@ -118,15 +141,20 @@ describe('productObjectInsightConfig', () => {
         {
           identifier: 'L1_LF_1.value',
           modelName: '裂缝量',
-          sortNo: 2
+          sortNo: 2,
+          specsJson: JSON.stringify({
+            unit: 'mm'
+          })
         },
         'measure'
       )
     )
 
     expect(updated).toHaveLength(1)
+    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.identifier).toBe('L1_LF_1.value')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.group).toBe('measure')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.analysisTemplate).toBe('{{label}}来自旧配置')
+    expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.unit).toBe('mm')
     expect(removeProductObjectInsightMetric(updated, 'L1_LF_1.value')).toEqual([])
   })
 })

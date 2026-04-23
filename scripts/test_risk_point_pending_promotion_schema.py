@@ -1,11 +1,10 @@
-import pathlib
-import re
 import unittest
 
-
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-INIT_SQL = ROOT / "sql" / "init.sql"
-SCHEMA_SYNC = ROOT / "scripts" / "run-real-env-schema-sync.py"
+from scripts.schema_contract_test_support import (
+    extract_create_table_statement,
+    get_schema_sync_create_entry,
+    read_init_sql,
+)
 
 
 class RiskPointPendingPromotionSchemaTest(unittest.TestCase):
@@ -13,13 +12,10 @@ class RiskPointPendingPromotionSchemaTest(unittest.TestCase):
         for snippet in snippets:
             self.assertIn(snippet, content)
 
-    def extract_create_table_block(self, content: str, table_name: str) -> str:
-        pattern = re.compile(
-            rf"(CREATE TABLE(?: IF NOT EXISTS)? {table_name} \([\s\S]*?\)\s*ENGINE=InnoDB[^\n]*)"
-        )
-        match = pattern.search(content)
-        self.assertIsNotNone(match, f"missing CREATE TABLE block for {table_name}")
-        return match.group(1)
+    def extract_schema_sync_create_sql(self, table_name: str) -> str:
+        entry = get_schema_sync_create_entry(table_name)
+        self.assertEqual("active", entry["lifecycle"])
+        return entry["sql"]
 
     def assert_pending_binding_baseline(self, block: str, create_snippet: str) -> None:
         self.assert_contains_all(
@@ -56,9 +52,9 @@ class RiskPointPendingPromotionSchemaTest(unittest.TestCase):
         )
 
     def test_init_sql_contains_pending_promotion_table(self) -> None:
-        content = INIT_SQL.read_text(encoding="utf-8")
-        block = self.extract_create_table_block(
-            content, "risk_point_device_pending_promotion"
+        block = extract_create_table_statement(
+            read_init_sql(),
+            "risk_point_device_pending_promotion",
         )
         self.assert_pending_promotion_baseline(
             block,
@@ -66,29 +62,27 @@ class RiskPointPendingPromotionSchemaTest(unittest.TestCase):
         )
 
     def test_schema_sync_contains_pending_promotion_table(self) -> None:
-        content = SCHEMA_SYNC.read_text(encoding="utf-8")
-        block = self.extract_create_table_block(
-            content, "risk_point_device_pending_promotion"
-        )
+        block = self.extract_schema_sync_create_sql("risk_point_device_pending_promotion")
         self.assert_pending_promotion_baseline(
             block,
-            "CREATE TABLE IF NOT EXISTS risk_point_device_pending_promotion",
+            "CREATE TABLE risk_point_device_pending_promotion",
         )
 
     def test_init_sql_contains_pending_binding_table(self) -> None:
-        content = INIT_SQL.read_text(encoding="utf-8")
-        block = self.extract_create_table_block(content, "risk_point_device_pending_binding")
+        block = extract_create_table_statement(
+            read_init_sql(),
+            "risk_point_device_pending_binding",
+        )
         self.assert_pending_binding_baseline(
             block,
             "CREATE TABLE risk_point_device_pending_binding",
         )
 
     def test_schema_sync_contains_pending_binding_table(self) -> None:
-        content = SCHEMA_SYNC.read_text(encoding="utf-8")
-        block = self.extract_create_table_block(content, "risk_point_device_pending_binding")
+        block = self.extract_schema_sync_create_sql("risk_point_device_pending_binding")
         self.assert_pending_binding_baseline(
             block,
-            "CREATE TABLE IF NOT EXISTS risk_point_device_pending_binding",
+            "CREATE TABLE risk_point_device_pending_binding",
         )
 
 

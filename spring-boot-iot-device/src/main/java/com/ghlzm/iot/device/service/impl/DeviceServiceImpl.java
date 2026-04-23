@@ -3,15 +3,19 @@ package com.ghlzm.iot.device.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.dto.DeviceAddDTO;
+import com.ghlzm.iot.device.dto.DeviceOnboardingSuggestionQuery;
 import com.ghlzm.iot.device.dto.DeviceReplaceDTO;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceProperty;
 import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.model.DeviceTopologyRole;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.entity.RiskMetricCatalogReadModel;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
@@ -19,13 +23,17 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
+import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.DeviceTopologyRoleResolver;
 import com.ghlzm.iot.device.service.ProductService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
 import com.ghlzm.iot.device.vo.DeviceBatchAddErrorVO;
 import com.ghlzm.iot.device.vo.DeviceBatchAddResultVO;
 import com.ghlzm.iot.device.vo.DeviceDetailVO;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
+import com.ghlzm.iot.device.vo.DeviceOnboardingSuggestionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
 import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
@@ -36,6 +44,8 @@ import com.ghlzm.iot.system.enums.DataScopeType;
 import com.ghlzm.iot.system.service.OrganizationService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -49,6 +59,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,8 +86,11 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     private final UnregisteredDeviceRosterService unregisteredDeviceRosterService;
     private final IotProperties iotProperties;
     private final DeviceInvalidReportStateService invalidReportStateService;
+    private final DeviceOnboardingSuggestionService deviceOnboardingSuggestionService;
     private final PermissionService permissionService;
     private final OrganizationService organizationService;
+    private final RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
+    private final DeviceTopologyRoleResolver topologyRoleResolver;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public DeviceServiceImpl(ProductService productService,
@@ -86,8 +100,38 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                              UnregisteredDeviceRosterService unregisteredDeviceRosterService,
                              IotProperties iotProperties,
                              DeviceInvalidReportStateService invalidReportStateService,
+                             DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
                              PermissionService permissionService,
                              OrganizationService organizationService) {
+        this(
+                productService,
+                devicePropertyMapper,
+                productModelMapper,
+                riskMetricCatalogReadMapper,
+                unregisteredDeviceRosterService,
+                iotProperties,
+                invalidReportStateService,
+                deviceOnboardingSuggestionService,
+                permissionService,
+                organizationService,
+                null,
+                null
+        );
+    }
+
+    @Autowired
+    public DeviceServiceImpl(ProductService productService,
+                             DevicePropertyMapper devicePropertyMapper,
+                             ProductModelMapper productModelMapper,
+                             RiskMetricCatalogReadMapper riskMetricCatalogReadMapper,
+                             UnregisteredDeviceRosterService unregisteredDeviceRosterService,
+                             IotProperties iotProperties,
+                             DeviceInvalidReportStateService invalidReportStateService,
+                             DeviceOnboardingSuggestionService deviceOnboardingSuggestionService,
+                             PermissionService permissionService,
+                             OrganizationService organizationService,
+                             @Nullable RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService,
+                             @Nullable DeviceTopologyRoleResolver topologyRoleResolver) {
         this.productService = productService;
         this.devicePropertyMapper = devicePropertyMapper;
         this.productModelMapper = productModelMapper;
@@ -95,8 +139,11 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         this.unregisteredDeviceRosterService = unregisteredDeviceRosterService;
         this.iotProperties = iotProperties;
         this.invalidReportStateService = invalidReportStateService;
+        this.deviceOnboardingSuggestionService = deviceOnboardingSuggestionService;
         this.permissionService = permissionService;
         this.organizationService = organizationService;
+        this.runtimeMetricDisplayRuleService = runtimeMetricDisplayRuleService;
+        this.topologyRoleResolver = topologyRoleResolver;
     }
 
     @Override
@@ -421,8 +468,74 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                         .eq(DeviceProperty::getDeviceId, device.getId())
                         .orderByDesc(DeviceProperty::getUpdateTime)
         );
-        overlayLatestPropertyNames(device, properties);
+        overlayLatestPropertyMetadata(device, properties);
         return properties;
+    }
+
+    @Override
+    public List<DeviceProperty> listPropertiesForInsight(Long currentUserId, String deviceCode) {
+        Device device = getRequiredByCode(deviceCode);
+        ensureDeviceAccessible(currentUserId, device);
+        String productKey = resolveProductKey(device);
+        DeviceTopologyRole role = topologyRoleResolver != null
+                ? topologyRoleResolver.resolve(device.getProductId(), device.getNodeType(), productKey)
+                : DeviceTopologyRole.STANDALONE;
+        List<DeviceProperty> properties = devicePropertyMapper.selectList(
+                new LambdaQueryWrapper<DeviceProperty>()
+                        .eq(DeviceProperty::getDeviceId, device.getId())
+                        .orderByDesc(DeviceProperty::getUpdateTime)
+        );
+        overlayLatestPropertyMetadata(device, properties);
+        return filterPropertiesByRole(properties, role);
+    }
+
+    private String resolveProductKey(Device device) {
+        if (device.getProductId() == null) {
+            return null;
+        }
+        Product product = productService.getById(device.getProductId());
+        return product != null ? product.getProductKey() : null;
+    }
+
+    private static final Set<String> CHILD_BUSINESS_IDENTIFIERS = Set.of(
+        "dispsx", "dispsy", "value", "sensor_state"
+    );
+
+    private static final Set<String> PARENT_RUNTIME_KEYWORDS = Set.of(
+        "signal_4g", "battery", "temp", "humidity", "ext_power_volt",
+        "solar_volt", "battery_dump_energy", "battery_volt", "supply_power",
+        "consume_power", "temp_out", "humidity_out", "lon", "lat",
+        "signal_nb", "signal_db", "sw_version"
+    );
+
+    private List<DeviceProperty> filterPropertiesByRole(List<DeviceProperty> properties, DeviceTopologyRole role) {
+        if (role == DeviceTopologyRole.STANDALONE) {
+            return properties;
+        }
+        return properties.stream()
+                .filter(property -> shouldIncludeProperty(property, role))
+                .collect(Collectors.toList());
+    }
+
+    private boolean shouldIncludeProperty(DeviceProperty property, DeviceTopologyRole role) {
+        String identifier = property.getIdentifier() == null ? "" : property.getIdentifier().trim().toLowerCase(Locale.ROOT);
+        if (role == DeviceTopologyRole.COLLECTOR_PARENT) {
+            for (String childId : CHILD_BUSINESS_IDENTIFIERS) {
+                if (identifier.equals(childId) || identifier.endsWith("." + childId)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (role == DeviceTopologyRole.COLLECTOR_CHILD) {
+            for (String parentKeyword : PARENT_RUNTIME_KEYWORDS) {
+                if (identifier.contains(parentKeyword) && !identifier.contains("sensor_state")) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return true;
     }
 
     @Override
@@ -441,14 +554,32 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
         List<Device> devices = list(wrapper);
         Map<Long, Product> productMap = loadProductMap(resolveScopedTenantId(currentUserId), devices.stream().map(Device::getProductId).toList());
+        Set<Long> productsWithFormalMetrics = loadProductsWithFormalMetrics(devices.stream().map(Device::getProductId).toList());
         return devices.stream()
-                .map(device -> toDeviceOption(device, productMap.get(device.getProductId())))
+                .map(device -> toDeviceOption(
+                        device,
+                        productMap.get(device.getProductId()),
+                        productsWithFormalMetrics.contains(device.getProductId())
+                ))
                 .toList();
     }
 
     @Override
     public List<DeviceMetricOptionVO> listMetricOptions(Long deviceId) {
         return listMetricOptions(null, deviceId);
+    }
+
+    @Override
+    public DeviceOnboardingSuggestionVO getOnboardingSuggestion(DeviceOnboardingSuggestionQuery query) {
+        return getOnboardingSuggestion(null, query);
+    }
+
+    @Override
+    public DeviceOnboardingSuggestionVO getOnboardingSuggestion(Long currentUserId, DeviceOnboardingSuggestionQuery query) {
+        if (hasOrganizationRestrictedScope(currentUserId)) {
+            throw new BizException("当前数据权限暂不支持未登记设备接入建议");
+        }
+        return deviceOnboardingSuggestionService.suggest(resolveScopedTenantId(currentUserId), query);
     }
 
     @Override
@@ -521,32 +652,79 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 ));
     }
 
-    private void overlayLatestPropertyNames(Device device, List<DeviceProperty> properties) {
+    private void overlayLatestPropertyMetadata(Device device, List<DeviceProperty> properties) {
         if (device == null || device.getProductId() == null || CollectionUtils.isEmpty(properties)) {
             return;
         }
-        Map<String, String> latestNameMap = productModelMapper.selectList(
+        Map<String, ProductPropertyDisplayMetadata> latestMetadataMap = productModelMapper.selectList(
                         new LambdaQueryWrapper<ProductModel>()
                                 .eq(ProductModel::getProductId, device.getProductId())
                                 .eq(ProductModel::getModelType, "property")
                                 .eq(ProductModel::getDeleted, 0)
                 ).stream()
-                .filter(model -> StringUtils.hasText(model.getIdentifier()) && StringUtils.hasText(model.getModelName()))
+                .filter(model -> StringUtils.hasText(model.getIdentifier()))
                 .collect(Collectors.toMap(
                         ProductModel::getIdentifier,
-                        ProductModel::getModelName,
+                        model -> new ProductPropertyDisplayMetadata(
+                                StringUtils.hasText(model.getModelName()) ? model.getModelName() : null,
+                                parseProductModelUnit(model.getSpecsJson())
+                        ),
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
-        if (latestNameMap.isEmpty()) {
+        Product product = null;
+        if (latestMetadataMap.isEmpty() && runtimeMetricDisplayRuleService == null) {
             return;
         }
-        properties.forEach(property -> {
-            String latestName = latestNameMap.get(property.getIdentifier());
-            if (StringUtils.hasText(latestName)) {
-                property.setPropertyName(latestName);
+        for (DeviceProperty property : properties) {
+            ProductPropertyDisplayMetadata latestMetadata = latestMetadataMap.get(property.getIdentifier());
+            if (latestMetadata != null) {
+                if (StringUtils.hasText(latestMetadata.propertyName())) {
+                    property.setPropertyName(latestMetadata.propertyName());
+                }
+                if (StringUtils.hasText(latestMetadata.unit())) {
+                    property.setUnit(latestMetadata.unit());
+                }
+                continue;
             }
-        });
+            if (runtimeMetricDisplayRuleService == null) {
+                continue;
+            }
+            if (product == null) {
+                product = productService.getRequiredById(device.getProductId());
+            }
+            RuntimeMetricDisplayRuleService.DisplayResolution resolution =
+                    runtimeMetricDisplayRuleService.resolveForDisplay(product, property.getIdentifier());
+            if (resolution == null) {
+                continue;
+            }
+            if (StringUtils.hasText(resolution.displayName())) {
+                property.setPropertyName(resolution.displayName());
+            }
+            if (StringUtils.hasText(resolution.unit())) {
+                property.setUnit(resolution.unit());
+            }
+        }
+    }
+
+    private String parseProductModelUnit(String specsJson) {
+        if (!StringUtils.hasText(specsJson)) {
+            return null;
+        }
+        try {
+            JsonNode specs = objectMapper.readTree(specsJson);
+            JsonNode unitNode = specs == null ? null : specs.get("unit");
+            if (unitNode == null || unitNode.isNull()) {
+                return null;
+            }
+            String unit = unitNode.asText();
+            return StringUtils.hasText(unit) ? unit.trim() : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private record ProductPropertyDisplayMetadata(String propertyName, String unit) {
     }
 
     private Device createDeviceRecord(Long currentUserId, DeviceAddDTO dto) {
@@ -1486,8 +1664,15 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         return orgIds;
     }
 
-    private DeviceOptionVO toDeviceOption(Device device, Product product) {
+    private DeviceOptionVO toDeviceOption(Device device, Product product, boolean hasFormalMetrics) {
         DeviceOptionVO option = new DeviceOptionVO();
+        DeviceBindingCapabilityType capabilityType = DeviceBindingCapabilitySupport.resolve(
+                product == null ? null : product.getProductKey(),
+                product == null ? null : product.getProductName(),
+                device == null ? null : device.getDeviceCode(),
+                device == null ? null : device.getDeviceName(),
+                hasFormalMetrics
+        );
         option.setId(device.getId());
         option.setProductId(device.getProductId());
         option.setOrgId(device.getOrgId());
@@ -1501,7 +1686,27 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         option.setNodeType(device.getNodeType());
         option.setOnlineStatus(device.getOnlineStatus());
         option.setDeviceStatus(device.getDeviceStatus());
+        option.setDeviceCapabilityType(capabilityType.name());
+        option.setSupportsMetricBinding(DeviceBindingCapabilitySupport.supportsMetricBinding(capabilityType, hasFormalMetrics));
+        option.setAiEventExpandable(DeviceBindingCapabilitySupport.isAiEventExpandable(capabilityType));
         return option;
+    }
+
+    private Set<Long> loadProductsWithFormalMetrics(List<Long> productIds) {
+        List<Long> normalizedProductIds = productIds == null
+                ? List.of()
+                : productIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (normalizedProductIds.isEmpty()) {
+            return Set.of();
+        }
+        return riskMetricCatalogReadMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalogReadModel>()
+                        .in(RiskMetricCatalogReadModel::getProductId, normalizedProductIds)
+                        .eq(RiskMetricCatalogReadModel::getEnabled, 1)
+                        .eq(RiskMetricCatalogReadModel::getDeleted, 0))
+                .stream()
+                .map(RiskMetricCatalogReadModel::getProductId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     private record DeviceOrganizationAssignment(Long orgId, String orgName) {

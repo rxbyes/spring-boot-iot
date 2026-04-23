@@ -3,13 +3,26 @@ package com.ghlzm.iot.device.controller;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleBatchStatusDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleHitPreviewDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRulePublishSubmitDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleReplayDTO;
+import com.ghlzm.iot.device.dto.VendorMetricMappingRuleRollbackSubmitDTO;
 import com.ghlzm.iot.device.dto.VendorMetricMappingRuleUpsertDTO;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuleGovernanceService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuleService;
+import com.ghlzm.iot.device.service.VendorMetricMappingRuleSuggestionService;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleHitPreviewVO;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleReplayVO;
 import com.ghlzm.iot.device.vo.VendorMetricMappingRuleVO;
+import com.ghlzm.iot.device.vo.VendorMetricMappingRuleSuggestionVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,11 +39,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class VendorMetricMappingRuleController {
 
     private final VendorMetricMappingRuleService service;
+    private final VendorMetricMappingRuleSuggestionService suggestionService;
+    private final VendorMetricMappingRuleGovernanceService governanceService;
     private final GovernancePermissionGuard permissionGuard;
 
     public VendorMetricMappingRuleController(VendorMetricMappingRuleService service,
+                                             VendorMetricMappingRuleSuggestionService suggestionService,
+                                             VendorMetricMappingRuleGovernanceService governanceService,
                                              GovernancePermissionGuard permissionGuard) {
         this.service = service;
+        this.suggestionService = suggestionService;
+        this.governanceService = governanceService;
         this.permissionGuard = permissionGuard;
     }
 
@@ -40,6 +59,26 @@ public class VendorMetricMappingRuleController {
                                                               @RequestParam(required = false) Long pageNum,
                                                               @RequestParam(required = false) Long pageSize) {
         return R.ok(service.pageRules(productId, status, pageNum, pageSize));
+    }
+
+    @GetMapping("/api/device/product/{productId}/vendor-mapping-rule-suggestions")
+    public R<List<VendorMetricMappingRuleSuggestionVO>> listSuggestions(@PathVariable Long productId,
+                                                                        @RequestParam(defaultValue = "false") boolean includeCovered,
+                                                                        @RequestParam(defaultValue = "false") boolean includeIgnored,
+                                                                        @RequestParam(defaultValue = "1") Integer minEvidenceCount,
+                                                                        Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "厂商字段映射规则建议",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        return R.ok(suggestionService.listSuggestions(
+                productId,
+                includeCovered,
+                includeIgnored,
+                minEvidenceCount == null ? 1 : minEvidenceCount
+        ));
     }
 
     @PostMapping("/api/device/product/{productId}/vendor-mapping-rules")
@@ -67,6 +106,73 @@ public class VendorMetricMappingRuleController {
                 GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
         );
         return R.ok(service.updateAndGet(productId, ruleId, currentUserId, dto));
+    }
+
+    @PostMapping("/api/device/product/{productId}/vendor-mapping-rules/batch-status")
+    public R<Map<String, Object>> batchStatus(@PathVariable Long productId,
+                                              @RequestBody @Valid VendorMetricMappingRuleBatchStatusDTO dto,
+                                              Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "厂商字段映射规则维护",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        return R.ok(service.batchStatus(productId, currentUserId, dto));
+    }
+
+    @PostMapping("/api/device/product/{productId}/vendor-mapping-rules/{ruleId}/submit-publish")
+    public R<GovernanceSubmissionResultVO> submitPublish(@PathVariable Long productId,
+                                                         @PathVariable Long ruleId,
+                                                         @RequestBody @Valid VendorMetricMappingRulePublishSubmitDTO dto,
+                                                         Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "厂商字段映射规则发布",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        return R.ok(governanceService.submitPublish(productId, ruleId, currentUserId, dto));
+    }
+
+    @PostMapping("/api/device/product/{productId}/vendor-mapping-rules/{ruleId}/submit-rollback")
+    public R<GovernanceSubmissionResultVO> submitRollback(@PathVariable Long productId,
+                                                          @PathVariable Long ruleId,
+                                                          @RequestBody @Valid VendorMetricMappingRuleRollbackSubmitDTO dto,
+                                                          Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "厂商字段映射规则回滚",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK
+        );
+        return R.ok(governanceService.submitRollback(productId, ruleId, currentUserId, dto));
+    }
+
+    @PostMapping("/api/device/product/{productId}/vendor-mapping-rules/preview-hit")
+    public R<VendorMetricMappingRuleHitPreviewVO> previewHit(@PathVariable Long productId,
+                                                             @RequestBody @Valid VendorMetricMappingRuleHitPreviewDTO dto,
+                                                             Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "厂商字段映射规则试命中",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        return R.ok(governanceService.previewHit(productId, dto));
+    }
+
+    @PostMapping("/api/device/product/{productId}/vendor-mapping-rules/replay")
+    public R<VendorMetricMappingRuleReplayVO> replay(@PathVariable Long productId,
+                                                     @RequestBody @Valid VendorMetricMappingRuleReplayDTO dto,
+                                                     Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "厂商字段映射规则回放校验",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_GOVERN
+        );
+        return R.ok(service.replay(productId, dto));
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

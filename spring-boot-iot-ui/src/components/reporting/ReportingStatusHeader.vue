@@ -3,7 +3,7 @@
     <div class="reporting-status-header__hero">
       <article class="reporting-status-header__summary-panel">
         <span class="reporting-status-header__label">当前结论</span>
-        <strong class="reporting-status-header__title">当前{{ title }}</strong>
+        <strong class="reporting-status-header__title">{{ title }}</strong>
         <p class="reporting-status-header__summary">{{ summary }}</p>
         <p v-if="headline" class="reporting-status-header__finding">
           {{ headline }}

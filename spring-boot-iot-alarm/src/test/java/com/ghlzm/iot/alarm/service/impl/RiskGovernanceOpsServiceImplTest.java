@@ -289,6 +289,62 @@ class RiskGovernanceOpsServiceImplTest {
         ));
     }
 
+    @Test
+    void pageOpsAlertsShouldTreatDeepDisplacementMissingRiskMetricAsChildOwnedBoundaryGap() {
+        RiskGovernanceOpsServiceImpl service = new RiskGovernanceOpsServiceImpl(
+                vendorMetricEvidenceMapper,
+                productModelMapper,
+                catalogMapper(List.of(catalog(1001L, "dispsX"))),
+                productMapper,
+                releaseBatchMapper,
+                releaseSnapshotMapper,
+                deviceMessageService,
+                deviceAccessErrorLogService,
+                riskGovernanceService,
+                applicationEventPublisher,
+                notificationChannelDispatcher
+        );
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("nf-monitor-deep-displacement-v1");
+        product.setProductName("南方测绘 监测型 深部位移监测仪");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        ProductModel dispsX = new ProductModel();
+        dispsX.setProductId(1001L);
+        dispsX.setModelType("property");
+        dispsX.setIdentifier("dispsX");
+        ProductModel dispsY = new ProductModel();
+        dispsY.setProductId(1001L);
+        dispsY.setModelType("property");
+        dispsY.setIdentifier("dispsY");
+        ProductModel sensorState = new ProductModel();
+        sensorState.setProductId(1001L);
+        sensorState.setModelType("property");
+        sensorState.setIdentifier("sensor_state");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(dispsX, dispsY, sensorState));
+        when(vendorMetricEvidenceMapper.selectList(any())).thenReturn(List.of());
+        when(notificationChannelDispatcher.listSceneChannels("observability_alert", "MISSING_RISK_METRIC"))
+                .thenReturn(List.of(dispatchChannel("ops-governance-all", List.of())));
+
+        PageResult<RiskGovernanceOpsAlertItemVO> page = service.pageOpsAlerts(null, "MISSING_RISK_METRIC", 1L, 10L);
+
+        assertEquals(1L, page.getTotal());
+        RiskGovernanceOpsAlertItemVO alert = page.getRecords().get(0);
+        assertEquals("MISSING_RISK_METRIC", alert.getAlertType());
+        assertEquals("dispsY", alert.getSampleIdentifier());
+        assertTrue(alert.getSampleDetail().contains("collector-child"));
+        assertTrue(alert.getSampleDetail().contains("child-owned"));
+        verify(applicationEventPublisher).publishEvent(argThat((GovernanceOpsAlertRaisedEvent event) ->
+                "MISSING_RISK_METRIC".equals(event.alertType())
+                        && "product:1001:child:dispsY".equals(event.dimensionKey())
+                        && event.snapshotJson() != null
+                        && event.snapshotJson().contains("\"subjectOwnership\":\"child\"")
+                        && event.snapshotJson().contains("\"governanceBoundary\":\"collector-child\"")
+        ));
+    }
+
     private NotificationChannelDispatcher.DispatchChannel dispatchChannel(String code, List<String> opsAlertTypes) {
         NotificationChannel channel = new NotificationChannel();
         channel.setId(1L);

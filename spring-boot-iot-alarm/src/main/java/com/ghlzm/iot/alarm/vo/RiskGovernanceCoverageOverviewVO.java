@@ -12,6 +12,8 @@ public class RiskGovernanceCoverageOverviewVO {
 
     private Long contractPropertyCount;
 
+    private Long publishableContractPropertyCount;
+
     private Long publishedRiskMetricCount;
 
     private Long boundRiskMetricCount;

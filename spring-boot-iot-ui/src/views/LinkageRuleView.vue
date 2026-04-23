@@ -223,6 +223,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage } from '@/utils/message';
 import EmptyState from '@/components/EmptyState.vue';
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue';
@@ -265,6 +266,7 @@ const appliedFilters = reactive({
   status: '' as '' | number
 });
 
+const route = useRoute();
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useServerPagination();
 
 const formRef = ref();
@@ -287,6 +289,7 @@ const rules = {
 const submitLoading = ref(false);
 const linkageAdvice = '优先检查启用规则的触发条件与动作编排完整性';
 let latestListRequestId = 0;
+let governanceCreateHandled = false;
 
 const enabledCount = computed(() => ruleList.value.filter((item) => item.status === 0).length);
 const triggerConfiguredCount = computed(() => ruleList.value.filter((item) => Boolean(item.triggerCondition)).length);
@@ -434,6 +437,45 @@ const handleClearAppliedFilters = () => {
   handleReset();
 };
 
+function applyRouteQueryToFilters() {
+  filters.ruleName = parseRouteStringQuery(route.query.ruleName);
+  filters.status = parseRouteNumberQuery(route.query.status) ?? '';
+}
+
+function parseRouteStringQuery(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function parseRouteNumberQuery(value: unknown) {
+  const text = parseRouteStringQuery(value);
+  if (!text) {
+    return undefined;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseGovernanceCreateContext() {
+  if (parseRouteStringQuery(route.query.governanceAction) !== 'create') {
+    return null;
+  }
+  if (parseRouteStringQuery(route.query.governanceSource) !== 'task') {
+    return null;
+  }
+  if (parseRouteStringQuery(route.query.workItemCode) !== 'PENDING_LINKAGE_PLAN') {
+    return null;
+  }
+  if (parseRouteStringQuery(route.query.coverageType) !== 'LINKAGE') {
+    return null;
+  }
+  const metricName = parseRouteStringQuery(route.query.metricName);
+  const metricIdentifier = parseRouteStringQuery(route.query.metricIdentifier);
+  return {
+    ruleName: metricName || metricIdentifier ? `${metricName || metricIdentifier}联动规则` : ''
+  };
+}
+
 const resetRuleForm = () => {
   form.id = undefined;
   form.ruleName = '';
@@ -447,6 +489,19 @@ const handleAdd = () => {
   resetRuleForm();
   formVisible.value = true;
 };
+
+function applyGovernanceCreateContext() {
+  if (governanceCreateHandled) {
+    return;
+  }
+  const context = parseGovernanceCreateContext();
+  if (!context) {
+    return;
+  }
+  governanceCreateHandled = true;
+  handleAdd();
+  form.ruleName = context.ruleName;
+}
 
 const handleEdit = (row: LinkageRule) => {
   form.id = row.id;
@@ -498,7 +553,9 @@ const handleFormClose = () => {
 };
 
 onMounted(() => {
+  applyRouteQueryToFilters();
   syncAppliedFilters();
+  applyGovernanceCreateContext();
   void loadRuleList();
 });
 </script>

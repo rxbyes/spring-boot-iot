@@ -203,7 +203,7 @@ class ObservabilityAlertingServiceTest {
                         "riskMetricId=9102",
                         9102L,
                         "gpsTotalX",
-                        "X向累计位移",
+                        "X轴累计位移",
                         3L,
                         3L
                 ),
@@ -212,7 +212,7 @@ class ObservabilityAlertingServiceTest {
                         "metricIdentifier=gpsTotalY",
                         null,
                         "gpsTotalY",
-                        "Y向累计位移",
+                        "Y轴累计位移",
                         1L,
                         1L
                 )

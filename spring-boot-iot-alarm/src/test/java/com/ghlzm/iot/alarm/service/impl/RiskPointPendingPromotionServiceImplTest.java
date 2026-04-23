@@ -7,6 +7,7 @@ import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
+import com.ghlzm.iot.alarm.governance.RiskPointGovernanceApprovalExecutor;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
@@ -16,6 +17,10 @@ import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingMetricCandidateVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionItemVO;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingPromotionResultVO;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
+import com.ghlzm.iot.system.service.GovernanceApprovalService;
+import com.ghlzm.iot.system.service.GovernanceWorkItemService;
+import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -33,6 +38,90 @@ import static org.mockito.Mockito.when;
 class RiskPointPendingPromotionServiceImplTest {
 
     @Test
+    void submitPromotionShouldDirectlyApplyWhenApprovalPolicyMissing() {
+        Fixture fixture = new Fixture();
+        RiskPointDevicePendingBinding pending = fixture.pending("PENDING_METRIC_GOVERNANCE");
+        pending.setDeviceName("固定测斜仪-L1");
+        RiskPoint riskPoint = fixture.riskPoint();
+        RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
+        bundle.setDeviceName("固定测斜仪-L1");
+        bundle.setCandidates(List.of(
+                fixture.candidate("dispsX", "X轴位移", "HIGH", 100, 7001L)
+        ));
+        when(fixture.approvalPolicyResolver.resolveOptionalApproverUserId(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                1001L
+        )).thenReturn(null);
+        when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending, pending);
+        when(fixture.workItemService.openOrRefreshAndGetId(any())).thenReturn(8801L);
+        when(fixture.recommendationService.getCandidates(77L, 1001L)).thenReturn(bundle);
+        when(fixture.riskPointDeviceMapper.selectOne(any())).thenReturn(null);
+        when(fixture.riskPointService.getById(12L, 1001L)).thenReturn(riskPoint);
+        when(fixture.riskPointService.bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L))).thenAnswer(invocation -> {
+            RiskPointDevice binding = invocation.getArgument(0);
+            binding.setId(9901L);
+            return binding;
+        });
+
+        RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
+        request.setCompletePending(true);
+        request.setPromotionNote("人工确认后转正");
+        request.setMetrics(List.of(
+                fixture.metric("dispsX", "X轴位移")
+        ));
+
+        GovernanceSubmissionResultVO result = fixture.service.submitPromotion(77L, request, 1001L);
+
+        assertEquals(8801L, result.getWorkItemId());
+        assertEquals("DIRECT_APPLIED", result.getExecutionStatus());
+        verify(fixture.approvalService, never()).submitAction(any());
+        verify(fixture.workItemService).resolve(
+                eq("PENDING_RISK_BINDING"),
+                eq(RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION),
+                any(Long.class),
+                eq(1001L),
+                eq("DIRECT_APPLIED")
+        );
+    }
+
+    @Test
+    void submitPromotionShouldCreateApprovalOrderInsteadOfWritingWhenApprovalPolicyExists() {
+        Fixture fixture = new Fixture();
+        RiskPointDevicePendingBinding pending = fixture.pending("PENDING_METRIC_GOVERNANCE");
+        when(fixture.approvalPolicyResolver.resolveOptionalApproverUserId(
+                RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION,
+                1001L
+        )).thenReturn(2002L);
+        when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
+        when(fixture.workItemService.openOrRefreshAndGetId(any())).thenReturn(8802L);
+        when(fixture.approvalService.submitAction(any())).thenReturn(9902L);
+
+        RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
+        request.setCompletePending(true);
+        request.setPromotionNote("等待审批后转正");
+        request.setMetrics(List.of(
+                fixture.metric("dispsX", "X轴位移")
+        ));
+
+        GovernanceSubmissionResultVO result = fixture.service.submitPromotion(77L, request, 1001L);
+
+        assertEquals(8802L, result.getWorkItemId());
+        assertEquals(9902L, result.getApprovalOrderId());
+        assertEquals("PENDING", result.getApprovalStatus());
+        assertEquals("PENDING_APPROVAL", result.getExecutionStatus());
+        verify(fixture.approvalService).submitAction(argThat(command ->
+                command != null
+                        && RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_PENDING_PROMOTION.equals(command.actionCode())
+                        && Long.valueOf(8802L).equals(command.workItemId())
+                        && Long.valueOf(2002L).equals(command.approverUserId())
+                        && command.payloadJson() != null
+                        && command.payloadJson().contains("\"pendingId\":77")
+        ));
+        verify(fixture.riskPointService, never()).bindDeviceAndReturn(any(RiskPointDevice.class), any());
+        verify(fixture.promotionMapper, never()).insert(any(RiskPointDevicePendingPromotion.class));
+    }
+
+    @Test
     void promoteShouldCreateMultipleFormalBindingsAndWritePromotionHistory() {
         Fixture fixture = new Fixture();
         RiskPointDevicePendingBinding pending = fixture.pending("PENDING_METRIC_GOVERNANCE");
@@ -41,8 +130,8 @@ class RiskPointPendingPromotionServiceImplTest {
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
         bundle.setDeviceName("固定测斜仪-L1");
         bundle.setCandidates(List.of(
-                fixture.candidate("dispsX", "X向位移", "HIGH", 100, 7001L),
-                fixture.candidate("dispsY", "Y向位移", "HIGH", 96, 7002L)
+                fixture.candidate("dispsX", "X轴位移", "HIGH", 100, 7001L),
+                fixture.candidate("dispsY", "Y轴位移", "HIGH", 96, 7002L)
         ));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
@@ -59,8 +148,8 @@ class RiskPointPendingPromotionServiceImplTest {
         request.setCompletePending(true);
         request.setPromotionNote("人工确认后转正");
         request.setMetrics(List.of(
-                fixture.metric("dispsX", "X向位移"),
-                fixture.metric("L1_SW_1.dispsY", "Y向位移")
+                fixture.metric("dispsX", "X轴位移"),
+                fixture.metric("L1_SW_1.dispsY", "Y轴位移")
         ));
 
         RiskPointPendingPromotionResultVO result = fixture.service.promote(77L, request, 1001L);
@@ -92,7 +181,7 @@ class RiskPointPendingPromotionServiceImplTest {
         existing.setDeviceId(2001L);
         existing.setMetricIdentifier("dispsX");
         RiskPointPendingCandidateBundleVO bundle = new RiskPointPendingCandidateBundleVO();
-        bundle.setCandidates(List.of(fixture.candidate("dispsX", "X向位移", "HIGH", 100, 7001L)));
+        bundle.setCandidates(List.of(fixture.candidate("dispsX", "X轴位移", "HIGH", 100, 7001L)));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
         when(fixture.recommendationService.getCandidates(77L, 1001L)).thenReturn(bundle);
@@ -100,7 +189,7 @@ class RiskPointPendingPromotionServiceImplTest {
         when(fixture.riskPointService.getById(12L, 1001L)).thenReturn(riskPoint);
 
         RiskPointPendingPromotionRequest request = new RiskPointPendingPromotionRequest();
-        request.setMetrics(List.of(fixture.metric("dispsX", "X向位移")));
+        request.setMetrics(List.of(fixture.metric("dispsX", "X轴位移")));
 
         RiskPointPendingPromotionResultVO result = fixture.service.promote(77L, request, 1001L);
 
@@ -144,7 +233,7 @@ class RiskPointPendingPromotionServiceImplTest {
         bundle.setDeviceName("固定测斜仪-L1");
         bundle.setCandidates(List.of(
                 fixture.candidate("battery_dump_energy", "电池电量", "MEDIUM", 60, null),
-                fixture.candidate("dispsX", "X向位移", "HIGH", 100, 7001L)
+                fixture.candidate("dispsX", "X轴位移", "HIGH", 100, 7001L)
         ));
 
         when(fixture.pendingBindingMapper.selectByIdForUpdate(77L)).thenReturn(pending);
@@ -168,12 +257,18 @@ class RiskPointPendingPromotionServiceImplTest {
         private final RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
         private final RiskPointPendingRecommendationService recommendationService = mock(RiskPointPendingRecommendationService.class);
         private final RiskPointService riskPointService = mock(RiskPointService.class);
+        private final GovernanceApprovalPolicyResolver approvalPolicyResolver = mock(GovernanceApprovalPolicyResolver.class);
+        private final GovernanceApprovalService approvalService = mock(GovernanceApprovalService.class);
+        private final GovernanceWorkItemService workItemService = mock(GovernanceWorkItemService.class);
         private final RiskPointPendingPromotionServiceImpl service = new RiskPointPendingPromotionServiceImpl(
                 pendingBindingMapper,
                 promotionMapper,
                 riskPointDeviceMapper,
                 recommendationService,
-                riskPointService
+                riskPointService,
+                approvalPolicyResolver,
+                approvalService,
+                workItemService
         );
 
         private RiskPointDevicePendingBinding pending(String resolutionStatus) {

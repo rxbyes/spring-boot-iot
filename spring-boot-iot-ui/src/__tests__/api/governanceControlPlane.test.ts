@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { pageGovernanceWorkItems } from '@/api/governanceWorkItem'
-import { pageGovernanceOpsAlerts } from '@/api/governanceOpsAlert'
+import {
+  ackGovernanceWorkItem,
+  blockGovernanceWorkItem,
+  closeGovernanceWorkItem,
+  pageGovernanceWorkItems
+} from '@/api/governanceWorkItem'
+import {
+  ackGovernanceOpsAlert,
+  closeGovernanceOpsAlert,
+  pageGovernanceOpsAlerts,
+  suppressGovernanceOpsAlert
+} from '@/api/governanceOpsAlert'
 import { request } from '@/api/request'
 
 vi.mock('@/api/request', () => ({
@@ -48,5 +58,55 @@ describe('governance control plane api', () => {
         method: 'GET'
       }
     )
+  })
+
+  it('posts governance work item transitions to dedicated endpoints', async () => {
+    await ackGovernanceWorkItem(11, { comment: '已确认处理' })
+    await blockGovernanceWorkItem(12, { comment: '等待外部条件' })
+    await closeGovernanceWorkItem(13, { comment: '已关闭' })
+
+    expect(request).toHaveBeenNthCalledWith(1, '/api/governance/work-items/11/ack', {
+      method: 'POST',
+      body: {
+        comment: '已确认处理'
+      }
+    })
+    expect(request).toHaveBeenNthCalledWith(2, '/api/governance/work-items/12/block', {
+      method: 'POST',
+      body: {
+        comment: '等待外部条件'
+      }
+    })
+    expect(request).toHaveBeenNthCalledWith(3, '/api/governance/work-items/13/close', {
+      method: 'POST',
+      body: {
+        comment: '已关闭'
+      }
+    })
+  })
+
+  it('posts governance ops transitions to dedicated endpoints', async () => {
+    await ackGovernanceOpsAlert(21, { comment: '已确认' })
+    await suppressGovernanceOpsAlert(22, { comment: '暂时抑制' })
+    await closeGovernanceOpsAlert(23, { comment: '已关闭' })
+
+    expect(request).toHaveBeenNthCalledWith(1, '/api/governance/ops-alerts/21/ack', {
+      method: 'POST',
+      body: {
+        comment: '已确认'
+      }
+    })
+    expect(request).toHaveBeenNthCalledWith(2, '/api/governance/ops-alerts/22/suppress', {
+      method: 'POST',
+      body: {
+        comment: '暂时抑制'
+      }
+    })
+    expect(request).toHaveBeenNthCalledWith(3, '/api/governance/ops-alerts/23/close', {
+      method: 'POST',
+      body: {
+        comment: '已关闭'
+      }
+    })
   })
 })

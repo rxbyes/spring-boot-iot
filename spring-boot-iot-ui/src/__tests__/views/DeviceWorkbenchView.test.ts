@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRequestError } from '@/api/request'
 import DeviceWorkbenchView from '@/views/DeviceWorkbenchView.vue'
 
-const { mockRoute, mockRouter, mockPageDevices } = vi.hoisted(() => ({
+const { mockRoute, mockRouter, mockPageDevices, mockPermissions } = vi.hoisted(() => ({
   mockRoute: {
     path: '/devices',
     query: {} as Record<string, unknown>
@@ -17,8 +17,20 @@ const { mockRoute, mockRouter, mockPageDevices } = vi.hoisted(() => ({
     replace: vi.fn(),
     push: vi.fn()
   },
-  mockPageDevices: vi.fn()
+  mockPageDevices: vi.fn(),
+  mockPermissions: new Set<string>([
+    'iot:devices:add',
+    'iot:devices:update',
+    'iot:devices:delete',
+    'iot:devices:export',
+    'iot:devices:replace'
+  ])
 }))
+
+function setMockPermissions(...permissions: string[]) {
+  mockPermissions.clear()
+  permissions.forEach((permission) => mockPermissions.add(permission))
+}
 
 vi.mock('vue-router', () => ({
   useRoute: () => mockRoute,
@@ -30,6 +42,8 @@ vi.mock('@/api/device', () => ({
     pageDevices: mockPageDevices,
     listDeviceOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] }),
     getDeviceById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    getDeviceOnboardingSuggestion: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    batchActivateOnboardingSuggestions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     deleteDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     batchDeleteDevices: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     batchAddDevices: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
@@ -53,7 +67,7 @@ vi.mock('@/api/product', () => ({
 
 vi.mock('@/stores/permission', () => ({
   usePermissionStore: () => ({
-    hasPermission: () => true
+    hasPermission: (code: string) => mockPermissions.has(code)
   })
 }))
 
@@ -151,6 +165,19 @@ const ElFormItemStub = defineComponent({
   template: '<div class="el-form-item-stub"><slot /></div>'
 })
 
+const ElFormStub = defineComponent({
+  name: 'ElForm',
+  methods: {
+    validate() {
+      return Promise.resolve(true)
+    },
+    clearValidate() {
+      return undefined
+    }
+  },
+  template: '<form class="el-form-stub"><slot /></form>'
+})
+
 const ElInputStub = defineComponent({
   name: 'ElInput',
   props: ['modelValue', 'id', 'placeholder'],
@@ -180,7 +207,7 @@ const StandardButtonStub = defineComponent({
 
 const StandardActionMenuStub = defineComponent({
   name: 'StandardActionMenu',
-  props: ['label'],
+  props: ['label', 'items'],
   template: '<button class="standard-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
 })
 
@@ -230,8 +257,27 @@ const StandardFormDrawerStub = defineComponent({
   `
 })
 
+const DeviceOnboardingSuggestionDrawerStub = defineComponent({
+  name: 'DeviceOnboardingSuggestionDrawer',
+  props: ['modelValue', 'suggestion', 'loading', 'errorMessage', 'sourceRow'],
+  template: `
+    <section class="device-onboarding-suggestion-drawer-stub">
+      <p>{{ sourceRow?.deviceCode }}</p>
+      <p>{{ suggestion?.recommendedProductKey }}</p>
+      <p>{{ suggestion?.recommendedFamilyCode }}</p>
+      <p>{{ suggestion?.recommendedTemplateCode }}</p>
+      <p>{{ (suggestion?.ruleGaps || []).join(' / ') }}</p>
+    </section>
+  `
+})
+
 const ElTableStub = defineComponent({
   name: 'ElTable',
+  methods: {
+    clearSelection() {
+      return undefined
+    }
+  },
   template: '<section class="device-table-stub"><slot /></section>'
 })
 
@@ -278,6 +324,7 @@ function mountView() {
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardWorkbenchRowActions: StandardWorkbenchRowActionsStub,
+        ElForm: ElFormStub,
         ElFormItem: ElFormItemStub,
         ElInput: ElInputStub,
         StandardInlineState: StandardInlineStateStub,
@@ -285,6 +332,7 @@ function mountView() {
         StandardActionMenu: StandardActionMenuStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
+        DeviceOnboardingSuggestionDrawer: DeviceOnboardingSuggestionDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub
@@ -295,6 +343,13 @@ function mountView() {
 
 describe('DeviceWorkbenchView', () => {
   beforeEach(() => {
+    setMockPermissions(
+      'iot:devices:add',
+      'iot:devices:update',
+      'iot:devices:delete',
+      'iot:devices:export',
+      'iot:devices:replace'
+    )
     mockRoute.path = '/devices'
     mockRoute.query = {}
     mockRouter.replace.mockReset()
@@ -484,6 +539,277 @@ describe('DeviceWorkbenchView', () => {
 
     expect(wrapper.text()).toContain('来自失败归档')
     expect(wrapper.text()).toContain('demo-device-01')
+  })
+
+  it('shows edit for unregistered rows when create permission exists', async () => {
+    setMockPermissions('iot:devices:add')
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'shadow-product',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state',
+        createTime: '2026-04-12T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+
+    expect(((cardRowActions?.props('directItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
+      '详情',
+      '编辑'
+    ])
+  })
+
+  it('shows onboarding suggestion for unregistered rows and loads the drawer payload', async () => {
+    const { deviceApi } = await import('@/api/device')
+    vi.mocked(deviceApi.getDeviceOnboardingSuggestion).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-unregistered-001',
+        deviceCode: 'shadow-device-01',
+        recommendedProductKey: 'south_rtu',
+        recommendedFamilyCode: 'legacy-dp',
+        recommendedTemplateCode: 'legacy-dp-crack-v1',
+        ruleGaps: ['推荐产品尚未形成正式合同发布，转正前需先发布契约字段。']
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'south_rtu',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state',
+        lastTraceId: 'trace-unregistered-001'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain('接入建议')
+
+    await (wrapper.vm as any).handleRowAction('suggestion', (wrapper.vm as any).tableData[0])
+    await flushPromises()
+    await nextTick()
+
+    expect(deviceApi.getDeviceOnboardingSuggestion).toHaveBeenCalledWith('trace-unregistered-001')
+    const suggestionDrawer = wrapper.findComponent(DeviceOnboardingSuggestionDrawerStub)
+    expect(suggestionDrawer.props('modelValue')).toBe(true)
+    expect((suggestionDrawer.props('suggestion') as Record<string, unknown>).recommendedTemplateCode).toBe('legacy-dp-crack-v1')
+    expect(wrapper.text()).toContain('south_rtu')
+    expect(wrapper.text()).toContain('legacy-dp')
+  })
+
+  it('adds batch activation to toolbar actions for confirmed unregistered selections', async () => {
+    const { deviceApi } = await import('@/api/device')
+    const { confirmAction } = await import('@/utils/confirm')
+    vi.mocked(confirmAction).mockResolvedValue(undefined)
+    vi.mocked(deviceApi.batchActivateOnboardingSuggestions).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        requestedCount: 1,
+        activatedCount: 1,
+        rejectedCount: 0,
+        activatedTraceIds: ['trace-unregistered-001'],
+        activatedDeviceCodes: ['shadow-device-01'],
+        errors: []
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'south_rtu',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state',
+        lastTraceId: 'trace-unregistered-001'
+      }
+    ]
+    ;(wrapper.vm as any).selectedRows = [...(wrapper.vm as any).tableData]
+    await nextTick()
+
+    const actionMenu = wrapper.findComponent(StandardActionMenuStub)
+    const menuLabels = ((actionMenu.props('items') as Array<{ label: string }>) || []).map((item) => item.label)
+    expect(menuLabels).toContain('批量转正式设备')
+
+    await (wrapper.vm as any).handleToolbarAction('batch-activate')
+    await flushPromises()
+    await nextTick()
+
+    expect(confirmAction).toHaveBeenCalledTimes(1)
+    expect(deviceApi.batchActivateOnboardingSuggestions).toHaveBeenCalledWith({
+      traceIds: ['trace-unregistered-001'],
+      confirmed: true
+    })
+  })
+
+  it('switches unregistered edit into register mode with add-permission submit copy', async () => {
+    setMockPermissions('iot:devices:add')
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).handleEdit({
+      sourceRecordId: 7001,
+      productKey: 'shadow-product',
+      deviceCode: 'shadow-device-01',
+      deviceName: '未登记设备',
+      registrationStatus: 0,
+      assetSourceType: 'invalid_report_state'
+    })
+    await nextTick()
+
+    const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
+    expect(formDrawer.props('title')).toBe('登记设备')
+    expect(String(formDrawer.props('subtitle'))).toContain('未登记上报线索')
+    expect((wrapper.vm as any).formSubmitText).toBe('提交设备建档')
+    expect((wrapper.vm as any).submitPermission).toBe('iot:devices:add')
+    expect(wrapper.text()).not.toContain('保存设备变更')
+  })
+
+  it('submits register mode through addDevice and removes the stale row from the unregistered view', async () => {
+    setMockPermissions('iot:devices:add')
+    const { deviceApi } = await import('@/api/device')
+    vi.mocked(deviceApi.addDevice).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 8101,
+        productKey: 'shadow-product',
+        productName: '正式产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '北坡正式设备',
+        registrationStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'shadow-product',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state'
+      }
+    ]
+    ;(wrapper.vm as any).pagination.total = 1
+    ;(wrapper.vm as any).appliedFilters.registrationStatus = 0
+    ;(wrapper.vm as any).handleEdit((wrapper.vm as any).tableData[0])
+    await nextTick()
+
+    await (wrapper.vm as any).handleSubmit()
+    await flushPromises()
+    await nextTick()
+
+    expect(deviceApi.addDevice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productKey: 'shadow-product',
+        deviceCode: 'shadow-device-01'
+      })
+    )
+    expect(deviceApi.updateDevice).not.toHaveBeenCalled()
+    expect((wrapper.vm as any).tableData).toEqual([])
+    expect((wrapper.vm as any).pagination.total).toBe(0)
+    expect(vi.mocked(ElMessage.success)).toHaveBeenCalledWith('登记成功')
+  })
+
+  it('injects the new registered row back into the current result when register mode finishes in the combined view', async () => {
+    setMockPermissions('iot:devices:add')
+    const { deviceApi } = await import('@/api/device')
+    const createdRow = {
+      id: 8102,
+      productKey: 'shadow-product',
+      productName: '正式产品',
+      deviceCode: 'shadow-device-01',
+      deviceName: '北坡正式设备',
+      registrationStatus: 1,
+      activateStatus: 1,
+      deviceStatus: 1
+    }
+    vi.mocked(deviceApi.addDevice).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: createdRow
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+    ;(wrapper.vm as any).tableData = [
+      {
+        sourceRecordId: 7001,
+        productKey: 'shadow-product',
+        productName: '未登记产品',
+        deviceCode: 'shadow-device-01',
+        deviceName: '未登记设备',
+        registrationStatus: 0,
+        assetSourceType: 'invalid_report_state'
+      }
+    ]
+    ;(wrapper.vm as any).pagination.pageNum = 1
+    ;(wrapper.vm as any).pagination.pageSize = 10
+    ;(wrapper.vm as any).pagination.total = 1
+    ;(wrapper.vm as any).appliedFilters.registrationStatus = undefined
+    mockPageDevices.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createdRow]
+      }
+    })
+    ;(wrapper.vm as any).handleEdit((wrapper.vm as any).tableData[0])
+    await nextTick()
+
+    await (wrapper.vm as any).handleSubmit()
+    await flushPromises()
+    await nextTick()
+
+    expect((wrapper.vm as any).tableData).toEqual([
+      expect.objectContaining({
+        id: 8102,
+        deviceCode: 'shadow-device-01',
+        registrationStatus: 1
+      })
+    ])
+    expect((wrapper.vm as any).pagination.total).toBe(1)
   })
 
   it('reuses the shared workbench row-actions component for registered device cards', async () => {

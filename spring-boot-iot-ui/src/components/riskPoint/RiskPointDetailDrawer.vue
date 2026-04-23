@@ -46,7 +46,7 @@
     <section v-if="summaryPendingCount > 0" class="detail-panel">
       <div class="detail-notice">
         <span class="detail-notice__label">治理提醒</span>
-        <strong class="detail-notice__value">当前仍有 {{ summaryPendingCount }} 条待治理记录，维护正式绑定后可继续进入“待治理转正”完成收口。</strong>
+        <strong class="detail-notice__value">当前仍有 {{ summaryPendingCount }} 条待治理记录，可继续进入“风险绑定工作台”并切换到“待治理转正”完成收口。</strong>
       </div>
     </section>
 
@@ -71,11 +71,21 @@
           <div class="detail-binding-group-card__header">
             <div>
               <h4>{{ group.deviceName || '未命名设备' }}</h4>
-              <p>{{ group.deviceCode || '--' }} · {{ group.metricCount }} 个正式测点</p>
+              <p>
+                {{ group.deviceCode || '--' }}
+                ·
+                {{ isDeviceOnlyGroup(group) ? '设备级正式绑定' : `${group.metricCount} 个正式测点` }}
+              </p>
             </div>
           </div>
 
-          <div class="detail-binding-metric-list">
+          <div v-if="isDeviceOnlyGroup(group)" class="detail-binding-device-only-card">
+            <strong>设备级正式绑定</strong>
+            <p>{{ getGroupCapabilityLabel(group) }}</p>
+            <p v-if="isAiEventReserved(group)">AI 事件扩展预留</p>
+          </div>
+
+          <div v-else class="detail-binding-metric-list">
             <div
               v-for="metric in group.metrics"
               :key="String(metric.bindingId)"
@@ -161,20 +171,12 @@
           编辑风险点
         </StandardButton>
         <StandardButton
-          data-testid="detail-maintain-binding-action"
+          data-testid="detail-binding-workbench-action"
           action="confirm"
           :disabled="!displayRiskPoint"
-          @click="emit('maintain-binding')"
+          @click="emit('binding-workbench')"
         >
-          维护绑定
-        </StandardButton>
-        <StandardButton
-          data-testid="detail-pending-promotion-action"
-          action="reset"
-          :disabled="!displayRiskPoint"
-          @click="emit('pending-promotion')"
-        >
-          待治理转正
+          风险绑定工作台
         </StandardButton>
       </div>
     </template>
@@ -191,6 +193,12 @@ import { getRiskPointById, listBindingGroups, type RiskPoint, type RiskPointBind
 import type { IdType } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import { getRiskLevelTagType, getRiskLevelText } from '@/utils/riskLevel'
+import {
+  getDeviceCapabilityLabel,
+  isAiEventReserved,
+  isDeviceOnlyBindingMode,
+  resolveBindingGroupCapabilityType
+} from '@/utils/riskPointDeviceBindingCapability'
 import { DEFAULT_RISK_POINT_LEVEL_OPTIONS, getRiskPointLevelText } from '@/utils/riskPointLevel'
 
 const props = withDefaults(
@@ -211,8 +219,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   close: []
   edit: []
-  'maintain-binding': []
-  'pending-promotion': []
+  'binding-workbench': []
 }>()
 
 const loading = ref(false)
@@ -266,9 +273,9 @@ const bindingStateHint = computed(() => {
 })
 const pendingGovernanceHint = computed(() => {
   if (summaryPendingCount.value > 0) {
-    return '待治理转正与正式绑定维护保持独立流程，建议在这里统一查看后再决定下一步。'
+    return '待治理与正式绑定在工作台内分域执行，可统一进入后再决定下一步。'
   }
-  return '当前没有待治理残留，后续仅需关注正式绑定维护。'
+  return '当前没有待治理残留，后续可直接在风险绑定工作台维护正式绑定。'
 })
 const drawerTitle = computed(() => displayRiskPoint.value?.riskPointName || '风险对象详情')
 const drawerSubtitle = computed(() =>
@@ -362,6 +369,10 @@ const getBindingSourceLabel = (bindingSource?: string | null) => {
   }
 }
 
+const isDeviceOnlyGroup = (group: RiskPointBindingDeviceGroup) => isDeviceOnlyBindingMode(group)
+const getGroupCapabilityLabel = (group: RiskPointBindingDeviceGroup) =>
+  `${getDeviceCapabilityLabel(resolveBindingGroupCapabilityType(group))} · 设备级正式绑定`
+
 watch(
   () => [props.modelValue, props.riskPointId],
   () => {
@@ -418,6 +429,19 @@ watch(
 .detail-binding-metric-list {
   display: grid;
   gap: 0.9rem;
+}
+
+.detail-binding-device-only-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--brand) 8%, white);
+}
+
+.detail-binding-device-only-card p {
+  margin: 0;
+  color: var(--text-secondary);
 }
 
 .detail-summary-grid {

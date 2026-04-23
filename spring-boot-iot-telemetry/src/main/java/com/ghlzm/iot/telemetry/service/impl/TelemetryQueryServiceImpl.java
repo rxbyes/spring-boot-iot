@@ -10,7 +10,12 @@ import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
 import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.service.DevicePropertyMetadataService;
 import com.ghlzm.iot.device.service.DeviceTelemetryMappingService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.model.DevicePropertyMetadata;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.model.TelemetryMetricMapping;
 import com.ghlzm.iot.telemetry.service.TelemetryQueryService;
 import com.ghlzm.iot.telemetry.service.dto.TelemetryHistoryBatchRequest;
@@ -22,6 +27,7 @@ import com.ghlzm.iot.telemetry.service.model.TelemetryStreamKind;
 import com.ghlzm.iot.telemetry.service.model.TelemetryV2Point;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -31,10 +37,12 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -60,6 +68,42 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader;
     private final LegacyTelemetryHistoryReader legacyTelemetryHistoryReader;
     private final TelemetryRawHistoryReader telemetryRawHistoryReader;
+    private final PublishedProductContractSnapshotService snapshotService;
+    private final MetricIdentifierResolver metricIdentifierResolver;
+    private final RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
+
+    @Autowired
+    public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
+                                     ProductMapper productMapper,
+                                     DevicePropertyMapper devicePropertyMapper,
+                                     DevicePropertyMetadataService devicePropertyMetadataService,
+                                     DeviceTelemetryMappingService deviceTelemetryMappingService,
+                                     TdengineTelemetryFacade tdengineTelemetryFacade,
+                                     TelemetryStorageModeResolver storageModeResolver,
+                                     TelemetryReadRouter telemetryReadRouter,
+                                     TelemetryLatestProjectionRepository telemetryLatestProjectionRepository,
+                                     NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader,
+                                     LegacyTelemetryHistoryReader legacyTelemetryHistoryReader,
+                                     TelemetryRawHistoryReader telemetryRawHistoryReader,
+                                     PublishedProductContractSnapshotService snapshotService,
+                                     MetricIdentifierResolver metricIdentifierResolver,
+                                     RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService) {
+        this.deviceMapper = deviceMapper;
+        this.productMapper = productMapper;
+        this.devicePropertyMapper = devicePropertyMapper;
+        this.devicePropertyMetadataService = devicePropertyMetadataService;
+        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
+        this.tdengineTelemetryFacade = tdengineTelemetryFacade;
+        this.storageModeResolver = storageModeResolver;
+        this.telemetryReadRouter = telemetryReadRouter;
+        this.telemetryLatestProjectionRepository = telemetryLatestProjectionRepository;
+        this.normalizedTelemetryHistoryReader = normalizedTelemetryHistoryReader;
+        this.legacyTelemetryHistoryReader = legacyTelemetryHistoryReader;
+        this.telemetryRawHistoryReader = telemetryRawHistoryReader;
+        this.snapshotService = snapshotService;
+        this.metricIdentifierResolver = metricIdentifierResolver;
+        this.runtimeMetricDisplayRuleService = runtimeMetricDisplayRuleService;
+    }
 
     public TelemetryQueryServiceImpl(DeviceMapper deviceMapper,
                                      ProductMapper productMapper,
@@ -73,18 +117,23 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                                      NormalizedTelemetryHistoryReader normalizedTelemetryHistoryReader,
                                      LegacyTelemetryHistoryReader legacyTelemetryHistoryReader,
                                      TelemetryRawHistoryReader telemetryRawHistoryReader) {
-        this.deviceMapper = deviceMapper;
-        this.productMapper = productMapper;
-        this.devicePropertyMapper = devicePropertyMapper;
-        this.devicePropertyMetadataService = devicePropertyMetadataService;
-        this.deviceTelemetryMappingService = deviceTelemetryMappingService;
-        this.tdengineTelemetryFacade = tdengineTelemetryFacade;
-        this.storageModeResolver = storageModeResolver;
-        this.telemetryReadRouter = telemetryReadRouter;
-        this.telemetryLatestProjectionRepository = telemetryLatestProjectionRepository;
-        this.normalizedTelemetryHistoryReader = normalizedTelemetryHistoryReader;
-        this.legacyTelemetryHistoryReader = legacyTelemetryHistoryReader;
-        this.telemetryRawHistoryReader = telemetryRawHistoryReader;
+        this(
+                deviceMapper,
+                productMapper,
+                devicePropertyMapper,
+                devicePropertyMetadataService,
+                deviceTelemetryMappingService,
+                tdengineTelemetryFacade,
+                storageModeResolver,
+                telemetryReadRouter,
+                telemetryLatestProjectionRepository,
+                normalizedTelemetryHistoryReader,
+                legacyTelemetryHistoryReader,
+                telemetryRawHistoryReader,
+                null,
+                null,
+                null
+        );
     }
 
     @Override
@@ -110,21 +159,31 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         if (!FILL_POLICY_ZERO.equals(fillPolicy)) {
             throw new BizException("当前仅支持 ZERO 补零策略");
         }
-        RangeDefinition rangeDefinition = resolveRangeDefinition(request.getRangeCode());
+        LocalDateTime now = LocalDateTime.now();
+        HistoryQueryWindow queryWindow = resolveHistoryQueryWindow(request.getRangeCode(), now);
         if (!storageModeResolver.isTdengineEnabled()) {
             throw new BizException("当前环境未启用 TDengine 历史查询");
         }
         Device device = requireDevice(request.getDeviceId());
         Product product = device.getProductId() == null ? null : productMapper.selectById(device.getProductId());
-        Map<String, DevicePropertyMetadata> metadataMap = device.getProductId() == null
-                ? Map.of()
-                : devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId());
+        HistoryIdentifierContext identifierContext = resolveHistoryIdentifierContext(device, product, identifiers);
+        List<String> resolvedIdentifiers = identifierContext.identifiers();
+        Map<String, DevicePropertyMetadata> metadataMap = identifierContext.metadataMap();
         Map<String, TelemetryMetricMapping> mappingMap = device.getProductId() == null
                 ? Map.of()
                 : deviceTelemetryMappingService.listMetricMappingMap(device.getProductId());
-        List<BucketSlot> slots = buildBucketSlots(rangeDefinition, LocalDateTime.now());
-        List<TelemetryV2Point> historyPoints = readHistoryPoints(device, product, metadataMap, mappingMap, identifiers);
-        return buildHistoryBatchResponse(device.getId(), identifiers, request.getRangeCode(), rangeDefinition, slots, historyPoints, metadataMap);
+        List<BucketSlot> slots = buildBucketSlots(queryWindow);
+        List<TelemetryV2Point> historyPoints =
+                readHistoryPoints(device, product, metadataMap, mappingMap, resolvedIdentifiers, queryWindow);
+        return buildHistoryBatchResponse(
+                device.getId(),
+                resolvedIdentifiers,
+                request.getRangeCode(),
+                queryWindow,
+                slots,
+                historyPoints,
+                metadataMap
+        );
     }
 
     private Map<String, Object> buildTdengineResponse(Device device, Product product) {
@@ -202,11 +261,230 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return tdengineTelemetryFacade.listLatestPoints(device, product);
     }
 
+    private HistoryIdentifierContext resolveHistoryIdentifierContext(Device device,
+                                                                    Product product,
+                                                                    List<String> requestedIdentifiers) {
+        PublishedProductContractSnapshot snapshot = loadPublishedSnapshot(device);
+        Map<String, DevicePropertyMetadata> productMetadataMap = loadProductHistoryMetadataMap(device);
+        Map<String, String> productMetadataCaseInsensitiveMap = buildCaseInsensitiveIdentifierMap(productMetadataMap.keySet());
+        List<DeviceProperty> currentProperties = loadCurrentProperties(device);
+        Map<String, DeviceProperty> currentPropertyMap = buildCurrentPropertyMap(currentProperties);
+        Map<String, String> currentPropertyCaseInsensitiveMap = buildCaseInsensitiveIdentifierMap(currentPropertyMap.keySet());
+        List<String> resolvedIdentifiers = new ArrayList<>();
+        Set<String> seenIdentifiers = new LinkedHashSet<>();
+        Map<String, DevicePropertyMetadata> metadataMap = new LinkedHashMap<>();
+        for (String requestedIdentifier : requestedIdentifiers) {
+            String resolvedIdentifier = resolveHistoryIdentifier(
+                    requestedIdentifier,
+                    snapshot,
+                    currentPropertyMap,
+                    currentPropertyCaseInsensitiveMap,
+                    productMetadataMap,
+                    productMetadataCaseInsensitiveMap
+            );
+            if (seenIdentifiers.add(resolvedIdentifier)) {
+                resolvedIdentifiers.add(resolvedIdentifier);
+            }
+            DevicePropertyMetadata metadata = buildResolvedHistoryMetadata(
+                    product,
+                    resolvedIdentifier,
+                    productMetadataMap,
+                    productMetadataCaseInsensitiveMap,
+                    currentPropertyMap,
+                    currentPropertyCaseInsensitiveMap
+            );
+            if (metadata != null) {
+                metadataMap.putIfAbsent(resolvedIdentifier, metadata);
+            }
+        }
+        return new HistoryIdentifierContext(resolvedIdentifiers, metadataMap);
+    }
+
+    private Map<String, DevicePropertyMetadata> loadProductHistoryMetadataMap(Device device) {
+        if (device == null || device.getProductId() == null) {
+            return Map.of();
+        }
+        Map<String, DevicePropertyMetadata> metadataMap =
+                devicePropertyMetadataService.listPropertyMetadataMap(device.getProductId());
+        return metadataMap == null ? Map.of() : metadataMap;
+    }
+
+    private List<DeviceProperty> loadCurrentProperties(Device device) {
+        if (device == null || device.getId() == null) {
+            return List.of();
+        }
+        List<DeviceProperty> currentProperties = devicePropertyMapper.selectList(
+                new LambdaQueryWrapper<DeviceProperty>()
+                        .eq(DeviceProperty::getDeviceId, device.getId())
+                        .orderByAsc(DeviceProperty::getIdentifier)
+        );
+        return currentProperties == null ? List.of() : currentProperties;
+    }
+
+    private Map<String, DeviceProperty> buildCurrentPropertyMap(List<DeviceProperty> currentProperties) {
+        Map<String, DeviceProperty> propertyMap = new LinkedHashMap<>();
+        for (DeviceProperty currentProperty : currentProperties) {
+            if (currentProperty == null || currentProperty.getIdentifier() == null || currentProperty.getIdentifier().isBlank()) {
+                continue;
+            }
+            propertyMap.putIfAbsent(currentProperty.getIdentifier(), currentProperty);
+        }
+        return propertyMap;
+    }
+
+    private Map<String, String> buildCaseInsensitiveIdentifierMap(Iterable<String> identifiers) {
+        Map<String, String> identifierMap = new LinkedHashMap<>();
+        if (identifiers == null) {
+            return identifierMap;
+        }
+        for (String identifier : identifiers) {
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            identifierMap.putIfAbsent(normalizeIdentifierKey(identifier), identifier);
+        }
+        return identifierMap;
+    }
+
+    private String resolveHistoryIdentifier(String requestedIdentifier,
+                                            PublishedProductContractSnapshot snapshot,
+                                            Map<String, DeviceProperty> currentPropertyMap,
+                                            Map<String, String> currentPropertyCaseInsensitiveMap,
+                                            Map<String, DevicePropertyMetadata> productMetadataMap,
+                                            Map<String, String> productMetadataCaseInsensitiveMap) {
+        String publishedIdentifier = resolvePublishedIdentifier(snapshot, requestedIdentifier);
+        if (publishedIdentifier != null) {
+            return publishedIdentifier;
+        }
+        if (currentPropertyMap.containsKey(requestedIdentifier)) {
+            return requestedIdentifier;
+        }
+        String currentPropertyIdentifier = currentPropertyCaseInsensitiveMap.get(normalizeIdentifierKey(requestedIdentifier));
+        if (currentPropertyIdentifier != null) {
+            return currentPropertyIdentifier;
+        }
+        if (productMetadataMap.containsKey(requestedIdentifier)) {
+            return requestedIdentifier;
+        }
+        String productMetadataIdentifier = productMetadataCaseInsensitiveMap.get(normalizeIdentifierKey(requestedIdentifier));
+        if (productMetadataIdentifier != null) {
+            return productMetadataIdentifier;
+        }
+        return requestedIdentifier;
+    }
+
+    private PublishedProductContractSnapshot loadPublishedSnapshot(Device device) {
+        Long productId = device == null ? null : device.getProductId();
+        if (productId == null || snapshotService == null) {
+            return PublishedProductContractSnapshot.empty(productId);
+        }
+        PublishedProductContractSnapshot snapshot = snapshotService.getRequiredSnapshot(productId);
+        return snapshot == null ? PublishedProductContractSnapshot.empty(productId) : snapshot;
+    }
+
+    private String resolvePublishedIdentifier(PublishedProductContractSnapshot snapshot, String requestedIdentifier) {
+        if (metricIdentifierResolver == null || requestedIdentifier == null || requestedIdentifier.isBlank()) {
+            return null;
+        }
+        MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForRead(snapshot, requestedIdentifier);
+        if (resolution == null || resolution.canonicalIdentifier() == null || resolution.canonicalIdentifier().isBlank()) {
+            return null;
+        }
+        if (MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER.equals(resolution.source())) {
+            return null;
+        }
+        return resolution.canonicalIdentifier();
+    }
+
+    private DevicePropertyMetadata buildResolvedHistoryMetadata(Product product,
+                                                               String resolvedIdentifier,
+                                                               Map<String, DevicePropertyMetadata> productMetadataMap,
+                                                               Map<String, String> productMetadataCaseInsensitiveMap,
+                                                               Map<String, DeviceProperty> currentPropertyMap,
+                                                               Map<String, String> currentPropertyCaseInsensitiveMap) {
+        DevicePropertyMetadata metadata = copyMetadata(
+                findProductMetadata(resolvedIdentifier, productMetadataMap, productMetadataCaseInsensitiveMap)
+        );
+        DeviceProperty currentProperty =
+                findCurrentProperty(resolvedIdentifier, currentPropertyMap, currentPropertyCaseInsensitiveMap);
+        if (metadata == null && currentProperty == null) {
+            return null;
+        }
+        if (metadata == null) {
+            metadata = new DevicePropertyMetadata();
+        }
+        metadata.setIdentifier(resolvedIdentifier);
+        RuntimeMetricDisplayRuleService.DisplayResolution displayResolution =
+                runtimeMetricDisplayRuleService == null ? null : runtimeMetricDisplayRuleService.resolveForDisplay(product, resolvedIdentifier);
+        if ((metadata.getPropertyName() == null || metadata.getPropertyName().isBlank())
+                && displayResolution != null && displayResolution.displayName() != null && !displayResolution.displayName().isBlank()) {
+            metadata.setPropertyName(displayResolution.displayName());
+        }
+        if ((metadata.getUnit() == null || metadata.getUnit().isBlank())
+                && displayResolution != null && displayResolution.unit() != null && !displayResolution.unit().isBlank()) {
+            metadata.setUnit(displayResolution.unit());
+        }
+        if ((metadata.getPropertyName() == null || metadata.getPropertyName().isBlank()) && currentProperty != null) {
+            metadata.setPropertyName(currentProperty.getPropertyName());
+        }
+        if ((metadata.getDataType() == null || metadata.getDataType().isBlank()) && currentProperty != null) {
+            metadata.setDataType(currentProperty.getValueType());
+        }
+        if ((metadata.getUnit() == null || metadata.getUnit().isBlank()) && currentProperty != null) {
+            metadata.setUnit(currentProperty.getUnit());
+        }
+        return metadata;
+    }
+
+    private DevicePropertyMetadata findProductMetadata(String identifier,
+                                                       Map<String, DevicePropertyMetadata> productMetadataMap,
+                                                       Map<String, String> productMetadataCaseInsensitiveMap) {
+        if (productMetadataMap.containsKey(identifier)) {
+            return productMetadataMap.get(identifier);
+        }
+        String resolvedIdentifier = productMetadataCaseInsensitiveMap.get(normalizeIdentifierKey(identifier));
+        if (resolvedIdentifier == null) {
+            return null;
+        }
+        return productMetadataMap.get(resolvedIdentifier);
+    }
+
+    private DeviceProperty findCurrentProperty(String identifier,
+                                               Map<String, DeviceProperty> currentPropertyMap,
+                                               Map<String, String> currentPropertyCaseInsensitiveMap) {
+        if (currentPropertyMap.containsKey(identifier)) {
+            return currentPropertyMap.get(identifier);
+        }
+        String resolvedIdentifier = currentPropertyCaseInsensitiveMap.get(normalizeIdentifierKey(identifier));
+        if (resolvedIdentifier == null) {
+            return null;
+        }
+        return currentPropertyMap.get(resolvedIdentifier);
+    }
+
+    private DevicePropertyMetadata copyMetadata(DevicePropertyMetadata metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        DevicePropertyMetadata copy = new DevicePropertyMetadata();
+        copy.setIdentifier(metadata.getIdentifier());
+        copy.setPropertyName(metadata.getPropertyName());
+        copy.setDataType(metadata.getDataType());
+        copy.setUnit(metadata.getUnit());
+        copy.setTdengineLegacyMapping(metadata.getTdengineLegacyMapping());
+        return copy;
+    }
+
+    private String normalizeIdentifierKey(String identifier) {
+        return identifier == null ? "" : identifier.trim().toLowerCase(Locale.ROOT);
+    }
+
     private List<TelemetryV2Point> readHistoryPoints(Device device,
                                                      Product product,
                                                      Map<String, DevicePropertyMetadata> metadataMap,
                                                      Map<String, TelemetryMetricMapping> mappingMap,
-                                                     List<String> identifiers) {
+                                                     List<String> identifiers,
+                                                     HistoryQueryWindow queryWindow) {
         String historySource = telemetryReadRouter.historySource();
         boolean primaryV2 = historySource != null && historySource.startsWith("v2");
         boolean fallbackEnabled = telemetryReadRouter.isLegacyReadFallbackEnabled();
@@ -216,8 +494,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 fallbackEnabled,
                 "继续尝试回退链路",
                 () -> primaryV2
-                        ? readV2History(device, product, metadataMap, identifiers)
-                        : readLegacyHistory(device, product, metadataMap, mappingMap)
+                        ? readV2History(device, product, metadataMap, identifiers, queryWindow)
+                        : readLegacyHistory(device, product, metadataMap, mappingMap, queryWindow)
         );
         if (!fallbackEnabled) {
             return primary;
@@ -228,8 +506,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 true,
                 "保留主链路结果",
                 () -> primaryV2
-                        ? readLegacyHistory(device, product, metadataMap, mappingMap)
-                        : readV2History(device, product, metadataMap, identifiers)
+                        ? readLegacyHistory(device, product, metadataMap, mappingMap, queryWindow)
+                        : readV2History(device, product, metadataMap, identifiers, queryWindow)
         );
         return mergeHistoryPoints(primary, secondary);
     }
@@ -257,12 +535,15 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private List<TelemetryV2Point> readV2History(Device device,
                                                  Product product,
                                                  Map<String, DevicePropertyMetadata> metadataMap,
-                                                 List<String> identifiers) {
+                                                 List<String> identifiers,
+                                                 HistoryQueryWindow queryWindow) {
         List<TelemetryV2Point> rawHistory = telemetryRawHistoryReader.listHistory(
                 device,
                 product,
                 metadataMap,
                 identifiers,
+                queryWindow.windowStart(),
+                queryWindow.windowEnd(),
                 HISTORY_BATCH_SIZE
         );
         try {
@@ -273,6 +554,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                     device,
                     product,
                     metadataMap,
+                    queryWindow.windowStart(),
+                    queryWindow.windowEnd(),
                     HISTORY_BATCH_SIZE
             );
             return mergeHistoryPoints(rawHistory, normalizedHistory);
@@ -287,8 +570,17 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private List<TelemetryV2Point> readLegacyHistory(Device device,
                                                      Product product,
                                                      Map<String, DevicePropertyMetadata> metadataMap,
-                                                     Map<String, TelemetryMetricMapping> mappingMap) {
-        return legacyTelemetryHistoryReader.listHistory(device, product, metadataMap, mappingMap, HISTORY_BATCH_SIZE);
+                                                     Map<String, TelemetryMetricMapping> mappingMap,
+                                                     HistoryQueryWindow queryWindow) {
+        return legacyTelemetryHistoryReader.listHistory(
+                device,
+                product,
+                metadataMap,
+                mappingMap,
+                queryWindow.windowStart(),
+                queryWindow.windowEnd(),
+                HISTORY_BATCH_SIZE
+        );
     }
 
     private List<TelemetryV2Point> mergeHistoryPoints(List<TelemetryV2Point> primary,
@@ -316,24 +608,24 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private TelemetryHistoryBatchResponse buildHistoryBatchResponse(Long deviceId,
                                                                     List<String> identifiers,
                                                                     String rangeCode,
-                                                                    RangeDefinition rangeDefinition,
+                                                                    HistoryQueryWindow queryWindow,
                                                                     List<BucketSlot> slots,
                                                                     List<TelemetryV2Point> historyPoints,
                                                                     Map<String, DevicePropertyMetadata> metadataMap) {
         TelemetryHistoryBatchResponse response = new TelemetryHistoryBatchResponse();
         response.setDeviceId(deviceId);
         response.setRangeCode(normalizeRangeCode(rangeCode));
-        response.setBucket(rangeDefinition.bucketCode());
+        response.setBucket(queryWindow.bucketCode());
         List<TelemetryHistoryBatchSeries> seriesList = new ArrayList<>();
         for (String identifier : identifiers) {
-            seriesList.add(buildSeries(identifier, rangeDefinition, slots, historyPoints, metadataMap.get(identifier)));
+            seriesList.add(buildSeries(identifier, queryWindow, slots, historyPoints, metadataMap.get(identifier)));
         }
         response.setPoints(seriesList);
         return response;
     }
 
     private TelemetryHistoryBatchSeries buildSeries(String identifier,
-                                                    RangeDefinition rangeDefinition,
+                                                    HistoryQueryWindow queryWindow,
                                                     List<BucketSlot> slots,
                                                     List<TelemetryV2Point> historyPoints,
                                                     DevicePropertyMetadata metadata) {
@@ -346,7 +638,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             if (historyTime == null) {
                 continue;
             }
-            LocalDateTime bucketStart = alignToBucket(historyTime, rangeDefinition.unit());
+            LocalDateTime bucketStart = alignToBucket(historyTime, queryWindow.unit());
             if (!containsSlot(slots, bucketStart)) {
                 continue;
             }
@@ -444,14 +736,25 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return fillPolicy.trim().toUpperCase(Locale.ROOT);
     }
 
-    private RangeDefinition resolveRangeDefinition(String rangeCode) {
-        return switch (normalizeRangeCode(rangeCode)) {
-            case "1d" -> new RangeDefinition("1d", "hour", ChronoUnit.HOURS, 24);
-            case "7d" -> new RangeDefinition("7d", "day", ChronoUnit.DAYS, 7);
-            case "30d" -> new RangeDefinition("30d", "day", ChronoUnit.DAYS, 30);
-            case "365d" -> new RangeDefinition("365d", "month", ChronoUnit.MONTHS, 12);
+    private HistoryQueryWindow resolveHistoryQueryWindow(String rangeCode, LocalDateTime now) {
+        HistoryWindowTemplate template = switch (normalizeRangeCode(rangeCode)) {
+            case "1d" -> new HistoryWindowTemplate("1d", "hour", ChronoUnit.HOURS, 24);
+            case "7d" -> new HistoryWindowTemplate("7d", "day", ChronoUnit.DAYS, 7);
+            case "30d" -> new HistoryWindowTemplate("30d", "day", ChronoUnit.DAYS, 30);
+            case "365d" -> new HistoryWindowTemplate("365d", "month", ChronoUnit.MONTHS, 12);
             default -> throw new BizException("不支持的时间范围: " + rangeCode);
         };
+        LocalDateTime anchor = alignToBucket(now, template.unit());
+        LocalDateTime windowStart = anchor.minus(template.slotCount() - 1L, template.unit());
+        LocalDateTime windowEnd = anchor.plus(1, template.unit());
+        return new HistoryQueryWindow(
+                template.rangeCode(),
+                template.bucketCode(),
+                template.unit(),
+                template.slotCount(),
+                windowStart,
+                windowEnd
+        );
     }
 
     private String normalizeRangeCode(String rangeCode) {
@@ -461,12 +764,12 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return rangeCode.trim().toLowerCase(Locale.ROOT);
     }
 
-    private List<BucketSlot> buildBucketSlots(RangeDefinition rangeDefinition, LocalDateTime now) {
-        LocalDateTime anchor = alignToBucket(now, rangeDefinition.unit());
+    private List<BucketSlot> buildBucketSlots(HistoryQueryWindow queryWindow) {
         List<BucketSlot> slots = new ArrayList<>();
-        for (int index = rangeDefinition.slotCount() - 1; index >= 0; index--) {
-            LocalDateTime start = anchor.minus(index, rangeDefinition.unit());
-            slots.add(new BucketSlot(start, start.plus(1, rangeDefinition.unit())));
+        LocalDateTime cursor = queryWindow.windowStart();
+        for (int index = 0; index < queryWindow.slotCount(); index++) {
+            slots.add(new BucketSlot(cursor, cursor.plus(1, queryWindow.unit())));
+            cursor = cursor.plus(1, queryWindow.unit());
         }
         return slots;
     }
@@ -537,7 +840,18 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return "1".equals(normalized) || "true".equals(normalized) || "yes".equals(normalized);
     }
 
-    private record RangeDefinition(String rangeCode, String bucketCode, ChronoUnit unit, int slotCount) {
+    private record HistoryIdentifierContext(List<String> identifiers, Map<String, DevicePropertyMetadata> metadataMap) {
+    }
+
+    private record HistoryWindowTemplate(String rangeCode, String bucketCode, ChronoUnit unit, int slotCount) {
+    }
+
+    private record HistoryQueryWindow(String rangeCode,
+                                      String bucketCode,
+                                      ChronoUnit unit,
+                                      int slotCount,
+                                      LocalDateTime windowStart,
+                                      LocalDateTime windowEnd) {
     }
 
     private record BucketSlot(LocalDateTime start, LocalDateTime end) {

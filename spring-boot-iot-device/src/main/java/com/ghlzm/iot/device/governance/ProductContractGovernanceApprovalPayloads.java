@@ -53,6 +53,7 @@ public final class ProductContractGovernanceApprovalPayloads {
     public static ProductModelGovernanceApplyResultVO buildPendingApplyResult(Long approvalOrderId,
                                                                               ProductModelGovernanceApplyDTO dto) {
         ProductModelGovernanceApplyResultVO result = new ProductModelGovernanceApplyResultVO();
+        result.setSubmittedItemCount(safeItems(dto).size());
         int createdCount = 0;
         int updatedCount = 0;
         int skippedCount = 0;

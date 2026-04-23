@@ -374,17 +374,31 @@
       </template>
     </StandardDetailDrawer>
 
+    <DeviceOnboardingSuggestionDrawer
+      v-model="suggestionVisible"
+      :suggestion="onboardingSuggestion"
+      :loading="suggestionLoading"
+      :error-message="suggestionErrorMessage"
+      :source-row="onboardingSuggestionSource"
+    />
+
     <StandardFormDrawer
       v-model="formVisible"
       :title="formTitle"
-      subtitle="统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。"
+      :subtitle="formSubtitle"
       size="44rem"
       @close="handleFormClose"
     >
       <div class="ops-drawer-stack">
         <div class="ops-drawer-note">
           <strong>维护提示</strong>
-          <span>设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。</span>
+          <span>
+            {{
+              formMode === 'register'
+                ? '当前记录来自未登记上报线索；请核对产品归属、设备编码、父子拓扑和认证字段，提交后会直接转成已登记设备。'
+                : '设备列表先服务“库存可见、责任清晰、操作可追踪”。建议至少补齐产品归属、设备编码、激活状态、设备状态和部署位置。'
+            }}
+          </span>
         </div>
 
         <el-form ref="formRef" :model="formData" :rules="formRules" label-position="top" class="ops-drawer-form">
@@ -532,7 +546,7 @@
       <template #footer>
         <StandardDrawerFooter
           :confirm-loading="submitLoading"
-          :confirm-text="editingDeviceId ? '保存设备变更' : '提交设备建档'"
+          :confirm-text="formSubmitText"
           @cancel="formVisible = false"
           @confirm="handleSubmit"
         >
@@ -546,7 +560,7 @@
             :loading="submitLoading"
             @click="handleSubmit"
           >
-            {{ editingDeviceId ? '保存设备变更' : '提交设备建档' }}
+            {{ formSubmitText }}
           </StandardButton>
         </StandardDrawerFooter>
       </template>
@@ -592,6 +606,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
+import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -619,6 +634,8 @@ import type {
   DeviceAccessErrorLog,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
+  DeviceOnboardingBatchResult,
+  DeviceOnboardingSuggestion,
   DeviceOption,
   DeviceReplacePayload,
   DeviceReplaceResult,
@@ -679,6 +696,8 @@ type DeviceFilterKey = keyof DeviceSearchForm
 
 interface DeviceFormState extends DeviceAddPayload {}
 
+type DeviceFormMode = 'create' | 'edit' | 'register'
+
 interface DevicePageLoadOptions {
   silent?: boolean
   force?: boolean
@@ -687,7 +706,7 @@ interface DevicePageLoadOptions {
 
 interface DeviceRowAction {
   key?: string
-  command: 'replace' | 'insight' | 'delete'
+  command: 'replace' | 'insight' | 'delete' | 'suggestion'
   label: string
 }
 
@@ -699,7 +718,7 @@ interface DeviceDirectAction {
 
 interface DeviceToolbarAction {
   key?: string
-  command: 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  command: 'batch-activate' | 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
   label: string
   disabled?: boolean
   divided?: boolean
@@ -721,6 +740,7 @@ const detailVisible = ref(false)
 const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
 const replaceVisible = ref(false)
+const suggestionVisible = ref(false)
 const replaceSubmitting = ref(false)
 const replaceRefreshing = ref(false)
 const detailLoading = ref(false)
@@ -734,6 +754,9 @@ const formRefreshMessage = ref('')
 const formRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
 const replaceRefreshMessage = ref('')
 const replaceRefreshState = ref<'info' | 'warning' | 'error' | ''>('')
+const suggestionLoading = ref(false)
+const suggestionErrorMessage = ref('')
+const formMode = ref<DeviceFormMode>('create')
 const editingDeviceId = ref<string | number | null>(null)
 const replaceFormDirtySinceOpen = ref(false)
 
@@ -742,8 +765,11 @@ const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
+const registerSourceRow = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
+const onboardingSuggestion = ref<DeviceOnboardingSuggestion | null>(null)
+const onboardingSuggestionSource = ref<Device | null>(null)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
@@ -823,8 +849,22 @@ const formData = reactive<DeviceFormState>(createDefaultFormData())
 
 const { pagination, applyPageResult, resetPage, setPageNum, setPageSize, setTotal } = useServerPagination(defaultPageSize)
 
-const formTitle = computed(() => (editingDeviceId.value ? '编辑设备' : '新增设备'))
-const submitPermission = computed(() => (editingDeviceId.value ? 'iot:devices:update' : 'iot:devices:add'))
+const formTitle = computed(() => {
+  if (formMode.value === 'edit') {
+    return '编辑设备'
+  }
+  if (formMode.value === 'register') {
+    return '登记设备'
+  }
+  return '新增设备'
+})
+const formSubtitle = computed(() =>
+  formMode.value === 'register'
+    ? '基于未登记上报线索补齐正式设备档案，提交后会直接转为已登记设备。'
+    : '统一通过右侧抽屉维护设备主数据、父子拓扑、状态、认证字段和部署信息。'
+)
+const formSubmitText = computed(() => (formMode.value === 'edit' ? '保存设备变更' : '提交设备建档'))
+const submitPermission = computed(() => (formMode.value === 'edit' ? 'iot:devices:update' : 'iot:devices:add'))
 const detailTitle = computed(() => {
   if (detailData.value?.registrationStatus === 0) {
     return detailData.value.deviceCode || '未登记设备'
@@ -885,15 +925,26 @@ const diagnosticEntryMessage = computed(() => {
 const workbenchInlineMessage = computed(() => listRefreshMessage.value || diagnosticEntryMessage.value)
 const workbenchInlineTone = computed<'info' | 'error'>(() => (listRefreshState.value === 'error' ? 'error' : 'info'))
 const showListInlineState = computed(() => Boolean(workbenchInlineMessage.value) && (hasRecords.value || Boolean(diagnosticEntryMessage.value)))
+const selectedBatchActivatableRows = computed(() => selectedRows.value.filter((row) => canBatchActivateOnboarding(row)))
 const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
   const actions: DeviceToolbarAction[] = []
+
+  if (permissionStore.hasPermission('iot:devices:add')) {
+    actions.push({
+      key: 'batch-activate',
+      command: 'batch-activate',
+      label: '批量转正式设备',
+      disabled:
+        selectedRows.value.length === 0 || selectedBatchActivatableRows.value.length !== selectedRows.value.length
+    })
+  }
 
   if (permissionStore.hasPermission('iot:devices:delete')) {
     actions.push({
       key: 'batch-delete',
       command: 'batch-delete',
       label: '批量删除',
-      disabled: selectedRows.value.length === 0
+      disabled: selectedRows.value.length === 0 || selectedRows.value.some((row) => !isRegisteredDeviceRow(row))
     })
   }
 
@@ -1198,11 +1249,20 @@ function isRegisteredDeviceRow(row?: Partial<Device> | null) {
 }
 
 function isSelectableDeviceRow(row?: Device) {
-  return isRegisteredDeviceRow(row)
+  return isRegisteredDeviceRow(row) || canBatchActivateOnboarding(row)
 }
 
 function canEditDeviceRow(row?: Device | null) {
-  return Boolean(row && isRegisteredDeviceRow(row))
+  return Boolean(row)
+}
+
+function hasEditPermissionForRow(row?: Device | null) {
+  if (!row) {
+    return false
+  }
+  return isRegisteredDeviceRow(row)
+    ? permissionStore.hasPermission('iot:devices:update')
+    : permissionStore.hasPermission('iot:devices:add')
 }
 
 function canReplaceDeviceRow(row?: Device | null) {
@@ -1217,10 +1277,18 @@ function canJumpToInsight(row?: Device | null) {
   return Boolean(row?.deviceCode && isRegisteredDeviceRow(row))
 }
 
+function canSuggestOnboarding(row?: Device | null) {
+  return Boolean(row?.lastTraceId && !isRegisteredDeviceRow(row))
+}
+
+function canBatchActivateOnboarding(row?: Device | null) {
+  return Boolean(row?.lastTraceId && !isRegisteredDeviceRow(row))
+}
+
 function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
   const actions: DeviceDirectAction[] = [{ key: 'detail', command: 'detail', label: '详情' }]
 
-  if (canEditDeviceRow(row) && permissionStore.hasPermission('iot:devices:update')) {
+  if (canEditDeviceRow(row) && hasEditPermissionForRow(row)) {
     actions.push({ key: 'edit', command: 'edit', label: '编辑' })
   }
 
@@ -1229,6 +1297,9 @@ function getDeviceDirectActions(row: Device): DeviceDirectAction[] {
 
 function getDeviceRowActions(row: Device): DeviceRowAction[] {
   const actions: DeviceRowAction[] = []
+  if (canSuggestOnboarding(row)) {
+    actions.push({ key: 'suggestion', command: 'suggestion', label: '接入建议' })
+  }
   if (canReplaceDeviceRow(row)) {
     if (permissionStore.hasPermission('iot:devices:replace')) {
       actions.push({ key: 'replace', command: 'replace', label: '更换' })
@@ -1409,6 +1480,33 @@ function removeLocalTableRows(rows: Array<Partial<Device> | null | undefined>) {
   return removedCount
 }
 
+function finalizeArchiveCreate(created: Device, sourceRow?: Device | null) {
+  clearDeviceOptionCache()
+  cacheDeviceDetail(created)
+  clearSelection()
+
+  let nextTotal = pagination.total
+  const removedCount = sourceRow ? removeLocalTableRows([sourceRow]) : 0
+  if (removedCount > 0) {
+    nextTotal = Math.max(0, nextTotal - removedCount)
+    removeCachedDeviceDetail(sourceRow)
+  }
+
+  const shouldInsertCreated = appliedFilters.registrationStatus !== 0 && matchesCurrentFilters(created)
+  if (shouldInsertCreated) {
+    nextTotal += 1
+    if (pagination.pageNum === 1) {
+      prependLocalTableRow(created)
+    } else {
+      rebuildVisibleDevicePageCache()
+    }
+  } else {
+    rebuildVisibleDevicePageCache()
+  }
+
+  setTotal(nextTotal)
+}
+
 function handleSelectionChange(rows: Device[]) {
   selectedRows.value = rows.filter((row) => isSelectableDeviceRow(row))
 }
@@ -1452,6 +1550,9 @@ function handleExportCurrent() {
 
 function handleToolbarAction(command: string | number | object) {
   switch (command) {
+    case 'batch-activate':
+      void handleBatchActivate()
+      break
     case 'batch-delete':
       void handleBatchDelete()
       break
@@ -2469,6 +2570,8 @@ function handleOpenBatchImport() {
 function handleAdd() {
   activeEditSessionId += 1
   abortEditRequest()
+  formMode.value = 'create'
+  registerSourceRow.value = null
   editingDeviceId.value = null
   formDirtySinceOpen = false
   clearFormRefreshState()
@@ -2480,8 +2583,7 @@ function handleAdd() {
 }
 
 function handleEdit(row: Device) {
-  if (!canEditDeviceRow(row) || row.id === undefined || row.id === null || row.id === '') {
-    ElMessage.warning('未登记设备暂不支持编辑，请先完成建档。')
+  if (!canEditDeviceRow(row) || !hasEditPermissionForRow(row)) {
     return
   }
   const cachedDetail = getCachedDeviceDetail(row)
@@ -2498,7 +2600,18 @@ function handleEdit(row: Device) {
   formRef.value?.clearValidate()
   void loadProducts()
   void loadDeviceOptions()
-  void refreshEditableDetail(row, editSessionId, cachedDetail)
+
+  if (isRegisteredDeviceRow(row) && row.id !== undefined && row.id !== null && row.id !== '') {
+    formMode.value = 'edit'
+    registerSourceRow.value = null
+    editingDeviceId.value = row.id
+    void refreshEditableDetail(row, editSessionId, cachedDetail)
+    return
+  }
+
+  formMode.value = 'register'
+  registerSourceRow.value = { ...row }
+  editingDeviceId.value = null
 }
 
 function handleOpenDetail(row: Device) {
@@ -2620,6 +2733,32 @@ function handleJumpToInsight(row?: Device | null) {
   })
 }
 
+async function handleOpenOnboardingSuggestion(row: Device) {
+  const traceId = row.lastTraceId?.trim()
+  if (!traceId) {
+    ElMessage.warning('当前线索缺少 Trace，暂时无法生成接入建议。')
+    return
+  }
+  onboardingSuggestionSource.value = row
+  onboardingSuggestion.value = null
+  suggestionErrorMessage.value = ''
+  suggestionVisible.value = true
+  suggestionLoading.value = true
+  try {
+    const res = await deviceApi.getDeviceOnboardingSuggestion(traceId)
+    if (res.code === 200 && res.data) {
+      onboardingSuggestion.value = res.data
+      return
+    }
+    suggestionErrorMessage.value = res.msg || '加载接入建议失败'
+  } catch (error) {
+    console.error('加载接入建议失败', error)
+    suggestionErrorMessage.value = resolveRequestErrorMessage(error, '加载接入建议失败')
+  } finally {
+    suggestionLoading.value = false
+  }
+}
+
 function handleRowAction(command: string | number | object, row: Device) {
   if (command === 'detail') {
     handleOpenDetail(row)
@@ -2635,6 +2774,10 @@ function handleRowAction(command: string | number | object, row: Device) {
   }
   if (command === 'insight') {
     handleJumpToInsight(row)
+    return
+  }
+  if (command === 'suggestion') {
+    void handleOpenOnboardingSuggestion(row)
     return
   }
   if (command === 'delete') {
@@ -2731,6 +2874,48 @@ async function handleBatchDelete() {
   }
 }
 
+async function handleBatchActivate() {
+  if (selectedRows.value.length === 0) {
+    return
+  }
+  if (selectedBatchActivatableRows.value.length !== selectedRows.value.length) {
+    ElMessage.warning('批量转正只支持已选未登记且带 Trace 的线索，请调整后重试。')
+    return
+  }
+
+  const traceIds = selectedBatchActivatableRows.value
+    .map((row) => row.lastTraceId?.trim())
+    .filter((traceId): traceId is string => Boolean(traceId))
+  if (traceIds.length === 0) {
+    ElMessage.warning('当前选中记录缺少 Trace，暂时无法批量转正。')
+    return
+  }
+
+  try {
+    await confirmAction({
+      title: '批量转正式设备',
+      message: `确认按当前接入建议将选中的 ${traceIds.length} 条线索转为正式设备吗？系统会拦截仍有规则缺口的记录。`,
+      type: 'warning',
+      confirmButtonText: '确认转正'
+    })
+    const res = await deviceApi.batchActivateOnboardingSuggestions({
+      traceIds,
+      confirmed: true
+    })
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || '批量转正式设备失败')
+      return
+    }
+
+    await finishBatchActivation(res.data)
+  } catch (error) {
+    if (isConfirmCancelled(error)) {
+      return
+    }
+    ElMessage.error(resolveRequestErrorMessage(error, '批量转正式设备失败'))
+  }
+}
+
 async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
   batchImportSubmitting.value = true
   try {
@@ -2768,6 +2953,24 @@ async function handleBatchImportSubmit(payload: DeviceBatchAddPayload) {
   } finally {
     batchImportSubmitting.value = false
   }
+}
+
+async function finishBatchActivation(result: DeviceOnboardingBatchResult) {
+  if (result.activatedCount > 0) {
+    clearDeviceOptionCache()
+    clearDevicePageCache()
+    clearSelection()
+    await loadDevicePage({
+      silent: true,
+      force: true,
+      silentMessage: '已按确认建议转正式设备，正在后台刷新列表。'
+    })
+  }
+  if (result.rejectedCount === 0) {
+    ElMessage.success(`批量转正完成，共转正 ${result.activatedCount} 台设备`)
+    return
+  }
+  ElMessage.warning(`批量转正完成，成功 ${result.activatedCount} 条，拦截 ${result.rejectedCount} 条`)
 }
 
 async function handleReplaceSubmit(payload: DeviceReplacePayload) {
@@ -2835,10 +3038,10 @@ async function handleSubmit() {
     return
   }
 
+  const submitMode = formMode.value
   submitLoading.value = true
   try {
-    const isEditing = Boolean(editingDeviceId.value)
-    if (isEditing) {
+    if (submitMode === 'edit') {
       const res = await deviceApi.updateDevice(editingDeviceId.value as string | number, { ...formData })
       clearDeviceOptionCache()
       cacheDeviceDetail(res.data)
@@ -2853,30 +3056,48 @@ async function handleSubmit() {
       ElMessage.success('更新成功')
     } else {
       const res = await deviceApi.addDevice({ ...formData })
-      clearDeviceOptionCache()
-      cacheDeviceDetail(res.data)
-      clearSelection()
-      if (matchesCurrentFilters(res.data)) {
-        setTotal(pagination.total + 1)
-        if (pagination.pageNum === 1) {
-          prependLocalTableRow(res.data)
+      if (submitMode === 'register') {
+        finalizeArchiveCreate(res.data, registerSourceRow.value)
+        ElMessage.success('登记成功')
+      } else {
+        clearDeviceOptionCache()
+        cacheDeviceDetail(res.data)
+        clearSelection()
+        if (matchesCurrentFilters(res.data)) {
+          setTotal(pagination.total + 1)
+          if (pagination.pageNum === 1) {
+            prependLocalTableRow(res.data)
+          } else {
+            rebuildVisibleDevicePageCache()
+          }
         } else {
           rebuildVisibleDevicePageCache()
         }
-      } else {
-        rebuildVisibleDevicePageCache()
+        ElMessage.success('新增成功')
       }
-      ElMessage.success('新增成功')
     }
     formVisible.value = false
     void loadDevicePage({
       silent: true,
       force: true,
-      silentMessage: isEditing ? '已提交设备更新，正在后台刷新列表。' : '已新增设备，正在后台刷新列表。'
+      silentMessage:
+        submitMode === 'edit'
+          ? '已提交设备更新，正在后台刷新列表。'
+          : submitMode === 'register'
+            ? '已完成设备登记，正在后台刷新列表。'
+            : '已新增设备，正在后台刷新列表。'
     })
   } catch (error) {
     console.error('提交设备失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '提交设备失败')
+    ElMessage.error(
+      error instanceof Error
+        ? submitMode === 'register'
+          ? `登记失败：${error.message}`
+          : error.message
+        : submitMode === 'register'
+          ? '登记失败'
+          : '提交设备失败'
+    )
   } finally {
     submitLoading.value = false
   }
@@ -2889,6 +3110,8 @@ function handleFormClose() {
   clearFormRefreshState()
   formDirtySinceOpen = false
   applyFormDataWithoutDirty()
+  formMode.value = 'create'
+  registerSourceRow.value = null
   editingDeviceId.value = null
 }
 
@@ -2945,7 +3168,7 @@ watch(detailVisible, (visible) => {
 watch(
   formData,
   () => {
-    if (!formVisible.value || !editingDeviceId.value || suppressFormDirtyTracking) {
+    if (!formVisible.value || formMode.value === 'create' || suppressFormDirtyTracking) {
       return
     }
     formDirtySinceOpen = true

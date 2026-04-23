@@ -86,14 +86,17 @@ describe('shellPanelContent', () => {
           { to: '/automation-execution', label: '执行中心', caption: 'caption', short: '执' }
         ]
       }),
-      allowedPaths: ['/quality-workbench', '/automation-assets', '/automation-execution', '/automation-results'],
+      allowedPaths: ['/quality-workbench', '/automation-assets', '/automation-execution', '/automation-results', '/reporting'],
       activities: []
     });
 
     const itemPaths = content.sections.flatMap((section) => section.items.map((item) => item.path).filter(Boolean));
+    const technicalSection = content.sections.find((section) => section.id === 'help-technical');
 
     expect(itemPaths).toContain('/quality-workbench');
     expect(itemPaths).not.toContain('/automation-test');
+    expect(technicalSection?.items.map((item) => item.title)).toContain('HTTP / MQTT 联调指引');
+    expect(technicalSection?.items.map((item) => item.description).join(' ')).toContain('排障起点');
   });
 
   it('places failed activities into the error notice section and keeps all notice sections', () => {

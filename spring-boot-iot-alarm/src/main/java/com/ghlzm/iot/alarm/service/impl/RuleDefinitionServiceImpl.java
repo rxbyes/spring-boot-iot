@@ -132,7 +132,12 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             if (rule.getRiskMetricId() == null) {
                   return null;
             }
-            RiskMetricCatalog catalog = riskMetricCatalogService.getById(rule.getRiskMetricId());
+            RiskMetricCatalog catalog = RiskMetricCatalogBindingSupport.resolveCatalog(
+                    riskMetricCatalogService,
+                    null,
+                    rule.getRiskMetricId(),
+                    rule.getMetricIdentifier()
+            );
             if (catalog == null) {
                   throw new BizException("风险指标目录不存在或已停用: " + rule.getRiskMetricId());
             }
@@ -140,21 +145,6 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       }
 
       private void bindCatalogIdentity(RuleDefinition rule, RiskMetricCatalog catalog) {
-            String contractIdentifier = catalog.getContractIdentifier();
-            if (!StringUtils.hasText(contractIdentifier)) {
-                  throw new BizException("风险指标目录缺少合同字段标识: " + catalog.getId());
-            }
-            if (StringUtils.hasText(rule.getMetricIdentifier())) {
-                  String normalizedIdentifier = rule.getMetricIdentifier().trim();
-                  if (!normalizedIdentifier.equals(contractIdentifier)) {
-                        throw new BizException("目录指标与测点标识符不一致");
-                  }
-                  rule.setMetricIdentifier(normalizedIdentifier);
-            } else {
-                  rule.setMetricIdentifier(contractIdentifier);
-            }
-            if (!StringUtils.hasText(rule.getMetricName()) && StringUtils.hasText(catalog.getRiskMetricName())) {
-                  rule.setMetricName(catalog.getRiskMetricName());
-            }
+            RiskMetricCatalogBindingSupport.bindRuleDefinition(rule, catalog);
       }
 }

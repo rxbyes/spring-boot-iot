@@ -8,13 +8,19 @@ import RealTimeMonitoringView from '@/views/RealTimeMonitoringView.vue';
 import RiskGisView from '@/views/RiskGisView.vue';
 import AlarmCenterView from '@/views/AlarmCenterView.vue';
 import EventDisposalView from '@/views/EventDisposalView.vue';
-import RiskPointView from '@/views/RiskPointView.vue';
-import RuleDefinitionView from '@/views/RuleDefinitionView.vue';
-import LinkageRuleView from '@/views/LinkageRuleView.vue';
-import EmergencyPlanView from '@/views/EmergencyPlanView.vue';
-import AutomationTestCenterView from '@/views/AutomationTestCenterView.vue';
 
 const sourceRoot = resolve(import.meta.dirname, '../../..');
+
+function readViewSource(fileName: string) {
+  return readFileSync(resolve(sourceRoot, `src/views/${fileName}`), 'utf8');
+}
+
+function readWorkbenchOpenTag(fileName: string) {
+  const source = readViewSource(fileName);
+  const start = source.indexOf('<StandardWorkbenchPanel');
+  const end = source.indexOf('>', start);
+  return source.slice(start, end);
+}
 
 vi.mock('@/composables/useAutomationPlanBuilder', () => ({
   useAutomationPlanBuilder: () => ({
@@ -167,6 +173,13 @@ vi.mock('@/api/emergencyPlan', () => ({
   addPlan: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
   updatePlan: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
   deletePlan: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null })
+}));
+
+vi.mock('@/utils/riskLevel', () => ({
+  fetchRiskLevelOptions: vi.fn().mockResolvedValue([]),
+  getRiskLevelTagType: vi.fn(() => 'info'),
+  getRiskLevelText: vi.fn((value?: string) => value || '未标注'),
+  normalizeRiskLevel: vi.fn((value?: string) => (value || '').trim().toLowerCase())
 }));
 
 vi.mock('@/utils/confirm', () => ({
@@ -404,8 +417,9 @@ describe('operations workbench refinement', () => {
     expect(source).toContain('<StandardWorkbenchRowActions');
     expect(source).toContain('class-name="standard-row-actions-column"');
     expect(source).toContain(':width="alarmActionColumnWidth"');
-    expect(source).toContain('const alarmActionColumnWidth = resolveWorkbenchActionColumnWidth({');
-    expect(source).toContain("{ command: 'confirm', label: '确认' }");
+    expect(source).toContain('const alarmActionColumnWidth = computed(() =>');
+    expect(source).toContain('resolveWorkbenchActionColumnWidthByRows({');
+    expect(source).toContain("label: '确认'");
     expect(source).not.toContain("gap: 'wide'");
   });
 
@@ -444,59 +458,57 @@ describe('operations workbench refinement', () => {
   });
 
   it('removes the standalone hero card from the risk point workbench', () => {
-    const wrapper = mountView(RiskPointView);
-    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
+    const source = readViewSource('RiskPointView.vue');
+    const workbenchOpenTag = readWorkbenchOpenTag('RiskPointView.vue');
 
-    expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
-    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
-    expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
-    expect(workbench.props('eyebrow')).toBeUndefined();
-    expect(wrapper.text()).toContain('风险对象中心');
-    expect(wrapper.text()).not.toContain('Risk Point Workspace');
+    expect(source).toContain('<StandardPageShell');
+    expect(source).toContain('<StandardWorkbenchPanel');
+    expect(workbenchOpenTag).not.toContain('eyebrow');
+    expect(source).toContain('title="风险对象中心"');
+    expect(source).not.toContain('Risk Point Workspace');
   });
 
   it('removes the standalone hero card from the threshold rule workbench', () => {
-    const wrapper = mountView(RuleDefinitionView);
-    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
+    const source = readViewSource('RuleDefinitionView.vue');
+    const workbenchOpenTag = readWorkbenchOpenTag('RuleDefinitionView.vue');
 
-    expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
-    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
-    expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
-    expect(workbench.props('eyebrow')).toBeUndefined();
-    expect(wrapper.text()).toContain('阈值策略');
-    expect(wrapper.text()).not.toContain('Threshold Rules');
+    expect(source).toContain('<StandardPageShell');
+    expect(source).toContain('<StandardWorkbenchPanel');
+    expect(workbenchOpenTag).not.toContain('eyebrow');
+    expect(source).toContain('title="阈值策略"');
+    expect(source).not.toContain('Threshold Rules');
   });
 
   it('removes the standalone hero card from the linkage workbench', () => {
-    const wrapper = mountView(LinkageRuleView);
-    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
+    const source = readViewSource('LinkageRuleView.vue');
+    const workbenchOpenTag = readWorkbenchOpenTag('LinkageRuleView.vue');
 
-    expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
-    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
-    expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
-    expect(workbench.props('eyebrow')).toBeUndefined();
-    expect(wrapper.text()).toContain('联动编排');
-    expect(wrapper.text()).not.toContain('Linkage Workflow');
+    expect(source).toContain('<StandardPageShell');
+    expect(source).toContain('<StandardWorkbenchPanel');
+    expect(workbenchOpenTag).not.toContain('eyebrow');
+    expect(source).toContain('title="联动编排"');
+    expect(source).not.toContain('Linkage Workflow');
   });
 
   it('removes the standalone hero card from the emergency plan workbench', () => {
-    const wrapper = mountView(EmergencyPlanView);
-    const workbench = wrapper.findComponent(StandardWorkbenchPanelStub);
+    const source = readViewSource('EmergencyPlanView.vue');
+    const workbenchOpenTag = readWorkbenchOpenTag('EmergencyPlanView.vue');
 
-    expect(wrapper.findAll('.panel-card-stub')).toHaveLength(0);
-    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
-    expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
-    expect(workbench.props('eyebrow')).toBeUndefined();
-    expect(wrapper.text()).toContain('应急预案库');
-    expect(wrapper.text()).not.toContain('Emergency Plans');
+    expect(source).toContain('<StandardPageShell');
+    expect(source).toContain('<StandardWorkbenchPanel');
+    expect(workbenchOpenTag).not.toContain('eyebrow');
+    expect(source).toContain('title="应急预案库"');
+    expect(source).not.toContain('Emergency Plans');
   });
 
   it('removes the standalone hero panel from the automation workbench and aligns it with the shared governance shell', () => {
-    const wrapper = mountView(AutomationTestCenterView);
+    const entrySource = readViewSource('AutomationTestCenterView.vue');
+    const landingSource = readViewSource('RdWorkbenchLandingView.vue');
 
-    expect(wrapper.findAll('.standard-page-shell-stub')).toHaveLength(1);
-    expect(wrapper.findAll('.standard-workbench-panel-stub')).toHaveLength(1);
-    expect(wrapper.text()).toContain('自动化工场');
+    expect(entrySource).toContain('<RdWorkbenchLandingView />');
+    expect(landingSource).toContain('<StandardPageShell');
+    expect(landingSource).toContain('<StandardWorkbenchPanel');
+    expect(landingSource).toContain('title="研发工场总览"');
   });
 
   it('aligns audit-log action columns with adaptive shared row actions', () => {

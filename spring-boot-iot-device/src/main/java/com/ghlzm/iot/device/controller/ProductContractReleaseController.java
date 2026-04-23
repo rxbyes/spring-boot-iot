@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.vo.ProductContractReleaseRollbackResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.service.model.GovernanceApprovalActionCommand;
 import org.springframework.security.core.Authentication;
@@ -30,13 +31,16 @@ public class ProductContractReleaseController {
     private final ProductContractReleaseService productContractReleaseService;
     private final GovernancePermissionGuard permissionGuard;
     private final GovernanceApprovalService governanceApprovalService;
+    private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
 
     public ProductContractReleaseController(ProductContractReleaseService productContractReleaseService,
                                             GovernancePermissionGuard permissionGuard,
-                                            GovernanceApprovalService governanceApprovalService) {
+                                            GovernanceApprovalService governanceApprovalService,
+                                            GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver) {
         this.productContractReleaseService = productContractReleaseService;
         this.permissionGuard = permissionGuard;
         this.governanceApprovalService = governanceApprovalService;
+        this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
     }
 
     @GetMapping("/api/device/product/{productId}/contract-release-batches")
@@ -58,12 +62,17 @@ public class ProductContractReleaseController {
 
     @PostMapping("/api/device/product/contract-release-batches/{batchId}/rollback")
     public R<ProductContractReleaseRollbackResultVO> rollbackBatch(@PathVariable Long batchId,
-                                                                   @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                                   @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                                                                    Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(
+                ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_ROLLBACK,
+                currentUserId,
+                approverUserId
+        );
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "合同发布回滚",
                 GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK,
                 GovernancePermissionCodes.PRODUCT_CONTRACT_APPROVE
@@ -75,7 +84,7 @@ public class ProductContractReleaseController {
                 "RELEASE_BATCH",
                 batchId,
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 ProductContractGovernanceApprovalPayloads.writeRollbackPayload(batchId),
                 null
         ));
@@ -87,5 +96,12 @@ public class ProductContractReleaseController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
+    }
+
+    private Long resolveApproverUserId(String actionCode, Long currentUserId, Long approverUserId) {
+        if (approverUserId != null && approverUserId > 0) {
+            return approverUserId;
+        }
+        return governanceApprovalPolicyResolver.resolveApproverUserId(actionCode, currentUserId);
     }
 }
