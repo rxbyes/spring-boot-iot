@@ -1447,6 +1447,13 @@ export interface DeviceProperty {
   updateTime?: string | null;
 }
 
+export type DeviceTopologyRole = 'COLLECTOR_PARENT' | 'COLLECTOR_CHILD' | 'STANDALONE';
+
+export interface DevicePropertyInsight {
+  topologyRole?: DeviceTopologyRole | null;
+  properties: DeviceProperty[];
+}
+
 export interface CollectorChildInsightMetric {
   identifier: string;
   displayName?: string | null;
@@ -1463,6 +1470,7 @@ export interface CollectorChildInsightChild {
   childProductKey?: string | null;
   collectorLinkState: string;
   sensorStateValue?: string | null;
+  sensorStateHealth?: 'REPORTED_NORMAL' | 'REPORTED_ABNORMAL' | 'MISSING' | 'STALE' | null;
   lastReportTime?: string | null;
   recommendedMetricIdentifiers?: string[] | null;
   metrics: CollectorChildInsightMetric[];
@@ -1474,6 +1482,8 @@ export interface CollectorChildInsightOverview {
   childCount: number;
   reachableChildCount: number;
   sensorStateReportedCount: number;
+  missingChildCount?: number | null;
+  staleChildCount?: number | null;
   recommendedMetricCount?: number | null;
   children: CollectorChildInsightChild[];
 }

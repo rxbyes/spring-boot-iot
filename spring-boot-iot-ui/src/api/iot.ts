@@ -8,6 +8,8 @@ import type {
   DeviceFileSnapshot,
   DeviceFirmwareAggregate,
   DeviceMessageLog,
+  DevicePropertyInsight,
+  DeviceTopologyRole,
   MessageFlowSubmitResult,
   DeviceProperty,
   HttpReportPayload,
@@ -70,7 +72,14 @@ export function reportByMqtt(payload: MqttReportPublishPayload) {
 }
 
 export function getDeviceProperties(deviceCode: string) {
-  return request<DeviceProperty[]>(`/api/device/${deviceCode}/properties`);
+  return request<DevicePropertyInsight>(`/api/device/${deviceCode}/insight/properties`).then((response) => ({
+    ...response,
+    data: response.data?.properties ?? []
+  }));
+}
+
+export function getDeviceTopologyRole(deviceCode: string) {
+  return request<DeviceTopologyRole>(`/api/device/${deviceCode}/topology-role`);
 }
 
 export function getCollectorChildInsightOverview(deviceCode: string) {

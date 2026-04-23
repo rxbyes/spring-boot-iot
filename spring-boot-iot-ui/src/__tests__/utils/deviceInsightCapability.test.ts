@@ -536,4 +536,44 @@ describe('deviceInsightCapability', () => {
     expect(profile.historyIdentifiers).toEqual(['value']);
     expect(profile.customMetrics.find((item) => item.displayName === '监测值')?.identifier).toBe('value');
   });
+
+  it('filters parent and child runtime candidates by topology role', () => {
+    const runtimeProperties = [
+      {
+        id: 1,
+        identifier: 'S1_ZT_1.signal_4g',
+        propertyName: '4G 信号强度',
+        propertyValue: '-78',
+        valueType: 'int'
+      },
+      {
+        id: 2,
+        identifier: 'dispsX',
+        propertyName: 'X 向位移',
+        propertyValue: '1.28',
+        valueType: 'double'
+      },
+      {
+        id: 3,
+        identifier: 'sensor_state',
+        propertyName: '传感器状态',
+        propertyValue: '1',
+        valueType: 'int'
+      }
+    ];
+
+    const collectorParentProfile = getInsightCapabilityProfile({
+      productName: '深部位移',
+      properties: runtimeProperties,
+      topologyRole: 'collector_parent'
+    });
+    const collectorChildProfile = getInsightCapabilityProfile({
+      productName: '深部位移',
+      properties: runtimeProperties,
+      topologyRole: 'collector_child'
+    });
+
+    expect(collectorParentProfile.heroMetrics.map((item) => item.identifier)).not.toContain('dispsX');
+    expect(collectorChildProfile.heroMetrics.map((item) => item.identifier)).not.toContain('S1_ZT_1.signal_4g');
+  });
 });
