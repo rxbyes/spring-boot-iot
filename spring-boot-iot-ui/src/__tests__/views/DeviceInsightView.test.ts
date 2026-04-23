@@ -3,7 +3,7 @@ import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTelemetryHistoryBatch } from '@/api/telemetry';
-import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties, getDeviceTopologyRole } from '@/api/iot';
 import { productApi } from '@/api/product';
 import { getRiskMonitoringDetail, getRiskMonitoringList } from '@/api/riskMonitoring';
 import DeviceInsightView from '@/views/DeviceInsightView.vue';
@@ -73,6 +73,11 @@ vi.mock('@/api/iot', () => ({
         updateTime: '2026-04-08 10:05:00'
       }
     ]
+  }),
+  getDeviceTopologyRole: vi.fn().mockResolvedValue({
+    code: 200,
+    msg: 'success',
+    data: 'STANDALONE'
   }),
   getDeviceMessageLogs: vi.fn().mockResolvedValue({
     code: 200,
@@ -628,6 +633,11 @@ describe('DeviceInsightView', () => {
         ]
       }
     });
+    vi.mocked(getDeviceTopologyRole).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: 'COLLECTOR_PARENT'
+    });
     mockRoute.query = {
       deviceCode: 'SK00EA0D1307988'
     };
@@ -738,6 +748,11 @@ describe('DeviceInsightView', () => {
         ]
       }
     });
+    vi.mocked(getDeviceTopologyRole).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: 'COLLECTOR_PARENT'
+    });
     mockRoute.query = {
       deviceCode: 'SK00EA0D1307967'
     };
@@ -835,6 +850,11 @@ describe('DeviceInsightView', () => {
           }
         ]
       }
+    });
+    vi.mocked(getDeviceTopologyRole).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: 'COLLECTOR_PARENT'
     });
     mockRoute.query = {
       deviceCode: 'SK00EA0D1307988'
@@ -2311,6 +2331,11 @@ describe('DeviceInsightView', () => {
         ]
       }
     });
+    vi.mocked(getDeviceTopologyRole).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: 'COLLECTOR_PARENT'
+    });
     mockRoute.query = {
       deviceCode: 'COLLECTOR-PARENT-EMPTY'
     };
@@ -3212,7 +3237,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
-    const governButton = wrapper.find('[data-testid="property-snapshot-govern-S1_ZT_1_humidity"]');
+    const governButton = wrapper.find('[data-testid="promote-mapping-rule-S1_ZT_1.humidity"]');
     expect(governButton.exists()).toBe(true);
 
     await governButton.trigger('click');
@@ -3221,10 +3246,7 @@ describe('DeviceInsightView', () => {
       path: '/products/902/mapping-rules',
       query: {
         rawIdentifier: 'S1_ZT_1.humidity',
-        displayName: '相对湿度',
-        unit: '%RH',
-        deviceCode: 'DEVICE-001',
-        runtimeGovernanceDraft: '1',
+        scope: 'PRODUCT',
         source: 'insight'
       }
     });

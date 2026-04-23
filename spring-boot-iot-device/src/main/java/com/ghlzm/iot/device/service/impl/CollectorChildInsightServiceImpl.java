@@ -7,7 +7,6 @@ import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.CollectorChildInsightService;
 import com.ghlzm.iot.device.service.DeviceRelationService;
 import com.ghlzm.iot.device.service.DeviceService;
-import com.ghlzm.iot.device.service.DeviceTopologyRoleResolver;
 import com.ghlzm.iot.device.vo.CollectorChildInsightChildVO;
 import com.ghlzm.iot.device.vo.SensorStateHealth;
 import com.ghlzm.iot.device.vo.CollectorChildInsightMetricVO;
@@ -39,16 +38,13 @@ public class CollectorChildInsightServiceImpl implements CollectorChildInsightSe
     private final DeviceService deviceService;
     private final DeviceRelationService deviceRelationService;
     private final RiskMetricCatalogReadMapper riskMetricCatalogReadMapper;
-    private final DeviceTopologyRoleResolver topologyRoleResolver;
 
     public CollectorChildInsightServiceImpl(DeviceService deviceService,
                                             DeviceRelationService deviceRelationService,
-                                            RiskMetricCatalogReadMapper riskMetricCatalogReadMapper,
-                                            DeviceTopologyRoleResolver topologyRoleResolver) {
+                                            RiskMetricCatalogReadMapper riskMetricCatalogReadMapper) {
         this.deviceService = deviceService;
         this.deviceRelationService = deviceRelationService;
         this.riskMetricCatalogReadMapper = riskMetricCatalogReadMapper;
-        this.topologyRoleResolver = topologyRoleResolver;
     }
 
     @Override

@@ -189,7 +189,7 @@ import { ElMessage } from 'element-plus';
 
 import { getTelemetryHistoryBatch, type InsightRangeCode, type TelemetryHistoryBatchResponse } from '@/api/telemetry';
 import { getRiskMonitoringDetail, getRiskMonitoringList, type RiskMonitoringDetail, type RiskMonitoringListItem } from '@/api/riskMonitoring';
-import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties } from '@/api/iot';
+import { getCollectorChildInsightOverview, getDeviceByCode, getDeviceProperties, getDeviceTopologyRole } from '@/api/iot';
 import { productApi } from '@/api/product';
 import CollectorChildInsightPanel from '@/components/device/CollectorChildInsightPanel.vue';
 import PanelCard from '@/components/PanelCard.vue';
@@ -199,7 +199,7 @@ import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPageShell from '@/components/StandardPageShell.vue';
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue';
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue';
-import type { CollectorChildInsightOverview, Device, DeviceProperty, ProductModel } from '@/types/api';
+import type { CollectorChildInsightOverview, Device, DeviceProperty, DeviceTopologyRole, ProductModel } from '@/types/api';
 import { formatDateTime } from '@/utils/format';
 import {
   DEFAULT_INSIGHT_RANGE,
@@ -272,6 +272,7 @@ const trendErrorMessage = ref('');
 const device = ref<Device | null>(null);
 const properties = ref<DeviceProperty[]>([]);
 const collectorOverview = ref<CollectorChildInsightOverview | null>(null);
+const topologyRole = ref<DeviceTopologyRole | null>(null);
 const riskBindings = ref<RiskMonitoringListItem[]>([]);
 const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const capabilityProfile = ref<InsightCapabilityProfile>(getInsightCapabilityProfile({}));
@@ -285,7 +286,7 @@ const requestVersion = ref(0);
 let syncingRoute = false;
 
 const normalizedDeviceCode = computed(() => deviceCode.value.trim());
-const isCollectorParentInsight = computed(() => Number(device.value?.nodeType) === 2);
+const isCollectorParentInsight = computed(() => topologyRole.value === 'COLLECTOR_PARENT');
 const hasCollectorChildren = computed(() => Boolean(collectorOverview.value?.children?.length));
 const hasInsightContent = computed(() =>
   Boolean(device.value || properties.value.length || riskDetail.value || trendGroups.value.length || collectorOverview.value?.children?.length)
@@ -597,34 +598,38 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     device.value = deviceResponse.data;
 
-    const collectorOverviewRequest = shouldLoadCollectorInsightOverview(deviceResponse.data)
-      ? getCollectorChildInsightOverview(code).catch((error) => {
-        console.warn('采集器子设备总览加载失败', error);
-        return null;
-      })
-      : Promise.resolve(null);
-
-    const [propertyResponse, bindingResponse, productInsightSupplement, collectorOverviewResponse] = await Promise.all([
+    const [propertyResponse, topologyRoleResponse, bindingResponse, productInsightSupplement] = await Promise.all([
       getDeviceProperties(code),
+      getDeviceTopologyRole(code),
       getRiskMonitoringList({
         deviceCode: code,
         pageNum: 1,
         pageSize: 50
       }),
-      loadProductInsightSupplement(deviceResponse.data?.productId),
-      collectorOverviewRequest
+      loadProductInsightSupplement(deviceResponse.data?.productId)
     ]);
     if (version !== requestVersion.value) {
       return;
     }
 
     properties.value = propertyResponse.data ?? [];
+    topologyRole.value = topologyRoleResponse.data ?? 'STANDALONE';
     riskBindings.value = bindingResponse.data.records ?? [];
     productModelDisplayNameMap.value = productInsightSupplement.modelDisplayNameMap;
     productModelDataTypeMap.value = productInsightSupplement.modelDataTypeMap;
     productModelUnitMap.value = productInsightSupplement.modelUnitMap;
     productPropertyIdentifierSet.value = productInsightSupplement.propertyIdentifierSet;
-    collectorOverview.value = collectorOverviewResponse?.data ?? null;
+    if (shouldLoadCollectorInsightOverview(topologyRole.value)) {
+      collectorOverview.value = (await getCollectorChildInsightOverview(code).catch((error) => {
+        console.warn('采集器子设备总览加载失败', error);
+        return null;
+      }))?.data ?? null;
+      if (version !== requestVersion.value) {
+        return;
+      }
+    } else {
+      collectorOverview.value = null;
+    }
 
     const primaryBinding = pickPrimaryBinding(riskBindings.value);
     if (primaryBinding) {
@@ -640,6 +645,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     capabilityProfile.value = getInsightCapabilityProfile({
       deviceCode: device.value?.deviceCode,
       productName: device.value?.productName,
+      topologyRole: mapTopologyRoleToCapabilityRole(topologyRole.value),
       metricIdentifier: riskDetail.value?.metricIdentifier,
       metricName: riskDetail.value?.metricName,
       riskPointName: riskDetail.value?.riskPointName,
@@ -686,6 +692,7 @@ function resetInsightState() {
   device.value = null;
   properties.value = [];
   collectorOverview.value = null;
+  topologyRole.value = null;
   riskBindings.value = [];
   riskDetail.value = null;
   trendGroups.value = [];
@@ -917,15 +924,23 @@ function resolvePropertyUnit(item: DeviceProperty) {
   return resolveMetricUnit(item.identifier, item) || '--';
 }
 
-function shouldLoadCollectorInsightOverview(currentDevice?: Device | null) {
-  if (!currentDevice) {
-    return false;
+function shouldLoadCollectorInsightOverview(role?: DeviceTopologyRole | null) {
+  return role === 'COLLECTOR_PARENT';
+}
+
+function mapTopologyRoleToCapabilityRole(
+  role?: DeviceTopologyRole | null
+): 'collector_parent' | 'collector_child' | 'standalone' | undefined {
+  if (role === 'COLLECTOR_PARENT') {
+    return 'collector_parent';
   }
-  if (Number(currentDevice.nodeType) === 2) {
-    return true;
+  if (role === 'COLLECTOR_CHILD') {
+    return 'collector_child';
   }
-  // `nf-collect-rtu-v1` 仍按 nodeType=1 建档，但对象洞察读侧要继续按采集器父设备处理。
-  return (currentDevice.productKey || '').trim().toLowerCase() === 'nf-collect-rtu-v1';
+  if (role === 'STANDALONE') {
+    return 'standalone';
+  }
+  return undefined;
 }
 
 async function loadProductInsightSupplement(productId?: string | number | null) {

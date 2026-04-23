@@ -16,6 +16,14 @@
         <span>已上报状态</span>
         <strong>{{ overview.sensorStateReportedCount ?? 0 }}</strong>
       </article>
+      <article class="collector-child-insight-panel__summary-card collector-child-insight-panel__summary-card--warn">
+        <span>状态缺失</span>
+        <strong>{{ overview.missingChildCount ?? 0 }}</strong>
+      </article>
+      <article class="collector-child-insight-panel__summary-card collector-child-insight-panel__summary-card--warn">
+        <span>状态过期</span>
+        <strong>{{ overview.staleChildCount ?? 0 }}</strong>
+      </article>
     </div>
 
     <div class="collector-child-insight-panel__list">
@@ -36,8 +44,11 @@
             >
               {{ collectorLinkStateLabel(child.collectorLinkState) }}
             </span>
-            <span class="collector-child-insight-panel__badge collector-child-insight-panel__badge--state">
-              {{ sensorStateLabel(child.sensorStateValue) }}
+            <span
+              class="collector-child-insight-panel__badge"
+              :class="sensorStateHealthClass(child.sensorStateHealth)"
+            >
+              {{ sensorStateHealthLabel(child.sensorStateHealth, child.sensorStateValue) }}
             </span>
           </div>
         </div>
@@ -96,10 +107,33 @@ function collectorLinkStateClass(state?: string | null) {
   return 'collector-child-insight-panel__badge--unknown';
 }
 
-function sensorStateLabel(sensorStateValue?: string | null) {
-  return sensorStateValue?.trim()
-    ? `传感器状态 ${sensorStateValue.trim()}`
-    : '传感器状态 --';
+function sensorStateHealthLabel(
+  health?: 'REPORTED_NORMAL' | 'REPORTED_ABNORMAL' | 'MISSING' | 'STALE' | null,
+  sensorStateValue?: string | null
+) {
+  if (health === 'REPORTED_NORMAL') {
+    return `状态正常 (${sensorStateValue?.trim() || '--'})`;
+  }
+  if (health === 'REPORTED_ABNORMAL') {
+    return `状态异常 (${sensorStateValue?.trim() || '--'})`;
+  }
+  if (health === 'MISSING') {
+    return '状态缺失';
+  }
+  if (health === 'STALE') {
+    return '状态过期';
+  }
+  return sensorStateValue?.trim() ? `传感器状态 ${sensorStateValue.trim()}` : '传感器状态 --';
+}
+
+function sensorStateHealthClass(health?: 'REPORTED_NORMAL' | 'REPORTED_ABNORMAL' | 'MISSING' | 'STALE' | null) {
+  if (health === 'REPORTED_NORMAL') {
+    return 'collector-child-insight-panel__badge--reachable';
+  }
+  if (health === 'REPORTED_ABNORMAL' || health === 'MISSING' || health === 'STALE') {
+    return 'collector-child-insight-panel__badge--unreachable';
+  }
+  return 'collector-child-insight-panel__badge--state';
 }
 
 function metricValueText(metric: CollectorChildInsightMetric) {
@@ -137,6 +171,10 @@ function metricValueText(metric: CollectorChildInsightMetric) {
   display: grid;
   gap: 0.28rem;
   padding: 0.9rem 1rem;
+}
+
+.collector-child-insight-panel__summary-card--warn strong {
+  color: #c0392b;
 }
 
 .collector-child-insight-panel__summary-card span,
