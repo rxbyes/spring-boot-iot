@@ -5,12 +5,15 @@ import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.util.StringUtils;
 
 /**
  * 产品物模型规范匹配器。
  */
 final class ProductModelNormativeMatcher {
+    private static final Pattern POINT_PREFIX_PATTERN = Pattern.compile("^([LS]\\d+)_([A-Za-z]+)_\\d+$");
 
     static final String SCENARIO_PHASE1_CRACK = "phase1-crack";
     static final String SCENARIO_PHASE2_GNSS = "phase2-gnss";
@@ -77,6 +80,107 @@ final class ProductModelNormativeMatcher {
                 Integer.valueOf(1).equals(definition.getRiskEnabled()),
                 rawIdentifiers == null ? List.of() : rawIdentifiers
         );
+    }
+
+    NormativeMatchResult matchPropertyByRawIdentifier(String canonicalIdentifier,
+                                                      List<String> rawIdentifiers,
+                                                      List<NormativeMetricDefinition> definitions) {
+        if (definitions == null || definitions.isEmpty()) {
+            return null;
+        }
+        List<String> candidates = rawIdentifiers == null || rawIdentifiers.isEmpty()
+                ? (StringUtils.hasText(canonicalIdentifier) ? List.of(canonicalIdentifier) : List.of())
+                : rawIdentifiers;
+        for (String candidate : candidates) {
+            ParsedRawIdentifier parsed = parseRawIdentifier(candidate);
+            if (parsed == null) {
+                continue;
+            }
+            NormativeMetricDefinition definition = findByMonitorCodesAndIdentifier(
+                    definitions,
+                    parsed.monitorContentCode(),
+                    parsed.monitorTypeCode(),
+                    parsed.leafIdentifier(),
+                    canonicalIdentifier
+            );
+            if (definition == null) {
+                continue;
+            }
+            return new NormativeMatchResult(
+                    definition.getIdentifier(),
+                    definition.getDisplayName(),
+                    Integer.valueOf(1).equals(definition.getRiskEnabled()),
+                    rawIdentifiers == null ? List.of() : rawIdentifiers
+            );
+        }
+        return null;
+    }
+
+    private NormativeMetricDefinition findByMonitorCodesAndIdentifier(List<NormativeMetricDefinition> definitions,
+                                                                      String monitorContentCode,
+                                                                      String monitorTypeCode,
+                                                                      String leafIdentifier,
+                                                                      String canonicalIdentifier) {
+        String normalizedLeaf = normalizeLower(leafIdentifier);
+        String normalizedCanonical = normalizeLower(canonicalIdentifier);
+        for (NormativeMetricDefinition definition : definitions) {
+            if (definition == null
+                    || !equalsIgnoreCase(definition.getMonitorContentCode(), monitorContentCode)
+                    || !equalsIgnoreCase(definition.getMonitorTypeCode(), monitorTypeCode)) {
+                continue;
+            }
+            String normalizedDefinitionIdentifier = normalizeLower(definition.getIdentifier());
+            if (normalizedDefinitionIdentifier == null) {
+                continue;
+            }
+            if (normalizedLeaf != null && normalizedLeaf.equals(normalizedDefinitionIdentifier)) {
+                return definition;
+            }
+            if (normalizedCanonical != null && normalizedCanonical.equals(normalizedDefinitionIdentifier)) {
+                return definition;
+            }
+        }
+        return null;
+    }
+
+    private ParsedRawIdentifier parseRawIdentifier(String rawIdentifier) {
+        if (!StringUtils.hasText(rawIdentifier)) {
+            return null;
+        }
+        String trimmed = rawIdentifier.trim();
+        int dotIndex = trimmed.indexOf('.');
+        String prefix = dotIndex >= 0 ? trimmed.substring(0, dotIndex) : trimmed;
+        String leaf = dotIndex >= 0 ? trimmed.substring(dotIndex + 1) : null;
+        if (!StringUtils.hasText(leaf)) {
+            leaf = null;
+        }
+        Matcher matcher = POINT_PREFIX_PATTERN.matcher(prefix);
+        if (!matcher.matches()) {
+            return null;
+        }
+        String contentCode = normalizeUpper(matcher.group(1));
+        String typeCode = normalizeUpper(matcher.group(2));
+        return new ParsedRawIdentifier(contentCode, typeCode, leaf);
+    }
+
+    private String normalizeLower(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeUpper(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        String normalizedLeft = normalizeUpper(left);
+        String normalizedRight = normalizeUpper(right);
+        return normalizedLeft != null && normalizedLeft.equals(normalizedRight);
     }
 
     private boolean matchesCrack(String value) {
@@ -159,5 +263,10 @@ final class ProductModelNormativeMatcher {
             boolean riskReady,
             List<String> rawIdentifiers
     ) {
+    }
+
+    private record ParsedRawIdentifier(String monitorContentCode,
+                                       String monitorTypeCode,
+                                       String leafIdentifier) {
     }
 }

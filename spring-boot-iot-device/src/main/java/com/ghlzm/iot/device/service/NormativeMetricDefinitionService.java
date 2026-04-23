@@ -9,4 +9,6 @@ import java.util.List;
 public interface NormativeMetricDefinitionService {
 
     List<NormativeMetricDefinition> listByScenario(String scenarioCode);
+
+    List<NormativeMetricDefinition> listActive();
 }

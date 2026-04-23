@@ -802,6 +802,37 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldFallbackNormativeMatchByRawMonitorCodeWhenScenarioUnknown() {
+        when(productMapper.selectById(9010L)).thenReturn(product(
+                9010L,
+                "future-monitor-air-temp-v1",
+                "未来厂商 影响因素 气温传感器"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-weather", "value", "气温", 0, "L3", "QW")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"TMPD001":{"L3_QW_1":{"2026-04-23T13:15:20.000Z":{"value":24.6}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9010L, dto);
+
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L3_QW_1.value");
+        assertEquals("value", row.getNormativeIdentifier());
+        assertEquals("气温", row.getNormativeName());
+        assertEquals(Boolean.FALSE, row.getRiskReady());
+        assertEquals(List.of("L3_QW_1.value"), row.getRawIdentifiers());
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
@@ -1678,6 +1709,19 @@ class ProductModelServiceImplTest {
         definition.setIdentifier(identifier);
         definition.setDisplayName(displayName);
         definition.setRiskEnabled(riskEnabled);
+        return definition;
+    }
+
+    private com.ghlzm.iot.device.entity.NormativeMetricDefinition normativeDefinitionWithCodes(String scenarioCode,
+                                                                                               String identifier,
+                                                                                               String displayName,
+                                                                                               int riskEnabled,
+                                                                                               String monitorContentCode,
+                                                                                               String monitorTypeCode) {
+        com.ghlzm.iot.device.entity.NormativeMetricDefinition definition =
+                normativeDefinition(scenarioCode, identifier, displayName, riskEnabled);
+        definition.setMonitorContentCode(monitorContentCode);
+        definition.setMonitorTypeCode(monitorTypeCode);
         return definition;
     }
 }

@@ -30,4 +30,12 @@ public class NormativeMetricDefinitionServiceImpl implements NormativeMetricDefi
                 .eq(NormativeMetricDefinition::getScenarioCode, scenarioCode)
                 .orderByAsc(NormativeMetricDefinition::getIdentifier));
     }
+
+    @Override
+    public List<NormativeMetricDefinition> listActive() {
+        return mapper.selectList(new LambdaQueryWrapper<NormativeMetricDefinition>()
+                .eq(NormativeMetricDefinition::getDeleted, 0)
+                .orderByAsc(NormativeMetricDefinition::getScenarioCode)
+                .orderByAsc(NormativeMetricDefinition::getIdentifier));
+    }
 }
