@@ -343,6 +343,28 @@ COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS = (
         "version_no": 1,
         "metadata_json": {"thresholdKind": "cumulative", "riskCategory": "RAIN_GAUGE", "metricRole": "CONTEXT"},
     },
+    {
+        "id": 920041,
+        "scenario_code": "phase5-mud-level",
+        "device_family": "MUD_LEVEL",
+        "identifier": "L4_NW_1",
+        "display_name": "泥水位高程",
+        "unit": "m",
+        "precision_digits": 3,
+        "monitor_content_code": "L4",
+        "monitor_type_code": "NW",
+        "risk_enabled": 0,
+        "trend_enabled": 1,
+        "metric_dimension": "water_level",
+        "threshold_type": "absolute",
+        "semantic_direction": "HIGHER_IS_RISKIER",
+        "gis_enabled": 0,
+        "insight_enabled": 1,
+        "analytics_enabled": 1,
+        "status": "ACTIVE",
+        "version_no": 1,
+        "metadata_json": {"thresholdKind": "absolute", "riskCategory": "MUD_LEVEL", "metricRole": "PRIMARY"},
+    },
 )
 
 COLLECTOR_CHILD_BASELINE_MAPPING_RULES = (

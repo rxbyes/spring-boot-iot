@@ -16,6 +16,7 @@ final class ProductModelNormativeMatcher {
     static final String SCENARIO_PHASE2_GNSS = "phase2-gnss";
     static final String SCENARIO_PHASE3_DEEP_DISPLACEMENT = "phase3-deep-displacement";
     static final String SCENARIO_PHASE4_RAIN_GAUGE = "phase4-rain-gauge";
+    static final String SCENARIO_PHASE5_MUD_LEVEL = "phase5-mud-level";
 
     String resolveScenarioCode(Product product) {
         if (product == null) {
@@ -32,6 +33,12 @@ final class ProductModelNormativeMatcher {
                 || matchesRainGauge(product.getManufacturer())
                 || matchesRainGauge(product.getDescription())) {
             return SCENARIO_PHASE4_RAIN_GAUGE;
+        }
+        if (matchesMudLevel(product.getProductKey())
+                || matchesMudLevel(product.getProductName())
+                || matchesMudLevel(product.getManufacturer())
+                || matchesMudLevel(product.getDescription())) {
+            return SCENARIO_PHASE5_MUD_LEVEL;
         }
         if (matchesGnss(product.getProductKey())
                 || matchesGnss(product.getProductName())
@@ -130,6 +137,20 @@ final class ProductModelNormativeMatcher {
                 || normalized.contains("south_rain_gauge")
                 || value.contains("翻斗")
                 || value.contains("雨量");
+    }
+
+    private boolean matchesMudLevel(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("mud-level")
+                || normalized.contains("mud_level")
+                || normalized.contains("south_mud_level")
+                || normalized.contains("_nw_")
+                || normalized.contains("-nw-")
+                || value.contains("泥位")
+                || value.contains("泥水位");
     }
 
     record NormativeMatchResult(

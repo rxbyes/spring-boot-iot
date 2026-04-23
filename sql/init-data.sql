@@ -830,7 +830,10 @@ INSERT INTO iot_normative_metric_definition (
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'PRIMARY')),
     (920032, 1, 'phase4-rain-gauge', 'RAIN_GAUGE', 'totalValue', '累计雨量', 'mm', 2, 'L3', 'YL', 0, 1,
      'rainfall', 'cumulative', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
-     JSON_OBJECT('thresholdKind', 'cumulative', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'CONTEXT'))
+     JSON_OBJECT('thresholdKind', 'cumulative', 'riskCategory', 'RAIN_GAUGE', 'metricRole', 'CONTEXT')),
+    (920041, 1, 'phase5-mud-level', 'MUD_LEVEL', 'L4_NW_1', '泥水位高程', 'm', 3, 'L4', 'NW', 0, 1,
+     'water_level', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'MUD_LEVEL', 'metricRole', 'PRIMARY'))
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),
     unit = VALUES(unit),

@@ -825,13 +825,17 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
         if (DEVICE_STRUCTURE_COMPOSITE.equals(deviceStructure)) {
             return CONTRACT_IDENTIFIER_MODE_DIRECT;
         }
+        String snapshotSampleType = snapshot == null ? null : normalizeOptional(snapshot.sampleType());
         if (snapshot != null
-                && SAMPLE_TYPE_STATUS.equals(normalizeOptional(snapshot.sampleType()))
+                && SAMPLE_TYPE_STATUS.equals(snapshotSampleType)
                 && snapshot.leaves().stream()
                 .map(ManualLeafEvidence::identifier)
                 .map(this::normalizeOptional)
                 .anyMatch(identifier -> identifier != null && identifier.startsWith(STATUS_PREFIX))) {
             return CONTRACT_IDENTIFIER_MODE_FULL_PATH;
+        }
+        if (!SAMPLE_TYPE_STATUS.equals(snapshotSampleType)) {
+            return CONTRACT_IDENTIFIER_MODE_DIRECT;
         }
         boolean hasPublishedStatusFullPath = (existingModels == null ? List.<ProductModel>of() : existingModels).stream()
                 .map(ProductModel::getIdentifier)

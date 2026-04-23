@@ -779,6 +779,26 @@ class CollectorChildBaselineSeedTest(unittest.TestCase):
         self.assertIn("当前雨量", params_text)
         self.assertIn("累计雨量", params_text)
 
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_mud_level_normative_metrics(
+        self, _mock_table_exists, _mock_column_exists
+    ):
+        cursor = CollectorChildBaselineSeedCursor()
+
+        schema_sync.ensure_collector_child_dev_baseline(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO iot_normative_metric_definition", combined_sql)
+
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("phase5-mud-level", params_text)
+        self.assertIn("MUD_LEVEL", params_text)
+        self.assertIn("L4_NW_1", params_text)
+        self.assertIn("泥水位高程", params_text)
+        self.assertIn("water_level", params_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -742,6 +742,66 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldKeepSingleBusinessIdentifierDirectEvenWhenPublishedStatusUsesFullPath() {
+        Product product = product(9009L, "nf-monitor-mud-level-meter-v1", "南方测绘 监测型 泥位计");
+        when(productMapper.selectById(9009L)).thenReturn(product);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                existingModel(9101L, "S1_ZT_1.signal_4g", 10)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00F30D1309042":{"L4_NW_1":{"2026-04-23T12:54:20.000Z":0}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9009L, dto);
+
+        assertEquals("DIRECT", result.getManualSummary().getResolvedContractIdentifierMode());
+        List<String> identifiers = result.getCompareRows().stream()
+                .map(ProductModelGovernanceCompareRowVO::getIdentifier)
+                .toList();
+        assertTrue(identifiers.contains("L4_NW_1"));
+        assertTrue(identifiers.stream().noneMatch("S1_ZT_1.L4_NW_1"::equals));
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateMudLevelRowsWithNormativeMetadata() {
+        when(productMapper.selectById(9009L)).thenReturn(product(
+                9009L,
+                "nf-monitor-mud-level-meter-v1",
+                "南方测绘 监测型 泥位计"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase5-mud-level")).thenReturn(List.of(
+                normativeDefinition("phase5-mud-level", "L4_NW_1", "泥水位高程", 0)
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"SK00F30D1309042":{"L4_NW_1":{"2026-04-23T12:54:20.000Z":0}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9009L, dto);
+
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L4_NW_1");
+        assertEquals("L4_NW_1", row.getNormativeIdentifier());
+        assertEquals("泥水位高程", row.getNormativeName());
+        assertEquals(Boolean.FALSE, row.getRiskReady());
+        assertEquals(List.of("L4_NW_1"), row.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(9009L), eq("phase5-mud-level"), any());
+    }
+
+    @Test
     void compareGovernanceShouldDecorateCrackRowsWithNormativeAndRiskMetadata() {
         when(productMapper.selectById(2002L)).thenReturn(product(2002L, "south-crack-sensor-v1", "crack-monitor"));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
