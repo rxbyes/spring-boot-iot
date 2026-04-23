@@ -21,6 +21,7 @@ import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.RiskMetricCatalogReadMapper;
 import com.ghlzm.iot.device.service.DeviceInvalidReportStateService;
 import com.ghlzm.iot.device.service.DeviceOnboardingSuggestionService;
+import com.ghlzm.iot.device.service.DeviceTopologyRoleResolver;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.RuntimeMetricDisplayRuleService;
 import com.ghlzm.iot.device.service.UnregisteredDeviceRosterService;
@@ -90,6 +91,8 @@ class DeviceServiceImplTest {
     private OrganizationService organizationService;
     @Mock
     private RuntimeMetricDisplayRuleService runtimeMetricDisplayRuleService;
+    @Mock
+    private DeviceTopologyRoleResolver deviceTopologyRoleResolver;
 
     private DeviceServiceImpl deviceService;
     private IotProperties iotProperties;
@@ -117,7 +120,8 @@ class DeviceServiceImplTest {
                 deviceOnboardingSuggestionService,
                 permissionService,
                 organizationService,
-                runtimeMetricDisplayRuleService
+                runtimeMetricDisplayRuleService,
+                deviceTopologyRoleResolver
         ));
     }
 
@@ -130,7 +134,7 @@ class DeviceServiceImplTest {
 
         assertTrue(constructors != null && constructors.length == 1,
                 "Spring should resolve exactly one candidate constructor for DeviceServiceImpl");
-        assertEquals(11, constructors[0].getParameterCount());
+        assertEquals(12, constructors[0].getParameterCount());
     }
 
     @Test

@@ -1,6 +1,9 @@
 package com.ghlzm.iot.device.controller;
 
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.DeviceTopologyRoleResolver;
+import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.service.CollectorChildInsightService;
 import com.ghlzm.iot.device.vo.CollectorChildInsightOverviewVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
@@ -22,12 +25,23 @@ class DeviceCollectorInsightControllerTest {
 
     @Mock
     private CollectorChildInsightService collectorChildInsightService;
+    @Mock
+    private DeviceService deviceService;
+    @Mock
+    private DeviceTopologyRoleResolver topologyRoleResolver;
+    @Mock
+    private ProductService productService;
 
     private DeviceCollectorInsightController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new DeviceCollectorInsightController(collectorChildInsightService);
+        controller = new DeviceCollectorInsightController(
+                collectorChildInsightService,
+                deviceService,
+                topologyRoleResolver,
+                productService
+        );
     }
 
     @Test
