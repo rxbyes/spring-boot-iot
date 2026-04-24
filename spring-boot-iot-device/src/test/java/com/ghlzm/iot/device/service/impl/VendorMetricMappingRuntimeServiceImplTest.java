@@ -524,14 +524,4 @@ class VendorMetricMappingRuntimeServiceImplTest {
         return definition;
     }
 
-    private NormativeMetricDefinition normativeDefinitionWithCodes(String scenarioCode,
-                                                                    String identifier,
-                                                                    String deviceFamily,
-                                                                    String monitorContentCode,
-                                                                    String monitorTypeCode) {
-        NormativeMetricDefinition definition = normativeDefinition(scenarioCode, identifier, deviceFamily);
-        definition.setMonitorContentCode(monitorContentCode);
-        definition.setMonitorTypeCode(monitorTypeCode);
-        return definition;
-    }
 }
