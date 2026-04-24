@@ -217,6 +217,7 @@ const StandardActionMenuStub = defineComponent({
 const StandardDetailDrawerStub = defineComponent({
   name: 'StandardDetailDrawer',
   props: {
+    modelValue: Boolean,
     eyebrow: String,
     title: String,
     subtitle: String,
@@ -225,7 +226,7 @@ const StandardDetailDrawerStub = defineComponent({
     hideHeader: Boolean
   },
   template: `
-    <section class="device-detail-drawer-stub">
+    <section class="device-detail-drawer-stub" :data-visible="String(modelValue)">
       <div v-if="!hideHeader" class="device-detail-drawer-stub__header">
         <p v-if="eyebrow">{{ eyebrow }}</p>
         <h3>{{ title }}</h3>
@@ -242,6 +243,21 @@ const StandardDetailDrawerStub = defineComponent({
       </div>
       <slot />
       <slot name="footer" />
+    </section>
+  `
+})
+
+const DeviceCapabilityWorkbenchDrawerStub = defineComponent({
+  name: 'DeviceCapabilityWorkbenchDrawer',
+  props: ['modelValue', 'device', 'overview', 'commands', 'capabilityLoading', 'commandLoading'],
+  emits: ['update:modelValue', 'executeCapability', 'refreshCommands'],
+  template: `
+    <section class="device-capability-workbench-drawer-stub" :data-visible="String(modelValue)">
+      <p class="device-capability-workbench-drawer-stub__code">{{ device?.deviceCode }}</p>
+      <p class="device-capability-workbench-drawer-stub__name">{{ device?.deviceName }}</p>
+      <p class="device-capability-workbench-drawer-stub__product">{{ device?.productName }}</p>
+      <p class="device-capability-workbench-drawer-stub__capability">{{ overview?.productCapabilityType }}</p>
+      <slot />
     </section>
   `
 })
@@ -335,6 +351,7 @@ function mountView() {
         StandardActionMenu: StandardActionMenuStub,
         StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
+        DeviceCapabilityWorkbenchDrawer: DeviceCapabilityWorkbenchDrawerStub,
         DeviceOnboardingSuggestionDrawer: DeviceOnboardingSuggestionDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         ElTable: ElTableStub,
@@ -571,6 +588,82 @@ describe('DeviceWorkbenchView', () => {
       '详情',
       '编辑'
     ])
+  })
+
+  it('opens the lightweight capability drawer from device operation without reusing the detail drawer', async () => {
+    const { deviceApi } = await import('@/api/device')
+    vi.mocked(deviceApi.getDeviceCapabilities).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceCode: '6260370286',
+        productId: '202603192100560271',
+        productKey: 'zhd-warning-sound-light-alarm-v1',
+        productCapabilityType: 'WARNING',
+        subType: 'BROADCAST',
+        onlineExecutable: true,
+        capabilities: [
+          {
+            code: 'broadcast_play',
+            name: '播放内容',
+            group: '广播预警',
+            enabled: true,
+            requiresOnline: true,
+            paramsSchema: {}
+          }
+        ]
+      }
+    })
+    vi.mocked(deviceApi.pageDeviceCommands).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [
+          {
+            id: 1,
+            commandId: 'CMD-001',
+            serviceIdentifier: 'broadcast_play',
+            status: 'SENT',
+            sendTime: '2026-04-24T10:50:00',
+            topic: '/iot/broadcast/6260370286'
+          }
+        ]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2001,
+        productKey: 'zhd-warning-sound-light-alarm-v1',
+        productName: '中海达 预警型 声光报警器',
+        deviceCode: '6260370286',
+        deviceName: '中海达声光报警器-1',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1
+      }
+    ]
+    await nextTick()
+
+    await (wrapper.vm as any).handleRowAction('capability', (wrapper.vm as any).tableData[0])
+    await flushPromises()
+    await nextTick()
+
+    const capabilityDrawer = wrapper.findComponent(DeviceCapabilityWorkbenchDrawerStub)
+    const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
+    expect(capabilityDrawer.props('modelValue')).toBe(true)
+    expect(detailDrawer.props('modelValue')).toBe(false)
+    expect(capabilityDrawer.text()).toContain('6260370286')
+    expect(capabilityDrawer.text()).toContain('中海达声光报警器-1')
+    expect(capabilityDrawer.text()).toContain('WARNING')
   })
 
   it('shows onboarding suggestion for unregistered rows and loads the drawer payload', async () => {
@@ -943,10 +1036,11 @@ describe('DeviceWorkbenchView', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
 
     expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
+    expect(source).toContain("from '@/components/device/DeviceCapabilityWorkbenchDrawer.vue'")
     expect(source).toContain('<DeviceDetailWorkbench')
+    expect(source).toContain('<DeviceCapabilityWorkbenchDrawer')
     expect(source).toContain(':device="detailData"')
-    expect(source).toContain(':capability-overview="capabilityOverview"')
-    expect(source).toContain(':command-records="commandRecords"')
+    expect(source).toContain(':device="capabilityDevice"')
     expect(source).toContain('formatDeviceReportTime')
     expect(source).not.toContain('tag-layout="title-inline"')
     expect(source).not.toContain(':tags="detailTags"')

@@ -38,7 +38,11 @@
 
     <template #footer>
       <div class="device-capability-workbench-drawer__footer">
-        <StandardButton action="cancel" @click="visible = false">
+        <StandardButton
+          action="cancel"
+          class="device-capability-workbench-drawer__close"
+          @click="visible = false"
+        >
           关闭
         </StandardButton>
       </div>

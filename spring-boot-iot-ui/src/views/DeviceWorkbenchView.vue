@@ -2339,9 +2339,6 @@ async function openDetail(target: Device | string | number) {
 
   if (row && detailSnapshot && !shouldRefreshDeviceDetail(row, cachedDetail)) {
     detailRefreshing.value = false
-    if (row && isRegisteredDeviceRow(row)) {
-      void refreshDeviceCapabilityContext(row.deviceCode, requestId)
-    }
     return
   }
 
@@ -2403,17 +2400,18 @@ function openCapability(row: Device) {
     return
   }
   const cachedDetail = getCachedDeviceDetail(row)
-  capabilityDevice.value = resolveDetailSnapshot(row, cachedDetail)
-  capabilityVisible.value = true
   detailVisible.value = false
   resetCapabilityState()
   capabilityDevice.value = resolveDetailSnapshot(row, cachedDetail)
-  const requestId = ++latestCapabilityRequestId
+  capabilityVisible.value = true
+  const requestId = ++latestCapabilityRequestSeed
+  latestCapabilityOverviewRequestId = requestId
+  latestCapabilityCommandRequestId = requestId
   void refreshDeviceCapabilityContext(row.deviceCode, requestId)
 }
 
 async function refreshDeviceCapabilityContext(deviceCode: string, requestId: number) {
-  if (!deviceCode || requestId !== latestCapabilityRequestId) {
+  if (!deviceCode || requestId !== latestCapabilityOverviewRequestId || requestId !== latestCapabilityCommandRequestId) {
     return
   }
   await Promise.all([
@@ -2423,13 +2421,13 @@ async function refreshDeviceCapabilityContext(deviceCode: string, requestId: num
 }
 
 async function loadDeviceCapabilityOverview(deviceCode: string, requestId: number) {
-  if (requestId !== latestCapabilityRequestId) {
+  if (requestId !== latestCapabilityOverviewRequestId) {
     return
   }
   capabilityLoading.value = true
   try {
     const res = await deviceApi.getDeviceCapabilities(deviceCode)
-    if (requestId !== latestCapabilityRequestId) {
+    if (requestId !== latestCapabilityOverviewRequestId) {
       return
     }
     if (res.code === 200 && res.data) {
@@ -2441,7 +2439,7 @@ async function loadDeviceCapabilityOverview(deviceCode: string, requestId: numbe
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    if (requestId !== latestCapabilityRequestId) {
+    if (requestId !== latestCapabilityOverviewRequestId) {
       return
     }
     capabilityOverview.value = null
@@ -2449,14 +2447,14 @@ async function loadDeviceCapabilityOverview(deviceCode: string, requestId: numbe
       ElMessage.error(resolveRequestErrorMessage(error, '获取设备能力失败'))
     }
   } finally {
-    if (requestId === latestCapabilityRequestId) {
+    if (requestId === latestCapabilityOverviewRequestId) {
       capabilityLoading.value = false
     }
   }
 }
 
 async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number) {
-  if (requestId !== latestCapabilityRequestId) {
+  if (requestId !== latestCapabilityCommandRequestId) {
     return
   }
   commandLoading.value = true
@@ -2465,7 +2463,7 @@ async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number
       pageNum: 1,
       pageSize: 10
     })
-    if (requestId !== latestCapabilityRequestId) {
+    if (requestId !== latestCapabilityCommandRequestId) {
       return
     }
     if (res.code === 200 && res.data) {
@@ -2477,7 +2475,7 @@ async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    if (requestId !== latestCapabilityRequestId) {
+    if (requestId !== latestCapabilityCommandRequestId) {
       return
     }
     commandRecords.value = []
@@ -2485,7 +2483,7 @@ async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number
       ElMessage.error(resolveRequestErrorMessage(error, '获取设备命令失败'))
     }
   } finally {
-    if (requestId === latestCapabilityRequestId) {
+    if (requestId === latestCapabilityCommandRequestId) {
       commandLoading.value = false
     }
   }
@@ -2951,7 +2949,7 @@ function handleRefreshCommands() {
   if (!capabilityDevice.value?.deviceCode) {
     return
   }
-  const requestId = ++latestCapabilityRequestId
+  const requestId = ++latestCapabilityCommandRequestId
   void loadDeviceCapabilityRecords(capabilityDevice.value.deviceCode, requestId)
 }
 
@@ -2972,7 +2970,7 @@ async function handleExecuteCapabilitySubmit(payload: DeviceCapabilityExecutePay
     ElMessage.success(`指令已下发，等待设备反馈：${res.data.commandId}`)
     capabilityExecuteVisible.value = false
     executingCapability.value = null
-    const requestId = ++latestCapabilityRequestId
+    const requestId = ++latestCapabilityCommandRequestId
     await loadDeviceCapabilityRecords(deviceCode, requestId)
   } catch (error) {
     if (!isHandledRequestError(error)) {
@@ -3367,7 +3365,9 @@ watch(capabilityVisible, (visible) => {
   if (visible) {
     return
   }
-  latestCapabilityRequestId += 1
+  const requestId = ++latestCapabilityRequestSeed
+  latestCapabilityOverviewRequestId = requestId
+  latestCapabilityCommandRequestId = requestId
   resetCapabilityState()
 })
 

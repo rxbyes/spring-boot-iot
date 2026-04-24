@@ -1,11 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
-import type { CommandRecordPageItem, Device, DeviceCapabilityOverview } from '@/types/api'
+import type { Device } from '@/types/api'
 
 const registeredDevice: Device = {
   id: 2001,
@@ -71,12 +70,6 @@ const sparseRegisteredDevice: Device = {
   deviceName: '精简档案设备'
 }
 
-const DeviceCapabilityPanelStub = defineComponent({
-  name: 'DeviceCapabilityPanel',
-  props: ['overview', 'commands', 'loading', 'commandLoading'],
-  template: '<div class="device-capability-panel-stub">{{ overview?.productCapabilityType }} {{ (commands || []).length }}</div>'
-})
-
 describe('DeviceDetailWorkbench', () => {
   it('renders the registered device as a flat workbench with summary strip, overview pair, and mixed ledgers', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
@@ -114,6 +107,7 @@ describe('DeviceDetailWorkbench', () => {
     expect(wrapper.get('[data-testid="device-detail-support-stage"]').text()).toContain('网关设备')
 
     expect(wrapper.get('[data-testid="device-detail-metadata-stage"]').text()).toContain('扩展元数据快照')
+    expect(wrapper.find('[data-testid="device-detail-capability-stage"]').exists()).toBe(false)
     expect(wrapper.findAll('.device-detail-workbench__ledger-item--wide').length).toBeGreaterThan(0)
 
     expect(wrapper.text()).toContain('北斗监测终端')
@@ -161,6 +155,7 @@ describe('DeviceDetailWorkbench', () => {
     expect(source).not.toContain('device-detail-workbench__hero')
     expect(source).not.toContain('先确认资产身份、产品归属与部署位置。')
     expect(source).not.toContain('保留最近一次原始报文，便于回查协议映射和补建设备主档。')
+    expect(source).not.toContain('设备能力与命令')
   })
 
   it('hides registered sections whose fields are all empty', () => {
@@ -193,53 +188,17 @@ describe('DeviceDetailWorkbench', () => {
     expect(source).toContain('font-weight: 400;')
   })
 
-  it('renders the capability workbench block for registered devices when capability data is available', () => {
-    const capabilityOverview: DeviceCapabilityOverview = {
-      deviceCode: registeredDevice.deviceCode,
-      productId: registeredDevice.productId,
-      productKey: registeredDevice.productKey,
-      productCapabilityType: 'WARNING',
-      subType: 'BROADCAST',
-      onlineExecutable: true,
-      capabilities: [
-        {
-          code: 'broadcast_play',
-          name: '播放内容',
-          group: '广播预警',
-          enabled: true,
-          requiresOnline: true,
-          paramsSchema: {}
-        }
-      ]
-    }
-    const commands: CommandRecordPageItem[] = [
-      {
-        id: 1,
-        commandId: 'CMD-001',
-        serviceIdentifier: 'broadcast_play',
-        status: 'SENT',
-        sendTime: '2026-04-24T10:50:00',
-        topic: '/iot/broadcast/DEV-001'
-      }
-    ]
-
+  it('keeps the detail workbench focused on asset and ledger content only', () => {
     const wrapper = mount(DeviceDetailWorkbench, {
       props: {
-        device: registeredDevice,
-        capabilityOverview,
-        commandRecords: commands,
-        capabilityLoading: false,
-        commandLoading: false
-      },
-      global: {
-        stubs: {
-          DeviceCapabilityPanel: DeviceCapabilityPanelStub
-        }
+        device: registeredDevice
       }
     })
 
-    expect(wrapper.get('[data-testid="device-detail-capability-stage"]').text()).toContain('设备能力与命令')
-    expect(wrapper.get('.device-capability-panel-stub').text()).toContain('WARNING')
-    expect(wrapper.get('.device-capability-panel-stub').text()).toContain('1')
+    expect(wrapper.text()).toContain('资产状态与接入概况')
+    expect(wrapper.text()).toContain('身份与部署台账')
+    expect(wrapper.text()).toContain('扩展元数据快照')
+    expect(wrapper.text()).not.toContain('设备能力与命令')
+    expect(wrapper.find('[data-testid="device-detail-capability-stage"]').exists()).toBe(false)
   })
 })
