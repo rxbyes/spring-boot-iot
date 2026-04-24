@@ -140,25 +140,6 @@
       </section>
 
       <section
-        v-if="showCapabilityStage"
-        class="device-detail-workbench__stage"
-        data-testid="device-detail-capability-stage"
-      >
-        <div class="device-detail-workbench__stage-header">
-          <h3>设备能力与命令</h3>
-        </div>
-
-        <DeviceCapabilityPanel
-          :overview="capabilityOverview"
-          :commands="commandRecords"
-          :loading="capabilityLoading"
-          :command-loading="commandLoading"
-          @execute="(capability) => emit('executeCapability', capability)"
-          @refreshCommands="emit('refreshCommands')"
-        />
-      </section>
-
-      <section
         v-if="showMetadataStage"
         class="device-detail-workbench__stage device-detail-workbench__stage--subtle"
         data-testid="device-detail-metadata-stage"
@@ -214,13 +195,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import DeviceCapabilityPanel from '@/components/device/DeviceCapabilityPanel.vue'
 import type { Device } from '@/types/api'
-import type {
-  CommandRecordPageItem,
-  DeviceCapability,
-  DeviceCapabilityOverview
-} from '@/types/api'
 import { formatDateTime, formatDeviceReportTime, prettyJson } from '@/utils/format'
 
 type SummaryCard = {
@@ -241,23 +216,10 @@ const emptyDetailValue = '--'
 
 const props = defineProps<{
   device: Device
-  capabilityOverview?: DeviceCapabilityOverview | null
-  commandRecords?: CommandRecordPageItem[]
-  capabilityLoading?: boolean
-  commandLoading?: boolean
-}>()
-
-const emit = defineEmits<{
-  (event: 'executeCapability', capability: DeviceCapability): void
-  (event: 'refreshCommands'): void
 }>()
 
 const device = computed(() => props.device)
 const isRegistered = computed(() => device.value.registrationStatus !== 0)
-const capabilityOverview = computed(() => props.capabilityOverview || null)
-const commandRecords = computed(() => props.commandRecords || [])
-const capabilityLoading = computed(() => props.capabilityLoading === true)
-const commandLoading = computed(() => props.commandLoading === true)
 
 function toDisplayText(value?: string | number | null) {
   if (value === undefined || value === null || value === '') {
@@ -476,15 +438,6 @@ const showOverviewStage = computed(() =>
 const showIdentityStage = computed(() => identityItems.value.some(hasRenderableField))
 const showRuntimeStage = computed(() => runtimeItems.value.some(hasRenderableField))
 const showSupportStage = computed(() => supportItems.value.some(hasRenderableField))
-const showCapabilityStage = computed(
-  () =>
-    isRegistered.value &&
-    (capabilityLoading.value ||
-      commandLoading.value ||
-      Boolean(capabilityOverview.value) ||
-      commandRecords.value.length > 0)
-)
-
 const metadataPreview = computed(() => prettyJson(device.value.metadataJson ?? ''))
 const showMetadataStage = computed(() => hasRenderableJsonPreview(metadataPreview.value))
 

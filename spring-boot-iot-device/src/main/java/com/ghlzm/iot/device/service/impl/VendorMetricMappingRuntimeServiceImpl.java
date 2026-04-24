@@ -139,13 +139,18 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         );
         PublishedRuleSnapshotResolution publishedResolution =
                 resolvePublishedRuleSnapshot(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
-        if (publishedResolution.hasPublishedSnapshots()) {
+        if (publishedResolution.resolution() != null) {
             return publishedResolution.resolution();
         }
         MappingResolution draftResolution = resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
         return draftResolution == null
                 ? resolveByNormativePrefixFallback(rawIdentifier, logicalChannelCode)
                 : draftResolution;
+        MappingResolution resolution = resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
+        if (resolution != null) {
+            return resolution;
+        }
+        return resolveByNormativePrefixFallback(rawIdentifier, logicalChannelCode);
     }
 
     @Override
@@ -311,6 +316,107 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                                 .eq(VendorMetricMappingRule::getScopeType, SCOPE_TYPE_TENANT_DEFAULT)))
                 .eq(VendorMetricMappingRule::getRawIdentifier, normalizedRawIdentifier));
         return resolveFromRules(product, protocolSelectors, rawIdentifier, logicalChannelCode, strict, rules);
+    }
+
+    private MappingResolution resolveByNormativePrefixFallback(String rawIdentifier, String logicalChannelCode) {
+        if (normativeMetricDefinitionService == null || !StringUtils.hasText(rawIdentifier)) {
+            return null;
+        }
+        ParsedNormativePrefix parsed = parseNormativePrefix(rawIdentifier);
+        if (parsed == null) {
+            return null;
+        }
+        List<NormativeMetricDefinition> definitions = normativeMetricDefinitionService.listActive();
+        if (definitions == null || definitions.isEmpty()) {
+            return null;
+        }
+        List<NormativeMetricDefinition> matchingDefinitions = definitions.stream()
+                .filter(Objects::nonNull)
+                .filter(definition -> Objects.equals(normalizeLower(definition.getMonitorContentCode()), normalizeLower(parsed.monitorContentCode())))
+                .filter(definition -> Objects.equals(normalizeLower(definition.getMonitorTypeCode()), normalizeLower(parsed.monitorTypeCode())))
+                .toList();
+        if (matchingDefinitions.isEmpty()) {
+            return null;
+        }
+        String targetIdentifier = resolveUniqueFallbackIdentifier(matchingDefinitions, parsed, rawIdentifier);
+        if (!StringUtils.hasText(targetIdentifier)) {
+            return null;
+        }
+        return new MappingResolution(
+                null,
+                targetIdentifier,
+                normalizeText(rawIdentifier),
+                normalizeUpper(logicalChannelCode)
+        );
+    }
+
+    private String resolveUniqueFallbackIdentifier(List<NormativeMetricDefinition> definitions,
+                                                   ParsedNormativePrefix parsed,
+                                                   String rawIdentifier) {
+        if (definitions == null || definitions.isEmpty() || parsed == null) {
+            return null;
+        }
+        String leafIdentifier = normalizeText(parsed.leafIdentifier());
+        if (StringUtils.hasText(leafIdentifier)) {
+            String target = resolveUniqueIdentifier(definitions, leafIdentifier);
+            if (StringUtils.hasText(target)) {
+                return target;
+            }
+        }
+        String normalizedRawIdentifier = normalizeText(rawIdentifier);
+        if (StringUtils.hasText(normalizedRawIdentifier)) {
+            String target = resolveUniqueIdentifier(definitions, normalizedRawIdentifier);
+            if (StringUtils.hasText(target)) {
+                return target;
+            }
+        }
+        if (parsed.leafIdentifier() == null && definitions.size() == 1) {
+            NormativeMetricDefinition onlyDefinition = definitions.get(0);
+            if (onlyDefinition != null && Objects.equals(normalizeLower(onlyDefinition.getIdentifier()), normalizeLower("value"))) {
+                return normalizeText(onlyDefinition.getIdentifier());
+            }
+        }
+        return null;
+    }
+
+    private String resolveUniqueIdentifier(List<NormativeMetricDefinition> definitions, String candidateIdentifier) {
+        if (definitions == null || definitions.isEmpty() || !StringUtils.hasText(candidateIdentifier)) {
+            return null;
+        }
+        String normalizedCandidate = normalizeLower(candidateIdentifier);
+        LinkedHashMap<String, String> identifiers = new LinkedHashMap<>();
+        for (NormativeMetricDefinition definition : definitions) {
+            if (definition == null || !StringUtils.hasText(definition.getIdentifier())) {
+                continue;
+            }
+            String normalizedIdentifier = normalizeLower(definition.getIdentifier());
+            if (normalizedCandidate != null && normalizedCandidate.equals(normalizedIdentifier)) {
+                identifiers.putIfAbsent(normalizedIdentifier, definition.getIdentifier().trim());
+            }
+        }
+        return identifiers.size() == 1 ? identifiers.values().iterator().next() : null;
+    }
+
+    private ParsedNormativePrefix parseNormativePrefix(String rawIdentifier) {
+        String normalizedIdentifier = normalizeText(rawIdentifier);
+        if (!StringUtils.hasText(normalizedIdentifier)) {
+            return null;
+        }
+        int dotIndex = normalizedIdentifier.indexOf('.');
+        String prefix = dotIndex >= 0 ? normalizedIdentifier.substring(0, dotIndex) : normalizedIdentifier;
+        String leafIdentifier = dotIndex >= 0 ? normalizedIdentifier.substring(dotIndex + 1).trim() : null;
+        if (!StringUtils.hasText(leafIdentifier)) {
+            leafIdentifier = null;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^([LS]\\d+)_([A-Za-z]+)_\\d+$").matcher(prefix);
+        if (!matcher.matches()) {
+            return null;
+        }
+        return new ParsedNormativePrefix(
+                normalizeUpper(matcher.group(1)),
+                normalizeUpper(matcher.group(2)),
+                leafIdentifier
+        );
     }
 
     private MappingResolution resolveFromRules(Product product,
@@ -773,6 +879,11 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
     private record ResolvedRuleCandidate(VendorMetricMappingRule rule,
                                          String targetNormativeIdentifier,
                                          int specificity) {
+    }
+
+    private record ParsedNormativePrefix(String monitorContentCode,
+                                         String monitorTypeCode,
+                                         String leafIdentifier) {
     }
 
     private record PublishedRuleSnapshotResolution(boolean hasPublishedSnapshots,

@@ -1716,6 +1716,7 @@ INSERT INTO `iot_product` (
       (202603192100560270, 1, 'zjhy-warning-sound-light-alarm-v1', '浙江华源 预警型 声光报警器', 'mqtt-json', 1, 'JSON', '浙江华源', '预警型声光报警设备，协议 mqtt-json，直连接入', 1, '原始 productKey: zjhy_sound_light_alarm', NULL, NULL, 0),
       (202603192100560259, 1, 'nf-collect-rtu-v1', '南方测绘 采集型 遥测终端', 'mqtt-json', 1, 'JSON', '南方测绘', '采集型遥测终端设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_rtu', NULL, NULL, 0),
       (202603192100560258, 1, 'nf-monitor-laser-rangefinder-v1', '南方测绘 监测型 激光测距仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型激光测距设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_laser_rangefinder', NULL, NULL, 0),
+      (202603192100560256, 1, 'nf-monitor-water-surface-v1', '南方测绘 监测型 地表水位监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型地表水位设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_water_surface', NULL, NULL, 0),
       (202603192100560257, 1, 'zhd-monitor-tiltmeter-v1', '中海达 监测型 倾角仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型倾角设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_tiltmeter', NULL, NULL, 0),
       (202603192100560255, 1, 'nf-monitor-crack-meter-v1', '南方测绘 监测型 裂缝计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型裂缝监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_crack_meter', NULL, NULL, 0),
       (202603192100560254, 1, 'nf-monitor-mud-level-meter-v1', '南方测绘 监测型 泥位计', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型泥位监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_mud_level_meter', NULL, NULL, 0),
@@ -1726,7 +1727,8 @@ INSERT INTO `iot_product` (
       (202603192100560249, 1, 'zhd-monitor-gnss-base-station-v1', '中海达 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_base_station', NULL, NULL, 0),
       (202603192100560248, 1, 'nf-monitor-gnss-base-station-v1', '南方测绘 监测型 GNSS基准站', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 基准站设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_base_station', NULL, NULL, 0),
       (202603192100560247, 1, 'zhd-monitor-gnss-monitor-v1', '中海达 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '中海达', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: hitarget_gnss_monitor', NULL, NULL, 0),
-      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '南方测绘 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_monitor', NULL, NULL, 0);
+      (202603192100560246, 1, 'nf-monitor-gnss-monitor-v1', '南方测绘 监测型 GNSS位移监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型 GNSS 位移监测设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_gnss_monitor', NULL, NULL, 0),
+      (202603192100560245, 1, 'nf-monitor-radar-v1', '南方测绘 监测型 雷达监测仪', 'mqtt-json', 1, 'JSON', '南方测绘', '监测型雷达设备，协议 mqtt-json，直连接入', 1, '原始 productKey: south_radar', NULL, NULL, 0);
 
 -- collector-child 共享 dev 基线：采集器 / 激光测距 / 深部位移 / 单台深部位移
 INSERT INTO iot_product_model (
@@ -1741,6 +1743,12 @@ INSERT INTO iot_product_model (
     (202604110200021, 1, 202603192100560250, 'property', 'dispsX', '顺滑动方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '深部位移顺滑动方向累计变形量', NOW(), NOW(), 0),
     (202604110200022, 1, 202603192100560250, 'property', 'dispsY', '垂直坡面方向累计变形量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 2, 0, '深部位移垂直坡面方向累计变形量', NOW(), NOW(), 0),
     (202604110200023, 1, 202603192100560250, 'property', 'sensor_state', '传感器状态', 'int', JSON_OBJECT('category', 'state'), 3, 0, '深部位移传感器状态', NOW(), NOW(), 0),
+    (202604110200041, 1, 202603192100560256, 'property', 'temp', '地表水温', 'double', JSON_OBJECT('unit', '℃', 'category', 'water_surface'), 1, 0, '地表水温', NOW(), NOW(), 0),
+    (202604110200042, 1, 202603192100560256, 'property', 'value', '地表水位', 'double', JSON_OBJECT('unit', 'm', 'precision', 3), 2, 0, '地表水位', NOW(), NOW(), 0),
+    (202604110200051, 1, 202603192100560245, 'property', 'X', '雷达X', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 1, 0, '雷达 X 轴位移', NOW(), NOW(), 0),
+    (202604110200052, 1, 202603192100560245, 'property', 'Y', '雷达Y', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 2, 0, '雷达 Y 轴位移', NOW(), NOW(), 0),
+    (202604110200053, 1, 202603192100560245, 'property', 'Z', '雷达Z', 'double', JSON_OBJECT('unit', 'mm', 'precision', 4), 3, 0, '雷达 Z 轴位移', NOW(), NOW(), 0),
+    (202604110200054, 1, 202603192100560245, 'property', 'speed', '雷达速度', 'double', JSON_OBJECT('unit', 'mm/s', 'precision', 4), 4, 0, '雷达速度', NOW(), NOW(), 0),
     (202604110200031, 1, 202603192100560253, 'property', 'value', '当前雨量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 2), 1, 0, '翻斗式雨量计当前雨量', NOW(), NOW(), 0),
     (202604110200032, 1, 202603192100560253, 'property', 'totalValue', '累计雨量', 'double', JSON_OBJECT('unit', 'mm', 'precision', 2), 2, 0, '翻斗式雨量计累计雨量', NOW(), NOW(), 0)
 ON DUPLICATE KEY UPDATE
@@ -1797,6 +1805,24 @@ SET metadata_json = JSON_SET(
         JSON_OBJECT(
             'customMetrics',
             JSON_ARRAY(
+                JSON_OBJECT('identifier', 'temp', 'displayName', '地表水温', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
+                JSON_OBJECT('identifier', 'value', 'displayName', '地表水位', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20)
+            )
+        )
+    ),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0
+WHERE tenant_id = 1
+  AND product_key = 'nf-monitor-water-surface-v1';
+
+UPDATE iot_product
+SET metadata_json = JSON_SET(
+        COALESCE(metadata_json, JSON_OBJECT()),
+        '$.objectInsight',
+        JSON_OBJECT(
+            'customMetrics',
+            JSON_ARRAY(
                 JSON_OBJECT('identifier', 'dispsX', 'displayName', '顺滑动方向累计变形量', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
                 JSON_OBJECT('identifier', 'dispsY', 'displayName', '垂直坡面方向累计变形量', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20),
                 JSON_OBJECT('identifier', 'sensor_state', 'displayName', '传感器状态', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 30)
@@ -1808,6 +1834,26 @@ SET metadata_json = JSON_SET(
     deleted = 0
 WHERE tenant_id = 1
   AND product_key = 'nf-monitor-deep-displacement-v1';
+
+UPDATE iot_product
+SET metadata_json = JSON_SET(
+        COALESCE(metadata_json, JSON_OBJECT()),
+        '$.objectInsight',
+        JSON_OBJECT(
+            'customMetrics',
+            JSON_ARRAY(
+                JSON_OBJECT('identifier', 'X', 'displayName', '雷达X', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 10),
+                JSON_OBJECT('identifier', 'Y', 'displayName', '雷达Y', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 20),
+                JSON_OBJECT('identifier', 'Z', 'displayName', '雷达Z', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 30),
+                JSON_OBJECT('identifier', 'speed', 'displayName', '雷达速度', 'enabled', TRUE, 'includeInTrend', TRUE, 'includeInExtension', TRUE, 'sortNo', 40)
+            )
+        )
+    ),
+    update_by = 1,
+    update_time = NOW(),
+    deleted = 0
+WHERE tenant_id = 1
+  AND product_key = 'nf-monitor-radar-v1';
 
 UPDATE iot_product
 SET metadata_json = JSON_SET(
@@ -1836,7 +1882,19 @@ INSERT INTO iot_vendor_metric_mapping_rule (
     (202604110800001, 1, 'PRODUCT', 202603192100560253, 'mqtt-json', 'phase4-rain-gauge', 'RAIN_GAUGE',
      'L3_YL_1.value', 'L3_YL_1', NULL, NULL, 'value', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
     (202604110800002, 1, 'PRODUCT', 202603192100560253, 'mqtt-json', 'phase4-rain-gauge', 'RAIN_GAUGE',
-     'L3_YL_1.totalValue', 'L3_YL_1', NULL, NULL, 'totalValue', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0)
+     'L3_YL_1.totalValue', 'L3_YL_1', NULL, NULL, 'totalValue', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800011, 1, 'PRODUCT', 202603192100560256, 'mqtt-json', 'phase3-water-surface', 'WATER_SURFACE',
+     'L3_DB_1.temp', 'L3_DB_1', NULL, NULL, 'temp', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800012, 1, 'PRODUCT', 202603192100560256, 'mqtt-json', 'phase3-water-surface', 'WATER_SURFACE',
+     'L3_DB_1.value', 'L3_DB_1', NULL, NULL, 'value', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800021, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.X', 'L4_LD_1', NULL, NULL, 'X', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800022, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.Y', 'L4_LD_1', NULL, NULL, 'Y', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800023, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.Z', 'L4_LD_1', NULL, NULL, 'Z', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0),
+    (202604110800024, 1, 'PRODUCT', 202603192100560245, 'mqtt-json', 'phase6-radar', 'RADAR',
+     'L4_LD_1.speed', 'L4_LD_1', NULL, NULL, 'speed', 'ACTIVE', 1, NULL, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     product_id = VALUES(product_id),
     protocol_code = VALUES(protocol_code),

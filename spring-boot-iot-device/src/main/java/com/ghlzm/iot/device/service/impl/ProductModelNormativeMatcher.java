@@ -18,8 +18,10 @@ final class ProductModelNormativeMatcher {
     static final String SCENARIO_PHASE1_CRACK = "phase1-crack";
     static final String SCENARIO_PHASE2_GNSS = "phase2-gnss";
     static final String SCENARIO_PHASE3_DEEP_DISPLACEMENT = "phase3-deep-displacement";
+    static final String SCENARIO_PHASE3_WATER_SURFACE = "phase3-water-surface";
     static final String SCENARIO_PHASE4_RAIN_GAUGE = "phase4-rain-gauge";
     static final String SCENARIO_PHASE5_MUD_LEVEL = "phase5-mud-level";
+    static final String SCENARIO_PHASE6_RADAR = "phase6-radar";
 
     String resolveScenarioCode(Product product) {
         if (product == null) {
@@ -30,6 +32,12 @@ final class ProductModelNormativeMatcher {
                 || matchesDeepDisplacement(product.getManufacturer())
                 || matchesDeepDisplacement(product.getDescription())) {
             return SCENARIO_PHASE3_DEEP_DISPLACEMENT;
+        }
+        if (matchesWaterSurface(product.getProductKey())
+                || matchesWaterSurface(product.getProductName())
+                || matchesWaterSurface(product.getManufacturer())
+                || matchesWaterSurface(product.getDescription())) {
+            return SCENARIO_PHASE3_WATER_SURFACE;
         }
         if (matchesRainGauge(product.getProductKey())
                 || matchesRainGauge(product.getProductName())
@@ -42,6 +50,12 @@ final class ProductModelNormativeMatcher {
                 || matchesMudLevel(product.getManufacturer())
                 || matchesMudLevel(product.getDescription())) {
             return SCENARIO_PHASE5_MUD_LEVEL;
+        }
+        if (matchesRadar(product.getProductKey())
+                || matchesRadar(product.getProductName())
+                || matchesRadar(product.getManufacturer())
+                || matchesRadar(product.getDescription())) {
+            return SCENARIO_PHASE6_RADAR;
         }
         if (matchesGnss(product.getProductKey())
                 || matchesGnss(product.getProductName())
@@ -255,6 +269,30 @@ final class ProductModelNormativeMatcher {
                 || normalized.contains("-nw-")
                 || value.contains("泥位")
                 || value.contains("泥水位");
+    }
+
+    private boolean matchesWaterSurface(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("water-surface")
+                || normalized.contains("water_surface")
+                || normalized.contains("surface-water")
+                || normalized.contains("surface_water")
+                || value.contains("地表水位")
+                || value.contains("地表水");
+    }
+
+    private boolean matchesRadar(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("radar")
+                || normalized.contains("water-radar")
+                || normalized.contains("water_radar")
+                || value.contains("雷达");
     }
 
     record NormativeMatchResult(

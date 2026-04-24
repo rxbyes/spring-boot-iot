@@ -356,12 +356,6 @@
       <div v-if="detailData" class="device-detail-stack">
         <DeviceDetailWorkbench
           :device="detailData"
-          :capability-overview="capabilityOverview"
-          :command-records="commandRecords"
-          :capability-loading="capabilityLoading"
-          :command-loading="commandLoading"
-          @execute-capability="handleExecuteCapability"
-          @refresh-commands="handleRefreshCommands"
         />
       </div>
 
@@ -382,9 +376,20 @@
       </template>
     </StandardDetailDrawer>
 
+    <DeviceCapabilityWorkbenchDrawer
+      v-model="capabilityVisible"
+      :device="capabilityDevice"
+      :overview="capabilityOverview"
+      :commands="commandRecords"
+      :capability-loading="capabilityLoading"
+      :command-loading="commandLoading"
+      @execute-capability="handleExecuteCapability"
+      @refresh-commands="handleRefreshCommands"
+    />
+
     <DeviceCapabilityExecuteDrawer
       v-model="capabilityExecuteVisible"
-      :device-code="detailData?.deviceCode || ''"
+      :device-code="capabilityDevice?.deviceCode || detailData?.deviceCode || ''"
       :capability="executingCapability"
       :submitting="capabilityExecuteSubmitting"
       @submit="handleExecuteCapabilitySubmit"
@@ -622,6 +627,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
+import DeviceCapabilityWorkbenchDrawer from '@/components/device/DeviceCapabilityWorkbenchDrawer.vue'
 import DeviceCapabilityExecuteDrawer from '@/components/device/DeviceCapabilityExecuteDrawer.vue'
 import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
@@ -758,6 +764,7 @@ const deviceOptionsLoading = ref(false)
 const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
+const capabilityVisible = ref(false)
 const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
 const replaceVisible = ref(false)
@@ -786,6 +793,7 @@ const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
+const capabilityDevice = ref<Device | null>(null)
 const capabilityOverview = ref<DeviceCapabilityOverview | null>(null)
 const commandRecords = ref<CommandRecordPageItem[]>([])
 const registerSourceRow = ref<Device | null>(null)
@@ -805,6 +813,9 @@ const defaultPageSize = 10
 const advancedFilterKeys: readonly DeviceFilterKey[] = ['deviceId', 'onlineStatus', 'activateStatus', 'deviceStatus']
 let latestListRequestId = 0
 let latestDetailRequestId = 0
+let latestCapabilityRequestSeed = 0
+let latestCapabilityOverviewRequestId = 0
+let latestCapabilityCommandRequestId = 0
 let latestEditRequestId = 0
 let latestReplaceRequestId = 0
 let listAbortController: AbortController | null = null
@@ -2280,11 +2291,11 @@ async function openDetail(target: Device | string | number) {
   const detailSnapshot = row ? resolveDetailSnapshot(row, cachedDetail) : null
 
   abortDetailRequest()
+  capabilityVisible.value = false
   detailVisible.value = true
   detailErrorMessage.value = ''
   detailRefreshErrorMessage.value = ''
   detailData.value = detailSnapshot
-  resetCapabilityState()
   detailLoading.value = !detailSnapshot
 
   if (row && !isRegisteredDeviceRow(row)) {
@@ -2373,9 +2384,6 @@ async function openDetail(target: Device | string | number) {
     if (detailAbortController === controller) {
       detailAbortController = null
     }
-    if (requestId === latestDetailRequestId && detailData.value && isRegisteredDeviceRow(detailData.value)) {
-      void refreshDeviceCapabilityContext(detailData.value.deviceCode, requestId)
-    }
   }
 }
 
@@ -2387,10 +2395,25 @@ function resetCapabilityState() {
   capabilityExecuteVisible.value = false
   capabilityExecuteSubmitting.value = false
   executingCapability.value = null
+  capabilityDevice.value = null
+}
+
+function openCapability(row: Device) {
+  if (!isRegisteredDeviceRow(row) || !row.deviceCode) {
+    return
+  }
+  const cachedDetail = getCachedDeviceDetail(row)
+  capabilityDevice.value = resolveDetailSnapshot(row, cachedDetail)
+  capabilityVisible.value = true
+  detailVisible.value = false
+  resetCapabilityState()
+  capabilityDevice.value = resolveDetailSnapshot(row, cachedDetail)
+  const requestId = ++latestCapabilityRequestId
+  void refreshDeviceCapabilityContext(row.deviceCode, requestId)
 }
 
 async function refreshDeviceCapabilityContext(deviceCode: string, requestId: number) {
-  if (!deviceCode || requestId !== latestDetailRequestId) {
+  if (!deviceCode || requestId !== latestCapabilityRequestId) {
     return
   }
   await Promise.all([
@@ -2400,13 +2423,13 @@ async function refreshDeviceCapabilityContext(deviceCode: string, requestId: num
 }
 
 async function loadDeviceCapabilityOverview(deviceCode: string, requestId: number) {
-  if (requestId !== latestDetailRequestId) {
+  if (requestId !== latestCapabilityRequestId) {
     return
   }
   capabilityLoading.value = true
   try {
     const res = await deviceApi.getDeviceCapabilities(deviceCode)
-    if (requestId !== latestDetailRequestId) {
+    if (requestId !== latestCapabilityRequestId) {
       return
     }
     if (res.code === 200 && res.data) {
@@ -2418,7 +2441,7 @@ async function loadDeviceCapabilityOverview(deviceCode: string, requestId: numbe
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    if (requestId !== latestDetailRequestId) {
+    if (requestId !== latestCapabilityRequestId) {
       return
     }
     capabilityOverview.value = null
@@ -2426,14 +2449,14 @@ async function loadDeviceCapabilityOverview(deviceCode: string, requestId: numbe
       ElMessage.error(resolveRequestErrorMessage(error, '获取设备能力失败'))
     }
   } finally {
-    if (requestId === latestDetailRequestId) {
+    if (requestId === latestCapabilityRequestId) {
       capabilityLoading.value = false
     }
   }
 }
 
 async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number) {
-  if (requestId !== latestDetailRequestId) {
+  if (requestId !== latestCapabilityRequestId) {
     return
   }
   commandLoading.value = true
@@ -2442,7 +2465,7 @@ async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number
       pageNum: 1,
       pageSize: 10
     })
-    if (requestId !== latestDetailRequestId) {
+    if (requestId !== latestCapabilityRequestId) {
       return
     }
     if (res.code === 200 && res.data) {
@@ -2454,7 +2477,7 @@ async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    if (requestId !== latestDetailRequestId) {
+    if (requestId !== latestCapabilityRequestId) {
       return
     }
     commandRecords.value = []
@@ -2462,7 +2485,7 @@ async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number
       ElMessage.error(resolveRequestErrorMessage(error, '获取设备命令失败'))
     }
   } finally {
-    if (requestId === latestDetailRequestId) {
+    if (requestId === latestCapabilityRequestId) {
       commandLoading.value = false
     }
   }
@@ -2908,7 +2931,7 @@ function handleRowAction(command: string | number | object, row: Device) {
     return
   }
   if (command === 'capability') {
-    handleOpenDetail(row)
+    openCapability(row)
     return
   }
   if (command === 'delete') {
@@ -2917,7 +2940,7 @@ function handleRowAction(command: string | number | object, row: Device) {
 }
 
 function handleExecuteCapability(capability: DeviceCapability) {
-  if (!detailData.value || !capability) {
+  if (!capabilityDevice.value || !capability) {
     return
   }
   executingCapability.value = capability
@@ -2925,18 +2948,19 @@ function handleExecuteCapability(capability: DeviceCapability) {
 }
 
 function handleRefreshCommands() {
-  if (!detailData.value?.deviceCode) {
+  if (!capabilityDevice.value?.deviceCode) {
     return
   }
-  void loadDeviceCapabilityRecords(detailData.value.deviceCode, latestDetailRequestId)
+  const requestId = ++latestCapabilityRequestId
+  void loadDeviceCapabilityRecords(capabilityDevice.value.deviceCode, requestId)
 }
 
 async function handleExecuteCapabilitySubmit(payload: DeviceCapabilityExecutePayload) {
-  if (!detailData.value?.deviceCode || !executingCapability.value) {
+  if (!capabilityDevice.value?.deviceCode || !executingCapability.value) {
     return
   }
 
-  const deviceCode = detailData.value.deviceCode
+  const deviceCode = capabilityDevice.value.deviceCode
   const capability = executingCapability.value
   capabilityExecuteSubmitting.value = true
   try {
@@ -2948,7 +2972,8 @@ async function handleExecuteCapabilitySubmit(payload: DeviceCapabilityExecutePay
     ElMessage.success(`指令已下发，等待设备反馈：${res.data.commandId}`)
     capabilityExecuteVisible.value = false
     executingCapability.value = null
-    await loadDeviceCapabilityRecords(deviceCode, latestDetailRequestId)
+    const requestId = ++latestCapabilityRequestId
+    await loadDeviceCapabilityRecords(deviceCode, requestId)
   } catch (error) {
     if (!isHandledRequestError(error)) {
       ElMessage.error(resolveRequestErrorMessage(error, '设备能力下发失败'))
@@ -3331,12 +3356,19 @@ watch(detailVisible, (visible) => {
   }
   latestDetailRequestId += 1
   abortDetailRequest()
-  resetCapabilityState()
   detailLoading.value = false
   detailRefreshing.value = false
   detailErrorMessage.value = ''
   detailRefreshErrorMessage.value = ''
   detailData.value = null
+})
+
+watch(capabilityVisible, (visible) => {
+  if (visible) {
+    return
+  }
+  latestCapabilityRequestId += 1
+  resetCapabilityState()
 })
 
 watch(

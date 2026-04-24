@@ -1015,6 +1015,115 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldDecorateWaterSurfaceRowsWithNormativeMetadata() {
+        when(productMapper.selectById(3004L)).thenReturn(waterSurfaceProduct(3004L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase3-water-surface")).thenReturn(List.of(
+                normativeDefinition("phase3-water-surface", "temp", "地表水温", 0),
+                normativeDefinition("phase3-water-surface", "value", "地表水位", 1)
+        ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L3_DB_1.temp"), eq("L3_DB_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9903001L,
+                        "temp",
+                        "L3_DB_1.temp",
+                        "L3_DB_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L3_DB_1.value"), eq("L3_DB_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9903002L,
+                        "value",
+                        "L3_DB_1.value",
+                        "L3_DB_1"
+                ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-water-01":{"L3_DB_1":{"2026-04-10T11:00:00.000Z":{"temp":18.2,"value":3.4}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(3004L, dto);
+
+        assertEquals(2, result.getCompareRows().size());
+        ProductModelGovernanceCompareRowVO tempRow = compareRow(result, "property", "temp");
+        ProductModelGovernanceCompareRowVO valueRow = compareRow(result, "property", "value");
+        assertEquals("地表水温", tempRow.getNormativeName());
+        assertEquals(Boolean.FALSE, tempRow.getRiskReady());
+        assertEquals(List.of("L3_DB_1.temp"), tempRow.getRawIdentifiers());
+        assertEquals("地表水位", valueRow.getNormativeName());
+        assertTrue(valueRow.getRiskReady());
+        assertEquals(List.of("L3_DB_1.value"), valueRow.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(3004L), eq("phase3-water-surface"), any());
+    }
+
+    @Test
+    void compareGovernanceShouldDecorateRadarRowsWithNormativeMetadata() {
+        when(productMapper.selectById(6008L)).thenReturn(radarProduct(6008L));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase6-radar")).thenReturn(List.of(
+                normativeDefinition("phase6-radar", "X", "雷达X", 1),
+                normativeDefinition("phase6-radar", "Y", "雷达Y", 1),
+                normativeDefinition("phase6-radar", "Z", "雷达Z", 1),
+                normativeDefinition("phase6-radar", "speed", "雷达速度", 0)
+        ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.X"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906001L,
+                        "X",
+                        "L4_LD_1.X",
+                        "L4_LD_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.Y"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906002L,
+                        "Y",
+                        "L4_LD_1.Y",
+                        "L4_LD_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.Z"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906003L,
+                        "Z",
+                        "L4_LD_1.Z",
+                        "L4_LD_1"
+                ));
+        when(vendorMetricMappingRuntimeService.resolveForGovernance(any(Product.class), eq("L4_LD_1.speed"), eq("L4_LD_1")))
+                .thenReturn(new VendorMetricMappingRuntimeService.MappingResolution(
+                        9906004L,
+                        "speed",
+                        "L4_LD_1.speed",
+                        "L4_LD_1"
+                ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"device-radar-01":{"L4_LD_1":{"2026-04-10T11:05:00.000Z":{"X":1.1,"Y":1.2,"Z":1.3,"speed":0.8}}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(6008L, dto);
+
+        assertEquals(4, result.getCompareRows().size());
+        assertEquals("雷达X", compareRow(result, "property", "X").getNormativeName());
+        assertEquals("雷达Y", compareRow(result, "property", "Y").getNormativeName());
+        assertEquals("雷达Z", compareRow(result, "property", "Z").getNormativeName());
+        ProductModelGovernanceCompareRowVO speedRow = compareRow(result, "property", "speed");
+        assertEquals("雷达速度", speedRow.getNormativeName());
+        assertEquals(Boolean.FALSE, speedRow.getRiskReady());
+        assertEquals(List.of("L4_LD_1.speed"), speedRow.getRawIdentifiers());
+        verify(productMetricEvidenceService).replaceManualEvidence(eq(6008L), eq("phase6-radar"), any());
+    }
+
+    @Test
     void compareGovernanceShouldNormalizeRainGaugeRowsIntoNormativeIdentifiers() {
         when(productMapper.selectById(7007L)).thenReturn(product(
                 7007L,
@@ -1432,6 +1541,84 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void applyGovernanceShouldReturnWaterSurfaceReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(3004L)).thenReturn(waterSurfaceProduct(3004L));
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_DB_1.temp")))
+                .thenReturn("temp");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L3_DB_1.value")))
+                .thenReturn("value");
+        when(productContractReleaseService.createBatch(
+                eq(3004L),
+                eq("phase3-water-surface"),
+                eq("manual_compare_apply"),
+                eq(2),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(33445L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "L3_DB_1.temp", "地表水温"),
+                applyItem("create", null, "property", "L3_DB_1.value", "地表水位")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(3004L, dto, 10001L);
+
+        assertEquals(33445L, result.getReleaseBatchId());
+        assertEquals(
+                List.of("temp", "value"),
+                result.getAppliedItems().stream()
+                        .map(ProductModelGovernanceAppliedItemVO::getIdentifier)
+                        .toList()
+        );
+        verify(productModelMapper, times(2)).insert(any(ProductModel.class));
+    }
+
+    @Test
+    void applyGovernanceShouldReturnRadarReleaseBatchIdAfterPublishingFormalFields() {
+        when(productMapper.selectById(6008L)).thenReturn(radarProduct(6008L));
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.X")))
+                .thenReturn("X");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.Y")))
+                .thenReturn("Y");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.Z")))
+                .thenReturn("Z");
+        when(vendorMetricMappingRuntimeService.normalizeApplyIdentifier(any(Product.class), eq("L4_LD_1.speed")))
+                .thenReturn("speed");
+        when(productContractReleaseService.createBatch(
+                eq(6008L),
+                eq("phase6-radar"),
+                eq("manual_compare_apply"),
+                eq(4),
+                eq(10001L),
+                eq(null),
+                eq("manual_compare_apply")
+        ))
+                .thenReturn(66888L);
+
+        ProductModelGovernanceApplyDTO dto = new ProductModelGovernanceApplyDTO();
+        dto.setItems(List.of(
+                applyItem("create", null, "property", "L4_LD_1.X", "雷达X"),
+                applyItem("create", null, "property", "L4_LD_1.Y", "雷达Y"),
+                applyItem("create", null, "property", "L4_LD_1.Z", "雷达Z"),
+                applyItem("create", null, "property", "L4_LD_1.speed", "雷达速度")
+        ));
+
+        ProductModelGovernanceApplyResultVO result = productModelService.applyGovernance(6008L, dto, 10001L);
+
+        assertEquals(66888L, result.getReleaseBatchId());
+        assertEquals(
+                List.of("X", "Y", "Z", "speed"),
+                result.getAppliedItems().stream()
+                        .map(ProductModelGovernanceAppliedItemVO::getIdentifier)
+                        .toList()
+        );
+        verify(productModelMapper, times(4)).insert(any(ProductModel.class));
+    }
+
+    @Test
     void applyGovernanceShouldNormalizeRainGaugeIdentifiersAndCreateReleaseBatch() {
         when(productMapper.selectById(7007L)).thenReturn(product(
                 7007L,
@@ -1601,6 +1788,18 @@ class ProductModelServiceImplTest {
 
     private Product directCollectorRtuProduct(Long id) {
         return product(id, "nf-collect-rtu-v1", "南方测绘 采集型 遥测终端");
+    }
+
+    private Product waterSurfaceProduct(Long id) {
+        Product product = product(id, "nf-monitor-water-surface-v1", "南方测绘 监测型 地表水位监测仪");
+        product.setManufacturer("南方测绘");
+        return product;
+    }
+
+    private Product radarProduct(Long id) {
+        Product product = product(id, "nf-monitor-radar-v1", "南方测绘 监测型 雷达监测仪");
+        product.setManufacturer("南方测绘");
+        return product;
     }
 
     private Device device(Long id, Long productId, String deviceCode) {

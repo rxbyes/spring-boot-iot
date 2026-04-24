@@ -178,6 +178,58 @@ class VendorMetricMappingRuntimeServiceImplTest {
     }
 
     @Test
+    void resolveForRuntimeShouldFallbackToWaterSurfaceIdentifierWhenNoRuleExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-water-surface", "temp", "WATER_SURFACE", "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-water-surface", "value", "WATER_SURFACE", "L3", "DB")
+        ));
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setProtocolCode("mqtt-json");
+
+        VendorMetricMappingRuntimeService.MappingResolution resolution =
+                service.resolveForRuntime(waterSurfaceProduct(7008L), upMessage, "L3_DB_1.temp", "L3_DB_1");
+
+        assertEquals("temp", resolution.targetNormativeIdentifier());
+        assertEquals("L3_DB_1.temp", resolution.rawIdentifier());
+        assertEquals("L3_DB_1", resolution.logicalChannelCode());
+    }
+
+    @Test
+    void normalizeApplyIdentifierShouldFallbackToRadarIdentifierWhenNoRuleExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase6-radar", "X", "RADAR", "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "Y", "RADAR", "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "Z", "RADAR", "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "speed", "RADAR", "L4", "LD")
+        ));
+
+        String normalized = service.normalizeApplyIdentifier(radarProduct(8008L), "L4_LD_1.speed");
+
+        assertEquals("speed", normalized);
+    }
+
+    @Test
+    void normalizeApplyIdentifierShouldUseLeaflessValueWhenOnlyOneActiveDefinitionExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-water-surface", "value", "WATER_SURFACE", "L3", "DB")
+        ));
+
+        String normalized = service.normalizeApplyIdentifier(waterSurfaceProduct(7008L), "L3_DB_1");
+
+        assertEquals("value", normalized);
+    }
+
+    @Test
     void resolveForRuntimeShouldPreferProtocolFamilyRuleOverBaseProtocolRule() {
         IotProperties properties = new IotProperties();
         IotProperties.Protocol.FamilyDefinition familyDefinition = new IotProperties.Protocol.FamilyDefinition();
@@ -385,6 +437,26 @@ class VendorMetricMappingRuntimeServiceImplTest {
         return product;
     }
 
+    private Product waterSurfaceProduct(Long productId) {
+        Product product = new Product();
+        product.setId(productId);
+        product.setProductKey("nf-monitor-water-surface-v1");
+        product.setProductName("南方测绘 地表水位监测仪");
+        product.setManufacturer("南方测绘");
+        product.setProtocolCode("mqtt-json");
+        return product;
+    }
+
+    private Product radarProduct(Long productId) {
+        Product product = new Product();
+        product.setId(productId);
+        product.setProductKey("nf-monitor-radar-v1");
+        product.setProductName("南方测绘 雷达监测仪");
+        product.setManufacturer("南方测绘");
+        product.setProtocolCode("mqtt-json");
+        return product;
+    }
+
     private VendorMetricMappingRule mappingRule(Long id,
                                                 Long productId,
                                                 String rawIdentifier,
@@ -446,6 +518,17 @@ class VendorMetricMappingRuntimeServiceImplTest {
                                                                    String deviceFamily,
                                                                    String monitorContentCode,
                                                                    String monitorTypeCode) {
+        NormativeMetricDefinition definition = normativeDefinition(scenarioCode, identifier, deviceFamily);
+        definition.setMonitorContentCode(monitorContentCode);
+        definition.setMonitorTypeCode(monitorTypeCode);
+        return definition;
+    }
+
+    private NormativeMetricDefinition normativeDefinitionWithCodes(String scenarioCode,
+                                                                    String identifier,
+                                                                    String deviceFamily,
+                                                                    String monitorContentCode,
+                                                                    String monitorTypeCode) {
         NormativeMetricDefinition definition = normativeDefinition(scenarioCode, identifier, deviceFamily);
         definition.setMonitorContentCode(monitorContentCode);
         definition.setMonitorTypeCode(monitorTypeCode);
