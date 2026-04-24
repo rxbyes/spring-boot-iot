@@ -112,6 +112,7 @@ com.ghlzm.iot
 - 如果六条超短清单装不下，再使用 `docs/09-GPT接管提示模板.md` 中的任务卡模板。
 - 如果你已经知道要做什么，但拿不准该调用哪些技能或按什么顺序协作，再查阅 `docs/10-智能助手技能与任务选型指南.md`。
 - 只有任务跨模块、跨验收、跨数据库，或短任务卡仍然装不下时，再使用 `docs/template/README.md` 索引的长模板。
+- 如果需要追溯历史设计或实施计划，先查阅 `docs/superpowers/README.md`；`docs/superpowers/specs` 与 `docs/superpowers/plans` 不进入默认编码前最小阅读集。
 
 ## Git 分支治理规则
 - `master` 是生产分支，禁止本地直接开发、直接提交、直接合并、直接推送。
@@ -309,4 +310,3 @@ com.ghlzm.iot
 - `/message/http/report`、`/api/cockpit/**`、actuator 与 swagger / doc 端点继续保持公开。
 - 其他 API 默认都受 JWT Bearer 鉴权保护。
 - 前端在登录后应附加 `Authorization: Bearer <token>`，并在收到 `401` 时清理本地认证状态。
-
