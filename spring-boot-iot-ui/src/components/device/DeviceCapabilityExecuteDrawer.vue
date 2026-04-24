@@ -41,6 +41,91 @@
         </div>
       </section>
 
+      <section v-if="schemaEntries.length" class="device-capability-execute-drawer__favorites">
+        <div class="device-capability-execute-drawer__favorites-header">
+          <strong>常用命令</strong>
+          <span>收藏当前参数，点击即可回填。</span>
+        </div>
+        <div class="device-capability-execute-drawer__favorites-actions">
+          <StandardButton action="default" class="device-capability-execute-drawer__favorite-save" @click="saveCurrentAsFavorite">
+            收藏当前参数
+          </StandardButton>
+          <StandardButton
+            v-if="favoriteCommands.length"
+            action="reset"
+            class="device-capability-execute-drawer__favorite-clear"
+            @click="clearFavoriteCommands"
+          >
+            清空收藏
+          </StandardButton>
+        </div>
+        <div v-if="sortedFavoriteCommands.length" class="device-capability-execute-drawer__favorite-list">
+          <article
+            v-for="favorite in sortedFavoriteCommands"
+            :key="favorite.signature"
+            class="device-capability-execute-drawer__favorite-card"
+          >
+            <template v-if="isEditingFavorite(favorite)">
+              <el-input
+                v-model="favoriteRenameDraft"
+                class="device-capability-execute-drawer__favorite-rename-input"
+                placeholder="请输入常用命令名称"
+              />
+              <div class="device-capability-execute-drawer__favorite-edit-actions">
+                <StandardButton action="confirm" @click="confirmFavoriteRename(favorite)">
+                  保存名称
+                </StandardButton>
+                <StandardButton action="cancel" @click="cancelFavoriteRename">
+                  取消
+                </StandardButton>
+              </div>
+            </template>
+            <template v-else>
+              <div class="device-capability-execute-drawer__favorite-meta">
+                <strong>{{ getFavoriteDisplayLabel(favorite) }}</strong>
+                <span v-if="favorite.pinned">已置顶</span>
+              </div>
+              <div class="device-capability-execute-drawer__favorite-action-row">
+                <StandardButton action="confirm" @click="applyFavorite(favorite)">
+                  回填
+                </StandardButton>
+                <StandardButton action="default" @click="toggleFavoritePinned(favorite)">
+                  {{ favorite.pinned ? '取消置顶' : '置顶' }}
+                </StandardButton>
+                <StandardButton action="default" @click="startFavoriteRename(favorite)">
+                  重命名
+                </StandardButton>
+                <StandardButton action="delete" @click="deleteFavorite(favorite)">
+                  删除
+                </StandardButton>
+              </div>
+            </template>
+          </article>
+        </div>
+        <StandardInlineState
+          v-else
+          message="收藏一次常用参数后，可在这里直接回填。"
+        />
+      </section>
+
+      <section v-if="capabilityPresetOptions.length" class="device-capability-execute-drawer__capability-presets">
+        <div class="device-capability-execute-drawer__capability-presets-header">
+          <strong>能力专用预设</strong>
+          <span>按当前能力特征自动生成。</span>
+        </div>
+        <div class="device-capability-execute-drawer__capability-presets-actions">
+          <StandardButton
+            v-for="preset in capabilityPresetOptions"
+            :key="preset.key"
+            :action="preset.kind === 'primary' ? 'confirm' : 'default'"
+            class="device-capability-execute-drawer__capability-preset-button"
+            @click="applyCapabilityPreset(preset)"
+          >
+            {{ preset.label }}
+          </StandardButton>
+        </div>
+      </section>
+
       <StandardInlineState
         v-if="hasRecentDraft"
         message="已自动回填最近一次参数草稿，可继续微调或切换模板重置。"
@@ -123,6 +208,7 @@ import StandardInlineState from '@/components/StandardInlineState.vue'
 import type { DeviceCapability, DeviceCapabilityParamSchemaField } from '@/types/api'
 
 const RECENT_DRAFT_STORAGE_PREFIX = 'iot:device-capability-execute:last-params'
+const FAVORITE_STORAGE_PREFIX = 'iot:device-capability-execute:favorites'
 
 type CapabilitySchemaEntry = {
   key: string
@@ -139,6 +225,22 @@ type TemplateOption = {
   key: 'recent' | 'blank' | 'conservative' | 'demo'
   label: string
   kind: 'primary' | 'default'
+}
+
+type FavoriteCommand = {
+  signature: string
+  label: string
+  alias?: string | null
+  params: Record<string, unknown>
+  pinned?: boolean | null
+  updatedAt: string
+}
+
+type CapabilityPresetOption = {
+  key: string
+  label: string
+  kind: 'primary' | 'default'
+  values: Record<string, unknown>
 }
 
 const props = withDefaults(
@@ -165,6 +267,9 @@ const formModel = reactive<{ params: Record<string, unknown> }>({
   params: {}
 })
 const hasRecentDraft = ref(false)
+const favoriteCommands = ref<FavoriteCommand[]>([])
+const favoriteEditingSignature = ref('')
+const favoriteRenameDraft = ref('')
 
 const visible = computed({
   get: () => props.modelValue,
@@ -199,6 +304,9 @@ const templateOptions = computed<TemplateOption[]>(() => {
   return templates
 })
 
+const capabilityPresetOptions = computed<CapabilityPresetOption[]>(() => buildCapabilityPresetOptions(schemaEntries.value))
+const sortedFavoriteCommands = computed(() => [...favoriteCommands.value].sort(compareFavoriteCommands))
+
 const validationRules = computed<FormRules>(() => {
   const rules: FormRules = {}
   for (const entry of schemaEntries.value) {
@@ -224,6 +332,7 @@ watch(
   ([visibleNow]) => {
     if (visibleNow) {
       syncFormModel()
+      syncFavoriteCommands()
       return
     }
     resetFormModel()
@@ -297,6 +406,8 @@ function syncFormModel() {
 function resetFormModel() {
   formModel.params = {}
   hasRecentDraft.value = false
+  favoriteCommands.value = []
+  cancelFavoriteRename()
   formRef.value?.clearValidate()
 }
 
@@ -338,6 +449,14 @@ function applyTemplate(templateKey: TemplateOption['key']) {
   }
 
   formModel.params = nextParams
+  formRef.value?.clearValidate()
+}
+
+function applyCapabilityPreset(preset: CapabilityPresetOption) {
+  formModel.params = {
+    ...createEmptyParams(),
+    ...preset.values
+  }
   formRef.value?.clearValidate()
 }
 
@@ -388,11 +507,26 @@ function createEmptyParams() {
   return nextParams
 }
 
+function normalizeCurrentParams() {
+  const nextParams = createEmptyParams()
+  for (const entry of schemaEntries.value) {
+    nextParams[entry.key] = normalizeDraftValue(entry, formModel.params[entry.key])
+  }
+  return nextParams
+}
+
 function getRecentDraftStorageKey() {
   if (!props.deviceCode || !props.capability?.code) {
     return ''
   }
   return `${RECENT_DRAFT_STORAGE_PREFIX}:${props.deviceCode}:${props.capability.code}`
+}
+
+function getFavoriteStorageKey() {
+  if (!props.deviceCode || !props.capability?.code) {
+    return ''
+  }
+  return `${FAVORITE_STORAGE_PREFIX}:${props.deviceCode}:${props.capability.code}`
 }
 
 function readRecentDraftParams() {
@@ -426,6 +560,343 @@ function persistRecentDraft(params: Record<string, unknown>) {
   } catch {
     // 本地草稿失败不影响下发主流程。
   }
+}
+
+function syncFavoriteCommands() {
+  favoriteCommands.value = readFavoriteCommands()
+}
+
+function readFavoriteCommands() {
+  const storageKey = getFavoriteStorageKey()
+  if (!storageKey || typeof window === 'undefined' || !window.localStorage) {
+    return []
+  }
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) {
+      return []
+    }
+    const parsed = JSON.parse(raw) as FavoriteCommand[]
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed
+      .map((item) => normalizeFavoriteCommand(item))
+      .filter((item): item is FavoriteCommand => Boolean(item))
+      .sort(compareFavoriteCommands)
+  } catch {
+    return []
+  }
+}
+
+function persistFavoriteCommands(commands: FavoriteCommand[]) {
+  const normalizedCommands = normalizeFavoriteCommands(commands)
+  const storageKey = getFavoriteStorageKey()
+  if (!storageKey || typeof window === 'undefined' || !window.localStorage) {
+    favoriteCommands.value = normalizedCommands
+    return
+  }
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(normalizedCommands))
+  } catch {
+    // 收藏失败不影响下发主流程。
+  }
+  favoriteCommands.value = normalizedCommands
+}
+
+function saveCurrentAsFavorite() {
+  const params = normalizeCurrentParams()
+  const existing = favoriteCommands.value.find((item) => item.signature === buildFavoriteSignature(params))
+  const favorite: FavoriteCommand = {
+    signature: buildFavoriteSignature(params),
+    label: buildFavoriteLabel(params),
+    alias: existing?.alias || null,
+    params,
+    pinned: existing?.pinned ?? false,
+    updatedAt: new Date().toISOString()
+  }
+
+  const nextCommands = [
+    favorite,
+    ...favoriteCommands.value.filter((item) => item.signature !== favorite.signature)
+  ].slice(0, 6)
+
+  persistFavoriteCommands(nextCommands)
+}
+
+function clearFavoriteCommands() {
+  cancelFavoriteRename()
+  persistFavoriteCommands([])
+}
+
+function applyFavorite(favorite: FavoriteCommand) {
+  formModel.params = {
+    ...createEmptyParams(),
+    ...favorite.params
+  }
+  formRef.value?.clearValidate()
+}
+
+function normalizeFavoriteCommand(command: FavoriteCommand | Record<string, unknown>) {
+  if (!command || typeof command !== 'object') {
+    return null
+  }
+  const signature = typeof command.signature === 'string' ? command.signature : ''
+  const label = typeof command.label === 'string' ? command.label : ''
+  const alias = typeof command.alias === 'string' && command.alias.trim() ? command.alias.trim() : null
+  const pinned = typeof command.pinned === 'boolean' ? command.pinned : false
+  const params = command.params && typeof command.params === 'object' ? normalizeDraftParams(command.params as Record<string, unknown>) : null
+  const updatedAt = typeof command.updatedAt === 'string' ? command.updatedAt : new Date().toISOString()
+  if (!signature || !label || !params) {
+    return null
+  }
+  return {
+    signature,
+    label,
+    alias,
+    params,
+    pinned,
+    updatedAt
+  }
+}
+
+function normalizeFavoriteCommands(commands: FavoriteCommand[]) {
+  return commands
+    .map((item) => normalizeFavoriteCommand(item))
+    .filter((item): item is FavoriteCommand => Boolean(item))
+    .sort(compareFavoriteCommands)
+    .slice(0, 6)
+}
+
+function compareFavoriteCommands(left: FavoriteCommand, right: FavoriteCommand) {
+  if (Boolean(left.pinned) !== Boolean(right.pinned)) {
+    return left.pinned ? -1 : 1
+  }
+  return Date.parse(right.updatedAt || '') - Date.parse(left.updatedAt || '')
+}
+
+function buildFavoriteSignature(params: Record<string, unknown>) {
+  return JSON.stringify(params)
+}
+
+function buildFavoriteLabel(params: Record<string, unknown>) {
+  const parts: string[] = []
+  for (const entry of schemaEntries.value) {
+    const value = params[entry.key]
+    if (value === undefined || value === null || value === '') {
+      continue
+    }
+    parts.push(`${entry.label} ${String(value)}`)
+    if (parts.length >= 2) {
+      break
+    }
+  }
+  if (!parts.length) {
+    return '空参数命令'
+  }
+  return parts.join(' · ')
+}
+
+function getFavoriteDisplayLabel(favorite: FavoriteCommand) {
+  return favorite.alias?.trim() || favorite.label
+}
+
+function isEditingFavorite(favorite: FavoriteCommand) {
+  return favoriteEditingSignature.value === favorite.signature
+}
+
+function startFavoriteRename(favorite: FavoriteCommand) {
+  favoriteEditingSignature.value = favorite.signature
+  favoriteRenameDraft.value = favorite.alias?.trim() || favorite.label
+}
+
+function confirmFavoriteRename(favorite: FavoriteCommand) {
+  const nextAlias = favoriteRenameDraft.value.trim()
+  if (!nextAlias) {
+    return
+  }
+  const nextCommands = favoriteCommands.value.map((item) =>
+    item.signature === favorite.signature
+      ? {
+          ...item,
+          alias: nextAlias,
+          updatedAt: new Date().toISOString()
+        }
+      : item
+  )
+  persistFavoriteCommands(nextCommands)
+  cancelFavoriteRename()
+}
+
+function cancelFavoriteRename() {
+  favoriteEditingSignature.value = ''
+  favoriteRenameDraft.value = ''
+}
+
+function toggleFavoritePinned(favorite: FavoriteCommand) {
+  const nextCommands = favoriteCommands.value.map((item) =>
+    item.signature === favorite.signature
+      ? {
+          ...item,
+          pinned: !item.pinned,
+          updatedAt: new Date().toISOString()
+        }
+      : item
+  )
+  persistFavoriteCommands(nextCommands)
+}
+
+function deleteFavorite(favorite: FavoriteCommand) {
+  const nextCommands = favoriteCommands.value.filter((item) => item.signature !== favorite.signature)
+  persistFavoriteCommands(nextCommands)
+  if (isEditingFavorite(favorite)) {
+    cancelFavoriteRename()
+  }
+}
+
+function buildCapabilityPresetOptions(entries: CapabilitySchemaEntry[]) {
+  if (!entries.length) {
+    return []
+  }
+
+  if (isBroadcastCapability()) {
+    return [
+      {
+        key: 'broadcast-emergency',
+        label: '应急播报',
+        kind: 'primary' as const,
+        values: buildBroadcastPresetValues(entries, 'emergency')
+      },
+      {
+        key: 'broadcast-routine',
+        label: '巡检播报',
+        kind: 'default' as const,
+        values: buildBroadcastPresetValues(entries, 'routine')
+      }
+    ]
+  }
+
+  if (isPtzCapability()) {
+    return [
+      {
+        key: 'ptz-left',
+        label: '左转预设',
+        kind: 'primary' as const,
+        values: buildPtzPresetValues(entries, 'left')
+      },
+      {
+        key: 'ptz-right',
+        label: '右转预设',
+        kind: 'default' as const,
+        values: buildPtzPresetValues(entries, 'right')
+      },
+      {
+        key: 'ptz-stop',
+        label: '停止预设',
+        kind: 'default' as const,
+        values: buildPtzPresetValues(entries, 'stop')
+      }
+    ]
+  }
+
+  return []
+}
+
+function isBroadcastCapability() {
+  const text = buildCapabilityFingerprint()
+  return /广播|播报|喇叭|sound|voice|alarm|speaker/i.test(text)
+}
+
+function isPtzCapability() {
+  const text = buildCapabilityFingerprint()
+  return /云台|转向|方位|ptz|pan|tilt|zoom/i.test(text)
+}
+
+function buildCapabilityFingerprint() {
+  return [
+    props.capability?.code,
+    props.capability?.name,
+    props.capability?.group,
+    ...schemaEntries.value.flatMap((entry) => [entry.key, entry.label])
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function buildBroadcastPresetValues(entries: CapabilitySchemaEntry[], variant: 'emergency' | 'routine') {
+  const values = createEmptyParams()
+  for (const entry of entries) {
+    const fieldFingerprint = `${entry.key} ${entry.label}`.toLowerCase()
+    if (entry.type === 'string') {
+      if (/(content|message|text|播报|内容|提示)/i.test(fieldFingerprint)) {
+        values[entry.key] =
+          variant === 'emergency'
+            ? '设备异常，请注意现场安全并立即确认状态。'
+            : '设备巡检播报，请保持通行畅通。'
+        continue
+      }
+      values[entry.key] = entry.required ? entry.label : ''
+      continue
+    }
+
+    if (/(volume|音量|loud|speaker)/i.test(fieldFingerprint)) {
+      values[entry.key] = variant === 'emergency' ? pickNumericValue(entry, 85) : pickNumericValue(entry, 55)
+      continue
+    }
+    if (/(duration|时长|time|秒|min)/i.test(fieldFingerprint)) {
+      values[entry.key] = variant === 'emergency' ? pickNumericValue(entry, 30) : pickNumericValue(entry, 10)
+      continue
+    }
+    values[entry.key] = pickNumericValue(entry, variant === 'emergency' ? 2 : 1)
+  }
+  return values
+}
+
+function buildPtzPresetValues(entries: CapabilitySchemaEntry[], direction: 'left' | 'right' | 'stop') {
+  const values = createEmptyParams()
+  for (const entry of entries) {
+    const fieldFingerprint = `${entry.key} ${entry.label}`.toLowerCase()
+    if (entry.type === 'string') {
+      if (/(direction|动作|action|mode|command|指令|方向)/i.test(fieldFingerprint)) {
+        values[entry.key] =
+          direction === 'left' ? 'left' : direction === 'right' ? 'right' : 'stop'
+        continue
+      }
+      if (/(content|message|text|播报|内容|提示)/i.test(fieldFingerprint)) {
+        values[entry.key] = direction === 'stop' ? '停止预设' : `${direction === 'left' ? '左转' : '右转'}预设执行`
+        continue
+      }
+      values[entry.key] = entry.required ? entry.label : ''
+      continue
+    }
+
+    if (/(speed|速度|rate|rateNo|level)/i.test(fieldFingerprint)) {
+      values[entry.key] =
+        direction === 'stop' ? pickNumericValue(entry, 0) : pickNumericValue(entry, 3)
+      continue
+    }
+    if (/(angle|角度|position|pos|step)/i.test(fieldFingerprint)) {
+      values[entry.key] =
+        direction === 'stop' ? pickNumericValue(entry, 0) : pickNumericValue(entry, 15)
+      continue
+    }
+    values[entry.key] = pickNumericValue(entry, direction === 'stop' ? 0 : 1)
+  }
+  return values
+}
+
+function pickNumericValue(entry: CapabilitySchemaEntry, preferred: number) {
+  if (entry.min !== undefined && entry.max !== undefined) {
+    const clampedPreferred = Math.min(entry.max, Math.max(entry.min, preferred))
+    return Math.trunc(clampedPreferred)
+  }
+  if (entry.min !== undefined) {
+    return Math.trunc(Math.max(entry.min, preferred))
+  }
+  if (entry.max !== undefined) {
+    return Math.trunc(Math.min(entry.max, preferred))
+  }
+  return Math.trunc(preferred)
 }
 
 function normalizeDraftParams(params: Record<string, unknown>) {
@@ -521,6 +992,88 @@ function normalizeDraftValue(entry: CapabilitySchemaEntry, value: unknown) {
   min-width: 7.5rem;
 }
 
+.device-capability-execute-drawer__favorites,
+.device-capability-execute-drawer__capability-presets {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.86rem 0.92rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(248, 251, 255, 0.92);
+}
+
+.device-capability-execute-drawer__favorites-header,
+.device-capability-execute-drawer__capability-presets-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.device-capability-execute-drawer__favorites-header strong,
+.device-capability-execute-drawer__capability-presets-header strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.device-capability-execute-drawer__favorites-header span,
+.device-capability-execute-drawer__capability-presets-header span {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.device-capability-execute-drawer__favorites-actions,
+.device-capability-execute-drawer__capability-presets-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.device-capability-execute-drawer__favorite-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.device-capability-execute-drawer__favorite-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.82rem 0.86rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.device-capability-execute-drawer__favorite-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  align-items: baseline;
+}
+
+.device-capability-execute-drawer__favorite-meta strong {
+  color: var(--text-heading);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.device-capability-execute-drawer__favorite-meta span {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.device-capability-execute-drawer__favorite-action-row,
+.device-capability-execute-drawer__favorite-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.device-capability-execute-drawer__favorite-rename-input {
+  width: 100%;
+}
+
 .device-capability-execute-drawer__form {
   display: grid;
   gap: 0.85rem;
@@ -553,11 +1106,18 @@ function normalizeDraftValue(entry: CapabilitySchemaEntry, value: unknown) {
 @media (max-width: 900px) {
   .device-capability-execute-drawer__summary,
   .device-capability-execute-drawer__templates-header,
+  .device-capability-execute-drawer__favorites-header,
+  .device-capability-execute-drawer__capability-presets-header,
   .device-capability-execute-drawer__grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .device-capability-execute-drawer__templates-header {
+    display: grid;
+  }
+
+  .device-capability-execute-drawer__favorites-header,
+  .device-capability-execute-drawer__capability-presets-header {
     display: grid;
   }
 }
