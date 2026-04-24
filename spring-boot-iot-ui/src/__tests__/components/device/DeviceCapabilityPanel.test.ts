@@ -126,7 +126,11 @@ describe('DeviceCapabilityPanel', () => {
     expect(wrapper.text()).toContain('广播喇叭')
     expect(wrapper.text()).toContain('广播预警')
     expect(wrapper.text()).toContain('基础维护')
+    expect(wrapper.text()).toContain('总能力')
+    expect(wrapper.text()).toContain('可执行')
+    expect(wrapper.text()).toContain('受限')
     expect(wrapper.text()).toContain('播放内容')
+    expect(wrapper.text()).toContain('点击可直接下发')
     expect(wrapper.text()).toContain('CMD-001')
     expect(wrapper.text()).toContain('执行成功')
 
@@ -167,6 +171,7 @@ describe('DeviceCapabilityPanel', () => {
 
     expect(wrapper.text()).toContain('设备离线，当前能力需要在线执行')
     expect(wrapper.text()).toContain('视频云台')
+    expect(wrapper.text()).toContain('受限')
     expect(wrapper.get('button.standard-button-stub').attributes('title')).toBe('设备离线，当前能力需要在线执行')
   })
 })

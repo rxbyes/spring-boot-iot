@@ -19,6 +19,17 @@
         tone="error"
       />
 
+      <section v-if="summaryCards.length" class="device-capability-panel__summary-strip">
+        <article
+          v-for="card in summaryCards"
+          :key="card.key"
+          class="device-capability-panel__summary-card"
+        >
+          <span class="device-capability-panel__summary-label">{{ card.label }}</span>
+          <strong class="device-capability-panel__summary-value">{{ card.value }}</strong>
+        </article>
+      </section>
+
       <template v-if="groupEntries.length">
         <section
           v-for="group in groupEntries"
@@ -34,17 +45,31 @@
           </div>
 
           <div class="device-capability-panel__capabilities">
-            <StandardButton
+            <article
               v-for="capability in group.items"
               :key="capability.code"
-              :action="capability.enabled ? 'confirm' : 'default'"
-              class="device-capability-panel__capability-button"
-              :disabled="isCapabilityDisabled(capability)"
-              :title="resolveCapabilityDisabledReason(capability) || undefined"
-              @click="emit('execute', capability)"
+              :class="[
+                'device-capability-panel__capability-card',
+                { 'device-capability-panel__capability-card--disabled': isCapabilityDisabled(capability) }
+              ]"
             >
-              {{ capability.name }}
-            </StandardButton>
+              <StandardButton
+                :action="capability.enabled ? 'confirm' : 'default'"
+                class="device-capability-panel__capability-button"
+                :disabled="isCapabilityDisabled(capability)"
+                :title="resolveCapabilityDisabledReason(capability) || undefined"
+                @click="emit('execute', capability)"
+              >
+                {{ capability.name }}
+              </StandardButton>
+
+              <div class="device-capability-panel__capability-state">
+                <el-tag :type="getCapabilityStateTagType(capability)" round size="small">
+                  {{ getCapabilityStateLabel(capability) }}
+                </el-tag>
+                <span>{{ getCapabilityStateDescription(capability) }}</span>
+              </div>
+            </article>
           </div>
 
           <p v-if="group.hint" class="device-capability-panel__group-hint">
@@ -118,6 +143,12 @@ type CapabilityGroupEntry = {
   description: string
   hint?: string
   items: DeviceCapability[]
+}
+
+type SummaryCard = {
+  key: string
+  label: string
+  value: string
 }
 
 const props = withDefaults(
@@ -219,6 +250,18 @@ const groupEntries = computed<CapabilityGroupEntry[]>(() => {
   })
 })
 
+const summaryCards = computed<SummaryCard[]>(() => {
+  const capabilities = props.overview?.capabilities || []
+  const executableCount = capabilities.filter((capability) => !isCapabilityDisabled(capability)).length
+  const blockedCount = capabilities.length - executableCount
+
+  return [
+    { key: 'total', label: '总能力', value: `${capabilities.length} 项` },
+    { key: 'executable', label: '可执行', value: `${executableCount} 项` },
+    { key: 'blocked', label: '受限', value: `${blockedCount} 项` }
+  ]
+})
+
 const commandMetaItems = computed(() => [
   `最近命令 ${props.commands?.length || 0} 条`,
   `已反馈 ${props.commands?.filter((item) => Boolean(item.ackTime)).length || 0} 条`,
@@ -226,11 +269,46 @@ const commandMetaItems = computed(() => [
 ])
 
 function isCapabilityDisabled(capability: DeviceCapability) {
-  return !capability.enabled || Boolean(resolveCapabilityDisabledReason(capability))
+  return (
+    !capability.enabled ||
+    Boolean(resolveCapabilityDisabledReason(capability)) ||
+    Boolean(capability.requiresOnline && props.overview?.onlineExecutable === false)
+  )
 }
 
 function resolveCapabilityDisabledReason(capability: DeviceCapability) {
-  return capability.disabledReason || props.overview?.disabledReason || ''
+  if (capability.disabledReason) {
+    return capability.disabledReason
+  }
+  if (props.overview?.disabledReason) {
+    return props.overview.disabledReason
+  }
+  if (capability.requiresOnline && props.overview?.onlineExecutable === false) {
+    return '当前设备离线，暂不可执行'
+  }
+  return ''
+}
+
+function getCapabilityStateLabel(capability: DeviceCapability) {
+  return isCapabilityDisabled(capability) ? '受限' : '可执行'
+}
+
+function getCapabilityStateDescription(capability: DeviceCapability) {
+  const reason = resolveCapabilityDisabledReason(capability)
+  if (reason) {
+    return reason
+  }
+  if (!capability.enabled) {
+    return '当前产品未开放该能力'
+  }
+  if (capability.requiresOnline && props.overview?.onlineExecutable === false) {
+    return '当前设备离线，暂不可执行'
+  }
+  return '点击可直接下发'
+}
+
+function getCapabilityStateTagType(capability: DeviceCapability) {
+  return isCapabilityDisabled(capability) ? 'warning' : 'success'
 }
 
 function getStatusLabel(value?: string | null) {
@@ -309,6 +387,35 @@ function getStatusTagType(value?: string | null) {
   line-height: 1.65;
 }
 
+.device-capability-panel__summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.device-capability-panel__summary-card {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(248, 251, 255, 0.92);
+}
+
+.device-capability-panel__summary-label {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.device-capability-panel__summary-value {
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .device-capability-panel__tags {
   display: flex;
   flex-wrap: wrap;
@@ -340,13 +447,45 @@ function getStatusTagType(value?: string | null) {
 }
 
 .device-capability-panel__capabilities {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.65rem;
+}
+
+.device-capability-panel__capability-card {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.78rem 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
+  border-radius: calc(var(--radius-md) + 2px);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.device-capability-panel__capability-card--disabled {
+  border-color: color-mix(in srgb, var(--warning) 18%, var(--panel-border));
+  background: color-mix(in srgb, var(--warning) 5%, rgba(255, 255, 255, 0.92));
 }
 
 .device-capability-panel__capability-button {
-  min-width: 7.5rem;
+  width: 100%;
+}
+
+.device-capability-panel__capability-state {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.device-capability-panel__capability-state span {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.device-capability-panel__capability-state :deep(.el-tag) {
+  flex: none;
 }
 
 .device-capability-panel__command-table {
@@ -365,6 +504,10 @@ function getStatusTagType(value?: string | null) {
 
   .device-capability-panel__tags {
     justify-content: flex-start;
+  }
+
+  .device-capability-panel__summary-strip {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>
