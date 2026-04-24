@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cleanup legacy object-insight identifiers with a safe dry-run/apply workflow."""
+"""Cleanup legacy object-insight identifiers with governance suggestion reporting."""
 
 from __future__ import annotations
 
@@ -30,6 +30,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--database")
     parser.add_argument("--report-path", help="Optional JSON report output path")
     parser.add_argument("--confirm", action="store_true", help="Required when --mode apply")
+    parser.add_argument(
+        "--no-governance-suggestions",
+        action="store_true",
+        help="Skip runtime evidence scan and recommendation classification",
+    )
+    parser.add_argument(
+        "--runtime-sample-limit",
+        type=int,
+        default=20,
+        help="Max runtime identifier samples per unresolved metric",
+    )
     return parser.parse_args(argv)
 
 
@@ -126,6 +137,11 @@ def assert_scope(args: argparse.Namespace) -> None:
 def assert_apply_allowed(args: argparse.Namespace) -> None:
     if args.mode == "apply" and not args.confirm:
         raise RuntimeError("apply 模式需要显式传入 --confirm")
+
+
+def assert_runtime_sample_limit(args: argparse.Namespace) -> None:
+    if args.runtime_sample_limit <= 0:
+        raise RuntimeError("--runtime-sample-limit 必须大于 0")
 
 
 def build_product_query(args: argparse.Namespace) -> tuple[str, list[object]]:
@@ -247,25 +263,63 @@ def load_published_identifiers(cursor, product_id: int) -> list[str]:
     return load_published_identifiers_from_product_model(cursor, product_id)
 
 
-def resolve_identifier(raw_identifier: str, published_identifiers: list[str]) -> tuple[str | None, str]:
+def deduplicate_texts(values: list[str]) -> list[str]:
+    dedup: dict[str, str] = {}
+    for value in values:
+        text = normalize_text(value)
+        key = normalize_key(text)
+        if key and key not in dedup:
+            dedup[key] = text
+    return list(dedup.values())
+
+
+def resolve_identifier_detail(raw_identifier: str, published_identifiers: list[str]) -> dict[str, object]:
     normalized = normalize_text(raw_identifier)
     if not normalized:
-        return None, "empty"
+        return {"resolvedIdentifier": None, "source": "empty", "tailMatches": []}
     by_key = {normalize_key(item): item for item in published_identifiers if normalize_key(item)}
     exact = by_key.get(normalize_key(normalized))
-    if exact:
-        return exact, "exact"
-    if "." in normalized:
-        return None, "unresolved"
     input_tail = normalize_key(identifier_tail(normalized))
+    tail_matches = deduplicate_texts(
+        [item for item in published_identifiers if normalize_key(identifier_tail(item)) == input_tail]
+    )
+    if exact:
+        return {"resolvedIdentifier": exact, "source": "exact", "tailMatches": tail_matches}
+    if "." in normalized:
+        return {"resolvedIdentifier": None, "source": "unresolved", "tailMatches": tail_matches}
     if not input_tail:
-        return None, "unresolved"
-    matches = [item for item in published_identifiers if normalize_key(identifier_tail(item)) == input_tail]
-    if len(matches) == 1:
-        return matches[0], "tail"
-    if len(matches) > 1:
-        return None, "ambiguous"
-    return None, "unresolved"
+        return {"resolvedIdentifier": None, "source": "unresolved", "tailMatches": tail_matches}
+    if len(tail_matches) == 1:
+        return {"resolvedIdentifier": tail_matches[0], "source": "tail", "tailMatches": tail_matches}
+    if len(tail_matches) > 1:
+        return {"resolvedIdentifier": None, "source": "ambiguous", "tailMatches": tail_matches}
+    return {"resolvedIdentifier": None, "source": "unresolved", "tailMatches": []}
+
+
+def resolve_identifier(raw_identifier: str, published_identifiers: list[str]) -> tuple[str | None, str]:
+    detail = resolve_identifier_detail(raw_identifier, published_identifiers)
+    return detail["resolvedIdentifier"], detail["source"]
+
+
+def deduplicate_metric_issues(issues: list[dict[str, object]]) -> list[dict[str, object]]:
+    dedup: dict[tuple[str, str], dict[str, object]] = {}
+    for issue in issues:
+        identifier = normalize_text(issue.get("identifier"))
+        source = normalize_text(issue.get("source"))
+        key = (normalize_key(identifier), source)
+        if not key[0] or not source:
+            continue
+        if key not in dedup:
+            dedup[key] = {
+                "identifier": identifier,
+                "source": source,
+                "publishedTailMatches": deduplicate_texts(list(issue.get("publishedTailMatches") or [])),
+            }
+            continue
+        merged_matches = list(dedup[key].get("publishedTailMatches") or [])
+        merged_matches.extend(list(issue.get("publishedTailMatches") or []))
+        dedup[key]["publishedTailMatches"] = deduplicate_texts(merged_matches)
+    return list(dedup.values())
 
 
 def deduplicate_metrics(metrics: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -288,6 +342,7 @@ def transform_metadata(metadata_json: str, published_identifiers: list[str]) -> 
         "blocked": False,
         "unresolved": [],
         "ambiguous": [],
+        "issues": [],
         "reason": None,
         "normalizedMetadataJson": metadata_json,
         "beforeMetricIdentifiers": [],
@@ -324,15 +379,31 @@ def transform_metadata(metadata_json: str, published_identifiers: list[str]) -> 
         raw_identifier = normalize_text(metric_copy.get("identifier"))
         if raw_identifier:
             result["beforeMetricIdentifiers"].append(raw_identifier)
-            resolved_identifier, source = resolve_identifier(raw_identifier, published_identifiers)
+            detail = resolve_identifier_detail(raw_identifier, published_identifiers)
+            resolved_identifier = detail["resolvedIdentifier"]
+            source = detail["source"]
             if resolved_identifier:
                 metric_copy["identifier"] = resolved_identifier
                 if normalize_key(resolved_identifier) != normalize_key(raw_identifier):
                     result["changed"] = True
             elif source == "ambiguous":
                 result["ambiguous"].append(raw_identifier)
+                result["issues"].append(
+                    {
+                        "identifier": raw_identifier,
+                        "source": source,
+                        "publishedTailMatches": detail["tailMatches"],
+                    }
+                )
             elif source == "unresolved":
                 result["unresolved"].append(raw_identifier)
+                result["issues"].append(
+                    {
+                        "identifier": raw_identifier,
+                        "source": source,
+                        "publishedTailMatches": detail["tailMatches"],
+                    }
+                )
         transformed_metrics.append(metric_copy)
     deduplicated_metrics = deduplicate_metrics(transformed_metrics)
     if len(deduplicated_metrics) != len(transformed_metrics):
@@ -342,6 +413,9 @@ def transform_metadata(metadata_json: str, published_identifiers: list[str]) -> 
         for item in deduplicated_metrics
         if isinstance(item, dict) and normalize_text(item.get("identifier"))
     ]
+    result["unresolved"] = deduplicate_texts(result["unresolved"])
+    result["ambiguous"] = deduplicate_texts(result["ambiguous"])
+    result["issues"] = deduplicate_metric_issues(result["issues"])
     if result["unresolved"] or result["ambiguous"]:
         result["blocked"] = True
         result["reason"] = "manual_required"
@@ -371,12 +445,234 @@ def default_report_path() -> Path:
     return report_dir / f"object-insight-legacy-cleanup-{datetime.now():%Y%m%d%H%M%S}.json"
 
 
+def load_property_identifier_samples(
+    cursor, product_id: int, raw_identifier: str, sample_limit: int
+) -> list[dict[str, object]]:
+    cursor.execute(
+        """
+        SELECT dp.identifier, COUNT(*) AS row_count
+        FROM iot_device_property dp
+        JOIN iot_device d ON d.id = dp.device_id
+        WHERE d.deleted = 0
+          AND d.product_id = %s
+          AND (
+            LOWER(dp.identifier) = LOWER(%s)
+            OR LOWER(SUBSTRING_INDEX(dp.identifier, '.', -1)) = LOWER(%s)
+          )
+        GROUP BY dp.identifier
+        ORDER BY row_count DESC, dp.identifier ASC
+        LIMIT %s
+        """,
+        (product_id, raw_identifier, raw_identifier, sample_limit),
+    )
+    rows = cursor.fetchall()
+    return [{"identifier": normalize_text(row[0]), "deviceRows": int(row[1])} for row in rows]
+
+
+def load_evidence_identifier_samples(
+    cursor, product_id: int, raw_identifier: str, sample_limit: int
+) -> list[dict[str, object]]:
+    cursor.execute(
+        """
+        SELECT raw_identifier, SUM(COALESCE(evidence_count, 0)) AS hit_count, COUNT(*) AS row_count
+        FROM iot_vendor_metric_evidence
+        WHERE deleted = 0
+          AND product_id = %s
+          AND (
+            LOWER(raw_identifier) = LOWER(%s)
+            OR LOWER(SUBSTRING_INDEX(raw_identifier, '.', -1)) = LOWER(%s)
+          )
+        GROUP BY raw_identifier
+        ORDER BY hit_count DESC, row_count DESC, raw_identifier ASC
+        LIMIT %s
+        """,
+        (product_id, raw_identifier, raw_identifier, sample_limit),
+    )
+    rows = cursor.fetchall()
+    return [
+        {
+            "identifier": normalize_text(row[0]),
+            "evidenceHits": int(row[1] or 0),
+            "evidenceRows": int(row[2] or 0),
+        }
+        for row in rows
+    ]
+
+
+def load_evidence_canonical_suggestions(
+    cursor, product_id: int, raw_identifier: str, sample_limit: int
+) -> list[dict[str, object]]:
+    cursor.execute(
+        """
+        SELECT canonical_identifier, SUM(COALESCE(evidence_count, 0)) AS hit_count
+        FROM iot_vendor_metric_evidence
+        WHERE deleted = 0
+          AND product_id = %s
+          AND canonical_identifier IS NOT NULL
+          AND canonical_identifier <> ''
+          AND (
+            LOWER(raw_identifier) = LOWER(%s)
+            OR LOWER(SUBSTRING_INDEX(raw_identifier, '.', -1)) = LOWER(%s)
+          )
+        GROUP BY canonical_identifier
+        ORDER BY hit_count DESC, canonical_identifier ASC
+        LIMIT %s
+        """,
+        (product_id, raw_identifier, raw_identifier, sample_limit),
+    )
+    rows = cursor.fetchall()
+    return [{"identifier": normalize_text(row[0]), "evidenceHits": int(row[1] or 0)} for row in rows]
+
+
+def collect_runtime_signals(
+    cursor, product_id: int, raw_identifier: str, sample_limit: int
+) -> dict[str, object]:
+    property_samples = load_property_identifier_samples(cursor, product_id, raw_identifier, sample_limit)
+    evidence_samples = load_evidence_identifier_samples(cursor, product_id, raw_identifier, sample_limit)
+    canonical_suggestions = load_evidence_canonical_suggestions(cursor, product_id, raw_identifier, sample_limit)
+
+    raw_key = normalize_key(raw_identifier)
+    raw_tail_key = normalize_key(identifier_tail(raw_identifier))
+    property_exact_rows = 0
+    property_tail_rows = 0
+    for item in property_samples:
+        identifier_key = normalize_key(item["identifier"])
+        row_count = int(item["deviceRows"])
+        if identifier_key == raw_key:
+            property_exact_rows += row_count
+        elif normalize_key(identifier_tail(item["identifier"])) == raw_tail_key:
+            property_tail_rows += row_count
+
+    evidence_exact_hits = 0
+    evidence_tail_hits = 0
+    for item in evidence_samples:
+        identifier_key = normalize_key(item["identifier"])
+        hit_count = int(item["evidenceHits"])
+        if identifier_key == raw_key:
+            evidence_exact_hits += hit_count
+        elif normalize_key(identifier_tail(item["identifier"])) == raw_tail_key:
+            evidence_tail_hits += hit_count
+
+    candidate_identifiers = deduplicate_texts(
+        [item["identifier"] for item in property_samples] + [item["identifier"] for item in evidence_samples]
+    )
+
+    return {
+        "propertySamples": property_samples,
+        "evidenceSamples": evidence_samples,
+        "canonicalSuggestions": canonical_suggestions,
+        "candidateIdentifiers": candidate_identifiers,
+        "propertyTotalRows": sum(int(item["deviceRows"]) for item in property_samples),
+        "propertyExactRows": property_exact_rows,
+        "propertyTailRows": property_tail_rows,
+        "evidenceTotalRows": sum(int(item["evidenceRows"]) for item in evidence_samples),
+        "evidenceTotalHits": sum(int(item["evidenceHits"]) for item in evidence_samples),
+        "evidenceExactHits": evidence_exact_hits,
+        "evidenceTailHits": evidence_tail_hits,
+    }
+
+
+def classify_governance_action(issue: dict[str, object], runtime_signals: dict[str, object]) -> dict[str, object]:
+    source = normalize_text(issue.get("source"))
+    raw_identifier = normalize_text(issue.get("identifier"))
+    candidate_identifiers = list(runtime_signals.get("candidateIdentifiers") or [])
+    canonical_suggestions = [item["identifier"] for item in runtime_signals.get("canonicalSuggestions", [])]
+    candidate_by_key = {normalize_key(item): item for item in candidate_identifiers if normalize_key(item)}
+    raw_key = normalize_key(raw_identifier)
+
+    if source == "ambiguous":
+        return {
+            "recommendedAction": "needs_manual_decision",
+            "reasonCode": "ambiguous_published_tail_match",
+            "targetIdentifier": None,
+        }
+
+    if raw_key and "." in raw_identifier and raw_key in candidate_by_key:
+        return {
+            "recommendedAction": "recommend_publish",
+            "reasonCode": "runtime_exact_full_path",
+            "targetIdentifier": candidate_by_key[raw_key],
+        }
+
+    if len(candidate_identifiers) == 1:
+        return {
+            "recommendedAction": "recommend_publish",
+            "reasonCode": "single_runtime_identifier",
+            "targetIdentifier": candidate_identifiers[0],
+        }
+
+    if not candidate_identifiers:
+        if len(canonical_suggestions) == 1 and int(runtime_signals.get("evidenceTotalHits", 0)) > 0:
+            return {
+                "recommendedAction": "recommend_publish",
+                "reasonCode": "single_canonical_suggestion",
+                "targetIdentifier": canonical_suggestions[0],
+            }
+        return {
+            "recommendedAction": "recommend_deprecate",
+            "reasonCode": "no_runtime_evidence",
+            "targetIdentifier": None,
+        }
+
+    return {
+        "recommendedAction": "needs_manual_decision",
+        "reasonCode": "multiple_runtime_identifiers",
+        "targetIdentifier": None,
+    }
+
+
+def summarize_governance_recommendations(items: list[dict[str, object]]) -> dict[str, int]:
+    summary = {
+        "total": len(items),
+        "recommendPublish": 0,
+        "recommendDeprecate": 0,
+        "needsManualDecision": 0,
+    }
+    for item in items:
+        action = normalize_text(item.get("recommendedAction"))
+        if action == "recommend_publish":
+            summary["recommendPublish"] += 1
+        elif action == "recommend_deprecate":
+            summary["recommendDeprecate"] += 1
+        elif action == "needs_manual_decision":
+            summary["needsManualDecision"] += 1
+    return summary
+
+
+def build_governance_recommendations(
+    cursor, product_id: int, issues: list[dict[str, object]], sample_limit: int
+) -> list[dict[str, object]]:
+    recommendations: list[dict[str, object]] = []
+    for issue in issues:
+        runtime_signals = collect_runtime_signals(cursor, product_id, normalize_text(issue.get("identifier")), sample_limit)
+        decision = classify_governance_action(issue, runtime_signals)
+        recommendations.append(
+            {
+                "identifier": normalize_text(issue.get("identifier")),
+                "issueType": normalize_text(issue.get("source")),
+                "publishedTailMatches": deduplicate_texts(list(issue.get("publishedTailMatches") or [])),
+                "recommendedAction": decision["recommendedAction"],
+                "reasonCode": decision["reasonCode"],
+                "targetIdentifier": decision["targetIdentifier"],
+                "runtimeSignals": runtime_signals,
+            }
+        )
+    return recommendations
+
+
 def build_report(args: argparse.Namespace, conn_params: dict[str, object], product_reports: list[dict[str, object]]) -> dict[str, object]:
     changed = [item for item in product_reports if item.get("status") == "changed"]
     blocked = [item for item in product_reports if item.get("status") == "blocked"]
     skipped = [item for item in product_reports if item.get("status") == "skipped"]
     unchanged = [item for item in product_reports if item.get("status") == "unchanged"]
     applied = [item for item in product_reports if item.get("applied") is True]
+    all_recommendations = [
+        recommendation
+        for item in product_reports
+        for recommendation in item.get("governanceRecommendations", [])
+    ]
+    governance_summary = summarize_governance_recommendations(all_recommendations)
+    products_with_recommendations = [item for item in product_reports if item.get("governanceRecommendations")]
     return {
         "mode": args.mode,
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
@@ -398,7 +694,12 @@ def build_report(args: argparse.Namespace, conn_params: dict[str, object], produ
             "unchangedProducts": len(unchanged),
             "skippedProducts": len(skipped),
             "appliedProducts": len(applied),
+            "productsWithRecommendations": len(products_with_recommendations),
+            "recommendPublishItems": governance_summary["recommendPublish"],
+            "recommendDeprecateItems": governance_summary["recommendDeprecate"],
+            "needsManualDecisionItems": governance_summary["needsManualDecision"],
         },
+        "governanceRecommendationSummary": governance_summary,
         "products": product_reports,
     }
 
@@ -407,6 +708,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     assert_scope(args)
     assert_apply_allowed(args)
+    assert_runtime_sample_limit(args)
 
     conn_params = resolve_connection_params(args)
     report_path = Path(args.report_path) if args.report_path else default_report_path()
@@ -432,9 +734,17 @@ def main(argv: list[str] | None = None) -> int:
                     "afterMetricIdentifiers": transform["afterMetricIdentifiers"],
                     "unresolved": transform["unresolved"],
                     "ambiguous": transform["ambiguous"],
+                    "issues": transform["issues"],
                     "status": "unchanged",
                     "reason": transform["reason"],
                     "applied": False,
+                    "governanceRecommendations": [],
+                    "governanceRecommendationSummary": {
+                        "total": 0,
+                        "recommendPublish": 0,
+                        "recommendDeprecate": 0,
+                        "needsManualDecision": 0,
+                    },
                 }
                 if transform["blocked"]:
                     report_item["status"] = "blocked"
@@ -443,6 +753,17 @@ def main(argv: list[str] | None = None) -> int:
                     if args.mode == "apply":
                         update_product_metadata(cursor, product_id, transform["normalizedMetadataJson"])
                         report_item["applied"] = True
+                if not args.no_governance_suggestions and transform["issues"]:
+                    governance_recommendations = build_governance_recommendations(
+                        cursor,
+                        product_id,
+                        transform["issues"],
+                        args.runtime_sample_limit,
+                    )
+                    report_item["governanceRecommendations"] = governance_recommendations
+                    report_item["governanceRecommendationSummary"] = summarize_governance_recommendations(
+                        governance_recommendations
+                    )
                 product_reports.append(report_item)
             if args.mode == "apply":
                 connection.commit()
