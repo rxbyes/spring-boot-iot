@@ -82,5 +82,9 @@
 | [21-acceptance-history-20260316-20260318.md](./21-acceptance-history-20260316-20260318.md) | 过程记录 | 需要追溯历史验收结论时 | [../21-业务功能清单与验收标准.md](../21-业务功能清单与验收标准.md) |
 | [22-automation-test-issues-20260316.md](./22-automation-test-issues-20260316.md) | 排查资料 | 需要回看浏览器自动化历史失败证据时 | [../05-自动化测试与质量保障.md](../05-自动化测试与质量保障.md) |
 | [23-frontend-detail-optimization.md](./23-frontend-detail-optimization.md) | 过程记录 | 需要追溯产品详情页体验优化过程时 | [../15-前端优化与治理计划.md](../15-前端优化与治理计划.md) |
+| [ui-product-definition-evolution-plan-20260424.md](./ui-product-definition-evolution-plan-20260424.md) | UI 子项目旧规划 | 需要追溯早期产品定义中心进化规划时 | [../02-业务功能与流程说明.md](../02-业务功能与流程说明.md)、[../15-前端优化与治理计划.md](../15-前端优化与治理计划.md) |
+| [ui-product-detail-active-metrics-20260424.md](./ui-product-detail-active-metrics-20260424.md) | UI 子项目旧需求 | 需要追溯早期产品详情活跃度统计设想时 | [../02-业务功能与流程说明.md](../02-业务功能与流程说明.md)、[../21-业务功能清单与验收标准.md](../21-业务功能清单与验收标准.md) |
+| [ui-product-definition-implement-status-20260424.md](./ui-product-definition-implement-status-20260424.md) | UI 子项目旧状态 | 需要追溯早期产品定义中心实现状态记录时 | [../08-变更记录与技术债清单.md](../08-变更记录与技术债清单.md) |
+| [ui-product-definition-pending-details-20260424.md](./ui-product-definition-pending-details-20260424.md) | UI 子项目旧规划 | 需要追溯早期待实现功能清单时 | [../16-阶段规划与迭代路线图.md](../16-阶段规划与迭代路线图.md) |
 | [architecture-diagram.md](./architecture-diagram.md) | 过程资料 | 需要回看旧版架构示意图时 | [../01-系统概览与架构说明.md](../01-系统概览与架构说明.md) |
 | [codex-workflow.md](./codex-workflow.md) | 过程资料 | 需要回看旧版 AI 协作流程说明时 | [../09-GPT接管提示模板.md](../09-GPT接管提示模板.md) |

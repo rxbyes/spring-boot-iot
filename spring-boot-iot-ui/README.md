@@ -1,20 +1,10 @@
 # spring-boot-iot-ui
 
-`spring-boot-iot-ui` 是 `spring-boot-iot` 的独立 Vue 3 调试前端工作区。
+`spring-boot-iot-ui` 是 `spring-boot-iot` 的 Vue 3 前端工作区。
 
-## 设计目标
-- 对接当前 Phase 1 已落地的产品、设备、HTTP 上报、属性和消息日志接口
-- 以“云控制台”信息架构为参考，构建顶部双层导航 + 左侧业务菜单的公共壳层
-- 为图表、数字孪生、拓扑、规则、告警、OTA 等后续能力预留前端入口
+## 当前定位
 
-## 当前页面
-- 调试驾驶舱
-- 产品工作台
-- 设备工作台
-- HTTP 上报实验台
-- 设备洞察
-- 文件调试台
-- 未来实验室
+当前页面结构、产品定义中心路由、接入智维页面约束和前端治理规则，以主仓库 [docs/02-业务功能与流程说明.md](../docs/02-业务功能与流程说明.md)、[docs/06-前端开发与CSS规范.md](../docs/06-前端开发与CSS规范.md)、[docs/15-前端优化与治理计划.md](../docs/15-前端优化与治理计划.md) 为准。
 
 ## 已完成增强
 - 公共布局已重构为阿里云风格控制台（顶部横向导航 + 左侧分组菜单 + 右侧工作区）
@@ -60,7 +50,7 @@
 - 可使用 `npm run acceptance:browser:plan` 预览当前可执行场景与未来预留巡检清单
 
 可参考：
-- [docs/13-frontend-debug-console.md](../docs/13-frontend-debug-console.md)
+- [docs/archive/13-frontend-debug-console.md](../docs/archive/13-frontend-debug-console.md)
 
 ## 环境说明
 - 当前 `package.json` 已包含 Vue 3、Element Plus、ECharts、Vite 和 `unplugin-vue-components`
