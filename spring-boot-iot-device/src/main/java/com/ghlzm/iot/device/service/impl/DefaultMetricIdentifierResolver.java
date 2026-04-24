@@ -55,6 +55,11 @@ public class DefaultMetricIdentifierResolver implements MetricIdentifierResolver
             return MetricIdentifierResolution.of(metricIdentifier, publishedIdentifier,
                     MetricIdentifierResolution.SOURCE_CASE_INSENSITIVE_GUESS);
         }
+        String uniqueSuffixIdentifier = findUniquePublishedSuffixIdentifier(safeSnapshot, sanitizedInput);
+        if (uniqueSuffixIdentifier != null) {
+            return MetricIdentifierResolution.of(metricIdentifier, uniqueSuffixIdentifier,
+                    MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT);
+        }
         return MetricIdentifierResolution.of(metricIdentifier, sanitizedInput, MetricIdentifierResolution.SOURCE_RAW_IDENTIFIER);
     }
 
@@ -65,6 +70,27 @@ public class DefaultMetricIdentifierResolver implements MetricIdentifierResolver
             }
         }
         return null;
+    }
+
+    private String findUniquePublishedSuffixIdentifier(PublishedProductContractSnapshot snapshot, String metricIdentifier) {
+        if (metricIdentifier == null || metricIdentifier.contains(".")) {
+            return null;
+        }
+        String matchedIdentifier = null;
+        for (String publishedIdentifier : snapshot.publishedIdentifiers()) {
+            if (publishedIdentifier == null) {
+                continue;
+            }
+            String normalizedPublishedIdentifier = publishedIdentifier.trim();
+            if (!normalizedPublishedIdentifier.toLowerCase().endsWith("." + metricIdentifier.toLowerCase())) {
+                continue;
+            }
+            if (matchedIdentifier != null && !matchedIdentifier.equalsIgnoreCase(normalizedPublishedIdentifier)) {
+                return null;
+            }
+            matchedIdentifier = normalizedPublishedIdentifier;
+        }
+        return matchedIdentifier;
     }
 
     private String sanitize(String identifier) {

@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.service.MetricIdentifierResolver;
 import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
 import com.ghlzm.iot.device.service.ProductMetricEvidenceService;
 import com.ghlzm.iot.device.service.VendorMetricMappingRuntimeService;
+import com.ghlzm.iot.device.service.impl.DefaultMetricIdentifierResolver;
 import com.ghlzm.iot.device.service.model.DevicePayloadApplyResult;
 import com.ghlzm.iot.device.service.model.DeviceProcessingTarget;
 import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
@@ -161,6 +162,60 @@ class DevicePayloadApplyStageHandlerTest {
         verify(devicePropertyMapper).insert(propertyCaptor.capture());
         assertEquals("value", propertyCaptor.getValue().getIdentifier());
         assertEquals("0.2136", propertyCaptor.getValue().getPropertyValue());
+    }
+
+    @Test
+    void applyShouldCanonicalizeBareRuntimeIdentifierWhenPublishedSuffixIsUnique() {
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(2005L)
+                .releaseBatchId(9002L)
+                .publishedIdentifier("L1_JS_1.gX")
+                .publishedIdentifier("L1_JS_1.gY")
+                .publishedIdentifier("L1_QJ_1.angle")
+                .build();
+        DevicePayloadApplyStageHandler handler = new DevicePayloadApplyStageHandler(
+                devicePropertyMapper,
+                devicePropertyMetadataService,
+                commandRecordService,
+                deviceFileService,
+                productMetricEvidenceService,
+                vendorMetricMappingRuntimeService,
+                snapshotService,
+                new DefaultMetricIdentifierResolver()
+        );
+
+        Product product = new Product();
+        product.setId(2005L);
+        product.setProductKey("zhd-monitor-multi-displacement-v1");
+
+        Device device = new Device();
+        device.setId(3005L);
+        device.setTenantId(1L);
+        device.setProductId(2005L);
+        device.setDeviceCode("CXH15522812");
+
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setDeviceCode("CXH15522812");
+        upMessage.setProtocolCode("mqtt-json");
+        upMessage.setTimestamp(LocalDateTime.of(2026, 4, 24, 9, 0, 3));
+        upMessage.setProperties(Map.of("gX", 0.95D));
+
+        when(snapshotService.getRequiredSnapshot(2005L)).thenReturn(snapshot);
+        when(devicePropertyMetadataService.listPropertyMetadataMap(2005L)).thenReturn(Map.of());
+        when(devicePropertyMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(null);
+
+        DeviceProcessingTarget target = new DeviceProcessingTarget();
+        target.setDevice(device);
+        target.setProduct(product);
+        target.setMessage(upMessage);
+
+        handler.apply(target);
+
+        assertEquals(Map.of("L1_JS_1.gX", 0.95D), upMessage.getProperties());
+        ArgumentCaptor<DeviceProperty> propertyCaptor = ArgumentCaptor.forClass(DeviceProperty.class);
+        verify(devicePropertyMapper).insert(propertyCaptor.capture());
+        assertEquals("L1_JS_1.gX", propertyCaptor.getValue().getIdentifier());
+        assertEquals("0.95", propertyCaptor.getValue().getPropertyValue());
     }
 
     @Test

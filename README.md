@@ -40,6 +40,7 @@
 - `application-dev.yml`、`application-prod.yml`、`application-test.yml` 当前已显式固化 MySQL 主库 Hikari 基线，默认 `maximum-pool-size=30`、`minimum-idle=5`、`keepalive-time=300000`、`max-lifetime=1800000`、`leak-detection-threshold=20000`；dev 的 TDengine `slave_1` 也已补齐独立 Hikari 基线，避免共享环境继续沿用默认 `10` 连接池。
 - `TELEMETRY_PERSIST` 当前采用非阻塞失败语义：TDengine 写失败只会把该步骤标记为 `FAILED` 并写结构化日志，不回滚 MySQL 消息日志、最新属性和设备在线状态。
 - `GET /api/telemetry/latest` 当前已改为真实查询：`tdengine` 模式默认先读 telemetry v2 latest MySQL 投影表 `iot_device_metric_latest`，并在 `legacy-read-fallback-enabled=true` 时继续补齐 legacy stable + `iot_device_telemetry_point` 缺失指标；`mysql` 模式兼容回退到 `iot_device_property`。
+- `2026-04-24` 起，`PAYLOAD_APPLY` 写侧会继续复用 published resolver snapshot 做运行态字段归一：当上报裸标识（如 `gX / angle / value`）能在当前产品已发布正式字段中唯一命中同名后缀（如 `L1_JS_1.gX / L1_QJ_1.angle / L1_LF_1.value`）时，latest 写入、telemetry 后续持久化和运行态证据统一使用正式全路径标识；若同名后缀存在多个候选则保持原始标识，不做猜测归一。
 - `POST /api/telemetry/migrate-history` 当前提供 TDengine 历史补迁入口：默认优先读取 `iot_device_telemetry_point` 标准化兼容表，缺失时再按 `specsJson.tdengineLegacy` 与 `metadataJson.tdengineLegacy` 映射回放 legacy stable；该迁移由业务代码手动触发，不会在启动阶段自动全量回灌历史数据。
 - MQTT consumer 当前默认启用 Redis 租约式 `cluster-singleton`：同一套共享 MySQL / Redis / TDengine 环境里只允许 1 个 leader 节点订阅 Broker；`/api/message/mqtt/report/publish` 当前统一改为走独立 publisher 客户端，leader 不再复用订阅连接做模拟上行，standby 也继续保持可调用。
 - 设备离线超时调度当前也启用独立 Redis 单实例锁：默认通过 `iot:device:offline-timeout:leader` 只允许 1 个 leader 节点执行离线收口，避免共享环境多实例或旧节点把设备状态反复写回离线。
