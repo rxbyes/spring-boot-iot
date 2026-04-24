@@ -7,11 +7,11 @@
     size="52rem"
     destroy-on-close
   >
-    <div v-if="device" class="device-capability-workbench-drawer">
-      <section class="device-capability-workbench-drawer__summary">
-        <article
-          v-for="card in summaryCards"
-          :key="card.key"
+      <div v-if="device" class="device-capability-workbench-drawer">
+        <section class="device-capability-workbench-drawer__summary">
+          <article
+            v-for="card in summaryCards"
+            :key="card.key"
           class="device-capability-workbench-drawer__summary-card"
         >
           <span class="device-capability-workbench-drawer__summary-label">{{ card.label }}</span>
@@ -111,19 +111,9 @@ const summaryCards = computed<SummaryCard[]>(() => {
   }
   return [
     {
-      key: 'deviceCode',
-      label: '设备编码',
-      value: toDisplayText(device.deviceCode)
-    },
-    {
-      key: 'deviceName',
-      label: '设备名称',
-      value: toDisplayText(device.deviceName)
-    },
-    {
-      key: 'productName',
-      label: '产品归属',
-      value: toDisplayText(device.productName || device.productKey)
+      key: 'device',
+      label: '设备信息',
+      value: formatDeviceSummary(device)
     },
     {
       key: 'status',
@@ -140,6 +130,15 @@ function toDisplayText(value?: string | number | null) {
     return '--'
   }
   return String(value)
+}
+
+function formatDeviceSummary(device: Device) {
+  const parts = [
+    toDisplayText(device.deviceName),
+    toDisplayText(device.deviceCode),
+    toDisplayText(device.productName || device.productKey)
+  ]
+  return parts.join(' / ')
 }
 
 function getOnlineStatusText(value?: number | null) {
