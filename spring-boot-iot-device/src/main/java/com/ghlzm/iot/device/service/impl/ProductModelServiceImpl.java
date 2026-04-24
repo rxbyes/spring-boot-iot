@@ -510,6 +510,9 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 match = findNormativeMatch(identifier, rawIdentifiers, List.of(), activeDefinitions);
             }
             if (match == null && !rawIdentifiers.isEmpty()) {
+                match = normativeMatcher.matchPropertyByRawIdentifier(identifier, rawIdentifiers, scenarioDefinitions);
+            }
+            if (match == null && !rawIdentifiers.isEmpty()) {
                 if (activeDefinitions.isEmpty()) {
                     activeDefinitions = safeNormativeDefinitions(normativeMetricDefinitionService.listActive());
                 }

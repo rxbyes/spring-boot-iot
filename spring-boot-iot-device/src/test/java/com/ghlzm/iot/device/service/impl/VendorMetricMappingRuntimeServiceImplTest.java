@@ -212,6 +212,47 @@ class VendorMetricMappingRuntimeServiceImplTest {
     }
 
     @Test
+    void resolveForRuntimeShouldFallbackToNormativePrefixWhenNoMappingRuleExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-water-surface", "temp", "SURFACE_WATER", "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-water-surface", "value", "SURFACE_WATER", "L3", "DB"),
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "MUD_LEVEL", "L4", "NW"),
+                normativeDefinitionWithCodes("phase6-radar", "speed", "RADAR", "L4", "LD")
+        ));
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setProtocolCode("mqtt-json");
+
+        VendorMetricMappingRuntimeService.MappingResolution waterTemp =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L3_DB_1.temp", null);
+        VendorMetricMappingRuntimeService.MappingResolution mudLevel =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "value", "L4_NW_1");
+        VendorMetricMappingRuntimeService.MappingResolution radarSpeed =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L4_LD_1.speed", null);
+
+        assertEquals("temp", waterTemp.targetNormativeIdentifier());
+        assertEquals("value", mudLevel.targetNormativeIdentifier());
+        assertEquals("speed", radarSpeed.targetNormativeIdentifier());
+        assertNull(waterTemp.ruleId());
+    }
+
+    @Test
+    void normalizeApplyIdentifierShouldFallbackToNormativePrefixWhenNoMappingRuleExists() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "MUD_LEVEL", "L4", "NW")
+        ));
+
+        String normalized = service.normalizeApplyIdentifier(genericProduct(9011L), "L4_NW_1");
+
+        assertEquals("value", normalized);
+    }
+
+    @Test
     void resolveForGovernanceShouldMatchDeviceFamilyFromNormativeDefinitions() {
         VendorMetricMappingRuntimeServiceImpl service =
                 new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
@@ -335,6 +376,15 @@ class VendorMetricMappingRuntimeServiceImplTest {
         return product;
     }
 
+    private Product genericProduct(Long productId) {
+        Product product = new Product();
+        product.setId(productId);
+        product.setProductKey("future-monitor-l3-l4-v1");
+        product.setProductName("未来厂商 L3 L4 综合监测设备");
+        product.setProtocolCode("mqtt-json");
+        return product;
+    }
+
     private VendorMetricMappingRule mappingRule(Long id,
                                                 Long productId,
                                                 String rawIdentifier,
@@ -388,6 +438,17 @@ class VendorMetricMappingRuntimeServiceImplTest {
         definition.setScenarioCode(scenarioCode);
         definition.setIdentifier(identifier);
         definition.setDeviceFamily(deviceFamily);
+        return definition;
+    }
+
+    private NormativeMetricDefinition normativeDefinitionWithCodes(String scenarioCode,
+                                                                   String identifier,
+                                                                   String deviceFamily,
+                                                                   String monitorContentCode,
+                                                                   String monitorTypeCode) {
+        NormativeMetricDefinition definition = normativeDefinition(scenarioCode, identifier, deviceFamily);
+        definition.setMonitorContentCode(monitorContentCode);
+        definition.setMonitorTypeCode(monitorTypeCode);
         return definition;
     }
 }

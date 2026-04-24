@@ -142,7 +142,10 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
         if (publishedResolution.hasPublishedSnapshots()) {
             return publishedResolution.resolution();
         }
-        return resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
+        MappingResolution draftResolution = resolveInternal(product, protocolSelectors, rawIdentifier, logicalChannelCode, false);
+        return draftResolution == null
+                ? resolveByNormativePrefixFallback(rawIdentifier, logicalChannelCode)
+                : draftResolution;
     }
 
     @Override
@@ -166,7 +169,11 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 null,
                 true
         );
-        return resolution == null ? sanitizedIdentifier : resolution.targetNormativeIdentifier();
+        if (resolution != null) {
+            return resolution.targetNormativeIdentifier();
+        }
+        MappingResolution fallbackResolution = resolveByNormativePrefixFallback(sanitizedIdentifier, null);
+        return fallbackResolution == null ? sanitizedIdentifier : fallbackResolution.targetNormativeIdentifier();
     }
 
     public ReplayResolution replayForGovernance(Product product, String rawIdentifier, String logicalChannelCode) {
@@ -605,6 +612,42 @@ public class VendorMetricMappingRuntimeServiceImpl implements VendorMetricMappin
                 .filter(identifier -> identifier.equalsIgnoreCase(normalizedTargetIdentifier))
                 .findFirst()
                 .orElse(normalizedTargetIdentifier);
+    }
+
+    private MappingResolution resolveByNormativePrefixFallback(String rawIdentifier, String logicalChannelCode) {
+        if (normativeMetricDefinitionService == null || !StringUtils.hasText(rawIdentifier)) {
+            return null;
+        }
+        List<NormativeMetricDefinition> definitions = normativeMetricDefinitionService.listActive();
+        if (definitions == null || definitions.isEmpty()) {
+            return null;
+        }
+        List<String> candidates = buildNormativeFallbackCandidates(rawIdentifier, logicalChannelCode);
+        ProductModelNormativeMatcher.NormativeMatchResult match =
+                normativeMatcher.matchPropertyByRawIdentifier(rawIdentifier, candidates, definitions);
+        if (match == null || !StringUtils.hasText(match.normativeIdentifier())) {
+            return null;
+        }
+        return new MappingResolution(
+                null,
+                match.normativeIdentifier(),
+                normalizeText(rawIdentifier),
+                normalizeUpper(logicalChannelCode)
+        );
+    }
+
+    private List<String> buildNormativeFallbackCandidates(String rawIdentifier, String logicalChannelCode) {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String normalizedRawIdentifier = normalizeText(rawIdentifier);
+        String normalizedLogicalChannelCode = normalizeUpper(logicalChannelCode);
+        if (normalizedRawIdentifier != null) {
+            candidates.add(normalizedRawIdentifier);
+        }
+        if (normalizedLogicalChannelCode != null && normalizedRawIdentifier != null) {
+            candidates.add(normalizedLogicalChannelCode + "." + normalizedRawIdentifier);
+            candidates.add(normalizedLogicalChannelCode);
+        }
+        return List.copyOf(candidates);
     }
 
     private String resolveProtocolCode(Product product) {

@@ -778,7 +778,7 @@ class ProductModelServiceImplTest {
         ));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         when(normativeMetricDefinitionService.listByScenario("phase5-mud-level")).thenReturn(List.of(
-                normativeDefinition("phase5-mud-level", "L4_NW_1", "泥水位高程", 0)
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW")
         ));
 
         ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
@@ -794,7 +794,7 @@ class ProductModelServiceImplTest {
         ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9009L, dto);
 
         ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L4_NW_1");
-        assertEquals("L4_NW_1", row.getNormativeIdentifier());
+        assertEquals("value", row.getNormativeIdentifier());
         assertEquals("泥水位高程", row.getNormativeName());
         assertEquals(Boolean.FALSE, row.getRiskReady());
         assertEquals(List.of("L4_NW_1"), row.getRawIdentifiers());
@@ -830,6 +830,49 @@ class ProductModelServiceImplTest {
         assertEquals("气温", row.getNormativeName());
         assertEquals(Boolean.FALSE, row.getRiskReady());
         assertEquals(List.of("L3_QW_1.value"), row.getRawIdentifiers());
+    }
+
+    @Test
+    void compareGovernanceShouldFallbackNormativeMatchForL3L4ExpandedTypesWhenScenarioUnknown() {
+        when(productMapper.selectById(9011L)).thenReturn(product(
+                9011L,
+                "future-monitor-l3-l4-v1",
+                "未来厂商 L3 L4 综合监测设备"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-water-surface", "temp", "地表水温", 0, "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-water-surface", "value", "地表水位", 0, "L3", "DB"),
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW"),
+                normativeDefinitionWithCodes("phase6-radar", "X", "雷达 X 坐标", 0, "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "Y", "雷达 Y 坐标", 0, "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "Z", "雷达 Z 坐标", 0, "L4", "LD"),
+                normativeDefinitionWithCodes("phase6-radar", "speed", "雷达移动速度", 0, "L4", "LD")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"FUTURE-L3-L4-001":{
+                    "L3_DB_1":{"2026-04-23T13:15:20.000Z":{"temp":15.8,"value":1.26}},
+                    "L4_NW_1":{"2026-04-23T13:15:20.000Z":0.42},
+                    "L4_LD_1":{"2026-04-23T13:15:20.000Z":{"X":1.1,"Y":2.2,"Z":3.3,"speed":0.4}}
+                }}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9011L, dto);
+
+        assertEquals("temp", compareRow(result, "property", "L3_DB_1.temp").getNormativeIdentifier());
+        assertEquals("地表水位", compareRow(result, "property", "L3_DB_1.value").getNormativeName());
+        assertEquals("value", compareRow(result, "property", "L4_NW_1").getNormativeIdentifier());
+        assertEquals("X", compareRow(result, "property", "L4_LD_1.X").getNormativeIdentifier());
+        assertEquals("Y", compareRow(result, "property", "L4_LD_1.Y").getNormativeIdentifier());
+        assertEquals("Z", compareRow(result, "property", "L4_LD_1.Z").getNormativeIdentifier());
+        assertEquals("speed", compareRow(result, "property", "L4_LD_1.speed").getNormativeIdentifier());
     }
 
     @Test

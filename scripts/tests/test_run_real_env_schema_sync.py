@@ -795,7 +795,9 @@ class CollectorChildBaselineSeedTest(unittest.TestCase):
         params_text = str([params for _, params in cursor.executed if params is not None])
         self.assertIn("phase5-mud-level", params_text)
         self.assertIn("MUD_LEVEL", params_text)
-        self.assertIn("L4_NW_1", params_text)
+        self.assertIn("value", params_text)
+        self.assertIn("L4", params_text)
+        self.assertIn("NW", params_text)
         self.assertIn("泥水位高程", params_text)
         self.assertIn("water_level", params_text)
 

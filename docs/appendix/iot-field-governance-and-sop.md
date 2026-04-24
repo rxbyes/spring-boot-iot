@@ -500,11 +500,12 @@
 3. 识别上报结构是“标量值”还是“对象叶子”，对象叶子需明确字段叶子（如 `value/temp/totalValue`）。
 4. 确认该产品是否已命中专用规范场景；未命中时，改走“编码前缀 + 叶子字段”兜底识别。
 5. 对照当前正式字段，确认同一语义是否已存在正式 `identifier`，避免重复提炼为第二套标识。
+6. 首批已具备自动兜底能力的编码包括 `L3_QW.value`、`L3_YL.value/totalValue`、`L3_DB.temp/value`、`L4_NW.value` 与 `L4_LD.X/Y/Z/speed`；其中泥位计上报裸 `L4_NW_1` 时，正式字段应按 canonical `value` 治理，`L4_NW_1` 仅作为原始编码证据。
 
 **B. 提炼后检查（compare 结果与候选治理）**
 
 1. 核对 compare 行是否回填 `normativeIdentifier / normativeName / riskReady / rawIdentifiers`。
-2. 若同一语义出现两行（如 `L4_NW_1` 与 `L4_NW_1.value`），必须先做语义归一再 apply。
+2. 若同一语义出现两行（如 `L4_NW_1` 与 `L4_NW_1.value`，或裸编码与 canonical `value` 并存），必须先做语义归一再 apply。
 3. 核对 `resolvedContractIdentifierMode` 是否在同次 compare 内保持一致，避免手动样本与运行态补证标识风格分裂。
 4. 对无法自动命中的字段，使用手动提炼确认中文名、单位和归属，并同步评估是否需要新增映射规则或运行态显示规则。
 5. 对状态镜像字段（如 `S1_ZT_1.sensor_state.<logicalChannelCode>`），继续按状态治理语义处理，不把其误收口为业务测值字段。
@@ -522,6 +523,7 @@
 1. 新设备接入初期优先保证“能识别、可解释、可追溯”，不要求一次性把全部字段都纳入风险闭环。
 2. 若字段暂不进入正式合同，可先通过 `/products/:productId/mapping-rules` 的“运行态名称/单位治理”保障读侧可用。
 3. 一旦形成正式字段并发布，后续读侧展示与风险消费都应以正式字段真相为准，不再回退到临时别名。
+4. 运行态 `PAYLOAD_APPLY` 的编码兜底只在 published resolver snapshot、正式映射快照和草稿映射规则均未命中时触发；已有显式映射规则时，仍以发布快照或映射规则为准。
 
 ### 2.10 调用接口时直接复用的请求体资产
 

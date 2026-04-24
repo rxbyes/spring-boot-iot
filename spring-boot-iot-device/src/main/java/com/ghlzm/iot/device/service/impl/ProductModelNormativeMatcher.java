@@ -152,7 +152,7 @@ final class ProductModelNormativeMatcher {
         String prefix = dotIndex >= 0 ? trimmed.substring(0, dotIndex) : trimmed;
         String leaf = dotIndex >= 0 ? trimmed.substring(dotIndex + 1) : null;
         if (!StringUtils.hasText(leaf)) {
-            leaf = null;
+            leaf = "value";
         }
         Matcher matcher = POINT_PREFIX_PATTERN.matcher(prefix);
         if (!matcher.matches()) {
