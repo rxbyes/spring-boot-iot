@@ -24,6 +24,9 @@ import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSubmitResult
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimeline;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
 import com.ghlzm.iot.message.mqtt.MqttTopicRouter;
+import com.ghlzm.iot.message.service.capability.CapabilityFeedback;
+import com.ghlzm.iot.message.service.capability.CapabilityFeedbackHandler;
+import com.ghlzm.iot.message.service.capability.CapabilityFeedbackTopicMatcher;
 import com.ghlzm.iot.protocol.core.adapter.ProtocolAdapter;
 import com.ghlzm.iot.protocol.core.context.ProtocolContext;
 import com.ghlzm.iot.protocol.core.model.DeviceUpMessage;
@@ -54,6 +57,8 @@ import java.util.Optional;
 @Component
 public class UpMessageProcessingPipeline {
 
+    private static final String CAPABILITY_FEEDBACK_STAGE = "CAPABILITY_FEEDBACK";
+
     private static final Logger messageFlowLogger =
             LoggerFactory.getLogger(MessageFlowLoggingConstants.MESSAGE_FLOW_LOGGER_NAME);
 
@@ -69,6 +74,8 @@ public class UpMessageProcessingPipeline {
     private final TelemetryPersistStageHandler telemetryPersistStageHandler;
     private final DeviceStateStageHandler deviceStateStageHandler;
     private final DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
+    private final CapabilityFeedbackTopicMatcher capabilityFeedbackTopicMatcher;
+    private final CapabilityFeedbackHandler capabilityFeedbackHandler;
 
     public UpMessageProcessingPipeline(MessageFlowProperties messageFlowProperties,
                                        MessageFlowMetricsRecorder messageFlowMetricsRecorder,
@@ -81,7 +88,9 @@ public class UpMessageProcessingPipeline {
                                        DevicePayloadApplyStageHandler devicePayloadApplyStageHandler,
                                        TelemetryPersistStageHandler telemetryPersistStageHandler,
                                        DeviceStateStageHandler deviceStateStageHandler,
-                                       DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler) {
+                                       DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler,
+                                       CapabilityFeedbackTopicMatcher capabilityFeedbackTopicMatcher,
+                                       CapabilityFeedbackHandler capabilityFeedbackHandler) {
         this.messageFlowProperties = messageFlowProperties;
         this.messageFlowMetricsRecorder = messageFlowMetricsRecorder;
         this.messageFlowTimelineStore = messageFlowTimelineStore;
@@ -94,6 +103,8 @@ public class UpMessageProcessingPipeline {
         this.telemetryPersistStageHandler = telemetryPersistStageHandler;
         this.deviceStateStageHandler = deviceStateStageHandler;
         this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
+        this.capabilityFeedbackTopicMatcher = capabilityFeedbackTopicMatcher;
+        this.capabilityFeedbackHandler = capabilityFeedbackHandler;
     }
 
     public MessageFlowExecutionResult process(UpMessageProcessingRequest request) {
@@ -101,6 +112,12 @@ public class UpMessageProcessingPipeline {
         ProcessingContext context = new ProcessingContext(request);
         try {
             executeStage(context, MessageFlowStages.INGRESS, getClass().getSimpleName(), "ingress", () -> ingress(context));
+            if (isCapabilityFeedback(context)) {
+                executeStage(context, CAPABILITY_FEEDBACK_STAGE, CapabilityFeedbackHandler.class.getSimpleName(), "handle", () -> capabilityFeedback(context));
+                executeStage(context, MessageFlowStages.COMPLETE, getClass().getSimpleName(), "complete", () -> complete(context));
+                finalizeTimeline(context, null);
+                return buildExecutionResult(context);
+            }
             executeStage(context, MessageFlowStages.TOPIC_ROUTE, MqttTopicRouter.class.getSimpleName(), "route", () -> topicRoute(context));
             executeStage(context, MessageFlowStages.PROTOCOL_DECODE, resolveProtocolHandlerClass(context), "decode", () -> protocolDecode(context));
             executeStage(context, MessageFlowStages.DEVICE_CONTRACT, DeviceContractStageHandler.class.getSimpleName(), "resolve", () -> deviceContract(context));
@@ -594,6 +611,31 @@ public class UpMessageProcessingPipeline {
         MessageFlowStageResult result = new MessageFlowStageResult();
         result.getSummary().put("publishedTargetCount", publishedCount);
         return result;
+    }
+
+    private MessageFlowStageResult capabilityFeedback(ProcessingContext context) {
+        String rawPayload = context.request.getPayload() == null
+                ? null
+                : new String(context.request.getPayload(), StandardCharsets.UTF_8);
+        CapabilityFeedback feedback = capabilityFeedbackHandler.handle(context.request.getTopic(), rawPayload);
+        MessageFlowStageResult result = new MessageFlowStageResult();
+        result.getSummary().put("feedback", Boolean.TRUE);
+        result.getSummary().put("topic", context.request.getTopic());
+        result.getSummary().put("valid", feedback.valid());
+        result.getSummary().put("msgid", feedback.msgid());
+        result.getSummary().put("result", feedback.result());
+        if (!feedback.valid()) {
+            result.setBranch("INVALID");
+            result.getSummary().put("invalidReason", feedback.invalidReason());
+        } else {
+            result.setBranch("CAPABILITY_FEEDBACK");
+        }
+        return result;
+    }
+
+    private boolean isCapabilityFeedback(ProcessingContext context) {
+        return "MQTT".equalsIgnoreCase(context.request.getTransportMode())
+                && capabilityFeedbackTopicMatcher.matches(context.request.getTopic());
     }
 
     private MessageFlowStageResult complete(ProcessingContext context) {

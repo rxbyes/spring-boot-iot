@@ -459,6 +459,68 @@ export interface ProductGovernanceConfig {
   productCapabilityType?: ProductGovernanceCapabilityType | string | null;
 }
 
+export interface DeviceCapabilityParamSchemaField {
+  type?: 'string' | 'integer' | string | null;
+  label?: string | null;
+  required?: boolean | null;
+  min?: number | string | null;
+  max?: number | string | null;
+}
+
+export type DeviceCapabilityType = 'COLLECTING' | 'MONITORING' | 'WARNING' | 'VIDEO' | 'UNKNOWN';
+
+export interface DeviceCapability {
+  code: string;
+  name: string;
+  group?: string | null;
+  enabled?: boolean | null;
+  requiresOnline?: boolean | null;
+  disabledReason?: string | null;
+  paramsSchema?: Record<string, DeviceCapabilityParamSchemaField> | null;
+}
+
+export interface DeviceCapabilityOverview {
+  deviceCode: string;
+  productId?: IdType | null;
+  productKey?: string | null;
+  productCapabilityType?: DeviceCapabilityType | string | null;
+  subType?: string | null;
+  onlineExecutable?: boolean | null;
+  disabledReason?: string | null;
+  capabilities: DeviceCapability[];
+}
+
+export interface DeviceCapabilityExecutePayload {
+  params: Record<string, unknown>;
+}
+
+export interface DeviceCapabilityExecuteResult {
+  commandId: string;
+  deviceCode: string;
+  capabilityCode: string;
+  status: string;
+  topic?: string | null;
+  sentAt?: string | null;
+}
+
+export interface CommandRecordPageItem {
+  id: IdType;
+  commandId?: string | null;
+  deviceCode?: string | null;
+  productKey?: string | null;
+  topic?: string | null;
+  commandType?: string | null;
+  serviceIdentifier?: string | null;
+  status?: string | null;
+  sendTime?: string | null;
+  ackTime?: string | null;
+  timeoutTime?: string | null;
+  errorMessage?: string | null;
+  replyPayload?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+}
+
 export interface ProductMetadata {
   objectInsight?: ProductObjectInsightConfig | null;
   governance?: ProductGovernanceConfig | null;

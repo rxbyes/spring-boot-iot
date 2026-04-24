@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
-import type { Device } from '@/types/api'
+import type { CommandRecordPageItem, Device, DeviceCapabilityOverview } from '@/types/api'
 
 const registeredDevice: Device = {
   id: 2001,
@@ -69,6 +70,12 @@ const sparseRegisteredDevice: Device = {
   deviceCode: 'SPARSE-001',
   deviceName: '精简档案设备'
 }
+
+const DeviceCapabilityPanelStub = defineComponent({
+  name: 'DeviceCapabilityPanel',
+  props: ['overview', 'commands', 'loading', 'commandLoading'],
+  template: '<div class="device-capability-panel-stub">{{ overview?.productCapabilityType }} {{ (commands || []).length }}</div>'
+})
 
 describe('DeviceDetailWorkbench', () => {
   it('renders the registered device as a flat workbench with summary strip, overview pair, and mixed ledgers', () => {
@@ -184,5 +191,55 @@ describe('DeviceDetailWorkbench', () => {
     expect(source).toContain('.device-detail-workbench__ledger-value')
     expect(source).toContain('font-size: 14px;')
     expect(source).toContain('font-weight: 400;')
+  })
+
+  it('renders the capability workbench block for registered devices when capability data is available', () => {
+    const capabilityOverview: DeviceCapabilityOverview = {
+      deviceCode: registeredDevice.deviceCode,
+      productId: registeredDevice.productId,
+      productKey: registeredDevice.productKey,
+      productCapabilityType: 'WARNING',
+      subType: 'BROADCAST',
+      onlineExecutable: true,
+      capabilities: [
+        {
+          code: 'broadcast_play',
+          name: '播放内容',
+          group: '广播预警',
+          enabled: true,
+          requiresOnline: true,
+          paramsSchema: {}
+        }
+      ]
+    }
+    const commands: CommandRecordPageItem[] = [
+      {
+        id: 1,
+        commandId: 'CMD-001',
+        serviceIdentifier: 'broadcast_play',
+        status: 'SENT',
+        sendTime: '2026-04-24T10:50:00',
+        topic: '/iot/broadcast/DEV-001'
+      }
+    ]
+
+    const wrapper = mount(DeviceDetailWorkbench, {
+      props: {
+        device: registeredDevice,
+        capabilityOverview,
+        commandRecords: commands,
+        capabilityLoading: false,
+        commandLoading: false
+      },
+      global: {
+        stubs: {
+          DeviceCapabilityPanel: DeviceCapabilityPanelStub
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-testid="device-detail-capability-stage"]').text()).toContain('设备能力与命令')
+    expect(wrapper.get('.device-capability-panel-stub').text()).toContain('WARNING')
+    expect(wrapper.get('.device-capability-panel-stub').text()).toContain('1')
   })
 })

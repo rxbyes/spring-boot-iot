@@ -354,7 +354,15 @@
       :empty="!detailData"
     >
       <div v-if="detailData" class="device-detail-stack">
-        <DeviceDetailWorkbench :device="detailData" />
+        <DeviceDetailWorkbench
+          :device="detailData"
+          :capability-overview="capabilityOverview"
+          :command-records="commandRecords"
+          :capability-loading="capabilityLoading"
+          :command-loading="commandLoading"
+          @execute-capability="handleExecuteCapability"
+          @refresh-commands="handleRefreshCommands"
+        />
       </div>
 
       <template #footer>
@@ -373,6 +381,14 @@
         </StandardDrawerFooter>
       </template>
     </StandardDetailDrawer>
+
+    <DeviceCapabilityExecuteDrawer
+      v-model="capabilityExecuteVisible"
+      :device-code="detailData?.deviceCode || ''"
+      :capability="executingCapability"
+      :submitting="capabilityExecuteSubmitting"
+      @submit="handleExecuteCapabilitySubmit"
+    />
 
     <DeviceOnboardingSuggestionDrawer
       v-model="suggestionVisible"
@@ -606,6 +622,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
+import DeviceCapabilityExecuteDrawer from '@/components/device/DeviceCapabilityExecuteDrawer.vue'
 import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
 import DeviceBatchImportDrawer from '@/components/DeviceBatchImportDrawer.vue'
 import DeviceReplaceDrawer from '@/components/DeviceReplaceDrawer.vue'
@@ -629,11 +646,15 @@ import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
 import type {
+  CommandRecordPageItem,
   Device,
   DeviceAddPayload,
   DeviceAccessErrorLog,
   DeviceBatchAddPayload,
   DeviceBatchAddResult,
+  DeviceCapability,
+  DeviceCapabilityExecutePayload,
+  DeviceCapabilityOverview,
   DeviceOnboardingBatchResult,
   DeviceOnboardingSuggestion,
   DeviceOption,
@@ -706,7 +727,7 @@ interface DevicePageLoadOptions {
 
 interface DeviceRowAction {
   key?: string
-  command: 'replace' | 'insight' | 'delete' | 'suggestion'
+  command: 'replace' | 'insight' | 'delete' | 'suggestion' | 'capability'
   label: string
 }
 
@@ -765,11 +786,18 @@ const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
+const capabilityOverview = ref<DeviceCapabilityOverview | null>(null)
+const commandRecords = ref<CommandRecordPageItem[]>([])
 const registerSourceRow = ref<Device | null>(null)
 const batchImportResult = ref<DeviceBatchAddResult | null>(null)
 const replacingDevice = ref<Device | null>(null)
 const onboardingSuggestion = ref<DeviceOnboardingSuggestion | null>(null)
 const onboardingSuggestionSource = ref<Device | null>(null)
+const capabilityExecuteVisible = ref(false)
+const capabilityExecuteSubmitting = ref(false)
+const executingCapability = ref<DeviceCapability | null>(null)
+const capabilityLoading = ref(false)
+const commandLoading = ref(false)
 
 const exportColumnDialogVisible = ref(false)
 const exportColumnStorageKey = 'device-asset-view'
@@ -1299,6 +1327,9 @@ function getDeviceRowActions(row: Device): DeviceRowAction[] {
   const actions: DeviceRowAction[] = []
   if (canSuggestOnboarding(row)) {
     actions.push({ key: 'suggestion', command: 'suggestion', label: '接入建议' })
+  }
+  if (isRegisteredDeviceRow(row) && permissionStore.hasPermission('iot:device-capability:view')) {
+    actions.push({ key: 'capability', command: 'capability', label: '设备操作' })
   }
   if (canReplaceDeviceRow(row)) {
     if (permissionStore.hasPermission('iot:devices:replace')) {
@@ -2253,6 +2284,7 @@ async function openDetail(target: Device | string | number) {
   detailErrorMessage.value = ''
   detailRefreshErrorMessage.value = ''
   detailData.value = detailSnapshot
+  resetCapabilityState()
   detailLoading.value = !detailSnapshot
 
   if (row && !isRegisteredDeviceRow(row)) {
@@ -2296,6 +2328,9 @@ async function openDetail(target: Device | string | number) {
 
   if (row && detailSnapshot && !shouldRefreshDeviceDetail(row, cachedDetail)) {
     detailRefreshing.value = false
+    if (row && isRegisteredDeviceRow(row)) {
+      void refreshDeviceCapabilityContext(row.deviceCode, requestId)
+    }
     return
   }
 
@@ -2337,6 +2372,98 @@ async function openDetail(target: Device | string | number) {
     }
     if (detailAbortController === controller) {
       detailAbortController = null
+    }
+    if (requestId === latestDetailRequestId && detailData.value && isRegisteredDeviceRow(detailData.value)) {
+      void refreshDeviceCapabilityContext(detailData.value.deviceCode, requestId)
+    }
+  }
+}
+
+function resetCapabilityState() {
+  capabilityOverview.value = null
+  commandRecords.value = []
+  capabilityLoading.value = false
+  commandLoading.value = false
+  capabilityExecuteVisible.value = false
+  capabilityExecuteSubmitting.value = false
+  executingCapability.value = null
+}
+
+async function refreshDeviceCapabilityContext(deviceCode: string, requestId: number) {
+  if (!deviceCode || requestId !== latestDetailRequestId) {
+    return
+  }
+  await Promise.all([
+    loadDeviceCapabilityOverview(deviceCode, requestId),
+    loadDeviceCapabilityRecords(deviceCode, requestId)
+  ])
+}
+
+async function loadDeviceCapabilityOverview(deviceCode: string, requestId: number) {
+  if (requestId !== latestDetailRequestId) {
+    return
+  }
+  capabilityLoading.value = true
+  try {
+    const res = await deviceApi.getDeviceCapabilities(deviceCode)
+    if (requestId !== latestDetailRequestId) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      capabilityOverview.value = res.data
+      return
+    }
+    capabilityOverview.value = null
+    if (res.msg) {
+      ElMessage.error(res.msg)
+    }
+  } catch (error) {
+    if (requestId !== latestDetailRequestId) {
+      return
+    }
+    capabilityOverview.value = null
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '获取设备能力失败'))
+    }
+  } finally {
+    if (requestId === latestDetailRequestId) {
+      capabilityLoading.value = false
+    }
+  }
+}
+
+async function loadDeviceCapabilityRecords(deviceCode: string, requestId: number) {
+  if (requestId !== latestDetailRequestId) {
+    return
+  }
+  commandLoading.value = true
+  try {
+    const res = await deviceApi.pageDeviceCommands(deviceCode, {
+      pageNum: 1,
+      pageSize: 10
+    })
+    if (requestId !== latestDetailRequestId) {
+      return
+    }
+    if (res.code === 200 && res.data) {
+      commandRecords.value = res.data.records || []
+      return
+    }
+    commandRecords.value = []
+    if (res.msg) {
+      ElMessage.error(res.msg)
+    }
+  } catch (error) {
+    if (requestId !== latestDetailRequestId) {
+      return
+    }
+    commandRecords.value = []
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '获取设备命令失败'))
+    }
+  } finally {
+    if (requestId === latestDetailRequestId) {
+      commandLoading.value = false
     }
   }
 }
@@ -2780,8 +2907,54 @@ function handleRowAction(command: string | number | object, row: Device) {
     void handleOpenOnboardingSuggestion(row)
     return
   }
+  if (command === 'capability') {
+    handleOpenDetail(row)
+    return
+  }
   if (command === 'delete') {
     void handleDelete(row)
+  }
+}
+
+function handleExecuteCapability(capability: DeviceCapability) {
+  if (!detailData.value || !capability) {
+    return
+  }
+  executingCapability.value = capability
+  capabilityExecuteVisible.value = true
+}
+
+function handleRefreshCommands() {
+  if (!detailData.value?.deviceCode) {
+    return
+  }
+  void loadDeviceCapabilityRecords(detailData.value.deviceCode, latestDetailRequestId)
+}
+
+async function handleExecuteCapabilitySubmit(payload: DeviceCapabilityExecutePayload) {
+  if (!detailData.value?.deviceCode || !executingCapability.value) {
+    return
+  }
+
+  const deviceCode = detailData.value.deviceCode
+  const capability = executingCapability.value
+  capabilityExecuteSubmitting.value = true
+  try {
+    const res = await deviceApi.executeDeviceCapability(deviceCode, capability.code, payload)
+    if (res.code !== 200 || !res.data) {
+      ElMessage.error(res.msg || '设备能力下发失败')
+      return
+    }
+    ElMessage.success(`指令已下发，等待设备反馈：${res.data.commandId}`)
+    capabilityExecuteVisible.value = false
+    executingCapability.value = null
+    await loadDeviceCapabilityRecords(deviceCode, latestDetailRequestId)
+  } catch (error) {
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '设备能力下发失败'))
+    }
+  } finally {
+    capabilityExecuteSubmitting.value = false
   }
 }
 
@@ -3158,6 +3331,7 @@ watch(detailVisible, (visible) => {
   }
   latestDetailRequestId += 1
   abortDetailRequest()
+  resetCapabilityState()
   detailLoading.value = false
   detailRefreshing.value = false
   detailErrorMessage.value = ''

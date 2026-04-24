@@ -42,6 +42,9 @@ vi.mock('@/api/device', () => ({
     pageDevices: mockPageDevices,
     listDeviceOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] }),
     getDeviceById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    getDeviceCapabilities: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    executeDeviceCapability: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
+    pageDeviceCommands: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: { total: 0, pageNum: 1, pageSize: 10, records: [] } }),
     getDeviceOnboardingSuggestion: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     batchActivateOnboardingSuggestions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     deleteDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
@@ -858,6 +861,39 @@ describe('DeviceWorkbenchView', () => {
     expect(String(actionColumn?.props('width'))).toBe('160')
   })
 
+  it('adds device operation actions for registered devices when capability view permission exists', async () => {
+    setMockPermissions('iot:devices:add', 'iot:device-capability:view')
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: 2002,
+        productKey: 'demo-product',
+        productName: '演示产品',
+        deviceCode: 'demo-device-02',
+        deviceName: '演示设备 02',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1,
+        protocolCode: 'mqtt-json',
+        createTime: '2026-03-24T09:00:00',
+        lastReportTime: '2026-03-24T09:00:00'
+      }
+    ]
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain(
+      '设备操作'
+    )
+  })
+
   it('shows the organization ledger in both the list source and rendered device cards', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -907,7 +943,10 @@ describe('DeviceWorkbenchView', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
 
     expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
-    expect(source).toContain('<DeviceDetailWorkbench :device="detailData" />')
+    expect(source).toContain('<DeviceDetailWorkbench')
+    expect(source).toContain(':device="detailData"')
+    expect(source).toContain(':capability-overview="capabilityOverview"')
+    expect(source).toContain(':command-records="commandRecords"')
     expect(source).toContain('formatDeviceReportTime')
     expect(source).not.toContain('tag-layout="title-inline"')
     expect(source).not.toContain(':tags="detailTags"')
