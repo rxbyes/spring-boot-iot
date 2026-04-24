@@ -6,7 +6,7 @@
 > 上游来源：`README.md`、核心权威文档、`sql/init.sql`、`sql/init-data.sql`、运行脚本、源码事实。
 > 下游消费：帮助中心选题、接手研发、需求实现、联调验收、排障留痕、阶段规划。
 > 变更触发条件：文档体系重构、权威文档增删、阅读路径调整、帮助中心治理规则调整。
-> 更新时间：2026-03-31
+> 更新时间：2026-04-24
 
 本目录当前按“权威主文档 + 运行配套 + 智能助手协作入口 + 历史归档”组织，目标是让研发、测试、运维和智能助手能快速定位唯一主路径，而不是在重复文档之间反复比对。
 
@@ -43,6 +43,7 @@
 | 前端共享模式、组件分层、风格门禁 | [06-前端开发与CSS规范.md](./06-前端开发与CSS规范.md)、[15-前端优化与治理计划.md](./15-前端优化与治理计划.md) |
 | Phase 4 边界、阻塞与复验 | [19-第四阶段交付边界与复验进展.md](./19-第四阶段交付边界与复验进展.md) |
 | 跨阶段路线与下一阶段入口 | [16-阶段规划与迭代路线图.md](./16-阶段规划与迭代路线图.md) |
+| 设计与实施过程证据追溯 | [superpowers/README.md](./superpowers/README.md) |
 | 智能助手接手模板与协作入口 | [skills/ai-task-intake/SKILL.md](./skills/ai-task-intake/SKILL.md)、[09-GPT接管提示模板.md](./09-GPT接管提示模板.md)、[10-智能助手技能与任务选型指南.md](./10-智能助手技能与任务选型指南.md)、[17-智能助手任务发起模板速查.md](./17-智能助手任务发起模板速查.md)、[template/README.md](./template/README.md) |
 
 ## 2. 权威职责矩阵
@@ -106,9 +107,12 @@
 
 ### 4.3 协作工具层
 
+- [superpowers/README.md](./superpowers/README.md)
 - [template/README.md](./template/README.md)
 - `docs/skills/**/*.md`
 - `docs/appendix/*.md`
+
+说明：`docs/superpowers/README.md` 只索引设计与实施过程证据，`docs/superpowers/specs` 与 `docs/superpowers/plans` 不替代权威主文档，也不进入默认编码前最小阅读集。
 
 ### 4.4 历史归档与兼容入口层
 
@@ -128,7 +132,7 @@
 ## 5. 当前主依赖与非主依赖
 
 - 编码主依赖保持为：`README + docs/README + 01 + 02 + 03 + 04 + 07 + 08`，其他文档按任务补读。
-- 不再作为编码主依赖：统一兼容索引页 [历史兼容入口索引.md](./历史兼容入口索引.md)、`docs/archive/*`、历史台账与过程复盘页、已被 09 收口后的 `docs/template/*` 薄包装页。
+- 不再作为编码主依赖：统一兼容索引页 [历史兼容入口索引.md](./历史兼容入口索引.md)、`docs/archive/*`、`docs/superpowers/specs/*`、`docs/superpowers/plans/*`、历史台账与过程复盘页、已被 09 收口后的 `docs/template/*` 薄包装页。
 - 帮助中心治理细则只保留在 [12-帮助文档与系统内容治理.md](./12-帮助文档与系统内容治理.md)；本文件只做摘要映射，不再承载帮助治理正文。
 
 ## 6. 最小维护规则
