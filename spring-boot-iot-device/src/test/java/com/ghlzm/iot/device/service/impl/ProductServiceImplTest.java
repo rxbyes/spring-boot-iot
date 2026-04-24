@@ -320,6 +320,8 @@ class ProductServiceImplTest {
     @Test
     void updateProductShouldDeduplicateObjectInsightIdentifiers() {
         doReturn(buildExistingProduct()).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
 
         ProductAddDTO dto = buildProductDto();
         dto.setMetadataJson("""
@@ -502,11 +504,46 @@ class ProductServiceImplTest {
     }
 
     @Test
-    void updateProductShouldRejectObjectInsightMetricConfiguredWithUnpublishedAlias() {
+    void updateProductShouldNormalizeShortObjectInsightAliasToUniquePublishedIdentifier() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                      "objectInsight": {
+                        "customMetrics": [
+                          {
+                        "identifier": "value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_LF_1.value\""));
+        assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"value\""));
+    }
+
+    @Test
+    void updateProductShouldRejectShortAliasWhenPublishedIdentifierTailMatchesMultipleFields() {
         Product existing = buildExistingProduct();
         doReturn(existing).when(productService).getRequiredById(1001L);
         when(productModelMapper.selectList(any())).thenReturn(List.of(
-                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值"),
+                buildProductModel(1001L, "L2_LF_9.value", "裂缝值-备份")
         ));
 
         ProductAddDTO dto = buildProductDto();
@@ -529,6 +566,78 @@ class ProductServiceImplTest {
 
         assertEquals("对象洞察指标必须使用已发布合同标识符: value", ex.getMessage());
         verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldRejectObjectInsightMetricWhenIdentifierCannotMatchPublishedSnapshot() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                      "objectInsight": {
+                        "customMetrics": [
+                          {
+                        "identifier": "gX",
+                        "displayName": "X轴加速度",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        BizException ex = assertThrows(BizException.class, () -> productService.updateProduct(1001L, dto));
+
+        assertEquals("对象洞察指标必须使用已发布合同标识符: gX", ex.getMessage());
+        verify(productService, never()).updateById(any(Product.class));
+    }
+
+    @Test
+    void updateProductShouldPreferPublishedFullPathWhenLegacyShortAliasCoexistsInSamePayload() {
+        Product existing = buildExistingProduct();
+        doReturn(existing).when(productService).getRequiredById(1001L);
+        doReturn(true).when(productService).updateById(any(Product.class));
+        doReturn(new ProductDetailVO()).when(productService).getDetailById(1001L);
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                buildProductModel(1001L, "L1_LF_1.value", "裂缝值")
+        ));
+
+        ProductAddDTO dto = buildProductDto();
+        dto.setMetadataJson("""
+                {
+                  "objectInsight": {
+                    "customMetrics": [
+                      {
+                        "identifier": "value",
+                        "displayName": "裂缝值",
+                        "group": "measure",
+                        "includeInTrend": true
+                      },
+                      {
+                        "identifier": "L1_LF_1.value",
+                        "displayName": "裂缝值（正式）",
+                        "group": "measure",
+                        "includeInTrend": true
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        productService.updateProduct(1001L, dto);
+
+        ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
+        verify(productService).updateById(captor.capture());
+        String metadataJson = captor.getValue().getMetadataJson();
+        assertTrue(metadataJson.contains("\"identifier\":\"L1_LF_1.value\""));
+        assertTrue(!metadataJson.contains("\"identifier\":\"value\""));
+        assertEquals(1, countOccurrences(metadataJson, "\"identifier\":\"L1_LF_1.value\""));
     }
 
     @Test
@@ -629,6 +738,23 @@ class ProductServiceImplTest {
         verify(legacyCompatibleService).updateById(captor.capture());
         assertTrue(captor.getValue().getMetadataJson().contains("\"identifier\":\"L1_LF_1.value\""));
         assertTrue(!captor.getValue().getMetadataJson().contains("\"identifier\":\"value\""));
+    }
+
+    private int countOccurrences(String text, String token) {
+        if (text == null || token == null || token.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        int fromIndex = 0;
+        while (fromIndex >= 0) {
+            int hit = text.indexOf(token, fromIndex);
+            if (hit < 0) {
+                break;
+            }
+            count++;
+            fromIndex = hit + token.length();
+        }
+        return count;
     }
 
     private Product buildExistingProduct() {

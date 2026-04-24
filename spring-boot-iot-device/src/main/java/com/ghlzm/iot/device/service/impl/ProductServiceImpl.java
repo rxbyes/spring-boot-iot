@@ -652,16 +652,19 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 && !CollectionUtils.isEmpty(snapshot.publishedIdentifiers())
                 && metricIdentifierResolver != null) {
             MetricIdentifierResolution resolution = metricIdentifierResolver.resolveForGovernance(snapshot, identifier);
-            if (resolution == null || !StringUtils.hasText(resolution.canonicalIdentifier())) {
-                throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
+            if (resolution != null && StringUtils.hasText(resolution.canonicalIdentifier())) {
+                if (snapshot.containsPublishedIdentifier(identifier)) {
+                    return resolution.canonicalIdentifier();
+                }
+                if (StringUtils.hasText(formalIdentifier)
+                        && !formalIdentifier.equalsIgnoreCase(resolution.canonicalIdentifier())
+                        && snapshot.containsPublishedIdentifier(resolution.canonicalIdentifier())) {
+                    return formalIdentifier;
+                }
             }
-            if (snapshot.containsPublishedIdentifier(identifier)) {
-                return resolution.canonicalIdentifier();
-            }
-            if (StringUtils.hasText(formalIdentifier)
-                    && !formalIdentifier.equalsIgnoreCase(resolution.canonicalIdentifier())
-                    && snapshot.containsPublishedIdentifier(resolution.canonicalIdentifier())) {
-                return formalIdentifier;
+            String uniqueTailMatchedIdentifier = resolveUniquePublishedIdentifierByTail(snapshot, normalizedIdentifier);
+            if (StringUtils.hasText(uniqueTailMatchedIdentifier)) {
+                return uniqueTailMatchedIdentifier;
             }
             throw new BizException("对象洞察指标必须使用已发布合同标识符: " + identifier);
         }
@@ -669,6 +672,48 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             return normalizedIdentifier;
         }
         return formalIdentifier;
+    }
+
+    private String resolveUniquePublishedIdentifierByTail(PublishedProductContractSnapshot snapshot,
+                                                          String identifier) {
+        if (snapshot == null
+                || CollectionUtils.isEmpty(snapshot.publishedIdentifiers())
+                || !StringUtils.hasText(identifier)) {
+            return null;
+        }
+        String normalizedInput = identifier.trim();
+        if (normalizedInput.contains(".")) {
+            return null;
+        }
+        String inputTail = normalizeIdentifierTail(normalizedInput);
+        if (!StringUtils.hasText(inputTail)) {
+            return null;
+        }
+        String matchedIdentifier = null;
+        for (String publishedIdentifier : snapshot.publishedIdentifiers()) {
+            String publishedTail = normalizeIdentifierTail(publishedIdentifier);
+            if (!StringUtils.hasText(publishedTail) || !publishedTail.equalsIgnoreCase(inputTail)) {
+                continue;
+            }
+            if (matchedIdentifier != null && !matchedIdentifier.equalsIgnoreCase(publishedIdentifier)) {
+                return null;
+            }
+            matchedIdentifier = publishedIdentifier;
+        }
+        return matchedIdentifier;
+    }
+
+    private String normalizeIdentifierTail(String identifier) {
+        if (!StringUtils.hasText(identifier)) {
+            return null;
+        }
+        String normalizedIdentifier = identifier.trim();
+        int tailSeparator = normalizedIdentifier.lastIndexOf('.');
+        if (tailSeparator < 0 || tailSeparator >= normalizedIdentifier.length() - 1) {
+            return normalizedIdentifier;
+        }
+        String tail = normalizedIdentifier.substring(tailSeparator + 1).trim();
+        return StringUtils.hasText(tail) ? tail : null;
     }
 
     private PublishedProductContractSnapshot loadObjectInsightSnapshot(Long productId) {
