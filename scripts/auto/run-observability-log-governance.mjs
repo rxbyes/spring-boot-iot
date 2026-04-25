@@ -237,7 +237,8 @@ function buildGovernanceArgv({
   config,
   options,
   mode,
-  artifactPaths
+  artifactPaths,
+  confirmation
 }) {
   const argv = [
     `--policy-path=${options.policyPath || config.policyPath}`,
@@ -247,6 +248,17 @@ function buildGovernanceArgv({
 
   if (mode === 'apply') {
     argv.push('--apply');
+    if (confirmation?.confirmReportPath) {
+      argv.push(`--confirm-report-path=${confirmation.confirmReportPath}`);
+    }
+    if (confirmation?.reportGeneratedAt) {
+      argv.push(`--confirm-report-generated-at=${confirmation.reportGeneratedAt}`);
+    }
+    if (Number.isInteger(confirmation?.confirmedExpiredRows)) {
+      argv.push(
+        `--confirmed-expired-rows=${confirmation.confirmedExpiredRows}`
+      );
+    }
   }
   if (options.jdbcUrl) {
     argv.push(`--jdbc-url=${options.jdbcUrl}`);
@@ -358,7 +370,8 @@ export async function runObservabilityLogGovernanceCli({
     config,
     options,
     mode,
-    artifactPaths
+    artifactPaths,
+    confirmation
   });
   const result = await runGovernance({
     workspaceRoot,
@@ -367,6 +380,7 @@ export async function runObservabilityLogGovernanceCli({
     artifactPaths,
     options
   });
+  const archiveBatch = result.report?.tables?.iot_message_log?.archiveBatch || null;
 
   return {
     exitCode: Number(result.exitCode || 0),
@@ -375,7 +389,8 @@ export async function runObservabilityLogGovernanceCli({
     jsonPath: result.jsonPath,
     markdownPath: result.markdownPath,
     report: result.report,
-    confirmation
+    confirmation,
+    archiveBatch
   };
 }
 
@@ -391,6 +406,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(CURRENT_FI
           jsonPath: result.jsonPath,
           markdownPath: result.markdownPath,
           confirmation: result.confirmation,
+          archiveBatch: result.archiveBatch,
           summary: result.report?.summary || {}
         },
         null,

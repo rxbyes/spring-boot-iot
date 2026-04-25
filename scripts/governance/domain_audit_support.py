@@ -105,6 +105,19 @@ def get_table_comment(cursor: pymysql.cursors.Cursor, database: str, table_name:
     return str(row.get("table_comment") or "")
 
 
+def get_table_type(cursor: pymysql.cursors.Cursor, database: str, table_name: str) -> str:
+    row = query_one(
+        cursor,
+        """
+        SELECT table_type
+        FROM information_schema.tables
+        WHERE table_schema = %s AND table_name = %s
+        """,
+        (database, table_name),
+    )
+    return str(row.get("table_type") or "")
+
+
 def get_columns(cursor: pymysql.cursors.Cursor, database: str, table_name: str) -> list[dict[str, object]]:
     return query_all(
         cursor,
@@ -143,7 +156,7 @@ def get_indexes(cursor: pymysql.cursors.Cursor, database: str, table_name: str) 
 
 def resolve_create_table_sql(show_create_row: dict[str, object]) -> str:
     for key, value in show_create_row.items():
-        if key.startswith("create table"):
+        if key.startswith("create table") or key.startswith("create view"):
             return str(value)
     raise RuntimeError("Unable to resolve SHOW CREATE TABLE output.")
 
@@ -187,6 +200,7 @@ def collect_mysql_table_audit(
     database: str,
     table_name: str,
     sample_limit: int,
+    include_export_rows: bool = True,
 ) -> dict[str, object]:
     audit: dict[str, object] = {
         "table_name": table_name,
@@ -200,6 +214,7 @@ def collect_mysql_table_audit(
     show_create_row = query_one(cursor, f"SHOW CREATE TABLE `{table_name}`")
 
     audit["columns"] = columns
+    audit["table_type"] = get_table_type(cursor, database, table_name)
     audit["table_comment"] = get_table_comment(cursor, database, table_name)
     audit["indexes"] = get_indexes(cursor, database, table_name)
     audit["create_table_sql"] = resolve_create_table_sql(show_create_row)
@@ -221,7 +236,11 @@ def collect_mysql_table_audit(
         (max(sample_limit, 1),),
     )
     audit["export_columns"] = column_names
-    audit["export_rows"] = fetch_all_table_rows(cursor, table_name, column_names)
+    if include_export_rows:
+        audit["export_rows"] = fetch_all_table_rows(cursor, table_name, column_names)
+    else:
+        audit["export_rows"] = []
+        audit["export_rows_omitted"] = True
     return audit
 
 
@@ -353,7 +372,13 @@ def audit_mysql_hot_table_with_cold_archive(
         autocommit=True,
     ) as connection:
         with connection.cursor() as cursor:
-            hot_audit = collect_mysql_table_audit(cursor, str(connection_args["database"]), object_name, sample_limit)
+            hot_audit = collect_mysql_table_audit(
+                cursor,
+                str(connection_args["database"]),
+                object_name,
+                sample_limit,
+                include_export_rows=False,
+            )
             hot_exists = bool(hot_audit.get("table_exists"))
             archive_exists = table_exists(cursor, str(connection_args["database"]), archive_table_name)
             batch_exists = table_exists(cursor, str(connection_args["database"]), batch_table_name)
@@ -479,6 +504,9 @@ def evaluate_hot_table_archive_health(audit: dict[str, object]) -> dict[str, obj
     blocking_reasons: list[str] = []
     if not audit.get("hot_table_exists"):
         blocking_reasons.append("HOT_TABLE_MISSING")
+    table_type = str(audit.get("table_type") or "").upper()
+    if table_type and table_type != "BASE TABLE":
+        blocking_reasons.append("HOT_OBJECT_NOT_BASE_TABLE")
     if not audit.get("archive_table_exists"):
         blocking_reasons.append("ARCHIVE_TABLE_MISSING")
     if not audit.get("batch_table_exists"):

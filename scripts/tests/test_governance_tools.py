@@ -76,10 +76,26 @@ class GovernanceToolsTest(unittest.TestCase):
         self.assertIn("ARCHIVE_BATCH_TABLE_MISSING", decision["blocking_reasons"])
         self.assertIn("NO_ARCHIVE_BATCH_EVIDENCE", decision["blocking_reasons"])
 
+    def test_evaluate_hot_table_archive_health_should_block_when_hot_object_is_view(self):
+        decision = tools.evaluate_hot_table_archive_health(
+            {
+                "hot_table_exists": True,
+                "table_type": "VIEW",
+                "archive_table_exists": True,
+                "batch_table_exists": True,
+                "expired_rows": 0,
+                "latest_batch": None,
+            }
+        )
+
+        self.assertFalse(decision["ready"])
+        self.assertIn("HOT_OBJECT_NOT_BASE_TABLE", decision["blocking_reasons"])
+
     def test_evaluate_hot_table_archive_health_should_pass_when_archive_chain_is_complete(self):
         decision = tools.evaluate_hot_table_archive_health(
             {
                 "hot_table_exists": True,
+                "table_type": "BASE TABLE",
                 "archive_table_exists": True,
                 "batch_table_exists": True,
                 "expired_rows": 0,

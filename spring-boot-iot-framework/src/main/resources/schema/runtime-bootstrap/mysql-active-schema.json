@@ -2552,6 +2552,180 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `original_log_id` BIGINT NOT NULL COMMENT '原热表日志ID'",
+          "name": "original_log_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `archive_batch_id` BIGINT NOT NULL COMMENT '归档批次ID'",
+          "name": "archive_batch_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `device_id` BIGINT NOT NULL COMMENT '设备ID'",
+          "name": "device_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `product_id` BIGINT DEFAULT NULL COMMENT '产品ID'",
+          "name": "product_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `message_type` VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）'",
+          "name": "message_type"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `topic` VARCHAR(255) DEFAULT NULL COMMENT '主题'",
+          "name": "topic"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `payload` JSON DEFAULT NULL COMMENT '原始消息'",
+          "name": "payload"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `report_time` DATETIME NOT NULL COMMENT '上报时间'",
+          "name": "report_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `trace_id` VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID'",
+          "name": "trace_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `device_code` VARCHAR(64) DEFAULT NULL COMMENT '设备编码'",
+          "name": "device_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `product_key` VARCHAR(64) DEFAULT NULL COMMENT '产品标识'",
+          "name": "product_key"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `create_time` DATETIME NOT NULL COMMENT '原日志创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD COLUMN `archived_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间'",
+          "name": "archived_at"
+        }
+      ],
+      "createSql": "-- 表：iot_message_log_archive\n-- 说明：设备消息日志冷归档表\nCREATE TABLE IF NOT EXISTS iot_message_log_archive (\n  id BIGINT NOT NULL COMMENT '主键',\n  original_log_id BIGINT NOT NULL COMMENT '原热表日志ID',\n  archive_batch_id BIGINT NOT NULL COMMENT '归档批次ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL COMMENT '原日志创建时间',\n  archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_original_log_id (original_log_id),\n  KEY idx_archive_batch_id (archive_batch_id),\n  KEY idx_trace_id_report_time (trace_id, report_time),\n  KEY idx_device_code_report_time (device_code, report_time)\n) COMMENT='设备消息日志冷归档表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD UNIQUE INDEX `uk_original_log_id` (`original_log_id`)",
+          "name": "uk_original_log_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD INDEX `idx_archive_batch_id` (`archive_batch_id`)",
+          "name": "idx_archive_batch_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD INDEX `idx_trace_id_report_time` (`trace_id`, `report_time`)",
+          "name": "idx_trace_id_report_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive` ADD INDEX `idx_device_code_report_time` (`device_code`, `report_time`)",
+          "name": "idx_device_code_report_time"
+        }
+      ],
+      "name": "iot_message_log_archive",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `batch_no` VARCHAR(64) NOT NULL COMMENT '批次号'",
+          "name": "batch_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `source_table` VARCHAR(64) NOT NULL COMMENT '来源热表'",
+          "name": "source_table"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `governance_mode` VARCHAR(16) NOT NULL COMMENT '治理模式'",
+          "name": "governance_mode"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `status` VARCHAR(32) NOT NULL COMMENT '批次状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `retention_days` INT NOT NULL COMMENT '保留天数'",
+          "name": "retention_days"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `cutoff_at` DATETIME NOT NULL COMMENT '过期阈值时间'",
+          "name": "cutoff_at"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `confirm_report_path` VARCHAR(500) DEFAULT NULL COMMENT '确认报告路径'",
+          "name": "confirm_report_path"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `confirm_report_generated_at` DATETIME DEFAULT NULL COMMENT '确认报告生成时间'",
+          "name": "confirm_report_generated_at"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `confirmed_expired_rows` INT NOT NULL DEFAULT 0 COMMENT '确认过期行数'",
+          "name": "confirmed_expired_rows"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `candidate_rows` INT NOT NULL DEFAULT 0 COMMENT '候选过期行数'",
+          "name": "candidate_rows"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `archived_rows` INT NOT NULL DEFAULT 0 COMMENT '已归档行数'",
+          "name": "archived_rows"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `deleted_rows` INT NOT NULL DEFAULT 0 COMMENT '已删除行数'",
+          "name": "deleted_rows"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `failed_reason` VARCHAR(1000) DEFAULT NULL COMMENT '失败原因'",
+          "name": "failed_reason"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `artifacts_json` JSON DEFAULT NULL COMMENT '批次附加证据'",
+          "name": "artifacts_json"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'",
+          "name": "update_time"
+        }
+      ],
+      "createSql": "-- 表：iot_message_log_archive_batch\n-- 说明：设备消息日志冷归档批次表\nCREATE TABLE IF NOT EXISTS iot_message_log_archive_batch (\n  id BIGINT NOT NULL COMMENT '主键',\n  batch_no VARCHAR(64) NOT NULL COMMENT '批次号',\n  source_table VARCHAR(64) NOT NULL COMMENT '来源热表',\n  governance_mode VARCHAR(16) NOT NULL COMMENT '治理模式',\n  status VARCHAR(32) NOT NULL COMMENT '批次状态',\n  retention_days INT NOT NULL COMMENT '保留天数',\n  cutoff_at DATETIME NOT NULL COMMENT '过期阈值时间',\n  confirm_report_path VARCHAR(500) DEFAULT NULL COMMENT '确认报告路径',\n  confirm_report_generated_at DATETIME DEFAULT NULL COMMENT '确认报告生成时间',\n  confirmed_expired_rows INT NOT NULL DEFAULT 0 COMMENT '确认过期行数',\n  candidate_rows INT NOT NULL DEFAULT 0 COMMENT '候选过期行数',\n  archived_rows INT NOT NULL DEFAULT 0 COMMENT '已归档行数',\n  deleted_rows INT NOT NULL DEFAULT 0 COMMENT '已删除行数',\n  failed_reason VARCHAR(1000) DEFAULT NULL COMMENT '失败原因',\n  artifacts_json JSON DEFAULT NULL COMMENT '批次附加证据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_batch_no (batch_no),\n  KEY idx_source_status_time (source_table, status, create_time)\n) COMMENT='设备消息日志冷归档批次表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD UNIQUE INDEX `uk_batch_no` (`batch_no`)",
+          "name": "uk_batch_no"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log_archive_batch` ADD INDEX `idx_source_status_time` (`source_table`, `status`, `create_time`)",
+          "name": "idx_source_status_time"
+        }
+      ],
+      "name": "iot_message_log_archive_batch",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `iot_normative_metric_definition` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
           "name": "id"
         },
