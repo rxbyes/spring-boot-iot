@@ -2,7 +2,7 @@
   <StandardPageShell class="quality-workbench-landing">
     <StandardWorkbenchPanel
       title="质量工场总览"
-      description="先区分业务验收、研发编排和结果复盘，再进入对应专项页，不再把所有自动化能力堆在一个入口。"
+      description="把业务验收、研发编排、执行准备和结果复盘收成四个稳定入口，减少切换时的认知负担。"
       show-notices
     >
       <template #notices>
@@ -14,37 +14,52 @@
         </div>
       </template>
 
-      <section class="tri-grid">
-        <PanelCard title="结构概况" description="本轮先补上业务验收入口，再保留研发编排与共享结果底座。">
-          <div class="quad-grid landing-metrics">
-            <MetricCard
-              v-for="metric in landingMetrics"
-              :key="metric.label"
-              :label="metric.label"
-              :value="metric.value"
-              :badge="metric.badge"
-              size="compact"
-            />
-          </div>
-        </PanelCard>
-
-        <PanelCard title="进入建议" description="先定角色任务，再进入对应专项页，避免重新回到同页堆功能。">
-          <ul class="landing-list">
-            <li v-for="step in entrySteps" :key="step">{{ step }}</li>
-          </ul>
-        </PanelCard>
-
-        <PanelCard title="本轮默认入口" description="业务角色优先从业务验收台发起验收，研发再进入研发工场。">
+      <section class="quality-workbench-landing__hero">
+        <div class="quality-workbench-landing__hero-copy">
+          <span class="quality-workbench-landing__eyebrow">Quality Factory</span>
+          <h2>先验收，再执行，最后复盘。</h2>
           <p class="landing-summary">
-            质量工场继续保留为上层分组，业务验收台负责一键运行预置验收包，研发工场继续负责自动化资产编排。
+            业务角色先从业务验收台发起交付验收，研发再进入研发工场维护自动化资产，执行与结果保持共享，不再把所有动作塞进同一页。
           </p>
           <RouterLink to="/business-acceptance" class="landing-link landing-link--primary">
             进入业务验收台
           </RouterLink>
+        </div>
+
+        <div class="quality-workbench-landing__summary-grid">
+          <MetricCard
+            v-for="metric in landingMetrics"
+            :key="metric.label"
+            :label="metric.label"
+            :value="metric.value"
+            :badge="metric.badge"
+            size="compact"
+          />
+        </div>
+      </section>
+
+      <section class="quality-workbench-landing__balanced-grid">
+        <PanelCard title="进入顺序" description="按角色任务进入对应页面，避免在总览页内来回切换。">
+          <ol class="landing-list">
+            <li v-for="step in entrySteps" :key="step">{{ step }}</li>
+          </ol>
+        </PanelCard>
+
+        <PanelCard title="默认分工" description="首页只负责分流，不再承载执行细节和结果复盘细节。">
+          <div class="landing-role-grid">
+            <article
+              v-for="item in roleHighlights"
+              :key="item.title"
+              class="landing-role-grid__item"
+            >
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+            </article>
+          </div>
         </PanelCard>
       </section>
 
-      <section class="landing-grid">
+      <section class="quality-workbench-landing__entry-grid">
         <RouterLink
           v-for="card in displayCards"
           :key="card.path"
@@ -100,9 +115,20 @@ const qualityCards = [
 ] as const;
 
 const entrySteps = [
-  '验收人员、产品和项目经理先进入业务验收台，选择环境、账号模板和模块范围后一键执行。',
-  '研发需要维护自动化资产时，再进入研发工场拆开页面盘点、模板沉淀、计划编排与交付打包。',
-  '执行完成后统一进入结果与基线中心，复盘失败场景并沉淀质量证据。'
+  '验收人员、产品和项目经理先选择预置验收包，只配置环境、账号模板和模块范围。',
+  '研发维护自动化资产时，再进入研发工场拆分页面清单、模板、计划与交付材料。',
+  '回归前先在执行中心校准命令与阻断范围，结束后统一回到结果与基线中心复盘。'
+];
+
+const roleHighlights = [
+  {
+    title: '业务角色',
+    description: '关注是否通过、哪些模块没过，以及对应运行编号。'
+  },
+  {
+    title: '研发角色',
+    description: '关注自动化资产编排、执行口径和失败证据沉淀。'
+  }
 ];
 
 const landingMetrics = computed(() => [
@@ -140,6 +166,43 @@ const displayCards = computed(() => (visibleCards.value.length > 0 ? visibleCard
   min-width: 0;
 }
 
+.quality-workbench-landing__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.quality-workbench-landing__hero-copy,
+.quality-workbench-landing__summary-grid {
+  padding: 1.1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-2xl);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card-soft);
+}
+
+.quality-workbench-landing__hero-copy {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+}
+
+.quality-workbench-landing__eyebrow {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quality-workbench-landing__hero-copy h2 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.85rem;
+  line-height: 1.25;
+}
+
 .landing-chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -155,15 +218,50 @@ const displayCards = computed(() => (visibleCards.value.length > 0 ? visibleCard
   font-size: 0.88rem;
 }
 
-.landing-metrics {
+.quality-workbench-landing__summary-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.quality-workbench-landing__balanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .landing-list {
   margin: 0;
-  padding-left: 1.15rem;
+  padding-left: 1.1rem;
   line-height: 1.8;
   color: var(--text-secondary);
+}
+
+.landing-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.landing-role-grid__item {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 4%, white);
+}
+
+.landing-role-grid__item strong {
+  color: var(--text-heading);
+}
+
+.landing-role-grid__item p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .landing-summary {
@@ -172,17 +270,19 @@ const displayCards = computed(() => (visibleCards.value.length > 0 ? visibleCard
   line-height: 1.8;
 }
 
-.landing-grid {
+.quality-workbench-landing__entry-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.95rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .landing-card {
   display: grid;
-  gap: 0.45rem;
-  padding: 1rem;
-  border-radius: var(--radius-2xl);
+  gap: 0.55rem;
+  min-height: 100%;
+  padding: 1.1rem;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--panel-border);
   background: var(--bg-card);
   color: inherit;
@@ -196,7 +296,7 @@ const displayCards = computed(() => (visibleCards.value.length > 0 ? visibleCard
 
 .landing-card:hover,
 .landing-link:hover {
-  border-color: color-mix(in srgb, var(--brand) 26%, var(--panel-border));
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
   transform: translateY(-1px);
   box-shadow: var(--shadow-card);
 }
@@ -215,10 +315,10 @@ const displayCards = computed(() => (visibleCards.value.length > 0 ? visibleCard
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 10%, white);
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--brand) 8%, white);
   color: var(--brand);
   font-weight: 700;
 }
@@ -245,8 +345,11 @@ const displayCards = computed(() => (visibleCards.value.length > 0 ? visibleCard
 }
 
 @media (max-width: 1024px) {
-  .landing-grid,
-  .landing-metrics {
+  .quality-workbench-landing__hero,
+  .quality-workbench-landing__balanced-grid,
+  .quality-workbench-landing__entry-grid,
+  .quality-workbench-landing__summary-grid,
+  .landing-role-grid {
     grid-template-columns: 1fr;
   }
 }

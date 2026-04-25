@@ -26,6 +26,9 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('/rd-workbench');
     expect(source).toContain('/automation-execution');
     expect(source).toContain('/automation-results');
+    expect(source).toContain('quality-workbench-landing__hero');
+    expect(source).toContain('quality-workbench-landing__summary-grid');
+    expect(source).toContain('quality-workbench-landing__entry-grid');
     expect(source).not.toContain('<AutomationScenarioEditor');
     expect(source).not.toContain('<AutomationResultImportPanel');
   });
@@ -38,6 +41,9 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('launchSelectedPackage');
     expect(source).toContain('useBusinessAcceptanceWorkbench');
     expect(source).toContain('哪些模块没过');
+    expect(source).toContain('business-acceptance-workbench__hero');
+    expect(source).toContain('business-acceptance-workbench__balanced-grid');
+    expect(source).toContain('business-acceptance-workbench__aside');
     expect(source).not.toContain('<AutomationScenarioEditor');
     expect(source).not.toContain('<AutomationExecutionConfigPanel');
   });
