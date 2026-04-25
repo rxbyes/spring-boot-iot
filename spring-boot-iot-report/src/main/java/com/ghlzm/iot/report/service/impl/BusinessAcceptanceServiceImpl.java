@@ -2,6 +2,10 @@ package com.ghlzm.iot.report.service.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
 import com.ghlzm.iot.report.service.BusinessAcceptanceService;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
@@ -75,6 +79,7 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
     private final String nodeCommand;
     private final ObjectMapper objectMapper;
     private final Map<String, JobState> jobStates = new ConcurrentHashMap<>();
+    private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
     @Autowired
     public BusinessAcceptanceServiceImpl(
@@ -100,6 +105,13 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         this.registryRunnerScriptPath = normalizePath(registryRunnerScriptPath, this.workspaceRoot);
         this.nodeCommand = normalizeText(nodeCommand);
         this.objectMapper = objectMapper;
+    }
+
+    @Autowired(required = false)
+    public void setObservabilityEvidenceRecorder(ObservabilityEvidenceRecorder evidenceRecorder) {
+        if (evidenceRecorder != null) {
+            this.evidenceRecorder = evidenceRecorder;
+        }
     }
 
     @Override
@@ -131,6 +143,7 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         jobStates.put(jobId, state);
 
         submitLaunch(jobId, derivedRegistryPath, buildLaunchCommand(derivedRegistryPath, pkg.getPackageCode(), environmentCode, template.getTemplateCode(), moduleCodes));
+        recordLaunchBusinessEvent(jobId, pkg, template, environmentCode, moduleCodes);
 
         BusinessAcceptanceRunLaunchVO launchVO = new BusinessAcceptanceRunLaunchVO();
         launchVO.setJobId(jobId);
@@ -164,6 +177,47 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
 
     protected void submitLaunch(String jobId, Path derivedRegistryPath, List<String> command) {
         CompletableFuture.runAsync(() -> executeLaunch(jobId, derivedRegistryPath, command));
+    }
+
+    private void recordLaunchBusinessEvent(String jobId,
+                                           BusinessAcceptancePackageConfig pkg,
+                                           BusinessAcceptanceAccountTemplateConfig template,
+                                           String environmentCode,
+                                           Collection<String> moduleCodes) {
+        BusinessEventLogRecord event = new BusinessEventLogRecord();
+        event.setTenantId(1L);
+        event.setTraceId(TraceContextHolder.currentOrCreate());
+        event.setEventCode("acceptance.business_run.launched");
+        event.setEventName("业务验收运行启动完成");
+        event.setDomainCode("acceptance");
+        event.setActionCode("launch_business_run");
+        event.setObjectType("business_acceptance_run");
+        event.setObjectId(jobId);
+        event.setObjectName(pkg == null ? null : pkg.getPackageName());
+        event.setResultStatus(ObservabilityEvidenceStatus.SUCCESS);
+        event.setSourceType("BUSINESS_ACCEPTANCE");
+        event.setEvidenceType("business_acceptance_job");
+        event.setEvidenceId(jobId);
+        event.setOccurredAt(LocalDateTime.now());
+        event.getMetadata().putAll(buildLaunchMetadata(jobId, pkg, template, environmentCode, moduleCodes));
+        evidenceRecorder.recordBusinessEvent(event);
+    }
+
+    private Map<String, Object> buildLaunchMetadata(String jobId,
+                                                    BusinessAcceptancePackageConfig pkg,
+                                                    BusinessAcceptanceAccountTemplateConfig template,
+                                                    String environmentCode,
+                                                    Collection<String> moduleCodes) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("jobId", jobId);
+        metadata.put("packageCode", pkg == null ? null : pkg.getPackageCode());
+        metadata.put("packageName", pkg == null ? null : pkg.getPackageName());
+        metadata.put("environmentCode", normalizeText(environmentCode));
+        metadata.put("accountTemplateCode", template == null ? null : template.getTemplateCode());
+        metadata.put("accountTemplateName", template == null ? null : template.getTemplateName());
+        metadata.put("username", template == null ? null : template.getUsername());
+        metadata.put("moduleCodes", moduleCodes == null ? List.of() : List.copyOf(moduleCodes));
+        return metadata;
     }
 
     private void executeLaunch(String jobId, Path derivedRegistryPath, List<String> command) {

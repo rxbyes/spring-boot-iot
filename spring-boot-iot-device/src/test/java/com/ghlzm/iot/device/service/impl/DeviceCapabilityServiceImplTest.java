@@ -19,6 +19,8 @@ import com.ghlzm.iot.device.vo.CommandRecordPageItemVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityExecuteResultVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityOverviewVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityVO;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -28,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,6 +43,15 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DeviceCapabilityServiceImplTest {
+
+    private static final class RecordingEvidenceRecorder implements ObservabilityEvidenceRecorder {
+        private final AtomicReference<BusinessEventLogRecord> lastEvent = new AtomicReference<>();
+
+        @Override
+        public void recordBusinessEvent(BusinessEventLogRecord event) {
+            lastEvent.set(event);
+        }
+    }
 
     @Mock
     private DeviceService deviceService;
@@ -105,6 +117,8 @@ class DeviceCapabilityServiceImplTest {
                 deviceCapabilityCommandGateway,
                 commandRecordService
         );
+        RecordingEvidenceRecorder evidenceRecorder = new RecordingEvidenceRecorder();
+        service.setObservabilityEvidenceRecorder(evidenceRecorder);
 
         DeviceCapabilityExecuteDTO dto = new DeviceCapabilityExecuteDTO();
         dto.setParams(Map.of("content", "road-work", "bNum", 1, "volume", 80));
@@ -121,6 +135,16 @@ class DeviceCapabilityServiceImplTest {
         assertEquals("warning-device-01", requestCaptor.getValue().getDevice().getDeviceCode());
         assertEquals("broadcast_play", requestCaptor.getValue().getCapability().code());
         assertEquals("road-work", requestCaptor.getValue().getParams().get("content"));
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertNotNull(event);
+        assertEquals("device.command.issued", event.getEventCode());
+        assertEquals("device_operation", event.getDomainCode());
+        assertEquals("device", event.getObjectType());
+        assertEquals("warning-device-01", event.getObjectId());
+        assertEquals("1776999000000", event.getEvidenceId());
+        assertEquals("warning-product", event.getMetadata().get("productKey"));
+        assertEquals("broadcast_play", event.getMetadata().get("capabilityCode"));
     }
 
     @Test

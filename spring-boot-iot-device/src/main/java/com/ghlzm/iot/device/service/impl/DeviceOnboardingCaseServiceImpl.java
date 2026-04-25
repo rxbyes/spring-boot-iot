@@ -27,6 +27,11 @@ import com.ghlzm.iot.device.service.model.DeviceOnboardingAcceptanceRequest;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseBatchResultVO;
 import com.ghlzm.iot.device.vo.DeviceOnboardingAcceptanceSummaryVO;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseVO;
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
+import java.time.LocalDateTime;
 import com.ghlzm.iot.framework.mybatis.PageQueryUtils;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -43,6 +48,8 @@ import org.springframework.util.StringUtils;
  */
 @Service
 public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseService {
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
 
     private static final String STEP_PROTOCOL_GOVERNANCE = "PROTOCOL_GOVERNANCE";
     private static final String STEP_PRODUCT_GOVERNANCE = "PRODUCT_GOVERNANCE";
@@ -67,6 +74,7 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
     private final OnboardingTemplatePackMapper templatePackMapper;
     private final DeviceOnboardingAcceptanceGateway acceptanceGateway;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
     @Autowired
     public DeviceOnboardingCaseServiceImpl(DeviceOnboardingCaseMapper mapper,
@@ -95,6 +103,13 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         this.productMapper = productMapper;
         this.templatePackMapper = templatePackMapper;
         this.acceptanceGateway = acceptanceGateway;
+    }
+
+    @Autowired(required = false)
+    public void setObservabilityEvidenceRecorder(ObservabilityEvidenceRecorder evidenceRecorder) {
+        if (evidenceRecorder != null) {
+            this.evidenceRecorder = evidenceRecorder;
+        }
     }
 
     @Override
@@ -271,6 +286,7 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
         ));
         entity.setUpdateBy(operatorUserId);
         mapper.updateById(entity);
+        recordAcceptanceStartedEvent(entity, operatorUserId);
         return toVO(entity);
     }
 
@@ -469,6 +485,54 @@ public class DeviceOnboardingCaseServiceImpl implements DeviceOnboardingCaseServ
 
     private Long resolveTenantId(Long tenantId) {
         return tenantId == null ? 1L : tenantId;
+    }
+
+    private void recordAcceptanceStartedEvent(DeviceOnboardingCase entity, Long operatorUserId) {
+        if (entity == null) {
+            return;
+        }
+        BusinessEventLogRecord event = new BusinessEventLogRecord();
+        event.setTenantId(defaultTenantId(entity.getTenantId()));
+        event.setTraceId(TraceContextHolder.currentOrCreate());
+        event.setEventCode("acceptance.onboarding_case.launched");
+        event.setEventName("接入案例验收启动完成");
+        event.setDomainCode("acceptance");
+        event.setActionCode("launch_onboarding_case");
+        event.setObjectType("onboarding_case");
+        event.setObjectId(entity.getId() == null ? null : String.valueOf(entity.getId()));
+        event.setObjectName(entity.getCaseName());
+        event.setActorUserId(operatorUserId);
+        event.setResultStatus(ObservabilityEvidenceStatus.SUCCESS);
+        event.setSourceType("DEVICE_ONBOARDING");
+        event.setEvidenceType("iot_device_onboarding_case");
+        event.setEvidenceId(entity.getId() == null ? null : String.valueOf(entity.getId()));
+        event.setOccurredAt(LocalDateTime.now());
+        event.getMetadata().putAll(buildAcceptanceStartedMetadata(entity));
+        evidenceRecorder.recordBusinessEvent(event);
+    }
+
+    private Map<String, Object> buildAcceptanceStartedMetadata(DeviceOnboardingCase entity) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("caseId", entity.getId());
+        metadata.put("caseCode", entity.getCaseCode());
+        metadata.put("caseName", entity.getCaseName());
+        metadata.put("scenarioCode", entity.getScenarioCode());
+        metadata.put("deviceFamily", entity.getDeviceFamily());
+        metadata.put("productId", entity.getProductId());
+        metadata.put("releaseBatchId", entity.getReleaseBatchId());
+        metadata.put("deviceCode", entity.getDeviceCode());
+        metadata.put("protocolFamilyCode", entity.getProtocolFamilyCode());
+        metadata.put("decryptProfileCode", entity.getDecryptProfileCode());
+        metadata.put("protocolTemplateCode", entity.getProtocolTemplateCode());
+        metadata.put("acceptanceJobId", entity.getAcceptanceJobId());
+        metadata.put("acceptanceRunId", entity.getAcceptanceRunId());
+        metadata.put("currentStep", entity.getCurrentStep());
+        metadata.put("status", entity.getStatus());
+        return metadata;
+    }
+
+    private Long defaultTenantId(Long tenantId) {
+        return tenantId == null || tenantId <= 0 ? DEFAULT_TENANT_ID : tenantId;
     }
 
     private String writeStringList(List<String> values) {

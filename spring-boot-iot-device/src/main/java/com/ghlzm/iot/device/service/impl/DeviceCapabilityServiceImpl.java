@@ -25,12 +25,20 @@ import com.ghlzm.iot.device.vo.CommandRecordPageItemVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityExecuteResultVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityOverviewVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityVO;
-import org.springframework.stereotype.Service;
-
+import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class DeviceCapabilityServiceImpl implements DeviceCapabilityService {
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
 
     private final DeviceService deviceService;
     private final ProductService productService;
@@ -38,6 +46,7 @@ public class DeviceCapabilityServiceImpl implements DeviceCapabilityService {
     private final DeviceCapabilityRegistry deviceCapabilityRegistry;
     private final DeviceCapabilityCommandGateway deviceCapabilityCommandGateway;
     private final CommandRecordService commandRecordService;
+    private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
     public DeviceCapabilityServiceImpl(DeviceService deviceService,
                                        ProductService productService,
@@ -51,6 +60,13 @@ public class DeviceCapabilityServiceImpl implements DeviceCapabilityService {
         this.deviceCapabilityRegistry = deviceCapabilityRegistry;
         this.deviceCapabilityCommandGateway = deviceCapabilityCommandGateway;
         this.commandRecordService = commandRecordService;
+    }
+
+    @Autowired(required = false)
+    public void setObservabilityEvidenceRecorder(ObservabilityEvidenceRecorder evidenceRecorder) {
+        if (evidenceRecorder != null) {
+            this.evidenceRecorder = evidenceRecorder;
+        }
     }
 
     @Override
@@ -99,6 +115,7 @@ public class DeviceCapabilityServiceImpl implements DeviceCapabilityService {
         }
 
         DeviceCapabilityCommandResult commandResult = deviceCapabilityCommandGateway.execute(request);
+        recordCommandIssuedEvent(currentUserId, device, product, capability, request, commandResult);
         DeviceCapabilityExecuteResultVO vo = new DeviceCapabilityExecuteResultVO();
         vo.setCommandId(commandResult.getCommandId());
         vo.setDeviceCode(commandResult.getDeviceCode());
@@ -175,5 +192,59 @@ public class DeviceCapabilityServiceImpl implements DeviceCapabilityService {
             return metadata.videoDeviceKind().name();
         }
         return null;
+    }
+
+    private void recordCommandIssuedEvent(Long currentUserId,
+                                          Device device,
+                                          Product product,
+                                          DeviceCapabilityDefinition capability,
+                                          DeviceCapabilityCommandRequest request,
+                                          DeviceCapabilityCommandResult commandResult) {
+        BusinessEventLogRecord event = new BusinessEventLogRecord();
+        event.setTenantId(defaultTenantId(device == null ? null : device.getTenantId()));
+        event.setTraceId(TraceContextHolder.currentOrCreate());
+        event.setEventCode("device.command.issued");
+        event.setEventName("设备命令下发完成");
+        event.setDomainCode("device_operation");
+        event.setActionCode("issue_command");
+        event.setObjectType("device");
+        event.setObjectId(device == null ? null : device.getDeviceCode());
+        event.setObjectName(device == null ? null : device.getDeviceName());
+        event.setActorUserId(currentUserId);
+        event.setResultStatus(ObservabilityEvidenceStatus.SUCCESS);
+        event.setSourceType("DEVICE_CAPABILITY");
+        event.setEvidenceType("device_command");
+        event.setEvidenceId(commandResult == null ? null : commandResult.getCommandId());
+        event.setOccurredAt(commandResult != null && commandResult.getSentAt() != null
+                ? commandResult.getSentAt()
+                : LocalDateTime.now());
+        event.getMetadata().putAll(buildCommandIssuedMetadata(device, product, capability, request, commandResult));
+        evidenceRecorder.recordBusinessEvent(event);
+    }
+
+    private LinkedHashMap<String, Object> buildCommandIssuedMetadata(Device device,
+                                                                     Product product,
+                                                                     DeviceCapabilityDefinition capability,
+                                                                     DeviceCapabilityCommandRequest request,
+                                                                     DeviceCapabilityCommandResult commandResult) {
+        LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("productId", product == null ? null : product.getId());
+        metadata.put("productKey", product == null ? null : product.getProductKey());
+        metadata.put("productName", product == null ? null : product.getProductName());
+        metadata.put("deviceId", device == null ? null : device.getId());
+        metadata.put("deviceCode", device == null ? null : device.getDeviceCode());
+        metadata.put("deviceName", device == null ? null : device.getDeviceName());
+        metadata.put("capabilityCode", capability == null ? null : capability.code());
+        metadata.put("capabilityName", capability == null ? null : capability.name());
+        metadata.put("capabilityGroup", capability == null ? null : capability.group());
+        metadata.put("commandId", commandResult == null ? null : commandResult.getCommandId());
+        metadata.put("commandStatus", commandResult == null ? null : commandResult.getStatus());
+        metadata.put("topic", commandResult == null ? null : commandResult.getTopic());
+        metadata.put("params", request == null ? null : request.getParams());
+        return metadata;
+    }
+
+    private Long defaultTenantId(Long tenantId) {
+        return tenantId == null || tenantId <= 0 ? DEFAULT_TENANT_ID : tenantId;
     }
 }

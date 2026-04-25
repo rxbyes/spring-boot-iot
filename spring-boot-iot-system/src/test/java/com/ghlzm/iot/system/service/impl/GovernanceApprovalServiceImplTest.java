@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
 import com.ghlzm.iot.system.entity.GovernanceApprovalOrder;
 import com.ghlzm.iot.system.entity.GovernanceApprovalTransition;
 import com.ghlzm.iot.system.entity.GovernanceWorkItem;
@@ -54,12 +55,16 @@ class GovernanceApprovalServiceImplTest {
     @Mock
     private GovernanceWorkItemMapper workItemMapper;
 
+    @Mock
+    private ObservabilityEvidenceRecorder evidenceRecorder;
+
     private GovernanceApprovalServiceImpl service;
 
     @BeforeEach
     void setUp() {
         lenient().when(executor.supports(anyString())).thenReturn(false);
         service = new GovernanceApprovalServiceImpl(orderMapper, transitionMapper, workItemMapper, permissionGuard, List.of(executor));
+        service.setObservabilityEvidenceRecorder(evidenceRecorder);
     }
 
     @Test
@@ -183,6 +188,93 @@ class GovernanceApprovalServiceImplTest {
                         && Long.valueOf(88001L).equals(item.getApprovalOrderId())
                         && "EXECUTED".equals(readString(item, "executionStatus"))
                         && readString(item, "impactSnapshotJson").contains("releaseBatchId")
+        ));
+    }
+
+    @Test
+    void approveOrderShouldRecordMappingPublishBusinessEvent() {
+        GovernanceApprovalOrder order = mockOrder(88011L, "PENDING", 10001L, 20002L, "VENDOR_MAPPING_RULE_PUBLISH");
+        order.setPayloadJson("""
+                {
+                  "ruleId": 9001,
+                  "productId": 1001,
+                  "rawIdentifier": "L1_LF_1.value",
+                  "targetNormativeIdentifier": "value",
+                  "scopeType": "PRODUCT"
+                }
+                """);
+        when(orderMapper.selectById(88011L)).thenReturn(order);
+        when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+        when(executor.supports("VENDOR_MAPPING_RULE_PUBLISH")).thenReturn(true);
+        when(executor.execute(order)).thenReturn(new GovernanceApprovalActionExecutionResult("""
+                {
+                  "ruleId": 9001,
+                  "productId": 1001,
+                  "rawIdentifier": "L1_LF_1.value",
+                  "targetNormativeIdentifier": "value",
+                  "scopeType": "PRODUCT",
+                  "execution": {
+                    "approvalOrderId": 88011,
+                    "publishedVersionNo": 3,
+                    "lifecycleStatus": "PUBLISHED"
+                  }
+                }
+                """));
+
+        service.approveOrder(88011L, 20002L, "approve");
+
+        verify(evidenceRecorder).recordBusinessEvent(org.mockito.ArgumentMatchers.argThat(event ->
+                "product.mapping_rule.published".equals(event.getEventCode())
+                        && "vendor_mapping_rule".equals(event.getObjectType())
+                        && "9001".equals(event.getObjectId())
+                        && Integer.valueOf(3).equals(event.getMetadata().get("publishedVersionNo"))
+                        && "value".equals(event.getMetadata().get("targetNormativeIdentifier"))
+                        && Long.valueOf(88011L).equals(event.getMetadata().get("approvalOrderId"))
+        ));
+    }
+
+    @Test
+    void approveOrderShouldRecordContractRollbackBusinessEvent() {
+        GovernanceApprovalOrder order = mockOrder(88012L, "PENDING", 10001L, 20002L, "PRODUCT_CONTRACT_ROLLBACK");
+        order.setPayloadJson("""
+                {
+                  "request": {
+                    "batchId": 7001
+                  }
+                }
+                """);
+        when(orderMapper.selectById(88012L)).thenReturn(order);
+        when(orderMapper.updateById(any(GovernanceApprovalOrder.class))).thenReturn(1);
+        when(transitionMapper.insert(any(GovernanceApprovalTransition.class))).thenReturn(1);
+        when(executor.supports("PRODUCT_CONTRACT_ROLLBACK")).thenReturn(true);
+        when(executor.execute(order)).thenReturn(new GovernanceApprovalActionExecutionResult("""
+                {
+                  "request": {
+                    "batchId": 7001
+                  },
+                  "execution": {
+                    "executedAt": "2026-04-25T10:00:00",
+                    "result": {
+                      "targetBatchId": 7001,
+                      "rolledBackBatchId": 6801,
+                      "productId": 1001,
+                      "scenarioCode": "phase1-crack",
+                      "releaseSource": "manual_compare_apply",
+                      "restoredFieldCount": 4
+                    }
+                  }
+                }
+                """));
+
+        service.approveOrder(88012L, 20002L, "approve");
+
+        verify(evidenceRecorder).recordBusinessEvent(org.mockito.ArgumentMatchers.argThat(event ->
+                "product.contract.rolled_back".equals(event.getEventCode())
+                        && "contract_release_batch".equals(event.getObjectType())
+                        && "7001".equals(event.getObjectId())
+                        && Long.valueOf(6801L).equals(event.getMetadata().get("rolledBackBatchId"))
+                        && "phase1-crack".equals(event.getMetadata().get("scenarioCode"))
         ));
     }
 

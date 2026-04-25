@@ -1,5 +1,7 @@
 package com.ghlzm.iot.report.service.impl;
 
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
 import com.ghlzm.iot.report.vo.BusinessAcceptancePackageVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceResultVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceRunLaunchVO;
@@ -11,10 +13,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BusinessAcceptanceServiceImplTest {
+
+    private static final class RecordingEvidenceRecorder implements ObservabilityEvidenceRecorder {
+        private final AtomicReference<BusinessEventLogRecord> lastEvent = new AtomicReference<>();
+
+        @Override
+        public void recordBusinessEvent(BusinessEventLogRecord event) {
+            lastEvent.set(event);
+        }
+    }
 
     @TempDir
     Path tempDir;
@@ -161,6 +173,8 @@ class BusinessAcceptanceServiceImplTest {
                 automationDir.resolve("acceptance-registry.json"),
                 logsDir
         );
+        RecordingEvidenceRecorder evidenceRecorder = new RecordingEvidenceRecorder();
+        service.setObservabilityEvidenceRecorder(evidenceRecorder);
 
         var request = new com.ghlzm.iot.report.vo.BusinessAcceptanceRunRequest();
         request.setPackageCode("product-device");
@@ -180,6 +194,13 @@ class BusinessAcceptanceServiceImplTest {
         assertThat(service.capturedCommand).anyMatch(item -> item.contains("--selected-modules=product-create"));
         assertThat(service.capturedRegistryPath).isNotNull();
         assertThat(Files.readString(service.capturedRegistryPath, StandardCharsets.UTF_8)).contains("auth.browser-smoke");
+
+        BusinessEventLogRecord event = evidenceRecorder.lastEvent.get();
+        assertThat(event).isNotNull();
+        assertThat(event.getEventCode()).isEqualTo("acceptance.business_run.launched");
+        assertThat(event.getEvidenceId()).isEqualTo(launch.getJobId());
+        assertThat(event.getMetadata().get("packageCode")).isEqualTo("product-device");
+        assertThat(event.getMetadata().get("environmentCode")).isEqualTo("dev");
     }
 
     @Test

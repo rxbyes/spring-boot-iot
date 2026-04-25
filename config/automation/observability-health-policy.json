@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "spanTraceCoverage",
+      "metric": "spanTraceCoverageRate",
+      "operator": ">=",
+      "threshold": 0.98,
+      "severity": "error",
+      "message": "Span TraceId 覆盖率必须不低于 98%。"
+    },
+    {
+      "id": "businessEventTraceCoverage",
+      "metric": "businessEventTraceCoverageRate",
+      "operator": ">=",
+      "threshold": 0.95,
+      "severity": "error",
+      "message": "业务事件 TraceId 覆盖率必须不低于 95%。"
+    },
+    {
+      "id": "spanTenantCoverage",
+      "metric": "spanTenantCoverageRate",
+      "operator": ">=",
+      "threshold": 0.99,
+      "severity": "error",
+      "message": "Span tenantId 覆盖率必须不低于 99%。"
+    },
+    {
+      "id": "httpTraceLink",
+      "metric": "httpTraceLinkRate",
+      "operator": ">=",
+      "threshold": 0.95,
+      "severity": "error",
+      "message": "HTTP 留痕关联率必须不低于 95%。"
+    },
+    {
+      "id": "messageFlowTraceLink",
+      "metric": "messageFlowTraceLinkRate",
+      "operator": ">=",
+      "threshold": 0.9,
+      "severity": "error",
+      "message": "消息链路留痕关联率必须不低于 90%。"
+    },
+    {
+      "id": "messageFlowDeviceCodeCoverage",
+      "metric": "messageFlowDeviceCodeCoverageRate",
+      "operator": ">=",
+      "threshold": 0.98,
+      "severity": "error",
+      "message": "消息链路 deviceCode 覆盖率必须不低于 98%。"
+    },
+    {
+      "id": "messageFlowProductKeyCoverage",
+      "metric": "messageFlowProductKeyCoverageRate",
+      "operator": ">=",
+      "threshold": 0.95,
+      "severity": "warning",
+      "message": "消息链路 productKey 覆盖率建议不低于 95%。"
+    },
+    {
+      "id": "traceWithoutBusinessEvent",
+      "metric": "traceWithoutBusinessEventRate",
+      "operator": "<=",
+      "threshold": 0.35,
+      "severity": "warning",
+      "message": "无业务事件 Trace 占比建议不高于 35%。"
+    },
+    {
+      "id": "evidencePackageReady",
+      "metric": "evidencePackageReadyRate",
+      "operator": ">=",
+      "threshold": 0.7,
+      "severity": "warning",
+      "message": "证据包双轨就绪率建议不低于 70%。"
+    }
+  ]
+}
