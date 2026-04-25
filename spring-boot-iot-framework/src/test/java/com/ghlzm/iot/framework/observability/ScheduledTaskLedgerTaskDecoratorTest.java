@@ -13,6 +13,8 @@ import org.springframework.scheduling.support.ScheduledMethodRunnable;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -90,6 +92,26 @@ class ScheduledTaskLedgerTaskDecoratorTest {
         assertEquals(ObservabilityEvidenceStatus.FAILURE, event.getResultStatus());
         assertEquals("boom", event.getErrorMessage());
         assertEquals("FIXED_RATE", event.getMetadata().get("triggerType"));
+    }
+
+    @Test
+    void decorateShouldIgnoreInaccessibleJdkScheduledFutureFields() {
+        ScheduledTaskLedgerTaskDecorator decorator =
+                new ScheduledTaskLedgerTaskDecorator(new TraceContextTaskDecorator(), new RecordingEvidenceRecorder());
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+        try {
+            Runnable scheduledFutureTask = (Runnable) executor.scheduleWithFixedDelay(
+                    () -> {
+                    },
+                    1,
+                    1,
+                    TimeUnit.DAYS
+            );
+
+            assertDoesNotThrow(() -> decorator.decorate(scheduledFutureTask));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private Runnable buildScheduledRunnable(Object target, String methodName) throws Exception {
