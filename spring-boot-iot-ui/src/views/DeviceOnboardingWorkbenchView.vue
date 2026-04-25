@@ -551,12 +551,14 @@
             </StandardButton>
             <StandardButton
               v-if="row.productId != null"
+              v-permission="'iot:products'"
               :data-testid="`onboarding-open-product-${row.id}`"
               @click="handleOpenProductWorkbench(row)"
             >
               进入产品工作台
             </StandardButton>
             <StandardButton
+              v-permission="nextActionPermission(row)"
               :data-testid="`onboarding-next-${row.id}`"
               :disabled="row.currentStep === 'ACCEPTANCE'"
               @click="handleNext(row)"
@@ -963,17 +965,11 @@ async function handleSizeChange(pageSize: number): Promise<void> {
 }
 
 function handleNext(row: DeviceOnboardingCase): void {
-  if (row.currentStep === 'PROTOCOL_GOVERNANCE') {
-    void router.push({ path: '/protocol-governance' })
+  const action = resolveNextAction(row)
+  if (!action.path) {
     return
   }
-  if (row.currentStep === 'PRODUCT_GOVERNANCE' || row.currentStep === 'CONTRACT_RELEASE') {
-    void router.push(
-      row.productId == null
-        ? '/products'
-        : buildProductWorkbenchSectionPath(row.productId, 'contracts')
-    )
-  }
+  void router.push(action.path)
 }
 
 function handleOpenProductWorkbench(row: DeviceOnboardingCase): void {
@@ -1056,16 +1052,37 @@ function statusLabel(status: DeviceOnboardingCase['status']): string {
 }
 
 function nextActionLabel(row: DeviceOnboardingCase): string {
+  return resolveNextAction(row).label
+}
+
+function nextActionPermission(row: DeviceOnboardingCase): string | undefined {
+  return resolveNextAction(row).permission
+}
+
+function resolveNextAction(row: DeviceOnboardingCase): {
+  label: string
+  path?: string
+  permission?: string
+} {
   if (row.currentStep === 'PROTOCOL_GOVERNANCE') {
-    return '前往协议治理'
+    return {
+      label: '前往协议治理',
+      path: '/protocol-governance',
+      permission: 'iot:protocol-governance'
+    }
   }
-  if (row.currentStep === 'PRODUCT_GOVERNANCE') {
-    return row.productId == null ? '前往产品列表' : '前往契约字段'
+  if (row.currentStep === 'PRODUCT_GOVERNANCE' || row.currentStep === 'CONTRACT_RELEASE') {
+    return {
+      label: row.productId == null ? '前往产品列表' : '前往契约字段',
+      path: row.productId == null
+        ? '/products'
+        : buildProductWorkbenchSectionPath(row.productId, 'contracts'),
+      permission: 'iot:products'
+    }
   }
-  if (row.currentStep === 'CONTRACT_RELEASE') {
-    return '前往契约字段'
+  return {
+    label: '已具备验收条件'
   }
-  return '已具备验收条件'
 }
 
 function buildPayload(): DeviceOnboardingCaseCreatePayload | DeviceOnboardingCaseUpdatePayload {
