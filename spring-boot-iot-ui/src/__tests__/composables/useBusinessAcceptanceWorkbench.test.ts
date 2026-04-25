@@ -178,31 +178,31 @@ describe('useBusinessAcceptanceWorkbench', () => {
       data: [
         {
           packageCode: 'platform-p0-full-flow',
-          packageName: '平台 P0 全链路',
-          description: '覆盖平台 P0 业务验收主链路。',
-          targetRoles: ['manager', 'acceptance', 'product'],
+          packageName: 'P0 全流程业务验收',
+          description: '覆盖 P0 主业务链路。',
+          targetRoles: ['acceptance', 'product', 'manager'],
           supportedEnvironments: ['dev', 'test'],
           defaultAccountTemplate: 'manager-default',
           latestResult: {
             runId: '20260425101010',
             status: 'blocked',
             updatedAt: '2026-04-25T10:10:10+08:00',
-            passedModuleCount: 1,
+            passedModuleCount: 5,
             failedModuleCount: 1,
             failedModuleNames: ['质量工场自验']
           },
           modules: [
             {
               moduleCode: 'login-auth',
-              moduleName: '登录鉴权',
+              moduleName: '登录与权限上下文',
               suggestedDirection: 'needsReview',
-              scenarioRefs: ['auth.login-p0']
+              scenarioRefs: ['auth.browser-smoke']
             },
             {
               moduleCode: 'quality-factory-self-check',
               moduleName: '质量工场自验',
-              suggestedDirection: 'needsReview',
-              scenarioRefs: ['quality-factory.self-check-p0']
+              suggestedDirection: 'environment',
+              scenarioRefs: ['quality-factory.business-acceptance.browser-smoke']
             }
           ]
         }
