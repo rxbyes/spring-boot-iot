@@ -177,4 +177,19 @@ describe('SectionLandingView', () => {
     expect(wrapper.text()).not.toContain('全部能力')
     expect(wrapper.find('.empty-state-action').exists()).toBe(false)
   })
+
+  it('renders risk strategy as a direct entry list instead of iot-access tabs', () => {
+    mockRoute.path = '/risk-config'
+
+    const wrapper = mountView()
+
+    expect(wrapper.text()).toContain('风险策略')
+    expect(wrapper.text()).toContain('风险对象中心')
+    expect(wrapper.text()).toContain('阈值策略')
+    expect(wrapper.text()).toContain('联动编排')
+    expect(wrapper.text()).toContain('应急预案库')
+    expect(wrapper.text()).not.toContain('资产底座')
+    expect(wrapper.text()).not.toContain('诊断排障')
+    expect(wrapper.text()).not.toContain('当前分组暂无可进入页面')
+  })
 })
