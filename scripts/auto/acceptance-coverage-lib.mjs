@@ -7,6 +7,14 @@ const REQUIRED_METADATA_FIELDS = [
   'dataSetup.strategy',
   'cleanupPolicy.strategy'
 ];
+const POLICY_RULE_IDS = new Set([
+  'missingScenarioRefs',
+  'unreferencedScenarios',
+  'metadata',
+  'minimumScenarioCountByPriority',
+  'requiredRunnerTypes'
+]);
+const POLICY_SEVERITIES = new Set(['error', 'warning']);
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
@@ -200,6 +208,130 @@ function buildScenarioPackageRefs({ normalizedPackages, scenarioById }) {
   };
 }
 
+function requirePolicyObject(policy) {
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    throw new Error('Coverage policy must be a JSON object.');
+  }
+  const rules = policy.rules;
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules)) {
+    throw new Error('Coverage policy rules must be a JSON object.');
+  }
+  Object.entries(rules).forEach(([ruleId, rule]) => {
+    if (!POLICY_RULE_IDS.has(ruleId)) {
+      throw new Error(`Unknown coverage policy rule: ${ruleId}`);
+    }
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+      throw new Error(`Coverage policy rule must be an object: ${ruleId}`);
+    }
+    if (!POLICY_SEVERITIES.has(rule.severity)) {
+      throw new Error(
+        `Unsupported coverage policy severity for ${ruleId}: ${rule.severity}`
+      );
+    }
+  });
+}
+
+function policyArray(value) {
+  return Array.isArray(value) ? value.map(cleanText).filter(Boolean) : [];
+}
+
+function createPolicyResult({
+  ruleId,
+  severity,
+  failedDetails,
+  passMessage,
+  failMessage
+}) {
+  const failed = failedDetails.length > 0;
+  return {
+    ruleId,
+    severity,
+    status: failed ? 'failed' : 'passed',
+    message: failed ? failMessage : passMessage,
+    details: failedDetails
+  };
+}
+
+function evaluateMissingScenarioRefs(matrix, rule) {
+  const allowed = new Set(policyArray(rule.allowScenarioRefs));
+  const failedDetails = matrix.gaps.missingScenarioRefs.filter(
+    (item) => !allowed.has(item.scenarioRef)
+  );
+  return createPolicyResult({
+    ruleId: 'missingScenarioRefs',
+    severity: rule.severity,
+    failedDetails,
+    passMessage: 'No missing scenario references.',
+    failMessage: `${failedDetails.length} missing scenario reference(s) are not allowed.`
+  });
+}
+
+function evaluateUnreferencedScenarios(matrix, rule) {
+  const allowedIds = new Set(policyArray(rule.allowScenarioIds));
+  const allowedScopes = new Set(policyArray(rule.allowScopes));
+  const failedDetails = matrix.gaps.unreferencedScenarios.filter(
+    (item) => !allowedIds.has(item.scenarioId) && !allowedScopes.has(item.scope)
+  );
+  return createPolicyResult({
+    ruleId: 'unreferencedScenarios',
+    severity: rule.severity,
+    failedDetails,
+    passMessage: 'No disallowed unreferenced scenarios.',
+    failMessage: `${failedDetails.length} unreferenced scenario(s) require packaging or explicit allowance.`
+  });
+}
+
+function evaluateMetadata(matrix, rule) {
+  const requiredPriorities = new Set(policyArray(rule.requiredPriorities));
+  const failedDetails = matrix.gaps.missingMetadata.filter((item) =>
+    requiredPriorities.has(item.resolvedPriority)
+  );
+  return createPolicyResult({
+    ruleId: 'metadata',
+    severity: rule.severity,
+    failedDetails,
+    passMessage: 'Required priority metadata is complete.',
+    failMessage: `${failedDetails.length} scenario(s) are missing required governance metadata.`
+  });
+}
+
+function evaluateMinimumScenarioCountByPriority(matrix, rule) {
+  const minimums =
+    rule.minimums && typeof rule.minimums === 'object' && !Array.isArray(rule.minimums)
+      ? rule.minimums
+      : {};
+  const failedDetails = Object.entries(minimums)
+    .map(([priority, minimum]) => ({
+      priority,
+      minimum: Number(minimum),
+      actual: matrix.coverageByPriority[priority]?.total || 0
+    }))
+    .filter((item) => Number.isFinite(item.minimum) && item.actual < item.minimum);
+  return createPolicyResult({
+    ruleId: 'minimumScenarioCountByPriority',
+    severity: rule.severity,
+    failedDetails,
+    passMessage: 'Priority scenario minimums are satisfied.',
+    failMessage: `${failedDetails.length} priority scenario minimum(s) are not satisfied.`
+  });
+}
+
+function evaluateRequiredRunnerTypes(matrix, rule) {
+  const failedDetails = policyArray(rule.runnerTypes)
+    .map((runnerType) => ({
+      runnerType,
+      actual: matrix.coverageByRunnerType[runnerType]?.total || 0
+    }))
+    .filter((item) => item.actual === 0);
+  return createPolicyResult({
+    ruleId: 'requiredRunnerTypes',
+    severity: rule.severity,
+    failedDetails,
+    passMessage: 'Required runner types are represented.',
+    failMessage: `${failedDetails.length} required runner type(s) are missing from coverage.`
+  });
+}
+
 export function buildCoverageMatrix({ registry, packages } = {}) {
   const normalizedScenarios = asArray(registry?.scenarios)
     .map(normalizeScenario)
@@ -315,6 +447,43 @@ export function buildCoverageMatrix({ registry, packages } = {}) {
       unreferencedScenarios,
       missingMetadata
     }
+  };
+}
+
+export function evaluateCoveragePolicy(matrix, policy) {
+  requirePolicyObject(policy);
+  const rules = policy.rules;
+  const results = Object.entries(rules).map(([ruleId, rule]) => {
+    if (ruleId === 'missingScenarioRefs') {
+      return evaluateMissingScenarioRefs(matrix, rule);
+    }
+    if (ruleId === 'unreferencedScenarios') {
+      return evaluateUnreferencedScenarios(matrix, rule);
+    }
+    if (ruleId === 'metadata') {
+      return evaluateMetadata(matrix, rule);
+    }
+    if (ruleId === 'minimumScenarioCountByPriority') {
+      return evaluateMinimumScenarioCountByPriority(matrix, rule);
+    }
+    return evaluateRequiredRunnerTypes(matrix, rule);
+  });
+  const failed = results.filter((item) => item.status === 'failed');
+  const errors = failed.filter((item) => item.severity === 'error').length;
+  const warnings = failed.filter((item) => item.severity === 'warning').length;
+
+  return {
+    policyName: cleanText(policy.policyName) || 'unnamed-policy',
+    policyVersion: cleanText(policy.version) || '1.0.0',
+    status: errors > 0 ? 'failed' : warnings > 0 ? 'warning' : 'passed',
+    summary: {
+      totalRules: results.length,
+      passed: results.filter((item) => item.status === 'passed').length,
+      failed: failed.length,
+      warnings,
+      errors
+    },
+    results
   };
 }
 
@@ -435,6 +604,38 @@ export function renderCoverageMarkdown(matrix) {
           gap.resolvedPriority
         )} | ${escapeTableText(gap.missingFields.join(', '))} |`
       );
+    });
+  }
+
+  if (matrix.policyEvaluation) {
+    lines.push(
+      '',
+      '## Policy Evaluation',
+      '',
+      `- Policy: \`${matrix.policyEvaluation.policyName}\``,
+      `- Version: \`${matrix.policyEvaluation.policyVersion}\``,
+      `- Status: \`${matrix.policyEvaluation.status}\``,
+      '',
+      '| Rule | Severity | Status | Message |',
+      '|---|---|---|---|'
+    );
+    matrix.policyEvaluation.results.forEach((result) => {
+      lines.push(
+        `| ${escapeTableText(result.ruleId)} | ${escapeTableText(
+          result.severity
+        )} | ${escapeTableText(result.status)} | ${escapeTableText(
+          result.message
+        )} |`
+      );
+      if (result.details.length > 0) {
+        lines.push(
+          `| ${escapeTableText(`${result.ruleId} details`)} | ${escapeTableText(
+            result.severity
+          )} | ${escapeTableText(result.status)} | ${escapeTableText(
+            JSON.stringify(result.details)
+          )} |`
+        );
+      }
     });
   }
 

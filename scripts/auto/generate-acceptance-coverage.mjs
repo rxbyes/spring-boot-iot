@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildCoverageMatrix,
+  evaluateCoveragePolicy,
   renderCoverageMarkdown
 } from './acceptance-coverage-lib.mjs';
 
@@ -27,6 +28,10 @@ function parseCoverageArgs(argv) {
     }
     if (arg.startsWith('--packages-path=')) {
       options.packagesPath = arg.slice('--packages-path='.length).trim();
+      return;
+    }
+    if (arg.startsWith('--policy-path=')) {
+      options.policyPath = arg.slice('--policy-path='.length).trim();
       return;
     }
     if (arg.startsWith('--json-out=')) {
@@ -109,12 +114,19 @@ export async function runCoverageCli({
   const registry = await readJsonFile(registryPath);
   const packages = await readJsonFile(packagesPath);
   const matrix = buildCoverageMatrix({ registry, packages });
+  if (options.policyPath) {
+    const policyPath = resolveWorkspacePath(workspaceRoot, options.policyPath);
+    const policy = await readJsonFile(policyPath);
+    matrix.policyEvaluation = evaluateCoveragePolicy(matrix, policy);
+  }
   const artifacts = await writeCoverageArtifacts({
     workspaceRoot,
     options,
     matrix
   });
-  const exitCode = options.failOnGaps && matrix.summary.hasGaps ? 1 : 0;
+  const policyHasErrors = (matrix.policyEvaluation?.summary?.errors || 0) > 0;
+  const exitCode =
+    (options.failOnGaps && matrix.summary.hasGaps) || policyHasErrors ? 1 : 0;
 
   return {
     exitCode,
@@ -138,6 +150,7 @@ if (
         {
           exitCode: result.exitCode,
           summary: result.summary,
+          policyEvaluation: result.matrix.policyEvaluation?.summary,
           jsonPath: result.jsonPath,
           markdownPath: result.markdownPath
         },
