@@ -45,10 +45,12 @@ function resolveWorkspaceFile(filePath, workspaceRoot) {
 }
 
 function isSmokeFailureRow(item) {
+  const status = String(item?.status || '').trim().toUpperCase();
   return (
     item &&
     typeof item === 'object' &&
-    String(item.status || '').trim().toUpperCase() !== 'PASS'
+    status &&
+    status !== 'PASS'
   );
 }
 
@@ -68,7 +70,7 @@ function normalizeSmokeSummaryRows(payload) {
 }
 
 async function readApiSmokeFailure(meta, workspaceRoot) {
-  for (const summaryFile of [meta.REPORT_SUMMARY, meta.SUMMARY_JSON]) {
+  for (const summaryFile of [meta.REPORT_JSON, meta.DETAIL_JSON, meta.REPORT_SUMMARY, meta.SUMMARY_JSON]) {
     if (!summaryFile) {
       continue;
     }
@@ -102,7 +104,7 @@ function buildApiSmokeFailureDetails(failed) {
     ...(stepLabel
       ? { pageAction: `执行业务烟测点 ${stepLabel}` }
       : {}),
-    ...(failed.detail ? { failureDetail: failed.detail } : {})
+    ...(failed.detail ? { failureDetail: failed.detail, smokeDetail: failed.detail } : {})
   };
 }
 

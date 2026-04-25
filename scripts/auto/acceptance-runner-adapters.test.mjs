@@ -10,15 +10,21 @@ test('apiSmoke adapter maps first failing summary row to business failure detail
   const workspaceRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'acceptance-adapter-')
   );
+  const reportPath = path.join(
+    workspaceRoot,
+    'logs',
+    'acceptance',
+    'business-function-test.json'
+  );
   const summaryPath = path.join(
     workspaceRoot,
     'logs',
     'acceptance',
     'business-function-summary-test.json'
   );
-  await fs.mkdir(path.dirname(summaryPath), { recursive: true });
+  await fs.mkdir(path.dirname(reportPath), { recursive: true });
   await fs.writeFile(
-    summaryPath,
+    reportPath,
     JSON.stringify(
       [
         {
@@ -35,11 +41,29 @@ test('apiSmoke adapter maps first failing summary row to business failure detail
     ),
     'utf8'
   );
+  await fs.writeFile(
+    summaryPath,
+    JSON.stringify(
+      [
+        {
+          point: 'TELEMETRY',
+          total: 1,
+          passed: 0,
+          failed: 1,
+          status: 'FAIL'
+        }
+      ],
+      null,
+      2
+    ),
+    'utf8'
+  );
 
   const stubPath = path.join(workspaceRoot, 'stub-api-smoke-runner.mjs');
   await fs.writeFile(
     stubPath,
     [
+      `console.log('REPORT_JSON=${reportPath}');`,
       `console.log('REPORT_SUMMARY=${summaryPath}');`,
       "console.log('SUMMARY=telemetry failed');",
       'process.exit(1);'
@@ -74,4 +98,61 @@ test('apiSmoke adapter maps first failing summary row to business failure detail
     '执行业务烟测点 TELEMETRY/latest'
   );
   assert.equal(result.summary, 'code=500; msg=tdengine unavailable');
+});
+
+test('apiSmoke adapter ignores metadata rows without explicit failure status', async () => {
+  const workspaceRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'acceptance-adapter-')
+  );
+  const reportPath = path.join(
+    workspaceRoot,
+    'logs',
+    'acceptance',
+    'business-function-test.json'
+  );
+  await fs.mkdir(path.dirname(reportPath), { recursive: true });
+  await fs.writeFile(
+    reportPath,
+    JSON.stringify(
+      {
+        point: 'TELEMETRY',
+        detail: 'metadata only'
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+
+  const stubPath = path.join(workspaceRoot, 'stub-api-smoke-runner.mjs');
+  await fs.writeFile(
+    stubPath,
+    [
+      "console.log('REPORT_JSON=logs/acceptance/business-function-test.json');",
+      "console.log('SUMMARY=telemetry failed');",
+      'process.exit(1);'
+    ].join('\n'),
+    'utf8'
+  );
+
+  const adapters = createRunnerAdapters({ workspaceRoot });
+  const result = await adapters.__runCommandForTest({
+    executable: process.execPath,
+    args: [stubPath],
+    context: {
+      workspaceRoot,
+      scenario: {
+        id: 'iot-access.api-smoke',
+        runnerType: 'apiSmoke',
+        blocking: 'warning'
+      },
+      registry: {},
+      options: {}
+    }
+  });
+
+  assert.equal(result.status, 'failed');
+  assert.equal(result.summary, 'telemetry failed');
+  assert.equal(result.details.stepLabel, undefined);
+  assert.equal(result.details.apiRef, undefined);
 });
