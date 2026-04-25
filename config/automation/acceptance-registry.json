@@ -72,6 +72,24 @@
       }
     },
     {
+      "id": "telemetry.api-smoke",
+      "title": "遥测 latest/history 读侧冒烟",
+      "module": "telemetry",
+      "docRef": "docs/21#TDengine 时序点落库与 latest 查询",
+      "runnerType": "apiSmoke",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["iot-access.api-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md"],
+      "timeouts": {
+        "maxMinutes": 8
+      },
+      "runner": {
+        "pointFilters": ["TELEMETRY"]
+      }
+    },
+    {
       "id": "iot-access.message-flow",
       "title": "接入智维链路追踪专项",
       "module": "iot-access",
@@ -125,6 +143,26 @@
       },
       "runner": {
         "planRef": "config/automation/governance-control-plane-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"]
+      }
+    },
+    {
+      "id": "quality-factory.business-acceptance.browser-smoke",
+      "title": "质量工场业务验收台与结果中心冒烟",
+      "module": "quality-factory",
+      "docRef": "docs/05#质量工场当前组织",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "blocker",
+      "dependsOn": ["auth.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 10
+      },
+      "runner": {
+        "planRef": "config/automation/quality-factory-web-smoke-plan.json",
         "scenarioScopes": ["delivery"],
         "failScopes": ["delivery"]
       }

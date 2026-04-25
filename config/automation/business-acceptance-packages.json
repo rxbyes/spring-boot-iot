@@ -173,6 +173,202 @@
           }
         }
       ]
+    },
+    {
+      "packageCode": "platform-p0-full-flow",
+      "packageName": "P0 全流程业务验收",
+      "description": "覆盖登录权限、接入智维、遥测读侧、风险闭环、平台治理和质量工场自验的交付前阻断验收。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "login-auth",
+          "moduleName": "登录与权限上下文",
+          "scenarioRefs": ["auth.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "登录并读取受保护工作台",
+            "apiRef": "POST /api/auth/login；GET /api/auth/me",
+            "pageAction": "进入登录页，提交账号并检查平台壳层",
+            "summary": "登录或权限上下文未通过，请先检查账号、菜单授权和后端鉴权。"
+          }
+        },
+        {
+          "moduleCode": "iot-access-main",
+          "moduleName": "接入智维主链路",
+          "scenarioRefs": ["iot-access.browser-smoke", "iot-access.api-smoke", "iot-access.message-flow"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行产品设备、上报和链路追踪验收",
+            "apiRef": "POST /api/device/product/add；POST /api/device/add；POST /api/message/http/report；GET /api/device/message-flow/trace/{traceId}",
+            "pageAction": "进入产品、设备、链路验证和链路追踪页面完成冒烟",
+            "summary": "接入智维主链路未通过，请按 runId 查看浏览器、接口和 message-flow 证据。"
+          }
+        },
+        {
+          "moduleCode": "telemetry-read",
+          "moduleName": "遥测 latest/history 读侧",
+          "scenarioRefs": ["telemetry.api-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "查询遥测 latest 和 history batch",
+            "apiRef": "GET /api/telemetry/latest；POST /api/telemetry/history/batch",
+            "pageAction": "通过业务烟测脚本读取最新遥测和历史趋势窗口",
+            "summary": "遥测读侧未通过，请检查 TDengine、latest 路由、history 窗口和测试设备数据。"
+          }
+        },
+        {
+          "moduleCode": "risk-closure",
+          "moduleName": "风险运营闭环",
+          "scenarioRefs": ["risk.full-drill.red-chain"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行风险红链路演练",
+            "apiRef": "POST /api/risk-point/add；POST /api/rule-definition/add；GET /api/alarm/list；GET /api/event/list",
+            "pageAction": "生成风险点、策略、告警、事件和闭环证据",
+            "summary": "风险闭环未通过，请优先查看 risk-drill JSON 和告警事件证据。"
+          }
+        },
+        {
+          "moduleCode": "platform-governance",
+          "moduleName": "平台治理基础",
+          "scenarioRefs": ["system.api-smoke", "governance.control-plane.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "校验组织用户角色和治理控制面",
+            "apiRef": "GET /api/organization/list；GET /api/user/list；GET /api/governance/work-items；GET /api/governance/ops-alerts",
+            "pageAction": "进入治理任务台和治理运维台检查列表与上下文",
+            "summary": "平台治理基础未通过，请检查系统接口、菜单授权和治理控制面页面证据。"
+          }
+        },
+        {
+          "moduleCode": "quality-factory-self-check",
+          "moduleName": "质量工场自验",
+          "scenarioRefs": ["quality-factory.business-acceptance.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开业务验收台和结果中心",
+            "apiRef": "GET /api/report/business-acceptance/packages；GET /api/report/automation-results/page",
+            "pageAction": "进入业务验收台、查看 P0 验收包、进入结果与基线中心",
+            "summary": "质量工场自验未通过，请检查业务验收包接口、页面授权和结果中心证据读取。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "iot-access-p0",
+      "packageName": "接入智维 P0",
+      "description": "覆盖产品、设备、HTTP/MQTT 上报、链路追踪和遥测读侧。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "acceptance-default",
+      "modules": [
+        {
+          "moduleCode": "product-device-browser",
+          "moduleName": "产品设备页面冒烟",
+          "scenarioRefs": ["iot-access.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开接入智维产品和设备页面",
+            "apiRef": "GET /api/device/product/page；GET /api/device/page",
+            "pageAction": "进入产品定义中心、设备资产中心并检查主列表",
+            "summary": "产品设备页面冒烟未通过，请查看浏览器报告。"
+          }
+        },
+        {
+          "moduleCode": "product-device-api",
+          "moduleName": "产品设备接口冒烟",
+          "scenarioRefs": ["iot-access.api-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行产品设备接口烟测",
+            "apiRef": "POST /api/device/product/add；POST /api/device/add",
+            "pageAction": "通过接口烟测准备 accept 前缀产品和设备",
+            "summary": "产品设备接口冒烟未通过，请查看 apiSmoke 明细。"
+          }
+        },
+        {
+          "moduleCode": "message-flow",
+          "moduleName": "消息链路追踪",
+          "scenarioRefs": ["iot-access.message-flow"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行 message-flow 验收",
+            "apiRef": "POST /api/message/http/report；GET /api/device/message-flow/trace/{traceId}",
+            "pageAction": "提交上报后查看 trace 链路",
+            "summary": "消息链路追踪未通过，请查看 message-flow JSON。"
+          }
+        },
+        {
+          "moduleCode": "telemetry-read",
+          "moduleName": "遥测读侧",
+          "scenarioRefs": ["telemetry.api-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "查询遥测 latest/history",
+            "apiRef": "GET /api/telemetry/latest；POST /api/telemetry/history/batch",
+            "pageAction": "读取最新遥测和历史趋势窗口",
+            "summary": "遥测读侧未通过，请检查 telemetry 存储和读路由。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "risk-p0",
+      "packageName": "风险闭环 P0",
+      "description": "覆盖风险点、阈值策略、告警、事件、联动和预案的红链路演练。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "risk-red-chain",
+          "moduleName": "风险红链路",
+          "scenarioRefs": ["risk.full-drill.red-chain"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行风险红链路演练",
+            "apiRef": "POST /api/risk-point/add；POST /api/rule-definition/add；GET /api/alarm/list；GET /api/event/list",
+            "pageAction": "生成风险策略、告警、事件和处置证据",
+            "summary": "风险红链路未通过，请查看 risk-drill 证据。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "governance-p0",
+      "packageName": "平台治理 P0",
+      "description": "覆盖组织、用户、角色、治理任务台和治理运维台。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "system-api",
+          "moduleName": "系统治理接口",
+          "scenarioRefs": ["system.api-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行系统治理接口烟测",
+            "apiRef": "GET /api/organization/list；GET /api/user/list；GET /api/role/list",
+            "pageAction": "通过接口烟测校验组织、账号和角色",
+            "summary": "系统治理接口未通过，请查看 apiSmoke 明细。"
+          }
+        },
+        {
+          "moduleCode": "control-plane-browser",
+          "moduleName": "治理控制面页面",
+          "scenarioRefs": ["governance.control-plane.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开治理任务台和治理运维台",
+            "apiRef": "GET /api/governance/work-items；GET /api/governance/ops-alerts",
+            "pageAction": "进入管理驾驶舱、治理任务台和治理运维台",
+            "summary": "治理控制面页面未通过，请查看浏览器证据。"
+          }
+        }
+      ]
     }
   ],
   "accountTemplates": [
