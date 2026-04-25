@@ -193,6 +193,13 @@
               >
                 明细
               </StandardButton>
+              <StandardButton
+                action="view"
+                link
+                @click="loadSlowTrendDrilldown(row, defaultSlowTrendWindow)"
+              >
+                趋势
+              </StandardButton>
             </div>
           </article>
         </div>
@@ -242,6 +249,57 @@
                 >
                   证据
                 </StandardButton>
+              </div>
+            </article>
+          </div>
+        </section>
+        <section
+          v-if="activeSlowTrendSummary"
+          v-loading="slowTrendLoading"
+          class="audit-log-slow-trend-drilldown"
+          aria-label="慢点趋势"
+          element-loading-text="正在刷新慢点趋势"
+          element-loading-background="var(--loading-mask-bg)"
+        >
+          <header class="audit-log-slow-trend-drilldown__header">
+            <div>
+              <h3>慢点趋势</h3>
+              <p>{{ formatSlowSummaryTitle(activeSlowTrendSummary) }} · {{ formatSlowSummaryTarget(activeSlowTrendSummary) }}</p>
+            </div>
+            <div class="audit-log-slow-trend-drilldown__actions">
+              <span>{{ slowTrendRows.length }} 桶</span>
+              <StandardChoiceGroup
+                :model-value="slowTrendWindow"
+                :options="slowTrendWindowOptions"
+                @update:model-value="handleSlowTrendWindowChange"
+              />
+            </div>
+          </header>
+          <div v-if="slowTrendErrorMessage" class="audit-log-slow-summary__empty">
+            {{ slowTrendErrorMessage }}
+          </div>
+          <div v-else-if="slowTrendRows.length === 0" class="audit-log-slow-summary__empty">
+            暂无慢点趋势
+          </div>
+          <div v-else class="audit-log-slow-trend-drilldown__list">
+            <article
+              v-for="item in slowTrendRows"
+              :key="`slow-trend-${item.bucket || 'bucket'}-${item.bucketStart || item.bucketEnd}`"
+              class="audit-log-slow-trend-drilldown__item"
+            >
+              <div class="audit-log-slow-trend-drilldown__title">
+                <strong>{{ formatSlowTrendBucketLabel(item) }}</strong>
+                <span>{{ formatCount(item.totalCount) }} 次</span>
+              </div>
+              <div class="audit-log-slow-trend-drilldown__metrics">
+                <span>P95 {{ formatDuration(item.p95DurationMs) }}</span>
+                <span>P99 {{ formatDuration(item.p99DurationMs) }}</span>
+                <span>平均 {{ formatDuration(item.avgDurationMs) }}</span>
+                <span>最大 {{ formatDuration(item.maxDurationMs) }}</span>
+                <span>错误率 {{ formatPercentage(item.errorRate) }}</span>
+              </div>
+              <div class="audit-log-slow-trend-drilldown__footer">
+                <span>成功 {{ formatCount(item.successCount) }} / 异常 {{ formatCount(item.errorCount) }}</span>
               </div>
             </article>
           </div>
@@ -572,11 +630,14 @@ import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusi
 import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
+  listObservabilitySlowSpanTrends,
   pageObservabilitySpans,
   type ObservabilitySpan,
   type ObservabilitySpanPageQuery,
   type ObservabilitySlowSpanSummary,
   type ObservabilitySlowSpanSummaryQuery,
+  type ObservabilitySlowSpanTrend,
+  type ObservabilitySlowSpanTrendQuery,
   type ObservabilityTraceEvidence
 } from '@/api/observability'
 import { isHandledRequestError } from '@/api/request'
@@ -585,6 +646,7 @@ import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
+import StandardChoiceGroup from '@/components/StandardChoiceGroup.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
@@ -614,6 +676,7 @@ import {
 import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 
 type AuditLogViewMode = 'business' | 'system'
+type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
 
 const route = useRoute()
 const router = useRouter()
@@ -769,6 +832,16 @@ const slowSpanRows = ref<ObservabilitySpan[]>([])
 const slowSpanLoading = ref(false)
 const slowSpanErrorMessage = ref('')
 const slowSpanTotal = ref(0)
+const defaultSlowTrendWindow: SlowTrendWindowKey = 'LAST_24_HOURS'
+const slowTrendWindowOptions = [
+  { label: '24小时', value: 'LAST_24_HOURS' },
+  { label: '7天', value: 'LAST_7_DAYS' }
+] as const
+const slowTrendWindow = ref<SlowTrendWindowKey>(defaultSlowTrendWindow)
+const activeSlowTrendSummary = ref<ObservabilitySlowSpanSummary | null>(null)
+const slowTrendRows = ref<ObservabilitySlowSpanTrend[]>([])
+const slowTrendLoading = ref(false)
+const slowTrendErrorMessage = ref('')
 const quickSearchPlaceholder = computed(() => (isSystemMode.value ? '快速搜索（TraceId）' : '快速搜索（操作用户）'))
 const advancedFilterKeys = computed<
   Array<'traceId' | 'deviceCode' | 'productKey' | 'requestUrl' | 'errorCode' | 'exceptionClass'>
@@ -1056,18 +1129,28 @@ const clearSlowSpanDrilldown = () => {
   slowSpanTotal.value = 0
 }
 
+const clearSlowTrendDrilldown = () => {
+  activeSlowTrendSummary.value = null
+  slowTrendRows.value = []
+  slowTrendLoading.value = false
+  slowTrendErrorMessage.value = ''
+  slowTrendWindow.value = defaultSlowTrendWindow
+}
+
 const getSlowSpanSummaries = async () => {
   if (!isSystemMode.value) {
     slowSummaryRows.value = []
     slowSummaryErrorMessage.value = ''
     slowSummaryLoading.value = false
     clearSlowSpanDrilldown()
+    clearSlowTrendDrilldown()
     return
   }
 
   slowSummaryLoading.value = true
   slowSummaryErrorMessage.value = ''
   clearSlowSpanDrilldown()
+  clearSlowTrendDrilldown()
   try {
     const res = await listObservabilitySlowSpanSummaries(buildSlowSummaryQueryParams())
     if (res.code === 200) {
@@ -1107,6 +1190,52 @@ const buildSlowSpanQueryParams = (row: ObservabilitySlowSpanSummary): Observabil
   return params
 }
 
+const padDatePart = (value: number) => String(value).padStart(2, '0')
+
+const formatQueryDateTime = (date: Date) => [
+  date.getFullYear(),
+  padDatePart(date.getMonth() + 1),
+  padDatePart(date.getDate())
+].join('-') + ` ${[padDatePart(date.getHours()), padDatePart(date.getMinutes()), padDatePart(date.getSeconds())].join(':')}`
+
+const resolveSlowTrendWindowRange = (windowKey: SlowTrendWindowKey): Pick<
+  ObservabilitySlowSpanTrendQuery,
+  'bucket' | 'dateFrom' | 'dateTo'
+> => {
+  const now = new Date()
+  if (windowKey === 'LAST_7_DAYS') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0)
+    return {
+      bucket: 'DAY',
+      dateFrom: formatQueryDateTime(start),
+      dateTo: formatQueryDateTime(now)
+    }
+  }
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0)
+  start.setHours(start.getHours() - 23)
+  return {
+    bucket: 'HOUR',
+    dateFrom: formatQueryDateTime(start),
+    dateTo: formatQueryDateTime(now)
+  }
+}
+
+const buildSlowTrendQueryParams = (
+  row: ObservabilitySlowSpanSummary,
+  windowKey: SlowTrendWindowKey
+): ObservabilitySlowSpanTrendQuery => {
+  const params: ObservabilitySlowSpanTrendQuery = {
+    minDurationMs: 1,
+    ...resolveSlowTrendWindowRange(windowKey)
+  }
+  setSlowSpanQueryValue(params, 'spanType', row.spanType)
+  setSlowSpanQueryValue(params, 'domainCode', row.domainCode)
+  setSlowSpanQueryValue(params, 'eventCode', row.eventCode)
+  setSlowSpanQueryValue(params, 'objectType', row.objectType)
+  setSlowSpanQueryValue(params, 'objectId', row.objectId)
+  return params
+}
+
 const loadSlowSpanDrilldown = async (row: ObservabilitySlowSpanSummary) => {
   if (!isSystemMode.value) {
     return
@@ -1129,6 +1258,41 @@ const loadSlowSpanDrilldown = async (row: ObservabilitySlowSpanSummary) => {
   } finally {
     slowSpanLoading.value = false
   }
+}
+
+const loadSlowTrendDrilldown = async (
+  row: ObservabilitySlowSpanSummary,
+  windowKey: SlowTrendWindowKey = defaultSlowTrendWindow
+) => {
+  if (!isSystemMode.value) {
+    return
+  }
+  activeSlowTrendSummary.value = row
+  slowTrendWindow.value = windowKey
+  slowTrendRows.value = []
+  slowTrendErrorMessage.value = ''
+  slowTrendLoading.value = true
+  try {
+    const res = await listObservabilitySlowSpanTrends(buildSlowTrendQueryParams(row, windowKey))
+    if (res.code === 200) {
+      slowTrendRows.value = Array.isArray(res.data) ? res.data : []
+    }
+  } catch (error) {
+    slowTrendRows.value = []
+    slowTrendErrorMessage.value = error instanceof Error ? error.message : '获取慢点趋势失败'
+    logPageError('获取慢点趋势失败', error)
+  } finally {
+    slowTrendLoading.value = false
+  }
+}
+
+const handleSlowTrendWindowChange = (value: string | number | boolean) => {
+  if (!activeSlowTrendSummary.value) {
+    return
+  }
+  const nextWindow: SlowTrendWindowKey =
+    String(value) === 'LAST_7_DAYS' ? 'LAST_7_DAYS' : defaultSlowTrendWindow
+  void loadSlowTrendDrilldown(activeSlowTrendSummary.value, nextWindow)
 }
 
 // 初始化
@@ -1164,6 +1328,7 @@ watch(viewMode, (newMode, oldMode) => {
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
   clearSlowSpanDrilldown()
+  clearSlowTrendDrilldown()
   exportColumnDialogVisible.value = false
   reloadExportSelection()
   applySystemRouteQuery()
@@ -1553,11 +1718,25 @@ const formatCount = (value?: number | null) => {
   return String(value)
 }
 
+const formatPercentage = (value?: number | null) => {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  return `${value}%`
+}
+
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
   [row.spanType, row.domainCode].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
 
 const formatSlowSummaryTarget = (row: ObservabilitySlowSpanSummary) =>
   [row.eventCode, row.objectType, row.objectId].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
+
+const formatSlowTrendBucketLabel = (row: ObservabilitySlowSpanTrend) => {
+  if (row.bucket === 'DAY' && row.bucketStart) {
+    return String(row.bucketStart).slice(0, 10)
+  }
+  return formatValue(row.bucketStart)
+}
 
 const getEvidenceItemTypeName = (type?: string | null) => {
   if (type === 'BUSINESS_EVENT') {
@@ -1815,6 +1994,92 @@ watch(evidenceDrawerVisible, (visible) => {
 }
 
 .audit-log-slow-span-drilldown__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-log-slow-trend-drilldown {
+  display: grid;
+  gap: 0.72rem;
+  min-width: 0;
+  padding-top: 0.82rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+}
+
+.audit-log-slow-trend-drilldown__header,
+.audit-log-slow-trend-drilldown__title,
+.audit-log-slow-trend-drilldown__footer,
+.audit-log-slow-trend-drilldown__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.audit-log-slow-trend-drilldown__header {
+  align-items: flex-start;
+}
+
+.audit-log-slow-trend-drilldown__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.94rem;
+  line-height: 1.3;
+}
+
+.audit-log-slow-trend-drilldown__header p {
+  margin: 0.25rem 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-trend-drilldown__actions {
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.audit-log-slow-trend-drilldown__actions > span,
+.audit-log-slow-trend-drilldown__metrics,
+.audit-log-slow-trend-drilldown__footer > span {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-slow-trend-drilldown__list {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.audit-log-slow-trend-drilldown__item {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.audit-log-slow-trend-drilldown__title strong,
+.audit-log-slow-trend-drilldown__footer > span {
+  overflow: hidden;
+  color: var(--text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-trend-drilldown__title span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.audit-log-slow-trend-drilldown__metrics {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;

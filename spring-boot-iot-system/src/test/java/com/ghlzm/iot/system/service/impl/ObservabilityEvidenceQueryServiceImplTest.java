@@ -5,9 +5,11 @@ import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
+import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
 import java.time.LocalDateTime;
@@ -22,6 +24,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
@@ -163,6 +166,133 @@ class ObservabilityEvidenceQueryServiceImplTest {
         assertTrue(sql.contains("started_at >= ?"));
         assertTrue(sql.contains("started_at <= ?"));
         assertTrue(sql.contains("ORDER BY max_duration_ms DESC, total_count DESC"));
+    }
+
+    @Test
+    void listSlowSpanTrendsShouldAggregateBucketsAndFillRangeGaps() {
+        ObservabilitySlowSpanTrendQuery query = new ObservabilitySlowSpanTrendQuery();
+        query.setSpanType("SLOW_SQL");
+        query.setDomainCode("system");
+        query.setEventCode("system.error.archive");
+        query.setObjectType("sql");
+        query.setObjectId("iot_message_log");
+        query.setMinDurationMs(1000L);
+        query.setBucket("HOUR");
+        query.setDateFrom("2026-04-25 09:00:00");
+        query.setDateTo("2026-04-25 11:59:59");
+
+        ObservabilitySpanVO first = new ObservabilitySpanVO();
+        first.setTraceId("trace-slow-1");
+        first.setSpanType("SLOW_SQL");
+        first.setDomainCode("system");
+        first.setEventCode("system.error.archive");
+        first.setObjectType("sql");
+        first.setObjectId("iot_message_log");
+        first.setStatus("SUCCESS");
+        first.setDurationMs(1000L);
+        first.setStartedAt(LocalDateTime.of(2026, 4, 25, 9, 10));
+
+        ObservabilitySpanVO second = new ObservabilitySpanVO();
+        second.setTraceId("trace-slow-2");
+        second.setSpanType("SLOW_SQL");
+        second.setDomainCode("system");
+        second.setEventCode("system.error.archive");
+        second.setObjectType("sql");
+        second.setObjectId("iot_message_log");
+        second.setStatus("SUCCESS");
+        second.setDurationMs(2000L);
+        second.setStartedAt(LocalDateTime.of(2026, 4, 25, 9, 20));
+
+        ObservabilitySpanVO third = new ObservabilitySpanVO();
+        third.setTraceId("trace-slow-3");
+        third.setSpanType("SLOW_SQL");
+        third.setDomainCode("system");
+        third.setEventCode("system.error.archive");
+        third.setObjectType("sql");
+        third.setObjectId("iot_message_log");
+        third.setStatus("ERROR");
+        third.setDurationMs(5000L);
+        third.setStartedAt(LocalDateTime.of(2026, 4, 25, 9, 50));
+
+        ObservabilitySpanVO fourth = new ObservabilitySpanVO();
+        fourth.setTraceId("trace-slow-4");
+        fourth.setSpanType("SLOW_SQL");
+        fourth.setDomainCode("system");
+        fourth.setEventCode("system.error.archive");
+        fourth.setObjectType("sql");
+        fourth.setObjectId("iot_message_log");
+        fourth.setStatus("SUCCESS");
+        fourth.setDurationMs(1500L);
+        fourth.setStartedAt(LocalDateTime.of(2026, 4, 25, 10, 5));
+
+        ObservabilitySpanVO fifth = new ObservabilitySpanVO();
+        fifth.setTraceId("trace-slow-5");
+        fifth.setSpanType("SLOW_SQL");
+        fifth.setDomainCode("system");
+        fifth.setEventCode("system.error.archive");
+        fifth.setObjectType("sql");
+        fifth.setObjectId("iot_message_log");
+        fifth.setStatus("ERROR");
+        fifth.setDurationMs(3000L);
+        fifth.setStartedAt(LocalDateTime.of(2026, 4, 25, 10, 40));
+
+        doReturn(List.of(first, second, third, fourth, fifth)).when(jdbcTemplate).query(
+                contains("ORDER BY started_at ASC, id ASC"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        List<ObservabilitySlowSpanTrendVO> result = service.listSlowSpanTrends(query, 10001L);
+
+        assertEquals(3, result.size());
+
+        ObservabilitySlowSpanTrendVO firstBucket = result.get(0);
+        assertEquals("HOUR", firstBucket.getBucket());
+        assertEquals(LocalDateTime.of(2026, 4, 25, 9, 0), firstBucket.getBucketStart());
+        assertEquals(3L, firstBucket.getTotalCount());
+        assertEquals(2L, firstBucket.getSuccessCount());
+        assertEquals(1L, firstBucket.getErrorCount());
+        assertEquals(33, firstBucket.getErrorRate());
+        assertEquals(2667L, firstBucket.getAvgDurationMs());
+        assertEquals(5000L, firstBucket.getMaxDurationMs());
+        assertEquals(5000L, firstBucket.getP95DurationMs());
+        assertEquals(5000L, firstBucket.getP99DurationMs());
+
+        ObservabilitySlowSpanTrendVO secondBucket = result.get(1);
+        assertEquals(LocalDateTime.of(2026, 4, 25, 10, 0), secondBucket.getBucketStart());
+        assertEquals(2L, secondBucket.getTotalCount());
+        assertEquals(1L, secondBucket.getSuccessCount());
+        assertEquals(1L, secondBucket.getErrorCount());
+        assertEquals(50, secondBucket.getErrorRate());
+        assertEquals(2250L, secondBucket.getAvgDurationMs());
+        assertEquals(3000L, secondBucket.getMaxDurationMs());
+        assertEquals(3000L, secondBucket.getP95DurationMs());
+        assertEquals(3000L, secondBucket.getP99DurationMs());
+
+        ObservabilitySlowSpanTrendVO thirdBucket = result.get(2);
+        assertEquals(LocalDateTime.of(2026, 4, 25, 11, 0), thirdBucket.getBucketStart());
+        assertEquals(0L, thirdBucket.getTotalCount());
+        assertEquals(0L, thirdBucket.getSuccessCount());
+        assertEquals(0L, thirdBucket.getErrorCount());
+        assertEquals(0, thirdBucket.getErrorRate());
+        assertNull(thirdBucket.getAvgDurationMs());
+        assertNull(thirdBucket.getMaxDurationMs());
+        assertNull(thirdBucket.getP95DurationMs());
+        assertNull(thirdBucket.getP99DurationMs());
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("span_type = ?"));
+        assertTrue(sql.contains("domain_code = ?"));
+        assertTrue(sql.contains("event_code = ?"));
+        assertTrue(sql.contains("object_type = ?"));
+        assertTrue(sql.contains("object_id = ?"));
+        assertTrue(sql.contains("duration_ms >= ?"));
+        assertTrue(sql.contains("started_at >= ?"));
+        assertTrue(sql.contains("started_at <= ?"));
+        assertTrue(sql.contains("ORDER BY started_at ASC, id ASC"));
     }
 
     @Test

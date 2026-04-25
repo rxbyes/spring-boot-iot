@@ -85,6 +85,20 @@ export interface ObservabilitySlowSpanSummary {
   latestStartedAt?: string | null
 }
 
+export interface ObservabilitySlowSpanTrend {
+  bucket?: string | null
+  bucketStart?: string | null
+  bucketEnd?: string | null
+  totalCount?: number | null
+  successCount?: number | null
+  errorCount?: number | null
+  errorRate?: number | null
+  avgDurationMs?: number | null
+  maxDurationMs?: number | null
+  p95DurationMs?: number | null
+  p99DurationMs?: number | null
+}
+
 export interface ObservabilityBusinessEventPageQuery {
   traceId?: string
   eventCode?: string
@@ -127,6 +141,19 @@ export interface ObservabilitySlowSpanSummaryQuery {
   limit?: number
 }
 
+export interface ObservabilitySlowSpanTrendQuery {
+  spanType?: string
+  eventCode?: string
+  domainCode?: string
+  objectType?: string
+  objectId?: string
+  status?: string
+  minDurationMs?: number
+  dateFrom?: string
+  dateTo?: string
+  bucket?: 'HOUR' | 'DAY' | string
+}
+
 export function pageObservabilityBusinessEvents(
   params: ObservabilityBusinessEventPageQuery = {}
 ): Promise<ApiEnvelope<PageResult<ObservabilityBusinessEvent>>> {
@@ -149,6 +176,14 @@ export function listObservabilitySlowSpanSummaries(
   const query = buildQueryString(params)
   const path = `/api/system/observability/spans/slow-summary${query ? `?${query}` : ''}`
   return request<ObservabilitySlowSpanSummary[]>(path, { method: 'GET' })
+}
+
+export function listObservabilitySlowSpanTrends(
+  params: ObservabilitySlowSpanTrendQuery = {}
+): Promise<ApiEnvelope<ObservabilitySlowSpanTrend[]>> {
+  const query = buildQueryString(params)
+  const path = `/api/system/observability/spans/slow-trends${query ? `?${query}` : ''}`
+  return request<ObservabilitySlowSpanTrend[]>(path, { method: 'GET' })
 }
 
 export function getTraceEvidence(traceId: string): Promise<ApiEnvelope<ObservabilityTraceEvidence>> {

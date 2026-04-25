@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
+  listObservabilitySlowSpanTrends,
   pageObservabilityBusinessEvents,
   pageObservabilitySpans
 } from '@/api/observability'
@@ -83,5 +84,26 @@ describe('observability api', () => {
     expect(request).toHaveBeenCalledWith('/api/system/observability/trace/trace-001', {
       method: 'GET'
     })
+  })
+
+  it('builds slow span trend query parameters correctly', async () => {
+    await listObservabilitySlowSpanTrends({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1000,
+      bucket: 'HOUR',
+      dateFrom: '2026-04-25T09:00:00',
+      dateTo: '2026-04-25T11:59:59'
+    })
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/system/observability/spans/slow-trends?spanType=SLOW_SQL&domainCode=system&eventCode=system.error.archive&objectType=sql&objectId=iot_message_log&minDurationMs=1000&bucket=HOUR&dateFrom=2026-04-25T09%3A00%3A00&dateTo=2026-04-25T11%3A59%3A59',
+      {
+        method: 'GET'
+      }
+    )
   })
 })

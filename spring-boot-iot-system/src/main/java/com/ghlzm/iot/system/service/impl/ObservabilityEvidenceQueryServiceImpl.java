@@ -8,9 +8,11 @@ import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
+import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceItemVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
@@ -20,11 +22,14 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -35,6 +40,8 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private static final int TRACE_LIMIT = 500;
     private static final int DEFAULT_SLOW_SUMMARY_LIMIT = 20;
     private static final int MAX_SLOW_SUMMARY_LIMIT = 50;
+    private static final String SLOW_TREND_BUCKET_HOUR = "HOUR";
+    private static final String SLOW_TREND_BUCKET_DAY = "DAY";
     private static final DateTimeFormatter SPACE_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final JdbcTemplate jdbcTemplate;
@@ -140,6 +147,34 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 this::mapSlowSpanSummary,
                 args.toArray()
         );
+    }
+
+    @Override
+    public List<ObservabilitySlowSpanTrendVO> listSlowSpanTrends(ObservabilitySlowSpanTrendQuery query,
+                                                                 Long currentUserId) {
+        ObservabilitySlowSpanTrendQuery criteria =
+                query == null ? new ObservabilitySlowSpanTrendQuery() : query;
+        LocalDateTime from = parseDateTime(criteria.getDateFrom(), false);
+        LocalDateTime to = parseDateTime(criteria.getDateTo(), true);
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BizException(400, "dateFrom 不能晚于 dateTo");
+        }
+        String bucket = normalizeSlowTrendBucket(criteria.getBucket());
+        List<Object> args = new ArrayList<>();
+        String where = buildSlowSpanTrendWhere(criteria, resolveTenantId(currentUserId), from, to, args);
+        List<ObservabilitySpanVO> spans = jdbcTemplate.query(
+                """
+                SELECT id, tenant_id, trace_id, parent_span_id, span_type, span_name, domain_code,
+                       event_code, object_type, object_id, transport_type, status, duration_ms,
+                       started_at, finished_at, error_class, error_message, tags_json, create_time
+                FROM sys_observability_span_log
+                WHERE %s
+                ORDER BY started_at ASC, id ASC
+                """.formatted(where),
+                this::mapSpan,
+                args.toArray()
+        );
+        return aggregateSlowSpanTrends(spans, bucket, from, to);
     }
 
     @Override
@@ -258,6 +293,32 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return String.join(" AND ", clauses);
     }
 
+    private String buildSlowSpanTrendWhere(ObservabilitySlowSpanTrendQuery query,
+                                           Long tenantId,
+                                           LocalDateTime from,
+                                           LocalDateTime to,
+                                           List<Object> args) {
+        List<String> clauses = new ArrayList<>();
+        clauses.add("deleted = 0");
+        clauses.add("duration_ms IS NOT NULL");
+        if (tenantId != null) {
+            clauses.add("tenant_id = ?");
+            args.add(tenantId);
+        }
+        appendEquals(clauses, args, "span_type", query.getSpanType());
+        appendEquals(clauses, args, "event_code", query.getEventCode());
+        appendEquals(clauses, args, "domain_code", query.getDomainCode());
+        appendEquals(clauses, args, "object_type", query.getObjectType());
+        appendEquals(clauses, args, "object_id", query.getObjectId());
+        appendEquals(clauses, args, "status", query.getStatus());
+        if (query.getMinDurationMs() != null && query.getMinDurationMs() > 0L) {
+            clauses.add("duration_ms >= ?");
+            args.add(query.getMinDurationMs());
+        }
+        appendDateRange(clauses, args, "started_at", from, to);
+        return String.join(" AND ", clauses);
+    }
+
     private int normalizeSlowSummaryLimit(Integer limit) {
         if (limit == null || limit <= 0) {
             return DEFAULT_SLOW_SUMMARY_LIMIT;
@@ -284,6 +345,10 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private void appendDateRange(List<String> clauses, List<Object> args, String column, String dateFrom, String dateTo) {
         LocalDateTime from = parseDateTime(dateFrom, false);
         LocalDateTime to = parseDateTime(dateTo, true);
+        appendDateRange(clauses, args, column, from, to);
+    }
+
+    private void appendDateRange(List<String> clauses, List<Object> args, String column, LocalDateTime from, LocalDateTime to) {
         if (from != null) {
             clauses.add(column + " >= ?");
             args.add(Timestamp.valueOf(from));
@@ -311,6 +376,125 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         } catch (DateTimeParseException ex) {
             throw new BizException(400, "时间参数格式不正确，请使用 yyyy-MM-dd、yyyy-MM-dd HH:mm:ss 或 ISO-8601 格式");
         }
+    }
+
+    private List<ObservabilitySlowSpanTrendVO> aggregateSlowSpanTrends(List<ObservabilitySpanVO> spans,
+                                                                       String bucket,
+                                                                       LocalDateTime from,
+                                                                       LocalDateTime to) {
+        Map<LocalDateTime, List<ObservabilitySpanVO>> bucketSpans = new TreeMap<>();
+        for (ObservabilitySpanVO span : spans) {
+            if (span == null || span.getStartedAt() == null) {
+                continue;
+            }
+            LocalDateTime bucketStart = truncateTrendBucket(span.getStartedAt(), bucket);
+            bucketSpans.computeIfAbsent(bucketStart, key -> new ArrayList<>()).add(span);
+        }
+        LocalDateTime effectiveFrom = from == null ? firstBucketStart(bucketSpans) : truncateTrendBucket(from, bucket);
+        LocalDateTime effectiveTo = to == null ? lastBucketStart(bucketSpans) : truncateTrendBucket(to, bucket);
+        if (effectiveFrom == null || effectiveTo == null || effectiveFrom.isAfter(effectiveTo)) {
+            return List.of();
+        }
+        List<ObservabilitySlowSpanTrendVO> result = new ArrayList<>();
+        LocalDateTime cursor = effectiveFrom;
+        while (!cursor.isAfter(effectiveTo)) {
+            LocalDateTime bucketEnd = plusTrendBucket(cursor, bucket);
+            result.add(buildSlowTrend(cursor, bucketEnd, bucket, bucketSpans.get(cursor)));
+            cursor = bucketEnd;
+        }
+        return result;
+    }
+
+    private LocalDateTime firstBucketStart(Map<LocalDateTime, List<ObservabilitySpanVO>> bucketSpans) {
+        return bucketSpans.keySet().stream().findFirst().orElse(null);
+    }
+
+    private LocalDateTime lastBucketStart(Map<LocalDateTime, List<ObservabilitySpanVO>> bucketSpans) {
+        LocalDateTime last = null;
+        for (LocalDateTime bucketStart : bucketSpans.keySet()) {
+            last = bucketStart;
+        }
+        return last;
+    }
+
+    private ObservabilitySlowSpanTrendVO buildSlowTrend(LocalDateTime bucketStart,
+                                                        LocalDateTime bucketEnd,
+                                                        String bucket,
+                                                        List<ObservabilitySpanVO> spans) {
+        List<ObservabilitySpanVO> safeSpans = spans == null ? List.of() : spans;
+        ObservabilitySlowSpanTrendVO vo = new ObservabilitySlowSpanTrendVO();
+        vo.setBucket(bucket);
+        vo.setBucketStart(bucketStart);
+        vo.setBucketEnd(bucketEnd);
+        long totalCount = safeSpans.size();
+        long successCount = safeSpans.stream().filter(this::isSuccessfulSpan).count();
+        long errorCount = totalCount - successCount;
+        vo.setTotalCount(totalCount);
+        vo.setSuccessCount(successCount);
+        vo.setErrorCount(errorCount);
+        vo.setErrorRate(totalCount == 0L ? 0 : (int) Math.round(errorCount * 100.0d / totalCount));
+
+        List<Long> durations = safeSpans.stream()
+                .map(ObservabilitySpanVO::getDurationMs)
+                .filter(duration -> duration != null && duration >= 0L)
+                .sorted()
+                .toList();
+        if (durations.isEmpty()) {
+            return vo;
+        }
+        long sum = durations.stream().mapToLong(Long::longValue).sum();
+        vo.setAvgDurationMs(Math.round(sum / (double) durations.size()));
+        vo.setMaxDurationMs(durations.get(durations.size() - 1));
+        vo.setP95DurationMs(calculatePercentile(durations, 0.95d));
+        vo.setP99DurationMs(calculatePercentile(durations, 0.99d));
+        return vo;
+    }
+
+    private boolean isSuccessfulSpan(ObservabilitySpanVO span) {
+        return span != null && "SUCCESS".equalsIgnoreCase(normalize(span.getStatus()));
+    }
+
+    private Long calculatePercentile(List<Long> sortedDurations, double percentile) {
+        if (sortedDurations == null || sortedDurations.isEmpty()) {
+            return null;
+        }
+        int index = (int) Math.ceil(percentile * sortedDurations.size()) - 1;
+        int safeIndex = Math.max(0, Math.min(index, sortedDurations.size() - 1));
+        return sortedDurations.get(safeIndex);
+    }
+
+    private String normalizeSlowTrendBucket(String bucket) {
+        String normalized = normalize(bucket);
+        if (!StringUtils.hasText(normalized)) {
+            return SLOW_TREND_BUCKET_HOUR;
+        }
+        if (SLOW_TREND_BUCKET_HOUR.equalsIgnoreCase(normalized)) {
+            return SLOW_TREND_BUCKET_HOUR;
+        }
+        if (SLOW_TREND_BUCKET_DAY.equalsIgnoreCase(normalized)) {
+            return SLOW_TREND_BUCKET_DAY;
+        }
+        throw new BizException(400, "bucket 仅支持 HOUR 或 DAY");
+    }
+
+    private LocalDateTime truncateTrendBucket(LocalDateTime value, String bucket) {
+        if (value == null) {
+            return null;
+        }
+        if (SLOW_TREND_BUCKET_DAY.equals(bucket)) {
+            return value.toLocalDate().atStartOfDay();
+        }
+        return value.truncatedTo(ChronoUnit.HOURS);
+    }
+
+    private LocalDateTime plusTrendBucket(LocalDateTime value, String bucket) {
+        if (value == null) {
+            return null;
+        }
+        if (SLOW_TREND_BUCKET_DAY.equals(bucket)) {
+            return value.plusDays(1L);
+        }
+        return value.plusHours(1L);
     }
 
     private ObservabilityBusinessEventVO mapBusinessEvent(ResultSet rs, int rowNum) throws SQLException {

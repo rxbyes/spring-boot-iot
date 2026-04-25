@@ -6,9 +6,11 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
+import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
 import java.time.LocalDateTime;
@@ -124,6 +126,39 @@ class ObservabilityEvidenceControllerTest {
         assertEquals("SLOW_SQL", response.getData().get(0).getSpanType());
         assertEquals(2400L, response.getData().get(0).getMaxDurationMs());
         verify(observabilityEvidenceQueryService).listSlowSpanSummaries(query, 10001L);
+    }
+
+    @Test
+    void listSlowSpanTrendsShouldDelegateFilters() {
+        ObservabilitySlowSpanTrendQuery query = new ObservabilitySlowSpanTrendQuery();
+        query.setSpanType("SLOW_SQL");
+        query.setDomainCode("system");
+        query.setEventCode("system.error.archive");
+        query.setObjectType("sql");
+        query.setObjectId("iot_message_log");
+        query.setMinDurationMs(1000L);
+        query.setBucket("HOUR");
+        query.setDateFrom("2026-04-25 09:00:00");
+        query.setDateTo("2026-04-25 11:59:59");
+
+        ObservabilitySlowSpanTrendVO row = new ObservabilitySlowSpanTrendVO();
+        row.setBucket("HOUR");
+        row.setBucketStart(LocalDateTime.of(2026, 4, 25, 9, 0));
+        row.setTotalCount(3L);
+        row.setErrorCount(1L);
+        row.setErrorRate(33);
+        row.setP95DurationMs(5000L);
+        row.setP99DurationMs(5000L);
+        when(observabilityEvidenceQueryService.listSlowSpanTrends(query, 10001L))
+                .thenReturn(List.of(row));
+
+        R<List<ObservabilitySlowSpanTrendVO>> response =
+                controller.listSlowSpanTrends(query, authentication(10001L));
+
+        assertEquals(1, response.getData().size());
+        assertEquals("HOUR", response.getData().get(0).getBucket());
+        assertEquals(5000L, response.getData().get(0).getP99DurationMs());
+        verify(observabilityEvidenceQueryService).listSlowSpanTrends(query, 10001L);
     }
 
     @Test

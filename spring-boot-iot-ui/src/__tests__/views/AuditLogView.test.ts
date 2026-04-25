@@ -12,7 +12,12 @@ import {
   getSystemErrorStats,
   pageLogs
 } from '@/api/auditLog';
-import { getTraceEvidence, listObservabilitySlowSpanSummaries, pageObservabilitySpans } from '@/api/observability';
+import {
+  getTraceEvidence,
+  listObservabilitySlowSpanSummaries,
+  listObservabilitySlowSpanTrends,
+  pageObservabilitySpans
+} from '@/api/observability';
 import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
@@ -41,6 +46,7 @@ vi.mock('@/api/auditLog', () => ({
 
 vi.mock('@/api/observability', () => ({
   listObservabilitySlowSpanSummaries: vi.fn(),
+  listObservabilitySlowSpanTrends: vi.fn(),
   pageObservabilitySpans: vi.fn(),
   getTraceEvidence: vi.fn()
 }));
@@ -384,6 +390,7 @@ describe('AuditLogView', () => {
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
     vi.mocked(listObservabilitySlowSpanSummaries).mockReset();
+    vi.mocked(listObservabilitySlowSpanTrends).mockReset();
     vi.mocked(pageObservabilitySpans).mockReset();
     vi.mocked(getTraceEvidence).mockReset();
     vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
@@ -470,6 +477,38 @@ describe('AuditLogView', () => {
           }
         ]
       }
+    });
+    vi.mocked(listObservabilitySlowSpanTrends).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          bucket: 'HOUR',
+          bucketStart: '2026-04-25 09:00:00',
+          bucketEnd: '2026-04-25 10:00:00',
+          totalCount: 3,
+          successCount: 2,
+          errorCount: 1,
+          errorRate: 33,
+          avgDurationMs: 2667,
+          maxDurationMs: 5000,
+          p95DurationMs: 5000,
+          p99DurationMs: 5000
+        },
+        {
+          bucket: 'HOUR',
+          bucketStart: '2026-04-25 10:00:00',
+          bucketEnd: '2026-04-25 11:00:00',
+          totalCount: 2,
+          successCount: 1,
+          errorCount: 1,
+          errorRate: 50,
+          avgDurationMs: 2250,
+          maxDurationMs: 3000,
+          p95DurationMs: 3000,
+          p99DurationMs: 3000
+        }
+      ]
     });
     vi.mocked(getTraceEvidence).mockResolvedValue({
       code: 200,
@@ -642,6 +681,54 @@ describe('AuditLogView', () => {
 
     expect(getTraceEvidence).toHaveBeenCalledWith('trace-slow-1');
     expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
+  });
+
+  it('drills slow hotspot into trend buckets and allows switching trend windows', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const panel = wrapper.find('.audit-log-slow-summary');
+    const trendButton = panel.findAll('button').find((button) => button.text().includes('趋势'));
+    await trendButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(listObservabilitySlowSpanTrends).toHaveBeenCalledWith(expect.objectContaining({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1,
+      bucket: 'HOUR'
+    }));
+
+    const drilldown = wrapper.find('.audit-log-slow-trend-drilldown');
+    expect(drilldown.exists()).toBe(true);
+    expect(drilldown.text()).toContain('慢点趋势');
+    expect(drilldown.text()).toContain('P95');
+    expect(drilldown.text()).toContain('P99');
+    expect(drilldown.text()).toContain('错误率');
+    expect(drilldown.text()).toContain('2026-04-25 10:00:00');
+    expect(drilldown.text()).toContain('5000 ms');
+    expect(drilldown.text()).toContain('33%');
+
+    vi.mocked(listObservabilitySlowSpanTrends).mockClear();
+    const dayButton = drilldown.findAll('button').find((button) => button.text().includes('7天'));
+    await dayButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(listObservabilitySlowSpanTrends).toHaveBeenCalledWith(expect.objectContaining({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1,
+      bucket: 'DAY'
+    }));
   });
 
   it('uses anomaly-oriented detail and export titles in system mode', async () => {

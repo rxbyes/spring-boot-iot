@@ -7,9 +7,11 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
+import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
+import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
 import java.util.List;
@@ -45,6 +47,12 @@ public class ObservabilityEvidenceController {
     public R<List<ObservabilitySlowSpanSummaryVO>> listSlowSpanSummaries(ObservabilitySlowSpanSummaryQuery query,
                                                                          Authentication authentication) {
         return R.ok(observabilityEvidenceQueryService.listSlowSpanSummaries(query, requireCurrentUserId(authentication)));
+    }
+
+    @GetMapping("/spans/slow-trends")
+    public R<List<ObservabilitySlowSpanTrendVO>> listSlowSpanTrends(ObservabilitySlowSpanTrendQuery query,
+                                                                    Authentication authentication) {
+        return R.ok(observabilityEvidenceQueryService.listSlowSpanTrends(query, requireCurrentUserId(authentication)));
     }
 
     @GetMapping("/trace/{traceId}")
