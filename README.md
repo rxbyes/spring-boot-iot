@@ -62,7 +62,7 @@
 - `2026-04-25` 起，可观测证据链第一期新增 `sys_business_event_log` 与 `sys_observability_span_log` 两张持久化证据表：`/api/*` 会沉淀接口调用片段，登录与非 GET 业务动作会沉淀业务事件；设备上行 Pipeline 在 Redis `message-flow` 之外会保留持久化调用片段摘要；调度任务运行台账与慢 SQL 也会进入统一可检索证据链。后端读侧已开放 `/api/system/observability/business-events/page`、`/api/system/observability/spans/page`、`/api/system/observability/scheduled-tasks/page`、`/api/system/observability/spans/slow-summary`、`/api/system/observability/spans/slow-trends` 与 `/api/system/observability/trace/{traceId}` 作为证据包入口和慢点/调度热点入口；其中调度台账按每次 `@Scheduled` 执行沉淀 `taskCode / triggerType / triggerExpression / duration / status / traceId`。前端 `/system-log` 已接入 `调度任务台账`、`性能慢点 Top` 面板、慢点 span 明细下钻、慢点趋势下钻与行级 `证据` 抽屉，支持从最近调度任务、最新慢点、明细 span 或异常记录复盘同一 TraceId 下的业务事件、调用片段与合并时间线。
 - 同日 HTTP 业务事件字典进入 B1 轻侵入阶段：产品契约、映射规则、协议治理、设备操作和验收运行等高价值路径会优先写入稳定 `event_code`，未纳入字典的接口继续回退到通用 `module.action`。
 - 同日又补齐 E1 可观测健康门禁脚本：`python3 scripts/generate-observability-health.py --hours=24 [--policy-path=config/automation/observability-health-policy.json] [--fail-on-breaches]` 会基于真实环境库输出 `logs/acceptance/observability-health-*.json/.md`，检查 Trace 覆盖率、HTTP/MESSAGE_FLOW 留痕关联率、证据包就绪率和关键标签缺失率。
-- 同日继续补齐 E5 可观测日志治理：`python3 scripts/govern-observability-logs.py [--policy-path=config/automation/observability-log-governance-policy.json] [--apply]` 会按真实环境库输出 `logs/observability/observability-log-governance-*.json/.md`，默认 `dry-run` 统计并抽样 `sys_observability_span_log / sys_business_event_log / iot_message_log` 的过期量；显式 `--apply` 后才会按默认 `30 / 90 / 30` 天保留期分批清理。`sys_observability_span_log.tags_json` 与 `sys_business_event_log.metadata_json` 写侧当前也已统一扩展脱敏 `apiKey / accessKey / privateKey / deviceSecret / merchantKey / signatureSecret` 等敏感键，并限制字符串、对象项、数组项与最终 JSON 长度；`iot_message_log.payload` 继续保留主链路原始证据，不在写侧改写。
+- 同日继续补齐 E5/F1 可观测日志治理：底层执行器仍是 `python3 scripts/govern-observability-logs.py [--policy-path=config/automation/observability-log-governance-policy.json] [--apply]`，但夜间 `dry-run` 与人工确认 `apply` 现统一收口到 `node scripts/auto/run-observability-log-governance.mjs [--mode=dry-run|apply]`。新入口默认 `dry-run` 输出 `logs/observability/observability-log-governance-*.json/.md`；`apply` 必须显式携带最近 `24` 小时内的 `dry-run` 报告和匹配的 `expiredRows` 确认值，例如 `--mode=apply --confirm-report=logs/observability/observability-log-governance-<timestamp>.json --confirm-expired-rows=<dry-run expiredRows>`，通过后才会按默认 `30 / 90 / 30` 天保留期分批清理 `sys_observability_span_log / sys_business_event_log / iot_message_log`。`sys_observability_span_log.tags_json` 与 `sys_business_event_log.metadata_json` 写侧当前也已统一扩展脱敏 `apiKey / accessKey / privateKey / deviceSecret / merchantKey / signatureSecret` 等敏感键，并限制字符串、对象项、数组项与最终 JSON 长度；`iot_message_log.payload` 继续保留主链路原始证据，不在写侧改写。
 - 同日业务事件字典进入 E2 Service 事实补证阶段：除 HTTP submit/view 事件外，正式合同发布/回滚、映射规则发布/回滚、协议族/解密档案发布/回滚、风险指标目录发布、设备命令下发完成、接入案例验收启动完成与业务验收运行启动完成，也会继续写入 `sys_business_event_log`，补齐 `releaseBatchId / approvalOrderId / ruleId / familyCode / deviceCode / jobId` 等领域上下文。
 - `message-flow` 时间线当前已纳入真实环境基线：每次 HTTP / MQTT 接入都会生成 `sessionId / traceId` 与 Redis 短期时间线，`/reporting` 与 `/message-trace` 共享同一条处理阶段复盘结果。
 - 数据库治理当前已拆成“双真相源”模式：结构真相固定为 `schema/**/*.json`，承载 MySQL `67` 张 active 表、`1` 张 archived 表与 TDengine `5` 个对象的结构、中文注释、生命周期、关系与 bootstrap 策略；当前不再保留 MySQL 兼容视图。`sql/init.sql`、`sql/init-tdengine.sql`、`schema/generated/mysql-schema-sync.json`、[docs/appendix/database-schema-object-catalog.generated.md](docs/appendix/database-schema-object-catalog.generated.md) 与 [docs/appendix/database-schema-lineage.generated.md](docs/appendix/database-schema-lineage.generated.md) 都由 `python scripts/schema/render_artifacts.py --write` 统一生成。对象退场、seed 包归属和真实库审计真相则固定为 `schema-governance/*.json`，首批已接入 `alarm` 域的 `risk_point_highway_detail` archived 样板，并通过 `scripts/governance/check_governance_registry.py`、`scripts/governance/run_domain_audit.py`、`scripts/governance/export_object_backup.py`、[docs/appendix/database-schema-governance-catalog.generated.md](docs/appendix/database-schema-governance-catalog.generated.md) 与 [docs/appendix/database-schema-domain-governance.generated.md](docs/appendix/database-schema-domain-governance.generated.md) 统一收口；其中域级治理台账会按域汇总结构对象、生命周期、治理对象与血缘摘要，而真实库审计事实继续原位维护在 `docs/04` / `docs/08`。运行时仍只会自动补齐 active MySQL 结构对象，以及 TDengine 的 `iot_device_telemetry_point` 与 `3` 张 raw stable；`risk_point_highway_detail` 已降级为 archived，`iot_agg_measure_hour` 继续要求脚本手动初始化。
@@ -212,14 +212,18 @@ python scripts/run-message-flow-acceptance.py --expired-trace-id <已过期Trace
 - 可观测日志治理脚本：
 
 ```bash
+node scripts/auto/run-observability-log-governance.mjs
+node scripts/auto/run-observability-log-governance.mjs --mode=apply --confirm-report=logs/observability/observability-log-governance-<timestamp>.json --confirm-expired-rows=<dry-run expiredRows>
 python3 scripts/govern-observability-logs.py
 python3 scripts/govern-observability-logs.py --policy-path=config/automation/observability-log-governance-policy.json
 python3 scripts/govern-observability-logs.py --apply
 ```
 
+  - 推荐入口是 `node scripts/auto/run-observability-log-governance.mjs`，默认读取 `config/automation/observability-log-governance-runbook.json`
   - 默认输出 `logs/observability/observability-log-governance-<timestamp>.json` 与 `.md`
   - 默认 `dry-run`，只统计和抽样，不删除真实环境数据
-  - `--apply` 会按策略分批删除过期的 `sys_observability_span_log / sys_business_event_log / iot_message_log`
+  - `--mode=apply` 必须带上最近 `24` 小时内的 `dry-run` 报告和匹配的 `expiredRows`
+  - `python3 scripts/govern-observability-logs.py` 继续保留为底层执行器，供排障或手工核对时直接调用
 
 - 前端验收脚本：
 
