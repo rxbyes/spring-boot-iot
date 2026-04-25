@@ -221,8 +221,8 @@ function extractUiPermissionLiterals() {
     const text = fs.readFileSync(file, 'utf8');
     const relative = path.relative(repoRoot, file);
     const patterns = [
-      /v-permission\s*=\s*["']'([^'"]+)'["']/g,
-      /hasPermission\(\s*['"]([^'"]+)['"]\s*\)/g
+      /v-permission\s*=\s*(?:'|")'([^'"]+)'(?:'|")/g,
+      /hasPermission\(\s*(?:'|")([^'"]+)(?:'|")\s*\)/g
     ];
     for (const pattern of patterns) {
       for (const match of text.matchAll(pattern)) {
