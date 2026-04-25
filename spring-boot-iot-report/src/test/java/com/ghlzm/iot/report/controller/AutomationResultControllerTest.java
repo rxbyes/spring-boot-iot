@@ -2,6 +2,8 @@ package com.ghlzm.iot.report.controller;
 
 import com.ghlzm.iot.framework.advice.GlobalExceptionHandler;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveFacetVO;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveRefreshVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunSummaryVO;
@@ -19,6 +21,7 @@ import java.util.List;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,7 +53,7 @@ class AutomationResultControllerTest {
 
     @Test
     void shouldExposeAutomationResultPageRoute() throws Exception {
-        when(automationResultQueryService.pageRuns(2, 20, "risk", "failed", "riskDrill", "2026-04-01", "2026-04-03"))
+        when(automationResultQueryService.pageRuns(2, 20, "risk", "failed", "riskDrill", "quality-factory-p0", "dev", "2026-04-01", "2026-04-03"))
                 .thenReturn(PageResult.of(0L, 2L, 20L, List.<AutomationResultRunSummaryVO>of()));
 
         mockMvc.perform(get("/api/report/automation-results/page")
@@ -59,13 +62,37 @@ class AutomationResultControllerTest {
                         .param("keyword", "risk")
                         .param("status", "failed")
                         .param("runnerType", "riskDrill")
+                        .param("packageCode", "quality-factory-p0")
+                        .param("environmentCode", "dev")
                         .param("dateFrom", "2026-04-01")
                         .param("dateTo", "2026-04-03"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
         verify(automationResultQueryService)
-                .pageRuns(2, 20, "risk", "failed", "riskDrill", "2026-04-01", "2026-04-03");
+                .pageRuns(2, 20, "risk", "failed", "riskDrill", "quality-factory-p0", "dev", "2026-04-01", "2026-04-03");
+    }
+
+    @Test
+    void shouldExposeAutomationResultFacetRoute() throws Exception {
+        when(automationResultQueryService.listFacets()).thenReturn(new AutomationResultArchiveFacetVO());
+
+        mockMvc.perform(get("/api/report/automation-results/facets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(automationResultQueryService).listFacets();
+    }
+
+    @Test
+    void shouldExposeAutomationResultRefreshIndexRoute() throws Exception {
+        when(automationResultQueryService.refreshIndex()).thenReturn(new AutomationResultArchiveRefreshVO());
+
+        mockMvc.perform(post("/api/report/automation-results/refresh-index"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(automationResultQueryService).refreshIndex();
     }
 
     @Test

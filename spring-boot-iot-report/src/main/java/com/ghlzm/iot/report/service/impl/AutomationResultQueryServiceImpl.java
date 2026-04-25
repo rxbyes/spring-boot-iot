@@ -2,14 +2,17 @@ package com.ghlzm.iot.report.service.impl;
 
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
+import com.ghlzm.iot.report.service.AutomationResultArchiveIndexService;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveFacetVO;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveIndexVO;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveRefreshVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunSummaryVO;
 import com.ghlzm.iot.report.vo.AutomationResultSummaryVO;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,11 +27,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,12 +41,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /**
  * 自动化运行结果文件查询服务。
  */
-@Slf4j
 @Service
 public class AutomationResultQueryServiceImpl implements AutomationResultQueryService {
 
@@ -59,17 +60,30 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
 
     private final Path resultsDir;
     private final ObjectMapper objectMapper;
+    private final AutomationResultArchiveIndexService archiveIndexService;
 
     @Autowired
     public AutomationResultQueryServiceImpl(
-            @Value("${iot.automation.results-dir:logs/acceptance}") String resultsDir
+            @Value("${iot.automation.results-dir:logs/acceptance}") String resultsDir,
+            AutomationResultArchiveIndexService archiveIndexService
     ) {
-        this(Paths.get(resultsDir), JsonMapper.builder().findAndAddModules().build());
+        this(Paths.get(resultsDir), JsonMapper.builder().findAndAddModules().build(), archiveIndexService);
     }
 
     AutomationResultQueryServiceImpl(Path resultsDir, ObjectMapper objectMapper) {
+        this(resultsDir, objectMapper, null);
+    }
+
+    AutomationResultQueryServiceImpl(
+            Path resultsDir,
+            ObjectMapper objectMapper,
+            AutomationResultArchiveIndexService archiveIndexService
+    ) {
         this.resultsDir = resultsDir.toAbsolutePath().normalize();
         this.objectMapper = objectMapper;
+        this.archiveIndexService = archiveIndexService == null
+                ? new AutomationResultArchiveIndexServiceImpl(this.resultsDir, this.objectMapper)
+                : archiveIndexService;
     }
 
     @Override
@@ -79,73 +93,68 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
             String keyword,
             String status,
             String runnerType,
+            String packageCode,
+            String environmentCode,
             String dateFrom,
             String dateTo
     ) {
         int resolvedPageNum = normalizePageNum(pageNum);
         int resolvedPageSize = normalizePageSize(pageSize);
-        if (!Files.isDirectory(resultsDir)) {
-            return PageResult.empty((long) resolvedPageNum, (long) resolvedPageSize);
-        }
-
         Long startMillis = resolveDateStartMillis(dateFrom);
         Long endExclusiveMillis = resolveDateEndExclusiveMillis(dateTo);
         String normalizedKeyword = normalizeText(keyword);
         String normalizedStatus = normalizeText(status);
         String normalizedRunnerType = normalizeText(runnerType);
+        String normalizedPackageCode = normalizeText(packageCode);
+        String normalizedEnvironmentCode = normalizeText(environmentCode);
 
-        try (Stream<Path> stream = Files.list(resultsDir)) {
-            List<AutomationResultIndexedRun> matchedRuns = stream
-                    .filter(Files::isRegularFile)
-                    .filter(this::isRegistryRunFile)
-                    .map(this::safeReadIndexedRun)
-                    .filter(Objects::nonNull)
-                    .filter(item -> matchesPageFilters(
-                            item,
-                            normalizedKeyword,
-                            normalizedStatus,
-                            normalizedRunnerType,
-                            startMillis,
-                            endExclusiveMillis
-                    ))
-                    .sorted(Comparator.comparingLong(AutomationResultIndexedRun::updatedAtEpochMillis).reversed())
-                    .toList();
+        List<AutomationResultArchiveIndexVO.RunRecord> matchedRuns = archiveIndexService.loadArchiveIndex(false)
+                .getRuns()
+                .stream()
+                .filter(item -> matchesPageFilters(
+                        item,
+                        normalizedKeyword,
+                        normalizedStatus,
+                        normalizedRunnerType,
+                        normalizedPackageCode,
+                        normalizedEnvironmentCode,
+                        startMillis,
+                        endExclusiveMillis
+                ))
+                .toList();
 
-            int fromIndex = Math.min((resolvedPageNum - 1) * resolvedPageSize, matchedRuns.size());
-            int toIndex = Math.min(fromIndex + resolvedPageSize, matchedRuns.size());
-            List<AutomationResultRunSummaryVO> records = matchedRuns.subList(fromIndex, toIndex).stream()
-                    .map(AutomationResultIndexedRun::summary)
-                    .toList();
-            return PageResult.of(
-                    (long) matchedRuns.size(),
-                    (long) resolvedPageNum,
-                    (long) resolvedPageSize,
-                    records
-            );
-        } catch (IOException e) {
-            throw new BizException(500, "读取自动化运行结果目录失败", e);
-        }
+        int fromIndex = Math.min((resolvedPageNum - 1) * resolvedPageSize, matchedRuns.size());
+        int toIndex = Math.min(fromIndex + resolvedPageSize, matchedRuns.size());
+        List<AutomationResultRunSummaryVO> records = matchedRuns.subList(fromIndex, toIndex).stream()
+                .map(this::toSummary)
+                .toList();
+        return PageResult.of(
+                (long) matchedRuns.size(),
+                (long) resolvedPageNum,
+                (long) resolvedPageSize,
+                records
+        );
     }
 
     @Override
     public List<AutomationResultRunSummaryVO> listRecentRuns(Integer limit) {
-        if (!Files.isDirectory(resultsDir)) {
-            return Collections.emptyList();
-        }
-
         int resolvedLimit = normalizeLimit(limit);
-        try (Stream<Path> stream = Files.list(resultsDir)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(this::isRegistryRunFile)
-                    .sorted(Comparator.comparing(this::resolveSortKey).reversed())
-                    .limit(resolvedLimit)
-                    .map(this::safeReadRunSummary)
-                    .filter(Objects::nonNull)
-                    .toList();
-        } catch (IOException e) {
-            throw new BizException(500, "读取自动化运行结果目录失败", e);
-        }
+        return archiveIndexService.loadArchiveIndex(false)
+                .getRuns()
+                .stream()
+                .limit(resolvedLimit)
+                .map(this::toSummary)
+                .toList();
+    }
+
+    @Override
+    public AutomationResultArchiveFacetVO listFacets() {
+        return archiveIndexService.listFacets();
+    }
+
+    @Override
+    public AutomationResultArchiveRefreshVO refreshIndex() {
+        return archiveIndexService.refreshIndex();
     }
 
     @Override
@@ -190,103 +199,71 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
         }
     }
 
-    private boolean isRegistryRunFile(Path file) {
-        return REGISTRY_RUN_FILE_PATTERN.matcher(file.getFileName().toString()).matches();
-    }
-
-    private String resolveSortKey(Path file) {
-        return resolveRunIdFromFileName(file).orElse(file.getFileName().toString());
-    }
-
-    private AutomationResultRunSummaryVO safeReadRunSummary(Path file) {
-        try {
-            return toSummary(readRunDetail(file));
-        } catch (RuntimeException ex) {
-            log.warn("跳过无法解析的自动化运行结果文件: {}", file, ex);
-            return null;
-        }
-    }
-
-    private AutomationResultIndexedRun safeReadIndexedRun(Path file) {
-        try {
-            long updatedAtEpochMillis = Files.getLastModifiedTime(file).toMillis();
-            AutomationResultRunDetailVO detail = readRunDetail(file);
-            return new AutomationResultIndexedRun(detail, toSummary(detail), updatedAtEpochMillis);
-        } catch (RuntimeException | IOException ex) {
-            log.warn("跳过无法解析的自动化运行结果文件: {}", file, ex);
-            return null;
-        }
-    }
-
     private boolean matchesPageFilters(
-            AutomationResultIndexedRun indexedRun,
+            AutomationResultArchiveIndexVO.RunRecord indexedRun,
             String keyword,
             String status,
             String runnerType,
+            String packageCode,
+            String environmentCode,
             Long startMillis,
             Long endExclusiveMillis
     ) {
-        if (startMillis != null && indexedRun.updatedAtEpochMillis() < startMillis) {
+        long updatedAtEpochMillis = parseUpdatedAtMillis(indexedRun.getUpdatedAt());
+        if (startMillis != null && updatedAtEpochMillis < startMillis) {
             return false;
         }
-        if (endExclusiveMillis != null && indexedRun.updatedAtEpochMillis() >= endExclusiveMillis) {
+        if (endExclusiveMillis != null && updatedAtEpochMillis >= endExclusiveMillis) {
             return false;
         }
-        if (StringUtils.hasText(status) && !status.equals(indexedRun.summary().getStatus())) {
+        if (StringUtils.hasText(status) && !status.equals(normalizeText(indexedRun.getStatus()))) {
             return false;
         }
-        if (StringUtils.hasText(runnerType) && indexedRun.summary().getRunnerTypes().stream()
+        if (StringUtils.hasText(runnerType) && indexedRun.getRunnerTypes().stream()
                 .map(this::normalizeText)
                 .noneMatch(runnerType::equals)) {
+            return false;
+        }
+        if (StringUtils.hasText(packageCode) && !packageCode.equals(normalizeText(indexedRun.getPackageCode()))) {
+            return false;
+        }
+        if (StringUtils.hasText(environmentCode) && !environmentCode.equals(normalizeText(indexedRun.getEnvironmentCode()))) {
             return false;
         }
         if (!StringUtils.hasText(keyword)) {
             return true;
         }
-        return matchesKeyword(indexedRun.detail(), keyword);
+        return matchesKeyword(indexedRun, keyword);
     }
 
-    private boolean matchesKeyword(AutomationResultRunDetailVO detail, String keyword) {
-        if (containsIgnoreCase(detail.getRunId(), keyword) || containsIgnoreCase(detail.getReportPath(), keyword)) {
+    private boolean matchesKeyword(AutomationResultArchiveIndexVO.RunRecord run, String keyword) {
+        if (containsIgnoreCase(run.getRunId(), keyword)
+                || containsIgnoreCase(run.getReportPath(), keyword)
+                || containsIgnoreCase(run.getPackageCode(), keyword)
+                || containsIgnoreCase(run.getEnvironmentCode(), keyword)) {
             return true;
         }
-        return detail.getResults().stream().anyMatch(result ->
-                containsIgnoreCase(result.getScenarioId(), keyword)
-                        || containsIgnoreCase(result.getRunnerType(), keyword)
-        );
+        return run.getFailedScenarioIds().stream().anyMatch(item -> containsIgnoreCase(item, keyword))
+                || run.getRunnerTypes().stream().anyMatch(item -> containsIgnoreCase(item, keyword));
     }
 
     private boolean containsIgnoreCase(String value, String keyword) {
         return StringUtils.hasText(value) && normalizeText(value).contains(keyword);
     }
 
-    private AutomationResultRunSummaryVO toSummary(AutomationResultRunDetailVO detail) {
+    private AutomationResultRunSummaryVO toSummary(AutomationResultArchiveIndexVO.RunRecord record) {
         AutomationResultRunSummaryVO summary = new AutomationResultRunSummaryVO();
-        summary.setRunId(detail.getRunId());
-        summary.setReportPath(detail.getReportPath());
-        summary.setUpdatedAt(detail.getUpdatedAt());
-        summary.setSummary(detail.getSummary());
-        summary.setFailedScenarioIds(detail.getFailedScenarioIds());
-        summary.setRelatedEvidenceFiles(detail.getRelatedEvidenceFiles());
-        summary.setStatus(resolveRunStatus(detail.getSummary()));
-        summary.setRunnerTypes(resolveRunnerTypes(detail.getResults()));
+        summary.setRunId(record.getRunId());
+        summary.setReportPath(record.getReportPath());
+        summary.setUpdatedAt(record.getUpdatedAt());
+        summary.setSummary(record.getSummary());
+        summary.setFailedScenarioIds(record.getFailedScenarioIds());
+        summary.setRelatedEvidenceFiles(record.getRelatedEvidenceFiles());
+        summary.setStatus(record.getStatus());
+        summary.setRunnerTypes(record.getRunnerTypes());
+        summary.setPackageCode(record.getPackageCode());
+        summary.setEnvironmentCode(record.getEnvironmentCode());
         return summary;
-    }
-
-    private String resolveRunStatus(AutomationResultSummaryVO summary) {
-        if (summary != null && defaultInteger(summary.getFailed(), 0) > 0) {
-            return "failed";
-        }
-        return "passed";
-    }
-
-    private List<String> resolveRunnerTypes(List<AutomationResultRunResultVO> results) {
-        LinkedHashSet<String> runnerTypes = new LinkedHashSet<>();
-        normalizeResults(results).stream()
-                .map(AutomationResultRunResultVO::getRunnerType)
-                .filter(StringUtils::hasText)
-                .forEach(runnerTypes::add);
-        return List.copyOf(runnerTypes);
     }
 
     private Path resolveRunFile(String runId) {
@@ -548,18 +525,22 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
         return value.trim().toLowerCase(Locale.ROOT);
     }
 
+    private long parseUpdatedAtMillis(String updatedAt) {
+        if (!StringUtils.hasText(updatedAt)) {
+            return 0L;
+        }
+        try {
+            return OffsetDateTime.parse(updatedAt).toInstant().toEpochMilli();
+        } catch (DateTimeParseException ex) {
+            return 0L;
+        }
+    }
+
     private int defaultInteger(Integer value, int fallback) {
         return value == null ? fallback : value;
     }
 
     private String defaultString(String value) {
         return value == null ? "" : value;
-    }
-
-    private record AutomationResultIndexedRun(
-            AutomationResultRunDetailVO detail,
-            AutomationResultRunSummaryVO summary,
-            long updatedAtEpochMillis
-    ) {
     }
 }
