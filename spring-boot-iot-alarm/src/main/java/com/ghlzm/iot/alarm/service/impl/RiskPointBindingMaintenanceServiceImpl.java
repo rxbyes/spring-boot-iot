@@ -2,6 +2,8 @@ package com.ghlzm.iot.alarm.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
@@ -37,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
@@ -346,13 +349,13 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public GovernanceSubmissionResultVO submitBindDevice(RiskPointDevice riskPointDevice, Long currentUserId) {
-        if (riskPointDevice == null) {
+    public GovernanceSubmissionResultVO submitBindDevice(RiskPointBatchBindDeviceRequest request, Long currentUserId) {
+        if (request == null) {
             throw new BizException("风险点绑定请求不能为空");
         }
-        normalizeFormalBindingSelection(riskPointDevice, currentUserId);
+        List<RiskPointBindMetricDTO> normalizedMetrics = normalizeFormalBindingSelections(request, currentUserId);
         Long subjectId = IdWorker.getId();
-        String snapshotJson = writeBindSnapshot(riskPointDevice);
+        String snapshotJson = writeBindSnapshot(request, normalizedMetrics);
         Long approverUserId = resolveOptionalApproverUserId(
                 RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
                 currentUserId
@@ -361,21 +364,21 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
             Long workItemId = openWorkItem(
                     RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
                     subjectId,
-                    riskPointDevice.getDeviceCode(),
-                    riskPointDevice.getRiskMetricId(),
+                    request.getDeviceCode(),
+                    resolvePrimaryRiskMetricId(normalizedMetrics),
                     snapshotJson,
                     EXECUTION_STATUS_IN_PROGRESS,
                     currentUserId
             );
-            bindDevice(riskPointDevice, currentUserId);
+            bindDevices(request, currentUserId, normalizedMetrics);
             resolveWorkItem(RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE, subjectId, currentUserId);
             return GovernanceSubmissionResultVO.directApplied(workItemId);
         }
         Long workItemId = openWorkItem(
                 RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
                 subjectId,
-                riskPointDevice.getDeviceCode(),
-                riskPointDevice.getRiskMetricId(),
+                request.getDeviceCode(),
+                resolvePrimaryRiskMetricId(normalizedMetrics),
                 snapshotJson,
                 EXECUTION_STATUS_PENDING_APPROVAL,
                 currentUserId
@@ -388,7 +391,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 workItemId,
                 currentUserId,
                 approverUserId,
-                RiskPointGovernanceApprovalExecutor.writeBindPayload(riskPointDevice),
+                RiskPointGovernanceApprovalExecutor.writeBindPayload(request, normalizedMetrics),
                 null
         ));
         return GovernanceSubmissionResultVO.pendingApproval(workItemId, approvalOrderId);
@@ -499,6 +502,12 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     @Transactional(rollbackFor = Exception.class)
     public RiskPointDevice bindDevice(RiskPointDevice riskPointDevice, Long currentUserId) {
         return riskPointService.bindDeviceAndReturn(riskPointDevice, currentUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<RiskPointDevice> bindDevices(RiskPointBatchBindDeviceRequest request, Long currentUserId) {
+        return bindDevices(request, currentUserId, normalizeFormalBindingSelections(request, currentUserId));
     }
 
     @Override
@@ -621,16 +630,58 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 .orElseThrow(() -> new BizException("当前测点未发布到风险指标目录，不能用于正式绑定"));
     }
 
-    private void normalizeFormalBindingSelection(RiskPointDevice request, Long currentUserId) {
-        DeviceMetricOptionVO option = requireFormalBindingMetricOption(
-                currentUserId,
-                request.getDeviceId(),
-                request.getRiskMetricId(),
-                request.getMetricIdentifier()
-        );
-        request.setRiskMetricId(option.getRiskMetricId());
-        request.setMetricIdentifier(option.getIdentifier());
-        request.setMetricName(resolveReplacementMetricName(option.getName(), option.getIdentifier()));
+    private List<RiskPointBindMetricDTO> normalizeFormalBindingSelections(RiskPointBatchBindDeviceRequest request,
+                                                                          Long currentUserId) {
+        if (request == null) {
+            throw new BizException("风险点绑定请求不能为空");
+        }
+        if (request.getRiskPointId() == null) {
+            throw new BizException("风险点ID不能为空");
+        }
+        if (request.getDeviceId() == null) {
+            throw new BizException("设备ID不能为空");
+        }
+        if (request.getMetrics() == null || request.getMetrics().isEmpty()) {
+            throw new BizException("请至少选择一个测点");
+        }
+        List<RiskPointBindMetricDTO> normalized = new ArrayList<>();
+        Set<String> selectedIdentifiers = new LinkedHashSet<>();
+        for (RiskPointBindMetricDTO metric : request.getMetrics()) {
+            String normalizedIdentifier = normalizeRequiredMetricIdentifier(metric == null ? null : metric.getMetricIdentifier());
+            if (!selectedIdentifiers.add(normalizedIdentifier)) {
+                throw new BizException("请勿重复选择测点");
+            }
+            DeviceMetricOptionVO option = requireFormalBindingMetricOption(
+                    currentUserId,
+                    request.getDeviceId(),
+                    metric == null ? null : metric.getRiskMetricId(),
+                    normalizedIdentifier
+            );
+            RiskPointBindMetricDTO normalizedMetric = new RiskPointBindMetricDTO();
+            normalizedMetric.setRiskMetricId(option.getRiskMetricId());
+            normalizedMetric.setMetricIdentifier(option.getIdentifier());
+            normalizedMetric.setMetricName(resolveReplacementMetricName(option.getName(), option.getIdentifier()));
+            normalized.add(normalizedMetric);
+        }
+        return normalized;
+    }
+
+    private List<RiskPointDevice> bindDevices(RiskPointBatchBindDeviceRequest request,
+                                              Long currentUserId,
+                                              List<RiskPointBindMetricDTO> normalizedMetrics) {
+        List<RiskPointDevice> savedBindings = new ArrayList<>();
+        for (RiskPointBindMetricDTO metric : normalizedMetrics) {
+            RiskPointDevice binding = new RiskPointDevice();
+            binding.setRiskPointId(request.getRiskPointId());
+            binding.setDeviceId(request.getDeviceId());
+            binding.setDeviceCode(normalize(request.getDeviceCode()));
+            binding.setDeviceName(normalize(request.getDeviceName()));
+            binding.setRiskMetricId(metric.getRiskMetricId());
+            binding.setMetricIdentifier(metric.getMetricIdentifier());
+            binding.setMetricName(metric.getMetricName());
+            savedBindings.add(bindDevice(binding, currentUserId));
+        }
+        return savedBindings;
     }
 
     private Long openWorkItem(String actionCode,
@@ -698,17 +749,39 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         return governanceApprovalService;
     }
 
-    private String writeBindSnapshot(RiskPointDevice riskPointDevice) {
+    private String writeBindSnapshot(RiskPointBatchBindDeviceRequest request,
+                                     List<RiskPointBindMetricDTO> metrics) {
         ObjectNode root = objectMapper.createObjectNode();
         writeNullableText(root, "bindingMode", BINDING_MODE_METRIC);
-        writeNullableLong(root, "riskPointId", riskPointDevice == null ? null : riskPointDevice.getRiskPointId());
-        writeNullableLong(root, "deviceId", riskPointDevice == null ? null : riskPointDevice.getDeviceId());
-        writeNullableLong(root, "riskMetricId", riskPointDevice == null ? null : riskPointDevice.getRiskMetricId());
-        writeNullableText(root, "deviceCode", riskPointDevice == null ? null : riskPointDevice.getDeviceCode());
-        writeNullableText(root, "deviceName", riskPointDevice == null ? null : riskPointDevice.getDeviceName());
-        writeNullableText(root, "metricIdentifier", riskPointDevice == null ? null : riskPointDevice.getMetricIdentifier());
-        writeNullableText(root, "metricName", riskPointDevice == null ? null : riskPointDevice.getMetricName());
+        writeNullableLong(root, "riskPointId", request == null ? null : request.getRiskPointId());
+        writeNullableLong(root, "deviceId", request == null ? null : request.getDeviceId());
+        writeNullableText(root, "deviceCode", request == null ? null : request.getDeviceCode());
+        writeNullableText(root, "deviceName", request == null ? null : request.getDeviceName());
+        ArrayNode metricsNode = root.putArray("metrics");
+        if (metrics != null) {
+            for (RiskPointBindMetricDTO metric : metrics) {
+                if (metric == null) {
+                    continue;
+                }
+                ObjectNode metricNode = metricsNode.addObject();
+                writeNullableLong(metricNode, "riskMetricId", metric.getRiskMetricId());
+                writeNullableText(metricNode, "metricIdentifier", metric.getMetricIdentifier());
+                writeNullableText(metricNode, "metricName", metric.getMetricName());
+            }
+        }
         return root.toString();
+    }
+
+    private Long resolvePrimaryRiskMetricId(List<RiskPointBindMetricDTO> metrics) {
+        if (metrics == null || metrics.isEmpty()) {
+            return null;
+        }
+        for (RiskPointBindMetricDTO metric : metrics) {
+            if (metric != null && metric.getRiskMetricId() != null) {
+                return metric.getRiskMetricId();
+            }
+        }
+        return null;
     }
 
     private String writeBindSnapshot(RiskPointDeviceCapabilityBindingRequest request,

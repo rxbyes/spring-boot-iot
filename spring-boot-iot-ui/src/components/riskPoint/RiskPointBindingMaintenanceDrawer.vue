@@ -15,7 +15,7 @@
       </div>
 
       <template v-else>
-        <section class="ops-drawer-section">
+        <section v-if="!embedded" class="ops-drawer-section">
           <div class="ops-drawer-section__header">
             <div>
               <h3>{{ riskPointName || '未命名风险点' }}</h3>
@@ -64,8 +64,11 @@
             </el-form-item>
             <el-form-item v-if="showAddMetricSelector" label="测点">
               <el-select
-                v-model="addForm.metricIdentifier"
+                v-model="addForm.metricIdentifiers"
                 data-testid="binding-add-metric"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
                 placeholder="请选择测点"
                 :disabled="!addForm.deviceId || addMetricOptions.length === 0 || addSubmitting"
               >
@@ -291,7 +294,7 @@ let latestReplaceMetricRequestId = 0
 
 const addForm = reactive({
   deviceId: '' as '' | IdType,
-  metricIdentifier: ''
+  metricIdentifiers: [] as string[]
 })
 
 const totalBoundMetricCount = computed(() =>
@@ -420,7 +423,7 @@ const resetDrawerState = () => {
   bindableDevices.value = []
   addMetricOptions.value = []
   addForm.deviceId = ''
-  addForm.metricIdentifier = ''
+  addForm.metricIdentifiers = []
   selectedAddDevice.value = null
   activeReplaceBindingId.value = null
   actionLoadingKey.value = ''
@@ -508,14 +511,15 @@ const refreshAddMetricOptionsForCurrentDevice = () => {
     addForm.deviceId,
     metricOptionCache[getIdKey(addForm.deviceId)] || addMetricOptions.value
   )
-  if (addForm.metricIdentifier && !addMetricOptions.value.some((item) => item.identifier === addForm.metricIdentifier)) {
-    addForm.metricIdentifier = ''
+  if (addForm.metricIdentifiers.length > 0) {
+    const availableIdentifiers = new Set(addMetricOptions.value.map((item) => item.identifier))
+    addForm.metricIdentifiers = addForm.metricIdentifiers.filter((identifier) => availableIdentifiers.has(identifier))
   }
 }
 
 const handleAddDeviceChange = async (deviceId: string | number) => {
   const requestId = ++latestAddMetricRequestId
-  addForm.metricIdentifier = ''
+  addForm.metricIdentifiers = []
   addMetricOptions.value = []
   if (!deviceId) {
     selectedAddDevice.value = null
@@ -553,20 +557,27 @@ const handleAddBinding = async () => {
     ElMessage.warning('请先选择设备')
     return
   }
-  if (showAddMetricSelector.value && !addForm.metricIdentifier) {
-    ElMessage.warning('请选择要绑定的测点')
+  if (showAddMetricSelector.value && addForm.metricIdentifiers.length === 0) {
+    ElMessage.warning('请至少选择一个测点')
     return
   }
 
   try {
     addSubmitting.value = true
+    const selectedMetrics = addForm.metricIdentifiers
+      .map((metricIdentifier) => getSelectedMetricOption(addForm.deviceId, metricIdentifier))
+      .filter((metric): metric is DeviceMetricOption => Boolean(metric))
     const res = showAddMetricSelector.value
       ? await bindDevice({
           riskPointId: props.riskPointId,
           deviceId: addForm.deviceId,
-          riskMetricId: getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)?.riskMetricId ?? undefined,
-          metricIdentifier: addForm.metricIdentifier,
-          metricName: getSelectedMetricOption(addForm.deviceId, addForm.metricIdentifier)?.name || addForm.metricIdentifier
+          deviceCode: selectedAddDevice.value?.deviceCode,
+          deviceName: selectedAddDevice.value?.deviceName,
+          metrics: selectedMetrics.map((metric) => ({
+            riskMetricId: metric.riskMetricId ?? undefined,
+            metricIdentifier: metric.identifier,
+            metricName: metric.name || metric.identifier
+          }))
         })
       : await bindDeviceCapability({
           riskPointId: props.riskPointId,
@@ -577,8 +588,14 @@ const handleAddBinding = async () => {
       ElMessage.error(res.msg || `${addSubmitLabel.value}失败`)
       return
     }
-    await handleMutationSuccess(`${addSubmitLabel.value}成功`, () => {
-      addForm.metricIdentifier = ''
+    const metricCount = selectedMetrics.length
+    const successMessage = showAddMetricSelector.value
+      ? res.data?.executionStatus === 'PENDING_APPROVAL'
+        ? `已提交 ${metricCount} 个测点绑定申请`
+        : `已新增 ${metricCount} 个正式测点绑定`
+      : `${addSubmitLabel.value}成功`
+    await handleMutationSuccess(successMessage, () => {
+      addForm.metricIdentifiers = []
       addMetricOptions.value = []
     })
   } catch (error) {

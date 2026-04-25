@@ -127,7 +127,7 @@ const ElFormItemStub = defineComponent({
 
 const ElSelectStub = defineComponent({
   name: 'ElSelect',
-  props: ['modelValue', 'placeholder', 'disabled', 'filterable'],
+  props: ['modelValue', 'placeholder', 'disabled', 'filterable', 'multiple'],
   emits: ['update:modelValue', 'change'],
   methods: {
     normalizeValue(value: string) {
@@ -138,17 +138,23 @@ const ElSelectStub = defineComponent({
         return Number(value)
       }
       return value
+    },
+    collectMultipleValues(event: Event) {
+      const target = event.target as HTMLSelectElement
+      return Array.from(target.selectedOptions).map((option) => this.normalizeValue(option.value))
     }
   },
   template: `
     <select
       class="el-select-stub"
+      :multiple="Boolean(multiple)"
       :value="modelValue ?? ''"
       :disabled="Boolean(disabled)"
       :data-filterable="String(filterable === '' || Boolean(filterable))"
+      :data-multiple="String(Boolean(multiple))"
       @change="
-        $emit('update:modelValue', normalizeValue($event.target.value));
-        $emit('change', normalizeValue($event.target.value));
+        $emit('update:modelValue', multiple ? collectMultipleValues($event) : normalizeValue($event.target.value));
+        $emit('change', multiple ? collectMultipleValues($event) : normalizeValue($event.target.value));
       "
     >
       <option value="">{{ placeholder || '请选择' }}</option>
@@ -385,7 +391,9 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await nextTick()
 
     expect(wrapper.find('.standard-form-drawer-stub').exists()).toBe(false)
-    expect(wrapper.text()).toContain('北坡风险点')
+    expect(wrapper.text()).not.toContain('北坡风险点')
+    expect(wrapper.text()).not.toContain('RP-NORTH-001')
+    expect(wrapper.text()).not.toContain('所属组织 北坡管理站')
     expect(wrapper.text()).toContain('当前正式绑定')
   })
 
@@ -395,7 +403,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
     await flushPromises()
-    await wrapper.get('[data-testid="binding-add-metric"]').setValue('tiltY')
+    ;(wrapper.vm as any).addForm.metricIdentifiers = ['tiltY', 'tiltZ']
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
@@ -403,9 +411,20 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: 1,
       deviceId: 2002,
-      riskMetricId: 6103,
-      metricIdentifier: 'tiltY',
-      metricName: 'Y轴倾角'
+      deviceCode: 'DEV-2002',
+      deviceName: '南坡一体机',
+      metrics: [
+        {
+          riskMetricId: 6103,
+          metricIdentifier: 'tiltY',
+          metricName: 'Y轴倾角'
+        },
+        {
+          riskMetricId: 6104,
+          metricIdentifier: 'tiltZ',
+          metricName: 'Z轴倾角'
+        }
+      ]
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
@@ -538,7 +557,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     await wrapper.get('[data-testid="binding-add-device"]').setValue('2041364367361843202')
     await flushPromises()
-    await wrapper.get('[data-testid="binding-add-metric"]').setValue('tiltY')
+    ;(wrapper.vm as any).addForm.metricIdentifiers = ['tiltY']
     await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
     await flushPromises()
 
@@ -546,9 +565,15 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     expect(mockBindDevice).toHaveBeenCalledWith({
       riskPointId: '2041364367361843201',
       deviceId: '2041364367361843202',
-      riskMetricId: '2041364367361843204',
-      metricIdentifier: 'tiltY',
-      metricName: 'Y轴倾角'
+      deviceCode: 'DEV-LONG-01',
+      deviceName: '长整型设备',
+      metrics: [
+        {
+          riskMetricId: '2041364367361843204',
+          metricIdentifier: 'tiltY',
+          metricName: 'Y轴倾角'
+        }
+      ]
     })
   })
 

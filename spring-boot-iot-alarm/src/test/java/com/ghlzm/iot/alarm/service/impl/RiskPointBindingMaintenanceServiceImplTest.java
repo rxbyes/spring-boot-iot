@@ -1,5 +1,7 @@
 package com.ghlzm.iot.alarm.service.impl;
 
+import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
@@ -63,17 +65,15 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 workItemService,
                 deviceService
         );
-        RiskPointDevice request = binding(
-                null,
+        RiskPointBatchBindDeviceRequest request = batchRequest(
                 11L,
                 201L,
                 "DEV-201",
                 "一号设备",
-                "pitch",
-                "倾角",
-                null
+                metric(6101L, "pitch", "倾角"),
+                metric(6102L, "AZI", "方位角")
         );
-        RiskPointDevice saved = binding(
+        RiskPointDevice savedPitch = binding(
                 9001L,
                 11L,
                 201L,
@@ -83,19 +83,32 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 "倾角",
                 new Date(1000L)
         );
+        RiskPointDevice savedAzi = binding(
+                9002L,
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                "AZI",
+                "方位角",
+                new Date(2000L)
+        );
         when(approvalPolicyResolver.resolveOptionalApproverUserId(
                 RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
                 1001L
         )).thenReturn(null);
-        when(deviceService.listMetricOptions(1001L, 201L)).thenReturn(List.of(formalOption("pitch", "倾角", 6101L)));
+        when(deviceService.listMetricOptions(1001L, 201L)).thenReturn(List.of(
+                formalOption("pitch", "倾角", 6101L),
+                formalOption("AZI", "方位角", 6102L)
+        ));
         when(workItemService.openOrRefreshAndGetId(any())).thenReturn(7001L);
-        when(riskPointService.bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L))).thenReturn(saved);
+        when(riskPointService.bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L))).thenReturn(savedPitch, savedAzi);
 
         GovernanceSubmissionResultVO result = service.submitBindDevice(request, 1001L);
 
         assertEquals(7001L, result.getWorkItemId());
         assertEquals("DIRECT_APPLIED", result.getExecutionStatus());
-        verify(riskPointService).bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L));
+        verify(riskPointService, times(2)).bindDeviceAndReturn(any(RiskPointDevice.class), eq(1001L));
         verify(approvalService, never()).submitAction(any());
         verify(workItemService).openOrRefreshAndGetId(argThat(command ->
                 command != null
@@ -104,6 +117,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
                         && command.snapshotJson() != null
                         && command.snapshotJson().contains("\"riskPointId\":11")
                         && command.snapshotJson().contains("\"metricIdentifier\":\"pitch\"")
+                        && command.snapshotJson().contains("\"metricIdentifier\":\"AZI\"")
         ));
         verify(workItemService).resolve(
                 eq("PENDING_RISK_BINDING"),
@@ -134,21 +148,22 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 workItemService,
                 deviceService
         );
-        RiskPointDevice request = binding(
-                null,
+        RiskPointBatchBindDeviceRequest request = batchRequest(
                 11L,
                 201L,
                 "DEV-201",
                 "一号设备",
-                "pitch",
-                "倾角",
-                null
+                metric(6101L, "pitch", "倾角"),
+                metric(6102L, "AZI", "方位角")
         );
         when(approvalPolicyResolver.resolveOptionalApproverUserId(
                 RiskPointGovernanceApprovalExecutor.ACTION_RISK_POINT_BIND_DEVICE,
                 1001L
         )).thenReturn(2002L);
-        when(deviceService.listMetricOptions(1001L, 201L)).thenReturn(List.of(formalOption("pitch", "倾角", 6101L)));
+        when(deviceService.listMetricOptions(1001L, 201L)).thenReturn(List.of(
+                formalOption("pitch", "倾角", 6101L),
+                formalOption("AZI", "方位角", 6102L)
+        ));
         when(workItemService.openOrRefreshAndGetId(any())).thenReturn(7002L);
         when(approvalService.submitAction(any())).thenReturn(9901L);
 
@@ -167,6 +182,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
                         && Long.valueOf(2002L).equals(command.approverUserId())
                         && command.payloadJson() != null
                         && command.payloadJson().contains("\"metricIdentifier\":\"pitch\"")
+                        && command.payloadJson().contains("\"metricIdentifier\":\"AZI\"")
         ));
     }
 
@@ -409,7 +425,13 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 deviceService
         );
 
-        RiskPointDevice request = binding(null, 11L, 201L, "DEV-201", "一号设备", "sensor_state", "传感器状态", null);
+        RiskPointBatchBindDeviceRequest request = batchRequest(
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                metric(null, "sensor_state", "传感器状态")
+        );
         when(deviceService.listMetricOptions(1001L, 201L)).thenReturn(List.of(formalOption("value", "激光测距值", 6101L)));
 
         BizException error = assertThrows(BizException.class, () -> service.submitBindDevice(request, 1001L));
@@ -417,6 +439,40 @@ class RiskPointBindingMaintenanceServiceImplTest {
         assertEquals("当前测点未发布到风险指标目录，不能用于正式绑定", error.getMessage());
         verify(riskPointService, never()).bindDeviceAndReturn(any(RiskPointDevice.class), any());
         verify(workItemService, never()).openOrRefreshAndGetId(any());
+    }
+
+    @Test
+    void submitBindDeviceShouldRejectDuplicateMetricWithinBatch() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService
+        );
+        RiskPointBatchBindDeviceRequest request = batchRequest(
+                11L,
+                201L,
+                "DEV-201",
+                "一号设备",
+                metric(6101L, " pitch ", "倾角"),
+                metric(6101L, "pitch", "倾角")
+        );
+        when(deviceService.listMetricOptions(1001L, 201L)).thenReturn(List.of(formalOption("pitch", "倾角", 6101L)));
+
+        BizException error = assertThrows(BizException.class, () -> service.submitBindDevice(request, 1001L));
+
+        assertEquals("请勿重复选择测点", error.getMessage());
+        verify(deviceService).listMetricOptions(1001L, 201L);
+        verify(riskPointService, never()).bindDeviceAndReturn(any(RiskPointDevice.class), any());
     }
 
     @Test
@@ -764,6 +820,28 @@ class RiskPointBindingMaintenanceServiceImplTest {
         value.setMetricName(metricName);
         value.setCreateTime(createTime);
         value.setDeleted(0);
+        return value;
+    }
+
+    private RiskPointBatchBindDeviceRequest batchRequest(Long riskPointId,
+                                                         Long deviceId,
+                                                         String deviceCode,
+                                                         String deviceName,
+                                                         RiskPointBindMetricDTO... metrics) {
+        RiskPointBatchBindDeviceRequest request = new RiskPointBatchBindDeviceRequest();
+        request.setRiskPointId(riskPointId);
+        request.setDeviceId(deviceId);
+        request.setDeviceCode(deviceCode);
+        request.setDeviceName(deviceName);
+        request.setMetrics(metrics == null ? List.of() : List.of(metrics));
+        return request;
+    }
+
+    private RiskPointBindMetricDTO metric(Long riskMetricId, String metricIdentifier, String metricName) {
+        RiskPointBindMetricDTO value = new RiskPointBindMetricDTO();
+        value.setRiskMetricId(riskMetricId);
+        value.setMetricIdentifier(metricIdentifier);
+        value.setMetricName(metricName);
         return value;
     }
 

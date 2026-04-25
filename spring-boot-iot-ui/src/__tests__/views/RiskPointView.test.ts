@@ -18,6 +18,7 @@ const {
   mockPromotePendingBinding,
   mockIgnorePendingBinding,
   mockListBindableDevices,
+  mockListFormalBindingMetricOptions,
   mockListOrganizationTree,
   mockListRegions,
   mockListRegionTree,
@@ -45,6 +46,7 @@ const {
   mockPromotePendingBinding: vi.fn(),
   mockIgnorePendingBinding: vi.fn(),
   mockListBindableDevices: vi.fn(),
+  mockListFormalBindingMetricOptions: vi.fn(),
   mockListOrganizationTree: vi.fn(),
   mockListRegions: vi.fn(),
   mockListRegionTree: vi.fn(),
@@ -85,7 +87,8 @@ vi.mock('@/api/riskPoint', () => ({
   getPendingBindingCandidates: mockGetPendingCandidates,
   promotePendingBinding: mockPromotePendingBinding,
   ignorePendingBinding: mockIgnorePendingBinding,
-  listBindableDevices: mockListBindableDevices
+  listBindableDevices: mockListBindableDevices,
+  listFormalBindingMetricOptions: mockListFormalBindingMetricOptions
 }))
 
 vi.mock('@/api/iot', () => ({
@@ -303,16 +306,20 @@ const RiskPointDetailDrawerStub = defineComponent({
 
 const RiskPointBindingMaintenanceDrawerStub = defineComponent({
   name: 'RiskPointBindingMaintenanceDrawer',
-  props: ['modelValue', 'riskPointId', 'riskPointName', 'riskPointCode', 'orgName', 'pendingBindingCount'],
+  props: ['modelValue', 'embedded', 'riskPointId', 'riskPointName', 'riskPointCode', 'orgName', 'pendingBindingCount'],
   emits: ['updated'],
+  setup(props) {
+    const isEmbedded = computed(() => props.embedded === '' || props.embedded === true)
+    return { isEmbedded }
+  },
   template: `
     <section class="risk-point-binding-maintenance-drawer-stub" :data-model-value="modelValue">
       <h3>维护绑定</h3>
       <p>查看正式绑定摘要，并继续维护设备与测点关系。</p>
-      <div v-if="riskPointName">{{ riskPointName }}</div>
-      <div v-if="riskPointCode">{{ riskPointCode }}</div>
-      <div v-if="orgName">{{ orgName }}</div>
-      <div>待治理 {{ pendingBindingCount ?? 0 }} 条</div>
+      <div v-if="!isEmbedded && riskPointName">{{ riskPointName }}</div>
+      <div v-if="!isEmbedded && riskPointCode">{{ riskPointCode }}</div>
+      <div v-if="!isEmbedded && orgName">{{ orgName }}</div>
+      <div v-if="!isEmbedded">待治理 {{ pendingBindingCount ?? 0 }} 条</div>
       <button type="button" data-testid="binding-maintenance-updated" @click="$emit('updated')">刷新摘要</button>
     </section>
   `
@@ -391,7 +398,22 @@ const ElInputStub = defineComponent({
 
 const ElSelectStub = defineComponent({
   name: 'ElSelect',
-  template: '<div class="el-select-stub"><slot /></div>'
+  inheritAttrs: false,
+  props: ['modelValue', 'filterable', 'placeholder'],
+  setup(props, { attrs }) {
+    const isFilterable = computed(() => props.filterable === '' || props.filterable === true || attrs.filterable === '')
+    return { attrs, isFilterable }
+  },
+  template: `
+    <div
+      class="el-select-stub"
+      :data-filterable="isFilterable ? 'true' : 'false'"
+      :data-placeholder="placeholder || ''"
+      v-bind="attrs"
+    >
+      <slot />
+    </div>
+  `
 })
 
 function findTreeOptionByValue(
@@ -647,6 +669,11 @@ describe('RiskPointView', () => {
       }
     })
     mockListBindableDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockListFormalBindingMetricOptions.mockResolvedValue({
       code: 200,
       msg: 'success',
       data: []
@@ -1742,6 +1769,52 @@ describe('RiskPointView', () => {
     expect(drawer.props('pendingBindingCount')).toBe(1)
   })
 
+  it('keeps the workbench summary in the parent shell without duplicating the embedded maintenance summary block', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListBindingSummaries.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          riskPointId: 1,
+          boundDeviceCount: 5,
+          boundMetricCount: 0,
+          pendingBindingCount: 0
+        }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    await (wrapper.vm as any).openBindingWorkbench(createRiskPointRow(), 'formal')
+    await flushPromises()
+
+    const workbenchDrawer = wrapper
+      .findAll('.standard-form-drawer-stub')
+      .find((node) => node.text().includes('风险绑定工作台'))
+
+    expect(workbenchDrawer).toBeTruthy()
+    const workbenchText = workbenchDrawer!.text()
+
+    expect(workbenchText).toContain('示例风险点')
+    expect(workbenchText).toContain('RP-OPSCEN-NORTHS-CRIT-001')
+    expect(workbenchText).toContain('5 台已绑定设备')
+    expect(workbenchText).toContain('0 个正式测点')
+    expect(workbenchText.match(/RP-OPSCEN-NORTHS-CRIT-001/g)?.length ?? 0).toBe(1)
+    expect(workbenchText.match(/所属组织 平台运维中心/g)?.length ?? 0).toBe(1)
+  })
+
   it('refreshes the list and binding summaries after the maintenance drawer emits updated', async () => {
     mockPageRiskPointList.mockResolvedValue({
       code: 200,
@@ -1904,19 +1977,29 @@ describe('RiskPointView', () => {
       { id: 2001, deviceCode: 'DEV-2001', deviceName: '北侧监测终端', orgId: 7101, orgName: '平台运维中心' }
     ]
     ;(wrapper.vm as any).metricList = [
-      { identifier: 'dispsX', name: 'X轴位移', riskMetricId: 6102 }
+      { identifier: 'dispsX', name: 'X轴位移', riskMetricId: 6102 },
+      { identifier: 'dispsY', name: 'Y轴位移', riskMetricId: 6103 }
     ]
     ;(wrapper.vm as any).bindForm.riskPointId = 1
     ;(wrapper.vm as any).bindForm.riskPointName = '示例风险点'
     ;(wrapper.vm as any).bindForm.deviceId = 2001
     ;(wrapper.vm as any).bindForm.deviceCode = 'DEV-2001'
     ;(wrapper.vm as any).bindForm.deviceName = '北侧监测终端'
-    ;(wrapper.vm as any).bindForm.metricIdentifier = 'dispsX'
-    ;(wrapper.vm as any).bindForm.metricName = 'X轴位移'
+    ;(wrapper.vm as any).bindForm.metricIdentifiers = ['dispsX', 'dispsY']
 
     await (wrapper.vm as any).handleBindSubmit()
     await flushPromises()
 
+    expect(mockBindDevice).toHaveBeenCalledWith({
+      riskPointId: 1,
+      deviceId: 2001,
+      deviceCode: 'DEV-2001',
+      deviceName: '北侧监测终端',
+      metrics: [
+        { riskMetricId: 6102, metricIdentifier: 'dispsX', metricName: 'X轴位移' },
+        { riskMetricId: 6103, metricIdentifier: 'dispsY', metricName: 'Y轴位移' }
+      ]
+    })
     expect((wrapper.vm as any).bindDeviceVisible).toBe(true)
     expect(wrapper.text()).toContain('待审批')
     expect(wrapper.text()).toContain('审批单 9902')
@@ -1968,6 +2051,74 @@ describe('RiskPointView', () => {
       })
     ])
     expect(vm.bindDeviceVisible).toBe(true)
+  })
+
+  it('loads formal metrics from the risk-point API and keeps the bind drawer device selector filterable', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        { identifier: 'dispsX', name: 'X轴位移', riskMetricId: 6102, dataType: 'double' }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    ;(wrapper.vm as any).bindDeviceVisible = true
+    ;(wrapper.vm as any).deviceList = [
+      { id: 2001, productId: 1001, deviceCode: 'CXH15522812', deviceName: '多维检测仪', orgId: 7101, orgName: '平台运维中心' }
+    ]
+    ;(wrapper.vm as any).bindForm.deviceId = 2001
+    await flushPromises()
+
+    const deviceSelect = wrapper.get('[data-testid="risk-point-bind-device-select"]')
+    expect(deviceSelect.attributes('data-filterable')).toBe('true')
+    expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith(2001)
+    expect((wrapper.vm as any).metricList).toEqual([
+      { identifier: 'dispsX', name: 'X轴位移', riskMetricId: 6102, dataType: 'double' }
+    ])
+  })
+
+  it('shows the formal-catalog empty hint when the selected device has no published catalog metrics', async () => {
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListFormalBindingMetricOptions.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    ;(wrapper.vm as any).bindDeviceVisible = true
+    ;(wrapper.vm as any).deviceList = [
+      { id: 2001, productId: 1001, deviceCode: 'CXH15522812', deviceName: '多维检测仪', orgId: 7101, orgName: '平台运维中心' }
+    ]
+    ;(wrapper.vm as any).bindForm.deviceId = 2001
+    await flushPromises()
+
+    expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith(2001)
+    expect(wrapper.text()).toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
   })
 
 })

@@ -1,5 +1,7 @@
 package com.ghlzm.iot.alarm.governance;
 
+import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointPendingPromotionRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
@@ -16,6 +18,7 @@ import com.ghlzm.iot.system.service.model.GovernanceApprovalActionExecutionResul
 import com.ghlzm.iot.system.service.model.GovernanceImpactSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceRollbackSnapshot;
 import com.ghlzm.iot.system.service.model.GovernanceSimulationResult;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -90,7 +93,8 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         };
     }
 
-    public static String writeBindPayload(RiskPointDevice request) {
+    public static String writeBindPayload(RiskPointBatchBindDeviceRequest request,
+                                          List<RiskPointBindMetricDTO> metrics) {
         if (request == null) {
             throw new BizException("风险点绑定审批载荷不能为空");
         }
@@ -99,11 +103,20 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         writeNullableText(requestNode, "bindingMode", BINDING_MODE_METRIC);
         writeNullableLong(requestNode, "riskPointId", request.getRiskPointId());
         writeNullableLong(requestNode, "deviceId", request.getDeviceId());
-        writeNullableLong(requestNode, "riskMetricId", request.getRiskMetricId());
         writeNullableText(requestNode, "deviceCode", request.getDeviceCode());
         writeNullableText(requestNode, "deviceName", request.getDeviceName());
-        writeNullableText(requestNode, "metricIdentifier", request.getMetricIdentifier());
-        writeNullableText(requestNode, "metricName", request.getMetricName());
+        ArrayNode metricsNode = requestNode.putArray("metrics");
+        if (metrics != null) {
+            for (RiskPointBindMetricDTO metric : metrics) {
+                if (metric == null) {
+                    continue;
+                }
+                ObjectNode metricNode = metricsNode.addObject();
+                writeNullableLong(metricNode, "riskMetricId", metric.getRiskMetricId());
+                writeNullableText(metricNode, "metricIdentifier", metric.getMetricIdentifier());
+                writeNullableText(metricNode, "metricName", metric.getMetricName());
+            }
+        }
         return root.toString();
     }
 
@@ -196,28 +209,28 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
             );
             return new GovernanceApprovalActionExecutionResult(payloadJson, impactSnapshotJson, rollbackSnapshotJson);
         }
-        RiskPointDevice request = new RiskPointDevice();
+        RiskPointBatchBindDeviceRequest request = new RiskPointBatchBindDeviceRequest();
         request.setRiskPointId(readRequiredLong(requestNode, "riskPointId", "风险点绑定审批载荷缺少风险点 ID"));
         request.setDeviceId(readRequiredLong(requestNode, "deviceId", "风险点绑定审批载荷缺少设备 ID"));
-        request.setRiskMetricId(readOptionalLong(requestNode, "riskMetricId"));
         request.setDeviceCode(readOptionalText(requestNode, "deviceCode"));
         request.setDeviceName(readOptionalText(requestNode, "deviceName"));
-        request.setMetricIdentifier(readRequiredText(requestNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识"));
-        request.setMetricName(readOptionalText(requestNode, "metricName"));
-        RiskPointDevice saved = bindingMaintenanceService.bindDevice(request, order.getOperatorUserId());
+        List<RiskPointBindMetricDTO> metrics = readBindMetrics(requestNode);
+        request.setMetrics(metrics);
+        List<RiskPointDevice> saved = bindingMaintenanceService.bindDevices(request, order.getOperatorUserId());
         String payloadJson = appendExecutionResult(order.getPayloadJson(), buildBindExecutionResult(saved));
+        int affectedCount = saved == null ? 0 : saved.size();
         String impactSnapshotJson = buildImpactSnapshot(
                 readOptionalLong(requestNode, "riskPointId"),
                 readOptionalLong(requestNode, "deviceId"),
-                readOptionalText(requestNode, "metricIdentifier"),
-                1,
+                resolveFirstMetricIdentifier(metrics),
+                affectedCount,
                 true,
                 "可通过风险点解绑撤回本次正式绑定"
         );
         String rollbackSnapshotJson = buildRollbackSnapshot(
                 readOptionalLong(requestNode, "riskPointId"),
                 readOptionalLong(requestNode, "deviceId"),
-                readOptionalText(requestNode, "metricIdentifier"),
+                resolveFirstMetricIdentifier(metrics),
                 true
         );
         return new GovernanceApprovalActionExecutionResult(payloadJson, impactSnapshotJson, rollbackSnapshotJson);
@@ -284,10 +297,11 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         readRequiredLong(requestNode, "riskPointId", "风险点绑定审批载荷缺少风险点 ID");
         readRequiredLong(requestNode, "deviceId", "风险点绑定审批载荷缺少设备 ID");
         String bindingMode = readOptionalText(requestNode, "bindingMode");
+        long affectedCount = 1L;
         if (!BINDING_MODE_DEVICE_ONLY.equalsIgnoreCase(bindingMode)) {
-            readRequiredText(requestNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识");
+            affectedCount = resolveBindAffectedCount(requestNode);
         }
-        GovernanceImpactSnapshot impact = buildImpactSnapshotObject(1L, RISK_BINDING_AFFECTED_TYPES, true, "可通过风险点解绑撤回本次正式绑定");
+        GovernanceImpactSnapshot impact = buildImpactSnapshotObject(affectedCount, RISK_BINDING_AFFECTED_TYPES, true, "可通过风险点解绑撤回本次正式绑定");
         GovernanceRollbackSnapshot rollback = buildRollbackSnapshotObject(true, "可通过风险点解绑撤回本次正式绑定");
         return buildSimulationResult(order, impact, rollback);
     }
@@ -344,14 +358,28 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
         }
     }
 
-    private ObjectNode buildBindExecutionResult(RiskPointDevice saved) {
+    private ObjectNode buildBindExecutionResult(List<RiskPointDevice> savedBindings) {
         ObjectNode result = objectMapper.createObjectNode();
-        writeNullableLong(result, "bindingId", saved == null ? null : saved.getId());
-        writeNullableLong(result, "riskPointId", saved == null ? null : saved.getRiskPointId());
-        writeNullableLong(result, "deviceId", saved == null ? null : saved.getDeviceId());
-        writeNullableLong(result, "riskMetricId", saved == null ? null : saved.getRiskMetricId());
-        writeNullableText(result, "metricIdentifier", saved == null ? null : saved.getMetricIdentifier());
-        writeNullableText(result, "metricName", saved == null ? null : saved.getMetricName());
+        int affectedCount = savedBindings == null ? 0 : savedBindings.size();
+        result.put("affectedCount", affectedCount);
+        ArrayNode itemsNode = result.putArray("items");
+        if (savedBindings != null) {
+            for (RiskPointDevice saved : savedBindings) {
+                if (saved == null) {
+                    continue;
+                }
+                ObjectNode itemNode = itemsNode.addObject();
+                writeNullableLong(itemNode, "bindingId", saved.getId());
+                writeNullableLong(itemNode, "riskPointId", saved.getRiskPointId());
+                writeNullableLong(itemNode, "deviceId", saved.getDeviceId());
+                writeNullableLong(itemNode, "riskMetricId", saved.getRiskMetricId());
+                writeNullableText(itemNode, "metricIdentifier", saved.getMetricIdentifier());
+                writeNullableText(itemNode, "metricName", saved.getMetricName());
+            }
+            RiskPointDevice first = savedBindings.stream().filter(item -> item != null).findFirst().orElse(null);
+            writeNullableLong(result, "riskPointId", first == null ? null : first.getRiskPointId());
+            writeNullableLong(result, "deviceId", first == null ? null : first.getDeviceId());
+        }
         return result;
     }
 
@@ -501,6 +529,48 @@ public class RiskPointGovernanceApprovalExecutor implements GovernanceApprovalAc
             }
         }
         return count;
+    }
+
+    private long resolveBindAffectedCount(JsonNode requestNode) {
+        List<RiskPointBindMetricDTO> metrics = readBindMetrics(requestNode);
+        return metrics.size();
+    }
+
+    private List<RiskPointBindMetricDTO> readBindMetrics(JsonNode requestNode) {
+        List<RiskPointBindMetricDTO> metrics = new ArrayList<>();
+        if (requestNode != null && requestNode.has("metrics") && requestNode.path("metrics").isArray()) {
+            for (JsonNode metricNode : requestNode.path("metrics")) {
+                if (metricNode == null || metricNode.isNull()) {
+                    continue;
+                }
+                RiskPointBindMetricDTO metric = new RiskPointBindMetricDTO();
+                metric.setRiskMetricId(readOptionalLong(metricNode, "riskMetricId"));
+                metric.setMetricIdentifier(readRequiredText(metricNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识"));
+                metric.setMetricName(readOptionalText(metricNode, "metricName"));
+                metrics.add(metric);
+            }
+        }
+        if (!metrics.isEmpty()) {
+            return metrics;
+        }
+        RiskPointBindMetricDTO legacyMetric = new RiskPointBindMetricDTO();
+        legacyMetric.setRiskMetricId(readOptionalLong(requestNode, "riskMetricId"));
+        legacyMetric.setMetricIdentifier(readRequiredText(requestNode, "metricIdentifier", "风险点绑定审批载荷缺少测点标识"));
+        legacyMetric.setMetricName(readOptionalText(requestNode, "metricName"));
+        metrics.add(legacyMetric);
+        return metrics;
+    }
+
+    private String resolveFirstMetricIdentifier(List<RiskPointBindMetricDTO> metrics) {
+        if (metrics == null || metrics.isEmpty()) {
+            return null;
+        }
+        for (RiskPointBindMetricDTO metric : metrics) {
+            if (metric != null && StringUtils.hasText(metric.getMetricIdentifier())) {
+                return metric.getMetricIdentifier().trim();
+            }
+        }
+        return null;
     }
 
     private String readRequiredText(JsonNode node, String fieldName, String message) {
