@@ -188,7 +188,6 @@
           取消
         </StandardButton>
         <StandardButton
-          v-permission="'iot:devices:replace'"
           action="confirm"
           class="standard-drawer-footer__button standard-drawer-footer__button--primary"
           :loading="submitting"
