@@ -18,6 +18,7 @@ import com.ghlzm.iot.system.mapper.UserMapper;
 import com.ghlzm.iot.system.mapper.UserRoleMapper;
 import com.ghlzm.iot.system.service.impl.PermissionServiceImpl;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
+import com.ghlzm.iot.system.vo.MenuTreeNodeVO;
 import com.ghlzm.iot.system.vo.UserAuthContextVO;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -157,6 +158,70 @@ class PermissionServiceImplTest {
         UserAuthContextVO context = permissionService.getUserAuthContext(userId);
 
         assertEquals("/risk-disposal", context.getHomePath());
+    }
+
+    @Test
+    void shouldExposeHiddenInSidebarMenuMetaToAuthContext() {
+        Long userId = 1006L;
+        User user = new User();
+        user.setId(userId);
+        user.setUsername("ops-user");
+        user.setDeleted(0);
+
+        Role role = new Role();
+        role.setId(3006L);
+        role.setRoleCode("OPS_STAFF");
+        role.setRoleName("运维人员");
+
+        Menu accessRoot = new Menu();
+        accessRoot.setId(93000001L);
+        accessRoot.setParentId(0L);
+        accessRoot.setMenuName("接入智维");
+        accessRoot.setMenuCode("iot-access");
+        accessRoot.setType(0);
+        accessRoot.setSort(10);
+
+        Menu productsMenu = new Menu();
+        productsMenu.setId(93001001L);
+        productsMenu.setParentId(93000001L);
+        productsMenu.setMenuName("产品定义中心");
+        productsMenu.setMenuCode("iot:products");
+        productsMenu.setType(1);
+        productsMenu.setSort(11);
+        productsMenu.setPath("/products");
+        productsMenu.setMetaJson("{\"caption\":\"产品台账与接入契约\",\"hiddenInSidebar\":false}");
+
+        Menu contractsMenu = new Menu();
+        contractsMenu.setId(93001067L);
+        contractsMenu.setParentId(93001001L);
+        contractsMenu.setMenuName("契约字段");
+        contractsMenu.setMenuCode("iot:products:detail-contracts");
+        contractsMenu.setType(1);
+        contractsMenu.setSort(12);
+        contractsMenu.setPath("/products/:productId/contracts");
+        contractsMenu.setMetaJson("{\"caption\":\"样本输入、识别结果、本次生效与当前已生效字段\",\"hiddenInSidebar\":true}");
+
+        when(userMapper.selectById(userId)).thenReturn(user);
+        when(userRoleMapper.selectRoleIdsByUserId(userId)).thenReturn(List.of(role.getId()));
+        when(roleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(role));
+        when(menuMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(accessRoot, productsMenu, contractsMenu));
+        when(roleMenuMapper.selectMenuIdsByRoleIds(List.of(role.getId()))).thenReturn(List.of(productsMenu.getId(), contractsMenu.getId()));
+
+        UserAuthContextVO context = permissionService.getUserAuthContext(userId);
+
+        assertEquals("/device-access", context.getHomePath());
+        MenuTreeNodeVO productNode = context.getMenus().stream()
+                .flatMap(root -> root.getChildren().stream())
+                .filter(node -> "iot:products".equals(node.getMenuCode()))
+                .findFirst()
+                .orElseThrow();
+        MenuTreeNodeVO contractsNode = productNode.getChildren().stream()
+                .filter(node -> "iot:products:detail-contracts".equals(node.getMenuCode()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(Boolean.FALSE, productNode.getMeta().getHiddenInSidebar());
+        assertEquals(Boolean.TRUE, contractsNode.getMeta().getHiddenInSidebar());
     }
 
     @Test

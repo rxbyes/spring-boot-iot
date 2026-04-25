@@ -619,6 +619,7 @@ import type {
   DeviceOnboardingCaseCreatePayload,
   DeviceOnboardingCasePageQuery,
   DeviceOnboardingCaseUpdatePayload,
+  IdType,
   OnboardingTemplatePack,
   OnboardingTemplatePackCreatePayload,
   OnboardingTemplatePackUpdatePayload
@@ -867,8 +868,10 @@ async function handleBatchCreate(): Promise<void> {
 async function handleBatchApplyTemplate(): Promise<void> {
   batchApplyingTemplate.value = true
   try {
-    const caseIds = selectedCaseIds.value.map((id) => Number(id))
-    const templatePackId = normalizeOptionalNumber(batchTemplatePackId.value)
+    const caseIds = selectedCaseIds.value
+      .map((id) => normalizeOptionalId(id))
+      .filter((id): id is IdType => id != null)
+    const templatePackId = normalizeOptionalId(batchTemplatePackId.value)
     if (!caseIds.length) {
       throw new Error('请至少选择一个接入案例')
     }
@@ -893,7 +896,9 @@ async function handleBatchApplyTemplate(): Promise<void> {
 async function handleBatchStartAcceptance(): Promise<void> {
   batchStartingAcceptance.value = true
   try {
-    const caseIds = selectedCaseIds.value.map((id) => Number(id))
+    const caseIds = selectedCaseIds.value
+      .map((id) => normalizeOptionalId(id))
+      .filter((id): id is IdType => id != null)
     if (!caseIds.length) {
       throw new Error('请至少选择一个接入案例')
     }
@@ -1095,9 +1100,9 @@ function buildPayload(): DeviceOnboardingCaseCreatePayload | DeviceOnboardingCas
     protocolFamilyCode: normalizeOptionalText(form.protocolFamilyCode),
     decryptProfileCode: normalizeOptionalText(form.decryptProfileCode),
     protocolTemplateCode: normalizeOptionalText(form.protocolTemplateCode),
-    templatePackId: normalizeOptionalNumber(form.templatePackId),
-    productId: normalizeOptionalNumber(form.productId),
-    releaseBatchId: normalizeOptionalNumber(form.releaseBatchId),
+    templatePackId: normalizeOptionalId(form.templatePackId),
+    productId: normalizeOptionalId(form.productId),
+    releaseBatchId: normalizeOptionalId(form.releaseBatchId),
     deviceCode: normalizeOptionalText(form.deviceCode),
     remark: normalizeOptionalText(form.remark)
   }
@@ -1154,13 +1159,19 @@ function normalizeOptionalText(value: string): string | null {
   return normalized ? normalized : null
 }
 
-function normalizeOptionalNumber(value: string): number | null {
+function normalizeOptionalId(value: string): IdType | null {
   const normalized = value.trim()
   if (!normalized) {
     return null
   }
+  if (!/^\d+$/.test(normalized)) {
+    return null
+  }
   const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : null
+  if (Number.isSafeInteger(parsed)) {
+    return parsed
+  }
+  return normalized
 }
 </script>
 

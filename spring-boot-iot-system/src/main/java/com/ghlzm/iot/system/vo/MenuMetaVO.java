@@ -14,4 +14,6 @@ public class MenuMetaVO {
     private String caption;
 
     private String shortLabel;
+
+    private Boolean hiddenInSidebar;
 }

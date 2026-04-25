@@ -442,6 +442,23 @@ describe('DeviceOnboardingWorkbenchView', () => {
     expect(mockMessageSuccess).toHaveBeenCalled()
   })
 
+  it('preserves 18-digit product ids when creating onboarding cases', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="onboarding-case-code"]').setValue('CASE-9103')
+    await wrapper.get('[data-testid="onboarding-case-name"]').setValue('GNSS 接入')
+    await wrapper.get('input[placeholder="可选，填正式产品 ID"]').setValue('202603192100560252')
+    await wrapper.get('[data-testid="onboarding-save"]').trigger('click')
+    await flushPromises()
+
+    expect(mockCreateDeviceOnboardingCase).toHaveBeenCalledWith(expect.objectContaining({
+      caseCode: 'CASE-9103',
+      caseName: 'GNSS 接入',
+      productId: '202603192100560252'
+    }))
+  })
+
   it('applies template pack defaults into the onboarding case form', async () => {
     const wrapper = mountView()
     await flushPromises()

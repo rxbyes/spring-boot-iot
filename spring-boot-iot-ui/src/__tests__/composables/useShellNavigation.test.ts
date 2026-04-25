@@ -84,6 +84,50 @@ function createDynamicMenus(): MenuTreeNode[] {
   ];
 }
 
+function createDynamicMenusWithHiddenProductDetail(): MenuTreeNode[] {
+  return [
+    {
+      id: 100,
+      menuName: '接入智维',
+      menuCode: 'iot-access',
+      path: '',
+      type: 0,
+      meta: {
+        description: '资产、链路与异常观测',
+        menuTitle: '接入智维',
+        menuHint: '覆盖产品定义、设备资产、链路校验与异常观测。'
+      },
+      children: [
+        {
+          id: 101,
+          parentId: 100,
+          menuName: '产品定义中心',
+          menuCode: 'device:product',
+          path: '/products',
+          type: 1,
+          meta: {
+            caption: '产品台账与接入契约'
+          },
+          children: []
+        },
+        {
+          id: 103,
+          parentId: 100,
+          menuName: '契约字段',
+          menuCode: 'iot:products:detail-contracts',
+          path: '/products/:productId/contracts',
+          type: 1,
+          meta: {
+            caption: '样本输入、识别结果、本次生效与当前已生效字段',
+            hiddenInSidebar: true
+          },
+          children: []
+        }
+      ]
+    }
+  ];
+}
+
 function createLegacyQualityMenus(): MenuTreeNode[] {
   return [
     {
@@ -272,5 +316,29 @@ describe('useShellNavigation', () => {
 
     expect(securityItem?.label).toBe('秘钥治理');
     expect(navigation.activeTitle.value).toBe('秘钥治理');
+  });
+
+  it('keeps hidden detail routes out of the sidebar while still resolving the correct workspace group', () => {
+    routeState.path = '/products/202603192100560252/contracts';
+    routeState.meta = { title: '契约字段' };
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['OPS_STAFF'],
+        roles: [{ id: 11, roleCode: 'OPS_STAFF', roleName: '运维人员' }],
+        homePath: '/device-access',
+        menus: createDynamicMenusWithHiddenProductDetail()
+      })
+    );
+
+    const navigation = useShellNavigation();
+    const accessGroup = navigation.navigationGroups.value.find((group) => group.key === 'iot-access');
+
+    expect(accessGroup?.items.map((item) => item.to)).toEqual(['/device-access', '/products']);
+    expect(accessGroup?.items.some((item) => item.to === '/products/:productId/contracts')).toBe(false);
+    expect(navigation.activeGroup.value.key).toBe('iot-access');
+    expect(navigation.activeMenuItem.value).toBeNull();
+    expect(navigation.activeTitle.value).toBe('契约字段');
   });
 });
