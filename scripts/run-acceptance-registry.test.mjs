@@ -465,3 +465,92 @@ test('business acceptance packages expose P0 full-flow packages', async () => {
     );
   });
 });
+
+test('canonical registry includes P1 quality factory coverage metadata', async () => {
+  const canonicalRegistryPath = path.resolve(
+    process.cwd(),
+    'config/automation/acceptance-registry.json'
+  );
+  const source = JSON.parse(await fs.readFile(canonicalRegistryPath, 'utf8'));
+  const registry = await loadAcceptanceRegistry({ source });
+  const byId = new Map(registry.scenarios.map((item) => [item.id, item]));
+
+  const requiredP1ScenarioIds = [
+    'product-governance.contracts.browser-smoke',
+    'product-governance.mapping-rules.browser-smoke',
+    'protocol-governance.p1.browser-smoke',
+    'device-onboarding.p1.browser-smoke',
+    'object-insight.p1.browser-smoke',
+    'automation-results.p1.browser-smoke'
+  ];
+
+  for (const scenarioId of requiredP1ScenarioIds) {
+    const scenario = byId.get(scenarioId);
+    assert.ok(scenario, `missing P1 scenario: ${scenarioId}`);
+    assert.equal(scenario.priority, 'P1');
+    assert.ok(scenario.ownerDomain, `${scenarioId} ownerDomain is required`);
+    assert.ok(scenario.failureCategory, `${scenarioId} failureCategory is required`);
+    assert.ok(scenario.dataSetup?.strategy, `${scenarioId} dataSetup.strategy is required`);
+    assert.ok(scenario.cleanupPolicy?.strategy, `${scenarioId} cleanupPolicy.strategy is required`);
+  }
+
+  assert.deepEqual(
+    byId.get('product-governance.contracts.browser-smoke')?.runner.scenarioKeys,
+    ['login', 'product-governance-warning-fallback', 'product-governance-unknown-capability']
+  );
+  assert.equal(
+    byId.get('device-onboarding.p1.browser-smoke')?.runner.planRef,
+    'config/automation/device-onboarding-web-smoke-plan.json'
+  );
+  assert.equal(
+    byId.get('object-insight.p1.browser-smoke')?.runner.planRef,
+    'config/automation/object-insight-web-smoke-plan.json'
+  );
+  assert.deepEqual(
+    byId.get('automation-results.p1.browser-smoke')?.runner.scenarioKeys,
+    ['quality-factory-login', 'automation-results-workbench']
+  );
+});
+
+test('business acceptance packages expose P1 coverage packages', async () => {
+  const registryPath = path.resolve(
+    process.cwd(),
+    'config/automation/acceptance-registry.json'
+  );
+  const packagePath = path.resolve(
+    process.cwd(),
+    'config/automation/business-acceptance-packages.json'
+  );
+  const registrySource = JSON.parse(await fs.readFile(registryPath, 'utf8'));
+  const packageSource = JSON.parse(await fs.readFile(packagePath, 'utf8'));
+  const registryIds = new Set((registrySource.scenarios || []).map((item) => item.id));
+  const packages = Array.isArray(packageSource.packages) ? packageSource.packages : [];
+  const byCode = new Map(packages.map((item) => [item.packageCode, item]));
+
+  for (const packageCode of [
+    'product-governance-p1',
+    'protocol-governance-p1',
+    'device-onboarding-p1',
+    'object-insight-p1',
+    'automation-results-p1'
+  ]) {
+    const acceptancePackage = byCode.get(packageCode);
+    assert.ok(acceptancePackage, `missing P1 package: ${packageCode}`);
+    assert.deepEqual(acceptancePackage.supportedEnvironments, ['dev', 'test']);
+    assert.ok(acceptancePackage.modules?.length, `${packageCode} modules are required`);
+
+    for (const module of acceptancePackage.modules) {
+      assert.ok(module.fallbackFailure?.stepLabel, `${packageCode}/${module.moduleCode} stepLabel is required`);
+      assert.ok(module.fallbackFailure?.apiRef, `${packageCode}/${module.moduleCode} apiRef is required`);
+      assert.ok(module.fallbackFailure?.pageAction, `${packageCode}/${module.moduleCode} pageAction is required`);
+      assert.ok(module.fallbackFailure?.summary, `${packageCode}/${module.moduleCode} summary is required`);
+      for (const scenarioRef of module.scenarioRefs || []) {
+        assert.equal(
+          registryIds.has(scenarioRef),
+          true,
+          `${packageCode}/${module.moduleCode} references missing scenario ${scenarioRef}`
+        );
+      }
+    }
+  }
+});
