@@ -199,7 +199,16 @@ export function createRunnerAdapters({ workspaceRoot, overrides = {} }) {
           executable: process.execPath,
           args: [
             'scripts/auto/run-browser-acceptance.mjs',
-            `--plan=${context.scenario.runner.planRef}`
+            `--plan=${context.scenario.runner.planRef}`,
+            ...(context.scenario.runner.scenarioScopes || []).length
+              ? [`--scopes=${context.scenario.runner.scenarioScopes.join(',')}`]
+              : [],
+            ...(context.scenario.runner.failScopes || []).length
+              ? [`--fail-scopes=${context.scenario.runner.failScopes.join(',')}`]
+              : [],
+            ...(context.scenario.runner.scenarioKeys || []).length
+              ? [`--scenario-keys=${context.scenario.runner.scenarioKeys.join(',')}`]
+              : []
           ],
           context,
           env: {
