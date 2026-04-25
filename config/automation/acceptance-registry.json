@@ -168,6 +168,220 @@
       }
     },
     {
+      "id": "product-governance.contracts.browser-smoke",
+      "title": "产品合同治理 P1 浏览器冒烟",
+      "module": "product-governance",
+      "docRef": "docs/21#产品定义中心与契约治理",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["auth.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 12
+      },
+      "runner": {
+        "planRef": "config/automation/sample-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"],
+        "scenarioKeys": [
+          "login",
+          "product-governance-warning-fallback",
+          "product-governance-unknown-capability"
+        ]
+      },
+      "ownerDomain": "product-governance",
+      "priority": "P1",
+      "failureCategory": "business-assertion",
+      "dataSetup": {
+        "strategy": "reuse-seeded-products",
+        "required": "共享 dev 需保留预警产品、未知能力产品和规范治理基线。"
+      },
+      "cleanupPolicy": {
+        "strategy": "read-only",
+        "retainedEvidence": "browser summary、report、screenshots"
+      }
+    },
+    {
+      "id": "product-governance.mapping-rules.browser-smoke",
+      "title": "产品映射规则治理 P1 浏览器冒烟",
+      "module": "product-governance",
+      "docRef": "docs/21#映射规则治理与运行态名称单位治理",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["product-governance.contracts.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 12
+      },
+      "runner": {
+        "planRef": "config/automation/sample-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"],
+        "scenarioKeys": [
+          "login",
+          "product-governance-collecting-device-binding"
+        ]
+      },
+      "ownerDomain": "product-governance",
+      "priority": "P1",
+      "failureCategory": "business-assertion",
+      "dataSetup": {
+        "strategy": "autotest-prefix",
+        "required": "使用浏览器计划内 autotest 产品编码创建或复用采集型产品。"
+      },
+      "cleanupPolicy": {
+        "strategy": "retain-autotest-prefix",
+        "retainedEvidence": "保留 autotest 产品与浏览器证据，便于跨次复核治理结果。"
+      }
+    },
+    {
+      "id": "protocol-governance.p1.browser-smoke",
+      "title": "协议治理 P1 浏览器冒烟",
+      "module": "protocol-governance",
+      "docRef": "docs/21#协议安全运行态与协议模板治理",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["auth.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 15
+      },
+      "runner": {
+        "planRef": "config/automation/protocol-governance-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"],
+        "scenarioKeys": [
+          "protocol-governance-login",
+          "protocol-governance-workbench",
+          "protocol-governance-detail-and-publish",
+          "protocol-governance-approval-submit",
+          "protocol-governance-batch-guards"
+        ]
+      },
+      "ownerDomain": "protocol-governance",
+      "priority": "P1",
+      "failureCategory": "business-assertion",
+      "dataSetup": {
+        "strategy": "autotest-prefix",
+        "required": "使用 protocol-governance 浏览器计划内 autotest family/profile/template 编码。"
+      },
+      "cleanupPolicy": {
+        "strategy": "retain-autotest-prefix",
+        "retainedEvidence": "保留协议治理草稿、发布快照和审批回执证据。"
+      }
+    },
+    {
+      "id": "device-onboarding.p1.browser-smoke",
+      "title": "无代码接入台 P1 浏览器冒烟",
+      "module": "device-onboarding",
+      "docRef": "docs/21#无代码接入台第一阶段",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["auth.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 10
+      },
+      "runner": {
+        "planRef": "config/automation/device-onboarding-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"],
+        "scenarioKeys": [
+          "device-onboarding-login",
+          "device-onboarding-workbench"
+        ]
+      },
+      "ownerDomain": "device-onboarding",
+      "priority": "P1",
+      "failureCategory": "ui-or-api",
+      "dataSetup": {
+        "strategy": "reuse-shared-dev",
+        "required": "共享 dev 需具备 device onboarding case 与 template pack 接口基线。"
+      },
+      "cleanupPolicy": {
+        "strategy": "read-only",
+        "retainedEvidence": "浏览器页面证据和 API 捕获摘要。"
+      }
+    },
+    {
+      "id": "object-insight.p1.browser-smoke",
+      "title": "对象洞察台 P1 浏览器冒烟",
+      "module": "object-insight",
+      "docRef": "docs/21#对象洞察台与时序趋势",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["auth.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 10
+      },
+      "runner": {
+        "planRef": "config/automation/object-insight-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"],
+        "scenarioKeys": [
+          "object-insight-login",
+          "object-insight-workbench"
+        ]
+      },
+      "ownerDomain": "object-insight",
+      "priority": "P1",
+      "failureCategory": "ui-or-api",
+      "dataSetup": {
+        "strategy": "read-only-empty-state",
+        "required": "首批只验证对象洞察入口、空态与分析动作，不要求预置设备编码。"
+      },
+      "cleanupPolicy": {
+        "strategy": "read-only",
+        "retainedEvidence": "浏览器页面证据和报告。"
+      }
+    },
+    {
+      "id": "automation-results.p1.browser-smoke",
+      "title": "结果与基线中心 P1 浏览器冒烟",
+      "module": "quality-factory",
+      "docRef": "docs/05#结果与基线中心",
+      "runnerType": "browserPlan",
+      "scope": "delivery",
+      "blocking": "warning",
+      "dependsOn": ["quality-factory.business-acceptance.browser-smoke"],
+      "inputs": {},
+      "evidence": ["json", "md", "screenshot"],
+      "timeouts": {
+        "maxMinutes": 8
+      },
+      "runner": {
+        "planRef": "config/automation/quality-factory-web-smoke-plan.json",
+        "scenarioScopes": ["delivery"],
+        "failScopes": ["delivery"],
+        "scenarioKeys": [
+          "quality-factory-login",
+          "automation-results-workbench"
+        ]
+      },
+      "ownerDomain": "quality-factory",
+      "priority": "P1",
+      "failureCategory": "evidence",
+      "dataSetup": {
+        "strategy": "reuse-acceptance-logs",
+        "required": "结果中心读取 logs/acceptance 下 registry-run 证据；空台账时仍需页面可达。"
+      },
+      "cleanupPolicy": {
+        "strategy": "retain-evidence",
+        "retainedEvidence": "registry-run JSON/Markdown 与结果中心浏览器证据。"
+      }
+    },
+    {
       "id": "message.expired-trace",
       "title": "消息链路过期 Trace 回归",
       "module": "device",
