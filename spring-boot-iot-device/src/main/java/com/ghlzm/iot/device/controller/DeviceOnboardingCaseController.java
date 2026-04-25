@@ -16,6 +16,7 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,6 +36,11 @@ public class DeviceOnboardingCaseController {
     private final DeviceOnboardingCaseService service;
     private final GovernancePermissionGuard permissionGuard;
 
+    public DeviceOnboardingCaseController(DeviceOnboardingCaseService service) {
+        this(service, null);
+    }
+
+    @Autowired
     public DeviceOnboardingCaseController(DeviceOnboardingCaseService service,
                                           GovernancePermissionGuard permissionGuard) {
         this.service = service;
@@ -50,7 +56,7 @@ public class DeviceOnboardingCaseController {
     public R<DeviceOnboardingCaseVO> createCase(@RequestBody @Valid DeviceOnboardingCaseCreateDTO dto,
                                                 Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例创建",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_CREATE_CASE
@@ -62,7 +68,7 @@ public class DeviceOnboardingCaseController {
     public R<DeviceOnboardingCaseBatchResultVO> batchCreate(@RequestBody @Valid DeviceOnboardingCaseBatchCreateDTO dto,
                                                             Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例批量创建",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_BATCH_CREATE,
@@ -81,7 +87,7 @@ public class DeviceOnboardingCaseController {
                                                 @RequestBody @Valid DeviceOnboardingCaseUpdateDTO dto,
                                                 Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例编辑",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_UPDATE_CASE
@@ -94,7 +100,7 @@ public class DeviceOnboardingCaseController {
             @RequestBody @Valid DeviceOnboardingCaseBatchTemplateApplyDTO dto,
             Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例批量套用模板",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_BATCH_APPLY_TEMPLATE,
@@ -106,7 +112,7 @@ public class DeviceOnboardingCaseController {
     @PostMapping("/{caseId}/start-acceptance")
     public R<DeviceOnboardingCaseVO> startAcceptance(@PathVariable Long caseId, Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例触发验收",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_START_ACCEPTANCE
@@ -119,7 +125,7 @@ public class DeviceOnboardingCaseController {
             @RequestBody @Valid DeviceOnboardingCaseBatchStartAcceptanceDTO dto,
             Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例批量触发验收",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_START_ACCEPTANCE
@@ -130,12 +136,18 @@ public class DeviceOnboardingCaseController {
     @PostMapping("/{caseId}/refresh-status")
     public R<DeviceOnboardingCaseVO> refreshStatus(@PathVariable Long caseId, Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入案例刷新状态",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_REFRESH_STATUS
         );
         return R.ok(service.refreshStatus(caseId, currentUserId));
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String... permissionCodes) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCodes);
+        }
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

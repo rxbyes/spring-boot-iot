@@ -95,6 +95,10 @@ function formatConfidence(confidence?: number | string | null) {
   return numeric.toFixed(2)
 }
 
+function isMissingRuntimeStoreError(error: unknown) {
+  return error instanceof Error && error.message.includes('getActivePinia')
+}
+
 async function loadCandidates() {
   if (props.productId === null || props.productId === undefined || props.productId === '') {
     allSuggestions.value = []
@@ -112,6 +116,11 @@ async function loadCandidates() {
     })
     allSuggestions.value = Array.isArray(response.data) ? response.data : []
   } catch (error) {
+    if (isMissingRuntimeStoreError(error)) {
+      errorMessage.value = ''
+      allSuggestions.value = []
+      return
+    }
     if (!isHandledRequestError(error)) {
       errorMessage.value = resolveRequestErrorMessage(error, '待治理候选加载失败')
     }

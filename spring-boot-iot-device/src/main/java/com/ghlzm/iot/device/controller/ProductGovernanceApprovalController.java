@@ -10,6 +10,7 @@ import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalQueryService;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
 import com.ghlzm.iot.system.vo.GovernanceApprovalOrderDetailVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +27,13 @@ public class ProductGovernanceApprovalController {
     private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
     private final GovernancePermissionGuard permissionGuard;
 
+    public ProductGovernanceApprovalController(GovernanceApprovalQueryService governanceApprovalQueryService,
+                                               GovernanceApprovalService governanceApprovalService,
+                                               GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver) {
+        this(governanceApprovalQueryService, governanceApprovalService, governanceApprovalPolicyResolver, null);
+    }
+
+    @Autowired
     public ProductGovernanceApprovalController(GovernanceApprovalQueryService governanceApprovalQueryService,
                                                GovernanceApprovalService governanceApprovalService,
                                                GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
@@ -48,7 +56,7 @@ public class ProductGovernanceApprovalController {
                 && !ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(actionCode)) {
             throw new BizException("当前审批单不支持固定复核人自动重提");
         }
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "产品合同原单重提",
                 ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(actionCode)
@@ -58,6 +66,12 @@ public class ProductGovernanceApprovalController {
         Long approverUserId = governanceApprovalPolicyResolver.resolveApproverUserId(actionCode, currentUserId);
         governanceApprovalService.resubmitOrder(orderId, currentUserId, approverUserId, null);
         return R.ok();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+        }
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

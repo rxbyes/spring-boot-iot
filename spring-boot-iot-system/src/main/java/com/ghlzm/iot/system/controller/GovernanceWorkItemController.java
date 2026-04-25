@@ -12,6 +12,7 @@ import com.ghlzm.iot.system.service.model.GovernanceReplayFeedbackCommand;
 import com.ghlzm.iot.system.service.model.GovernanceWorkItemPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceDecisionContextVO;
 import com.ghlzm.iot.system.vo.GovernanceWorkItemVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,11 @@ public class GovernanceWorkItemController {
     private final GovernanceWorkItemService governanceWorkItemService;
     private final GovernancePermissionGuard permissionGuard;
 
+    public GovernanceWorkItemController(GovernanceWorkItemService governanceWorkItemService) {
+        this(governanceWorkItemService, null);
+    }
+
+    @Autowired
     public GovernanceWorkItemController(GovernanceWorkItemService governanceWorkItemService,
                                         GovernancePermissionGuard permissionGuard) {
         this.governanceWorkItemService = governanceWorkItemService;
@@ -43,7 +49,7 @@ public class GovernanceWorkItemController {
     public R<GovernanceDecisionContextVO> getDecisionContext(@PathVariable Long id,
                                                              Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "治理任务决策说明",
                 GovernancePermissionCodes.GOVERNANCE_TASK_DECISION_CONTEXT
@@ -56,7 +62,7 @@ public class GovernanceWorkItemController {
                                @RequestBody(required = false) GovernanceWorkItemTransitionDTO dto,
                                Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "治理任务确认",
                 GovernancePermissionCodes.GOVERNANCE_TASK_ACK
@@ -70,7 +76,7 @@ public class GovernanceWorkItemController {
                                  @RequestBody(required = false) GovernanceWorkItemTransitionDTO dto,
                                  Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "治理任务阻塞",
                 GovernancePermissionCodes.GOVERNANCE_TASK_BLOCK
@@ -84,7 +90,7 @@ public class GovernanceWorkItemController {
                                  @RequestBody(required = false) GovernanceWorkItemTransitionDTO dto,
                                  Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "治理任务关闭",
                 GovernancePermissionCodes.GOVERNANCE_TASK_CLOSE
@@ -97,7 +103,7 @@ public class GovernanceWorkItemController {
     public R<Void> closeReplayWithFeedback(@RequestBody GovernanceWorkItemTransitionDTO dto,
                                            Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "治理复盘结论提交",
                 GovernancePermissionCodes.GOVERNANCE_TASK_REPLAY_FEEDBACK,
@@ -105,6 +111,12 @@ public class GovernanceWorkItemController {
         );
         governanceWorkItemService.closeReplayWithFeedback(replayFeedbackCommandOf(dto), currentUserId);
         return R.ok();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String... permissionCodes) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCodes);
+        }
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

@@ -167,6 +167,7 @@
           v-permission="'risk:point:update'"
           data-testid="detail-edit-action"
           :disabled="!displayRiskPoint"
+          v-permission="'risk:point:update'"
           @click="emit('edit')"
         >
           编辑风险点

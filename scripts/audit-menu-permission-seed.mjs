@@ -392,6 +392,11 @@ function isLocalUiActionCandidate({ file, label, click }) {
   const normalizedClick = String(click || '').trim();
 
   if ([
+    'spring-boot-iot-ui/src/components/AutomationRecentRunsPanel.vue',
+    'spring-boot-iot-ui/src/components/AutomationResultEvidencePanel.vue',
+    'spring-boot-iot-ui/src/components/AutomationResultImportPanel.vue',
+    'spring-boot-iot-ui/src/components/AutomationScenarioEditor.vue',
+    'spring-boot-iot-ui/src/components/AutomationStepEditor.vue',
     'spring-boot-iot-ui/src/components/CsvColumnSettingDialog.vue',
     'spring-boot-iot-ui/src/components/ResponsePanel.vue',
     'spring-boot-iot-ui/src/components/StandardChoiceGroup.vue',

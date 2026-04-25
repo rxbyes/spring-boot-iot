@@ -12,6 +12,7 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +32,11 @@ public class OnboardingTemplatePackController {
     private final OnboardingTemplatePackService service;
     private final GovernancePermissionGuard permissionGuard;
 
+    public OnboardingTemplatePackController(OnboardingTemplatePackService service) {
+        this(service, null);
+    }
+
+    @Autowired
     public OnboardingTemplatePackController(OnboardingTemplatePackService service,
                                             GovernancePermissionGuard permissionGuard) {
         this.service = service;
@@ -46,7 +52,7 @@ public class OnboardingTemplatePackController {
     public R<OnboardingTemplatePackVO> createPack(@RequestBody @Valid OnboardingTemplatePackCreateDTO dto,
                                                   Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入模板包创建",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_TEMPLATE_PACK
@@ -59,12 +65,18 @@ public class OnboardingTemplatePackController {
                                                   @RequestBody @Valid OnboardingTemplatePackUpdateDTO dto,
                                                   Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
-        permissionGuard.requireAnyPermission(
+        requirePermission(
                 currentUserId,
                 "无代码接入模板包编辑",
                 GovernancePermissionCodes.DEVICE_ONBOARDING_TEMPLATE_PACK
         );
         return R.ok(service.updatePack(packId, dto, currentUserId));
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+        }
     }
 
     private Long requireCurrentUserId(Authentication authentication) {
