@@ -29,7 +29,8 @@
             :failed-module-count="result.failedModuleCount"
             :failed-module-names="result.failedModuleNames"
             :duration-text="result.durationText"
-            @open-automation-results="goToAutomationResults(result.runId)"
+            :show-evidence-action="canOpenAutomationEvidence"
+            @open-automation-results="goToAutomationEvidence(result.runId)"
           />
         </section>
 
@@ -46,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import BusinessAcceptanceModuleResultPanel from '../components/BusinessAcceptanceModuleResultPanel.vue';
 import BusinessAcceptanceResultSummaryPanel from '../components/BusinessAcceptanceResultSummaryPanel.vue';
@@ -54,6 +55,7 @@ import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { useBusinessAcceptanceWorkbench } from '../composables/useBusinessAcceptanceWorkbench';
+import { usePermissionStore } from '../stores/permission';
 
 const pageTitle = '\u4e1a\u52a1\u9a8c\u6536\u7ed3\u679c';
 const pageDescription =
@@ -62,19 +64,25 @@ const noticeChips = [
   '\u662f\u5426\u901a\u8fc7',
   '\u54ea\u4e9b\u6a21\u5757\u6ca1\u8fc7',
   '\u5931\u8d25\u6b65\u9aa4 / \u63a5\u53e3 / \u9875\u9762\u52a8\u4f5c',
-  '\u8df3\u8f6c\u5230\u5e95\u5c42\u7ed3\u679c\u4e2d\u5fc3'
+  '\u8df3\u8f6c\u5230\u81ea\u52a8\u5316\u6cbb\u7406\u53f0\u7ed3\u679c\u8bc1\u636e'
 ];
 const loadingMessage = '\u6b63\u5728\u52a0\u8f7d\u4e1a\u52a1\u9a8c\u6536\u7ed3\u679c...';
 
 const route = useRoute();
+const permissionStore = usePermissionStore();
 const {
   result,
   resultLoading,
   resultErrorMessage,
   activeModuleCode,
   loadResultFromRoute,
-  goToAutomationResults
+  goToAutomationEvidence
 } = useBusinessAcceptanceWorkbench();
+
+const canOpenAutomationEvidence = computed(() =>
+  permissionStore.hasPermission('system:business-acceptance:open-result')
+  && permissionStore.hasRoutePermission('/automation-governance')
+);
 
 onMounted(() => {
   void loadResultFromRoute();

@@ -7,6 +7,7 @@ import {
   listBusinessAcceptanceAccountTemplates,
   listBusinessAcceptancePackages
 } from '@/api/businessAcceptance';
+import { buildAutomationGovernanceEvidencePath } from '@/utils/automationGovernance';
 import type {
   BusinessAcceptanceAccountTemplate,
   BusinessAcceptancePackage,
@@ -250,13 +251,8 @@ export function useBusinessAcceptanceWorkbench(options: UseBusinessAcceptanceWor
     await loadResult(runId, packageCode);
   }
 
-  async function goToAutomationResults(runId: string) {
-    await router.push({
-      path: '/automation-results',
-      query: {
-        runId
-      }
-    });
+  async function goToAutomationEvidence(runId: string) {
+    await router.push(buildAutomationGovernanceEvidencePath(runId));
   }
 
   if (getCurrentInstance()) {
@@ -291,6 +287,6 @@ export function useBusinessAcceptanceWorkbench(options: UseBusinessAcceptanceWor
     launchSelectedPackage,
     loadResult,
     loadResultFromRoute,
-    goToAutomationResults
+    goToAutomationEvidence
   };
 }

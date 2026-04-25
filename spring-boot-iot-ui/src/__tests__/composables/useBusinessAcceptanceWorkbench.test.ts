@@ -226,17 +226,14 @@ describe('useBusinessAcceptanceWorkbench', () => {
     expect(workbench.selectedLatestResult.value?.status).toBe('blocked');
     expect(workbench.selectedLatestResult.value?.failedModuleNames).toEqual(['质量工场自验']);
 
-    await workbench.goToAutomationResults('20260425101010');
+    await workbench.goToAutomationEvidence('20260425101010');
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/automation-results',
-      query: {
-        runId: '20260425101010'
-      }
-    });
+    expect(mockRouter.push).toHaveBeenCalledWith(
+      '/automation-governance?tab=evidence&runId=20260425101010'
+    );
   });
 
-  it('loads result details from route context and keeps automation results deep link', async () => {
+  it('loads result details from route context and keeps automation evidence deep link', async () => {
     mockRoute.params = {
       runId: '20260404153000'
     };
@@ -253,7 +250,7 @@ describe('useBusinessAcceptanceWorkbench', () => {
         failedModuleCount: 1,
         failedModuleNames: ['产品新增'],
         durationText: '2m 0s',
-        jumpToAutomationResultsPath: '/automation-results?runId=20260404153000',
+        jumpToAutomationResultsPath: '/automation-governance?tab=evidence&runId=20260404153000',
         modules: [
           {
             moduleCode: 'product-create',
@@ -294,13 +291,10 @@ describe('useBusinessAcceptanceWorkbench', () => {
     expect(workbench.result.value?.status).toBe('failed');
     expect(workbench.activeModuleCode.value).toBe('product-create');
 
-    await workbench.goToAutomationResults('20260404153000');
+    await workbench.goToAutomationEvidence('20260404153000');
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/automation-results',
-      query: {
-        runId: '20260404153000'
-      }
-    });
+    expect(mockRouter.push).toHaveBeenCalledWith(
+      '/automation-governance?tab=evidence&runId=20260404153000'
+    );
   });
 });

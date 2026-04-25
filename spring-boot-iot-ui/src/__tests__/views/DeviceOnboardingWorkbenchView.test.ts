@@ -484,7 +484,7 @@ describe('DeviceOnboardingWorkbenchView', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/products')
   })
 
-  it('shows acceptance summary and jumps to automation results when run exists', async () => {
+  it('shows acceptance summary and normalizes legacy acceptance result links into governance evidence', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -492,7 +492,7 @@ describe('DeviceOnboardingWorkbenchView', () => {
 
     await wrapper.get('[data-testid="onboarding-result-9201"]').trigger('click')
 
-    expect(mockRouter.push).toHaveBeenCalledWith('/automation-results?runId=20260418193000')
+    expect(mockRouter.push).toHaveBeenCalledWith('/automation-governance?tab=evidence&runId=20260418193000')
   })
 
   it('starts acceptance for ready acceptance rows', async () => {

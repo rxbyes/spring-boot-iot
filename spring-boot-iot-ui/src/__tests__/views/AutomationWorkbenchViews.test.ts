@@ -8,6 +8,12 @@ function readView(fileName: string) {
   );
 }
 
+function readComponent(relativePath: string) {
+  return decodeEscapedUnicode(
+    readFileSync(resolve(import.meta.dirname, `../../components/${relativePath}`), 'utf8')
+  );
+}
+
 function readRouter() {
   return readFileSync(resolve(import.meta.dirname, '../../router/index.ts'), 'utf8');
 }
@@ -19,18 +25,17 @@ function decodeEscapedUnicode(source: string) {
 }
 
 describe('automation rd workbench route splits', () => {
-  it('keeps quality workbench focused on business acceptance, rd, and shared-center navigation', () => {
+  it('keeps quality workbench focused on business acceptance and governance navigation', () => {
     const source = readView('QualityWorkbenchLandingView.vue');
 
     expect(source).toContain('/business-acceptance');
-    expect(source).toContain('/rd-workbench');
-    expect(source).toContain('/automation-execution');
-    expect(source).toContain('/automation-results');
+    expect(source).toContain('/automation-governance');
     expect(source).toContain('quality-workbench-landing__hero');
     expect(source).toContain('quality-workbench-landing__summary-grid');
     expect(source).toContain('quality-workbench-landing__entry-grid');
-    expect(source).not.toContain('<AutomationScenarioEditor');
-    expect(source).not.toContain('<AutomationResultImportPanel');
+    expect(source).not.toContain('/rd-workbench');
+    expect(source).not.toContain('/automation-execution');
+    expect(source).not.toContain('/automation-results');
   });
 
   it('keeps the business acceptance view free of rd authoring widgets', () => {
@@ -53,108 +58,67 @@ describe('automation rd workbench route splits', () => {
 
     expect(source).toContain('<BusinessAcceptanceResultSummaryPanel');
     expect(source).toContain('<BusinessAcceptanceModuleResultPanel');
-    expect(source).toContain('goToAutomationResults');
+    expect(source).toContain('goToAutomationEvidence');
+    expect(source).toContain(':show-evidence-action="canOpenAutomationEvidence"');
+    expect(source).toContain("hasRoutePermission('/automation-governance')");
     expect(source).not.toContain('<AutomationExecutionConfigPanel');
     expect(source).not.toContain('<AutomationScenarioEditor');
   });
 
-  it('keeps the rd-workbench landing page focused on four rd authoring modules', () => {
-    const source = readView('RdWorkbenchLandingView.vue');
+  it('keeps the automation governance view focused on assets, execution, and evidence tabs', () => {
+    const source = readView('AutomationGovernanceWorkbenchView.vue');
 
-    expect(source).toContain('/rd-automation-inventory');
-    expect(source).toContain('/rd-automation-templates');
-    expect(source).toContain('/rd-automation-plans');
-    expect(source).toContain('/rd-automation-handoff');
-    expect(source).not.toContain('<AutomationRegistryPanel');
-    expect(source).not.toContain('<AutomationResultImportPanel');
+    expect(source).toContain('自动化治理台');
+    expect(source).toContain('资产编排');
+    expect(source).toContain('执行配置');
+    expect(source).toContain('结果证据');
+    expect(source).toContain('automation-governance-workbench__hero');
+    expect(source).toContain('automation-governance-workbench__tabs');
+    expect(source).toContain('<AutomationAssetsWorkspaceSection');
+    expect(source).toContain('<AutomationExecutionWorkspaceSection');
+    expect(source).toContain('<AutomationEvidenceWorkspaceSection');
   });
 
-  it('keeps the inventory page focused on page discovery and manual page curation', () => {
-    const source = readView('AutomationInventoryView.vue');
+  it('keeps asset authoring content in a reusable governance workspace section', () => {
+    const source = readComponent('automationGovernance/AutomationAssetsWorkspaceSection.vue');
 
-    expect(source).toContain('<AutomationPageDiscoveryPanel');
-    expect(source).toContain('<AutomationManualPageDrawer');
-    expect(source).not.toContain('<AutomationScenarioEditor');
-    expect(source).not.toContain('<AutomationRegistryPanel');
+    expect(source).toContain('<AutomationInventoryWorkspaceSection');
+    expect(source).toContain('<AutomationTemplatesWorkspaceSection');
+    expect(source).toContain('<AutomationPlansWorkspaceSection');
+    expect(source).toContain('<AutomationHandoffWorkspaceSection');
   });
 
-  it('keeps the template page focused on template launch actions', () => {
-    const source = readView('AutomationTemplatesView.vue');
-
-    expect(source).toContain("addScenario('pageSmoke')");
-    expect(source).toContain("addScenario('formSubmit')");
-    expect(source).toContain("addScenario('listDetail')");
-    expect(source).not.toContain('<AutomationRegistryPanel');
-    expect(source).not.toContain('<AutomationResultImportPanel');
-  });
-
-  it('keeps the plans page focused on scenario editing and plan import/export', () => {
-    const source = readView('AutomationPlansView.vue');
-
-    expect(source).toContain('<AutomationScenarioEditor');
-    expect(source).toContain('<AutomationPlanImportDrawer');
-    expect(source).toContain('<ResponsePanel');
-    expect(source).not.toContain('<AutomationRegistryPanel');
-    expect(source).not.toContain('<AutomationResultImportPanel');
-  });
-
-  it('keeps the handoff page focused on summary and delivery guidance', () => {
-    const source = readView('AutomationHandoffView.vue');
-
-    expect(source).toContain('执行建议');
-    expect(source).toContain('交付备注');
-    expect(source).toContain('<ResponsePanel');
-    expect(source).not.toContain('<AutomationScenarioEditor');
-    expect(source).not.toContain('<AutomationResultImportPanel');
-  });
-
-  it('keeps the legacy automation-assets and automation-test views as rd-workbench wrappers', () => {
-    const assetSource = readView('AutomationAssetsView.vue');
-    const legacySource = readView('AutomationTestCenterView.vue');
-
-    expect(assetSource).toContain('<RdWorkbenchLandingView');
-    expect(legacySource).toContain('<RdWorkbenchLandingView');
-    expect(assetSource).not.toContain('<AutomationScenarioEditor');
-    expect(legacySource).not.toContain('<AutomationRegistryPanel');
-  });
-
-  it('keeps the execution page focused on run configuration and registry visibility', () => {
-    const source = readView('AutomationExecutionView.vue');
+  it('keeps execution workspace content in a reusable governance section', () => {
+    const source = readComponent('automationGovernance/AutomationExecutionWorkspaceSection.vue');
 
     expect(source).toContain('<AutomationExecutionConfigPanel');
     expect(source).toContain('<AutomationRegistryPanel');
-    expect(source).not.toContain('<AutomationScenarioEditor');
-    expect(source).not.toContain('<AutomationResultImportPanel');
+    expect(source).toContain('执行概况');
   });
 
-  it('keeps the results page focused on imported run summaries and quality guidance', () => {
-    const source = readView('AutomationResultsView.vue');
+  it('keeps evidence workspace content in a reusable governance section', () => {
+    const source = readComponent('automationGovernance/AutomationEvidenceWorkspaceSection.vue');
 
     expect(source).toContain('<AutomationRecentRunsPanel');
     expect(source).toContain('<AutomationResultEvidencePanel');
-    expect(source).toContain('<AutomationResultImportPanel');
-    expect(source).toContain('<AutomationSuggestionPanel');
-    expect(source).toContain('先看当前结果，再判断当前基线是否稳定。');
-    expect(source).toContain('保留当前选中或导入的运行摘要');
-    expect(source).not.toContain('先看导入结果');
-    expect(source).not.toContain('<AutomationScenarioEditor');
-    expect(source).not.toContain('<AutomationExecutionConfigPanel');
+    expect(source).toContain('失败场景明细');
   });
 
-  it('registers rd-workbench routes and keeps compatibility routes alive', () => {
+  it('registers automation-governance route and retires the old rd/execution/result routes', () => {
     const source = readRouter();
 
     expect(source).toContain("path: '/quality-workbench'");
     expect(source).toContain("path: '/business-acceptance'");
     expect(source).toContain("path: '/business-acceptance/results/:runId'");
-    expect(source).toContain("path: '/rd-workbench'");
-    expect(source).toContain("path: '/rd-automation-inventory'");
-    expect(source).toContain("path: '/rd-automation-templates'");
-    expect(source).toContain("path: '/rd-automation-plans'");
-    expect(source).toContain("path: '/rd-automation-handoff'");
-    expect(source).toContain("path: '/automation-assets'");
-    expect(source).toContain("path: '/automation-execution'");
-    expect(source).toContain("path: '/automation-results'");
-    expect(source).toContain("path: '/automation-test'");
+    expect(source).toContain("path: '/automation-governance'");
+    expect(source).not.toContain("path: '/rd-workbench'");
+    expect(source).not.toContain("path: '/rd-automation-inventory'");
+    expect(source).not.toContain("path: '/rd-automation-templates'");
+    expect(source).not.toContain("path: '/rd-automation-plans'");
+    expect(source).not.toContain("path: '/rd-automation-handoff'");
+    expect(source).not.toContain("path: '/automation-assets'");
+    expect(source).not.toContain("path: '/automation-execution'");
+    expect(source).not.toContain("path: '/automation-results'");
+    expect(source).not.toContain("path: '/automation-test'");
   });
 });

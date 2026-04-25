@@ -355,7 +355,7 @@
           <li>协议信息齐全但未绑定产品时，阻塞在“产品治理”。</li>
           <li>已绑定产品但未发布正式合同批次时，停留在“合同发布”。</li>
           <li>正式批次已存在但缺验收设备编码时，阻塞在“接入验收”。</li>
-          <li>验收设备齐备后可触发标准接入验收，并跳转统一结果中心查看 runId 结果。</li>
+          <li>验收设备齐备后可触发标准接入验收，并跳转自动化治理台的结果证据查看 runId 结果。</li>
         </ul>
       </PanelCard>
 
@@ -615,6 +615,7 @@ import type {
   OnboardingTemplatePackUpdatePayload
 } from '@/types/api'
 import { ElMessage } from '@/utils/message'
+import { buildAutomationGovernanceEvidencePath } from '@/utils/automationGovernance'
 import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes'
 
 const router = useRouter()
@@ -994,10 +995,13 @@ function handleOpenAcceptance(row: DeviceOnboardingCase): void {
 
 function acceptanceJumpPath(row: DeviceOnboardingCase): string {
   if (row.acceptance?.jumpPath) {
+    if (row.acceptance.jumpPath.startsWith('/automation-results')) {
+      return buildAutomationGovernanceEvidencePath(row.acceptance.runId)
+    }
     return row.acceptance.jumpPath
   }
   if (row.acceptance?.runId) {
-    return `/automation-results?runId=${row.acceptance.runId}`
+    return buildAutomationGovernanceEvidencePath(row.acceptance.runId)
   }
   return ''
 }

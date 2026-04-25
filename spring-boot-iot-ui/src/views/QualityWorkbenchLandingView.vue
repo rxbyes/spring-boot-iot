@@ -2,24 +2,23 @@
   <StandardPageShell class="quality-workbench-landing">
     <StandardWorkbenchPanel
       title="质量工场总览"
-      description="把业务验收、研发编排、执行准备和结果复盘收成四个稳定入口，减少切换时的认知负担。"
+      description="把质量工场收成业务验收台和自动化治理台两条主路径，让入口更简单、结构更对称。"
       show-notices
     >
       <template #notices>
         <div class="landing-chip-list">
           <span>业务优先</span>
-          <span>研发编排</span>
-          <span>执行共享</span>
-          <span>结果共享</span>
+          <span>治理收口</span>
+          <span>双入口</span>
         </div>
       </template>
 
       <section class="quality-workbench-landing__hero">
         <div class="quality-workbench-landing__hero-copy">
           <span class="quality-workbench-landing__eyebrow">Quality Factory</span>
-          <h2>先验收，再执行，最后复盘。</h2>
+          <h2>先做业务验收，再进入自动化治理。</h2>
           <p class="landing-summary">
-            业务角色先从业务验收台发起交付验收，研发再进入研发工场维护自动化资产，执行与结果保持共享，不再把所有动作塞进同一页。
+            业务、产品和项目经理只从业务验收台发起交付验收；研发、测试和管理员在自动化治理台统一维护资产编排、执行配置和结果证据。
           </p>
           <RouterLink to="/business-acceptance" class="landing-link landing-link--primary">
             进入业务验收台
@@ -39,13 +38,13 @@
       </section>
 
       <section class="quality-workbench-landing__balanced-grid">
-        <PanelCard title="进入顺序" description="按角色任务进入对应页面，避免在总览页内来回切换。">
+        <PanelCard title="进入顺序" description="按角色任务进入对应工作台，不在总览页堆叠细节。">
           <ol class="landing-list">
             <li v-for="step in entrySteps" :key="step">{{ step }}</li>
           </ol>
         </PanelCard>
 
-        <PanelCard title="默认分工" description="首页只负责分流，不再承载执行细节和结果复盘细节。">
+        <PanelCard title="默认分工" description="总览只做分流，治理细节全部下沉到治理台内部。">
           <div class="landing-role-grid">
             <article
               v-for="item in roleHighlights"
@@ -95,29 +94,17 @@ const qualityCards = [
     short: '验'
   },
   {
-    path: '/rd-workbench',
-    label: '研发工场',
-    description: '面向研发的自动化资产编排主入口。',
-    short: '研'
-  },
-  {
-    path: '/automation-execution',
-    label: '执行中心',
-    description: '统一维护目标环境、执行范围与验收注册表。',
-    short: '执'
-  },
-  {
-    path: '/automation-results',
-    label: '结果与基线中心',
-    description: '统一导入结果、查看失败并维护基线证据。',
-    short: '果'
+    path: '/automation-governance',
+    label: '自动化治理台',
+    description: '把资产编排、执行配置和结果证据收进同一治理工作区。',
+    short: '治'
   }
 ] as const;
 
 const entrySteps = [
   '验收人员、产品和项目经理先选择预置验收包，只配置环境、账号模板和模块范围。',
-  '研发维护自动化资产时，再进入研发工场拆分页面清单、模板、计划与交付材料。',
-  '回归前先在执行中心校准命令与阻断范围，结束后统一回到结果与基线中心复盘。'
+  '研发、测试和管理员进入自动化治理台，在资产编排里维护页面盘点、模板、计划和交付材料。',
+  '执行配置与结果证据继续保留原有能力，但统一收口在治理台内部切换。'
 ];
 
 const roleHighlights = [
@@ -126,7 +113,7 @@ const roleHighlights = [
     description: '关注是否通过、哪些模块没过，以及对应运行编号。'
   },
   {
-    title: '研发角色',
+    title: '治理角色',
     description: '关注自动化资产编排、执行口径和失败证据沉淀。'
   }
 ];
@@ -143,14 +130,14 @@ const landingMetrics = computed(() => [
     badge: { label: 'Biz', tone: 'success' as const }
   },
   {
-    label: '研发入口',
+    label: '治理入口',
     value: '1',
     badge: { label: 'RD', tone: 'warning' as const }
   },
   {
-    label: '共享中心',
-    value: '2',
-    badge: { label: 'Share', tone: 'danger' as const }
+    label: '治理工作区',
+    value: '3',
+    badge: { label: 'Flow', tone: 'danger' as const }
   }
 ]);
 

@@ -188,9 +188,9 @@ const STATIC_PAGE_SEEDS: AutomationInventorySeed[] = [
     matcher: '/api/system/channel/'
   },
   {
-    route: '/automation-test',
-    title: '自动化工场',
-    caption: '配置驱动的浏览器自动化编排、报告与测试建议中心。'
+    route: '/automation-governance',
+    title: '自动化治理台',
+    caption: '统一承接资产编排、执行配置与结果证据。'
   },
   {
     route: '/audit-log',

@@ -62,7 +62,7 @@ describe('shellPanelContent', () => {
     expect(itemPaths).toContain('/products');
   });
 
-  it('routes quality help entries through the overview instead of the legacy automation page', () => {
+  it('routes quality help entries through the overview and consolidated governance page', () => {
     const content = buildShellHelpPopoverContent({
       roleProfile: createRoleProfile({
         key: 'developer',
@@ -82,11 +82,11 @@ describe('shellPanelContent', () => {
         key: 'quality-workbench',
         label: '质量工场',
         items: [
-          { to: '/automation-assets', label: '自动化资产中心', caption: 'caption', short: '资' },
-          { to: '/automation-execution', label: '执行中心', caption: 'caption', short: '执' }
+          { to: '/business-acceptance', label: '业务验收台', caption: 'caption', short: '验' },
+          { to: '/automation-governance', label: '自动化治理台', caption: 'caption', short: '治' }
         ]
       }),
-      allowedPaths: ['/quality-workbench', '/automation-assets', '/automation-execution', '/automation-results', '/reporting'],
+      allowedPaths: ['/quality-workbench', '/business-acceptance', '/automation-governance', '/reporting'],
       activities: []
     });
 
@@ -97,6 +97,7 @@ describe('shellPanelContent', () => {
     expect(itemPaths).not.toContain('/automation-test');
     expect(technicalSection?.items.map((item) => item.title)).toContain('HTTP / MQTT 联调指引');
     expect(technicalSection?.items.map((item) => item.description).join(' ')).toContain('排障起点');
+    expect(technicalSection?.items.map((item) => item.description).join(' ')).toContain('自动化治理台');
   });
 
   it('places failed activities into the error notice section and keeps all notice sections', () => {
@@ -127,7 +128,7 @@ describe('shellPanelContent', () => {
         roleNameKeywords: ['开发'],
         defaultPath: '/device-access',
         preferredWorkspaceKeys: ['iot-access', 'risk-config', 'quality-workbench'],
-        featuredPaths: ['/reporting', '/system-log', '/message-trace', '/automation-test'],
+        featuredPaths: ['/reporting', '/system-log', '/message-trace', '/automation-governance'],
         cockpitRole: 'rd',
         focusLabel: '链路与质量',
         focusDescription: '优先联调接入链路、异常观测、消息追踪和自动化回归。'
@@ -142,7 +143,7 @@ describe('shellPanelContent', () => {
           { to: '/system-log', label: '异常观测台', caption: 'caption', short: '观' }
         ]
       }),
-      allowedPaths: ['/reporting', '/system-log', '/message-trace', '/automation-test', '/devices'],
+      allowedPaths: ['/reporting', '/system-log', '/message-trace', '/automation-governance', '/devices'],
       activities
     });
 

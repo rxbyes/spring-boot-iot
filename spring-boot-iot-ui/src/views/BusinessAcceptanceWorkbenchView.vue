@@ -90,7 +90,7 @@
 
             <div class="business-acceptance-workbench__summary-actions">
               <StandardButton
-                v-permission="'system:business-acceptance:open-result'"
+                v-if="canOpenAutomationEvidence"
                 action="query"
                 :disabled="!selectedLatestResult?.runId"
                 @click="openLatestRun"
@@ -116,6 +116,7 @@ import StandardInlineState from '../components/StandardInlineState.vue';
 import StandardPageShell from '../components/StandardPageShell.vue';
 import StandardWorkbenchPanel from '../components/StandardWorkbenchPanel.vue';
 import { useBusinessAcceptanceWorkbench } from '../composables/useBusinessAcceptanceWorkbench';
+import { usePermissionStore } from '../stores/permission';
 
 const pageTitle = '\u4e1a\u52a1\u9a8c\u6536\u53f0';
 const pageDescription =
@@ -128,11 +129,12 @@ const noticeChips = [
 ];
 const latestPanelTitle = '\u6700\u8fd1\u4e00\u6b21\u7ed3\u8bba';
 const latestPanelDescription =
-  '\u9996\u5c4f\u76f4\u63a5\u7ed9\u4e1a\u52a1\u4eba\u5458\u6700\u8fd1\u4e00\u6b21\u7ed3\u679c\u7ed3\u8bba\uff0c\u5e76\u4fdd\u7559\u8df3\u8f6c\u5230\u5e95\u5c42\u7ed3\u679c\u4e2d\u5fc3\u7684\u80fd\u529b\u3002';
+  '\u9996\u5c4f\u76f4\u63a5\u7ed9\u4e1a\u52a1\u4eba\u5458\u6700\u8fd1\u4e00\u6b21\u7ed3\u679c\u7ed3\u8bba\uff0c\u5e76\u4fdd\u7559\u8df3\u8f6c\u5230\u81ea\u52a8\u5316\u6cbb\u7406\u53f0\u7ed3\u679c\u8bc1\u636e\u7684\u80fd\u529b\u3002';
 const latestStatusLabel = '\u6700\u8fd1\u4e00\u6b21\u72b6\u6001';
 const passedModulesLabel = '\u901a\u8fc7\u6a21\u5757';
 const failedModulesLabel = '\u672a\u8fc7\u6a21\u5757';
-const openResultsCenterLabel = '\u8fdb\u5165\u7ed3\u679c\u4e0e\u57fa\u7ebf\u4e2d\u5fc3';
+const openResultsCenterLabel = '\u8fdb\u5165\u7ed3\u679c\u8bc1\u636e';
+const permissionStore = usePermissionStore();
 
 const {
   packages,
@@ -151,8 +153,13 @@ const {
   runStatus,
   loadInitialData,
   launchSelectedPackage,
-  goToAutomationResults
+  goToAutomationEvidence
 } = useBusinessAcceptanceWorkbench();
+
+const canOpenAutomationEvidence = computed(() =>
+  permissionStore.hasPermission('system:business-acceptance:open-result')
+  && permissionStore.hasRoutePermission('/automation-governance')
+);
 
 const latestSummaryTone = computed<'info' | 'error'>(() => {
   return (selectedLatestResult.value?.failedModuleCount ?? 0) > 0 ? 'error' : 'info';
@@ -219,7 +226,7 @@ async function openLatestRun() {
   if (!runId) {
     return;
   }
-  await goToAutomationResults(runId);
+  await goToAutomationEvidence(runId);
 }
 
 onMounted(() => {

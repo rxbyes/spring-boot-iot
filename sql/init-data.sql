@@ -153,7 +153,7 @@ INSERT INTO sys_menu (
     (93000002, 1, 0, '风险运营', 'risk-ops', '', 'Layout', 'warning', '{"description":"态势、告警与协同闭环","menuTitle":"风险运营","menuHint":"覆盖实时监测、告警运营、事件协同、对象洞察与运营复盘。"}', 20, 0, 0, '', 'risk-ops', 20, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000004, 1, 0, '风险策略', 'risk-config', '', 'Layout', 'operation', '{"description":"对象、阈值与联动配置","menuTitle":"风险策略","menuHint":"覆盖风险对象、阈值策略、联动编排与应急预案库。"}', 30, 0, 0, '', 'risk-config', 30, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000003, 1, 0, '平台治理', 'system-governance', '', 'Layout', 'setting', '{"description":"组织、权限与审计治理","menuTitle":"平台治理","menuHint":"覆盖组织、账号、角色、导航、区域、字典、通知、帮助与审计中心。"}', 40, 0, 0, '', 'system-governance', 40, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"研发工场、执行组织与结果基线","menuTitle":"质量工场","menuHint":"覆盖研发资产编排、执行组织与结果基线治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93000005, 1, 0, '质量工场', 'quality-workbench', '', 'Layout', 'monitor', '{"description":"业务验收与自动化治理","menuTitle":"质量工场","menuHint":"覆盖业务验收与自动化治理。"}', 50, 0, 0, '', 'quality-workbench', 50, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000011, 1, 93000001, '智维总览', 'iot-access:overview', '/device-access', 'SectionLandingView', 'connection', '{"caption":"查看接入智维分组能力与标准排障路径","hiddenInSidebar":false}', 9, 1, 1, '/device-access', 'iot-access:overview', 9, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000012, 1, 93000002, '运营总览', 'risk:ops-overview', '/risk-disposal', 'SectionLandingView', 'warning', '{"caption":"查看风险运营主链路与能力入口","hiddenInSidebar":false}', 19, 1, 1, '/risk-disposal', 'risk:ops-overview', 19, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93000013, 1, 93000004, '策略总览', 'risk:config-overview', '/risk-config', 'SectionLandingView', 'operation', '{"caption":"查看风险策略分组能力与配置入口","hiddenInSidebar":false}', 29, 1, 1, '/risk-config', 'risk:config-overview', 29, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -204,15 +204,7 @@ INSERT INTO sys_menu (
 
     (93003020, 1, 93000005, '业务验收台', 'system:business-acceptance', '/business-acceptance', 'BusinessAcceptanceWorkbenchView', 'finished', '{"caption":"按交付清单运行预置业务验收包"}', 51, 1, 1, '/business-acceptance', 'system:business-acceptance', 51, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003715, 1, 93003020, '业务验收结果', 'system:business-acceptance:result', '/business-acceptance/results/:runId', 'BusinessAcceptanceResultView', 'finished', '{"caption":"查看业务验收包的模块结论与失败明细","hiddenInSidebar":true}', 5715, 1, 1, '/business-acceptance/results/:runId', 'system:business-acceptance:result', 5715, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (93003015, 1, 93000005, '研发工场', 'system:rd-workbench', '/rd-workbench', 'RdWorkbenchLandingView', 'edit-pen', '{"caption":"研发自动化资产编排主入口"}', 52, 1, 1, '/rd-workbench', 'system:rd-workbench', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003016, 1, 93000005, '页面盘点台', 'system:rd-automation-inventory', '/rd-automation-inventory', 'AutomationInventoryView', 'document', '{"caption":"页面清单、覆盖缺口与人工补录"}', 53, 1, 1, '/rd-automation-inventory', 'system:rd-automation-inventory', 53, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003017, 1, 93000005, '场景模板台', 'system:rd-automation-templates', '/rd-automation-templates', 'AutomationTemplatesView', 'files', '{"caption":"沉淀页面冒烟、表单提交与列表详情模板"}', 54, 1, 1, '/rd-automation-templates', 'system:rd-automation-templates', 54, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003018, 1, 93000005, '计划编排台', 'system:rd-automation-plans', '/rd-automation-plans', 'AutomationPlansView', 'edit', '{"caption":"维护场景顺序、步骤、断言与导入导出"}', 55, 1, 1, '/rd-automation-plans', 'system:rd-automation-plans', 55, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003019, 1, 93000005, '交付打包台', 'system:rd-automation-handoff', '/rd-automation-handoff', 'AutomationHandoffView', 'promotion', '{"caption":"整理执行建议、基线说明与验收备注"}', 56, 1, 1, '/rd-automation-handoff', 'system:rd-automation-handoff', 56, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003013, 1, 93000005, '执行中心', 'system:automation-execution', '/automation-execution', 'AutomationExecutionView', 'operation', '{"caption":"目标环境、命令预览与统一验收注册表"}', 57, 1, 1, '/automation-execution', 'system:automation-execution', 57, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003014, 1, 93000005, '结果与基线中心', 'system:automation-results', '/automation-results', 'AutomationResultsView', 'data-analysis', '{"caption":"运行结果导入、失败复盘与质量建议"}', 58, 1, 1, '/automation-results', 'system:automation-results', 58, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003012, 1, 93000005, '自动化资产中心（兼容入口）', 'system:automation-assets', '/automation-assets', 'AutomationAssetsView', 'document', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览","hiddenInSidebar":true}', 59, 1, 1, '/automation-assets', 'system:automation-assets', 59, 0, 1, 1, NOW(), 1, NOW(), 0),
-    (93003009, 1, 93000005, '自动化工场（兼容入口）', 'system:automation-test', '/automation-test', 'AutomationTestCenterView', 'monitor', '{"caption":"兼容旧入口，第一轮直接落到研发工场总览","hiddenInSidebar":true}', 60, 1, 1, '/automation-test', 'system:automation-test', 60, 0, 1, 1, NOW(), 1, NOW(), 0),
+    (93003015, 1, 93000005, '自动化治理台', 'system:automation-governance', '/automation-governance', 'AutomationGovernanceWorkbenchView', 'operation', '{"caption":"统一承接资产编排、执行配置与结果证据"}', 52, 1, 1, '/automation-governance', 'system:automation-governance', 52, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001011, 1, 93001001, '新增产品', 'iot:products:add', '', '', '', '{"caption":"产品定义中心新增产品按钮权限"}', 1101, 2, 2, '', 'iot:products:add', 1101, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001012, 1, 93001001, '编辑产品', 'iot:products:update', '', '', '', '{"caption":"产品定义中心编辑产品按钮权限"}', 1102, 2, 2, '', 'iot:products:update', 1102, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001013, 1, 93001001, '删除产品', 'iot:products:delete', '', '', '', '{"caption":"产品定义中心删除产品按钮权限"}', 1103, 2, 2, '', 'iot:products:delete', 1103, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -458,25 +450,25 @@ INSERT INTO sys_menu (
     (93003646, 1, 93003022, '影响分析', 'system:governance-approval:impact', '', '', '', '{"caption":"查看审批影响分析"}', 5246, 2, 2, '', 'system:governance-approval:impact', 5246, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003701, 1, 93003020, '发起验收', 'system:business-acceptance:launch', '', '', '', '{"caption":"发起业务验收"}', 5701, 2, 2, '', 'system:business-acceptance:launch', 5701, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003702, 1, 93003020, '打开结果', 'system:business-acceptance:open-result', '', '', '', '{"caption":"打开最近一次验收结果"}', 5702, 2, 2, '', 'system:business-acceptance:open-result', 5702, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003703, 1, 93003016, '刷新盘点', 'system:rd-automation-inventory:refresh', '', '', '', '{"caption":"刷新页面盘点结果"}', 5303, 2, 2, '', 'system:rd-automation-inventory:refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003704, 1, 93003016, '勾选未覆盖', 'system:rd-automation-inventory:select-uncovered', '', '', '', '{"caption":"勾选未覆盖页面"}', 5304, 2, 2, '', 'system:rd-automation-inventory:select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003705, 1, 93003016, '生成脚手架', 'system:rd-automation-inventory:generate-scaffold', '', '', '', '{"caption":"一键生成自动化脚手架"}', 5305, 2, 2, '', 'system:rd-automation-inventory:generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003706, 1, 93003017, '新增页面冒烟模板', 'system:rd-automation-templates:add-page-smoke', '', '', '', '{"caption":"新增页面冒烟模板"}', 5406, 2, 2, '', 'system:rd-automation-templates:add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003707, 1, 93003017, '新增表单提交模板', 'system:rd-automation-templates:add-form-submit', '', '', '', '{"caption":"新增表单提交模板"}', 5407, 2, 2, '', 'system:rd-automation-templates:add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003708, 1, 93003017, '新增列表详情模板', 'system:rd-automation-templates:add-list-detail', '', '', '', '{"caption":"新增列表详情模板"}', 5408, 2, 2, '', 'system:rd-automation-templates:add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003709, 1, 93003018, '导入计划', 'system:rd-automation-plans:import', '', '', '', '{"caption":"导入自动化计划"}', 5509, 2, 2, '', 'system:rd-automation-plans:import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003710, 1, 93003018, '导出计划', 'system:rd-automation-plans:export', '', '', '', '{"caption":"导出自动化计划 JSON"}', 5510, 2, 2, '', 'system:rd-automation-plans:export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003711, 1, 93003018, '重置计划', 'system:rd-automation-plans:reset', '', '', '', '{"caption":"恢复默认自动化计划"}', 5511, 2, 2, '', 'system:rd-automation-plans:reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003712, 1, 93003019, '复制命令', 'system:rd-automation-handoff:copy-command', '', '', '', '{"caption":"复制交付命令"}', 5612, 2, 2, '', 'system:rd-automation-handoff:copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003713, 1, 93003019, '导出计划文件', 'system:rd-automation-handoff:export-plan', '', '', '', '{"caption":"导出交付计划"}', 5613, 2, 2, '', 'system:rd-automation-handoff:export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003714, 1, 93003013, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003716, 1, 93003014, '刷新结果台账', 'system:automation-results:refresh', '', '', '', '{"caption":"刷新自动化结果运行台账"}', 5816, 2, 2, '', 'system:automation-results:refresh', 5816, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003717, 1, 93003014, '查看运行详情', 'system:automation-results:detail', '', '', '', '{"caption":"查看自动化结果运行详情"}', 5817, 2, 2, '', 'system:automation-results:detail', 5817, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003718, 1, 93003014, '查看证据原文', 'system:automation-results:evidence-preview', '', '', '', '{"caption":"查看自动化结果证据原文"}', 5818, 2, 2, '', 'system:automation-results:evidence-preview', 5818, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003719, 1, 93003014, '导入结果 JSON', 'system:automation-results:import-json', '', '', '', '{"caption":"兼容导入外部自动化结果 JSON"}', 5819, 2, 2, '', 'system:automation-results:import-json', 5819, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003720, 1, 93003014, '清空导入结果', 'system:automation-results:clear-import', '', '', '', '{"caption":"清空兼容导入的自动化结果"}', 5820, 2, 2, '', 'system:automation-results:clear-import', 5820, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003721, 1, 93003018, '编辑计划编排', 'system:rd-automation-plans:edit', '', '', '', '{"caption":"维护自动化计划场景、步骤、接口与变量捕获"}', 5521, 2, 2, '', 'system:rd-automation-plans:edit', 5521, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003722, 1, 93003016, '维护自定义页面', 'system:rd-automation-inventory:manual-page', '', '', '', '{"caption":"新增或删除页面盘点台人工补录页面"}', 5322, 2, 2, '', 'system:rd-automation-inventory:manual-page', 5322, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003703, 1, 93003015, '刷新盘点', 'system:rd-automation-inventory:refresh', '', '', '', '{"caption":"刷新页面盘点结果"}', 5303, 2, 2, '', 'system:rd-automation-inventory:refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003704, 1, 93003015, '勾选未覆盖', 'system:rd-automation-inventory:select-uncovered', '', '', '', '{"caption":"勾选未覆盖页面"}', 5304, 2, 2, '', 'system:rd-automation-inventory:select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003705, 1, 93003015, '生成脚手架', 'system:rd-automation-inventory:generate-scaffold', '', '', '', '{"caption":"一键生成自动化脚手架"}', 5305, 2, 2, '', 'system:rd-automation-inventory:generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003706, 1, 93003015, '新增页面冒烟模板', 'system:rd-automation-templates:add-page-smoke', '', '', '', '{"caption":"新增页面冒烟模板"}', 5406, 2, 2, '', 'system:rd-automation-templates:add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003707, 1, 93003015, '新增表单提交模板', 'system:rd-automation-templates:add-form-submit', '', '', '', '{"caption":"新增表单提交模板"}', 5407, 2, 2, '', 'system:rd-automation-templates:add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003708, 1, 93003015, '新增列表详情模板', 'system:rd-automation-templates:add-list-detail', '', '', '', '{"caption":"新增列表详情模板"}', 5408, 2, 2, '', 'system:rd-automation-templates:add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003709, 1, 93003015, '导入计划', 'system:rd-automation-plans:import', '', '', '', '{"caption":"导入自动化计划"}', 5509, 2, 2, '', 'system:rd-automation-plans:import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003710, 1, 93003015, '导出计划', 'system:rd-automation-plans:export', '', '', '', '{"caption":"导出自动化计划 JSON"}', 5510, 2, 2, '', 'system:rd-automation-plans:export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003711, 1, 93003015, '重置计划', 'system:rd-automation-plans:reset', '', '', '', '{"caption":"恢复默认自动化计划"}', 5511, 2, 2, '', 'system:rd-automation-plans:reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003712, 1, 93003015, '复制命令', 'system:rd-automation-handoff:copy-command', '', '', '', '{"caption":"复制交付命令"}', 5612, 2, 2, '', 'system:rd-automation-handoff:copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003713, 1, 93003015, '导出计划文件', 'system:rd-automation-handoff:export-plan', '', '', '', '{"caption":"导出交付计划"}', 5613, 2, 2, '', 'system:rd-automation-handoff:export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003714, 1, 93003015, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003716, 1, 93003015, '刷新结果台账', 'system:automation-results:refresh', '', '', '', '{"caption":"刷新自动化结果运行台账"}', 5816, 2, 2, '', 'system:automation-results:refresh', 5816, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003717, 1, 93003015, '查看运行详情', 'system:automation-results:detail', '', '', '', '{"caption":"查看自动化结果运行详情"}', 5817, 2, 2, '', 'system:automation-results:detail', 5817, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003718, 1, 93003015, '查看证据原文', 'system:automation-results:evidence-preview', '', '', '', '{"caption":"查看自动化结果证据原文"}', 5818, 2, 2, '', 'system:automation-results:evidence-preview', 5818, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003719, 1, 93003015, '导入结果 JSON', 'system:automation-results:import-json', '', '', '', '{"caption":"兼容导入外部自动化结果 JSON"}', 5819, 2, 2, '', 'system:automation-results:import-json', 5819, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003720, 1, 93003015, '清空导入结果', 'system:automation-results:clear-import', '', '', '', '{"caption":"清空兼容导入的自动化结果"}', 5820, 2, 2, '', 'system:automation-results:clear-import', 5820, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003721, 1, 93003015, '编辑计划编排', 'system:rd-automation-plans:edit', '', '', '', '{"caption":"维护自动化计划场景、步骤、接口与变量捕获"}', 5521, 2, 2, '', 'system:rd-automation-plans:edit', 5521, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003722, 1, 93003015, '维护自定义页面', 'system:rd-automation-inventory:manual-page', '', '', '', '{"caption":"新增或删除页面盘点台人工补录页面"}', 5322, 2, 2, '', 'system:rd-automation-inventory:manual-page', 5322, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -517,7 +509,6 @@ FROM (
     UNION SELECT @role_business_id, 'system:quality-workbench-overview'
     UNION SELECT @role_business_id, 'system:business-acceptance'
     UNION SELECT @role_business_id, 'system:business-acceptance:result'
-    UNION SELECT @role_business_id, 'system:automation-results'
     UNION SELECT @role_business_id, 'iot-access'
     UNION SELECT @role_business_id, 'iot-access:overview'
     UNION SELECT @role_business_id, 'iot:products'
@@ -573,7 +564,6 @@ FROM (
     UNION SELECT @role_management_id, 'system:quality-workbench-overview'
     UNION SELECT @role_management_id, 'system:business-acceptance'
     UNION SELECT @role_management_id, 'system:business-acceptance:result'
-    UNION SELECT @role_management_id, 'system:automation-results'
     UNION SELECT @role_ops_id, 'iot-access'
     UNION SELECT @role_ops_id, 'iot-access:overview'
     UNION SELECT @role_ops_id, 'iot:device-onboarding'
@@ -618,15 +608,7 @@ FROM (
     UNION SELECT @role_developer_id, 'iot:file-debug'
     UNION SELECT @role_developer_id, 'quality-workbench'
     UNION SELECT @role_developer_id, 'system:quality-workbench-overview'
-    UNION SELECT @role_developer_id, 'system:rd-workbench'
-    UNION SELECT @role_developer_id, 'system:rd-automation-inventory'
-    UNION SELECT @role_developer_id, 'system:rd-automation-templates'
-    UNION SELECT @role_developer_id, 'system:rd-automation-plans'
-    UNION SELECT @role_developer_id, 'system:rd-automation-handoff'
-    UNION SELECT @role_developer_id, 'system:automation-execution'
-    UNION SELECT @role_developer_id, 'system:automation-results'
-    UNION SELECT @role_developer_id, 'system:automation-assets'
-    UNION SELECT @role_developer_id, 'system:automation-test'
+    UNION SELECT @role_developer_id, 'system:automation-governance'
     UNION SELECT @role_developer_id, 'risk-config'
     UNION SELECT @role_developer_id, 'risk:config-overview'
     UNION SELECT @role_developer_id, 'risk:rule-definition'
@@ -656,9 +638,6 @@ FROM (
     UNION SELECT @role_business_id, 'risk:event:close'
     UNION SELECT @role_business_id, 'system:business-acceptance:launch'
     UNION SELECT @role_business_id, 'system:business-acceptance:open-result'
-    UNION SELECT @role_business_id, 'system:automation-results:refresh'
-    UNION SELECT @role_business_id, 'system:automation-results:detail'
-    UNION SELECT @role_business_id, 'system:automation-results:evidence-preview'
     UNION SELECT @role_business_id, 'iot:products:export'
     UNION SELECT @role_business_id, 'iot:devices:detail'
     UNION SELECT @role_business_id, 'iot:devices:export'

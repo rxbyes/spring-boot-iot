@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockRoute,
+  replaceMock,
   successMessageMock,
   errorMessageMock,
   pageAutomationResultsMock,
@@ -13,6 +14,7 @@ const {
   mockRoute: {
     query: {}
   },
+  replaceMock: vi.fn(),
   successMessageMock: vi.fn(),
   errorMessageMock: vi.fn(),
   pageAutomationResultsMock: vi.fn(),
@@ -38,7 +40,10 @@ vi.mock('@/utils/message', () => ({
 }));
 
 vi.mock('vue-router', () => ({
-  useRoute: () => mockRoute
+  useRoute: () => mockRoute,
+  useRouter: () => ({
+    replace: replaceMock
+  })
 }));
 
 import { useAutomationRegistryWorkbench } from '@/composables/useAutomationRegistryWorkbench';
@@ -120,6 +125,7 @@ function createPageResult(records: unknown[], pageNum = 1, pageSize = 10, total 
 describe('useAutomationRegistryWorkbench', () => {
   beforeEach(() => {
     mockRoute.query = {};
+    replaceMock.mockReset();
     successMessageMock.mockReset();
     errorMessageMock.mockReset();
     pageAutomationResultsMock.mockReset();
@@ -334,6 +340,11 @@ describe('useAutomationRegistryWorkbench', () => {
 
     expect(workbench.selectedLedgerRunId.value).toBe('run-b');
     expect(workbench.currentRun.value?.runId).toBe('run-b');
+    expect(replaceMock).toHaveBeenCalledWith({
+      query: {
+        runId: 'run-b'
+      }
+    });
 
     await workbench.fetchRunLedger();
 

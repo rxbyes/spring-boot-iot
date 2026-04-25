@@ -101,12 +101,12 @@ function createLegacyQualityMenus(): MenuTreeNode[] {
         {
           id: 93003009,
           parentId: 93000005,
-          menuName: '自动化工场（兼容入口）',
-          menuCode: 'system:automation-test',
-          path: '/automation-test',
+          menuName: '自动化治理台',
+          menuCode: 'system:automation-governance',
+          path: '/automation-governance',
           type: 1,
           meta: {
-            caption: '兼容旧入口'
+            caption: '治理资产、执行与证据'
           },
           children: []
         }
@@ -219,9 +219,9 @@ describe('useShellNavigation', () => {
     expect(pushMock).toHaveBeenCalledWith('/system-management');
   });
 
-  it('upgrades the legacy quality-workbench menu tree to the split rd/execution/results navigation', () => {
-    routeState.path = '/rd-automation-plans';
-    routeState.meta = { title: '计划编排台' };
+  it('maps quality-workbench menus onto the consolidated business and governance navigation', () => {
+    routeState.path = '/automation-governance';
+    routeState.meta = { title: '自动化治理台' };
     const permissionStore = usePermissionStore();
     permissionStore.setAccessToken('token');
     permissionStore.setAuthContext(
@@ -238,17 +238,10 @@ describe('useShellNavigation', () => {
 
     expect(qualityGroup?.items.map((item) => item.to)).toEqual([
       '/quality-workbench',
-      '/rd-workbench',
-      '/rd-automation-inventory',
-      '/rd-automation-templates',
-      '/rd-automation-plans',
-      '/rd-automation-handoff',
-      '/automation-execution',
-      '/automation-results'
+      '/automation-governance'
     ]);
-    expect(qualityGroup?.items.some((item) => item.to === '/automation-test')).toBe(false);
     expect(navigation.activeGroup.value.key).toBe('quality-workbench');
-    expect(navigation.activeTitle.value).toBe('计划编排台');
+    expect(navigation.activeTitle.value).toBe('自动化治理台');
   });
 
   it('prefers backend menu names over static workspace labels for renamed menu items', () => {
