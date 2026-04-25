@@ -369,6 +369,128 @@
           }
         }
       ]
+    },
+    {
+      "packageCode": "product-governance-p1",
+      "packageName": "产品治理 P1",
+      "description": "覆盖产品契约字段、映射规则和采集型产品边界治理的版本封板前扩展验收。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "contract-governance",
+          "moduleName": "产品契约字段治理",
+          "scenarioRefs": ["product-governance.contracts.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开产品契约字段治理工作台",
+            "apiRef": "POST /api/device/product/{productId}/model/compare；POST /api/device/product/{productId}/model/apply",
+            "pageAction": "进入产品契约页，检查样本识别、本次生效和正式字段区域",
+            "summary": "产品契约字段治理 P1 未通过，请查看产品治理浏览器报告和 compare/apply 证据。"
+          }
+        },
+        {
+          "moduleCode": "mapping-rule-governance",
+          "moduleName": "映射规则与运行态展示治理",
+          "scenarioRefs": ["product-governance.mapping-rules.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "校验映射规则和采集型产品边界",
+            "apiRef": "GET /api/device/product/{productId}/vendor-mapping-rules；GET /api/device/product/{productId}/runtime-display-rules",
+            "pageAction": "进入产品治理工作台，检查采集器自身状态字段与子设备字段边界",
+            "summary": "映射规则治理 P1 未通过，请复核浏览器计划中的采集型产品边界证据。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "protocol-governance-p1",
+      "packageName": "协议治理 P1",
+      "description": "覆盖协议族、解密档案、协议模板、模板回放和发布审批入口。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "protocol-template-governance",
+          "moduleName": "协议模板与发布治理",
+          "scenarioRefs": ["protocol-governance.p1.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行协议治理工作台浏览器冒烟",
+            "apiRef": "POST /api/protocol-governance/families；POST /api/protocol-governance/decrypt-profiles；POST /api/protocol-governance/templates",
+            "pageAction": "进入协议治理页，保存协议族/解密档案/协议模板并提交发布审批",
+            "summary": "协议治理 P1 未通过，请查看协议治理浏览器报告、审批回执和模板回放证据。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "device-onboarding-p1",
+      "packageName": "无代码接入 P1",
+      "description": "覆盖接入案例、模板包、状态派生、验收触发和结果回链入口。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "onboarding-workbench",
+          "moduleName": "无代码接入台",
+          "scenarioRefs": ["device-onboarding.p1.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开无代码接入台并加载案例/模板包",
+            "apiRef": "GET /api/device/onboarding/cases；GET /api/device/onboarding/template-packs",
+            "pageAction": "进入无代码接入台，检查接入案例、模板包和批量触发验收入口",
+            "summary": "无代码接入 P1 未通过，请检查案例分页、模板包接口和页面授权。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "object-insight-p1",
+      "packageName": "对象洞察 P1",
+      "description": "覆盖对象洞察台入口、设备编码分析入口、属性快照和趋势读侧准备。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "acceptance-default",
+      "modules": [
+        {
+          "moduleCode": "object-insight-workbench",
+          "moduleName": "对象洞察台",
+          "scenarioRefs": ["object-insight.p1.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开对象洞察台并检查分析入口",
+            "apiRef": "GET /api/device/{deviceCode}/insight/properties；POST /api/telemetry/history/batch",
+            "pageAction": "进入对象洞察台，检查设备编码输入、空态提示和开始分析动作",
+            "summary": "对象洞察 P1 未通过，请检查页面入口、设备洞察接口和 history 读侧依赖。"
+          }
+        }
+      ]
+    },
+    {
+      "packageCode": "automation-results-p1",
+      "packageName": "结果中心 P1",
+      "description": "覆盖结果与基线中心历史台账、失败明细、证据清单和证据预览入口。",
+      "targetRoles": ["acceptance", "product", "manager"],
+      "supportedEnvironments": ["dev", "test"],
+      "defaultAccountTemplate": "manager-default",
+      "modules": [
+        {
+          "moduleCode": "automation-results-ledger",
+          "moduleName": "结果与基线中心",
+          "scenarioRefs": ["automation-results.p1.browser-smoke"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "打开结果与基线中心并加载历史台账",
+            "apiRef": "GET /api/report/automation-results/page；GET /api/report/automation-results/{runId}/evidence",
+            "pageAction": "进入结果与基线中心，检查历史运行、失败场景和证据区域",
+            "summary": "结果中心 P1 未通过，请检查 logs/acceptance 证据目录、结果查询接口和页面授权。"
+          }
+        }
+      ]
     }
   ],
   "accountTemplates": [
