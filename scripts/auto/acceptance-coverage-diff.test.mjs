@@ -1,15 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 
 import {
   buildCoverageDiff,
-  findLatestCoverageMatrixFiles,
   renderCoverageDiffMarkdown
 } from './acceptance-coverage-diff-lib.mjs';
-import { runCoverageDiffCli } from './diff-acceptance-coverage.mjs';
 
 function createMatrix({
   scenarioIds = [],
@@ -170,4 +165,3 @@ test('renderCoverageDiffMarkdown includes status and next actions', () => {
   assert.match(markdown, /Status/);
   assert.match(markdown, /Next Actions/);
 });
-
