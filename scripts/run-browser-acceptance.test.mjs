@@ -51,6 +51,27 @@ test('iot access dry-run loads dedicated smoke plan and prints required routes',
   }
 });
 
+test('quality factory dry-run loads business acceptance and results routes', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      browserAcceptanceScript,
+      '--dry-run',
+      '--no-append-issues',
+      '--plan=config/automation/quality-factory-web-smoke-plan.json'
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /"dryRun": true/);
+  assert.match(result.stdout, /"key": "business-acceptance-workbench"/);
+  assert.match(result.stdout, /"key": "automation-results-workbench"/);
+});
+
 test('config-driven dry-run prefers acceptance env urls over plan defaults', async (t) => {
   const { runCli } = await import(pathToFileURL(browserAcceptanceScript).href);
   const previousFrontendUrl = process.env.IOT_ACCEPTANCE_FRONTEND_URL;
