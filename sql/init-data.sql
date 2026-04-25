@@ -279,164 +279,6 @@ WHERE tenant_id = 1
   AND menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
   AND deleted = 0;
 
-DELETE FROM sys_role_menu
-WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
-
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-VALUES
-    (96010001, 1, @role_business_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010002, 1, @role_business_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010003, 1, @role_business_id, 93002009, 1, NOW(), 1, NOW(), 0),
-    (96010004, 1, @role_business_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010005, 1, @role_business_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010006, 1, @role_business_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010007, 1, @role_business_id, 93002007, 1, NOW(), 1, NOW(), 0),
-    (96010008, 1, @role_business_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010013, 1, @role_business_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010014, 1, @role_business_id, 93003020, 1, NOW(), 1, NOW(), 0),
-    (96010011, 1, @role_business_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010009, 1, @role_business_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010010, 1, @role_business_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010012, 1, @role_business_id, 93001014, 1, NOW(), 1, NOW(), 0),
-
-    (96010021, 1, @role_management_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010022, 1, @role_management_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010023, 1, @role_management_id, 93002009, 1, NOW(), 1, NOW(), 0),
-    (96010024, 1, @role_management_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010025, 1, @role_management_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010026, 1, @role_management_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010027, 1, @role_management_id, 93002007, 1, NOW(), 1, NOW(), 0),
-    (96010028, 1, @role_management_id, 93000004, 1, NOW(), 1, NOW(), 0),
-    (96010029, 1, @role_management_id, 93002003, 1, NOW(), 1, NOW(), 0),
-    (96010030, 1, @role_management_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010031, 1, @role_management_id, 93002005, 1, NOW(), 1, NOW(), 0),
-    (96010032, 1, @role_management_id, 93002006, 1, NOW(), 1, NOW(), 0),
-    (96010033, 1, @role_management_id, 93000003, 1, NOW(), 1, NOW(), 0),
-    (96010034, 1, @role_management_id, 93003001, 1, NOW(), 1, NOW(), 0),
-    (96010035, 1, @role_management_id, 93003002, 1, NOW(), 1, NOW(), 0),
-    (96010036, 1, @role_management_id, 93003003, 1, NOW(), 1, NOW(), 0),
-    (96010037, 1, @role_management_id, 93003004, 1, NOW(), 1, NOW(), 0),
-    (96010038, 1, @role_management_id, 93003005, 1, NOW(), 1, NOW(), 0),
-    (96010039, 1, @role_management_id, 93003006, 1, NOW(), 1, NOW(), 0),
-    (96010040, 1, @role_management_id, 93003007, 1, NOW(), 1, NOW(), 0),
-    (96010041, 1, @role_management_id, 93003101, 1, NOW(), 1, NOW(), 0),
-    (96010042, 1, @role_management_id, 93003102, 1, NOW(), 1, NOW(), 0),
-    (96010043, 1, @role_management_id, 93003104, 1, NOW(), 1, NOW(), 0),
-    (96010044, 1, @role_management_id, 93003201, 1, NOW(), 1, NOW(), 0),
-    (96010045, 1, @role_management_id, 93003202, 1, NOW(), 1, NOW(), 0),
-    (96010046, 1, @role_management_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010170, 1, @role_management_id, 93001008, 1, NOW(), 1, NOW(), 0),
-    (96010052, 1, @role_management_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010047, 1, @role_management_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010048, 1, @role_management_id, 93001101, 1, NOW(), 1, NOW(), 0),
-    (96010049, 1, @role_management_id, 93001102, 1, NOW(), 1, NOW(), 0),
-    (96010050, 1, @role_management_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010051, 1, @role_management_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010057, 1, @role_management_id, 93001105, 1, NOW(), 1, NOW(), 0),
-    (96010058, 1, @role_management_id, 93001106, 1, NOW(), 1, NOW(), 0),
-    (96010053, 1, @role_management_id, 93001011, 1, NOW(), 1, NOW(), 0),
-    (96010054, 1, @role_management_id, 93001012, 1, NOW(), 1, NOW(), 0),
-    (96010055, 1, @role_management_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010056, 1, @role_management_id, 93001014, 1, NOW(), 1, NOW(), 0),
-    (96010131, 1, @role_management_id, 93003010, 1, NOW(), 1, NOW(), 0),
-    (96010132, 1, @role_management_id, 93003011, 1, NOW(), 1, NOW(), 0),
-    (96010133, 1, @role_management_id, 93003401, 1, NOW(), 1, NOW(), 0),
-    (96010134, 1, @role_management_id, 93003402, 1, NOW(), 1, NOW(), 0),
-    (96010135, 1, @role_management_id, 93003403, 1, NOW(), 1, NOW(), 0),
-    (96010136, 1, @role_management_id, 93003501, 1, NOW(), 1, NOW(), 0),
-    (96010137, 1, @role_management_id, 93003502, 1, NOW(), 1, NOW(), 0),
-    (96010138, 1, @role_management_id, 93003503, 1, NOW(), 1, NOW(), 0),
-    (96010145, 1, @role_management_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010148, 1, @role_management_id, 93003023, 1, NOW(), 1, NOW(), 0),
-    (96010151, 1, @role_management_id, 93003024, 1, NOW(), 1, NOW(), 0),
-    (96010152, 1, @role_management_id, 93003025, 1, NOW(), 1, NOW(), 0),
-    (96010142, 1, @role_management_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010143, 1, @role_management_id, 93003020, 1, NOW(), 1, NOW(), 0),
-
-    (96010061, 1, @role_ops_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010171, 1, @role_ops_id, 93001008, 1, NOW(), 1, NOW(), 0),
-    (96010062, 1, @role_ops_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010063, 1, @role_ops_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010064, 1, @role_ops_id, 93001003, 1, NOW(), 1, NOW(), 0),
-    (96010065, 1, @role_ops_id, 93001006, 1, NOW(), 1, NOW(), 0),
-    (96010066, 1, @role_ops_id, 93001007, 1, NOW(), 1, NOW(), 0),
-    (96010067, 1, @role_ops_id, 93001005, 1, NOW(), 1, NOW(), 0),
-    (96010068, 1, @role_ops_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010069, 1, @role_ops_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010070, 1, @role_ops_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010071, 1, @role_ops_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010072, 1, @role_ops_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010073, 1, @role_ops_id, 93000004, 1, NOW(), 1, NOW(), 0),
-    (96010074, 1, @role_ops_id, 93002003, 1, NOW(), 1, NOW(), 0),
-    (96010075, 1, @role_ops_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010076, 1, @role_ops_id, 93001101, 1, NOW(), 1, NOW(), 0),
-    (96010077, 1, @role_ops_id, 93001102, 1, NOW(), 1, NOW(), 0),
-    (96010078, 1, @role_ops_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010079, 1, @role_ops_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010084, 1, @role_ops_id, 93001105, 1, NOW(), 1, NOW(), 0),
-    (96010085, 1, @role_ops_id, 93001106, 1, NOW(), 1, NOW(), 0),
-    (96010080, 1, @role_ops_id, 93001011, 1, NOW(), 1, NOW(), 0),
-    (96010081, 1, @role_ops_id, 93001012, 1, NOW(), 1, NOW(), 0),
-    (96010082, 1, @role_ops_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010083, 1, @role_ops_id, 93001014, 1, NOW(), 1, NOW(), 0),
-    (96010146, 1, @role_ops_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010149, 1, @role_ops_id, 93003023, 1, NOW(), 1, NOW(), 0),
-    (96010153, 1, @role_ops_id, 93003024, 1, NOW(), 1, NOW(), 0),
-    (96010154, 1, @role_ops_id, 93003025, 1, NOW(), 1, NOW(), 0),
-
-    (96010091, 1, @role_developer_id, 93000001, 1, NOW(), 1, NOW(), 0),
-    (96010172, 1, @role_developer_id, 93001008, 1, NOW(), 1, NOW(), 0),
-    (96010092, 1, @role_developer_id, 93001001, 1, NOW(), 1, NOW(), 0),
-    (96010093, 1, @role_developer_id, 93001002, 1, NOW(), 1, NOW(), 0),
-    (96010094, 1, @role_developer_id, 93001003, 1, NOW(), 1, NOW(), 0),
-    (96010095, 1, @role_developer_id, 93001006, 1, NOW(), 1, NOW(), 0),
-    (96010096, 1, @role_developer_id, 93001007, 1, NOW(), 1, NOW(), 0),
-    (96010097, 1, @role_developer_id, 93001005, 1, NOW(), 1, NOW(), 0),
-    (96010098, 1, @role_developer_id, 93000002, 1, NOW(), 1, NOW(), 0),
-    (96010099, 1, @role_developer_id, 93002008, 1, NOW(), 1, NOW(), 0),
-    (96010100, 1, @role_developer_id, 93002009, 1, NOW(), 1, NOW(), 0),
-    (96010101, 1, @role_developer_id, 93002001, 1, NOW(), 1, NOW(), 0),
-    (96010102, 1, @role_developer_id, 93002002, 1, NOW(), 1, NOW(), 0),
-    (96010103, 1, @role_developer_id, 93001004, 1, NOW(), 1, NOW(), 0),
-    (96010104, 1, @role_developer_id, 93000004, 1, NOW(), 1, NOW(), 0),
-    (96010105, 1, @role_developer_id, 93002003, 1, NOW(), 1, NOW(), 0),
-    (96010106, 1, @role_developer_id, 93002004, 1, NOW(), 1, NOW(), 0),
-    (96010107, 1, @role_developer_id, 93002005, 1, NOW(), 1, NOW(), 0),
-    (96010108, 1, @role_developer_id, 93002006, 1, NOW(), 1, NOW(), 0),
-    (96010109, 1, @role_developer_id, 93000005, 1, NOW(), 1, NOW(), 0),
-    (96010144, 1, @role_developer_id, 93003020, 1, NOW(), 1, NOW(), 0),
-    (96010136, 1, @role_developer_id, 93003015, 1, NOW(), 1, NOW(), 0),
-    (96010137, 1, @role_developer_id, 93003016, 1, NOW(), 1, NOW(), 0),
-    (96010138, 1, @role_developer_id, 93003017, 1, NOW(), 1, NOW(), 0),
-    (96010139, 1, @role_developer_id, 93003018, 1, NOW(), 1, NOW(), 0),
-    (96010140, 1, @role_developer_id, 93003019, 1, NOW(), 1, NOW(), 0),
-    (96010121, 1, @role_developer_id, 93003012, 1, NOW(), 1, NOW(), 0),
-    (96010122, 1, @role_developer_id, 93003013, 1, NOW(), 1, NOW(), 0),
-    (96010123, 1, @role_developer_id, 93003014, 1, NOW(), 1, NOW(), 0),
-    (96010110, 1, @role_developer_id, 93003009, 1, NOW(), 1, NOW(), 0),
-    (96010111, 1, @role_developer_id, 93001101, 1, NOW(), 1, NOW(), 0),
-    (96010112, 1, @role_developer_id, 93001102, 1, NOW(), 1, NOW(), 0),
-    (96010113, 1, @role_developer_id, 93001103, 1, NOW(), 1, NOW(), 0),
-    (96010114, 1, @role_developer_id, 93001104, 1, NOW(), 1, NOW(), 0),
-    (96010119, 1, @role_developer_id, 93001105, 1, NOW(), 1, NOW(), 0),
-    (96010120, 1, @role_developer_id, 93001106, 1, NOW(), 1, NOW(), 0),
-    (96010115, 1, @role_developer_id, 93001011, 1, NOW(), 1, NOW(), 0),
-    (96010116, 1, @role_developer_id, 93001012, 1, NOW(), 1, NOW(), 0),
-    (96010117, 1, @role_developer_id, 93001013, 1, NOW(), 1, NOW(), 0),
-    (96010118, 1, @role_developer_id, 93001014, 1, NOW(), 1, NOW(), 0),
-    (96010147, 1, @role_developer_id, 93003022, 1, NOW(), 1, NOW(), 0),
-    (96010150, 1, @role_developer_id, 93003023, 1, NOW(), 1, NOW(), 0),
-    (96010155, 1, @role_developer_id, 93003024, 1, NOW(), 1, NOW(), 0),
-    (96010156, 1, @role_developer_id, 93003025, 1, NOW(), 1, NOW(), 0);
-
-SET @role_menu_id := 96010900;
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@role_menu_id := @role_menu_id + 1), 1, @role_super_admin_id, m.id, 1, NOW(), 1, NOW(), 0
-FROM sys_menu m
-WHERE m.deleted = 0
-  AND @role_super_admin_id IS NOT NULL
-ORDER BY m.sort, m.id;
-
 -- governance fine-grained permission seeds
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
@@ -479,68 +321,6 @@ ON DUPLICATE KEY UPDATE
     update_by = VALUES(update_by),
     update_time = VALUES(update_time),
     deleted = 0;
-
-SET @extra_role_menu_id := 96010950;
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@extra_role_menu_id := @extra_role_menu_id + 1), 1, role_scope.role_id, role_scope.menu_id, 1, NOW(), 1, NOW(), 0
-FROM (
-    SELECT @role_management_id AS role_id, 93001021 AS menu_id
-    UNION ALL SELECT @role_management_id, 93001029
-    UNION ALL SELECT @role_management_id, 93001022
-    UNION ALL SELECT @role_management_id, 93001023
-    UNION ALL SELECT @role_management_id, 93001024
-    UNION ALL SELECT @role_management_id, 93001025
-    UNION ALL SELECT @role_management_id, 93001026
-    UNION ALL SELECT @role_management_id, 93001027
-    UNION ALL SELECT @role_management_id, 93001028
-    UNION ALL SELECT @role_management_id, 93001030
-    UNION ALL SELECT @role_management_id, 93001031
-    UNION ALL SELECT @role_management_id, 93002044
-    UNION ALL SELECT @role_management_id, 93002051
-    UNION ALL SELECT @role_management_id, 93002045
-    UNION ALL SELECT @role_management_id, 93002046
-    UNION ALL SELECT @role_management_id, 93002047
-    UNION ALL SELECT @role_management_id, 93002048
-    UNION ALL SELECT @role_management_id, 93002049
-    UNION ALL SELECT @role_management_id, 93002050
-    UNION ALL SELECT @role_ops_id, 93001022
-    UNION ALL SELECT @role_ops_id, 93001023
-    UNION ALL SELECT @role_ops_id, 93001024
-    UNION ALL SELECT @role_ops_id, 93001025
-    UNION ALL SELECT @role_ops_id, 93001026
-    UNION ALL SELECT @role_ops_id, 93001027
-    UNION ALL SELECT @role_ops_id, 93001028
-    UNION ALL SELECT @role_ops_id, 93001030
-    UNION ALL SELECT @role_ops_id, 93001031
-    UNION ALL SELECT @role_ops_id, 93002044
-    UNION ALL SELECT @role_ops_id, 93002051
-    UNION ALL SELECT @role_ops_id, 93002045
-    UNION ALL SELECT @role_ops_id, 93002046
-    UNION ALL SELECT @role_ops_id, 93002047
-    UNION ALL SELECT @role_ops_id, 93002048
-    UNION ALL SELECT @role_ops_id, 93002049
-    UNION ALL SELECT @role_ops_id, 93002050
-    UNION ALL SELECT @role_developer_id, 93001021
-    UNION ALL SELECT @role_developer_id, 93001022
-    UNION ALL SELECT @role_developer_id, 93001023
-    UNION ALL SELECT @role_developer_id, 93001024
-    UNION ALL SELECT @role_developer_id, 93001026
-    UNION ALL SELECT @role_developer_id, 93001027
-    UNION ALL SELECT @role_developer_id, 93001030
-    UNION ALL SELECT @role_developer_id, 93002044
-    UNION ALL SELECT @role_developer_id, 93002045
-    UNION ALL SELECT @role_developer_id, 93002047
-    UNION ALL SELECT @role_developer_id, 93002049
-) role_scope
-WHERE role_scope.role_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1
-    FROM sys_role_menu rm
-    WHERE rm.tenant_id = 1
-      AND rm.role_id = role_scope.role_id
-      AND rm.menu_id = role_scope.menu_id
-      AND rm.deleted = 0
-  );
 
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
@@ -699,73 +479,312 @@ ON DUPLICATE KEY UPDATE
     update_time = VALUES(update_time),
     deleted = 0;
 
-SET @menu_permission_role_menu_id := 96011000;
-INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@menu_permission_role_menu_id := @menu_permission_role_menu_id + 1), 1, parent_rm.role_id, child.id, 1, NOW(), 1, NOW(), 0
-FROM sys_menu child
-JOIN sys_menu parent
-  ON parent.id = child.parent_id
- AND parent.tenant_id = 1
- AND parent.deleted = 0
-JOIN sys_role_menu parent_rm
-  ON parent_rm.menu_id = parent.id
- AND parent_rm.tenant_id = 1
- AND parent_rm.deleted = 0
-WHERE child.tenant_id = 1
-  AND child.deleted = 0
-  AND child.id = 93001009
-  AND parent_rm.role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id)
-  AND NOT EXISTS (
-      SELECT 1
-      FROM sys_role_menu existed
-      WHERE existed.tenant_id = 1
-        AND existed.role_id = parent_rm.role_id
-        AND existed.menu_id = child.id
-        AND existed.deleted = 0
-  );
+DELETE FROM sys_role_menu
+WHERE role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id, @role_super_admin_id);
+
+SET @role_menu_rebaseline_id := GREATEST(COALESCE((SELECT MAX(id) FROM sys_role_menu), 0), 96010000);
 
 INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
-SELECT (@menu_permission_role_menu_id := @menu_permission_role_menu_id + 1), 1, parent_rm.role_id, child.id, 1, NOW(), 1, NOW(), 0
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, grant_scope.role_id, m.id, 1, NOW(), 1, NOW(), 0
+FROM (
+    SELECT @role_business_id AS role_id, 'risk-ops' AS menu_code
+    UNION SELECT @role_business_id, 'risk:ops-overview'
+    UNION SELECT @role_business_id, 'risk:monitoring'
+    UNION SELECT @role_business_id, 'risk:monitoring-gis'
+    UNION SELECT @role_business_id, 'risk:alarm'
+    UNION SELECT @role_business_id, 'risk:event'
+    UNION SELECT @role_business_id, 'iot:insight'
+    UNION SELECT @role_business_id, 'risk:report'
+    UNION SELECT @role_business_id, 'quality-workbench'
+    UNION SELECT @role_business_id, 'system:quality-workbench-overview'
+    UNION SELECT @role_business_id, 'system:business-acceptance'
+    UNION SELECT @role_business_id, 'system:business-acceptance:result'
+    UNION SELECT @role_business_id, 'system:automation-results'
+    UNION SELECT @role_business_id, 'iot-access'
+    UNION SELECT @role_business_id, 'iot-access:overview'
+    UNION SELECT @role_business_id, 'iot:products'
+    UNION SELECT @role_business_id, 'iot:products:detail-overview'
+    UNION SELECT @role_business_id, 'iot:products:detail-devices'
+    UNION SELECT @role_business_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_business_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_business_id, 'iot:products:detail-releases'
+    UNION SELECT @role_business_id, 'iot:devices'
+    UNION SELECT @role_management_id, 'risk-ops'
+    UNION SELECT @role_management_id, 'risk:ops-overview'
+    UNION SELECT @role_management_id, 'risk:monitoring'
+    UNION SELECT @role_management_id, 'risk:monitoring-gis'
+    UNION SELECT @role_management_id, 'risk:alarm'
+    UNION SELECT @role_management_id, 'risk:event'
+    UNION SELECT @role_management_id, 'iot:insight'
+    UNION SELECT @role_management_id, 'risk:report'
+    UNION SELECT @role_management_id, 'risk-config'
+    UNION SELECT @role_management_id, 'risk:config-overview'
+    UNION SELECT @role_management_id, 'risk:point'
+    UNION SELECT @role_management_id, 'risk:rule-definition'
+    UNION SELECT @role_management_id, 'risk:linkage-rule'
+    UNION SELECT @role_management_id, 'risk:emergency-plan'
+    UNION SELECT @role_management_id, 'system-governance'
+    UNION SELECT @role_management_id, 'system:governance-overview'
+    UNION SELECT @role_management_id, 'system:organization'
+    UNION SELECT @role_management_id, 'system:user'
+    UNION SELECT @role_management_id, 'system:role'
+    UNION SELECT @role_management_id, 'system:menu'
+    UNION SELECT @role_management_id, 'system:region'
+    UNION SELECT @role_management_id, 'system:dict'
+    UNION SELECT @role_management_id, 'system:channel'
+    UNION SELECT @role_management_id, 'system:in-app-message'
+    UNION SELECT @role_management_id, 'system:help-doc'
+    UNION SELECT @role_management_id, 'system:governance-task'
+    UNION SELECT @role_management_id, 'system:governance-ops'
+    UNION SELECT @role_management_id, 'system:governance-approval'
+    UNION SELECT @role_management_id, 'system:governance-security'
+    UNION SELECT @role_management_id, 'system:audit'
+    UNION SELECT @role_management_id, 'iot-access'
+    UNION SELECT @role_management_id, 'iot-access:overview'
+    UNION SELECT @role_management_id, 'iot:device-onboarding'
+    UNION SELECT @role_management_id, 'iot:protocol-governance'
+    UNION SELECT @role_management_id, 'iot:products'
+    UNION SELECT @role_management_id, 'iot:products:detail-overview'
+    UNION SELECT @role_management_id, 'iot:products:detail-devices'
+    UNION SELECT @role_management_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_management_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_management_id, 'iot:products:detail-releases'
+    UNION SELECT @role_management_id, 'iot:devices'
+    UNION SELECT @role_management_id, 'quality-workbench'
+    UNION SELECT @role_management_id, 'system:quality-workbench-overview'
+    UNION SELECT @role_management_id, 'system:business-acceptance'
+    UNION SELECT @role_management_id, 'system:business-acceptance:result'
+    UNION SELECT @role_management_id, 'system:automation-results'
+    UNION SELECT @role_ops_id, 'iot-access'
+    UNION SELECT @role_ops_id, 'iot-access:overview'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance'
+    UNION SELECT @role_ops_id, 'iot:products'
+    UNION SELECT @role_ops_id, 'iot:products:detail-overview'
+    UNION SELECT @role_ops_id, 'iot:products:detail-devices'
+    UNION SELECT @role_ops_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_ops_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_ops_id, 'iot:products:detail-releases'
+    UNION SELECT @role_ops_id, 'iot:devices'
+    UNION SELECT @role_ops_id, 'iot:reporting'
+    UNION SELECT @role_ops_id, 'iot:system-log'
+    UNION SELECT @role_ops_id, 'iot:message-trace'
+    UNION SELECT @role_ops_id, 'iot:file-debug'
+    UNION SELECT @role_ops_id, 'risk-ops'
+    UNION SELECT @role_ops_id, 'risk:ops-overview'
+    UNION SELECT @role_ops_id, 'risk:monitoring'
+    UNION SELECT @role_ops_id, 'risk:alarm'
+    UNION SELECT @role_ops_id, 'risk:event'
+    UNION SELECT @role_ops_id, 'iot:insight'
+    UNION SELECT @role_ops_id, 'system-governance'
+    UNION SELECT @role_ops_id, 'system:governance-overview'
+    UNION SELECT @role_ops_id, 'system:governance-security'
+    UNION SELECT @role_ops_id, 'system:governance-approval'
+    UNION SELECT @role_ops_id, 'system:governance-task'
+    UNION SELECT @role_ops_id, 'system:governance-ops'
+    UNION SELECT @role_developer_id, 'iot-access'
+    UNION SELECT @role_developer_id, 'iot-access:overview'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance'
+    UNION SELECT @role_developer_id, 'iot:products'
+    UNION SELECT @role_developer_id, 'iot:products:detail-overview'
+    UNION SELECT @role_developer_id, 'iot:products:detail-devices'
+    UNION SELECT @role_developer_id, 'iot:products:detail-contracts'
+    UNION SELECT @role_developer_id, 'iot:products:detail-mapping-rules'
+    UNION SELECT @role_developer_id, 'iot:products:detail-releases'
+    UNION SELECT @role_developer_id, 'iot:devices'
+    UNION SELECT @role_developer_id, 'iot:reporting'
+    UNION SELECT @role_developer_id, 'iot:system-log'
+    UNION SELECT @role_developer_id, 'iot:message-trace'
+    UNION SELECT @role_developer_id, 'iot:file-debug'
+    UNION SELECT @role_developer_id, 'quality-workbench'
+    UNION SELECT @role_developer_id, 'system:quality-workbench-overview'
+    UNION SELECT @role_developer_id, 'system:rd-workbench'
+    UNION SELECT @role_developer_id, 'system:rd-automation-inventory'
+    UNION SELECT @role_developer_id, 'system:rd-automation-templates'
+    UNION SELECT @role_developer_id, 'system:rd-automation-plans'
+    UNION SELECT @role_developer_id, 'system:rd-automation-handoff'
+    UNION SELECT @role_developer_id, 'system:automation-execution'
+    UNION SELECT @role_developer_id, 'system:automation-results'
+    UNION SELECT @role_developer_id, 'system:automation-assets'
+    UNION SELECT @role_developer_id, 'system:automation-test'
+    UNION SELECT @role_developer_id, 'risk-config'
+    UNION SELECT @role_developer_id, 'risk:config-overview'
+    UNION SELECT @role_developer_id, 'risk:rule-definition'
+    UNION SELECT @role_developer_id, 'risk:linkage-rule'
+    UNION SELECT @role_developer_id, 'risk:emergency-plan'
+) grant_scope
+JOIN sys_menu m
+  ON m.menu_code = grant_scope.menu_code
+ AND m.tenant_id = 1
+ AND m.deleted = 0
+WHERE grant_scope.role_id IS NOT NULL
+ORDER BY grant_scope.role_id, m.sort, m.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, grant_scope.role_id, m.id, 1, NOW(), 1, NOW(), 0
+FROM (
+    SELECT @role_business_id AS role_id, 'risk:alarm:detail' AS menu_code
+    UNION SELECT @role_business_id, 'risk:alarm:confirm'
+    UNION SELECT @role_business_id, 'risk:alarm:suppress'
+    UNION SELECT @role_business_id, 'risk:alarm:close'
+    UNION SELECT @role_business_id, 'risk:event:detail'
+    UNION SELECT @role_business_id, 'risk:event:dispatch'
+    UNION SELECT @role_business_id, 'risk:event:close'
+    UNION SELECT @role_business_id, 'system:business-acceptance:launch'
+    UNION SELECT @role_business_id, 'system:business-acceptance:open-result'
+    UNION SELECT @role_business_id, 'iot:products:export'
+    UNION SELECT @role_business_id, 'iot:devices:detail'
+    UNION SELECT @role_business_id, 'iot:devices:export'
+    UNION SELECT @role_business_id, 'iot:devices:insight'
+    UNION SELECT @role_ops_id, 'iot:devices:add'
+    UNION SELECT @role_ops_id, 'iot:devices:update'
+    UNION SELECT @role_ops_id, 'iot:devices:export'
+    UNION SELECT @role_ops_id, 'iot:devices:import'
+    UNION SELECT @role_ops_id, 'iot:devices:replace'
+    UNION SELECT @role_ops_id, 'iot:devices:detail'
+    UNION SELECT @role_ops_id, 'iot:devices:export-config'
+    UNION SELECT @role_ops_id, 'iot:devices:export-selected'
+    UNION SELECT @role_ops_id, 'iot:devices:export-current'
+    UNION SELECT @role_ops_id, 'iot:devices:insight'
+    UNION SELECT @role_ops_id, 'iot:device-capability:view'
+    UNION SELECT @role_ops_id, 'iot:products:add'
+    UNION SELECT @role_ops_id, 'iot:products:update'
+    UNION SELECT @role_ops_id, 'iot:products:export'
+    UNION SELECT @role_ops_id, 'iot:product-contract:govern'
+    UNION SELECT @role_ops_id, 'iot:product-contract:release'
+    UNION SELECT @role_ops_id, 'iot:product-contract:rollback'
+    UNION SELECT @role_ops_id, 'iot:product-contract:approve'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:suggestion'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:ledger'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:preview'
+    UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:edit'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:approve'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:family-draft'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:family-publish'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:family-rollback'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-draft'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-preview'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:template-draft'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:template-replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:template-publish'
+    UNION SELECT @role_ops_id, 'iot:reporting:replay-workspace'
+    UNION SELECT @role_ops_id, 'iot:reporting:simulate-workspace'
+    UNION SELECT @role_ops_id, 'iot:reporting:recent-workspace'
+    UNION SELECT @role_ops_id, 'iot:reporting:jump-message-trace'
+    UNION SELECT @role_ops_id, 'iot:reporting:copy-actual-payload'
+    UNION SELECT @role_ops_id, 'iot:reporting:copy-response'
+    UNION SELECT @role_ops_id, 'iot:message-trace:detail'
+    UNION SELECT @role_ops_id, 'iot:message-trace:timeline'
+    UNION SELECT @role_ops_id, 'iot:message-trace:payload-comparison'
+    UNION SELECT @role_ops_id, 'iot:secret-custody:view'
+    UNION SELECT @role_ops_id, 'iot:secret-custody:rotate'
+    UNION SELECT @role_ops_id, 'iot:secret-custody:approve'
+    UNION SELECT @role_ops_id, 'risk:alarm:detail'
+    UNION SELECT @role_ops_id, 'risk:alarm:confirm'
+    UNION SELECT @role_ops_id, 'risk:alarm:suppress'
+    UNION SELECT @role_ops_id, 'risk:alarm:close'
+    UNION SELECT @role_ops_id, 'risk:event:detail'
+    UNION SELECT @role_ops_id, 'risk:event:dispatch'
+    UNION SELECT @role_ops_id, 'risk:event:close'
+    UNION SELECT @role_developer_id, 'iot:normative-library:write'
+    UNION SELECT @role_developer_id, 'iot:products:add'
+    UNION SELECT @role_developer_id, 'iot:products:update'
+    UNION SELECT @role_developer_id, 'iot:products:export'
+    UNION SELECT @role_developer_id, 'iot:product-contract:govern'
+    UNION SELECT @role_developer_id, 'iot:product-contract:release'
+    UNION SELECT @role_developer_id, 'iot:product-contract:rollback'
+    UNION SELECT @role_developer_id, 'iot:product-contract:ledger'
+    UNION SELECT @role_developer_id, 'iot:product-contract:diff'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:suggestion'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:ledger'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:preview'
+    UNION SELECT @role_developer_id, 'iot:vendor-mapping-rule:replay'
+    UNION SELECT @role_developer_id, 'iot:devices:detail'
+    UNION SELECT @role_developer_id, 'iot:devices:export'
+    UNION SELECT @role_developer_id, 'iot:devices:insight'
+    UNION SELECT @role_developer_id, 'iot:device-capability:view'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:edit'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:family-draft'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:family-publish'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:family-rollback'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-draft'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-preview'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:template-draft'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:template-replay'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:template-publish'
+    UNION SELECT @role_developer_id, 'iot:reporting:replay-workspace'
+    UNION SELECT @role_developer_id, 'iot:reporting:simulate-workspace'
+    UNION SELECT @role_developer_id, 'iot:reporting:recent-workspace'
+    UNION SELECT @role_developer_id, 'iot:reporting:jump-message-trace'
+    UNION SELECT @role_developer_id, 'iot:reporting:copy-actual-payload'
+    UNION SELECT @role_developer_id, 'iot:reporting:copy-response'
+    UNION SELECT @role_developer_id, 'iot:message-trace:detail'
+    UNION SELECT @role_developer_id, 'iot:message-trace:timeline'
+    UNION SELECT @role_developer_id, 'iot:message-trace:payload-comparison'
+    UNION SELECT @role_developer_id, 'risk:rule-definition:edit'
+    UNION SELECT @role_developer_id, 'risk:linkage-rule:edit'
+    UNION SELECT @role_developer_id, 'risk:emergency-plan:edit'
+    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:refresh'
+    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:select-uncovered'
+    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:generate-scaffold'
+    UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-page-smoke'
+    UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-form-submit'
+    UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-list-detail'
+    UNION SELECT @role_developer_id, 'system:rd-automation-plans:import'
+    UNION SELECT @role_developer_id, 'system:rd-automation-plans:export'
+    UNION SELECT @role_developer_id, 'system:rd-automation-plans:reset'
+    UNION SELECT @role_developer_id, 'system:rd-automation-handoff:copy-command'
+    UNION SELECT @role_developer_id, 'system:rd-automation-handoff:export-plan'
+    UNION SELECT @role_developer_id, 'system:automation-execution:copy-command'
+) grant_scope
+JOIN sys_menu m
+  ON m.menu_code = grant_scope.menu_code
+ AND m.tenant_id = 1
+ AND m.deleted = 0
+WHERE grant_scope.role_id IS NOT NULL
+ORDER BY grant_scope.role_id, m.sort, m.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, @role_management_id, child.id, 1, NOW(), 1, NOW(), 0
 FROM sys_menu child
-JOIN sys_menu parent
-  ON parent.id = child.parent_id
- AND parent.tenant_id = 1
- AND parent.deleted = 0
 JOIN sys_role_menu parent_rm
-  ON parent_rm.menu_id = parent.id
+  ON parent_rm.menu_id = child.parent_id
  AND parent_rm.tenant_id = 1
+ AND parent_rm.role_id = @role_management_id
  AND parent_rm.deleted = 0
 WHERE child.tenant_id = 1
   AND child.deleted = 0
-  AND child.id IN (
-      93001032, 93001033, 93001034, 93001035, 93001036, 93001037, 93001038, 93001039, 93001040,
-      93001041, 93001042, 93001043, 93001044, 93001045, 93001046, 93001047, 93001048, 93001049, 93001050,
-      93001051, 93001052, 93001053, 93001054, 93001055,
-      93001056, 93001057, 93001058, 93001059, 93001060, 93001061,
-      93001062, 93001063, 93001064,
-      93002031, 93002032, 93002033, 93002034, 93002035, 93002036, 93002037, 93002038,
-      93002039, 93002040, 93002041, 93002042,
-      93002052, 93002053, 93002054,
-      93003601, 93003602, 93003603, 93003604, 93003605,
-      93003606, 93003607, 93003608, 93003609, 93003610,
-      93003611, 93003612, 93003613, 93003614, 93003615, 93003616, 93003617, 93003618,
-      93003619, 93003620, 93003621, 93003622, 93003623,
-      93003624, 93003625, 93003626, 93003627,
-      93003628, 93003629, 93003630, 93003631, 93003632, 93003633, 93003634,
-      93003635, 93003636, 93003637, 93003638, 93003639,
-      93003640, 93003641, 93003642, 93003643, 93003644, 93003645, 93003646,
-      93003701, 93003702, 93003703, 93003704, 93003705, 93003706, 93003707, 93003708,
-      93003709, 93003710, 93003711, 93003712, 93003713, 93003714
-  )
-  AND parent_rm.role_id IN (@role_business_id, @role_management_id, @role_ops_id, @role_developer_id)
-  AND NOT EXISTS (
-      SELECT 1
-      FROM sys_role_menu existed
-      WHERE existed.tenant_id = 1
-        AND existed.role_id = parent_rm.role_id
-        AND existed.menu_id = child.id
-        AND existed.deleted = 0
-  );
+  AND child.type = 2
+  AND @role_management_id IS NOT NULL
+ORDER BY child.sort, child.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
+
+INSERT INTO sys_role_menu (id, tenant_id, role_id, menu_id, create_by, create_time, update_by, update_time, deleted)
+SELECT (@role_menu_rebaseline_id := @role_menu_rebaseline_id + 1), 1, @role_super_admin_id, m.id, 1, NOW(), 1, NOW(), 0
+FROM sys_menu m
+WHERE m.tenant_id = 1
+  AND m.deleted = 0
+  AND @role_super_admin_id IS NOT NULL
+ORDER BY m.sort, m.id
+ON DUPLICATE KEY UPDATE
+    deleted = 0,
+    update_by = VALUES(update_by),
+    update_time = NOW();
 -- =========================
 -- 2) IoT 产品/设备/消息基线
 -- =========================
