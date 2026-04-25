@@ -16,7 +16,7 @@
 - 风险处置：实时监测、GIS 态势图、告警中心、事件协同、风险对象、阈值策略、联动编排、应急预案、运营分析
 - 平台治理：组织、账号中心、用户、角色、菜单、区域、字典、治理任务台、治理运维台、治理审批台、权限与密钥治理、通知渠道、站内消息、帮助文档、审计中心
 - 质量与协作：质量工场（业务验收台、研发工场、执行中心、结果与基线中心；业务验收台支持按预置验收包选择环境/账号模板/模块范围并一键查看是否通过，质量工场支持 `P0 全流程业务验收` 预置包，按同一 `runId` 贯通业务验收台结果页与结果与基线中心证据，结果与基线中心支持最近运行读取、证据清单/原文预览与兼容手工导入）、真实环境验收、智能助手接手模板、帮助中心消费层治理
-- 质量工场覆盖治理：`node scripts/auto/generate-acceptance-coverage.mjs` 可从统一验收注册表与业务验收包生成覆盖矩阵，用于检查 P0/P1/P2 覆盖、执行器分布、责任域和缺失引用
+- 质量工场覆盖治理：`node scripts/auto/generate-acceptance-coverage.mjs` 可从统一验收注册表与业务验收包生成覆盖矩阵，用于检查 P0/P1/P2 覆盖、执行器分布、责任域和缺失引用；`node scripts/auto/diff-acceptance-coverage.mjs` 可对比两份覆盖矩阵并输出趋势证据
 
 当前唯一启动模块是 `spring-boot-iot-admin`，当前父 `pom.xml` 激活 `12` 个模块：
 
@@ -176,11 +176,16 @@ node scripts/run-quality-gates.mjs
 ```bash
 node scripts/auto/generate-acceptance-coverage.mjs
 node scripts/auto/generate-acceptance-coverage.mjs --policy-path=config/automation/acceptance-coverage-policy.json
+node scripts/auto/diff-acceptance-coverage.mjs
+node scripts/auto/diff-acceptance-coverage.mjs --baseline-path=logs/acceptance/acceptance-coverage-<old>.json --current-path=logs/acceptance/acceptance-coverage-<new>.json
 ```
 
   - 输出 `logs/acceptance/acceptance-coverage-<timestamp>.json` 与 `.md`
   - `--policy-path` 会把覆盖矩阵按默认 readiness policy 评估；policy error 会让命令退出 `1`，warning 只进入报告。
   - 需要把缺失场景引用、未消费场景或 P1/P2 元数据缺口纳入准入门禁时，再追加 `--fail-on-gaps`
+  - 覆盖趋势对比输出 `logs/acceptance/acceptance-coverage-diff-<timestamp>.json` 与 `.md`
+  - 覆盖趋势默认比较最近两份覆盖矩阵；封板或 CI readiness 复盘建议显式传入 baseline/current 路径
+  - 覆盖趋势只做覆盖治理趋势分析，不替代真实环境业务验收
 
 - 后端验收脚本：
 
