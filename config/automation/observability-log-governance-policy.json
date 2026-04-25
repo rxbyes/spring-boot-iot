@@ -1,0 +1,32 @@
+{
+  "reportDirectory": "logs/observability",
+  "sampleLimit": 5,
+  "tables": {
+    "sys_observability_span_log": {
+      "label": "可观测调用片段日志",
+      "timeField": "started_at",
+      "retentionDays": 30,
+      "deleteBatchSize": 500,
+      "baseWhere": "deleted = 0"
+    },
+    "sys_business_event_log": {
+      "label": "业务事件日志",
+      "timeField": "occurred_at",
+      "retentionDays": 90,
+      "deleteBatchSize": 500,
+      "baseWhere": "deleted = 0"
+    },
+    "iot_message_log": {
+      "label": "设备消息日志",
+      "timeField": "report_time",
+      "retentionDays": 30,
+      "deleteBatchSize": 500
+    }
+  },
+  "lightweightEvidence": {
+    "maxStringLength": 255,
+    "maxObjectEntries": 30,
+    "maxArrayEntries": 10,
+    "maxSerializedLength": 2000
+  }
+}

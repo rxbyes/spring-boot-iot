@@ -188,43 +188,20 @@ const sectionHomeConfigs: SectionHomeConfig[] = [
     key: 'quality-workbench',
     path: '/quality-workbench',
     navLabel: '工场总览',
-    navCaption: '查看质量工场能力与专项入口',
+    navCaption: '查看质量工场能力与两类工作入口',
     navShort: '概',
     title: '质量工场',
-    description: '围绕业务验收、研发工场、执行组织与结果基线组织工程质量能力。',
-    intro: '建议先判断当前要发起业务验收、编排研发自动化资产，还是复盘运行结果，再进入对应专项页。',
+    description: '围绕业务验收和自动化治理组织质量能力。',
+    intro: '业务角色先进入业务验收台，研发、测试和管理员再进入自动化治理台处理资产、执行和证据。',
     menuTitle: '质量工场',
-    menuHint: '覆盖业务验收、研发资产编排、执行组织与结果基线治理。',
+    menuHint: '覆盖业务验收与自动化治理。',
     matchKeys: ['quality-workbench', 'quality-core'],
     matchLabels: ['质量工场', '测试工具'],
     cards: [
       { path: '/business-acceptance', label: '业务验收台', description: '按交付清单选择预置验收包并一键运行业务验收。', short: '验', keywords: ['业务验收台', '业务验收', '交付清单验收', '验收包'] },
-      { path: '/rd-workbench', label: '研发工场', description: '面向研发的自动化资产编排主入口。', short: '研', keywords: ['研发工场', '研发自动化', '自动化资产编排'] },
-      { path: '/automation-execution', label: '执行中心', description: '统一查看执行配置、命令预览和验收注册表依赖关系。', short: '执', keywords: ['执行中心', '执行配置', '验收注册表'] },
-      { path: '/automation-results', label: '结果与基线中心', description: '统一导入运行结果、查看失败场景并维护质量建议与基线证据。', short: '果', keywords: ['结果与基线中心', '运行结果', '视觉基线'] }
+      { path: '/automation-governance', label: '自动化治理台', description: '统一承接资产编排、执行配置与结果证据。', short: '治', keywords: ['自动化治理台', '资产编排', '执行配置', '结果证据'] }
     ],
-    steps: ['业务验收优先进入业务验收台，按交付清单选择验收包并一键执行。', '研发再进入研发工场拆分盘点、模板、计划与交付任务。', '统一通过执行中心组织回归，并在结果与基线中心沉淀证据与改进建议。']
-  },
-  {
-    key: 'rd-workbench',
-    path: '/rd-workbench',
-    navLabel: '研发总览',
-    navCaption: '查看研发自动化资产编排主链路',
-    navShort: '研',
-    title: '研发工场',
-    description: '围绕页面盘点、模板沉淀、计划编排与交付打包组织研发自动化资产能力。',
-    intro: '建议先盘点页面和模板，再进入计划编排，最后整理交付包并转到执行中心。',
-    menuTitle: '研发工场',
-    menuHint: '覆盖研发自动化资产编排与交付准备。',
-    matchKeys: ['rd-workbench', 'automation-rd'],
-    matchLabels: ['研发工场', '研发自动化'],
-    cards: [
-      { path: '/rd-automation-inventory', label: '页面盘点台', description: '维护页面清单、覆盖缺口与人工补录页面。', short: '盘', keywords: ['页面盘点台', '页面清单', '覆盖缺口'] },
-      { path: '/rd-automation-templates', label: '场景模板台', description: '沉淀页面冒烟、表单提交与列表详情模板。', short: '模', keywords: ['场景模板台', '场景模板', '模板沉淀'] },
-      { path: '/rd-automation-plans', label: '计划编排台', description: '维护场景顺序、步骤、断言、导入与导出。', short: '编', keywords: ['计划编排台', '场景顺序', '计划导入导出'] },
-      { path: '/rd-automation-handoff', label: '交付打包台', description: '整理计划摘要、执行建议、基线说明与验收备注。', short: '交', keywords: ['交付打包台', '执行建议', '验收备注'] }
-    ],
-    steps: ['先盘点页面。', '再沉淀模板。', '然后编排正式计划。', '最后整理交付包并转执行中心。']
+    steps: ['业务验收优先进入业务验收台。', '研发、测试和管理员进入自动化治理台。', '统一在治理台内完成资产、执行与证据闭环。']
   }
 ];
 
@@ -244,64 +221,18 @@ const specialRouteMetaPresets: Record<string, RouteMetaPreset> = {
     title: '演进蓝图',
     description: '预研能力展示与未来扩展方向说明。',
     requiresAuth: true
-  },
-  '/automation-assets': {
-    title: '自动化资产中心',
-    description: '兼容旧入口，第一轮直接落到研发工场总览。',
-    requiresAuth: true
-  },
-  '/automation-test': {
-    title: '自动化工场',
-    description: '兼容旧入口，第一轮直接落到研发工场总览。',
-    requiresAuth: true
   }
 };
 
-const workspaceCompatibilityRouteMap: Record<string, string[]> = {
-  '/automation-test': [
-    '/rd-workbench',
-    '/rd-automation-inventory',
-    '/rd-automation-templates',
-    '/rd-automation-plans',
-    '/rd-automation-handoff',
-    '/automation-execution',
-    '/automation-results'
-  ],
-  '/automation-assets': [
-    '/rd-workbench',
-    '/rd-automation-inventory',
-    '/rd-automation-templates',
-    '/rd-automation-plans',
-    '/rd-automation-handoff'
-  ],
-  '/rd-workbench': [
-    '/rd-automation-inventory',
-    '/rd-automation-templates',
-    '/rd-automation-plans',
-    '/rd-automation-handoff'
-  ]
-};
+const workspaceCompatibilityRouteMap: Record<string, string[]> = {};
 
-const hiddenCompatibilityWorkspacePaths = new Set(['/automation-assets', '/automation-test']);
+const hiddenCompatibilityWorkspacePaths = new Set<string>();
 
 const canonicalGroupNavOrders: Record<string, string[]> = {
   'quality-workbench': [
     '/quality-workbench',
     '/business-acceptance',
-    '/rd-workbench',
-    '/rd-automation-inventory',
-    '/rd-automation-templates',
-    '/rd-automation-plans',
-    '/rd-automation-handoff',
-    '/automation-execution',
-    '/automation-results'
-  ],
-  'rd-workbench': [
-    '/rd-workbench',
-    '/rd-automation-inventory',
-    '/rd-automation-templates',
-    '/rd-automation-plans',
-    '/rd-automation-handoff'
+    '/automation-governance'
   ]
 };
 

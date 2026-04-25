@@ -1,5 +1,5 @@
 <template>
-  <PanelCard title="预置验收包" description="按交付清单选择业务验收包，聚焦验收人员、产品和项目经理可直接理解的模块范围。">
+  <PanelCard title="选择验收包" description="按交付清单先确定本轮验收范围，再进入执行配置。">
     <StandardInlineState v-if="errorMessage" tone="error" :message="errorMessage" />
     <div v-else-if="packages.length === 0" class="business-acceptance-package-panel__empty">
       暂无可用业务验收包。
@@ -54,14 +54,13 @@ defineEmits<{
 
 .business-acceptance-package-panel__card {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.8rem;
   width: 100%;
-  padding: 1rem;
+  min-height: 100%;
+  padding: 1rem 1.05rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96)),
-    radial-gradient(circle at top right, rgba(30, 128, 255, 0.08), transparent 52%);
+  background: var(--bg-card);
   text-align: left;
   transition:
     border-color var(--transition-base),
@@ -70,14 +69,14 @@ defineEmits<{
 }
 
 .business-acceptance-package-panel__card:hover {
-  border-color: color-mix(in srgb, var(--brand) 28%, var(--panel-border));
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
   transform: translateY(-1px);
   box-shadow: var(--shadow-card);
 }
 
 .business-acceptance-package-panel__card--active {
-  border-color: color-mix(in srgb, var(--brand) 38%, var(--panel-border));
-  box-shadow: var(--shadow-brand);
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--panel-border));
+  box-shadow: var(--shadow-card);
 }
 
 .business-acceptance-package-panel__header {
@@ -93,8 +92,9 @@ defineEmits<{
 }
 
 .business-acceptance-package-panel__header span {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .business-acceptance-package-panel__description {
@@ -112,8 +112,9 @@ defineEmits<{
 .business-acceptance-package-panel__meta span {
   padding: 0.28rem 0.65rem;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand) 7%, white);
-  color: var(--brand-deep);
+  background: color-mix(in srgb, var(--brand) 6%, white);
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, white);
+  color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 600;
 }

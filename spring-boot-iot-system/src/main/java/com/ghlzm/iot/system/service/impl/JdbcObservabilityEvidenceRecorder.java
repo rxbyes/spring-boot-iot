@@ -1,6 +1,7 @@
 package com.ghlzm.iot.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.ghlzm.iot.framework.observability.ObservabilityPayloadLimiter;
 import com.ghlzm.iot.framework.observability.SensitiveLogSanitizer;
 import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
 import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
@@ -11,8 +12,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -39,7 +38,6 @@ public class JdbcObservabilityEvidenceRecorder implements ObservabilityEvidenceR
     private static final String TRUNCATED_SUFFIX = "...(truncated)";
 
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
     private final Map<String, Set<String>> columnCache = new ConcurrentHashMap<>();
 
     public JdbcObservabilityEvidenceRecorder(JdbcTemplate jdbcTemplate) {
@@ -72,7 +70,7 @@ public class JdbcObservabilityEvidenceRecorder implements ObservabilityEvidenceR
             put(values, columns, "finished_at", toTimestamp(normalized.getFinishedAt()));
             put(values, columns, "error_class", truncate(normalized.getErrorClass(), TEXT_255));
             put(values, columns, "error_message", truncate(SensitiveLogSanitizer.sanitize(normalized.getErrorMessage()), TEXT_500));
-            put(values, columns, "tags_json", toJson(normalized.getTags()));
+            put(values, columns, "tags_json", ObservabilityPayloadLimiter.toJson(normalized.getTags()));
             put(values, columns, "create_time", Timestamp.valueOf(LocalDateTime.now()));
             put(values, columns, "deleted", 0);
             insert(SPAN_TABLE, values);
@@ -111,7 +109,7 @@ public class JdbcObservabilityEvidenceRecorder implements ObservabilityEvidenceR
             put(values, columns, "duration_ms", normalized.getDurationMs());
             put(values, columns, "error_code", truncate(normalized.getErrorCode(), TEXT_64));
             put(values, columns, "error_message", truncate(SensitiveLogSanitizer.sanitize(normalized.getErrorMessage()), TEXT_500));
-            put(values, columns, "metadata_json", toJson(normalized.getMetadata()));
+            put(values, columns, "metadata_json", ObservabilityPayloadLimiter.toJson(normalized.getMetadata()));
             put(values, columns, "occurred_at", toTimestamp(normalized.getOccurredAt()));
             put(values, columns, "create_time", Timestamp.valueOf(LocalDateTime.now()));
             put(values, columns, "deleted", 0);
@@ -211,17 +209,6 @@ public class JdbcObservabilityEvidenceRecorder implements ObservabilityEvidenceR
 
     private Timestamp toTimestamp(LocalDateTime value) {
         return value == null ? null : Timestamp.valueOf(value);
-    }
-
-    private String toJson(Map<String, Object> value) {
-        if (value == null || value.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception ex) {
-            return null;
-        }
     }
 
     private String truncate(String text, int maxLength) {

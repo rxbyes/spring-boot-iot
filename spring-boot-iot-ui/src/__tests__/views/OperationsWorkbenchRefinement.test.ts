@@ -501,14 +501,13 @@ describe('operations workbench refinement', () => {
     expect(source).not.toContain('Emergency Plans');
   });
 
-  it('removes the standalone hero panel from the automation workbench and aligns it with the shared governance shell', () => {
+  it('keeps the legacy automation wrapper views aligned with the shared governance shell', () => {
     const entrySource = readViewSource('AutomationTestCenterView.vue');
     const landingSource = readViewSource('RdWorkbenchLandingView.vue');
 
     expect(entrySource).toContain('<RdWorkbenchLandingView />');
-    expect(landingSource).toContain('<StandardPageShell');
-    expect(landingSource).toContain('<StandardWorkbenchPanel');
-    expect(landingSource).toContain('title="研发工场总览"');
+    expect(landingSource).toContain('<AutomationGovernanceWorkbenchView />');
+    expect(landingSource).not.toContain('研发工场总览');
   });
 
   it('aligns audit-log action columns with adaptive shared row actions', () => {

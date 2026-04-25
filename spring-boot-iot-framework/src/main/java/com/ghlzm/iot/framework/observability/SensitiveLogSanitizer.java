@@ -10,16 +10,20 @@ import java.util.regex.Pattern;
  */
 public final class SensitiveLogSanitizer {
 
+    private static final String SENSITIVE_KEYS =
+            "password|token|secret|authorization|accessToken|refreshToken|clientSecret|apiKey|accessKey|privateKey|deviceSecret|merchantKey|signatureSecret";
+
     private static final Pattern JSON_SENSITIVE_PATTERN = Pattern.compile(
-            "(?i)\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\"\\s*:\\s*\"[^\"]*\"");
+            "(?i)\"(" + SENSITIVE_KEYS + ")\"\\s*:\\s*\"[^\"]*\"");
     private static final Pattern ESCAPED_JSON_SENSITIVE_PATTERN = Pattern.compile(
-            "(?i)\\\\\"(password|token|secret|authorization|accessToken|refreshToken|clientSecret)\\\\\"\\s*:\\s*\\\\\"[^\\\\\"]*\\\\\"");
+            "(?i)\\\\\"(" + SENSITIVE_KEYS + ")\\\\\"\\s*:\\s*\\\\\"[^\\\\\"]*\\\\\"");
     private static final Pattern ESCAPED_JSON_SENSITIVE_GROUP_PATTERN = Pattern.compile(
-            "(?i)(\\\\\"(?:password|token|secret|authorization|accessToken|refreshToken|clientSecret)\\\\\"\\s*:\\s*\\\\\")[^\\\\\"]*(\\\\\")");
+            "(?i)(\\\\\"(?:" + SENSITIVE_KEYS + ")\\\\\"\\s*:\\s*\\\\\")[^\\\\\"]*(\\\\\")");
     private static final Pattern KV_SENSITIVE_PATTERN = Pattern.compile(
-            "(?i)(password|token|secret|authorization|accessToken|refreshToken|clientSecret)=([^&\\s]+)");
+            "(?i)(" + SENSITIVE_KEYS + ")=([^&\\s]+)");
     private static final Pattern AUTHORIZATION_HEADER_PATTERN = Pattern.compile(
             "(?i)(authorization\\s*:\\s*bearer\\s+)([^\\s,;]+)");
+    private static final Pattern SENSITIVE_KEY_NAME_PATTERN = Pattern.compile("(?i)^(" + SENSITIVE_KEYS + ")$");
 
     private SensitiveLogSanitizer() {
     }
@@ -34,6 +38,10 @@ public final class SensitiveLogSanitizer {
         masked = replaceWithPattern(masked, KV_SENSITIVE_PATTERN, "$1=***");
         masked = replaceWithPattern(masked, AUTHORIZATION_HEADER_PATTERN, "$1***");
         return masked;
+    }
+
+    public static boolean isSensitiveKey(String key) {
+        return StringUtils.hasText(key) && SENSITIVE_KEY_NAME_PATTERN.matcher(key.trim()).matches();
     }
 
     private static String replaceWithPattern(String text, Pattern pattern, String replacement) {

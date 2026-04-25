@@ -4,10 +4,16 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 const mockRouterPush = vi.fn()
+const mockRouterReplace = vi.fn()
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
-    push: mockRouterPush
+    push: mockRouterPush,
+    replace: mockRouterReplace
+  }),
+  useRoute: () => ({
+    query: {},
+    params: {}
   }),
   RouterLink: defineComponent({
     name: 'RouterLink',

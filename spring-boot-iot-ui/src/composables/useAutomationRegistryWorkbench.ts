@@ -1,5 +1,5 @@
 import { computed, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   getAutomationResultDetail,
   getAutomationResultEvidenceContent,
@@ -48,6 +48,7 @@ function createLedgerFilters(): AutomationResultLedgerFilters {
 
 export function useAutomationRegistryWorkbench() {
   const route = useRoute();
+  const router = useRouter();
   const registryDocument = loadAcceptanceRegistryDocument();
   const importedRun = ref<ParsedAcceptanceRegistryRunSummary | null>(null);
   const displaySource = ref<RegistryRunDisplaySource>('backend');
@@ -197,7 +198,24 @@ export function useAutomationRegistryWorkbench() {
     }
   }
 
-  async function selectLedgerRun(runId: string, options: { silent?: boolean } = {}) {
+  async function syncRunIdQuery(runId: string) {
+    const currentRunId = normalizeFilterValue(route.query.runId);
+    const nextRunId = normalizeFilterValue(runId);
+    if (currentRunId === nextRunId) {
+      return;
+    }
+    const nextQuery = { ...(route.query || {}) } as Record<string, unknown>;
+    if (nextRunId) {
+      nextQuery.runId = nextRunId;
+    } else {
+      delete nextQuery.runId;
+    }
+    await router.replace({
+      query: nextQuery
+    });
+  }
+
+  async function selectLedgerRun(runId: string, options: { silent?: boolean; syncQuery?: boolean } = {}) {
     if (!runId) {
       clearBackendSelection();
       return;
@@ -206,6 +224,9 @@ export function useAutomationRegistryWorkbench() {
     switchToBackendDisplay();
     selectedLedgerRunId.value = runId;
     selectedLedgerRunErrorMessage.value = '';
+    if (options.syncQuery !== false) {
+      await syncRunIdQuery(runId);
+    }
 
     try {
       const response = await getAutomationResultDetail(runId);
@@ -234,11 +255,11 @@ export function useAutomationRegistryWorkbench() {
       !!selectedLedgerRunId.value && records.some((item) => item.runId === selectedLedgerRunId.value);
 
     if (hasSelectedRun) {
-      await selectLedgerRun(selectedLedgerRunId.value, { silent: true });
+      await selectLedgerRun(selectedLedgerRunId.value, { silent: true, syncQuery: false });
       return;
     }
 
-    await selectLedgerRun(records[0].runId, { silent: true });
+    await selectLedgerRun(records[0].runId, { silent: true, syncQuery: false });
   }
 
   async function fetchRunLedger() {
@@ -303,7 +324,7 @@ export function useAutomationRegistryWorkbench() {
       if (!normalizedRunId || normalizedRunId === selectedLedgerRunId.value) {
         return;
       }
-      void selectLedgerRun(normalizedRunId, { silent: true });
+      void selectLedgerRun(normalizedRunId, { silent: true, syncQuery: false });
     },
     { immediate: true }
   );

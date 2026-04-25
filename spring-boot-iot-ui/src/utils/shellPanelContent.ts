@@ -186,18 +186,13 @@ const HELP_ENTRY_DEFINITIONS: HelpEntryDefinition[] = [
     id: 'help-quality-workbench',
     category: 'technical',
     title: '质量工场使用说明',
-    description: '先从质量工场总览进入研发工场、执行中心或结果与基线中心，避免在同一页混用编排、执行和复盘动作。',
+    description: '先从质量工场总览判断当前应进入业务验收台还是自动化治理台，避免把业务验收和工程治理动作混在同一入口。',
     path: '/quality-workbench',
     audienceKeys: ['developer', 'super-admin'],
     relatedPaths: [
       '/quality-workbench',
-      '/rd-workbench',
-      '/rd-automation-inventory',
-      '/rd-automation-templates',
-      '/rd-automation-plans',
-      '/rd-automation-handoff',
-      '/automation-execution',
-      '/automation-results'
+      '/business-acceptance',
+      '/automation-governance'
     ]
   },
   {

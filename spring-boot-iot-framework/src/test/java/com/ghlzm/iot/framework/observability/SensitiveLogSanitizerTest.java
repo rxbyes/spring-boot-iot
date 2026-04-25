@@ -25,4 +25,21 @@ class SensitiveLogSanitizerTest {
         assertFalse(sanitized.contains("123456"));
         assertFalse(sanitized.contains("jwt-token-demo"));
     }
+
+    @Test
+    void sanitizeShouldMaskExpandedSecretKeys() {
+        String raw = """
+                {"apiKey":"demo-api","accessKey":"demo-access","privateKey":"demo-private",
+                "deviceSecret":"demo-device","merchantKey":"demo-merchant","signatureSecret":"demo-sign"}
+                """;
+
+        String sanitized = SensitiveLogSanitizer.sanitize(raw);
+
+        assertTrue(sanitized.contains("\"apiKey\":\"***\""));
+        assertTrue(sanitized.contains("\"accessKey\":\"***\""));
+        assertTrue(sanitized.contains("\"privateKey\":\"***\""));
+        assertTrue(sanitized.contains("\"deviceSecret\":\"***\""));
+        assertTrue(sanitized.contains("\"merchantKey\":\"***\""));
+        assertTrue(sanitized.contains("\"signatureSecret\":\"***\""));
+    }
 }
