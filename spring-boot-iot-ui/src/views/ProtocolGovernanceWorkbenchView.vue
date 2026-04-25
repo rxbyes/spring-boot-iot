@@ -45,7 +45,6 @@
                 action="confirm"
                 data-testid="protocol-family-save"
                 :disabled="familySaving"
-                v-permission="'iot:protocol-governance:family-draft'"
                 @click="handleSaveFamily"
               >
                 {{ familySaving ? '保存中...' : '保存草稿' }}
@@ -121,7 +120,6 @@
                 v-permission="'iot:protocol-governance:family-publish'"
                 data-testid="protocol-family-batch-submit-publish"
                 :disabled="selectedFamilyIds.length === 0 || familyBatchSubmitting"
-                v-permission="'iot:protocol-governance:family-publish'"
                 @click="handleSubmitFamilyBatchPublish"
               >
                 {{ familyBatchSubmitting ? '提交中...' : '批量提交发布审批' }}
@@ -130,7 +128,6 @@
                 v-permission="'iot:protocol-governance:family-rollback'"
                 data-testid="protocol-family-batch-submit-rollback"
                 :disabled="selectedFamilyIds.length === 0 || familyBatchSubmitting"
-                v-permission="'iot:protocol-governance:family-rollback'"
                 @click="handleSubmitFamilyBatchRollback"
               >
                 {{ familyBatchSubmitting ? '提交中...' : '批量提交回滚审批' }}
@@ -168,7 +165,6 @@
                   v-permission="'iot:protocol-governance:family-draft'"
                   :data-testid="`protocol-family-edit-${row.id}`"
                   action="default"
-                  v-permission="'iot:protocol-governance:family-draft'"
                   @click="applyFamilyDraft(row)"
                 >
                   编辑草稿
@@ -185,7 +181,6 @@
                   v-permission="'iot:protocol-governance:family-publish'"
                   :data-testid="`protocol-family-submit-publish-${row.id}`"
                   :disabled="row.id == null || submittingKey === `family-publish-${row.id}`"
-                  v-permission="'iot:protocol-governance:family-publish'"
                   @click="handleSubmitFamilyPublish(row)"
                 >
                   {{ submittingKey === `family-publish-${row.id}` ? '提交中...' : '提交发布审批' }}
@@ -198,7 +193,6 @@
                     row.publishedStatus !== 'PUBLISHED' ||
                     submittingKey === `family-rollback-${row.id}`
                   "
-                  v-permission="'iot:protocol-governance:family-rollback'"
                   @click="handleSubmitFamilyRollback(row)"
                 >
                   {{ submittingKey === `family-rollback-${row.id}` ? '提交中...' : '提交回滚审批' }}
@@ -230,7 +224,6 @@
                 action="confirm"
                 data-testid="protocol-profile-save"
                 :disabled="decryptProfileSaving"
-                v-permission="'iot:protocol-governance:decrypt-draft'"
                 @click="handleSaveDecryptProfile"
               >
                 {{ decryptProfileSaving ? '保存中...' : '保存草稿' }}
@@ -308,7 +301,6 @@
                 action="confirm"
                 data-testid="protocol-preview-submit"
                 :disabled="previewLoading"
-                v-permission="'iot:protocol-governance:decrypt-preview'"
                 @click="handlePreviewDecrypt"
               >
                 {{ previewLoading ? '试算中...' : '运行试算' }}
@@ -318,7 +310,6 @@
                 action="default"
                 data-testid="protocol-replay-submit"
                 :disabled="replayLoading"
-                v-permission="'iot:protocol-governance:decrypt-replay'"
                 @click="handleReplayDecrypt"
               >
                 {{ replayLoading ? '回放中...' : '运行回放' }}
@@ -382,7 +373,6 @@
                 v-permission="'iot:protocol-governance:decrypt-publish'"
                 data-testid="protocol-profile-batch-submit-publish"
                 :disabled="selectedDecryptProfileIds.length === 0 || decryptProfileBatchSubmitting"
-                v-permission="'iot:protocol-governance:decrypt-publish'"
                 @click="handleSubmitDecryptProfileBatchPublish"
               >
                 {{ decryptProfileBatchSubmitting ? '提交中...' : '批量提交发布审批' }}
@@ -391,7 +381,6 @@
                 v-permission="'iot:protocol-governance:decrypt-rollback'"
                 data-testid="protocol-profile-batch-submit-rollback"
                 :disabled="selectedDecryptProfileIds.length === 0 || decryptProfileBatchSubmitting"
-                v-permission="'iot:protocol-governance:decrypt-rollback'"
                 @click="handleSubmitDecryptProfileBatchRollback"
               >
                 {{ decryptProfileBatchSubmitting ? '提交中...' : '批量提交回滚审批' }}
@@ -429,7 +418,6 @@
                   v-permission="'iot:protocol-governance:decrypt-draft'"
                   :data-testid="`protocol-profile-edit-${row.id}`"
                   action="default"
-                  v-permission="'iot:protocol-governance:decrypt-draft'"
                   @click="applyDecryptProfileDraft(row)"
                 >
                   编辑草稿
@@ -446,7 +434,6 @@
                   v-permission="'iot:protocol-governance:decrypt-publish'"
                   :data-testid="`protocol-profile-submit-publish-${row.id}`"
                   :disabled="row.id == null || submittingKey === `profile-publish-${row.id}`"
-                  v-permission="'iot:protocol-governance:decrypt-publish'"
                   @click="handleSubmitDecryptProfilePublish(row)"
                 >
                   {{ submittingKey === `profile-publish-${row.id}` ? '提交中...' : '提交发布审批' }}
@@ -459,7 +446,6 @@
                     row.publishedStatus !== 'PUBLISHED' ||
                     submittingKey === `profile-rollback-${row.id}`
                   "
-                  v-permission="'iot:protocol-governance:decrypt-rollback'"
                   @click="handleSubmitDecryptProfileRollback(row)"
                 >
                   {{ submittingKey === `profile-rollback-${row.id}` ? '提交中...' : '提交回滚审批' }}
@@ -491,7 +477,6 @@
                 action="confirm"
                 data-testid="protocol-template-save"
                 :disabled="templateSaving"
-                v-permission="'iot:protocol-governance:template-draft'"
                 @click="handleSaveTemplate"
               >
                 {{ templateSaving ? '保存中...' : '保存草稿' }}
@@ -569,7 +554,6 @@
                 action="default"
                 data-testid="protocol-template-replay-submit"
                 :disabled="templateReplayLoading"
-                v-permission="'iot:protocol-governance:template-replay'"
                 @click="handleReplayTemplate"
               >
                 {{ templateReplayLoading ? '回放中...' : '运行模板回放' }}
@@ -630,7 +614,6 @@
                   v-permission="'iot:protocol-governance:template-draft'"
                   :data-testid="`protocol-template-edit-${row.id}`"
                   action="default"
-                  v-permission="'iot:protocol-governance:template-draft'"
                   @click="applyTemplateDraft(row)"
                 >
                   编辑草稿
@@ -647,7 +630,6 @@
                   v-permission="'iot:protocol-governance:template-publish'"
                   :data-testid="`protocol-template-publish-${row.id}`"
                   :disabled="row.id == null || submittingKey === `template-publish-${row.id}`"
-                  v-permission="'iot:protocol-governance:template-publish'"
                   @click="handlePublishTemplate(row)"
                 >
                   {{ submittingKey === `template-publish-${row.id}` ? '发布中...' : '发布快照' }}
