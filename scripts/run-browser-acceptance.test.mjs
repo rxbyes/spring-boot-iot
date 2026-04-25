@@ -51,6 +51,76 @@ test('iot access dry-run loads dedicated smoke plan and prints required routes',
   }
 });
 
+test('quality factory dry-run loads business acceptance and results routes', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      browserAcceptanceScript,
+      '--dry-run',
+      '--no-append-issues',
+      '--plan=config/automation/quality-factory-web-smoke-plan.json'
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /"dryRun": true/);
+  assert.match(result.stdout, /"key": "business-acceptance-workbench"/);
+  assert.match(result.stdout, /"key": "automation-results-workbench"/);
+});
+
+test('config-driven dry-run filters exact scenario keys', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      browserAcceptanceScript,
+      '--dry-run',
+      '--no-append-issues',
+      '--plan=config/automation/sample-web-smoke-plan.json',
+      '--scenario-keys=login,product-governance-warning-fallback'
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const payload = JSON.parse(result.stdout);
+  assert.deepEqual(
+    payload.scenarios.map((scenario) => scenario.key),
+    ['login', 'product-governance-warning-fallback']
+  );
+});
+
+test('p1 onboarding and object insight dry-runs load dedicated plans', () => {
+  for (const [planPath, expectedKey] of [
+    ['config/automation/device-onboarding-web-smoke-plan.json', 'device-onboarding-workbench'],
+    ['config/automation/object-insight-web-smoke-plan.json', 'object-insight-workbench']
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        browserAcceptanceScript,
+        '--dry-run',
+        '--no-append-issues',
+        `--plan=${planPath}`
+      ],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8'
+      }
+    );
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /"dryRun": true/);
+    assert.match(result.stdout, new RegExp(`"key": "${expectedKey}"`));
+  }
+});
+
 test('config-driven dry-run prefers acceptance env urls over plan defaults', async (t) => {
   const { runCli } = await import(pathToFileURL(browserAcceptanceScript).href);
   const previousFrontendUrl = process.env.IOT_ACCEPTANCE_FRONTEND_URL;

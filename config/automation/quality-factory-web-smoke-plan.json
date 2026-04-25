@@ -1,0 +1,195 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-04-25T00:00:00+08:00",
+  "target": {
+    "planName": "质量工场 P0 业务验收台冒烟基线",
+    "frontendBaseUrl": "http://127.0.0.1:5174",
+    "backendBaseUrl": "http://127.0.0.1:9999",
+    "loginRoute": "/login",
+    "username": "admin",
+    "password": "123456",
+    "browserPath": "",
+    "headless": true,
+    "outputPrefix": "quality-factory-browser",
+    "baselineDir": "config/automation/baselines",
+    "scenarioScopes": [
+      "delivery"
+    ],
+    "failScopes": [
+      "delivery"
+    ]
+  },
+  "tags": [
+    "playwright",
+    "config-driven",
+    "quality-factory",
+    "business-acceptance"
+  ],
+  "plugins": [
+    "builtin-report",
+    "builtin-suggestion",
+    "capture-response"
+  ],
+  "scenarios": [
+    {
+      "key": "quality-factory-login",
+      "name": "质量工场登录初始化",
+      "route": "/login",
+      "scope": "delivery",
+      "readySelector": "#login-submit",
+      "requiresLogin": false,
+      "description": "初始化质量工场浏览器会话。",
+      "businessFlow": "登录鉴权与业务验收台会话建立",
+      "featurePoints": [
+        "登录页可达",
+        "登录接口返回 200",
+        "进入受保护工作台"
+      ],
+      "steps": [
+        {
+          "id": "quality-login-fill-username",
+          "label": "填写账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-username"
+          },
+          "value": "${target.username}"
+        },
+        {
+          "id": "quality-login-fill-password",
+          "label": "填写密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-password"
+          },
+          "value": "${target.password}"
+        },
+        {
+          "id": "quality-login-submit",
+          "label": "提交登录",
+          "type": "triggerApi",
+          "matcher": "/api/auth/login",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#login-submit"
+            }
+          }
+        },
+        {
+          "id": "quality-login-assert-shell",
+          "label": "断言进入平台壳层",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "质量工场"
+        }
+      ]
+    },
+    {
+      "key": "business-acceptance-workbench",
+      "name": "业务验收台 P0 验收包可见",
+      "route": "/business-acceptance",
+      "scope": "delivery",
+      "readySelector": ".business-acceptance-workbench",
+      "requiresLogin": true,
+      "description": "验证业务验收台可达，并能加载 P0 全流程业务验收包。",
+      "businessFlow": "业务验收台加载业务验收包与账号模板",
+      "featurePoints": [
+        "业务验收包接口返回 200",
+        "P0 全流程验收包可见",
+        "运行配置区可见"
+      ],
+      "initialApis": [
+        {
+          "label": "业务验收包",
+          "matcher": "/api/report/business-acceptance/packages"
+        },
+        {
+          "label": "账号模板",
+          "matcher": "/api/report/business-acceptance/account-templates"
+        }
+      ],
+      "steps": [
+        {
+          "id": "business-acceptance-assert-title",
+          "label": "断言业务验收台标题可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "业务验收台"
+        },
+        {
+          "id": "business-acceptance-assert-p0-package",
+          "label": "断言 P0 验收包可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "P0 全流程业务验收"
+        },
+        {
+          "id": "business-acceptance-assert-config",
+          "label": "断言运行配置区可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "模块范围"
+        }
+      ]
+    },
+    {
+      "key": "automation-results-workbench",
+      "name": "结果与基线中心可达",
+      "route": "/automation-results",
+      "scope": "delivery",
+      "readySelector": ".automation-results-view",
+      "requiresLogin": true,
+      "description": "验证结果与基线中心可达并加载历史台账区域。",
+      "businessFlow": "质量工场结果中心历史运行和证据复盘",
+      "featurePoints": [
+        "历史台账可见",
+        "证据区域可见",
+        "结果建议区域可见"
+      ],
+      "initialApis": [
+        {
+          "label": "自动化运行台账",
+          "matcher": "/api/report/automation-results/page"
+        }
+      ],
+      "steps": [
+        {
+          "id": "automation-results-assert-title",
+          "label": "断言结果与基线中心标题可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "结果与基线中心"
+        },
+        {
+          "id": "automation-results-assert-evidence",
+          "label": "断言证据区域可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "证据"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-04-25T00:00:00+08:00",
+  "target": {
+    "planName": "无代码接入台 P1 浏览器冒烟基线",
+    "frontendBaseUrl": "http://127.0.0.1:5175",
+    "backendBaseUrl": "http://127.0.0.1:10099",
+    "loginRoute": "/login",
+    "username": "admin",
+    "password": "123456",
+    "browserPath": "",
+    "headless": true,
+    "outputPrefix": "device-onboarding-browser",
+    "baselineDir": "config/automation/baselines",
+    "scenarioScopes": ["delivery"],
+    "failScopes": ["delivery"]
+  },
+  "tags": [
+    "playwright",
+    "config-driven",
+    "device-onboarding",
+    "quality-factory-p1"
+  ],
+  "plugins": [
+    "builtin-report",
+    "builtin-suggestion",
+    "capture-response"
+  ],
+  "scenarios": [
+    {
+      "key": "device-onboarding-login",
+      "name": "无代码接入台登录初始化",
+      "route": "/login",
+      "scope": "delivery",
+      "readySelector": "#login-submit",
+      "requiresLogin": false,
+      "description": "初始化无代码接入台自动化会话。",
+      "businessFlow": "登录鉴权与接入智维会话建立",
+      "featurePoints": [
+        "登录页可达",
+        "登录接口返回 200",
+        "进入受保护工作台"
+      ],
+      "steps": [
+        {
+          "id": "device-onboarding-login-fill-username",
+          "label": "填写账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-username"
+          },
+          "value": "${target.username}"
+        },
+        {
+          "id": "device-onboarding-login-fill-password",
+          "label": "填写密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-password"
+          },
+          "value": "${target.password}"
+        },
+        {
+          "id": "device-onboarding-login-submit",
+          "label": "提交登录",
+          "type": "triggerApi",
+          "matcher": "/api/auth/login",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#login-submit"
+            }
+          }
+        },
+        {
+          "id": "device-onboarding-login-assert-shell",
+          "label": "断言进入接入智维入口",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "接入智维"
+        }
+      ]
+    },
+    {
+      "key": "device-onboarding-workbench",
+      "name": "无代码接入台可达",
+      "route": "/device-onboarding",
+      "scope": "delivery",
+      "readySelector": ".device-onboarding-workbench__summary",
+      "requiresLogin": true,
+      "description": "验证无代码接入台可达，并能加载接入案例、模板包和批量验收区域。",
+      "businessFlow": "接入案例 intake、模板包预填和验收触发入口",
+      "featurePoints": [
+        "接入案例列表可见",
+        "模板包预填区域可见",
+        "批量触发验收入口可见"
+      ],
+      "initialApis": [
+        {
+          "label": "接入案例",
+          "matcher": "/api/device/onboarding/cases"
+        },
+        {
+          "label": "模板包",
+          "matcher": "/api/device/onboarding/template-packs"
+        }
+      ],
+      "steps": [
+        {
+          "id": "device-onboarding-assert-title",
+          "label": "断言无代码接入台标题可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "无代码接入台"
+        },
+        {
+          "id": "device-onboarding-assert-cases",
+          "label": "断言接入案例区域可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "接入案例"
+        },
+        {
+          "id": "device-onboarding-assert-template-pack",
+          "label": "断言模板包区域可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "模板包"
+        },
+        {
+          "id": "device-onboarding-assert-batch-acceptance",
+          "label": "断言批量验收入口可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "批量触发验收"
+        }
+      ]
+    }
+  ]
+}
