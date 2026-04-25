@@ -6,6 +6,8 @@ const {
   successMessageMock,
   errorMessageMock,
   pageAutomationResultsMock,
+  listAutomationResultFacetsMock,
+  refreshAutomationResultIndexMock,
   listRecentAutomationResultsMock,
   getAutomationResultDetailMock,
   listAutomationResultEvidenceMock,
@@ -18,6 +20,8 @@ const {
   successMessageMock: vi.fn(),
   errorMessageMock: vi.fn(),
   pageAutomationResultsMock: vi.fn(),
+  listAutomationResultFacetsMock: vi.fn(),
+  refreshAutomationResultIndexMock: vi.fn(),
   listRecentAutomationResultsMock: vi.fn(),
   getAutomationResultDetailMock: vi.fn(),
   listAutomationResultEvidenceMock: vi.fn(),
@@ -26,6 +30,8 @@ const {
 
 vi.mock('@/api/automationResults', () => ({
   pageAutomationResults: pageAutomationResultsMock,
+  listAutomationResultFacets: listAutomationResultFacetsMock,
+  refreshAutomationResultIndex: refreshAutomationResultIndexMock,
   listRecentAutomationResults: listRecentAutomationResultsMock,
   getAutomationResultDetail: getAutomationResultDetailMock,
   listAutomationResultEvidence: listAutomationResultEvidenceMock,
@@ -129,10 +135,32 @@ describe('useAutomationRegistryWorkbench', () => {
     successMessageMock.mockReset();
     errorMessageMock.mockReset();
     pageAutomationResultsMock.mockReset();
+    listAutomationResultFacetsMock.mockReset();
+    refreshAutomationResultIndexMock.mockReset();
     listRecentAutomationResultsMock.mockReset();
     getAutomationResultDetailMock.mockReset();
     listAutomationResultEvidenceMock.mockReset();
     getAutomationResultEvidenceContentMock.mockReset();
+    listAutomationResultFacetsMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        statuses: ['failed', 'passed'],
+        runnerTypes: ['browserPlan', 'riskDrill'],
+        packageCodes: ['product-governance-p1', 'quality-factory-p0'],
+        environmentCodes: ['dev', 'sit']
+      }
+    });
+    refreshAutomationResultIndexMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        generatedAt: '2026-04-25T23:30:00Z',
+        latestIndexPath: 'logs/acceptance/automation-result-index.latest.json',
+        indexedRuns: 2,
+        skippedFiles: 0
+      }
+    });
   });
 
   it('preselects a run in automation results when runId query exists', async () => {
@@ -256,6 +284,8 @@ describe('useAutomationRegistryWorkbench', () => {
     workbench.ledgerFilters.keyword = 'message-flow';
     workbench.ledgerFilters.status = 'failed';
     workbench.ledgerFilters.runnerType = 'messageFlow';
+    workbench.ledgerFilters.packageCode = 'quality-factory-p0';
+    workbench.ledgerFilters.environmentCode = 'dev';
     workbench.ledgerFilters.dateRange = ['2026-04-01', '2026-04-03'];
 
     await workbench.applyLedgerFilters();
@@ -266,6 +296,8 @@ describe('useAutomationRegistryWorkbench', () => {
       keyword: 'message-flow',
       status: 'failed',
       runnerType: 'messageFlow',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-03'
     });
@@ -278,6 +310,8 @@ describe('useAutomationRegistryWorkbench', () => {
       keyword: 'message-flow',
       status: 'failed',
       runnerType: 'messageFlow',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-03'
     });
@@ -289,9 +323,69 @@ describe('useAutomationRegistryWorkbench', () => {
       keyword: 'message-flow',
       status: 'failed',
       runnerType: 'messageFlow',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-03'
     });
+  });
+
+  it('loads archive facets and exposes package and environment filter options', async () => {
+    pageAutomationResultsMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createPageResult([])
+    });
+
+    const workbench = useAutomationRegistryWorkbench();
+
+    await workbench.fetchRunLedger();
+
+    expect(listAutomationResultFacetsMock).toHaveBeenCalledTimes(1);
+    expect(workbench.ledgerFacetOptions.value.packageCodes).toEqual([
+      'product-governance-p1',
+      'quality-factory-p0'
+    ]);
+    expect(workbench.ledgerFacetOptions.value.environmentCodes).toEqual(['dev', 'sit']);
+  });
+
+  it('refreshes the archive index and reloads the ledger', async () => {
+    pageAutomationResultsMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createPageResult([createRunSummary('20260403093000')])
+    });
+    getAutomationResultDetailMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRunDetail('20260403093000')
+    });
+    listAutomationResultEvidenceMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createEvidenceList('20260403093000')
+    });
+    getAutomationResultEvidenceContentMock.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        path: 'logs/acceptance/registry-run-20260403093000.json',
+        fileName: 'registry-run-20260403093000.json',
+        category: 'run-summary',
+        content: '{"runId":"20260403093000"}',
+        truncated: false
+      }
+    });
+
+    const workbench = useAutomationRegistryWorkbench();
+    await workbench.fetchRunLedger();
+    pageAutomationResultsMock.mockClear();
+
+    await workbench.refreshResultArchiveIndex();
+
+    expect(refreshAutomationResultIndexMock).toHaveBeenCalledTimes(1);
+    expect(pageAutomationResultsMock).toHaveBeenCalledTimes(1);
+    expect(successMessageMock).toHaveBeenCalledWith('结果归档索引已刷新');
   });
 
   it('switches to the new first row when the current selection disappears, then clears when empty', async () => {

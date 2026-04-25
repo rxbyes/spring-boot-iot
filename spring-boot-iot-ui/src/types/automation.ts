@@ -273,9 +273,25 @@ export interface AutomationResultRunSummary {
   relatedEvidenceFiles: string[];
   status: AutomationResultRunStatus;
   runnerTypes: AcceptanceRegistryRunnerType[];
+  packageCode?: string;
+  environmentCode?: string;
 }
 
 export type AutomationResultRecentRun = AutomationResultRunSummary;
+
+export interface AutomationResultArchiveFacets {
+  statuses: string[];
+  runnerTypes: string[];
+  packageCodes: string[];
+  environmentCodes: string[];
+}
+
+export interface AutomationResultArchiveRefreshResult {
+  generatedAt?: string;
+  latestIndexPath?: string;
+  indexedRuns?: number;
+  skippedFiles?: number;
+}
 
 export interface AutomationResultRunPageQuery {
   pageNum: number;
@@ -283,6 +299,8 @@ export interface AutomationResultRunPageQuery {
   keyword?: string;
   status?: string;
   runnerType?: string;
+  packageCode?: string;
+  environmentCode?: string;
   dateFrom?: string;
   dateTo?: string;
 }
@@ -291,5 +309,7 @@ export interface AutomationResultLedgerFilters {
   keyword: string;
   status: string;
   runnerType: string;
+  packageCode: string;
+  environmentCode: string;
   dateRange: string[];
 }

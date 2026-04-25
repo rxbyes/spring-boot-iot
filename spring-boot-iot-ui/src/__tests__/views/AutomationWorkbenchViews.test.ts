@@ -104,6 +104,14 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('失败场景明细');
   });
 
+  it('keeps the recent runs panel aligned with archive index filters', () => {
+    const source = readComponent('AutomationRecentRunsPanel.vue');
+
+    expect(source).toContain('placeholder="验收包"');
+    expect(source).toContain('placeholder="环境"');
+    expect(source).toContain('刷新索引');
+  });
+
   it('registers automation-governance route and retires the old rd/execution/result routes', () => {
     const source = readRouter();
 

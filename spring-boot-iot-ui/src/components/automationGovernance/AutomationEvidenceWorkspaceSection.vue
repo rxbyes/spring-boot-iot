@@ -34,12 +34,15 @@
       <AutomationRecentRunsPanel
         :ledger-runs="ledgerRuns"
         :filters="ledgerFilters"
+        :facet-options="ledgerFacetOptions"
         :pagination="pagination"
         :loading="ledgerLoading"
+        :refresh-index-loading="refreshArchiveIndexLoading"
         :error-message="ledgerErrorMessage"
         :selected-run-id="selectedLedgerRunId"
         :last-reloaded-at="lastLedgerReloadedAt"
         @refresh="fetchRunLedger"
+        @refresh-index="refreshResultArchiveIndex"
         @search="applyLedgerFilters"
         @reset="resetLedgerAndReload"
         @select-run="selectLedgerRun"
@@ -113,6 +116,8 @@ const {
   ledgerFilters,
   ledgerRuns,
   ledgerLoading,
+  ledgerFacetOptions,
+  refreshArchiveIndexLoading,
   ledgerErrorMessage,
   lastLedgerReloadedAt,
   selectedLedgerRunId,
@@ -132,6 +137,7 @@ const {
   failedScenarioDetails,
   summaryBody,
   fetchRunLedger,
+  refreshResultArchiveIndex,
   applyLedgerFilters,
   resetLedgerAndReload,
   handleLedgerPageChange,
