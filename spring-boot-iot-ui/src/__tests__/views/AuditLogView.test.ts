@@ -12,7 +12,7 @@ import {
   getSystemErrorStats,
   pageLogs
 } from '@/api/auditLog';
-import { getTraceEvidence, listObservabilitySlowSpanSummaries } from '@/api/observability';
+import { getTraceEvidence, listObservabilitySlowSpanSummaries, pageObservabilitySpans } from '@/api/observability';
 import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
@@ -41,6 +41,7 @@ vi.mock('@/api/auditLog', () => ({
 
 vi.mock('@/api/observability', () => ({
   listObservabilitySlowSpanSummaries: vi.fn(),
+  pageObservabilitySpans: vi.fn(),
   getTraceEvidence: vi.fn()
 }));
 
@@ -383,6 +384,7 @@ describe('AuditLogView', () => {
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
     vi.mocked(listObservabilitySlowSpanSummaries).mockReset();
+    vi.mocked(pageObservabilitySpans).mockReset();
     vi.mocked(getTraceEvidence).mockReset();
     vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
     vi.mocked(getSystemErrorStats).mockResolvedValue({
@@ -431,6 +433,43 @@ describe('AuditLogView', () => {
           latestStartedAt: '2026-04-25 10:08:00'
         }
       ]
+    });
+    vi.mocked(pageObservabilitySpans).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 31,
+            traceId: 'trace-slow-1',
+            spanType: 'SLOW_SQL',
+            spanName: 'Slow SQL iot_message_log',
+            domainCode: 'system',
+            eventCode: 'system.error.archive',
+            objectType: 'sql',
+            objectId: 'iot_message_log',
+            status: 'SUCCESS',
+            durationMs: 2400,
+            startedAt: '2026-04-25 10:08:00'
+          },
+          {
+            id: 32,
+            traceId: 'trace-slow-2',
+            spanType: 'SLOW_SQL',
+            spanName: 'Slow SQL iot_message_log',
+            domainCode: 'system',
+            eventCode: 'system.error.archive',
+            objectType: 'sql',
+            objectId: 'iot_message_log',
+            status: 'ERROR',
+            durationMs: 1800,
+            startedAt: '2026-04-25 10:06:00'
+          }
+        ]
+      }
     });
     vi.mocked(getTraceEvidence).mockResolvedValue({
       code: 200,
@@ -558,6 +597,46 @@ describe('AuditLogView', () => {
 
     vi.mocked(getTraceEvidence).mockClear();
     await panel.find('button').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-slow-1');
+    expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
+  });
+
+  it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const panel = wrapper.find('.audit-log-slow-summary');
+    const detailButton = panel.findAll('button').find((button) => button.text().includes('明细'));
+    await detailButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilitySpans).toHaveBeenCalledWith({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      eventCode: 'system.error.archive',
+      objectType: 'sql',
+      objectId: 'iot_message_log',
+      minDurationMs: 1,
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    const drilldown = wrapper.find('.audit-log-slow-span-drilldown');
+    expect(drilldown.exists()).toBe(true);
+    expect(drilldown.text()).toContain('慢点明细');
+    expect(drilldown.text()).toContain('Slow SQL iot_message_log');
+    expect(drilldown.text()).toContain('trace-slow-1');
+    expect(drilldown.text()).toContain('2400 ms');
+    expect(drilldown.text()).toContain('SUCCESS');
+
+    vi.mocked(getTraceEvidence).mockClear();
+    const evidenceButton = drilldown.findAll('button').find((button) => button.text().includes('证据'));
+    await evidenceButton!.trigger('click');
     await flushPromises();
     await nextTick();
 

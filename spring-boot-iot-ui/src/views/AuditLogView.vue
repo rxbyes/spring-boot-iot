@@ -186,9 +186,66 @@
               >
                 证据
               </StandardButton>
+              <StandardButton
+                action="view"
+                link
+                @click="loadSlowSpanDrilldown(row)"
+              >
+                明细
+              </StandardButton>
             </div>
           </article>
         </div>
+        <section
+          v-if="activeSlowSummary"
+          v-loading="slowSpanLoading"
+          class="audit-log-slow-span-drilldown"
+          aria-label="慢点调用片段明细"
+          element-loading-text="正在刷新慢点明细"
+          element-loading-background="var(--loading-mask-bg)"
+        >
+          <header class="audit-log-slow-span-drilldown__header">
+            <div>
+              <h3>慢点明细</h3>
+              <p>{{ formatSlowSummaryTitle(activeSlowSummary) }} · {{ formatSlowSummaryTarget(activeSlowSummary) }}</p>
+            </div>
+            <span>{{ slowSpanTotal }} 条</span>
+          </header>
+          <div v-if="slowSpanErrorMessage" class="audit-log-slow-summary__empty">
+            {{ slowSpanErrorMessage }}
+          </div>
+          <div v-else-if="slowSpanRows.length === 0" class="audit-log-slow-summary__empty">
+            暂无慢点明细
+          </div>
+          <div v-else class="audit-log-slow-span-drilldown__list">
+            <article
+              v-for="span in slowSpanRows"
+              :key="`slow-span-${span.id || span.traceId || span.startedAt}`"
+              class="audit-log-slow-span-drilldown__item"
+            >
+              <div class="audit-log-slow-span-drilldown__title">
+                <strong>{{ formatValue(span.spanName || span.spanType) }}</strong>
+                <span>{{ formatDuration(span.durationMs) }}</span>
+              </div>
+              <div class="audit-log-slow-span-drilldown__meta">
+                <span>{{ formatValue(span.traceId) }}</span>
+                <span>{{ formatValue(span.status) }}</span>
+                <span>{{ formatValue(span.startedAt) }}</span>
+              </div>
+              <div class="audit-log-slow-span-drilldown__footer">
+                <span>{{ formatValue(span.eventCode) }} / {{ formatValue(span.objectId) }}</span>
+                <StandardButton
+                  action="view"
+                  link
+                  :disabled="!span.traceId"
+                  @click="openTraceEvidenceByTraceId(span.traceId)"
+                >
+                  证据
+                </StandardButton>
+              </div>
+            </article>
+          </div>
+        </section>
       </section>
 
       <template #toolbar>
@@ -515,6 +572,9 @@ import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusi
 import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
+  pageObservabilitySpans,
+  type ObservabilitySpan,
+  type ObservabilitySpanPageQuery,
   type ObservabilitySlowSpanSummary,
   type ObservabilitySlowSpanSummaryQuery,
   type ObservabilityTraceEvidence
@@ -704,6 +764,11 @@ const businessStats = ref<BusinessAuditStats>(createEmptyBusinessStats())
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
 const slowSummaryLoading = ref(false)
 const slowSummaryErrorMessage = ref('')
+const activeSlowSummary = ref<ObservabilitySlowSpanSummary | null>(null)
+const slowSpanRows = ref<ObservabilitySpan[]>([])
+const slowSpanLoading = ref(false)
+const slowSpanErrorMessage = ref('')
+const slowSpanTotal = ref(0)
 const quickSearchPlaceholder = computed(() => (isSystemMode.value ? '快速搜索（TraceId）' : '快速搜索（操作用户）'))
 const advancedFilterKeys = computed<
   Array<'traceId' | 'deviceCode' | 'productKey' | 'requestUrl' | 'errorCode' | 'exceptionClass'>
@@ -983,16 +1048,26 @@ const buildSlowSummaryQueryParams = (): ObservabilitySlowSpanSummaryQuery => ({
   minDurationMs: 1
 })
 
+const clearSlowSpanDrilldown = () => {
+  activeSlowSummary.value = null
+  slowSpanRows.value = []
+  slowSpanLoading.value = false
+  slowSpanErrorMessage.value = ''
+  slowSpanTotal.value = 0
+}
+
 const getSlowSpanSummaries = async () => {
   if (!isSystemMode.value) {
     slowSummaryRows.value = []
     slowSummaryErrorMessage.value = ''
     slowSummaryLoading.value = false
+    clearSlowSpanDrilldown()
     return
   }
 
   slowSummaryLoading.value = true
   slowSummaryErrorMessage.value = ''
+  clearSlowSpanDrilldown()
   try {
     const res = await listObservabilitySlowSpanSummaries(buildSlowSummaryQueryParams())
     if (res.code === 200) {
@@ -1004,6 +1079,55 @@ const getSlowSpanSummaries = async () => {
     logPageError('获取性能慢点汇总失败', error)
   } finally {
     slowSummaryLoading.value = false
+  }
+}
+
+const setSlowSpanQueryValue = (
+  params: ObservabilitySpanPageQuery,
+  key: 'spanType' | 'eventCode' | 'domainCode' | 'objectType' | 'objectId',
+  value?: string | null
+) => {
+  const normalized = (value || '').trim()
+  if (normalized) {
+    params[key] = normalized
+  }
+}
+
+const buildSlowSpanQueryParams = (row: ObservabilitySlowSpanSummary): ObservabilitySpanPageQuery => {
+  const params: ObservabilitySpanPageQuery = {
+    minDurationMs: 1,
+    pageNum: 1,
+    pageSize: 5
+  }
+  setSlowSpanQueryValue(params, 'spanType', row.spanType)
+  setSlowSpanQueryValue(params, 'domainCode', row.domainCode)
+  setSlowSpanQueryValue(params, 'eventCode', row.eventCode)
+  setSlowSpanQueryValue(params, 'objectType', row.objectType)
+  setSlowSpanQueryValue(params, 'objectId', row.objectId)
+  return params
+}
+
+const loadSlowSpanDrilldown = async (row: ObservabilitySlowSpanSummary) => {
+  if (!isSystemMode.value) {
+    return
+  }
+  activeSlowSummary.value = row
+  slowSpanRows.value = []
+  slowSpanTotal.value = 0
+  slowSpanErrorMessage.value = ''
+  slowSpanLoading.value = true
+  try {
+    const res = await pageObservabilitySpans(buildSlowSpanQueryParams(row))
+    if (res.code === 200 && res.data) {
+      slowSpanRows.value = Array.isArray(res.data.records) ? res.data.records : []
+      slowSpanTotal.value = Number(res.data.total || slowSpanRows.value.length)
+    }
+  } catch (error) {
+    slowSpanRows.value = []
+    slowSpanErrorMessage.value = error instanceof Error ? error.message : '获取慢点明细失败'
+    logPageError('获取慢点明细失败', error)
+  } finally {
+    slowSpanLoading.value = false
   }
 }
 
@@ -1039,6 +1163,7 @@ watch(viewMode, (newMode, oldMode) => {
   slowSummaryRows.value = []
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
+  clearSlowSpanDrilldown()
   exportColumnDialogVisible.value = false
   reloadExportSelection()
   applySystemRouteQuery()
@@ -1615,6 +1740,81 @@ watch(evidenceDrawerVisible, (visible) => {
 }
 
 .audit-log-slow-summary__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-log-slow-span-drilldown {
+  display: grid;
+  gap: 0.72rem;
+  min-width: 0;
+  padding-top: 0.82rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+}
+
+.audit-log-slow-span-drilldown__header,
+.audit-log-slow-span-drilldown__title,
+.audit-log-slow-span-drilldown__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.audit-log-slow-span-drilldown__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.94rem;
+  line-height: 1.3;
+}
+
+.audit-log-slow-span-drilldown__header p {
+  margin: 0.25rem 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-span-drilldown__header > span,
+.audit-log-slow-span-drilldown__meta,
+.audit-log-slow-span-drilldown__footer > span {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-slow-span-drilldown__list {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.audit-log-slow-span-drilldown__item {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.audit-log-slow-span-drilldown__title strong,
+.audit-log-slow-span-drilldown__footer > span {
+  overflow: hidden;
+  color: var(--text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-span-drilldown__title span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.audit-log-slow-span-drilldown__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
