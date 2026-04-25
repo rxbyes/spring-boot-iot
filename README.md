@@ -170,9 +170,11 @@ node scripts/run-quality-gates.mjs
 
 ```bash
 node scripts/auto/generate-acceptance-coverage.mjs
+node scripts/auto/generate-acceptance-coverage.mjs --policy-path=config/automation/acceptance-coverage-policy.json
 ```
 
   - 输出 `logs/acceptance/acceptance-coverage-<timestamp>.json` 与 `.md`
+  - `--policy-path` 会把覆盖矩阵按默认 readiness policy 评估；policy error 会让命令退出 `1`，warning 只进入报告。
   - 需要把缺失场景引用、未消费场景或 P1/P2 元数据缺口纳入准入门禁时，再追加 `--fail-on-gaps`
 
 - 后端验收脚本：
