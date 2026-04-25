@@ -4,10 +4,12 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
@@ -124,6 +126,54 @@ class ObservabilityEvidenceQueryServiceImplTest {
         assertTrue(sql.contains("span_type = ?"));
         assertTrue(sql.contains("duration_ms >= ?"));
         assertTrue(sql.contains("status = ?"));
+    }
+
+    @Test
+    void pageScheduledTasksShouldApplyTaskFiltersAndKeepScheduledScope() {
+        ObservabilityScheduledTaskPageQuery query = new ObservabilityScheduledTaskPageQuery();
+        query.setTraceId("trace-scheduled-1");
+        query.setTaskCode("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        query.setTriggerType("FIXED_DELAY");
+        query.setStatus("FAILURE");
+        query.setMinDurationMs(200L);
+        query.setDateFrom("2026-04-25 08:00:00");
+        query.setDateTo("2026-04-25 18:00:00");
+        query.setPageNum(1L);
+        query.setPageSize(10L);
+
+        ObservabilityScheduledTaskVO row = new ObservabilityScheduledTaskVO();
+        row.setTraceId("trace-scheduled-1");
+        row.setTaskCode("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        row.setTaskName("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        row.setTriggerType("FIXED_DELAY");
+        row.setStatus("FAILURE");
+        row.setDurationMs(550L);
+        when(jdbcTemplate.queryForObject(contains("FROM sys_observability_span_log"), eq(Long.class), any(Object[].class)))
+                .thenReturn(1L);
+        doReturn(List.of(row)).when(jdbcTemplate).query(
+                contains("span_type = 'SCHEDULED_TASK'"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+
+        PageResult<ObservabilityScheduledTaskVO> result = service.pageScheduledTasks(query, 10001L);
+
+        assertEquals(1L, result.getPageNum());
+        assertEquals(10L, result.getPageSize());
+        assertEquals("FIXED_DELAY", result.getRecords().get(0).getTriggerType());
+        assertEquals("DeviceSessionTimeoutScheduler#closeTimedOutSessions", result.getRecords().get(0).getTaskCode());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), any(Object[].class));
+        String sql = sqlCaptor.getValue();
+        assertTrue(sql.contains("tenant_id = ?"));
+        assertTrue(sql.contains("span_type = 'SCHEDULED_TASK'"));
+        assertTrue(sql.contains("trace_id = ?"));
+        assertTrue(sql.contains("status = ?"));
+        assertTrue(sql.contains("duration_ms >= ?"));
+        assertTrue(sql.contains("JSON_UNQUOTE(JSON_EXTRACT(tags_json, '$.taskCode')) = ?"));
+        assertTrue(sql.contains("JSON_UNQUOTE(JSON_EXTRACT(tags_json, '$.triggerType')) = ?"));
+        assertTrue(sql.contains("started_at >= ?"));
+        assertTrue(sql.contains("started_at <= ?"));
     }
 
     @Test

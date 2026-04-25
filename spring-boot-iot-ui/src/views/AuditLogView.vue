@@ -306,6 +306,58 @@
         </section>
       </section>
 
+      <section
+        v-if="isSystemMode"
+        v-loading="scheduledTaskLoading"
+        class="audit-log-scheduled-task-ledger standard-list-surface"
+        aria-label="调度任务台账"
+        element-loading-text="正在刷新调度任务台账"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <header class="audit-log-scheduled-task-ledger__header">
+          <div>
+            <h3>调度任务台账</h3>
+          </div>
+          <span>{{ scheduledTaskRows.length }} / {{ scheduledTaskTotal }}</span>
+        </header>
+        <div v-if="scheduledTaskErrorMessage" class="audit-log-slow-summary__empty">
+          {{ scheduledTaskErrorMessage }}
+        </div>
+        <div v-else-if="scheduledTaskRows.length === 0" class="audit-log-slow-summary__empty">
+          暂无调度任务记录
+        </div>
+        <div v-else class="audit-log-scheduled-task-ledger__list">
+          <article
+            v-for="row in scheduledTaskRows"
+            :key="`scheduled-task-${row.id || row.traceId || row.taskCode}`"
+            class="audit-log-scheduled-task-ledger__item"
+          >
+            <div class="audit-log-scheduled-task-ledger__title">
+              <strong>{{ formatScheduledTaskName(row) }}</strong>
+              <span>{{ formatDuration(row.durationMs) }}</span>
+            </div>
+            <div class="audit-log-scheduled-task-ledger__meta">
+              <span>{{ formatValue(row.triggerType) }}</span>
+              <span>{{ formatScheduledTaskTrigger(row) }}</span>
+              <span>{{ formatValue(row.status) }}</span>
+              <span>{{ formatValue(row.startedAt) }}</span>
+            </div>
+            <div class="audit-log-scheduled-task-ledger__footer">
+              <span>{{ formatValue(row.traceId) }}</span>
+              <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
+              <StandardButton
+                action="view"
+                link
+                :disabled="!row.traceId"
+                @click="openTraceEvidenceByTraceId(row.traceId)"
+              >
+                证据
+              </StandardButton>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <template #toolbar>
         <StandardTableToolbar
           compact
@@ -631,7 +683,10 @@ import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
+  pageObservabilityScheduledTasks,
   pageObservabilitySpans,
+  type ObservabilityScheduledTask,
+  type ObservabilityScheduledTaskPageQuery,
   type ObservabilitySpan,
   type ObservabilitySpanPageQuery,
   type ObservabilitySlowSpanSummary,
@@ -824,6 +879,10 @@ const createEmptyBusinessStats = (): BusinessAuditStats => ({
 
 const systemStats = ref<SystemErrorStats>(createEmptySystemStats())
 const businessStats = ref<BusinessAuditStats>(createEmptyBusinessStats())
+const scheduledTaskRows = ref<ObservabilityScheduledTask[]>([])
+const scheduledTaskLoading = ref(false)
+const scheduledTaskErrorMessage = ref('')
+const scheduledTaskTotal = ref(0)
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
 const slowSummaryLoading = ref(false)
 const slowSummaryErrorMessage = ref('')
@@ -1121,6 +1180,41 @@ const buildSlowSummaryQueryParams = (): ObservabilitySlowSpanSummaryQuery => ({
   minDurationMs: 1
 })
 
+const buildScheduledTaskQueryParams = (): ObservabilityScheduledTaskPageQuery => ({
+  pageNum: 1,
+  pageSize: 5
+})
+
+const clearScheduledTaskLedger = () => {
+  scheduledTaskRows.value = []
+  scheduledTaskLoading.value = false
+  scheduledTaskErrorMessage.value = ''
+  scheduledTaskTotal.value = 0
+}
+
+const getScheduledTaskLedger = async () => {
+  if (!isSystemMode.value) {
+    clearScheduledTaskLedger()
+    return
+  }
+
+  scheduledTaskLoading.value = true
+  scheduledTaskErrorMessage.value = ''
+  try {
+    const res = await pageObservabilityScheduledTasks(buildScheduledTaskQueryParams())
+    if (res.code === 200 && res.data) {
+      scheduledTaskRows.value = Array.isArray(res.data.records) ? res.data.records : []
+      scheduledTaskTotal.value = Number(res.data.total || scheduledTaskRows.value.length)
+    }
+  } catch (error) {
+    clearScheduledTaskLedger()
+    scheduledTaskErrorMessage.value = error instanceof Error ? error.message : '获取调度任务台账失败'
+    logPageError('获取调度任务台账失败', error)
+  } finally {
+    scheduledTaskLoading.value = false
+  }
+}
+
 const clearSlowSpanDrilldown = () => {
   activeSlowSummary.value = null
   slowSpanRows.value = []
@@ -1304,6 +1398,7 @@ onMounted(() => {
   syncAppliedFilters()
   getAuditLogList()
   getAuditLogStats()
+  getScheduledTaskLedger()
   getSlowSpanSummaries()
 })
 
@@ -1324,6 +1419,7 @@ watch(viewMode, (newMode, oldMode) => {
   evidenceTraceId.value = ''
   evidenceLoading.value = false
   evidenceErrorMessage.value = ''
+  clearScheduledTaskLedger()
   slowSummaryRows.value = []
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
@@ -1337,6 +1433,7 @@ watch(viewMode, (newMode, oldMode) => {
   syncAppliedFilters()
   getAuditLogList()
   getAuditLogStats()
+  getScheduledTaskLedger()
   getSlowSpanSummaries()
 })
 
@@ -1365,6 +1462,7 @@ watch(
     syncAppliedFilters()
     getAuditLogList()
     getAuditLogStats()
+    getScheduledTaskLedger()
     getSlowSpanSummaries()
   }
 )
@@ -1379,6 +1477,7 @@ const triggerSearch = (resetPageFirst = false) => {
   clearSelection()
   getAuditLogList()
   getAuditLogStats()
+  getScheduledTaskLedger()
   getSlowSpanSummaries()
 }
 
@@ -1724,6 +1823,12 @@ const formatPercentage = (value?: number | null) => {
   }
   return `${value}%`
 }
+
+const formatScheduledTaskName = (row: ObservabilityScheduledTask) =>
+  formatValue(row.taskName || row.taskCode)
+
+const formatScheduledTaskTrigger = (row: ObservabilityScheduledTask) =>
+  formatValue(row.triggerExpression || row.initialDelayExpression)
 
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
   [row.spanType, row.domainCode].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
@@ -2080,6 +2185,74 @@ watch(evidenceDrawerVisible, (visible) => {
 }
 
 .audit-log-slow-trend-drilldown__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-log-scheduled-task-ledger {
+  display: grid;
+  gap: 0.82rem;
+  margin-top: 0.88rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+}
+
+.audit-log-scheduled-task-ledger__header,
+.audit-log-scheduled-task-ledger__title,
+.audit-log-scheduled-task-ledger__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.audit-log-scheduled-task-ledger__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.audit-log-scheduled-task-ledger__header > span,
+.audit-log-scheduled-task-ledger__meta,
+.audit-log-scheduled-task-ledger__footer > span {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-scheduled-task-ledger__list {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.audit-log-scheduled-task-ledger__item {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.audit-log-scheduled-task-ledger__title strong,
+.audit-log-scheduled-task-ledger__footer > span {
+  overflow: hidden;
+  color: var(--text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-scheduled-task-ledger__title span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.audit-log-scheduled-task-ledger__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;

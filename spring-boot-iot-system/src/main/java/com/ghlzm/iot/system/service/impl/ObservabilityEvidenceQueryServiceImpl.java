@@ -7,10 +7,12 @@ import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
@@ -27,12 +29,16 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvidenceQueryService {
@@ -43,9 +49,12 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private static final String SLOW_TREND_BUCKET_HOUR = "HOUR";
     private static final String SLOW_TREND_BUCKET_DAY = "DAY";
     private static final DateTimeFormatter SPACE_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
+    };
 
     private final JdbcTemplate jdbcTemplate;
     private final PermissionService permissionService;
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public ObservabilityEvidenceQueryServiceImpl(JdbcTemplate jdbcTemplate, PermissionService permissionService) {
         this.jdbcTemplate = jdbcTemplate;
@@ -117,6 +126,41 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 LIMIT ? OFFSET ?
                 """.formatted(where),
                 this::mapSpan,
+                rowArgs.toArray()
+        );
+        return PageResult.of(total, pageNum, pageSize, records);
+    }
+
+    @Override
+    public PageResult<ObservabilityScheduledTaskVO> pageScheduledTasks(ObservabilityScheduledTaskPageQuery query,
+                                                                       Long currentUserId) {
+        ObservabilityScheduledTaskPageQuery criteria =
+                query == null ? new ObservabilityScheduledTaskPageQuery() : query;
+        long pageNum = PageQueryUtils.normalizePageNum(criteria.getPageNum());
+        long pageSize = PageQueryUtils.normalizePageSize(criteria.getPageSize());
+        List<Object> args = new ArrayList<>();
+        String where = buildScheduledTaskWhere(criteria, resolveTenantId(currentUserId), args);
+        Long total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM sys_observability_span_log WHERE " + where,
+                Long.class,
+                args.toArray()
+        );
+        if (total == null || total == 0L) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        List<Object> rowArgs = new ArrayList<>(args);
+        rowArgs.add(pageSize);
+        rowArgs.add((pageNum - 1L) * pageSize);
+        List<ObservabilityScheduledTaskVO> records = jdbcTemplate.query(
+                """
+                SELECT id, tenant_id, trace_id, domain_code, status, duration_ms,
+                       started_at, finished_at, error_class, error_message, tags_json
+                FROM sys_observability_span_log
+                WHERE %s
+                ORDER BY started_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """.formatted(where),
+                this::mapScheduledTask,
                 rowArgs.toArray()
         );
         return PageResult.of(total, pageNum, pageSize, records);
@@ -293,6 +337,29 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return String.join(" AND ", clauses);
     }
 
+    private String buildScheduledTaskWhere(ObservabilityScheduledTaskPageQuery query,
+                                           Long tenantId,
+                                           List<Object> args) {
+        List<String> clauses = new ArrayList<>();
+        clauses.add("deleted = 0");
+        clauses.add("span_type = 'SCHEDULED_TASK'");
+        if (tenantId != null) {
+            clauses.add("tenant_id = ?");
+            args.add(tenantId);
+        }
+        appendEquals(clauses, args, "trace_id", query.getTraceId());
+        appendEquals(clauses, args, "domain_code", query.getDomainCode());
+        appendEquals(clauses, args, "status", query.getStatus());
+        appendJsonEquals(clauses, args, "$.taskCode", query.getTaskCode());
+        appendJsonEquals(clauses, args, "$.triggerType", query.getTriggerType());
+        if (query.getMinDurationMs() != null && query.getMinDurationMs() > 0L) {
+            clauses.add("duration_ms >= ?");
+            args.add(query.getMinDurationMs());
+        }
+        appendDateRange(clauses, args, "started_at", query.getDateFrom(), query.getDateTo());
+        return String.join(" AND ", clauses);
+    }
+
     private String buildSlowSpanTrendWhere(ObservabilitySlowSpanTrendQuery query,
                                            Long tenantId,
                                            LocalDateTime from,
@@ -338,6 +405,14 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         String normalized = normalize(value);
         if (StringUtils.hasText(normalized)) {
             clauses.add(column + " = ?");
+            args.add(normalized);
+        }
+    }
+
+    private void appendJsonEquals(List<String> clauses, List<Object> args, String jsonPath, String value) {
+        String normalized = normalize(value);
+        if (StringUtils.hasText(normalized)) {
+            clauses.add("JSON_UNQUOTE(JSON_EXTRACT(tags_json, '" + jsonPath + "')) = ?");
             args.add(normalized);
         }
     }
@@ -565,6 +640,34 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return vo;
     }
 
+    private ObservabilityScheduledTaskVO mapScheduledTask(ResultSet rs, int rowNum) throws SQLException {
+        ObservabilityScheduledTaskVO vo = new ObservabilityScheduledTaskVO();
+        vo.setId(nullableLong(rs, "id"));
+        vo.setTenantId(nullableLong(rs, "tenant_id"));
+        vo.setTraceId(rs.getString("trace_id"));
+        vo.setDomainCode(rs.getString("domain_code"));
+        vo.setStatus(rs.getString("status"));
+        vo.setDurationMs(nullableLong(rs, "duration_ms"));
+        vo.setStartedAt(nullableDateTime(rs, "started_at"));
+        vo.setFinishedAt(nullableDateTime(rs, "finished_at"));
+        vo.setErrorClass(rs.getString("error_class"));
+        vo.setErrorMessage(rs.getString("error_message"));
+        String tagsJson = rs.getString("tags_json");
+        vo.setTagsJson(tagsJson);
+        Map<String, Object> tags = parseJsonMap(tagsJson);
+        vo.setTaskCode(stringValue(tags.get("taskCode")));
+        vo.setTaskName(defaultIfBlank(stringValue(tags.get("taskName")), vo.getTaskCode()));
+        vo.setTaskClassName(stringValue(tags.get("taskClassName")));
+        vo.setTaskMethodName(stringValue(tags.get("taskMethodName")));
+        vo.setTriggerType(stringValue(tags.get("triggerType")));
+        vo.setTriggerExpression(stringValue(tags.get("triggerExpression")));
+        vo.setInitialDelayExpression(stringValue(tags.get("initialDelayExpression")));
+        vo.setInitialDelayMs(longValue(tags.get("initialDelayMs")));
+        vo.setRetryCount(integerValue(tags.get("retryCount")));
+        vo.setThreadName(stringValue(tags.get("threadName")));
+        return vo;
+    }
+
     private ObservabilityTraceEvidenceItemVO toTimelineItem(ObservabilityBusinessEventVO event) {
         ObservabilityTraceEvidenceItemVO item = new ObservabilityTraceEvidenceItemVO();
         item.setItemType("BUSINESS_EVENT");
@@ -609,5 +712,54 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
 
     private String normalize(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private Map<String, Object> parseJsonMap(String value) {
+        String normalized = normalize(value);
+        if (!StringUtils.hasText(normalized)) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(normalized, MAP_TYPE);
+            return parsed == null ? Map.of() : new LinkedHashMap<>(parsed);
+        } catch (Exception ex) {
+            return Map.of();
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && StringUtils.hasText(text)) {
+            try {
+                return Long.parseLong(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Integer integerValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && StringUtils.hasText(text)) {
+            try {
+                return Integer.parseInt(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private String defaultIfBlank(String value, String fallback) {
+        return StringUtils.hasText(value) ? value : fallback;
     }
 }

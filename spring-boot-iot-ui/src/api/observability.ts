@@ -51,6 +51,30 @@ export interface ObservabilitySpan {
   createTime?: string | null
 }
 
+export interface ObservabilityScheduledTask {
+  id?: IdType | null
+  tenantId?: IdType | null
+  traceId?: string | null
+  domainCode?: string | null
+  taskCode?: string | null
+  taskName?: string | null
+  taskClassName?: string | null
+  taskMethodName?: string | null
+  triggerType?: string | null
+  triggerExpression?: string | null
+  initialDelayExpression?: string | null
+  initialDelayMs?: number | null
+  retryCount?: number | null
+  threadName?: string | null
+  status?: string | null
+  durationMs?: number | null
+  startedAt?: string | null
+  finishedAt?: string | null
+  errorClass?: string | null
+  errorMessage?: string | null
+  tagsJson?: string | null
+}
+
 export interface ObservabilityTraceEvidenceItem {
   itemType?: 'BUSINESS_EVENT' | 'SPAN' | string | null
   itemId?: IdType | null
@@ -128,6 +152,19 @@ export interface ObservabilitySpanPageQuery {
   pageSize?: number
 }
 
+export interface ObservabilityScheduledTaskPageQuery {
+  traceId?: string
+  domainCode?: string
+  taskCode?: string
+  triggerType?: string
+  status?: string
+  minDurationMs?: number
+  dateFrom?: string
+  dateTo?: string
+  pageNum?: number
+  pageSize?: number
+}
+
 export interface ObservabilitySlowSpanSummaryQuery {
   spanType?: string
   eventCode?: string
@@ -168,6 +205,14 @@ export function pageObservabilitySpans(
   const query = buildQueryString(params)
   const path = `/api/system/observability/spans/page${query ? `?${query}` : ''}`
   return request<PageResult<ObservabilitySpan>>(path, { method: 'GET' })
+}
+
+export function pageObservabilityScheduledTasks(
+  params: ObservabilityScheduledTaskPageQuery = {}
+): Promise<ApiEnvelope<PageResult<ObservabilityScheduledTask>>> {
+  const query = buildQueryString(params)
+  const path = `/api/system/observability/scheduled-tasks/page${query ? `?${query}` : ''}`
+  return request<PageResult<ObservabilityScheduledTask>>(path, { method: 'GET' })
 }
 
 export function listObservabilitySlowSpanSummaries(

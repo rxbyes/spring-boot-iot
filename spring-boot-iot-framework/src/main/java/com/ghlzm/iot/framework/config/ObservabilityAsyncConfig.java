@@ -1,6 +1,7 @@
 package com.ghlzm.iot.framework.config;
 
 import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
+import com.ghlzm.iot.framework.observability.ScheduledTaskLedgerTaskDecorator;
 import com.ghlzm.iot.framework.observability.TraceContextTaskDecorator;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -45,7 +47,8 @@ public class ObservabilityAsyncConfig {
     }
 
     @Bean(name = {"applicationTaskExecutor", "taskExecutor"})
-    public Executor applicationTaskExecutor(TaskDecorator traceContextTaskDecorator) {
+    public Executor applicationTaskExecutor(@Qualifier("traceContextTaskDecorator")
+                                            TaskDecorator traceContextTaskDecorator) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(4);
         executor.setMaxPoolSize(8);
@@ -58,14 +61,21 @@ public class ObservabilityAsyncConfig {
         return executor;
     }
 
+    @Bean(name = "scheduledTaskLedgerTaskDecorator")
+    public TaskDecorator scheduledTaskLedgerTaskDecorator(@Qualifier("traceContextTaskDecorator")
+                                                          TaskDecorator traceContextTaskDecorator) {
+        return new ScheduledTaskLedgerTaskDecorator(traceContextTaskDecorator, evidenceRecorder);
+    }
+
     @Bean(name = "taskScheduler")
-    public TaskScheduler taskScheduler(TaskDecorator traceContextTaskDecorator) {
+    public TaskScheduler taskScheduler(@Qualifier("scheduledTaskLedgerTaskDecorator")
+                                       TaskDecorator scheduledTaskLedgerTaskDecorator) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(2);
         scheduler.setThreadNamePrefix("iot-scheduler-");
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
         scheduler.setAwaitTerminationSeconds(10);
-        scheduler.setTaskDecorator(traceContextTaskDecorator);
+        scheduler.setTaskDecorator(scheduledTaskLedgerTaskDecorator);
         scheduler.setErrorHandler(buildSchedulerErrorHandler());
         scheduler.initialize();
         return scheduler;

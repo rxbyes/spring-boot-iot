@@ -4,6 +4,7 @@ import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
+  pageObservabilityScheduledTasks,
   pageObservabilityBusinessEvents,
   pageObservabilitySpans
 } from '@/api/observability'
@@ -72,6 +73,25 @@ describe('observability api', () => {
 
     expect(request).toHaveBeenCalledWith(
       '/api/system/observability/spans/slow-summary?spanType=SLOW_SQL&domainCode=system&status=SUCCESS&minDurationMs=1000&dateFrom=2026-04-25&dateTo=2026-04-25&limit=10',
+      {
+        method: 'GET'
+      }
+    )
+  })
+
+  it('builds scheduled task page query parameters correctly', async () => {
+    await pageObservabilityScheduledTasks({
+      traceId: 'trace-scheduled-1',
+      taskCode: 'DeviceSessionTimeoutScheduler#closeTimedOutSessions',
+      triggerType: 'FIXED_DELAY',
+      status: 'SUCCESS',
+      minDurationMs: 200,
+      pageNum: 1,
+      pageSize: 5
+    })
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/system/observability/scheduled-tasks/page?traceId=trace-scheduled-1&taskCode=DeviceSessionTimeoutScheduler%23closeTimedOutSessions&triggerType=FIXED_DELAY&status=SUCCESS&minDurationMs=200&pageNum=1&pageSize=5',
       {
         method: 'GET'
       }

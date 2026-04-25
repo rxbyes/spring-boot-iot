@@ -5,10 +5,12 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
@@ -97,6 +99,35 @@ class ObservabilityEvidenceControllerTest {
         assertEquals(2L, response.getData().getPageNum());
         assertEquals("MESSAGE_FLOW", response.getData().getRecords().get(0).getSpanType());
         verify(observabilityEvidenceQueryService).pageSpans(query, 10001L);
+    }
+
+    @Test
+    void pageScheduledTasksShouldDelegateFilters() {
+        ObservabilityScheduledTaskPageQuery query = new ObservabilityScheduledTaskPageQuery();
+        query.setTraceId("trace-scheduled-1");
+        query.setTaskCode("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        query.setTriggerType("FIXED_DELAY");
+        query.setStatus("SUCCESS");
+        query.setMinDurationMs(200L);
+        query.setDateFrom("2026-04-25T00:00:00");
+        query.setDateTo("2026-04-25T23:59:59");
+        query.setPageNum(1L);
+        query.setPageSize(5L);
+
+        ObservabilityScheduledTaskVO row = new ObservabilityScheduledTaskVO();
+        row.setTraceId("trace-scheduled-1");
+        row.setTaskCode("DeviceSessionTimeoutScheduler#closeTimedOutSessions");
+        row.setTriggerType("FIXED_DELAY");
+        row.setStatus("SUCCESS");
+        when(observabilityEvidenceQueryService.pageScheduledTasks(query, 10001L))
+                .thenReturn(PageResult.of(1L, 1L, 5L, List.of(row)));
+
+        R<PageResult<ObservabilityScheduledTaskVO>> response =
+                controller.pageScheduledTasks(query, authentication(10001L));
+
+        assertEquals(1L, response.getData().getTotal());
+        assertEquals("FIXED_DELAY", response.getData().getRecords().get(0).getTriggerType());
+        verify(observabilityEvidenceQueryService).pageScheduledTasks(query, 10001L);
     }
 
     @Test

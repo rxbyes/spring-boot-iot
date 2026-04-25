@@ -16,6 +16,7 @@ import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
+  pageObservabilityScheduledTasks,
   pageObservabilitySpans
 } from '@/api/observability';
 import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn';
@@ -45,6 +46,7 @@ vi.mock('@/api/auditLog', () => ({
 }));
 
 vi.mock('@/api/observability', () => ({
+  pageObservabilityScheduledTasks: vi.fn(),
   listObservabilitySlowSpanSummaries: vi.fn(),
   listObservabilitySlowSpanTrends: vi.fn(),
   pageObservabilitySpans: vi.fn(),
@@ -389,6 +391,7 @@ describe('AuditLogView', () => {
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(pageObservabilityScheduledTasks).mockReset();
     vi.mocked(listObservabilitySlowSpanSummaries).mockReset();
     vi.mocked(listObservabilitySlowSpanTrends).mockReset();
     vi.mocked(pageObservabilitySpans).mockReset();
@@ -421,6 +424,43 @@ describe('AuditLogView', () => {
         topModules: [{ label: 'device', count: 4 }],
         topUsers: [{ label: 'admin', count: 3 }],
         topOperationTypes: []
+      }
+    });
+    vi.mocked(pageObservabilityScheduledTasks).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 41,
+            traceId: 'trace-scheduled-1',
+            domainCode: 'device',
+            taskCode: 'DeviceSessionTimeoutScheduler#closeTimedOutSessions',
+            taskName: 'DeviceSessionTimeoutScheduler#closeTimedOutSessions',
+            triggerType: 'FIXED_DELAY',
+            triggerExpression: '${iot.device.online-timeout-check-delay-millis:30000}',
+            initialDelayExpression: '${iot.device.online-timeout-check-delay-millis:30000}',
+            status: 'SUCCESS',
+            durationMs: 420,
+            startedAt: '2026-04-25 10:10:00'
+          },
+          {
+            id: 42,
+            traceId: 'trace-scheduled-2',
+            domainCode: 'admin',
+            taskCode: 'ObservabilityAlertingScheduler#evaluateAlerts',
+            taskName: 'ObservabilityAlertingScheduler#evaluateAlerts',
+            triggerType: 'FIXED_DELAY',
+            triggerExpression: "#{T(java.lang.Math).max(@iotProperties.observability.alerting.evaluateIntervalSeconds, 60) * 1000L}",
+            status: 'FAILURE',
+            durationMs: 1600,
+            startedAt: '2026-04-25 10:05:00',
+            errorMessage: 'rule snapshot missing'
+          }
+        ]
       }
     });
     vi.mocked(listObservabilitySlowSpanSummaries).mockResolvedValue({
@@ -641,6 +681,33 @@ describe('AuditLogView', () => {
 
     expect(getTraceEvidence).toHaveBeenCalledWith('trace-slow-1');
     expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
+  });
+
+  it('renders scheduled task ledger and opens evidence from a task run', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityScheduledTasks).toHaveBeenCalledWith({
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    const ledger = wrapper.find('.audit-log-scheduled-task-ledger');
+    expect(ledger.exists()).toBe(true);
+    expect(ledger.text()).toContain('调度任务台账');
+    expect(ledger.text()).toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
+    expect(ledger.text()).toContain('FIXED_DELAY');
+    expect(ledger.text()).toContain('SUCCESS');
+    expect(ledger.text()).toContain('420 ms');
+
+    vi.mocked(getTraceEvidence).mockClear();
+    const evidenceButton = ledger.findAll('button').find((button) => button.text().includes('证据'));
+    await evidenceButton!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-scheduled-1');
   });
 
   it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {
