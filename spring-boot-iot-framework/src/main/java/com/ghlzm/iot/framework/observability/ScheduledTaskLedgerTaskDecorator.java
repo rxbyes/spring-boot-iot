@@ -270,7 +270,9 @@ public class ScheduledTaskLedgerTaskDecorator implements TaskDecorator {
             Class<?> cursor = candidate.getClass();
             while (cursor != null && cursor != Object.class) {
                 for (Field field : cursor.getDeclaredFields()) {
-                    field.setAccessible(true);
+                    if (!makeAccessible(field)) {
+                        continue;
+                    }
                     try {
                         Object nested = field.get(candidate);
                         if (!(nested instanceof Runnable)) {
@@ -288,6 +290,14 @@ public class ScheduledTaskLedgerTaskDecorator implements TaskDecorator {
                 cursor = cursor.getSuperclass();
             }
             return null;
+        }
+
+        private static boolean makeAccessible(Field field) {
+            try {
+                return field.trySetAccessible();
+            } catch (RuntimeException ignored) {
+                return false;
+            }
         }
 
         private static String resolveTriggerType(Scheduled scheduled) {
