@@ -398,6 +398,7 @@ if ($deviceId) {
         deviceId    = $deviceId
         rangeCode   = '1h'
         identifiers = @('temperature')
+        fillPolicy  = 'zero'
     } | Out-Null
 } else {
     Skip-Step -Point 'TELEMETRY' -Case 'latest' -Method 'GET' -Path '/api/telemetry/latest?deviceId={id}' -Reason 'deviceId missing'

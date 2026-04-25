@@ -429,6 +429,7 @@ test('smoke script probes telemetry latest and history when TELEMETRY point is s
   assert.ok(historyRequest, 'expected telemetry history batch request');
   assert.equal(historyRequest.body?.deviceId, 3001);
   assert.equal(historyRequest.body?.rangeCode, '1h');
+  assert.equal(historyRequest.body?.fillPolicy, 'zero');
   assert.ok(
     [historyRequest.body?.identifiers || []].flat().includes('temperature'),
     'expected telemetry history identifiers to include temperature'
