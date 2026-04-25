@@ -6,7 +6,7 @@
 > 上游来源：当前代码、`pom.xml`、`application-dev.yml`、核心权威文档。
 > 下游消费：接手研发、环境启动、任务实施、帮助中心选题。
 > 变更触发条件：交付边界、启动方式、最小阅读集、文档体系结构变化。
-> 更新时间：2026-04-24
+> 更新时间：2026-04-25
 
 ## 项目简介
 
@@ -16,6 +16,7 @@
 - 风险处置：实时监测、GIS 态势图、告警中心、事件协同、风险对象、阈值策略、联动编排、应急预案、运营分析
 - 平台治理：组织、账号中心、用户、角色、菜单、区域、字典、治理任务台、治理运维台、治理审批台、权限与密钥治理、通知渠道、站内消息、帮助文档、审计中心
 - 质量与协作：质量工场（业务验收台、研发工场、执行中心、结果与基线中心；业务验收台支持按预置验收包选择环境/账号模板/模块范围并一键查看是否通过，质量工场支持 `P0 全流程业务验收` 预置包，按同一 `runId` 贯通业务验收台结果页与结果与基线中心证据，结果与基线中心支持最近运行读取、证据清单/原文预览与兼容手工导入）、真实环境验收、智能助手接手模板、帮助中心消费层治理
+- 质量工场覆盖治理：`node scripts/auto/generate-acceptance-coverage.mjs` 可从统一验收注册表与业务验收包生成覆盖矩阵，用于检查 P0/P1/P2 覆盖、执行器分布、责任域和缺失引用
 
 当前唯一启动模块是 `spring-boot-iot-admin`，当前父 `pom.xml` 激活 `12` 个模块：
 
@@ -164,6 +165,15 @@ node scripts/run-quality-gates.mjs
   - Windows 底层脚本：`powershell -ExecutionPolicy Bypass -File scripts/run-quality-gates.ps1`
   - macOS / Linux 底层脚本：`sh scripts/run-quality-gates.sh`
   - 若只需验证产品物模型治理主链路，可单独执行：`node scripts/run-governance-contract-gates.mjs`
+
+- 质量工场覆盖治理矩阵：
+
+```bash
+node scripts/auto/generate-acceptance-coverage.mjs
+```
+
+  - 输出 `logs/acceptance/acceptance-coverage-<timestamp>.json` 与 `.md`
+  - 需要把缺失场景引用、未消费场景或 P1/P2 元数据缺口纳入准入门禁时，再追加 `--fail-on-gaps`
 
 - 后端验收脚本：
 
