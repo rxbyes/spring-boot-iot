@@ -7,9 +7,9 @@
       <StandardActionGroup gap="sm">
         <StandardButton action="refresh" @click="$emit('refresh')">刷新盘点</StandardButton>
         <StandardButton action="batch" plain @click="$emit('select-uncovered')">勾选未覆盖</StandardButton>
-        <StandardButton action="confirm" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
-        <StandardButton action="batch" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
-        <StandardButton action="add" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
+        <StandardButton action="confirm" v-permission="'system:rd-automation-inventory:generate-scaffold'" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
+        <StandardButton action="batch" v-permission="'system:rd-automation-inventory:generate-scaffold'" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
+        <StandardButton action="add" v-permission="'system:rd-automation-inventory:generate-scaffold'" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
       </StandardActionGroup>
     </template>
 

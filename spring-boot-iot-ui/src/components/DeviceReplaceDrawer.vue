@@ -191,6 +191,7 @@
           action="confirm"
           class="standard-drawer-footer__button standard-drawer-footer__button--primary"
           :loading="submitting"
+          v-permission="'iot:devices:replace'"
           @click="handleSubmit"
         >
           提交设备更换

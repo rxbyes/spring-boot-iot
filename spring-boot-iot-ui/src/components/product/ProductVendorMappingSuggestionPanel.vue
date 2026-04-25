@@ -134,6 +134,7 @@
           class="product-vendor-mapping-suggestion-panel__action"
           type="button"
           :disabled="acceptingRowKey === suggestionKey(suggestion)"
+          v-permission="'iot:product-contract:govern'"
           @click="handleAccept(suggestion)"
         >
           {{ acceptingRowKey === suggestionKey(suggestion) ? '创建中...' : '采纳建议' }}
@@ -144,8 +145,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
-import { useRoute } from 'vue-router';
+import { computed, ref, watch, onMounted, nextTick, inject } from 'vue'
+import { routeLocationKey } from 'vue-router'
 
 import {
   createVendorMetricMappingRule,
@@ -193,17 +194,17 @@ const previewKey = ref<string | null>(null)
 const previewHitResult = ref<VendorMetricMappingRuleHitPreview | null>(null)
 const replayResult = ref<VendorMetricMappingRuleReplay | null>(null)
 
-const route = useRoute();
+const route = inject(routeLocationKey, null)
 
 const highlightRawIdentifier = computed(() => {
-  const value = route.query.rawIdentifier;
-  return typeof value === 'string' ? value.trim() : '';
-});
+  const value = route?.query?.rawIdentifier
+  return typeof value === 'string' ? value.trim() : ''
+})
 
 const highlightScope = computed(() => {
-  const value = route.query.scope;
-  return typeof value === 'string' ? value.trim() : '';
-});
+  const value = route?.query?.scope
+  return typeof value === 'string' ? value.trim() : ''
+})
 
 let highlightTimer: ReturnType<typeof setTimeout> | null = null;
 

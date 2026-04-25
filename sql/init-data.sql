@@ -351,6 +351,16 @@ INSERT INTO sys_menu (
     (93001054, 1, 93001002, '导出当前结果', 'iot:devices:export-current', '', '', '', '{"caption":"导出当前筛选结果"}', 1254, 2, 2, '', 'iot:devices:export-current', 1254, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001055, 1, 93001002, '对象洞察跳转', 'iot:devices:insight', '', '', '', '{"caption":"从设备资产中心跳转对象洞察"}', 1255, 2, 2, '', 'iot:devices:insight', 1255, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001070, 1, 93001002, '设备操作', 'iot:device-capability:view', '', '', '', '{"caption":"打开设备操作抽屉并查看可执行能力"}', 1270, 2, 2, '', 'iot:device-capability:view', 1270, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001071, 1, 93001002, '设备操作执行', 'iot:device-capability:execute', '', '', '', '{"caption":"执行设备能力命令"}', 1271, 2, 2, '', 'iot:device-capability:execute', 1271, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001072, 1, 93001008, '新建接入案例', 'iot:device-onboarding:create-case', '', '', '', '{"caption":"新建无代码接入案例"}', 1172, 2, 2, '', 'iot:device-onboarding:create-case', 1172, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001073, 1, 93001008, '编辑接入案例', 'iot:device-onboarding:update-case', '', '', '', '{"caption":"编辑无代码接入案例"}', 1173, 2, 2, '', 'iot:device-onboarding:update-case', 1173, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001074, 1, 93001008, '刷新接入状态', 'iot:device-onboarding:refresh-status', '', '', '', '{"caption":"刷新接入案例状态"}', 1174, 2, 2, '', 'iot:device-onboarding:refresh-status', 1174, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001075, 1, 93001008, '触发接入验收', 'iot:device-onboarding:start-acceptance', '', '', '', '{"caption":"触发单个接入案例验收"}', 1175, 2, 2, '', 'iot:device-onboarding:start-acceptance', 1175, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001076, 1, 93001008, '批量创建接入案例', 'iot:device-onboarding:batch-create', '', '', '', '{"caption":"批量创建无代码接入案例"}', 1176, 2, 2, '', 'iot:device-onboarding:batch-create', 1176, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001077, 1, 93001008, '批量套用模板包', 'iot:device-onboarding:batch-apply-template', '', '', '', '{"caption":"为选中接入案例批量套用模板包"}', 1177, 2, 2, '', 'iot:device-onboarding:batch-apply-template', 1177, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001078, 1, 93001008, '模板包治理', 'iot:device-onboarding:template-pack', '', '', '', '{"caption":"维护接入模板包"}', 1178, 2, 2, '', 'iot:device-onboarding:template-pack', 1178, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001079, 1, 93001009, '解密档案发布', 'iot:protocol-governance:decrypt-publish', '', '', '', '{"caption":"提交解密档案发布审批"}', 1179, 2, 2, '', 'iot:protocol-governance:decrypt-publish', 1179, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001080, 1, 93001009, '解密档案回滚', 'iot:protocol-governance:decrypt-rollback', '', '', '', '{"caption":"提交解密档案回滚审批"}', 1180, 2, 2, '', 'iot:protocol-governance:decrypt-rollback', 1180, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001056, 1, 93001003, '结果复盘工作区', 'iot:reporting:replay-workspace', '', '', '', '{"caption":"切换结果复盘工作区"}', 1356, 2, 2, '', 'iot:reporting:replay-workspace', 1356, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001057, 1, 93001003, '模拟上报工作区', 'iot:reporting:simulate-workspace', '', '', '', '{"caption":"切换模拟上报工作区"}', 1357, 2, 2, '', 'iot:reporting:simulate-workspace', 1357, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001058, 1, 93001003, '最近会话工作区', 'iot:reporting:recent-workspace', '', '', '', '{"caption":"切换最近会话工作区"}', 1358, 2, 2, '', 'iot:reporting:recent-workspace', 1358, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -445,6 +455,7 @@ INSERT INTO sys_menu (
     (93003644, 1, 93003022, '原单重提', 'system:governance-approval:resubmit', '', '', '', '{"caption":"按原单重新提交审批"}', 5244, 2, 2, '', 'system:governance-approval:resubmit', 5244, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003645, 1, 93003022, '审批预演', 'system:governance-approval:simulation', '', '', '', '{"caption":"查看审批预演结果"}', 5245, 2, 2, '', 'system:governance-approval:simulation', 5245, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003646, 1, 93003022, '影响分析', 'system:governance-approval:impact', '', '', '', '{"caption":"查看审批影响分析"}', 5246, 2, 2, '', 'system:governance-approval:impact', 5246, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003647, 1, 93003007, '删除审计日志', 'system:audit:delete', '', '', '', '{"caption":"删除审计日志"}', 5247, 2, 2, '', 'system:audit:delete', 5247, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003701, 1, 93003020, '发起验收', 'system:business-acceptance:launch', '', '', '', '{"caption":"发起业务验收"}', 5701, 2, 2, '', 'system:business-acceptance:launch', 5701, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003702, 1, 93003020, '打开结果', 'system:business-acceptance:open-result', '', '', '', '{"caption":"打开最近一次验收结果"}', 5702, 2, 2, '', 'system:business-acceptance:open-result', 5702, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003703, 1, 93003016, '刷新盘点', 'system:rd-automation-inventory:refresh', '', '', '', '{"caption":"刷新页面盘点结果"}', 5303, 2, 2, '', 'system:rd-automation-inventory:refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -652,6 +663,14 @@ FROM (
     UNION SELECT @role_ops_id, 'iot:devices:export-current'
     UNION SELECT @role_ops_id, 'iot:devices:insight'
     UNION SELECT @role_ops_id, 'iot:device-capability:view'
+    UNION SELECT @role_ops_id, 'iot:device-capability:execute'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:create-case'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:update-case'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:refresh-status'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:start-acceptance'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:batch-create'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:batch-apply-template'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:template-pack'
     UNION SELECT @role_ops_id, 'iot:products:add'
     UNION SELECT @role_ops_id, 'iot:products:update'
     UNION SELECT @role_ops_id, 'iot:products:export'
@@ -671,6 +690,8 @@ FROM (
     UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-draft'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-preview'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-publish'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-rollback'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:template-draft'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:template-replay'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:template-publish'
@@ -710,6 +731,14 @@ FROM (
     UNION SELECT @role_developer_id, 'iot:devices:export'
     UNION SELECT @role_developer_id, 'iot:devices:insight'
     UNION SELECT @role_developer_id, 'iot:device-capability:view'
+    UNION SELECT @role_developer_id, 'iot:device-capability:execute'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:create-case'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:update-case'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:refresh-status'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:start-acceptance'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:batch-create'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:batch-apply-template'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:template-pack'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:edit'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:family-draft'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:family-publish'
@@ -717,6 +746,8 @@ FROM (
     UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-draft'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-preview'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-publish'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-rollback'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:template-draft'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:template-replay'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:template-publish'

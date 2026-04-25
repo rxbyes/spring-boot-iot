@@ -85,6 +85,9 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议族定义查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -113,6 +116,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议解密档案维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_DRAFT,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -132,6 +136,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议族定义发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -152,6 +157,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议解密试算",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PREVIEW,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -192,6 +198,9 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议族定义详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -212,6 +221,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议解密命中回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_REPLAY,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -231,6 +241,9 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议模板查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_REPLAY,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -258,6 +271,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议模板维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_DRAFT,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         verify(templateGovernanceService).saveTemplate(any(), eq(10001L));
@@ -282,6 +296,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议模板发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -305,6 +320,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议模板回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_REPLAY,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }
@@ -329,6 +345,7 @@ class ProtocolGovernanceControllerTest {
         verify(permissionGuard).requireAnyPermission(
                 10001L,
                 "协议族定义批量发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
     }

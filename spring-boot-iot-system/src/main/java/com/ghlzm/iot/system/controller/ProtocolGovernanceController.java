@@ -74,6 +74,9 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.pageFamilies(keyword, status, pageNum, pageSize));
@@ -85,6 +88,9 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.getFamilyDetail(familyId));
@@ -100,6 +106,11 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PREVIEW,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_REPLAY,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PUBLISH,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.pageDecryptProfiles(keyword, status, pageNum, pageSize));
@@ -112,6 +123,11 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PREVIEW,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_REPLAY,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PUBLISH,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.getDecryptProfileDetail(profileId));
@@ -124,6 +140,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_DRAFT,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.saveFamily(dto, currentUserId));
@@ -136,6 +153,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_DRAFT,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.saveDecryptProfile(dto, currentUserId));
@@ -149,6 +167,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(approvalService.submitFamilyPublish(familyId, currentUserId, submitReasonOf(dto)));
@@ -162,6 +181,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义批量发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(submitFamilyBatch(dto, currentUserId, false));
@@ -175,6 +195,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义回滚",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(approvalService.submitFamilyRollback(familyId, currentUserId, submitReasonOf(dto)));
@@ -188,6 +209,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议族定义批量回滚",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_FAMILY_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(submitFamilyBatch(dto, currentUserId, true));
@@ -201,6 +223,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(approvalService.submitDecryptProfilePublish(profileId, currentUserId, submitReasonOf(dto)));
@@ -214,6 +237,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案批量发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(submitProfileBatch(dto, currentUserId, false));
@@ -227,6 +251,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案回滚",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(approvalService.submitDecryptProfileRollback(profileId, currentUserId, submitReasonOf(dto)));
@@ -240,6 +265,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密档案批量回滚",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_ROLLBACK,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(submitProfileBatch(dto, currentUserId, true));
@@ -252,6 +278,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密试算",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_PREVIEW,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.previewDecrypt(dto));
@@ -264,6 +291,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议解密命中回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_DECRYPT_REPLAY,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(service.replayDecrypt(dto));
@@ -279,6 +307,9 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议模板查询",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_REPLAY,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(templateGovernanceService.pageTemplates(keyword, status, pageNum, pageSize));
@@ -291,6 +322,9 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议模板详情",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_DRAFT,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_REPLAY,
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(templateGovernanceService.getTemplateDetail(templateId));
@@ -303,6 +337,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议模板维护",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_DRAFT,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(templateGovernanceService.saveTemplate(dto, currentUserId));
@@ -316,6 +351,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议模板发布",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_PUBLISH,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(templateGovernanceService.publishTemplate(templateId, currentUserId, dto));
@@ -328,6 +364,7 @@ public class ProtocolGovernanceController {
         permissionGuard.requireAnyPermission(
                 currentUserId,
                 "协议模板回放",
+                GovernancePermissionCodes.PROTOCOL_GOVERNANCE_TEMPLATE_REPLAY,
                 GovernancePermissionCodes.PROTOCOL_GOVERNANCE_EDIT
         );
         return R.ok(templateReplayService.replay(dto));

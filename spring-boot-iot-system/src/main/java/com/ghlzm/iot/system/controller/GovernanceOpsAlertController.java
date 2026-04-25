@@ -5,9 +5,12 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.GovernanceOpsAlertTransitionDTO;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceOpsAlertService;
 import com.ghlzm.iot.system.service.model.GovernanceOpsAlertPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceOpsAlertVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,9 +24,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class GovernanceOpsAlertController {
 
     private final GovernanceOpsAlertService governanceOpsAlertService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public GovernanceOpsAlertController(GovernanceOpsAlertService governanceOpsAlertService) {
+        this(governanceOpsAlertService, null);
+    }
+
+    @Autowired
+    public GovernanceOpsAlertController(GovernanceOpsAlertService governanceOpsAlertService,
+                                        GovernancePermissionGuard permissionGuard) {
         this.governanceOpsAlertService = governanceOpsAlertService;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping
@@ -36,7 +47,13 @@ public class GovernanceOpsAlertController {
     public R<Void> ackAlert(@PathVariable Long id,
                             @RequestBody(required = false) GovernanceOpsAlertTransitionDTO dto,
                             Authentication authentication) {
-        governanceOpsAlertService.ack(id, requireCurrentUserId(authentication), commentOf(dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(
+                currentUserId,
+                "治理运维告警确认",
+                GovernancePermissionCodes.GOVERNANCE_OPS_ACK
+        );
+        governanceOpsAlertService.ack(id, currentUserId, commentOf(dto));
         return R.ok();
     }
 
@@ -44,7 +61,13 @@ public class GovernanceOpsAlertController {
     public R<Void> suppressAlert(@PathVariable Long id,
                                  @RequestBody(required = false) GovernanceOpsAlertTransitionDTO dto,
                                  Authentication authentication) {
-        governanceOpsAlertService.suppress(id, requireCurrentUserId(authentication), commentOf(dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(
+                currentUserId,
+                "治理运维告警抑制",
+                GovernancePermissionCodes.GOVERNANCE_OPS_SUPPRESS
+        );
+        governanceOpsAlertService.suppress(id, currentUserId, commentOf(dto));
         return R.ok();
     }
 
@@ -52,8 +75,20 @@ public class GovernanceOpsAlertController {
     public R<Void> closeAlert(@PathVariable Long id,
                               @RequestBody(required = false) GovernanceOpsAlertTransitionDTO dto,
                               Authentication authentication) {
-        governanceOpsAlertService.close(id, requireCurrentUserId(authentication), commentOf(dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(
+                currentUserId,
+                "治理运维告警关闭",
+                GovernancePermissionCodes.GOVERNANCE_OPS_CLOSE
+        );
+        governanceOpsAlertService.close(id, currentUserId, commentOf(dto));
         return R.ok();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+        }
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

@@ -4,6 +4,8 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.AuditLogService;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,9 @@ public class AuditLogController {
 
       @Autowired
       private AuditLogService auditLogService;
+
+      @Autowired(required = false)
+      private GovernancePermissionGuard permissionGuard;
 
       /**
        * 查询审计日志列表
@@ -93,7 +98,11 @@ public class AuditLogController {
        */
       @DeleteMapping("/delete/{id}")
       public R<Void> deleteLog(@PathVariable Long id, Authentication authentication) {
-            auditLogService.deleteLog(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, "删除审计日志", GovernancePermissionCodes.AUDIT_DELETE);
+            }
+            auditLogService.deleteLog(currentUserId, id);
             return R.ok();
       }
 

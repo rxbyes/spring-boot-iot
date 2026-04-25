@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" :icon="Plus" @click="handleAdd"
+        <StandardButton action="add" :icon="Plus" v-permission="'system:organization:add'" @click="handleAdd"
           >新增</StandardButton
         >
       </template>
@@ -90,6 +90,7 @@
               action="batch"
               link
               :disabled="selectedRows.length === 0"
+              v-permission="'system:organization:export'"
               @click="handleExportSelected"
               >导出选中</StandardButton
             >
@@ -97,6 +98,7 @@
               action="refresh"
               link
               :disabled="tableData.length === 0"
+              v-permission="'system:organization:export'"
               @click="handleExportCurrent"
               >导出当前结果</StandardButton
             >

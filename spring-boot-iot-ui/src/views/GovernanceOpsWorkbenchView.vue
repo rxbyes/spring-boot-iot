@@ -100,10 +100,10 @@
               </div>
             </dl>
             <div v-if="canOperateAlert(item) || hasReplayContext(item)" class="governance-ops-card__actions">
-              <StandardButton v-if="hasReplayContext(item)" @click="handleOpenReplay(item)">复盘</StandardButton>
-              <StandardButton v-if="canOperateAlert(item)" @click="handleAlertAction('ack', item)">确认</StandardButton>
-              <StandardButton v-if="canOperateAlert(item)" @click="handleAlertAction('suppress', item)">抑制</StandardButton>
-              <StandardButton v-if="canOperateAlert(item)" @click="handleAlertAction('close', item)">关闭</StandardButton>
+              <StandardButton v-if="hasReplayContext(item)" v-permission="'system:governance-ops:replay'" @click="handleOpenReplay(item)">复盘</StandardButton>
+              <StandardButton v-if="canOperateAlert(item)" v-permission="'system:governance-ops:ack'" @click="handleAlertAction('ack', item)">确认</StandardButton>
+              <StandardButton v-if="canOperateAlert(item)" v-permission="'system:governance-ops:suppress'" @click="handleAlertAction('suppress', item)">抑制</StandardButton>
+              <StandardButton v-if="canOperateAlert(item)" v-permission="'system:governance-ops:close'" @click="handleAlertAction('close', item)">关闭</StandardButton>
             </div>
           </article>
         </div>
@@ -293,7 +293,7 @@
             </label>
           </div>
           <div class="governance-ops-feedback-actions">
-            <StandardButton @click="handleSubmitReplayFeedback">
+            <StandardButton v-permission="'system:governance-ops:replay-feedback'" @click="handleSubmitReplayFeedback">
               {{ replaySubmitting ? '提交中...' : '提交复盘结论' }}
             </StandardButton>
           </div>

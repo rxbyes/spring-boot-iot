@@ -156,12 +156,12 @@
               </div>
             </dl>
             <div v-if="canOperateWorkItem(item) || canReplayWorkItem(item) || canDispatchWorkItem(item) || canExplainDecision(item)" class="governance-task-card__actions">
-              <StandardButton v-if="canExplainDecision(item)" @click="handleOpenDecisionContext(item)">决策说明</StandardButton>
-              <StandardButton v-if="canDispatchWorkItem(item)" @click="handleDispatchWorkItem(item)">去处理</StandardButton>
-              <StandardButton v-if="canReplayWorkItem(item)" @click="handleOpenReplay(item)">复盘</StandardButton>
-              <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('ack', item)">确认</StandardButton>
-              <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('block', item)">阻塞</StandardButton>
-              <StandardButton v-if="canOperateWorkItem(item)" @click="handleWorkItemAction('close', item)">关闭</StandardButton>
+              <StandardButton v-if="canExplainDecision(item)" v-permission="'system:governance-task:decision-context'" @click="handleOpenDecisionContext(item)">决策说明</StandardButton>
+              <StandardButton v-if="canDispatchWorkItem(item)" v-permission="'system:governance-task:dispatch'" @click="handleDispatchWorkItem(item)">去处理</StandardButton>
+              <StandardButton v-if="canReplayWorkItem(item)" v-permission="'system:governance-task:replay'" @click="handleOpenReplay(item)">复盘</StandardButton>
+              <StandardButton v-if="canOperateWorkItem(item)" v-permission="'system:governance-task:ack'" @click="handleWorkItemAction('ack', item)">确认</StandardButton>
+              <StandardButton v-if="canOperateWorkItem(item)" v-permission="'system:governance-task:block'" @click="handleWorkItemAction('block', item)">阻塞</StandardButton>
+              <StandardButton v-if="canOperateWorkItem(item)" v-permission="'system:governance-task:close'" @click="handleWorkItemAction('close', item)">关闭</StandardButton>
             </div>
           </article>
         </div>
@@ -172,7 +172,7 @@
             当前查询已带上 {{ emptyStateDispatchLabel }} 上下文，正式工作项可能仍在同步，可先进入对应领域工作台继续处理。
           </span>
           <div v-if="emptyStateDispatchLocation" class="governance-task-empty__actions">
-            <StandardButton @click="handleDispatchEmptyState">继续处理</StandardButton>
+            <StandardButton v-permission="'system:governance-task:dispatch'" @click="handleDispatchEmptyState">继续处理</StandardButton>
           </div>
         </div>
       </div>
@@ -430,7 +430,7 @@
             </label>
           </div>
           <div class="governance-task-feedback-actions">
-            <StandardButton @click="handleSubmitReplayFeedback">
+            <StandardButton v-permission="'system:governance-task:replay-feedback'" @click="handleSubmitReplayFeedback">
               {{ replaySubmitting ? '提交中...' : '提交复盘结论' }}
             </StandardButton>
           </div>

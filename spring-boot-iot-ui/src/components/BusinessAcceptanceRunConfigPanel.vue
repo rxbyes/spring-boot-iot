@@ -52,7 +52,7 @@
     </label>
 
     <div class="business-acceptance-run-config-panel__actions">
-      <StandardButton action="confirm" :loading="launching" @click="$emit('launch')">
+      <StandardButton action="confirm" :loading="launching" v-permission="'system:business-acceptance:launch'" @click="$emit('launch')">
         一键执行验收
       </StandardButton>
       <span class="business-acceptance-run-config-panel__hint">

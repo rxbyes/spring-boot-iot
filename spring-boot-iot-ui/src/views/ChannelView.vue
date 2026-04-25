@@ -10,7 +10,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
+        <StandardButton action="add" :icon="Plus" v-permission="'system:channel:add'" @click="handleAdd">新增</StandardButton>
       </template>
 
       <template #filters>
@@ -47,8 +47,8 @@
         <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项` ]">
           <template #right>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton action="batch" link :disabled="selectedRows.length === 0" v-permission="'system:channel:export'" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton action="refresh" link :disabled="tableData.length === 0" v-permission="'system:channel:export'" @click="handleExportCurrent">导出当前结果</StandardButton>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>

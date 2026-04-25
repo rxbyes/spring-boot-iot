@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" @click="handleAdd">新增预案</StandardButton>
+        <StandardButton action="add" v-permission="'risk:emergency-plan:edit'" @click="handleAdd">新增预案</StandardButton>
       </template>
 
       <template #filters>
@@ -143,7 +143,7 @@
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="standard-list-empty-state__actions">
             <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
-            <StandardButton v-else action="add" @click="handleAdd">新增预案</StandardButton>
+            <StandardButton v-else action="add" v-permission="'risk:emergency-plan:edit'" @click="handleAdd">新增预案</StandardButton>
           </div>
         </div>
       </div>

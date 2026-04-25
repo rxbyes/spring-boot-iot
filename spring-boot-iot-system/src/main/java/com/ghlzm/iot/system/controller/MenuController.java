@@ -4,9 +4,12 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Menu;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.MenuService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.vo.MenuTreeNodeVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,10 +29,19 @@ public class MenuController {
 
       private final PermissionService permissionService;
       private final MenuService menuService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public MenuController(PermissionService permissionService, MenuService menuService) {
+            this(permissionService, menuService, null);
+      }
+
+      @Autowired
+      public MenuController(PermissionService permissionService,
+                            MenuService menuService,
+                            GovernancePermissionGuard permissionGuard) {
             this.permissionService = permissionService;
             this.menuService = menuService;
+            this.permissionGuard = permissionGuard;
       }
 
       @GetMapping("/tree")
@@ -77,18 +89,24 @@ public class MenuController {
 
       @PostMapping("/add")
       public R<Menu> addMenu(@RequestBody Menu menu, Authentication authentication) {
-            return R.ok(menuService.addMenu(requireCurrentUserId(authentication), menu));
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "新增菜单", GovernancePermissionCodes.MENU_ADD);
+            return R.ok(menuService.addMenu(currentUserId, menu));
       }
 
       @PutMapping("/update")
       public R<Void> updateMenu(@RequestBody Menu menu, Authentication authentication) {
-            menuService.updateMenu(requireCurrentUserId(authentication), menu);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "编辑菜单", GovernancePermissionCodes.MENU_UPDATE);
+            menuService.updateMenu(currentUserId, menu);
             return R.ok();
       }
 
       @DeleteMapping("/{id}")
       public R<Void> deleteMenu(@PathVariable Long id, Authentication authentication) {
-            menuService.deleteMenu(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除菜单", GovernancePermissionCodes.MENU_DELETE);
+            menuService.deleteMenu(currentUserId, id);
             return R.ok();
       }
 
@@ -97,5 +115,11 @@ public class MenuController {
                   throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
             }
             return principal.userId();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 }

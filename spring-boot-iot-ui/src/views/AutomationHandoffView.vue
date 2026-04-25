@@ -37,7 +37,7 @@
           </ul>
           <StandardActionGroup gap="sm">
             <StandardButton action="confirm" @click="copyCommand">复制命令</StandardButton>
-            <StandardButton action="batch" @click="downloadPlan">导出计划</StandardButton>
+            <StandardButton action="batch" v-permission="'system:rd-automation-handoff:export-plan'" @click="downloadPlan">导出计划</StandardButton>
           </StandardActionGroup>
         </PanelCard>
 

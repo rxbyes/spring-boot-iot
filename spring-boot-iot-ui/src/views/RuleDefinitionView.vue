@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
+        <StandardButton action="add" v-permission="'risk:rule-definition:edit'" @click="handleAdd">新增规则</StandardButton>
       </template>
 
       <template #filters>
@@ -172,7 +172,7 @@
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="standard-list-empty-state__actions">
             <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
-            <StandardButton v-else action="add" @click="handleAdd">新增规则</StandardButton>
+            <StandardButton v-else action="add" v-permission="'risk:rule-definition:edit'" @click="handleAdd">新增规则</StandardButton>
           </div>
         </div>
       </div>

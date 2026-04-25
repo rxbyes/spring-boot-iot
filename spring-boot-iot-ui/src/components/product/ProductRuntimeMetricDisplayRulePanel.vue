@@ -135,6 +135,7 @@
         <StandardButton
           data-testid="runtime-display-rule-submit"
           :disabled="!hasProductId(props.productId) || submitting"
+          v-permission="'iot:product-contract:govern'"
           @click="handleSubmit"
         >
           {{ submitting ? '提交中...' : isEditing ? '更新规则' : '新增规则' }}
@@ -205,6 +206,7 @@ import type {
 
 const props = defineProps<{
   productId?: IdType | null
+  formalPropertyIdentifiers?: string[]
 }>()
 
 type RuleFormState = {

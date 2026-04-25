@@ -35,6 +35,7 @@
             data-testid="contract-field-rollback-submit"
             :loading="rollbackLoading"
             :disabled="!canRollbackCurrentBatch"
+            v-permission="'iot:product-contract:rollback'"
             @click="handleRollbackCurrentBatch"
           >
             提交回滚审批
@@ -472,6 +473,7 @@
               action="confirm"
               :loading="compareLoading"
               data-testid="contract-field-compare-submit"
+              v-permission="'iot:product-contract:govern'"
               @click="handleCompare"
             >
               提取契约字段
@@ -640,7 +642,10 @@
           </div>
         </header>
 
-        <ProductRuntimeMetricDisplayRulePanel :product-id="props.product?.id ?? null" />
+        <ProductRuntimeMetricDisplayRulePanel
+          :product-id="props.product?.id ?? null"
+          :formal-property-identifiers="formalPropertyIdentifiers"
+        />
       </section>
 
       <section
@@ -752,6 +757,7 @@
             action="confirm"
             :loading="applyLoading"
             :disabled="!selectedApplyItems.length"
+            v-permission="'iot:product-contract:release'"
             @click="handleApply"
           >
             确认并提交审批
@@ -782,6 +788,7 @@
               action="confirm"
               :loading="rollbackResubmitLoading"
               data-testid="contract-field-rollback-resubmit"
+              v-permission="'iot:product-contract:rollback'"
               @click="handleResubmitRollbackApproval"
             >
               原单重提
@@ -871,6 +878,7 @@
                 action="confirm"
                 :loading="applyResubmitLoading"
                 data-testid="contract-field-apply-resubmit"
+                v-permission="'iot:product-contract:release'"
                 @click="handleResubmitApplyApproval"
               >
                 原单重提
@@ -965,6 +973,7 @@
                     :data-testid="`formal-model-name-save-${model.id}`"
                     action="confirm"
                     :loading="renameSubmitting"
+                    v-permission="'iot:product-contract:govern'"
                     @click="handleRenameModel(model)"
                   >
                     保存
@@ -995,6 +1004,7 @@
                   link
                   :loading="isDeletingModel(model.id)"
                   :disabled="isDeletingModel(model.id)"
+                  v-permission="'iot:product-contract:govern'"
                   @click="handleDeleteModel(model)"
                 >
                   删除
@@ -1018,6 +1028,7 @@
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'measure')"
                 :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                v-permission="'iot:products:update'"
                 @click="handleSetTrendMetric(model, 'measure')"
               >
                 设为监测数据
@@ -1029,6 +1040,7 @@
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'statusEvent')"
                 :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                v-permission="'iot:products:update'"
                 @click="handleSetTrendMetric(model, 'statusEvent')"
               >
                 设为状态事件
@@ -1040,6 +1052,7 @@
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'runtime')"
                 :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                v-permission="'iot:products:update'"
                 @click="handleSetTrendMetric(model, 'runtime')"
               >
                 设为运行参数
@@ -1051,6 +1064,7 @@
                 link
                 :loading="isTrendMetricSubmitting(model.id, 'remove')"
                 :disabled="trendMetricSubmitting || isDeletingModel(model.id)"
+                v-permission="'iot:products:update'"
                 @click="handleRemoveTrendMetric(model)"
               >
                 取消趋势展示
@@ -1267,6 +1281,11 @@ const formalModelCardRefs = new Map<string, HTMLElement>()
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
+const formalPropertyIdentifiers = computed(() =>
+  models.value
+    .filter((model) => model.modelType === 'property' && model.identifier)
+    .map((model) => model.identifier)
+)
 const comparisonLedgerRows = computed(() =>
   releaseLedgerRows.value.filter((batch) => !isSameId(batch.id ?? null, selectedLedgerBatchId.value))
 )

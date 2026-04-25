@@ -5,8 +5,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.HelpDocument;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.HelpDocumentService;
 import com.ghlzm.iot.system.vo.HelpDocumentAccessVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,9 +28,16 @@ import java.util.List;
 public class HelpDocumentController {
 
     private final HelpDocumentService helpDocumentService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public HelpDocumentController(HelpDocumentService helpDocumentService) {
+        this(helpDocumentService, null);
+    }
+
+    @Autowired
+    public HelpDocumentController(HelpDocumentService helpDocumentService, GovernancePermissionGuard permissionGuard) {
         this.helpDocumentService = helpDocumentService;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping("/page")
@@ -47,18 +57,24 @@ public class HelpDocumentController {
 
     @PostMapping("/add")
     public R<HelpDocument> addDocument(@RequestBody HelpDocument document, Authentication authentication) {
-        return R.ok(helpDocumentService.addDocument(document, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "新增帮助文档", GovernancePermissionCodes.HELP_DOC_ADD);
+        return R.ok(helpDocumentService.addDocument(document, currentUserId));
     }
 
     @PutMapping("/update")
     public R<Void> updateDocument(@RequestBody HelpDocument document, Authentication authentication) {
-        helpDocumentService.updateDocument(document, requireCurrentUserId(authentication));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "编辑帮助文档", GovernancePermissionCodes.HELP_DOC_UPDATE);
+        helpDocumentService.updateDocument(document, currentUserId);
         return R.ok();
     }
 
     @DeleteMapping("/delete/{id:[0-9]+}")
     public R<Void> deleteDocument(@PathVariable Long id, Authentication authentication) {
-        helpDocumentService.deleteDocument(id, requireCurrentUserId(authentication));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "删除帮助文档", GovernancePermissionCodes.HELP_DOC_DELETE);
+        helpDocumentService.deleteDocument(id, currentUserId);
         return R.ok();
     }
 
@@ -95,5 +111,11 @@ public class HelpDocumentController {
             throw new BizException(401, "未认证，请先登录");
         }
         return principal.userId();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+        }
     }
 }
