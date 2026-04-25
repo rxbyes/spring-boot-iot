@@ -377,3 +377,91 @@ test('runRegistryCli accepts a derived registry path and persists business metad
   assert.equal(report.options.accountTemplate, 'acceptance-default');
   assert.equal(report.options.selectedModules, 'product-create,device-query');
 });
+
+test('canonical registry includes P0 full-flow quality factory scenarios', async () => {
+  const canonicalRegistryPath = path.resolve(
+    process.cwd(),
+    'config/automation/acceptance-registry.json'
+  );
+  const source = JSON.parse(await fs.readFile(canonicalRegistryPath, 'utf8'));
+  const registry = await loadAcceptanceRegistry({ source });
+
+  const ids = new Set(registry.scenarios.map((item) => item.id));
+
+  [
+    'auth.browser-smoke',
+    'iot-access.browser-smoke',
+    'iot-access.api-smoke',
+    'iot-access.message-flow',
+    'telemetry.api-smoke',
+    'risk.full-drill.red-chain',
+    'system.api-smoke',
+    'governance.control-plane.browser-smoke',
+    'quality-factory.business-acceptance.browser-smoke'
+  ].forEach((scenarioId) => {
+    assert.equal(ids.has(scenarioId), true, `missing P0 scenario: ${scenarioId}`);
+  });
+
+  const telemetryScenario = registry.scenarios.find((item) => item.id === 'telemetry.api-smoke');
+  assert.equal(telemetryScenario.module, 'telemetry');
+  assert.equal(telemetryScenario.runnerType, 'apiSmoke');
+  assert.equal(telemetryScenario.scope, 'delivery');
+  assert.equal(telemetryScenario.blocking, 'warning');
+  assert.deepEqual(telemetryScenario.runner.pointFilters, ['TELEMETRY']);
+
+  const qualityScenario = registry.scenarios.find(
+    (item) => item.id === 'quality-factory.business-acceptance.browser-smoke'
+  );
+  assert.equal(qualityScenario.module, 'quality-factory');
+  assert.equal(qualityScenario.runnerType, 'browserPlan');
+  assert.equal(qualityScenario.scope, 'delivery');
+  assert.equal(qualityScenario.blocking, 'blocker');
+  assert.equal(
+    qualityScenario.runner.planRef,
+    'config/automation/quality-factory-web-smoke-plan.json'
+  );
+});
+
+test('business acceptance packages expose P0 full-flow packages', async () => {
+  const packagePath = path.resolve(
+    process.cwd(),
+    'config/automation/business-acceptance-packages.json'
+  );
+  const source = JSON.parse(await fs.readFile(packagePath, 'utf8'));
+  const packages = Array.isArray(source.packages) ? source.packages : [];
+  const byCode = new Map(packages.map((item) => [item.packageCode, item]));
+
+  [
+    'platform-p0-full-flow',
+    'iot-access-p0',
+    'risk-p0',
+    'governance-p0'
+  ].forEach((packageCode) => {
+    assert.equal(byCode.has(packageCode), true, `missing P0 package: ${packageCode}`);
+  });
+
+  const platform = byCode.get('platform-p0-full-flow');
+  assert.equal(platform.defaultAccountTemplate, 'manager-default');
+  assert.deepEqual(platform.supportedEnvironments, ['dev', 'test']);
+
+  const platformRefs = new Set(
+    platform.modules.flatMap((module) => module.scenarioRefs || [])
+  );
+  [
+    'auth.browser-smoke',
+    'iot-access.browser-smoke',
+    'iot-access.api-smoke',
+    'iot-access.message-flow',
+    'telemetry.api-smoke',
+    'risk.full-drill.red-chain',
+    'system.api-smoke',
+    'governance.control-plane.browser-smoke',
+    'quality-factory.business-acceptance.browser-smoke'
+  ].forEach((scenarioId) => {
+    assert.equal(
+      platformRefs.has(scenarioId),
+      true,
+      `platform-p0-full-flow missing scenario ref: ${scenarioId}`
+    );
+  });
+});
