@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   getTraceEvidence,
+  listObservabilitySlowSpanSummaries,
   pageObservabilityBusinessEvents,
   pageObservabilitySpans
 } from '@/api/observability'
@@ -51,6 +52,25 @@ describe('observability api', () => {
 
     expect(request).toHaveBeenCalledWith(
       '/api/system/observability/spans/page?traceId=trace-001&spanType=SLOW_SQL&status=SUCCESS&minDurationMs=1000&pageNum=1&pageSize=20',
+      {
+        method: 'GET'
+      }
+    )
+  })
+
+  it('builds slow span summary query parameters correctly', async () => {
+    await listObservabilitySlowSpanSummaries({
+      spanType: 'SLOW_SQL',
+      domainCode: 'system',
+      status: 'SUCCESS',
+      minDurationMs: 1000,
+      dateFrom: '2026-04-25',
+      dateTo: '2026-04-25',
+      limit: 10
+    })
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/system/observability/spans/slow-summary?spanType=SLOW_SQL&domainCode=system&status=SUCCESS&minDurationMs=1000&dateFrom=2026-04-25&dateTo=2026-04-25&limit=10',
       {
         method: 'GET'
       }

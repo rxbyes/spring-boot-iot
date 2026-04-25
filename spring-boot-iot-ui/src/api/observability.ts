@@ -72,6 +72,19 @@ export interface ObservabilityTraceEvidence {
   timeline?: ObservabilityTraceEvidenceItem[]
 }
 
+export interface ObservabilitySlowSpanSummary {
+  spanType?: string | null
+  domainCode?: string | null
+  eventCode?: string | null
+  objectType?: string | null
+  objectId?: string | null
+  totalCount?: number | null
+  avgDurationMs?: number | null
+  maxDurationMs?: number | null
+  latestTraceId?: string | null
+  latestStartedAt?: string | null
+}
+
 export interface ObservabilityBusinessEventPageQuery {
   traceId?: string
   eventCode?: string
@@ -101,6 +114,19 @@ export interface ObservabilitySpanPageQuery {
   pageSize?: number
 }
 
+export interface ObservabilitySlowSpanSummaryQuery {
+  spanType?: string
+  eventCode?: string
+  domainCode?: string
+  objectType?: string
+  objectId?: string
+  status?: string
+  minDurationMs?: number
+  dateFrom?: string
+  dateTo?: string
+  limit?: number
+}
+
 export function pageObservabilityBusinessEvents(
   params: ObservabilityBusinessEventPageQuery = {}
 ): Promise<ApiEnvelope<PageResult<ObservabilityBusinessEvent>>> {
@@ -115,6 +141,14 @@ export function pageObservabilitySpans(
   const query = buildQueryString(params)
   const path = `/api/system/observability/spans/page${query ? `?${query}` : ''}`
   return request<PageResult<ObservabilitySpan>>(path, { method: 'GET' })
+}
+
+export function listObservabilitySlowSpanSummaries(
+  params: ObservabilitySlowSpanSummaryQuery = {}
+): Promise<ApiEnvelope<ObservabilitySlowSpanSummary[]>> {
+  const query = buildQueryString(params)
+  const path = `/api/system/observability/spans/slow-summary${query ? `?${query}` : ''}`
+  return request<ObservabilitySlowSpanSummary[]>(path, { method: 'GET' })
 }
 
 export function getTraceEvidence(traceId: string): Promise<ApiEnvelope<ObservabilityTraceEvidence>> {
