@@ -23,6 +23,11 @@ import com.ghlzm.iot.framework.observability.messageflow.MessageFlowStep;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowSubmitResult;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimeline;
 import com.ghlzm.iot.framework.observability.messageflow.MessageFlowTimelineStore;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilitySpanLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilitySpanTypes;
 import com.ghlzm.iot.message.mqtt.MqttTopicRouter;
 import com.ghlzm.iot.message.service.capability.CapabilityFeedback;
 import com.ghlzm.iot.message.service.capability.CapabilityFeedbackHandler;
@@ -40,6 +45,7 @@ import com.ghlzm.iot.telemetry.service.model.TelemetryPersistResult;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -76,6 +82,7 @@ public class UpMessageProcessingPipeline {
     private final DeviceRiskDispatchStageHandler deviceRiskDispatchStageHandler;
     private final CapabilityFeedbackTopicMatcher capabilityFeedbackTopicMatcher;
     private final CapabilityFeedbackHandler capabilityFeedbackHandler;
+    private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
     public UpMessageProcessingPipeline(MessageFlowProperties messageFlowProperties,
                                        MessageFlowMetricsRecorder messageFlowMetricsRecorder,
@@ -105,6 +112,13 @@ public class UpMessageProcessingPipeline {
         this.deviceRiskDispatchStageHandler = deviceRiskDispatchStageHandler;
         this.capabilityFeedbackTopicMatcher = capabilityFeedbackTopicMatcher;
         this.capabilityFeedbackHandler = capabilityFeedbackHandler;
+    }
+
+    @Autowired(required = false)
+    public void setObservabilityEvidenceRecorder(ObservabilityEvidenceRecorder evidenceRecorder) {
+        if (evidenceRecorder != null) {
+            this.evidenceRecorder = evidenceRecorder;
+        }
     }
 
     public MessageFlowExecutionResult process(UpMessageProcessingRequest request) {
@@ -682,6 +696,7 @@ public class UpMessageProcessingPipeline {
         saveSessionIfEnabled(session);
         saveTimelineIfEnabled(context.timeline);
         logSummary(context, throwable);
+        recordPersistentEvidence(context, throwable);
     }
 
     private MessageFlowExecutionResult buildExecutionResult(ProcessingContext context) {
@@ -948,6 +963,115 @@ public class UpMessageProcessingPipeline {
                 ObservabilityEventLogSupport.summary("telemetry_persist", "failure", null, details),
                 ex
         );
+    }
+
+    private void recordPersistentEvidence(ProcessingContext context, Throwable throwable) {
+        ObservabilitySpanLogRecord span = new ObservabilitySpanLogRecord();
+        span.setTenantId(1L);
+        span.setTraceId(context.traceId);
+        span.setSpanType(ObservabilitySpanTypes.MESSAGE_FLOW);
+        span.setSpanName("message-flow." + normalizeTagValue(context.request.getTransportMode(), "unknown"));
+        span.setDomainCode("message");
+        span.setEventCode("iot.message.flow");
+        span.setObjectType("device");
+        span.setObjectId(resolveDeviceCode(context));
+        span.setTransportType(context.request.getTransportMode());
+        span.setStatus(throwable == null ? ObservabilityEvidenceStatus.SUCCESS : ObservabilityEvidenceStatus.FAILURE);
+        span.setDurationMs(context.timeline.getTotalCostMs());
+        span.setStartedAt(context.timeline.getStartedAt());
+        span.setFinishedAt(context.timeline.getFinishedAt());
+        if (throwable != null) {
+            span.setErrorClass(throwable.getClass().getName());
+            span.setErrorMessage(throwable.getMessage());
+        }
+        span.getTags().putAll(buildMessageFlowEvidenceTags(context, throwable));
+        evidenceRecorder.recordSpan(span);
+
+        if (throwable != null) {
+            recordMessageFlowFailureEvent(context, throwable);
+        }
+    }
+
+    private void recordMessageFlowFailureEvent(ProcessingContext context, Throwable throwable) {
+        BusinessEventLogRecord event = new BusinessEventLogRecord();
+        event.setTenantId(1L);
+        event.setTraceId(context.traceId);
+        event.setEventCode("iot.message.failure");
+        event.setEventName("设备上行处理失败");
+        event.setDomainCode("message");
+        event.setActionCode("up_message_failure");
+        event.setObjectType("device");
+        event.setObjectId(resolveDeviceCode(context));
+        event.setResultStatus(ObservabilityEvidenceStatus.FAILURE);
+        event.setSourceType(normalizeTagValue(context.request.getTransportMode(), "MESSAGE_FLOW"));
+        event.setEvidenceType("message_flow");
+        event.setEvidenceId(context.sessionId);
+        event.setDurationMs(context.timeline.getTotalCostMs());
+        event.setErrorMessage(throwable.getMessage());
+        event.setOccurredAt(LocalDateTime.now());
+        event.getMetadata().putAll(buildMessageFlowEvidenceTags(context, throwable));
+        evidenceRecorder.recordBusinessEvent(event);
+    }
+
+    private Map<String, Object> buildMessageFlowEvidenceTags(ProcessingContext context, Throwable throwable) {
+        Map<String, Object> tags = new LinkedHashMap<>();
+        tags.put("sessionId", context.sessionId);
+        tags.put("traceId", context.traceId);
+        tags.put("transportMode", context.request.getTransportMode());
+        tags.put("status", context.timeline.getStatus());
+        tags.put("topic", resolveTopic(context));
+        tags.put("deviceCode", resolveDeviceCode(context));
+        tags.put("productKey", resolveProductKey(context));
+        tags.put("messageType", context.upMessage == null ? null : context.upMessage.getMessageType());
+        MessageFlowStep slowestStep = context.timeline.getSteps().stream()
+                .max(java.util.Comparator.comparingLong(MessageFlowStep::getCostMs))
+                .orElse(null);
+        if (slowestStep != null) {
+            tags.put("slowestStage", slowestStep.getStage());
+            tags.put("slowestStageCostMs", slowestStep.getCostMs());
+        }
+        if (throwable != null) {
+            tags.put("errorClass", throwable.getClass().getName());
+        }
+        List<Map<String, Object>> stages = new ArrayList<>();
+        for (MessageFlowStep step : context.timeline.getSteps()) {
+            Map<String, Object> stage = new LinkedHashMap<>();
+            stage.put("stage", step.getStage());
+            stage.put("status", step.getStatus());
+            stage.put("costMs", step.getCostMs());
+            stage.put("handlerClass", step.getHandlerClass());
+            if (step.getErrorClass() != null) {
+                stage.put("errorClass", step.getErrorClass());
+            }
+            stages.add(stage);
+        }
+        tags.put("stages", stages);
+        return tags;
+    }
+
+    private String resolveTopic(ProcessingContext context) {
+        if (context.rawDeviceMessage != null && hasText(context.rawDeviceMessage.getTopic())) {
+            return context.rawDeviceMessage.getTopic();
+        }
+        return context.upMessage == null ? null : context.upMessage.getTopic();
+    }
+
+    private String resolveDeviceCode(ProcessingContext context) {
+        if (context.upMessage != null && hasText(context.upMessage.getDeviceCode())) {
+            return context.upMessage.getDeviceCode();
+        }
+        return context.rawDeviceMessage == null ? null : context.rawDeviceMessage.getDeviceCode();
+    }
+
+    private String resolveProductKey(ProcessingContext context) {
+        if (context.upMessage != null && hasText(context.upMessage.getProductKey())) {
+            return context.upMessage.getProductKey();
+        }
+        return context.rawDeviceMessage == null ? null : context.rawDeviceMessage.getProductKey();
+    }
+
+    private String normalizeTagValue(String value, String fallback) {
+        return hasText(value) ? value : fallback;
     }
 
     private boolean isHttp(ProcessingContext context) {

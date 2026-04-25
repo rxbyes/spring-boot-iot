@@ -46,6 +46,9 @@
               <span>类型: {{ rowTypeLabel(row) }}</span>
               <span>{{ rowDataHint(row) }}</span>
               <span v-if="rowNormativeLabel(row)">规范字段：{{ rowNormativeLabel(row) }}</span>
+              <span v-if="row.normativeMatchStatus">规范识别：{{ rowNormativeMatchLabel(row.normativeMatchStatus) }}</span>
+              <span v-if="row.normativeMatchSource">识别来源：{{ rowNormativeSourceLabel(row.normativeMatchSource) }}</span>
+              <span v-if="row.normativeMatchReason">识别依据：{{ row.normativeMatchReason }}</span>
               <span v-if="row.rawIdentifiers?.length">原始字段：{{ row.rawIdentifiers.join(' / ') }}</span>
             </div>
           </div>
@@ -100,6 +103,19 @@
           </span>
         </div>
 
+        <div v-if="governanceActions(row).length" class="product-model-governance-compare-table__governance-actions">
+          <button
+            v-for="action in governanceActions(row)"
+            :key="action.target"
+            :data-testid="`governance-action-${rowKey(row)}-${action.target}`"
+            type="button"
+            class="product-model-governance-compare-table__decision-button"
+            @click="emitGovernanceAction(row, action.target)"
+          >
+            {{ action.label }}
+          </button>
+        </div>
+
         <div class="product-model-governance-compare-table__decisions">
           <button
             v-for="decision in availableDecisions(row)"
@@ -135,6 +151,7 @@ import type {
 type GovernanceDecisionUi = ProductModelGovernanceDecision | 'observe' | 'review' | 'ignore'
 type GovernanceGroupKey = 'direct' | 'review' | 'observe' | 'conflict'
 type GovernanceTypeFilter = 'all' | ProductModelType
+type GovernanceActionTarget = 'mapping-rule' | 'runtime-display-rule'
 
 const props = withDefaults(defineProps<{
   rows: ProductModelGovernanceCompareRow[]
@@ -145,6 +162,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (event: 'change-decision', payload: { key: string; decision: GovernanceDecisionUi }): void
+  (event: 'start-governance', payload: { key: string; target: GovernanceActionTarget; rawIdentifier: string }): void
 }>()
 
 const groupOptions: Array<{ label: string; key: GovernanceGroupKey }> = [
@@ -226,6 +244,21 @@ function rowNormativeLabel(row: ProductModelGovernanceCompareRow) {
   return row.normativeName || row.normativeIdentifier || ''
 }
 
+function rowNormativeMatchLabel(status?: string | null) {
+  return {
+    MATCHED: '已匹配',
+    AMBIGUOUS: '候选冲突',
+    MISSED: '未命中'
+  }[status ?? ''] ?? status
+}
+
+function rowNormativeSourceLabel(source?: string | null) {
+  return {
+    EXACT_IDENTIFIER: '正式字段',
+    CODE_PREFIX_FALLBACK: '编码兜底'
+  }[source ?? ''] ?? source
+}
+
 function rowDataHint(row: ProductModelGovernanceCompareRow) {
   const source = row.manualCandidate ?? row.runtimeCandidate ?? row.formalModel
   const dataHint = source?.dataType || source?.eventType || (source ? formatServiceSummary(source) : '')
@@ -287,6 +320,12 @@ function formatServiceSummary(evidence: ProductModelGovernanceEvidence) {
 }
 
 function resolveGroup(row: ProductModelGovernanceCompareRow): GovernanceGroupKey {
+  if (row.normativeMatchStatus === 'AMBIGUOUS') {
+    return 'conflict'
+  }
+  if (row.normativeMatchStatus === 'MISSED') {
+    return 'observe'
+  }
   if (row.compareStatus === 'suspected_conflict') {
     return 'conflict'
   }
@@ -311,6 +350,12 @@ function firstAvailableGroup() {
 }
 
 function rowStatusSummary(row: ProductModelGovernanceCompareRow) {
+  if (row.normativeMatchStatus === 'AMBIGUOUS') {
+    return '规范候选存在冲突，请先确认或补充映射规则'
+  }
+  if (row.normativeMatchStatus === 'MISSED') {
+    return '规范库暂未命中，可继续观察或手动提炼'
+  }
   if (row.compareStatus === 'suspected_conflict' || row.riskFlags?.includes('definition_mismatch')) {
     return '与现有字段有差异，请确认后再生效'
   }
@@ -335,9 +380,12 @@ function formalBaselineLabel(row: ProductModelGovernanceCompareRow) {
 }
 
 function templateSummaryParts(row: ProductModelGovernanceCompareRow) {
+  const normativeCandidateSummary = row.normativeCandidates?.length
+    ? `规范候选：${row.normativeCandidates.join(' / ')}`
+    : null
   const protocolTemplateEvidence = row.runtimeCandidate?.protocolTemplateEvidence
   if (!protocolTemplateEvidence) {
-    return []
+    return [normativeCandidateSummary].filter((item): item is string => Boolean(item))
   }
   return [
     protocolTemplateEvidence.templateCodes?.length
@@ -348,7 +396,8 @@ function templateSummaryParts(row: ProductModelGovernanceCompareRow) {
       : null,
     protocolTemplateEvidence.canonicalizationStrategies?.length
       ? protocolTemplateEvidence.canonicalizationStrategies.join(' / ')
-      : null
+      : null,
+    normativeCandidateSummary
   ].filter((item): item is string => Boolean(item))
 }
 
@@ -356,7 +405,36 @@ function visibleRiskFlags(row: ProductModelGovernanceCompareRow) {
   return (row.riskFlags ?? []).filter((flag) => flag !== 'formal_baseline')
 }
 
+function firstRawIdentifier(row: ProductModelGovernanceCompareRow) {
+  return row.rawIdentifiers?.find((identifier) => identifier?.trim())?.trim() ?? ''
+}
+
+function governanceActions(row: ProductModelGovernanceCompareRow) {
+  const rawIdentifier = firstRawIdentifier(row)
+  if (!rawIdentifier) {
+    return []
+  }
+  if (row.normativeMatchStatus === 'AMBIGUOUS') {
+    return [
+      { label: '去映射规则治理', target: 'mapping-rule' }
+    ] satisfies Array<{ label: string; target: GovernanceActionTarget }>
+  }
+  if (row.normativeMatchStatus === 'MISSED') {
+    return [
+      { label: '补名称/单位', target: 'runtime-display-rule' }
+    ] satisfies Array<{ label: string; target: GovernanceActionTarget }>
+  }
+  return []
+}
+
 function availableDecisions(row: ProductModelGovernanceCompareRow) {
+  if (row.normativeMatchStatus === 'AMBIGUOUS') {
+    return [
+      { label: '待确认', value: 'review' },
+      { label: '继续观察', value: 'observe' },
+      { label: '忽略', value: 'ignore' }
+    ] satisfies Array<{ label: string; value: GovernanceDecisionUi }>
+  }
   switch (row.compareStatus) {
     case 'double_aligned':
       return [
@@ -403,6 +481,18 @@ function currentDecision(row: ProductModelGovernanceCompareRow) {
 
 function emitDecision(row: ProductModelGovernanceCompareRow, decision: GovernanceDecisionUi) {
   emit('change-decision', { key: rowKey(row), decision })
+}
+
+function emitGovernanceAction(row: ProductModelGovernanceCompareRow, target: GovernanceActionTarget) {
+  const rawIdentifier = firstRawIdentifier(row)
+  if (!rawIdentifier) {
+    return
+  }
+  emit('start-governance', {
+    key: rowKey(row),
+    target,
+    rawIdentifier
+  })
 }
 
 function friendlyTemplateName(templateCode?: string | null) {
@@ -494,6 +584,7 @@ function friendlyTemplateName(templateCode?: string | null) {
 
 .product-model-governance-compare-table__row-header,
 .product-model-governance-compare-table__risk-flags,
+.product-model-governance-compare-table__governance-actions,
 .product-model-governance-compare-table__decisions {
   display: flex;
   flex-wrap: wrap;

@@ -15,10 +15,16 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
 import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
@@ -31,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import java.util.Date;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -404,6 +411,66 @@ class RiskPointBindingMaintenanceServiceImplTest {
 
         assertEquals(List.of("value"), result.stream().map(DeviceMetricOptionVO::getIdentifier).toList());
         assertEquals(List.of(6101L), result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList());
+    }
+
+    @Test
+    void listFormalBindingMetricOptionsShouldBackfillMissingMonitoringCatalogBeforeFiltering() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
+        ProductMapper productMapper = mock(ProductMapper.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService,
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule()
+        );
+        Device device = new Device();
+        device.setId(3001L);
+        device.setProductId(2002L);
+        device.setDeviceName("CXH15522812 - 多维检测仪");
+        when(deviceService.getRequiredById(3001L)).thenReturn(device);
+
+        Product product = new Product();
+        product.setId(2002L);
+        product.setProductKey("zhd-monitor-multi-displacement-v1");
+        product.setProductName("中海达多维位移产品");
+        when(productMapper.selectById(2002L)).thenReturn(product);
+
+        ProductModel crackValue = productModel(4101L, 2002L, "L1_LF_1.value", "裂缝量");
+        ProductModel tiltAngle = productModel(4102L, 2002L, "L1_QJ_1.angle", "水平面夹角");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(crackValue, tiltAngle));
+
+        when(deviceService.listMetricOptions(1001L, 3001L))
+                .thenReturn(List.of(formalOption("L1_LF_1.value", "裂缝量", null)))
+                .thenReturn(List.of(
+                        formalOption("L1_LF_1.value", "裂缝量", 9101L),
+                        formalOption("L1_QJ_1.angle", "水平面夹角", null)
+                ));
+
+        List<DeviceMetricOptionVO> result = service.listFormalBindingMetricOptions(3001L, 1001L);
+
+        assertEquals(List.of("L1_LF_1.value"), result.stream().map(DeviceMetricOptionVO::getIdentifier).toList());
+        assertEquals(List.of(9101L), result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList());
+        verify(riskMetricCatalogService).publishFromReleasedContracts(
+                eq(2002L),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(List.of(crackValue, tiltAngle)),
+                eq(Set.of("L1_LF_1.value"))
+        );
     }
 
     @Test
@@ -863,6 +930,18 @@ class RiskPointBindingMaintenanceServiceImplTest {
         value.setPromotionStatus(promotionStatus);
         value.setDeleted(0);
         return value;
+    }
+
+    private ProductModel productModel(Long id, Long productId, String identifier, String modelName) {
+        ProductModel model = new ProductModel();
+        model.setId(id);
+        model.setProductId(productId);
+        model.setModelType("property");
+        model.setIdentifier(identifier);
+        model.setModelName(modelName);
+        model.setDataType("double");
+        model.setDeleted(0);
+        return model;
     }
 
     private DeviceMetricOptionVO formalOption(String identifier, String name, Long riskMetricId) {

@@ -2374,7 +2374,7 @@
       "businessBoundary": "用于时序最新值投影表的数据持久化与查询，归属设备域并服务真实环境基线。"
     },
     {
-      "name": "iot_device_message_log",
+      "name": "iot_message_log",
       "storageType": "mysql_table",
       "ownerModule": "spring-boot-iot-device",
       "lifecycle": "active",
@@ -2502,7 +2502,7 @@
         }
       ],
       "lineageRole": "operation_log",
-      "businessBoundary": "用于设备消息日志表的数据持久化与查询，归属设备域并服务真实环境基线。"
+      "businessBoundary": "用于统一消息日志的数据持久化与查询，归属设备域并作为链路追踪、验收证据和治理回放的物理真相源。"
     },
     {
       "name": "iot_device_access_error_log",

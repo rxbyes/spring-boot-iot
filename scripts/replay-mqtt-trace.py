@@ -186,7 +186,7 @@ def fetch_original_trace(cur: pymysql.cursors.Cursor, trace_id: str) -> Dict[str
     cur.execute(
         """
         SELECT id, trace_id, device_code, product_key, message_type, topic, payload, report_time
-        FROM iot_device_message_log
+        FROM iot_message_log
         WHERE trace_id = %s
         ORDER BY report_time ASC, id ASC
         LIMIT 1
@@ -195,10 +195,10 @@ def fetch_original_trace(cur: pymysql.cursors.Cursor, trace_id: str) -> Dict[str
     )
     row = cur.fetchone()
     if row:
-        row["sourceTable"] = "iot_device_message_log"
+        row["sourceTable"] = "iot_message_log"
         row["payloadSource"] = "payload"
         if not row.get("topic") or row.get("payload") is None:
-            raise RuntimeError(f"Trace {trace_id} in iot_device_message_log does not have replayable topic/payload")
+            raise RuntimeError(f"Trace {trace_id} in iot_message_log does not have replayable topic/payload")
         return row
 
     cur.execute(
@@ -228,7 +228,7 @@ def fetch_original_trace(cur: pymysql.cursors.Cursor, trace_id: str) -> Dict[str
         return row
 
     raise RuntimeError(
-        "Trace not found in iot_device_message_log or iot_device_access_error_log: "
+        "Trace not found in iot_message_log or iot_device_access_error_log: "
         f"{trace_id}"
     )
 
@@ -422,7 +422,7 @@ def query_replay_results(cur: pymysql.cursors.Cursor,
     cur.execute(
         f"""
         SELECT id, trace_id, device_code, product_key, message_type, topic, report_time
-        FROM iot_device_message_log
+        FROM iot_message_log
         WHERE {' AND '.join(message_where)}
         ORDER BY report_time DESC, id DESC
         LIMIT 10

@@ -38,7 +38,7 @@
             <li>建议先校准范围与账号，再交给既有 `scripts/auto` 执行。</li>
           </ul>
           <StandardActionGroup gap="sm">
-            <StandardButton action="confirm" @click="copyCommand">复制命令</StandardButton>
+            <StandardButton v-permission="'system:automation-execution:copy-command'" action="confirm" @click="copyCommand">复制命令</StandardButton>
           </StandardActionGroup>
         </PanelCard>
 

@@ -376,8 +376,9 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        Product product = productId == null ? null : productMapper.selectById(productId);
         long publishableContractPropertyCount = riskMetricCatalogPublishRule
-                .resolveRiskEnabledIdentifiers(null, propertyModels)
+                .resolveRiskEnabledIdentifiers(product, null, null, propertyModels)
                 .size();
 
         List<RiskMetricCatalog> catalogs = selectEnabledCatalogs(productId);

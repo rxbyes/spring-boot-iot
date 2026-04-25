@@ -3,9 +3,9 @@
     <StandardInlineSectionHeader :title="`步骤 ${stepIndex + 1}`">
       <template #actions>
         <StandardRowActions variant="editor" gap="comfortable">
-          <StandardActionLink :disabled="stepIndex === 0" @click="$emit('move', -1)">上移</StandardActionLink>
-          <StandardActionLink :disabled="stepIndex === stepCount - 1" @click="$emit('move', 1)">下移</StandardActionLink>
-          <StandardActionLink @click="$emit('remove')">删除</StandardActionLink>
+          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" :disabled="stepIndex === 0" @click="$emit('move', -1)">上移</StandardActionLink>
+          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" :disabled="stepIndex === stepCount - 1" @click="$emit('move', 1)">下移</StandardActionLink>
+          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('remove')">删除</StandardActionLink>
         </StandardRowActions>
       </template>
     </StandardInlineSectionHeader>

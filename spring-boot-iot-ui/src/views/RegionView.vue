@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" :icon="Plus" @click="handleAdd"
+        <StandardButton v-permission="'system:region:add'" action="add" :icon="Plus" @click="handleAdd"
           >新增</StandardButton
         >
       </template>
@@ -89,6 +89,7 @@
               >导出列设置</StandardButton
             >
             <StandardButton
+              v-permission="'system:region:export'"
               action="batch"
               link
               :disabled="selectedRows.length === 0"
@@ -96,6 +97,7 @@
               >导出选中</StandardButton
             >
             <StandardButton
+              v-permission="'system:region:export'"
               action="refresh"
               link
               :disabled="tableData.length === 0"
@@ -587,9 +589,9 @@ const handleSelectionChange = (rows: Region[]) => {
 };
 
 const getRegionRowActions = () => [
-  { command: "edit" as const, label: "编辑" },
-  { command: "add-sub" as const, label: "新增子级" },
-  { command: "delete" as const, label: "删除" },
+  { command: "edit" as const, label: "编辑", permission: "system:region:update" },
+  { command: "add-sub" as const, label: "新增子级", permission: "system:region:add-child" },
+  { command: "delete" as const, label: "删除", permission: "system:region:delete" },
 ];
 
 const handleRegionRowAction = (command: RegionRowActionCommand, row: Region) => {

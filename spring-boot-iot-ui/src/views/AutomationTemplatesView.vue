@@ -53,7 +53,7 @@
             <li>就绪断言</li>
             <li>截图基线</li>
           </ul>
-          <StandardButton action="add" @click="addScenario('pageSmoke')">新增页面冒烟模板</StandardButton>
+          <StandardButton v-permission="'system:rd-automation-templates:add-page-smoke'" action="add" @click="addScenario('pageSmoke')">新增页面冒烟模板</StandardButton>
         </PanelCard>
 
         <PanelCard title="表单提交模板" description="适合新增或改造表单页的研发自测起步。">
@@ -62,7 +62,7 @@
             <li>提交动作</li>
             <li>接口回执</li>
           </ul>
-          <StandardButton action="add" @click="addScenario('formSubmit')">新增表单提交模板</StandardButton>
+          <StandardButton v-permission="'system:rd-automation-templates:add-form-submit'" action="add" @click="addScenario('formSubmit')">新增表单提交模板</StandardButton>
         </PanelCard>
 
         <PanelCard title="列表详情模板" description="适合列表查询、详情抽屉与行级动作页面。">
@@ -71,7 +71,7 @@
             <li>行级动作</li>
             <li>详情抽屉</li>
           </ul>
-          <StandardButton action="add" @click="addScenario('listDetail')">新增列表详情模板</StandardButton>
+          <StandardButton v-permission="'system:rd-automation-templates:add-list-detail'" action="add" @click="addScenario('listDetail')">新增列表详情模板</StandardButton>
         </PanelCard>
       </section>
 

@@ -5,8 +5,8 @@
   >
     <template #actions>
       <StandardActionGroup gap="sm">
-        <StandardButton action="confirm" @click="handleImport">导入 JSON</StandardButton>
-        <StandardButton action="reset" :disabled="!importedRun" @click="$emit('clear')">
+        <StandardButton v-permission="'system:automation-results:import-json'" action="confirm" @click="handleImport">导入 JSON</StandardButton>
+        <StandardButton v-permission="'system:automation-results:clear-import'" action="reset" :disabled="!importedRun" @click="$emit('clear')">
           清空结果
         </StandardButton>
       </StandardActionGroup>

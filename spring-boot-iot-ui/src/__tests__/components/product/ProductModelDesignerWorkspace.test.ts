@@ -120,7 +120,7 @@ const StandardButtonStub = defineComponent({
 const CompareTableStub = defineComponent({
   name: 'ProductModelGovernanceCompareTable',
   props: ['rows', 'decisionState'],
-  emits: ['change-decision'],
+  emits: ['change-decision', 'start-governance'],
   setup(props, { emit }) {
     return () =>
       h('section', { class: 'compare-table-stub' }, [
@@ -133,6 +133,32 @@ const CompareTableStub = defineComponent({
             onClick: () => emit('change-decision', { key: 'property:value', decision: 'create' })
           },
           'select'
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            'data-testid': 'compare-table-stub-start-mapping',
+            onClick: () => emit('start-governance', {
+              key: 'property:value',
+              target: 'mapping-rule',
+              rawIdentifier: 'L4_NW_1'
+            })
+          },
+          'mapping'
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            'data-testid': 'compare-table-stub-start-runtime-display',
+            onClick: () => emit('start-governance', {
+              key: 'property:value',
+              target: 'runtime-display-rule',
+              rawIdentifier: 'L4_NW_1'
+            })
+          },
+          'runtime display'
         )
       ])
   }
@@ -156,6 +182,24 @@ const SuggestionPanelStub = defineComponent({
   `
 })
 
+const GovernanceCandidatePanelStub = defineComponent({
+  name: 'ProductVendorMappingGovernanceCandidatePanel',
+  props: ['productId'],
+  emits: ['goAccept', 'viewAllSuggestions'],
+  template: `
+    <section class="vendor-governance-candidate-panel-stub" data-testid="vendor-governance-candidate-panel-stub">
+      <span data-testid="vendor-governance-candidate-panel-props">{{ productId }}</span>
+      <button
+        type="button"
+        data-testid="vendor-governance-candidate-panel-go-accept"
+        @click="$emit('goAccept', { rawIdentifier: 'L4_NW_1' })"
+      >
+        go accept
+      </button>
+    </section>
+  `
+})
+
 const LedgerPanelStub = defineComponent({
   name: 'ProductVendorMappingRuleLedgerPanel',
   props: ['productId'],
@@ -168,10 +212,11 @@ const LedgerPanelStub = defineComponent({
 
 const RuntimeDisplayRulePanelStub = defineComponent({
   name: 'ProductRuntimeMetricDisplayRulePanel',
-  props: ['productId', 'formalPropertyIdentifiers'],
+  props: ['productId', 'formalPropertyIdentifiers', 'focusRawIdentifier', 'focusToken'],
   template: `
     <section class="runtime-display-rule-panel-stub" data-testid="runtime-display-rule-panel-stub">
       <span data-testid="runtime-display-rule-panel-props">{{ productId }}|{{ Array.isArray(formalPropertyIdentifiers) ? formalPropertyIdentifiers.join(',') : '' }}</span>
+      <span data-testid="runtime-display-rule-panel-focus">{{ focusRawIdentifier || '' }}|{{ focusToken || 0 }}</span>
     </section>
   `
 })
@@ -237,6 +282,7 @@ function mountWorkspace(productOverrides?: Partial<{
         StandardButton: StandardButtonStub,
         ProductModelGovernanceCompareTable: CompareTableStub,
         ProductVendorMappingSuggestionPanel: SuggestionPanelStub,
+        ProductVendorMappingGovernanceCandidatePanel: GovernanceCandidatePanelStub,
         ProductRuntimeMetricDisplayRulePanel: RuntimeDisplayRulePanelStub,
         ProductVendorMappingRuleLedgerPanel: LedgerPanelStub,
         ElInput: ElInputStub,
@@ -1354,6 +1400,150 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('本次申请新增')
     expect(wrapper.text()).toContain('审批单')
     expect(wrapper.text()).toContain('88001')
+  })
+
+  it('does not auto-apply ambiguous normative matches from compare results', async () => {
+    mockCompareProductModelGovernance.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        summary: {
+          propertyCount: 1,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        manualSummary: {
+          propertyCandidateCount: 1,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        runtimeSummary: {
+          propertyCandidateCount: 0,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        formalSummary: {
+          propertyCount: 0,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        compareRows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'double_aligned',
+            suggestedAction: '人工确认',
+            normativeMatchStatus: 'AMBIGUOUS',
+            normativeMatchSource: 'CODE_PREFIX_FALLBACK',
+            normativeMatchReason: '依据 L4/NW + leaf=value 命中多个规范候选，请人工确认',
+            normativeCandidates: ['phase5-mud-level / value / 泥水位', 'phase6-radar / value / 雷达水位'],
+            riskFlags: [],
+            suspectedMatches: [],
+            rawIdentifiers: ['L4_NW_1'],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '泥水位',
+              dataType: 'double'
+            }
+          }
+        ]
+      }
+    })
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"L4_NW_1":{"2026-04-23T12:54:20.000Z":0}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.text()).not.toContain('已选 1 项，确认后将提交审批')
+    expect(wrapper.text()).toContain('请选择需要生效的项')
+    expect(findApplyButton(wrapper)?.attributes('disabled')).toBeDefined()
+
+    await wrapper.get('[data-testid="compare-table-stub-select"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.text()).not.toContain('已选 1 项，确认后将提交审批')
+    expect(findApplyButton(wrapper)?.attributes('disabled')).toBeDefined()
+  })
+
+  it('routes compare governance actions to mapping suggestions and runtime display rules', async () => {
+    mockCompareProductModelGovernance.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        productId: 1001,
+        summary: {
+          propertyCount: 1,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        manualSummary: {
+          propertyCandidateCount: 1,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        runtimeSummary: {
+          propertyCandidateCount: 0,
+          eventCandidateCount: 0,
+          serviceCandidateCount: 0
+        },
+        formalSummary: {
+          propertyCount: 0,
+          eventCount: 0,
+          serviceCount: 0
+        },
+        compareRows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'double_aligned',
+            suggestedAction: '人工确认',
+            normativeMatchStatus: 'AMBIGUOUS',
+            normativeMatchSource: 'CODE_PREFIX_FALLBACK',
+            normativeMatchReason: '依据 L4/NW + leaf=value 命中多个规范候选，请人工确认',
+            normativeCandidates: ['phase5-mud-level / value / 泥水位', 'phase6-radar / value / 雷达水位'],
+            riskFlags: [],
+            suspectedMatches: [],
+            rawIdentifiers: ['L4_NW_1'],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '泥水位',
+              dataType: 'double'
+            }
+          }
+        ]
+      }
+    })
+    const wrapper = mountWorkspace()
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="contract-field-sample-input"]').setValue('{"device-001":{"L4_NW_1":{"2026-04-23T12:54:20.000Z":0}}}')
+    await wrapper.get('[data-testid="contract-field-compare-submit"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="compare-table-stub-start-mapping"]').trigger('click')
+
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      path: '/products/1001/contracts',
+      query: expect.objectContaining({
+        rawIdentifier: 'L4_NW_1',
+        source: 'contract-compare',
+        governanceTarget: 'mapping-rule'
+      })
+    })
+
+    await wrapper.get('[data-testid="compare-table-stub-start-runtime-display"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="runtime-display-rule-panel-focus"]').text()).toBe('L4_NW_1|1')
   })
 
   it('separates sample identification counts from merged compare totals after compare', async () => {

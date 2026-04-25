@@ -64,7 +64,7 @@ class UnregisteredDeviceRosterServiceImplTest {
                     if (sql.contains("UNION ALL")) {
                         return 2L;
                     }
-                    if (sql.contains("iot_device_message_log")) {
+                    if (sql.contains("iot_message_log")) {
                         return 2L;
                     }
                     return 1L;

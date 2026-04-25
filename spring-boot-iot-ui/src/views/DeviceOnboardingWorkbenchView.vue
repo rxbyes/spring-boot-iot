@@ -112,6 +112,7 @@
                   </option>
                 </select>
                 <StandardButton
+                  v-permission="'iot:device-onboarding:template-pack'"
                   data-testid="apply-template-pack"
                   :disabled="!form.templatePackId"
                   @click="handleApplySelectedTemplatePack"
@@ -219,6 +220,7 @@
           </div>
           <div class="device-onboarding-workbench__form-actions">
             <StandardButton
+              v-permission="editingId == null ? 'iot:device-onboarding:create-case' : 'iot:device-onboarding:update-case'"
               data-testid="onboarding-save"
               :disabled="saving"
               @click="handleSave"
@@ -315,6 +317,7 @@
           </div>
           <div class="device-onboarding-workbench__form-actions">
             <StandardButton
+              v-permission="'iot:device-onboarding:template-pack'"
               data-testid="template-pack-save"
               :disabled="templateSaving"
               @click="handleSaveTemplatePack"
@@ -335,8 +338,8 @@
                 <small>{{ pack.scenarioCode || '--' }} / {{ pack.deviceFamily || '--' }}</small>
               </div>
               <div class="device-onboarding-workbench__template-actions">
-                <StandardButton @click="handleApplyTemplatePack(pack)">预填案例</StandardButton>
-                <StandardButton link @click="handleEditTemplatePack(pack)">编辑模板</StandardButton>
+                <StandardButton v-permission="'iot:device-onboarding:template-pack'" @click="handleApplyTemplatePack(pack)">预填案例</StandardButton>
+                <StandardButton v-permission="'iot:device-onboarding:template-pack'" link @click="handleEditTemplatePack(pack)">编辑模板</StandardButton>
               </div>
             </article>
           </div>
@@ -395,6 +398,7 @@
         </div>
         <div class="device-onboarding-workbench__form-actions">
           <StandardButton
+            v-permission="'iot:device-onboarding:batch-create'"
             data-testid="onboarding-batch-create"
             :disabled="batchCreating"
             @click="handleBatchCreate"
@@ -402,6 +406,7 @@
             {{ batchCreating ? '批量创建中...' : '批量创建' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:device-onboarding:batch-apply-template'"
             data-testid="onboarding-batch-apply-template"
             :disabled="batchApplyingTemplate || selectedCaseIds.length === 0 || !batchTemplatePackId"
             @click="handleBatchApplyTemplate"
@@ -409,6 +414,7 @@
             {{ batchApplyingTemplate ? '套用中...' : '批量套用模板' }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:device-onboarding:start-acceptance'"
             data-testid="onboarding-batch-start-acceptance"
             :disabled="batchStartingAcceptance || selectedCaseIds.length === 0"
             @click="handleBatchStartAcceptance"
@@ -518,8 +524,9 @@
           </dl>
 
           <div class="device-onboarding-workbench__actions">
-            <StandardButton @click="handleEdit(row)">编辑</StandardButton>
+            <StandardButton v-permission="'iot:device-onboarding:update-case'" @click="handleEdit(row)">编辑</StandardButton>
             <StandardButton
+              v-permission="'iot:device-onboarding:refresh-status'"
               :data-testid="`onboarding-refresh-${row.id}`"
               :disabled="refreshingId === String(row.id)"
               @click="handleRefreshRow(row)"
@@ -528,6 +535,7 @@
             </StandardButton>
             <StandardButton
               v-if="row.currentStep === 'ACCEPTANCE'"
+              v-permission="'iot:device-onboarding:start-acceptance'"
               :data-testid="`onboarding-accept-${row.id}`"
               :disabled="acceptingId === String(row.id) || !canStartAcceptance(row)"
               @click="handleStartAcceptance(row)"

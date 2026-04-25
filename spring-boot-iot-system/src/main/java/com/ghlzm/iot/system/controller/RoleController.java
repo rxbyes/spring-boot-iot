@@ -4,7 +4,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Role;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.RoleService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,14 +26,23 @@ import java.util.List;
 public class RoleController {
 
       private final RoleService roleService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public RoleController(RoleService roleService) {
+            this(roleService, null);
+      }
+
+      @Autowired
+      public RoleController(RoleService roleService, GovernancePermissionGuard permissionGuard) {
             this.roleService = roleService;
+            this.permissionGuard = permissionGuard;
       }
 
       @PostMapping("/add")
       public R<Void> addRole(@RequestBody Role role, Authentication authentication) {
-            roleService.addRole(requireCurrentUserId(authentication), role);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "新增角色", GovernancePermissionCodes.ROLE_ADD);
+            roleService.addRole(currentUserId, role);
             return R.ok();
       }
 
@@ -59,13 +71,17 @@ public class RoleController {
 
       @PutMapping("/update")
       public R<Void> updateRole(@RequestBody Role role, Authentication authentication) {
-            roleService.updateRole(requireCurrentUserId(authentication), role);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "编辑角色", GovernancePermissionCodes.ROLE_UPDATE);
+            roleService.updateRole(currentUserId, role);
             return R.ok();
       }
 
       @DeleteMapping("/{id}")
       public R<Void> deleteRole(@PathVariable Long id, Authentication authentication) {
-            roleService.deleteRole(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除角色", GovernancePermissionCodes.ROLE_DELETE);
+            roleService.deleteRole(currentUserId, id);
             return R.ok();
       }
 
@@ -79,5 +95,11 @@ public class RoleController {
                   throw new IllegalStateException("当前请求缺少有效登录上下文");
             }
             return principal.userId();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 }

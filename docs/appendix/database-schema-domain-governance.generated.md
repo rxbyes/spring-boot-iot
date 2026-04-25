@@ -127,14 +127,14 @@ graph TD
 
 | Metric | Value |
 | --- | --- |
-| Objects | 21 |
-| Relations | 52 |
-| Owner Modules | spring-boot-iot-device(21) |
-| Lineage Roles | device_domain_state(7), domain_master_data(6), operation_log(3), relationship_mapping(1), snapshot_baseline(3), transaction_record(1) |
+| Objects | 22 |
+| Relations | 54 |
+| Owner Modules | spring-boot-iot-device(22) |
+| Lineage Roles | device_domain_state(7), domain_master_data(7), operation_log(3), relationship_mapping(1), snapshot_baseline(3), transaction_record(1) |
 
 | Lifecycle | Count |
 | --- | --- |
-| active | 21 |
+| active | 22 |
 | archived | 0 |
 | pending_delete | 0 |
 
@@ -144,13 +144,13 @@ graph TD
 | iot_device | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备表 |
 | iot_device_access_error_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备接入失败归档表 |
 | iot_device_invalid_report_state | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 无效 MQTT 上报最新态表 |
-| iot_device_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
 | iot_device_metric_latest | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 时序最新值投影表 |
 | iot_device_onboarding_case | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备无代码接入案例表 |
 | iot_device_online_session | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备在线会话表 |
 | iot_device_property | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备最新属性表 |
 | iot_device_relation | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备逻辑通道关系表 |
 | iot_device_secret_rotation_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备密钥轮换日志表 |
+| iot_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
 | iot_normative_metric_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 规范字段定义表 |
 | iot_onboarding_template_pack | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备无代码接入模板包表 |
 | iot_product | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品表 |
@@ -158,6 +158,7 @@ graph TD
 | iot_product_contract_release_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品合同发布快照表 |
 | iot_product_metric_resolver_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品指标解析快照表 |
 | iot_product_model | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品物模型表 |
+| iot_runtime_metric_display_rule | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 运行态字段显示规则表 |
 | iot_vendor_metric_evidence | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段证据表 |
 | iot_vendor_metric_mapping_rule | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段映射规则表 |
 | iot_vendor_metric_mapping_rule_snapshot | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 厂商字段映射规则发布快照表 |
@@ -172,13 +173,13 @@ graph TD
 | iot_device | iot_product（belongs_to:product_id）<br>sys_organization（belongs_to:org_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_access_error_log | iot_device（belongs_to:device_code）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_invalid_report_state | iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） |
-| iot_device_message_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_metric_latest | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_onboarding_case | iot_onboarding_template_pack（belongs_to:template_pack_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_online_session | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_property | iot_device（belongs_to:device_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_relation | iot_device（belongs_to:parent_device_id）<br>iot_device（belongs_to:child_device_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_secret_rotation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） |
+| iot_message_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_normative_metric_definition | sys_tenant（belongs_to:tenant_id） |
 | iot_onboarding_template_pack | sys_tenant（belongs_to:tenant_id） |
 | iot_product | sys_tenant（belongs_to:tenant_id） |
@@ -186,6 +187,7 @@ graph TD
 | iot_product_contract_release_snapshot | iot_product_contract_release_batch（belongs_to:batch_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_product_metric_resolver_snapshot | iot_product_contract_release_batch（belongs_to:release_batch_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_product_model | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
+| iot_runtime_metric_display_rule | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_vendor_metric_evidence | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_vendor_metric_mapping_rule | iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_vendor_metric_mapping_rule_snapshot | iot_vendor_metric_mapping_rule（belongs_to:rule_id）<br>iot_product（belongs_to:product_id）<br>sys_governance_approval_order（belongs_to:approval_order_id）<br>sys_tenant（belongs_to:tenant_id） |
@@ -210,10 +212,6 @@ graph TD
   iot_device_invalid_report_state["iot_device_invalid_report_state"]
   iot_device_invalid_report_state["iot_device_invalid_report_state"] -->|"belongs_to via product_key"| iot_product["iot_product"]
   iot_device_invalid_report_state["iot_device_invalid_report_state"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
-  iot_device_message_log["iot_device_message_log"]
-  iot_device_message_log["iot_device_message_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
-  iot_device_message_log["iot_device_message_log"] -->|"belongs_to via product_id"| iot_product["iot_product"]
-  iot_device_message_log["iot_device_message_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_device_metric_latest["iot_device_metric_latest"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_device_metric_latest["iot_device_metric_latest"] -->|"belongs_to via product_id"| iot_product["iot_product"]
@@ -237,6 +235,10 @@ graph TD
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via product_key"| iot_product["iot_product"]
   iot_device_secret_rotation_log["iot_device_secret_rotation_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_message_log["iot_message_log"]
+  iot_message_log["iot_message_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
+  iot_message_log["iot_message_log"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_message_log["iot_message_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_normative_metric_definition["iot_normative_metric_definition"]
   iot_normative_metric_definition["iot_normative_metric_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_onboarding_template_pack["iot_onboarding_template_pack"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
@@ -257,6 +259,9 @@ graph TD
   iot_product_model["iot_product_model"]
   iot_product_model["iot_product_model"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_product_model["iot_product_model"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  iot_runtime_metric_display_rule["iot_runtime_metric_display_rule"]
+  iot_runtime_metric_display_rule["iot_runtime_metric_display_rule"] -->|"belongs_to via product_id"| iot_product["iot_product"]
+  iot_runtime_metric_display_rule["iot_runtime_metric_display_rule"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_vendor_metric_evidence["iot_vendor_metric_evidence"]
   iot_vendor_metric_evidence["iot_vendor_metric_evidence"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_vendor_metric_evidence["iot_vendor_metric_evidence"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
@@ -371,61 +376,25 @@ graph TD
 
 当前域如有真实库审计结论，请查看 `docs/04` 对应对象条目；带日期的最近审计事实与阶段性决策请查看 `docs/08`。
 
-## Domain mysql-compatibility
-
-| Metric | Value |
-| --- | --- |
-| Objects | 1 |
-| Relations | 2 |
-| Owner Modules | spring-boot-iot-device(1) |
-| Lineage Roles | compatibility_projection(1) |
-
-| Lifecycle | Count |
-| --- | --- |
-| active | 1 |
-| archived | 0 |
-| pending_delete | 0 |
-
-| Object | Storage | Lifecycle | In Init | In Schema Sync | Runtime Bootstrap | Owner Module | Comment |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| iot_message_log | mysql_view | active | yes | yes | view_only | spring-boot-iot-device | 设备消息日志兼容视图 |
-
-| Governance Object | Stage | Seed Packages | Audit Profile | Deletion Prerequisites | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 当前无登记治理对象 | - | - | - | - | - |
-
-| Object | Relations |
-| --- | --- |
-| iot_message_log | iot_device_message_log（derived_from:id）<br>iot_device_message_log（compatible_alias:trace_id） |
-
-```mermaid
-graph TD
-  iot_message_log["iot_message_log"]
-  iot_device_message_log["iot_device_message_log"]
-  iot_message_log["iot_message_log"] -->|"derived_from via id"| iot_device_message_log["iot_device_message_log"]
-  iot_message_log["iot_message_log"] -->|"compatible_alias via trace_id"| iot_device_message_log["iot_device_message_log"]
-```
-
-当前域如有真实库审计结论，请查看 `docs/04` 对应对象条目；带日期的最近审计事实与阶段性决策请查看 `docs/08`。
-
 ## Domain system
 
 | Metric | Value |
 | --- | --- |
-| Objects | 17 |
-| Relations | 26 |
-| Owner Modules | spring-boot-iot-system(17) |
-| Lineage Roles | governance_master_data(17) |
+| Objects | 19 |
+| Relations | 28 |
+| Owner Modules | spring-boot-iot-system(19) |
+| Lineage Roles | business_event_evidence(1), governance_master_data(17), observability_span_evidence(1) |
 
 | Lifecycle | Count |
 | --- | --- |
-| active | 17 |
+| active | 19 |
 | archived | 0 |
 | pending_delete | 0 |
 
 | Object | Storage | Lifecycle | In Init | In Schema Sync | Runtime Bootstrap | Owner Module | Comment |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | sys_audit_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 审计日志表 |
+| sys_business_event_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 业务事件日志表 |
 | sys_dict | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 字典表 |
 | sys_dict_item | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 字典项表 |
 | sys_help_document | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 帮助文档表 |
@@ -435,6 +404,7 @@ graph TD
 | sys_in_app_message_read | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 站内消息已读表 |
 | sys_menu | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 菜单表 |
 | sys_notification_channel | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 通知渠道表 |
+| sys_observability_span_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 可观测调用片段日志表 |
 | sys_organization | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 组织机构表 |
 | sys_region | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 区域表 |
 | sys_role | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-system | 角色表 |
@@ -450,6 +420,7 @@ graph TD
 | Object | Relations |
 | --- | --- |
 | sys_audit_log | sys_tenant（belongs_to:tenant_id） |
+| sys_business_event_log | sys_tenant（belongs_to:tenant_id） |
 | sys_dict | sys_tenant（belongs_to:tenant_id） |
 | sys_dict_item | sys_dict（belongs_to:dict_id）<br>sys_tenant（belongs_to:tenant_id） |
 | sys_help_document | sys_tenant（belongs_to:tenant_id） |
@@ -459,6 +430,7 @@ graph TD
 | sys_in_app_message_read | sys_in_app_message（belongs_to:message_id）<br>sys_user（belongs_to:user_id）<br>sys_tenant（belongs_to:tenant_id） |
 | sys_menu | sys_tenant（belongs_to:tenant_id） |
 | sys_notification_channel | sys_tenant（belongs_to:tenant_id） |
+| sys_observability_span_log | sys_tenant（belongs_to:tenant_id） |
 | sys_organization | sys_tenant（belongs_to:tenant_id） |
 | sys_region | sys_tenant（belongs_to:tenant_id） |
 | sys_role | sys_tenant（belongs_to:tenant_id） |
@@ -472,6 +444,8 @@ graph TD
   sys_audit_log["sys_audit_log"]
   sys_tenant["sys_tenant"]
   sys_audit_log["sys_audit_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  sys_business_event_log["sys_business_event_log"]
+  sys_business_event_log["sys_business_event_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_dict["sys_dict"]
   sys_dict["sys_dict"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_dict_item["sys_dict_item"]
@@ -497,6 +471,8 @@ graph TD
   sys_menu["sys_menu"]
   sys_menu["sys_menu"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_notification_channel["sys_notification_channel"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
+  sys_observability_span_log["sys_observability_span_log"]
+  sys_observability_span_log["sys_observability_span_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_organization["sys_organization"]
   sys_organization["sys_organization"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   sys_region["sys_region"]

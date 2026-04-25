@@ -18,12 +18,19 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingMetricVO;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingSummaryVO;
 import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
 import com.ghlzm.iot.common.device.DeviceBindingCapabilityType;
 import com.ghlzm.iot.common.exception.BizException;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.Product;
+import com.ghlzm.iot.device.entity.ProductModel;
+import com.ghlzm.iot.device.mapper.ProductMapper;
+import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
@@ -81,6 +88,10 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     private final GovernanceApprovalService governanceApprovalService;
     private final GovernanceWorkItemService governanceWorkItemService;
     private final DeviceService deviceService;
+    private ProductModelMapper productModelMapper;
+    private ProductMapper productMapper;
+    private RiskMetricCatalogService riskMetricCatalogService;
+    private RiskMetricCatalogPublishRule riskMetricCatalogPublishRule;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
@@ -93,6 +104,10 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 null,
                 pendingBindingMapper,
                 pendingPromotionMapper,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -111,6 +126,10 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 capabilityBindingMapper,
                 pendingBindingMapper,
                 pendingPromotionMapper,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -134,6 +153,10 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 governanceApprovalPolicyResolver,
                 governanceApprovalService,
                 governanceWorkItemService,
+                null,
+                null,
+                null,
+                null,
                 null
         );
     }
@@ -155,7 +178,11 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 governanceApprovalPolicyResolver,
                 governanceApprovalService,
                 governanceWorkItemService,
-                deviceService
+                deviceService,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -169,6 +196,36 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                                                   @Lazy GovernanceApprovalService governanceApprovalService,
                                                   GovernanceWorkItemService governanceWorkItemService,
                                                   @Lazy DeviceService deviceService) {
+        this(
+                riskPointService,
+                riskPointDeviceMapper,
+                capabilityBindingMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                governanceApprovalPolicyResolver,
+                governanceApprovalService,
+                governanceWorkItemService,
+                deviceService,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
+                                                  RiskPointDeviceMapper riskPointDeviceMapper,
+                                                  RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper,
+                                                  RiskPointDevicePendingBindingMapper pendingBindingMapper,
+                                                  RiskPointDevicePendingPromotionMapper pendingPromotionMapper,
+                                                  GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
+                                                  GovernanceApprovalService governanceApprovalService,
+                                                  GovernanceWorkItemService governanceWorkItemService,
+                                                  DeviceService deviceService,
+                                                  ProductModelMapper productModelMapper,
+                                                  ProductMapper productMapper,
+                                                  RiskMetricCatalogService riskMetricCatalogService,
+                                                  RiskMetricCatalogPublishRule riskMetricCatalogPublishRule) {
         this.riskPointService = riskPointService;
         this.riskPointDeviceMapper = riskPointDeviceMapper;
         this.capabilityBindingMapper = capabilityBindingMapper;
@@ -178,6 +235,21 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         this.governanceApprovalService = governanceApprovalService;
         this.governanceWorkItemService = governanceWorkItemService;
         this.deviceService = deviceService;
+        this.productModelMapper = productModelMapper;
+        this.productMapper = productMapper;
+        this.riskMetricCatalogService = riskMetricCatalogService;
+        this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule;
+    }
+
+    @Autowired(required = false)
+    void setRiskMetricCatalogBackfillDependencies(ProductModelMapper productModelMapper,
+                                                  ProductMapper productMapper,
+                                                  @Lazy RiskMetricCatalogService riskMetricCatalogService,
+                                                  RiskMetricCatalogPublishRule riskMetricCatalogPublishRule) {
+        this.productModelMapper = productModelMapper;
+        this.productMapper = productMapper;
+        this.riskMetricCatalogService = riskMetricCatalogService;
+        this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule;
     }
 
     @Override
@@ -341,10 +413,52 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         if (deviceService == null) {
             return List.of();
         }
-        return deviceService.listMetricOptions(currentUserId, deviceId).stream()
+        List<DeviceMetricOptionVO> options = deviceService.listMetricOptions(currentUserId, deviceId);
+        options = options == null ? List.of() : options;
+        if (options.stream().noneMatch(option -> option.getRiskMetricId() != null)
+                && ensureRiskMetricCatalogReadyForDevice(deviceId)) {
+            options = deviceService.listMetricOptions(currentUserId, deviceId);
+            options = options == null ? List.of() : options;
+        }
+        return options.stream()
                 .filter(option -> option.getRiskMetricId() != null)
                 .sorted(Comparator.comparing(DeviceMetricOptionVO::getIdentifier, Comparator.nullsLast(String::compareTo)))
                 .toList();
+    }
+
+    private boolean ensureRiskMetricCatalogReadyForDevice(Long deviceId) {
+        if (deviceId == null
+                || deviceService == null
+                || productModelMapper == null
+                || riskMetricCatalogService == null
+                || riskMetricCatalogPublishRule == null) {
+            return false;
+        }
+        Device device = deviceService.getRequiredById(deviceId);
+        if (device == null || device.getProductId() == null) {
+            return false;
+        }
+        List<ProductModel> productModels = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
+                .eq(ProductModel::getDeleted, 0)
+                .eq(ProductModel::getProductId, device.getProductId())
+                .eq(ProductModel::getModelType, "property")
+                .orderByAsc(ProductModel::getSortNo)
+                .orderByAsc(ProductModel::getIdentifier));
+        if (productModels == null || productModels.isEmpty()) {
+            return false;
+        }
+        Product product = productMapper == null ? null : productMapper.selectById(device.getProductId());
+        Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(
+                product,
+                null,
+                device,
+                productModels
+        );
+        if (riskEnabledIdentifiers.isEmpty()) {
+            return false;
+        }
+        riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), null, productModels, riskEnabledIdentifiers);
+        return true;
     }
 
     @Override

@@ -10,7 +10,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
+        <StandardButton v-permission="'system:channel:add'" action="add" :icon="Plus" @click="handleAdd">新增</StandardButton>
       </template>
 
       <template #filters>
@@ -47,8 +47,8 @@
         <StandardTableToolbar compact :meta-items="[ `已选 ${selectedRows.length} 项` ]">
           <template #right>
             <StandardButton action="refresh" link @click="openExportColumnSetting">导出列设置</StandardButton>
-            <StandardButton action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
-            <StandardButton action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
+            <StandardButton v-permission="'system:channel:export'" action="batch" link :disabled="selectedRows.length === 0" @click="handleExportSelected">导出选中</StandardButton>
+            <StandardButton v-permission="'system:channel:export'" action="refresh" link :disabled="tableData.length === 0" @click="handleExportCurrent">导出当前结果</StandardButton>
             <StandardButton action="reset" link :disabled="selectedRows.length === 0" @click="clearSelection">清空选中</StandardButton>
             <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
           </template>
@@ -462,9 +462,9 @@ const handleSelectionChange = (rows: ChannelRecord[]) => {
 
 function getChannelRowActions(row: ChannelRecord) {
   return [
-    { command: 'edit' as const, label: '编辑' },
-    { command: 'test' as const, label: '测试通知', disabled: !isTestableChannel(row.channelType) },
-    { command: 'delete' as const, label: '删除' }
+    { command: 'edit' as const, label: '编辑', permission: 'system:channel:update' },
+    { command: 'test' as const, label: '测试通知', disabled: !isTestableChannel(row.channelType), permission: 'system:channel:test' },
+    { command: 'delete' as const, label: '删除', permission: 'system:channel:delete' }
   ]
 }
 

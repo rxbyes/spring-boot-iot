@@ -7,6 +7,7 @@ import com.ghlzm.iot.device.dto.OnboardingTemplatePackPageQueryDTO;
 import com.ghlzm.iot.device.service.OnboardingTemplatePackService;
 import com.ghlzm.iot.device.vo.OnboardingTemplatePackVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +27,14 @@ class OnboardingTemplatePackControllerTest {
 
     @Mock
     private OnboardingTemplatePackService service;
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
 
     private OnboardingTemplatePackController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new OnboardingTemplatePackController(service);
+        controller = new OnboardingTemplatePackController(service, permissionGuard);
     }
 
     @Test

@@ -45,7 +45,7 @@
       <template #actions>
         <StandardButton action="query" @click="handleSearch">查询</StandardButton>
         <StandardButton action="reset" @click="handleReset">重置</StandardButton>
-        <StandardButton action="refresh" :loading="loading" @click="handleRefresh">刷新台账</StandardButton>
+        <StandardButton v-permission="'system:automation-results:refresh'" action="refresh" :loading="loading" @click="handleRefresh">刷新台账</StandardButton>
       </template>
     </StandardListFilterHeader>
 
@@ -86,6 +86,7 @@
                 <span v-if="row.runId === selectedRunId" class="selected-label">当前已载入</span>
                 <StandardButton
                   v-else
+                  v-permission="'system:automation-results:detail'"
                   action="confirm"
                   :link="true"
                   @click.stop="$emit('select-run', row.runId)"

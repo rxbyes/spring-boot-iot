@@ -798,6 +798,10 @@ class ProductModelServiceImplTest {
         assertEquals("泥水位高程", row.getNormativeName());
         assertEquals(Boolean.FALSE, row.getRiskReady());
         assertEquals(List.of("L4_NW_1"), row.getRawIdentifiers());
+        assertEquals("MATCHED", row.getNormativeMatchStatus());
+        assertEquals("CODE_PREFIX_FALLBACK", row.getNormativeMatchSource());
+        assertEquals("依据 L4/NW + leaf=value", row.getNormativeMatchReason());
+        assertEquals(List.of("phase5-mud-level / value / 泥水位高程"), row.getNormativeCandidates());
         verify(productMetricEvidenceService).replaceManualEvidence(eq(9009L), eq("phase5-mud-level"), any());
     }
 
@@ -833,6 +837,45 @@ class ProductModelServiceImplTest {
     }
 
     @Test
+    void compareGovernanceShouldMarkRawMonitorCodeFallbackAsAmbiguousWhenMultipleNormativeCandidatesExist() {
+        when(productMapper.selectById(9012L)).thenReturn(product(
+                9012L,
+                "future-monitor-mud-level-v2",
+                "未来厂商 L4 NW 多候选设备"
+        ));
+        when(productModelMapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listByScenario("phase5-mud-level")).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW"),
+                normativeDefinitionWithCodes("phase5-mud-level-alt", "value", "泥位高度", 1, "L4", "NW")
+        ));
+
+        ProductModelGovernanceCompareDTO dto = new ProductModelGovernanceCompareDTO();
+        ProductModelGovernanceCompareDTO.ManualExtractInput manualExtract =
+                new ProductModelGovernanceCompareDTO.ManualExtractInput();
+        manualExtract.setSampleType("business");
+        manualExtract.setDeviceStructure("single");
+        manualExtract.setSamplePayload("""
+                {"MUD-AMBIGUOUS-001":{"L4_NW_1":{"2026-04-23T13:20:20.000Z":0.58}}}
+                """);
+        dto.setManualExtract(manualExtract);
+
+        ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9012L, dto);
+
+        ProductModelGovernanceCompareRowVO row = compareRow(result, "property", "L4_NW_1");
+        assertEquals("AMBIGUOUS", row.getNormativeMatchStatus());
+        assertEquals("CODE_PREFIX_FALLBACK", row.getNormativeMatchSource());
+        assertEquals("依据 L4/NW + leaf=value 命中多个规范候选，请人工确认", row.getNormativeMatchReason());
+        assertEquals(List.of(
+                "phase5-mud-level / value / 泥水位高程",
+                "phase5-mud-level-alt / value / 泥位高度"
+        ), row.getNormativeCandidates());
+        assertNull(row.getNormativeIdentifier());
+        assertNull(row.getNormativeName());
+        assertEquals(Boolean.FALSE, row.getRiskReady());
+        assertEquals(List.of("L4_NW_1"), row.getRawIdentifiers());
+    }
+
+    @Test
     void compareGovernanceShouldFallbackNormativeMatchForL3L4ExpandedTypesWhenScenarioUnknown() {
         when(productMapper.selectById(9011L)).thenReturn(product(
                 9011L,
@@ -841,9 +884,18 @@ class ProductModelServiceImplTest {
         ));
         when(productModelMapper.selectList(any())).thenReturn(List.of());
         when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase1-vibration", "PLX", "X 轴振动频率", 0, "L1", "ZD"),
+                normativeDefinitionWithCodes("phase1-vibration", "value", "振动幅度", 0, "L1", "ZD"),
+                normativeDefinitionWithCodes("phase1-vibration", "SJValue", "合方向瞬时位移", 0, "L1", "ZD"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "amplitude", "地声幅度", 0, "L2", "SF"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "energy", "地声能量", 0, "L2", "SF"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "RMS", "有效值电压", 0, "L2", "SF"),
                 normativeDefinitionWithCodes("phase3-water-surface", "temp", "地表水温", 0, "L3", "DB"),
                 normativeDefinitionWithCodes("phase3-water-surface", "value", "地表水位", 0, "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-settlement", "value", "沉降量", 0, "L3", "CJ"),
+                normativeDefinitionWithCodes("phase3-air-pressure", "value", "气压", 0, "L3", "QY"),
                 normativeDefinitionWithCodes("phase5-mud-level", "value", "泥水位高程", 0, "L4", "NW"),
+                normativeDefinitionWithCodes("phase4-surface-flow-speed", "value", "表面流速", 0, "L4", "BMLS"),
                 normativeDefinitionWithCodes("phase6-radar", "X", "雷达 X 坐标", 0, "L4", "LD"),
                 normativeDefinitionWithCodes("phase6-radar", "Y", "雷达 Y 坐标", 0, "L4", "LD"),
                 normativeDefinitionWithCodes("phase6-radar", "Z", "雷达 Z 坐标", 0, "L4", "LD"),
@@ -857,8 +909,13 @@ class ProductModelServiceImplTest {
         manualExtract.setDeviceStructure("single");
         manualExtract.setSamplePayload("""
                 {"FUTURE-L3-L4-001":{
+                    "L1_ZD_1":{"2026-04-23T13:15:20.000Z":{"PLX":12.5,"value":0.66,"SJValue":1.2}},
+                    "L2_SF_1":{"2026-04-23T13:15:20.000Z":{"amplitude":42.0,"energy":3.4,"RMS":2.1}},
                     "L3_DB_1":{"2026-04-23T13:15:20.000Z":{"temp":15.8,"value":1.26}},
+                    "L3_CJ_1":{"2026-04-23T13:15:20.000Z":8.8},
+                    "L3_QY_1":{"2026-04-23T13:15:20.000Z":101.3},
                     "L4_NW_1":{"2026-04-23T13:15:20.000Z":0.42},
+                    "L4_BMLS_1":{"2026-04-23T13:15:20.000Z":2.6},
                     "L4_LD_1":{"2026-04-23T13:15:20.000Z":{"X":1.1,"Y":2.2,"Z":3.3,"speed":0.4}}
                 }}
                 """);
@@ -866,9 +923,18 @@ class ProductModelServiceImplTest {
 
         ProductModelGovernanceCompareVO result = productModelService.compareGovernance(9011L, dto);
 
+        assertEquals("PLX", compareRow(result, "property", "L1_ZD_1.PLX").getNormativeIdentifier());
+        assertEquals("振动幅度", compareRow(result, "property", "L1_ZD_1.value").getNormativeName());
+        assertEquals("SJValue", compareRow(result, "property", "L1_ZD_1.SJValue").getNormativeIdentifier());
+        assertEquals("地声幅度", compareRow(result, "property", "L2_SF_1.amplitude").getNormativeName());
+        assertEquals("energy", compareRow(result, "property", "L2_SF_1.energy").getNormativeIdentifier());
+        assertEquals("RMS", compareRow(result, "property", "L2_SF_1.RMS").getNormativeIdentifier());
         assertEquals("temp", compareRow(result, "property", "L3_DB_1.temp").getNormativeIdentifier());
         assertEquals("地表水位", compareRow(result, "property", "L3_DB_1.value").getNormativeName());
+        assertEquals("沉降量", compareRow(result, "property", "L3_CJ_1").getNormativeName());
+        assertEquals("气压", compareRow(result, "property", "L3_QY_1").getNormativeName());
         assertEquals("value", compareRow(result, "property", "L4_NW_1").getNormativeIdentifier());
+        assertEquals("表面流速", compareRow(result, "property", "L4_BMLS_1").getNormativeName());
         assertEquals("X", compareRow(result, "property", "L4_LD_1.X").getNormativeIdentifier());
         assertEquals("Y", compareRow(result, "property", "L4_LD_1.Y").getNormativeIdentifier());
         assertEquals("Z", compareRow(result, "property", "L4_LD_1.Z").getNormativeIdentifier());

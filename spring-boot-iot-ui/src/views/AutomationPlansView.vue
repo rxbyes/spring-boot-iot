@@ -35,9 +35,9 @@
             <li>导出结果会继续交给既有浏览器执行器和执行中心消费。</li>
           </ul>
           <StandardActionGroup gap="sm">
-            <StandardButton action="batch" @click="showImportDialog = true">导入计划</StandardButton>
-            <StandardButton action="confirm" @click="downloadPlan">导出 JSON</StandardButton>
-            <StandardButton action="reset" @click="resetPlan">恢复默认计划</StandardButton>
+            <StandardButton v-permission="'system:rd-automation-plans:import'" action="batch" @click="showImportDialog = true">导入计划</StandardButton>
+            <StandardButton v-permission="'system:rd-automation-plans:export'" action="confirm" @click="downloadPlan">导出 JSON</StandardButton>
+            <StandardButton v-permission="'system:rd-automation-plans:reset'" action="reset" @click="resetPlan">恢复默认计划</StandardButton>
           </StandardActionGroup>
         </PanelCard>
 

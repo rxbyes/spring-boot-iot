@@ -127,7 +127,7 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         Map<Long, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, value -> value, (left, right) -> left));
         Map<Long, Set<String>> contractIdentifiersByProduct = buildContractIdentifierMap(productIds);
-        Map<Long, Set<String>> riskPublishableContractIdentifiersByProduct = buildRiskPublishableContractIdentifierMap(productIds);
+        Map<Long, Set<String>> riskPublishableContractIdentifiersByProduct = buildRiskPublishableContractIdentifierMap(productMap);
         Map<Long, Set<String>> riskMetricIdentifiersByProduct = buildRiskMetricIdentifierMap(productIds);
         List<VendorMetricEvidence> evidences = vendorMetricEvidenceMapper.selectList(new LambdaQueryWrapper<VendorMetricEvidence>()
                 .eq(VendorMetricEvidence::getDeleted, 0)
@@ -444,7 +444,8 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         return map;
     }
 
-    private Map<Long, Set<String>> buildRiskPublishableContractIdentifierMap(Set<Long> productIds) {
+    private Map<Long, Set<String>> buildRiskPublishableContractIdentifierMap(Map<Long, Product> productMap) {
+        Set<Long> productIds = productMap == null ? Set.of() : productMap.keySet();
         if (productIds == null || productIds.isEmpty()) {
             return Map.of();
         }
@@ -462,6 +463,8 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
         Map<Long, Set<String>> map = new LinkedHashMap<>();
         for (Long productId : productIds) {
             Set<String> publishableIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(
+                    productMap.get(productId),
+                    null,
                     null,
                     modelsByProduct.getOrDefault(productId, List.of())
             );
@@ -838,7 +841,10 @@ public class RiskGovernanceOpsServiceImpl implements RiskGovernanceOpsService {
             return 0L;
         }
         Set<Long> productIds = Set.of(productId);
-        Set<String> contractIdentifiers = buildRiskPublishableContractIdentifierMap(productIds).getOrDefault(productId, Set.of());
+        Product product = productMapper.selectById(productId);
+        Map<Long, Product> productMap = new LinkedHashMap<>();
+        productMap.put(productId, product);
+        Set<String> contractIdentifiers = buildRiskPublishableContractIdentifierMap(productMap).getOrDefault(productId, Set.of());
         Set<String> riskIdentifiers = buildRiskMetricIdentifierMap(productIds).getOrDefault(productId, Set.of());
         return contractIdentifiers.stream().filter(identifier -> !riskIdentifiers.contains(identifier)).count();
     }

@@ -11,6 +11,7 @@ import com.ghlzm.iot.device.service.DeviceOnboardingCaseService;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseBatchResultVO;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,12 +31,14 @@ class DeviceOnboardingCaseControllerTest {
 
     @Mock
     private DeviceOnboardingCaseService service;
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
 
     private DeviceOnboardingCaseController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new DeviceOnboardingCaseController(service);
+        controller = new DeviceOnboardingCaseController(service, permissionGuard);
     }
 
     @Test

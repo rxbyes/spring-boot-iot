@@ -489,6 +489,7 @@
       <template #footer>
         <StandardDrawerFooter
           :confirm-text="actionConfirmText"
+          :confirm-permission="actionConfirmPermission"
           :confirm-loading="submitLoading"
           @cancel="handleActionDrawerClose"
           @confirm="handleSubmitAction"
@@ -681,6 +682,8 @@ const actionConfirmText = computed(() => {
       return '确认'
   }
 })
+
+const actionConfirmPermission = computed(() => resolveActionPermission(actionMode.value))
 
 const {
   tags: activeFilterTags,
@@ -877,20 +880,35 @@ function buildRowActions(row: GovernanceApprovalOrder) {
   const canApprove = row.status === 'PENDING' && (currentUser == null || sameId(row.approverUserId, currentUser))
   const canCancel = row.status === 'PENDING' && (currentUser == null || sameId(row.operatorUserId, currentUser))
   const canResubmit = row.status === 'REJECTED' && (currentUser == null || sameId(row.operatorUserId, currentUser))
-  const items: Array<{ command: string; label: string; disabled?: boolean }> = [
-    { command: 'detail', label: '详情' }
+  const items: Array<{ command: string; label: string; disabled?: boolean; permission?: string }> = [
+    { command: 'detail', label: '详情', permission: 'system:governance-approval:detail' }
   ]
   if (canApprove) {
-    items.push({ command: 'approve', label: '通过' })
-    items.push({ command: 'reject', label: '驳回' })
+    items.push({ command: 'approve', label: '通过', permission: 'system:governance-approval:approve' })
+    items.push({ command: 'reject', label: '驳回', permission: 'system:governance-approval:reject' })
   }
   if (canCancel) {
-    items.push({ command: 'cancel', label: '撤销' })
+    items.push({ command: 'cancel', label: '撤销', permission: 'system:governance-approval:cancel' })
   }
   if (canResubmit) {
-    items.push({ command: 'resubmit', label: '原单重提' })
+    items.push({ command: 'resubmit', label: '原单重提', permission: 'system:governance-approval:resubmit' })
   }
   return items
+}
+
+function resolveActionPermission(mode: ActionMode) {
+  switch (mode) {
+    case 'approve':
+      return 'system:governance-approval:approve'
+    case 'reject':
+      return 'system:governance-approval:reject'
+    case 'cancel':
+      return 'system:governance-approval:cancel'
+    case 'resubmit':
+      return 'system:governance-approval:resubmit'
+    default:
+      return undefined
+  }
 }
 
 async function handleRowAction(command: string, row: GovernanceApprovalOrder) {

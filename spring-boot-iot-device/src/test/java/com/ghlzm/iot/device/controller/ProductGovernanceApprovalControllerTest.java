@@ -3,6 +3,8 @@ package com.ghlzm.iot.device.controller;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.governance.ProductContractGovernanceApprovalPayloads;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalQueryService;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
@@ -33,6 +35,9 @@ class ProductGovernanceApprovalControllerTest {
     @Mock
     private GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
 
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
+
     private ProductGovernanceApprovalController controller;
 
     @BeforeEach
@@ -40,7 +45,8 @@ class ProductGovernanceApprovalControllerTest {
         controller = new ProductGovernanceApprovalController(
                 governanceApprovalQueryService,
                 governanceApprovalService,
-                governanceApprovalPolicyResolver
+                governanceApprovalPolicyResolver,
+                permissionGuard
         );
     }
 
@@ -61,6 +67,11 @@ class ProductGovernanceApprovalControllerTest {
         R<Void> response = controller.resubmitOrder(88001L, authentication(10001L));
 
         assertEquals(200, response.getCode());
+        verify(permissionGuard).requireAnyPermission(
+                10001L,
+                "产品合同原单重提",
+                GovernancePermissionCodes.PRODUCT_CONTRACT_RELEASE
+        );
         verify(governanceApprovalService).resubmitOrder(88001L, 10001L, 99000001L, null);
     }
 

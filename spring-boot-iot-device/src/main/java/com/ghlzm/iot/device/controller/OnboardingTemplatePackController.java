@@ -9,6 +9,8 @@ import com.ghlzm.iot.device.dto.OnboardingTemplatePackUpdateDTO;
 import com.ghlzm.iot.device.service.OnboardingTemplatePackService;
 import com.ghlzm.iot.device.vo.OnboardingTemplatePackVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,9 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class OnboardingTemplatePackController {
 
     private final OnboardingTemplatePackService service;
+    private final GovernancePermissionGuard permissionGuard;
 
-    public OnboardingTemplatePackController(OnboardingTemplatePackService service) {
+    public OnboardingTemplatePackController(OnboardingTemplatePackService service,
+                                            GovernancePermissionGuard permissionGuard) {
         this.service = service;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping
@@ -40,14 +45,26 @@ public class OnboardingTemplatePackController {
     @PostMapping
     public R<OnboardingTemplatePackVO> createPack(@RequestBody @Valid OnboardingTemplatePackCreateDTO dto,
                                                   Authentication authentication) {
-        return R.ok(service.createPack(dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入模板包创建",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_TEMPLATE_PACK
+        );
+        return R.ok(service.createPack(dto, currentUserId));
     }
 
     @PutMapping("/{packId}")
     public R<OnboardingTemplatePackVO> updatePack(@PathVariable Long packId,
                                                   @RequestBody @Valid OnboardingTemplatePackUpdateDTO dto,
                                                   Authentication authentication) {
-        return R.ok(service.updatePack(packId, dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入模板包编辑",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_TEMPLATE_PACK
+        );
+        return R.ok(service.updatePack(packId, dto, currentUserId));
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

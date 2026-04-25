@@ -37,7 +37,7 @@
     </div>
 
     <div class="business-acceptance-result-summary-panel__actions">
-      <StandardButton action="query" @click="$emit('open-automation-results')">
+      <StandardButton v-permission="'system:business-acceptance:open-result'" action="query" @click="$emit('open-automation-results')">
         进入结果与基线中心
       </StandardButton>
     </div>

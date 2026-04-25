@@ -67,6 +67,7 @@
 
           <div class="business-acceptance-workbench__summary-actions">
             <StandardButton
+              v-permission="'system:business-acceptance:open-result'"
               action="query"
               :disabled="!selectedLatestResult?.runId"
               @click="openLatestRun"

@@ -7,6 +7,7 @@ import com.ghlzm.iot.device.service.DeviceSecretCustodyService;
 import com.ghlzm.iot.device.service.DeviceService;
 import com.ghlzm.iot.device.vo.DeviceOnboardingBatchResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,12 +31,19 @@ class DeviceControllerTest {
     private DeviceSecretCustodyService deviceSecretCustodyService;
     @Mock
     private DeviceOnboardingActivationService deviceOnboardingActivationService;
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
 
     private DeviceController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new DeviceController(deviceService, deviceSecretCustodyService, deviceOnboardingActivationService);
+        controller = new DeviceController(
+                deviceService,
+                deviceSecretCustodyService,
+                deviceOnboardingActivationService,
+                permissionGuard
+        );
     }
 
     @Test

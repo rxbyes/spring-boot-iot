@@ -4,6 +4,8 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.device.governance.ProductContractGovernanceApprovalPayloads;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import com.ghlzm.iot.system.service.GovernanceApprovalQueryService;
 import com.ghlzm.iot.system.service.GovernanceApprovalService;
@@ -22,13 +24,16 @@ public class ProductGovernanceApprovalController {
     private final GovernanceApprovalQueryService governanceApprovalQueryService;
     private final GovernanceApprovalService governanceApprovalService;
     private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
+    private final GovernancePermissionGuard permissionGuard;
 
     public ProductGovernanceApprovalController(GovernanceApprovalQueryService governanceApprovalQueryService,
                                                GovernanceApprovalService governanceApprovalService,
-                                               GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver) {
+                                               GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver,
+                                               GovernancePermissionGuard permissionGuard) {
         this.governanceApprovalQueryService = governanceApprovalQueryService;
         this.governanceApprovalService = governanceApprovalService;
         this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
+        this.permissionGuard = permissionGuard;
     }
 
     @PostMapping("/api/device/product/governance-approval/{orderId}/resubmit")
@@ -43,6 +48,13 @@ public class ProductGovernanceApprovalController {
                 && !ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(actionCode)) {
             throw new BizException("当前审批单不支持固定复核人自动重提");
         }
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "产品合同原单重提",
+                ProductContractGovernanceApprovalPayloads.ACTION_PRODUCT_CONTRACT_ROLLBACK.equals(actionCode)
+                        ? GovernancePermissionCodes.PRODUCT_CONTRACT_ROLLBACK
+                        : GovernancePermissionCodes.PRODUCT_CONTRACT_RELEASE
+        );
         Long approverUserId = governanceApprovalPolicyResolver.resolveApproverUserId(actionCode, currentUserId);
         governanceApprovalService.resubmitOrder(orderId, currentUserId, approverUserId, null);
         return R.ok();

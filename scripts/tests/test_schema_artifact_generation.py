@@ -60,16 +60,23 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
 
         message_log_table_sql = schema_contract_support.extract_create_table_statement(
             mysql_init_sql,
-            "iot_device_message_log",
-        )
-        self.assertIn("设备消息日志表", message_log_table_sql)
-        self.assertRegex(mysql_init_sql, re.compile(r"[\u4e00-\u9fff]"))
-        self.assertNotIn("risk_point_highway_detail", mysql_init_sql)
-        message_log_view_sql = schema_contract_support.extract_create_view_statement(
-            mysql_init_sql,
             "iot_message_log",
         )
-        self.assertIn("FROM iot_device_message_log", message_log_view_sql)
+        self.assertIn("设备消息日志表", message_log_table_sql)
+        business_event_table_sql = schema_contract_support.extract_create_table_statement(
+            mysql_init_sql,
+            "sys_business_event_log",
+        )
+        span_table_sql = schema_contract_support.extract_create_table_statement(
+            mysql_init_sql,
+            "sys_observability_span_log",
+        )
+        self.assertIn("业务事件日志表", business_event_table_sql)
+        self.assertIn("可观测调用片段日志表", span_table_sql)
+        self.assertRegex(mysql_init_sql, re.compile(r"[\u4e00-\u9fff]"))
+        self.assertNotIn("risk_point_highway_detail", mysql_init_sql)
+        self.assertNotIn("CREATE OR REPLACE VIEW iot_message_log", mysql_init_sql)
+        self.assertNotIn("CREATE OR REPLACE VIEW iot_device_message_log", mysql_init_sql)
 
         for object_name in (
             "iot_device_telemetry_point",
@@ -165,8 +172,10 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
         self.assertIn("views", mysql_runtime_manifest)
         mysql_runtime_table_names = {obj["name"] for obj in mysql_runtime_manifest["tables"]}
         mysql_runtime_view_names = {obj["name"] for obj in mysql_runtime_manifest["views"]}
-        self.assertIn("iot_device_message_log", mysql_runtime_table_names)
-        self.assertIn("iot_message_log", mysql_runtime_view_names)
+        self.assertIn("iot_message_log", mysql_runtime_table_names)
+        self.assertIn("sys_business_event_log", mysql_runtime_table_names)
+        self.assertIn("sys_observability_span_log", mysql_runtime_table_names)
+        self.assertNotIn("iot_device_message_log", mysql_runtime_view_names)
         self.assertNotIn("risk_point_highway_detail", mysql_runtime_table_names)
         relation_entry = schema_contract_support.get_named_entry(
             mysql_runtime_manifest["tables"],
@@ -198,14 +207,15 @@ class SchemaArtifactGenerationTest(unittest.TestCase):
             },
             set(mysql_schema_sync_manifest),
         )
-        view_entry = schema_contract_support.get_named_entry(
-            mysql_schema_sync_manifest["viewSql"],
-            "iot_message_log",
-            "schema sync view",
-        )
-        self.assertIn("FROM iot_device_message_log", view_entry["sql"])
+        self.assertFalse(mysql_schema_sync_manifest["viewSql"])
         self.assertTrue(
-            any(entry["name"] == "iot_device_message_log" for entry in mysql_schema_sync_manifest["createTableSql"])
+            any(entry["name"] == "iot_message_log" for entry in mysql_schema_sync_manifest["createTableSql"])
+        )
+        self.assertTrue(
+            any(entry["name"] == "sys_business_event_log" for entry in mysql_schema_sync_manifest["createTableSql"])
+        )
+        self.assertTrue(
+            any(entry["name"] == "sys_observability_span_log" for entry in mysql_schema_sync_manifest["createTableSql"])
         )
         self.assertFalse(
             any(entry["name"] == "risk_point_highway_detail" for entry in mysql_schema_sync_manifest["createTableSql"])

@@ -4,7 +4,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Organization;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.OrganizationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,13 +26,22 @@ import java.util.List;
 public class OrganizationController {
 
       private final OrganizationService organizationService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public OrganizationController(OrganizationService organizationService) {
+            this(organizationService, null);
+      }
+
+      @Autowired
+      public OrganizationController(OrganizationService organizationService,
+                                    GovernancePermissionGuard permissionGuard) {
             this.organizationService = organizationService;
+            this.permissionGuard = permissionGuard;
       }
 
       @PostMapping
-      public R<Organization> addOrganization(@RequestBody Organization organization) {
+      public R<Organization> addOrganization(@RequestBody Organization organization, Authentication authentication) {
+            requirePermission(requireCurrentUserId(authentication), "新增组织", GovernancePermissionCodes.ORGANIZATION_ADD);
             Organization result = organizationService.addOrganization(organization);
             return R.ok(result);
       }
@@ -66,15 +78,23 @@ public class OrganizationController {
       }
 
       @PutMapping
-      public R<Void> updateOrganization(@RequestBody Organization organization) {
+      public R<Void> updateOrganization(@RequestBody Organization organization, Authentication authentication) {
+            requirePermission(requireCurrentUserId(authentication), "编辑组织", GovernancePermissionCodes.ORGANIZATION_UPDATE);
             organizationService.updateOrganization(organization);
             return R.ok();
       }
 
       @DeleteMapping("/{id}")
-      public R<Void> deleteOrganization(@PathVariable Long id) {
+      public R<Void> deleteOrganization(@PathVariable Long id, Authentication authentication) {
+            requirePermission(requireCurrentUserId(authentication), "删除组织", GovernancePermissionCodes.ORGANIZATION_DELETE);
             organizationService.deleteOrganization(id);
             return R.ok();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 
       private Long requireCurrentUserId(Authentication authentication) {

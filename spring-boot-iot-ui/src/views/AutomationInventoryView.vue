@@ -36,9 +36,9 @@
             <li>人工补录只留在本页维护，避免交叉写入计划编排页。</li>
           </ul>
           <StandardActionGroup gap="sm">
-            <StandardButton action="refresh" @click="refreshPageInventory">刷新盘点</StandardButton>
-            <StandardButton action="batch" @click="selectUncoveredPages">勾选未覆盖</StandardButton>
-            <StandardButton action="confirm" @click="generateUncoveredInventoryScenarios">一键补齐脚手架</StandardButton>
+            <StandardButton v-permission="'system:rd-automation-inventory:refresh'" action="refresh" @click="refreshPageInventory">刷新盘点</StandardButton>
+            <StandardButton v-permission="'system:rd-automation-inventory:select-uncovered'" action="batch" @click="selectUncoveredPages">勾选未覆盖</StandardButton>
+            <StandardButton v-permission="'system:rd-automation-inventory:generate-scaffold'" action="confirm" @click="generateUncoveredInventoryScenarios">一键补齐脚手架</StandardButton>
           </StandardActionGroup>
         </PanelCard>
 

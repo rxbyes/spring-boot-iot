@@ -4,6 +4,7 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.dto.GovernanceOpsAlertTransitionDTO;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.GovernanceOpsAlertService;
 import com.ghlzm.iot.system.service.model.GovernanceOpsAlertPageQuery;
 import com.ghlzm.iot.system.vo.GovernanceOpsAlertVO;
@@ -25,12 +26,14 @@ class GovernanceOpsAlertControllerTest {
 
     @Mock
     private GovernanceOpsAlertService governanceOpsAlertService;
+    @Mock
+    private GovernancePermissionGuard permissionGuard;
 
     private GovernanceOpsAlertController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new GovernanceOpsAlertController(governanceOpsAlertService);
+        controller = new GovernanceOpsAlertController(governanceOpsAlertService, permissionGuard);
     }
 
     @Test

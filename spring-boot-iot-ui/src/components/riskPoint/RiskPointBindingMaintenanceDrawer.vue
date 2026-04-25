@@ -89,6 +89,7 @@
           </p>
           <div class="risk-point-binding-maintenance-drawer__actions">
             <button
+              v-permission="'risk:risk-point-binding:execute'"
               type="button"
               class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--primary"
               data-testid="binding-add-submit"
@@ -133,6 +134,7 @@
                   </p>
                 </div>
                 <button
+                  v-permission="'risk:risk-point-binding:execute'"
                   type="button"
                   class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--danger"
                   :data-testid="`binding-unbind-device-${group.deviceId}`"
@@ -168,6 +170,7 @@
 
                   <div class="risk-point-binding-maintenance-drawer__metric-actions">
                     <button
+                      v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button"
                       :data-testid="`binding-replace-open-${metric.bindingId}`"
@@ -177,6 +180,7 @@
                       更换测点
                     </button>
                     <button
+                      v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--danger"
                       :data-testid="`binding-remove-${metric.bindingId}`"
@@ -204,6 +208,7 @@
                       />
                     </el-select>
                     <button
+                      v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--primary"
                       :data-testid="`binding-replace-submit-${metric.bindingId}`"

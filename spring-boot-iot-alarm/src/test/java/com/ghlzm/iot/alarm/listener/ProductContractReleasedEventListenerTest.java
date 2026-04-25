@@ -68,7 +68,7 @@ class ProductContractReleasedEventListenerTest {
         ProductModel value = propertyModel(3101L, 1001L, "value", "裂缝监测值");
         ProductModel sensorState = propertyModel(3102L, 1001L, "sensor_state", "传感器状态");
         when(productModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(value, sensorState));
-        when(publishRule.resolveRiskEnabledIdentifiers(null, List.of(value, sensorState))).thenReturn(Set.of("value"));
+        when(publishRule.resolveRiskEnabledIdentifiers(any(), any(), any(), any())).thenReturn(Set.of("value"));
 
         listener.onProductContractReleased(new ProductContractReleasedEvent(
                 1L,
@@ -131,7 +131,7 @@ class ProductContractReleasedEventListenerTest {
         );
         ProductModel value = propertyModel(3101L, 1001L, "L1_LF_1.value", "裂缝监测值");
         when(productModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(value));
-        when(publishRule.resolveRiskEnabledIdentifiers(any(), any())).thenReturn(Set.of("value"));
+        when(publishRule.resolveRiskEnabledIdentifiers(any(), any(), any(), any())).thenReturn(Set.of("L1_LF_1.value"));
 
         listener.onProductContractReleased(new ProductContractReleasedEvent(
                 1L,
@@ -150,6 +150,38 @@ class ProductContractReleasedEventListenerTest {
                         && row.getSnapshotJson().contains("\"L1_LF_1.value\"")
                         && !row.getSnapshotJson().contains("\"L1_LF_1.value\":\"value\"")
         ));
+    }
+
+    @Test
+    void onProductContractReleasedShouldPublishFullPathRiskMetricCatalogIdentifiers() {
+        ProductContractReleasedEventListener listener = new ProductContractReleasedEventListener(
+                productModelMapper,
+                publishRule,
+                riskMetricCatalogService,
+                resolverSnapshotMapper
+        );
+        ProductModel crackValue = propertyModel(4101L, 2002L, "L1_LF_1.value", "裂缝量");
+        ProductModel tiltAngle = propertyModel(4102L, 2002L, "L1_QJ_1.angle", "水平面夹角");
+        when(productModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(crackValue, tiltAngle));
+        when(publishRule.resolveRiskEnabledIdentifiers(any(), any(), any(), any()))
+                .thenReturn(Set.of("L1_LF_1.value"));
+
+        listener.onProductContractReleased(new ProductContractReleasedEvent(
+                1L,
+                2002L,
+                8001L,
+                "phase1-crack",
+                List.of("L1_LF_1.value", "L1_QJ_1.angle"),
+                9001L,
+                99001L
+        ));
+
+        verify(riskMetricCatalogService).publishFromReleasedContracts(
+                2002L,
+                8001L,
+                List.of(crackValue, tiltAngle),
+                Set.of("L1_LF_1.value")
+        );
     }
 
     @Test

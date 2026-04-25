@@ -54,6 +54,7 @@
               ]"
             >
               <StandardButton
+                v-permission="'iot:device-capability:execute'"
                 :action="capability.enabled ? 'confirm' : 'default'"
                 class="device-capability-panel__capability-button"
                 :disabled="isCapabilityDisabled(capability)"

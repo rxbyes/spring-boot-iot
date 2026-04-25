@@ -193,7 +193,7 @@ describe('ProductModelGovernanceCompareTable', () => {
               identifier: 'value',
               modelName: '裂缝值',
               dataType: 'double',
-              sourceTables: ['iot_device_property', 'iot_device_message_log'],
+              sourceTables: ['iot_device_property', 'iot_message_log'],
               protocolTemplateEvidence: {
                 templateCodes: ['crack_child_template'],
                 childDeviceCodes: ['202018143'],
@@ -213,6 +213,109 @@ describe('ProductModelGovernanceCompareTable', () => {
     expect(wrapper.text()).not.toContain('查看技术依据')
   })
 
+  it('renders normative match explanations and keeps ambiguous rows in manual review', () => {
+    const wrapper = mount(ProductModelGovernanceCompareTable, {
+      props: {
+        rows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'double_aligned',
+            suggestedAction: '纳入新增',
+            riskFlags: [],
+            suspectedMatches: [],
+            normativeMatchStatus: 'AMBIGUOUS',
+            normativeMatchSource: 'CODE_PREFIX_FALLBACK',
+            normativeMatchReason: '依据 L4/NW + leaf=value 命中多个规范候选，请人工确认',
+            normativeCandidates: ['phase5-mud-level / value / 泥水位', 'phase6-radar / value / 雷达水位'],
+            rawIdentifiers: ['L4_NW_1'],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '泥水位',
+              dataType: 'double',
+              evidenceOrigin: 'sample_json',
+              sourceTables: ['manual_sample']
+            }
+          }
+        ],
+        decisionState: {
+          'property:value': 'review'
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('规范识别：候选冲突')
+    expect(wrapper.text()).toContain('识别来源：编码兜底')
+    expect(wrapper.text()).toContain('识别依据：依据 L4/NW + leaf=value 命中多个规范候选，请人工确认')
+    expect(wrapper.text()).toContain('规范候选：phase5-mud-level / value / 泥水位 / phase6-radar / value / 雷达水位')
+    expect(wrapper.text()).toContain('规范候选存在冲突，请先确认或补充映射规则')
+    expect(wrapper.get('[data-testid="governance-decision-property:value-review"]').text()).toBe('待确认')
+  })
+
+  it('emits governance actions with raw identifiers for ambiguous and missed normative rows', async () => {
+    const wrapper = mount(ProductModelGovernanceCompareTable, {
+      props: {
+        rows: [
+          {
+            modelType: 'property',
+            identifier: 'value',
+            compareStatus: 'double_aligned',
+            suggestedAction: '人工确认',
+            riskFlags: [],
+            suspectedMatches: [],
+            normativeMatchStatus: 'AMBIGUOUS',
+            rawIdentifiers: ['L4_NW_1'],
+            manualCandidate: {
+              modelType: 'property',
+              identifier: 'value',
+              modelName: '泥水位',
+              dataType: 'double'
+            }
+          },
+          {
+            modelType: 'property',
+            identifier: 'L9_UNKNOWN_1.value',
+            compareStatus: 'runtime_only',
+            suggestedAction: '继续观察',
+            riskFlags: [],
+            suspectedMatches: [],
+            normativeMatchStatus: 'MISSED',
+            rawIdentifiers: ['L9_UNKNOWN_1'],
+            runtimeCandidate: {
+              modelType: 'property',
+              identifier: 'L9_UNKNOWN_1.value',
+              modelName: '未知字段',
+              dataType: 'double'
+            }
+          }
+        ],
+        decisionState: {
+          'property:value': 'review',
+          'property:L9_UNKNOWN_1.value': 'observe'
+        }
+      }
+    })
+
+    await wrapper.get('[data-testid="governance-group-conflict"]').trigger('click')
+    await wrapper.get('[data-testid="governance-action-property:value-mapping-rule"]').trigger('click')
+
+    expect(wrapper.emitted('start-governance')?.[0]?.[0]).toEqual({
+      key: 'property:value',
+      target: 'mapping-rule',
+      rawIdentifier: 'L4_NW_1'
+    })
+
+    await wrapper.get('[data-testid="governance-group-observe"]').trigger('click')
+    await wrapper.get('[data-testid="governance-action-property:L9_UNKNOWN_1.value-runtime-display-rule"]').trigger('click')
+
+    expect(wrapper.emitted('start-governance')?.[1]?.[0]).toEqual({
+      key: 'property:L9_UNKNOWN_1.value',
+      target: 'runtime-display-rule',
+      rawIdentifier: 'L9_UNKNOWN_1'
+    })
+  })
+
   it('keeps source chips simple when protocol template evidence is absent', () => {
     const wrapper = mount(ProductModelGovernanceCompareTable, {
       props: {
@@ -229,7 +332,7 @@ describe('ProductModelGovernanceCompareTable', () => {
               identifier: 'value',
               modelName: '裂缝值',
               dataType: 'double',
-              sourceTables: ['iot_device_property', 'iot_device_message_log']
+              sourceTables: ['iot_device_property', 'iot_message_log']
             }
           }
         ]

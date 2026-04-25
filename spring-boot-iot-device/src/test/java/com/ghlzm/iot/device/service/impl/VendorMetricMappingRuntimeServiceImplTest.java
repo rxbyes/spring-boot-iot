@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -269,8 +270,54 @@ class VendorMetricMappingRuntimeServiceImplTest {
                 new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
         when(mapper.selectList(any())).thenReturn(List.of());
         when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase1-vibration", "PLX", "VIBRATION", "L1", "ZD"),
+                normativeDefinitionWithCodes("phase1-vibration", "SJValue", "VIBRATION", "L1", "ZD"),
+                normativeDefinitionWithCodes("phase2-acoustic-emission", "RMS", "ACOUSTIC_EMISSION", "L2", "SF"),
                 normativeDefinitionWithCodes("phase3-water-surface", "temp", "SURFACE_WATER", "L3", "DB"),
                 normativeDefinitionWithCodes("phase3-water-surface", "value", "SURFACE_WATER", "L3", "DB"),
+                normativeDefinitionWithCodes("phase3-settlement", "value", "SETTLEMENT", "L3", "CJ"),
+                normativeDefinitionWithCodes("phase5-mud-level", "value", "MUD_LEVEL", "L4", "NW"),
+                normativeDefinitionWithCodes("phase4-surface-flow-speed", "value", "SURFACE_FLOW_SPEED", "L4", "BMLS"),
+                normativeDefinitionWithCodes("phase6-radar", "speed", "RADAR", "L4", "LD")
+        ));
+        DeviceUpMessage upMessage = new DeviceUpMessage();
+        upMessage.setProtocolCode("mqtt-json");
+
+        VendorMetricMappingRuntimeService.MappingResolution vibrationFrequency =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L1_ZD_1.PLX", null);
+        VendorMetricMappingRuntimeService.MappingResolution vibrationInstant =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "SJValue", "L1_ZD_1");
+        VendorMetricMappingRuntimeService.MappingResolution acousticRms =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L2_SF_1.RMS", null);
+        VendorMetricMappingRuntimeService.MappingResolution waterTemp =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L3_DB_1.temp", null);
+        VendorMetricMappingRuntimeService.MappingResolution settlement =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L3_CJ_1", null);
+        VendorMetricMappingRuntimeService.MappingResolution mudLevel =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "value", "L4_NW_1");
+        VendorMetricMappingRuntimeService.MappingResolution surfaceFlowSpeed =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L4_BMLS_1", null);
+        VendorMetricMappingRuntimeService.MappingResolution radarSpeed =
+                service.resolveForRuntime(genericProduct(9011L), upMessage, "L4_LD_1.speed", null);
+
+        assertEquals("PLX", vibrationFrequency.targetNormativeIdentifier());
+        assertEquals("SJValue", vibrationInstant.targetNormativeIdentifier());
+        assertEquals("RMS", acousticRms.targetNormativeIdentifier());
+        assertEquals("temp", waterTemp.targetNormativeIdentifier());
+        assertEquals("value", settlement.targetNormativeIdentifier());
+        assertEquals("value", mudLevel.targetNormativeIdentifier());
+        assertEquals("value", surfaceFlowSpeed.targetNormativeIdentifier());
+        assertEquals("speed", radarSpeed.targetNormativeIdentifier());
+        assertNull(waterTemp.ruleId());
+    }
+
+    @Test
+    void normativePrefixFallbackShouldReuseActiveDefinitionsCacheAcrossRuntimeAndApply() {
+        VendorMetricMappingRuntimeServiceImpl service =
+                new VendorMetricMappingRuntimeServiceImpl(mapper, normativeMetricDefinitionService);
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(normativeMetricDefinitionService.listActive()).thenReturn(List.of(
+                normativeDefinitionWithCodes("phase3-water-surface", "temp", "SURFACE_WATER", "L3", "DB"),
                 normativeDefinitionWithCodes("phase5-mud-level", "value", "MUD_LEVEL", "L4", "NW"),
                 normativeDefinitionWithCodes("phase6-radar", "speed", "RADAR", "L4", "LD")
         ));
@@ -279,15 +326,14 @@ class VendorMetricMappingRuntimeServiceImplTest {
 
         VendorMetricMappingRuntimeService.MappingResolution waterTemp =
                 service.resolveForRuntime(genericProduct(9011L), upMessage, "L3_DB_1.temp", null);
-        VendorMetricMappingRuntimeService.MappingResolution mudLevel =
-                service.resolveForRuntime(genericProduct(9011L), upMessage, "value", "L4_NW_1");
+        String mudLevel = service.normalizeApplyIdentifier(genericProduct(9011L), "L4_NW_1");
         VendorMetricMappingRuntimeService.MappingResolution radarSpeed =
                 service.resolveForRuntime(genericProduct(9011L), upMessage, "L4_LD_1.speed", null);
 
         assertEquals("temp", waterTemp.targetNormativeIdentifier());
-        assertEquals("value", mudLevel.targetNormativeIdentifier());
+        assertEquals("value", mudLevel);
         assertEquals("speed", radarSpeed.targetNormativeIdentifier());
-        assertNull(waterTemp.ruleId());
+        verify(normativeMetricDefinitionService, times(1)).listActive();
     }
 
     @Test

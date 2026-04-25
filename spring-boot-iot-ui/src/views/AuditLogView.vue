@@ -350,6 +350,100 @@
       @jump-access-error="handleJumpToAccessError(detailData)"
     />
 
+    <StandardDetailDrawer
+      v-model="evidenceDrawerVisible"
+      title="TraceId 证据包"
+      :subtitle="evidenceDrawerSubtitle"
+      :loading="evidenceLoading"
+      loading-text="正在加载证据链"
+      :error-message="evidenceErrorMessage"
+      :empty="evidenceTimeline.length === 0 && !evidenceLoading"
+      empty-text="当前 TraceId 暂无业务事件或调用片段证据"
+      size="56rem"
+      tag-layout="title-inline"
+      :tags="evidenceDrawerTags"
+    >
+      <div class="observability-evidence-drawer">
+        <section class="observability-evidence-summary" aria-label="证据链摘要">
+          <div
+            v-for="item in evidenceSummaryCards"
+            :key="item.label"
+            class="observability-evidence-summary__item"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </section>
+
+        <section class="observability-evidence-section">
+          <header class="observability-evidence-section__header">
+            <h3>合并时间线</h3>
+          </header>
+          <ol class="observability-evidence-timeline">
+            <li
+              v-for="item in evidenceTimeline"
+              :key="`${item.itemType || 'item'}-${item.itemId || item.code || item.occurredAt}`"
+              class="observability-evidence-timeline__item"
+            >
+              <span class="observability-evidence-timeline__type">
+                {{ getEvidenceItemTypeName(item.itemType) }}
+              </span>
+              <div class="observability-evidence-timeline__body">
+                <div class="observability-evidence-timeline__title">
+                  <strong>{{ formatValue(item.code) }}</strong>
+                  <span>{{ formatValue(item.status) }}</span>
+                </div>
+                <p>{{ formatValue(item.name) }}</p>
+                <div class="observability-evidence-timeline__meta">
+                  <span>{{ formatValue(item.occurredAt) }}</span>
+                  <span v-if="item.durationMs !== undefined && item.durationMs !== null">
+                    {{ formatDuration(item.durationMs) }}
+                  </span>
+                  <span v-if="item.objectType || item.objectId">
+                    {{ formatValue(item.objectType) }} / {{ formatValue(item.objectId) }}
+                  </span>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="observability-evidence-split">
+          <article class="observability-evidence-section">
+            <header class="observability-evidence-section__header">
+              <h3>业务事件</h3>
+            </header>
+            <div v-if="evidenceBusinessEvents.length === 0" class="observability-evidence-empty">暂无业务事件</div>
+            <div
+              v-for="event in evidenceBusinessEvents"
+              :key="`event-${event.id || event.eventCode}`"
+              class="observability-evidence-record"
+            >
+              <strong>{{ formatValue(event.eventCode) }}</strong>
+              <span>{{ formatValue(event.eventName) }}</span>
+              <small>{{ formatValue(event.domainCode) }} · {{ formatValue(event.resultStatus) }}</small>
+            </div>
+          </article>
+
+          <article class="observability-evidence-section">
+            <header class="observability-evidence-section__header">
+              <h3>调用片段</h3>
+            </header>
+            <div v-if="evidenceSpans.length === 0" class="observability-evidence-empty">暂无调用片段</div>
+            <div
+              v-for="span in evidenceSpans"
+              :key="`span-${span.id || span.spanType}`"
+              class="observability-evidence-record"
+            >
+              <strong>{{ formatValue(span.spanType) }}</strong>
+              <span>{{ formatValue(span.spanName) }}</span>
+              <small>{{ formatDuration(span.durationMs) }} · {{ formatValue(span.status) }}</small>
+            </div>
+          </article>
+        </section>
+      </div>
+    </StandardDetailDrawer>
+
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
       :title="exportDialogTitle"
@@ -367,6 +461,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
+import { getTraceEvidence, type ObservabilityTraceEvidence } from '@/api/observability'
 import { isHandledRequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
@@ -374,6 +469,7 @@ import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
+import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
 import StandardTableTextColumn from '@/components/StandardTableTextColumn.vue'
@@ -412,13 +508,14 @@ const auditActionColumnWidth = computed(() =>
     directItems: isSystemMode.value
       ? [
           { command: 'detail', label: '详情' },
+          { command: 'evidence', label: '证据' },
           { command: 'trace', label: '追踪' },
-          { command: 'delete', label: '删除' }
+          { command: 'delete', label: '删除', permission: 'system:audit:delete' }
         ]
       : [
           { command: 'detail', label: '详情' },
-          { command: 'delete', label: '删除' }
-        ],
+          { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+        ]
   })
 )
 const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
@@ -650,8 +747,29 @@ const detailVisible = ref(false)
 const detailData = ref<Partial<AuditLogRecord>>({})
 const detailLoading = ref(false)
 const detailErrorMessage = ref('')
+const evidenceDrawerVisible = ref(false)
+const evidenceLoading = ref(false)
+const evidenceErrorMessage = ref('')
+const evidenceTrace = ref<ObservabilityTraceEvidence | null>(null)
+const evidenceTraceId = ref('')
 
 const defaultExportKeys = exportColumns.map((column) => String(column.key))
+const evidenceBusinessEvents = computed(() => evidenceTrace.value?.businessEvents ?? [])
+const evidenceSpans = computed(() => evidenceTrace.value?.spans ?? [])
+const evidenceTimeline = computed(() => evidenceTrace.value?.timeline ?? [])
+const evidenceDrawerSubtitle = computed(() =>
+  evidenceTraceId.value ? `TraceId：${evidenceTraceId.value}` : '按 TraceId 汇总业务事件与调用片段'
+)
+const evidenceDrawerTags = computed(() => [
+  { label: `事件 ${evidenceBusinessEvents.value.length}`, type: 'primary' as const },
+  { label: `片段 ${evidenceSpans.value.length}`, type: 'info' as const }
+])
+const evidenceSummaryCards = computed(() => [
+  { label: 'TraceId', value: formatValue(evidenceTrace.value?.traceId || evidenceTraceId.value) },
+  { label: '业务事件', value: String(evidenceBusinessEvents.value.length) },
+  { label: '调用片段', value: String(evidenceSpans.value.length) },
+  { label: '时间线节点', value: String(evidenceTimeline.value.length) }
+])
 
 const reloadExportSelection = () => {
   selectedExportColumnKeys.value = loadCsvColumnSelection(exportColumnStorageKey.value, defaultExportKeys)
@@ -823,6 +941,11 @@ watch(viewMode, (newMode, oldMode) => {
   detailData.value = {}
   detailLoading.value = false
   detailErrorMessage.value = ''
+  evidenceDrawerVisible.value = false
+  evidenceTrace.value = null
+  evidenceTraceId.value = ''
+  evidenceLoading.value = false
+  evidenceErrorMessage.value = ''
   exportColumnDialogVisible.value = false
   reloadExportSelection()
   applySystemRouteQuery()
@@ -955,6 +1078,38 @@ const canJumpToMessageTrace = (row?: AuditLogRecord) => {
   return Boolean(context.traceId || context.deviceCode || context.productKey || context.topic)
 }
 
+const resolveEvidenceTraceId = (row?: AuditLogRecord) =>
+  (row?.traceId || searchForm.traceId || appliedFilters.traceId).trim()
+
+const canOpenTraceEvidence = (row?: AuditLogRecord) => Boolean(resolveEvidenceTraceId(row))
+
+const openTraceEvidence = async (row?: AuditLogRecord) => {
+  const traceId = resolveEvidenceTraceId(row)
+  if (!traceId) {
+    ElMessage.warning('当前记录缺少 TraceId，无法查看证据包')
+    return
+  }
+  evidenceDrawerVisible.value = true
+  evidenceTraceId.value = traceId
+  evidenceTrace.value = null
+  evidenceErrorMessage.value = ''
+  evidenceLoading.value = true
+  try {
+    const res = await getTraceEvidence(traceId)
+    if (res.code === 200) {
+      evidenceTrace.value = res.data || { traceId, businessEvents: [], spans: [], timeline: [] }
+    }
+  } catch (error) {
+    if (!isHandledRequestError(error)) {
+      ElMessage.error('获取 TraceId 证据包失败')
+    }
+    evidenceErrorMessage.value = error instanceof Error ? error.message : '获取 TraceId 证据包失败'
+    logPageError('获取 TraceId 证据包失败', error)
+  } finally {
+    evidenceLoading.value = false
+  }
+}
+
 const handleJumpToMessageTrace = (row?: AuditLogRecord) => {
   const context = buildSystemDiagnosticContext(row)
   persistSystemContext(row)
@@ -1032,14 +1187,15 @@ const getAuditDirectActions = (row: AuditLogRecord) => {
   if (isSystemMode.value) {
     return [
       { command: 'detail', label: '详情' },
+      { command: 'evidence', label: '证据', disabled: !canOpenTraceEvidence(row) },
       { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) },
-      { command: 'delete', label: '删除' }
+      { command: 'delete', label: '删除', permission: 'system:audit:delete' }
     ]
   }
 
   return [
     { command: 'detail', label: '详情' },
-    { command: 'delete', label: '删除' }
+    { command: 'delete', label: '删除', permission: 'system:audit:delete' }
   ]
 }
 
@@ -1053,6 +1209,10 @@ const handleAuditRowAction = (command: string | number | object, row: AuditLogRe
       return
     }
     handleJumpToMessageTrace(row)
+    return
+  }
+  if (command === 'evidence') {
+    void openTraceEvidence(row)
     return
   }
   if (command === 'delete') {
@@ -1149,11 +1309,37 @@ const getOperationResultTag = (result?: number | null) => {
   return 'info'
 }
 
+const formatDuration = (durationMs?: number | null) => {
+  if (durationMs === undefined || durationMs === null) {
+    return '--'
+  }
+  return `${durationMs} ms`
+}
+
+const getEvidenceItemTypeName = (type?: string | null) => {
+  if (type === 'BUSINESS_EVENT') {
+    return '业务事件'
+  }
+  if (type === 'SPAN') {
+    return '调用片段'
+  }
+  return formatValue(type)
+}
+
 watch(detailVisible, (visible) => {
   if (!visible) {
     detailData.value = {}
     detailLoading.value = false
     detailErrorMessage.value = ''
+  }
+})
+
+watch(evidenceDrawerVisible, (visible) => {
+  if (!visible) {
+    evidenceTrace.value = null
+    evidenceTraceId.value = ''
+    evidenceLoading.value = false
+    evidenceErrorMessage.value = ''
   }
 })
 </script>
@@ -1242,6 +1428,156 @@ watch(detailVisible, (visible) => {
   display: block;
 }
 
+.observability-evidence-drawer {
+  display: grid;
+  gap: 1rem;
+}
+
+.observability-evidence-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.observability-evidence-summary__item,
+.observability-evidence-section {
+  min-width: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 94%, transparent);
+}
+
+.observability-evidence-summary__item {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.82rem 0.9rem;
+}
+
+.observability-evidence-summary__item span,
+.observability-evidence-record small,
+.observability-evidence-timeline__meta,
+.observability-evidence-timeline__type {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.observability-evidence-summary__item strong {
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observability-evidence-section {
+  padding: 1rem;
+}
+
+.observability-evidence-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.82rem;
+}
+
+.observability-evidence-section__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.observability-evidence-timeline {
+  display: grid;
+  gap: 0.72rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.observability-evidence-timeline__item {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.observability-evidence-timeline__type {
+  padding-top: 0.1rem;
+}
+
+.observability-evidence-timeline__body,
+.observability-evidence-record {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.observability-evidence-timeline__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.observability-evidence-timeline__title strong,
+.observability-evidence-record strong {
+  overflow: hidden;
+  color: var(--text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observability-evidence-timeline__title span {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.observability-evidence-timeline__body p {
+  margin: 0.34rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.observability-evidence-timeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.observability-evidence-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.observability-evidence-record {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.observability-evidence-record + .observability-evidence-record {
+  margin-top: 0.62rem;
+}
+
+.observability-evidence-record span {
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observability-evidence-empty {
+  color: var(--text-caption);
+  font-size: 0.86rem;
+}
+
 @media (max-width: 640px) {
   .audit-log-mobile-list {
     display: block;
@@ -1252,6 +1588,12 @@ watch(detailVisible, (visible) => {
   }
 
   .audit-log-mobile-card__info {
+    grid-template-columns: 1fr;
+  }
+
+  .observability-evidence-summary,
+  .observability-evidence-split,
+  .observability-evidence-timeline__item {
     grid-template-columns: 1fr;
   }
 }

@@ -8,6 +8,8 @@ import com.ghlzm.iot.device.vo.CommandRecordPageItemVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityExecuteResultVO;
 import com.ghlzm.iot.device.vo.DeviceCapabilityOverviewVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,9 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceCapabilityController {
 
     private final DeviceCapabilityService deviceCapabilityService;
+    private final GovernancePermissionGuard permissionGuard;
 
-    public DeviceCapabilityController(DeviceCapabilityService deviceCapabilityService) {
+    public DeviceCapabilityController(DeviceCapabilityService deviceCapabilityService,
+                                      GovernancePermissionGuard permissionGuard) {
         this.deviceCapabilityService = deviceCapabilityService;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping("/api/device/{deviceCode}/capabilities")
@@ -36,7 +41,13 @@ public class DeviceCapabilityController {
                                                       @PathVariable String capabilityCode,
                                                       @RequestBody @Valid DeviceCapabilityExecuteDTO dto,
                                                       Authentication authentication) {
-        return R.ok(deviceCapabilityService.execute(requireCurrentUserId(authentication), deviceCode, capabilityCode, dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "设备能力命令下发",
+                GovernancePermissionCodes.DEVICE_CAPABILITY_EXECUTE
+        );
+        return R.ok(deviceCapabilityService.execute(currentUserId, deviceCode, capabilityCode, dto));
     }
 
     @GetMapping("/api/device/{deviceCode}/commands")

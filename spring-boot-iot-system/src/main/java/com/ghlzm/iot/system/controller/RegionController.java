@@ -4,7 +4,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.Region;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.RegionService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,9 +26,16 @@ import java.util.List;
 public class RegionController {
 
       private final RegionService regionService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public RegionController(RegionService regionService) {
+            this(regionService, null);
+      }
+
+      @Autowired
+      public RegionController(RegionService regionService, GovernancePermissionGuard permissionGuard) {
             this.regionService = regionService;
+            this.permissionGuard = permissionGuard;
       }
 
       @GetMapping("/list")
@@ -56,20 +66,32 @@ public class RegionController {
 
       @PostMapping
       public R<Region> addRegion(@RequestBody Region region, Authentication authentication) {
-            regionService.addRegion(requireCurrentUserId(authentication), region);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "新增区域", GovernancePermissionCodes.REGION_ADD);
+            regionService.addRegion(currentUserId, region);
             return R.ok(region);
       }
 
       @PutMapping
       public R<Region> updateRegion(@RequestBody Region region, Authentication authentication) {
-            regionService.updateRegion(requireCurrentUserId(authentication), region);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "编辑区域", GovernancePermissionCodes.REGION_UPDATE);
+            regionService.updateRegion(currentUserId, region);
             return R.ok(region);
       }
 
       @DeleteMapping("/{id}")
       public R<Void> deleteRegion(@PathVariable Long id, Authentication authentication) {
-            regionService.deleteRegion(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除区域", GovernancePermissionCodes.REGION_DELETE);
+            regionService.deleteRegion(currentUserId, id);
             return R.ok();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 
       private Long requireCurrentUserId(Authentication authentication) {

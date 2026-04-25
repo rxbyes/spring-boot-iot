@@ -7,6 +7,9 @@ import com.ghlzm.iot.system.dto.ChangePasswordDTO;
 import com.ghlzm.iot.system.dto.UserProfileUpdateDTO;
 import com.ghlzm.iot.system.entity.User;
 import com.ghlzm.iot.system.service.UserService;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,14 +28,23 @@ import java.util.List;
 public class UserController {
 
       private final UserService userService;
+      private final GovernancePermissionGuard permissionGuard;
 
       public UserController(UserService userService) {
+            this(userService, null);
+      }
+
+      @Autowired
+      public UserController(UserService userService, GovernancePermissionGuard permissionGuard) {
             this.userService = userService;
+            this.permissionGuard = permissionGuard;
       }
 
       @PostMapping("/add")
       public R<Void> addUser(@RequestBody User user, Authentication authentication) {
-            userService.addUser(requireCurrentUserId(authentication), user);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "新增用户", GovernancePermissionCodes.USER_ADD);
+            userService.addUser(currentUserId, user);
             return R.ok();
       }
 
@@ -63,13 +75,17 @@ public class UserController {
 
       @PutMapping("/update")
       public R<Void> updateUser(@RequestBody User user, Authentication authentication) {
-            userService.updateUser(requireCurrentUserId(authentication), user);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "编辑用户", GovernancePermissionCodes.USER_UPDATE);
+            userService.updateUser(currentUserId, user);
             return R.ok();
       }
 
       @DeleteMapping("/{id}")
       public R<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
-            userService.deleteUser(requireCurrentUserId(authentication), id);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "删除用户", GovernancePermissionCodes.USER_DELETE);
+            userService.deleteUser(currentUserId, id);
             return R.ok();
       }
 
@@ -86,7 +102,9 @@ public class UserController {
 
       @PostMapping("/reset-password/{userId}")
       public R<Void> resetPassword(@PathVariable Long userId, Authentication authentication) {
-            userService.resetPassword(requireCurrentUserId(authentication), userId);
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "重置用户密码", GovernancePermissionCodes.USER_RESET_PASSWORD);
+            userService.resetPassword(currentUserId, userId);
             return R.ok();
       }
 
@@ -103,5 +121,11 @@ public class UserController {
                   throw new com.ghlzm.iot.common.exception.BizException(401, "未认证，请先登录");
             }
             return principal.userId();
+      }
+
+      private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+            if (permissionGuard != null) {
+                  permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+            }
       }
 }

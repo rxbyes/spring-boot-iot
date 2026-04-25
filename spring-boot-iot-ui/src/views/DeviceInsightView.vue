@@ -155,6 +155,7 @@
                 <template #default="{ row }">
                   <StandardButton
                     v-if="row.canEditFormalField"
+                    v-permission="'iot:products:update'"
                     action="query"
                     link
                     :data-testid="buildPropertySnapshotEditTestId(row.formalIdentifier || row.identifier)"
@@ -164,6 +165,7 @@
                   </StandardButton>
                   <StandardButton
                     v-else
+                    v-permission="'iot:product-contract:govern'"
                     action="query"
                     link
                     :data-testid="`promote-mapping-rule-${row.identifier}`"

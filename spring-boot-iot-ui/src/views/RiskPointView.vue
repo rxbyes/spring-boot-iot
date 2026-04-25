@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" @click="handleAdd">新增风险点</StandardButton>
+        <StandardButton v-permission="'risk:point:add'" action="add" @click="handleAdd">新增风险点</StandardButton>
       </template>
 
       <template #filters>
@@ -197,7 +197,7 @@
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="standard-list-empty-state__actions">
             <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
-            <StandardButton v-else action="add" @click="handleAdd">新增风险点</StandardButton>
+            <StandardButton v-else v-permission="'risk:point:add'" action="add" @click="handleAdd">新增风险点</StandardButton>
           </div>
         </div>
       </div>
@@ -1424,9 +1424,9 @@ const handleSelectionChange = (rows: RiskPoint[]) => {
 
 const getRiskPointRowActions = () => [
   { command: 'detail' as const, label: '详情' },
-  { command: 'edit' as const, label: '编辑' },
-  { command: 'binding-workbench' as const, label: '风险绑定' },
-  { command: 'delete' as const, label: '删除' }
+  { command: 'edit' as const, label: '编辑', permission: 'risk:point:update' },
+  { command: 'binding-workbench' as const, label: '风险绑定', permission: 'risk:point:binding-maintain' },
+  { command: 'delete' as const, label: '删除', permission: 'risk:point:delete' }
 ];
 
 const handleRiskPointRowAction = (command: RiskPointRowActionCommand, row: RiskPoint) => {

@@ -5,6 +5,11 @@ import com.ghlzm.iot.alarm.entity.EventWorkOrder;
 import com.ghlzm.iot.alarm.service.EventRecordService;
 import com.ghlzm.iot.alarm.service.EventWorkOrderService;
 import com.ghlzm.iot.common.response.R;
+import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,10 +23,19 @@ public class EventRecordController {
 
     private final EventRecordService eventRecordService;
     private final EventWorkOrderService eventWorkOrderService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public EventRecordController(EventRecordService eventRecordService, EventWorkOrderService eventWorkOrderService) {
+        this(eventRecordService, eventWorkOrderService, null);
+    }
+
+    @Autowired
+    public EventRecordController(EventRecordService eventRecordService,
+                                 EventWorkOrderService eventWorkOrderService,
+                                 GovernancePermissionGuard permissionGuard) {
         this.eventRecordService = eventRecordService;
         this.eventWorkOrderService = eventWorkOrderService;
+        this.permissionGuard = permissionGuard;
     }
 
     /**
@@ -58,7 +72,9 @@ public class EventRecordController {
     public R<Void> dispatch(
             @PathVariable("id") Long id,
             @RequestParam("dispatchUser") Long dispatchUser,
-            @RequestParam("receiveUser") Long receiveUser) {
+            @RequestParam("receiveUser") Long receiveUser,
+            Authentication authentication) {
+        requirePermission(authentication, dispatchUser, "派发事件", GovernancePermissionCodes.EVENT_DISPATCH);
         eventRecordService.dispatchEvent(id, dispatchUser, receiveUser);
         return R.ok();
     }
@@ -70,7 +86,9 @@ public class EventRecordController {
     public R<Void> close(
             @PathVariable Long id,
             @RequestParam("closeUser") Long closeUser,
-            @RequestParam("closeReason") String closeReason) {
+            @RequestParam("closeReason") String closeReason,
+            Authentication authentication) {
+        requirePermission(authentication, closeUser, "关闭事件", GovernancePermissionCodes.EVENT_CLOSE);
         eventRecordService.closeEvent(id, closeUser, closeReason);
         return R.ok();
     }
@@ -128,5 +146,19 @@ public class EventRecordController {
             @RequestParam(required = false) String photos) {
         eventWorkOrderService.completeProcessing(id, feedback, photos);
         return R.ok();
+    }
+
+    private void requirePermission(Authentication authentication,
+                                   Long fallbackUserId,
+                                   String actionName,
+                                   String permissionCode) {
+        if (permissionGuard == null) {
+            return;
+        }
+        Long currentUserId = fallbackUserId;
+        if (authentication != null && authentication.getPrincipal() instanceof JwtUserPrincipal principal) {
+            currentUserId = principal.userId();
+        }
+        permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
     }
 }

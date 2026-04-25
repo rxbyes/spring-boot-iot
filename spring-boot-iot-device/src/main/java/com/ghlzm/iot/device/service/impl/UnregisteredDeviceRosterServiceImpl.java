@@ -24,7 +24,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
 
     private static final String INVALID_REPORT_STATE_TABLE = "iot_device_invalid_report_state";
     private static final String ACCESS_ERROR_TABLE = "iot_device_access_error_log";
-    private static final String MESSAGE_LOG_TABLE = "iot_device_message_log";
+    private static final String MESSAGE_LOG_TABLE = "iot_message_log";
     private static final String DEVICE_TABLE = "iot_device";
     private static final String PRODUCT_TABLE = "iot_product";
     private static final Set<String> REQUIRED_INVALID_REPORT_STATE_COLUMNS = Set.of(
@@ -344,7 +344,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                 SELECT COUNT(1)
                 FROM (
                     SELECT m.device_code
-                    FROM iot_device_message_log m
+                    FROM iot_message_log m
                     LEFT JOIN iot_device d
                       ON d.device_code = m.device_code
                      AND d.deleted = 0
@@ -425,7 +425,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       m.trace_id,
                       m.payload,
                       m.report_time
-                    FROM iot_device_message_log m
+                    FROM iot_message_log m
                     LEFT JOIN iot_device d2
                       ON d2.device_code = m.device_code
                      AND d2.deleted = 0
@@ -503,7 +503,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                       m.trace_id,
                       m.payload,
                       m.report_time
-                    FROM iot_device_message_log m
+                    FROM iot_message_log m
                     LEFT JOIN iot_device d2
                       ON d2.device_code = m.device_code
                      AND d2.deleted = 0
@@ -542,7 +542,7 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   m.trace_id,
                   m.payload,
                   m.report_time
-                FROM iot_device_message_log m
+                FROM iot_message_log m
                 LEFT JOIN iot_device d
                   ON d.device_code = m.device_code
                  AND d.deleted = 0
@@ -657,10 +657,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   m.trace_id,
                   m.payload,
                   COALESCE(m.report_time, m.create_time) AS report_time
-                FROM iot_device_message_log m
+                FROM iot_message_log m
                 INNER JOIN (
                     SELECT MAX(m2.id) AS latest_id
-                    FROM iot_device_message_log m2
+                    FROM iot_message_log m2
                     LEFT JOIN iot_device d2
                       ON d2.device_code = m2.device_code
                      AND d2.deleted = 0
@@ -709,10 +709,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   m.trace_id,
                   m.payload,
                   COALESCE(m.report_time, m.create_time) AS report_time
-                FROM iot_device_message_log m
+                FROM iot_message_log m
                 INNER JOIN (
                     SELECT MAX(m2.id) AS latest_id
-                    FROM iot_device_message_log m2
+                    FROM iot_message_log m2
                     LEFT JOIN iot_device d2
                       ON d2.device_code = m2.device_code
                      AND d2.deleted = 0
@@ -779,10 +779,10 @@ public class UnregisteredDeviceRosterServiceImpl implements UnregisteredDeviceRo
                   m.trace_id,
                   m.payload,
                   COALESCE(m.report_time, m.create_time) AS report_time
-                FROM iot_device_message_log m
+                FROM iot_message_log m
                 INNER JOIN (
                     SELECT MAX(m2.id) AS latest_id
-                    FROM iot_device_message_log m2
+                    FROM iot_message_log m2
                     LEFT JOIN iot_device d2
                       ON d2.device_code = m2.device_code
                      AND d2.deleted = 0

@@ -31,6 +31,7 @@
             {{ entryActionText }}
           </StandardButton>
           <StandardButton
+            v-permission="'iot:product-contract:rollback'"
             action="delete"
             data-testid="contract-field-rollback-submit"
             :loading="rollbackLoading"
@@ -469,6 +470,7 @@
           <div class="product-model-designer__toolbar-actions">
             <StandardButton action="query" @click="formatSamplePayload">格式化 JSON</StandardButton>
             <StandardButton
+              v-permission="'iot:product-contract:govern'"
               action="confirm"
               :loading="compareLoading"
               data-testid="contract-field-compare-submit"
@@ -611,6 +613,7 @@
           :rows="compareRows"
           :decision-state="decisionState"
           @change-decision="handleDecisionChange"
+          @start-governance="handleCompareGovernanceAction"
         />
 
         <div
@@ -631,6 +634,22 @@
       <section
         v-if="showMappingRuleSections"
         class="product-model-designer__stage"
+        data-testid="contract-field-normative-import"
+      >
+        <header class="product-model-designer__stage-head">
+          <div>
+            <h3>规范字段库导入</h3>
+            <p>面向附件规范和新增设备类型，先预检冲突，再批量写入规范字段库。</p>
+          </div>
+        </header>
+
+        <ProductNormativeMetricImportPanel />
+      </section>
+
+      <section
+        v-if="showMappingRuleSections"
+        ref="runtimeDisplayRuleStageRef"
+        class="product-model-designer__stage"
         data-testid="contract-field-runtime-display-rules"
       >
         <header class="product-model-designer__stage-head">
@@ -640,7 +659,12 @@
           </div>
         </header>
 
-        <ProductRuntimeMetricDisplayRulePanel :product-id="props.product?.id ?? null" />
+        <ProductRuntimeMetricDisplayRulePanel
+          :product-id="props.product?.id ?? null"
+          :formal-property-identifiers="formalPropertyIdentifiers"
+          :focus-raw-identifier="runtimeDisplayFocusRawIdentifier"
+          :focus-token="runtimeDisplayFocusToken"
+        />
       </section>
 
       <section
@@ -664,6 +688,7 @@
 
       <section
         v-if="showMappingRuleSections"
+        ref="vendorSuggestionStageRef"
         class="product-model-designer__stage"
         data-testid="contract-field-vendor-suggestions"
       >
@@ -749,6 +774,7 @@
             <p>发布、回滚和原单重提会自动分配给系统治理复核人，无需手工填写用户 ID。</p>
           </div>
           <StandardButton
+            v-permission="'iot:product-contract:release'"
             action="confirm"
             :loading="applyLoading"
             :disabled="!selectedApplyItems.length"
@@ -779,6 +805,7 @@
             </StandardButton>
             <StandardButton
               v-if="canResubmitRollbackApproval"
+              v-permission="'iot:product-contract:rollback'"
               action="confirm"
               :loading="rollbackResubmitLoading"
               data-testid="contract-field-rollback-resubmit"
@@ -868,6 +895,7 @@
               </StandardButton>
               <StandardButton
                 v-if="canResubmitApplyApproval"
+                v-permission="'iot:product-contract:release'"
                 action="confirm"
                 :loading="applyResubmitLoading"
                 data-testid="contract-field-apply-resubmit"
@@ -962,6 +990,7 @@
                 />
                 <div class="product-model-designer__formal-rename-actions">
                   <StandardButton
+                    v-permission="'iot:normative-library:write'"
                     :data-testid="`formal-model-name-save-${model.id}`"
                     action="confirm"
                     :loading="renameSubmitting"
@@ -981,6 +1010,7 @@
                 class="product-model-designer__formal-card-head-actions"
               >
                 <StandardButton
+                  v-permission="'iot:normative-library:write'"
                   :data-testid="`formal-model-rename-${model.id}`"
                   action="query"
                   link
@@ -990,6 +1020,7 @@
                   改名
                 </StandardButton>
                 <StandardButton
+                  v-permission="'iot:normative-library:write'"
                   :data-testid="`formal-model-delete-${model.id}`"
                   action="delete"
                   link
@@ -1012,6 +1043,7 @@
                 {{ resolveTrendMetricStateLabel(model) }}
               </span>
               <StandardButton
+                v-permission="'iot:products:update'"
                 v-if="model.id !== undefined && model.id !== null"
                 :data-testid="`formal-model-trend-measure-${model.id}`"
                 action="query"
@@ -1023,6 +1055,7 @@
                 设为监测数据
               </StandardButton>
               <StandardButton
+                v-permission="'iot:products:update'"
                 v-if="model.id !== undefined && model.id !== null"
                 :data-testid="`formal-model-trend-status-event-${model.id}`"
                 action="query"
@@ -1034,6 +1067,7 @@
                 设为状态事件
               </StandardButton>
               <StandardButton
+                v-permission="'iot:products:update'"
                 v-if="model.id !== undefined && model.id !== null"
                 :data-testid="`formal-model-trend-runtime-${model.id}`"
                 action="query"
@@ -1045,6 +1079,7 @@
                 设为运行参数
               </StandardButton>
               <StandardButton
+                v-permission="'iot:products:update'"
                 v-if="model.id !== undefined && model.id !== null && resolveTrendMetricConfig(model)"
                 :data-testid="`formal-model-trend-remove-${model.id}`"
                 action="delete"
@@ -1076,6 +1111,7 @@ import { useRoute, useRouter } from 'vue-router'
 import StandardButton from '@/components/StandardButton.vue'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import ProductModelGovernanceCompareTable from '@/components/product/ProductModelGovernanceCompareTable.vue'
+import ProductNormativeMetricImportPanel from '@/components/product/ProductNormativeMetricImportPanel.vue'
 import ProductRuntimeMetricDisplayRulePanel from '@/components/product/ProductRuntimeMetricDisplayRulePanel.vue'
 import ProductVendorMappingRuleLedgerPanel from '@/components/product/ProductVendorMappingRuleLedgerPanel.vue'
 import ProductVendorMappingSuggestionPanel from '@/components/product/ProductVendorMappingSuggestionPanel.vue'
@@ -1152,6 +1188,13 @@ interface RelationMappingRow {
 }
 
 type GovernanceStepActionKey = 'ledger' | 'contract' | 'risk-point' | 'rule' | 'edit'
+type CompareGovernanceTarget = 'mapping-rule' | 'runtime-display-rule'
+
+interface CompareGovernanceActionPayload {
+  key: string
+  target: CompareGovernanceTarget
+  rawIdentifier: string
+}
 
 interface GovernanceStepCard {
   key: string
@@ -1249,12 +1292,16 @@ const activeType = ref<ProductModelType>('property')
 const sampleStageRef = ref<HTMLElement | null>(null)
 const versionLedgerStageRef = ref<HTMLElement | null>(null)
 const formalFieldStageRef = ref<HTMLElement | null>(null)
+const runtimeDisplayRuleStageRef = ref<HTMLElement | null>(null)
+const vendorSuggestionStageRef = ref<HTMLElement | null>(null)
 const applyApprovalLoading = ref(false)
 const rollbackApprovalLoading = ref(false)
 const applyResubmitLoading = ref(false)
 const rollbackResubmitLoading = ref(false)
 const vendorSuggestionRefreshToken = ref(0)
 const showSuggestionRefreshHint = ref(false)
+const runtimeDisplayFocusRawIdentifier = ref('')
+const runtimeDisplayFocusToken = ref(0)
 const renamingModelId = ref<IdType | null>(null)
 const renamingModelName = ref('')
 const renamingModelUnit = ref('')
@@ -1267,6 +1314,12 @@ const formalModelCardRefs = new Map<string, HTMLElement>()
 
 const compareRows = computed<ProductModelGovernanceCompareRow[]>(() => compareResult.value?.compareRows ?? [])
 const activeModels = computed(() => models.value.filter((model) => model.modelType === activeType.value))
+const formalPropertyIdentifiers = computed(() =>
+  models.value
+    .filter((model) => model.modelType === 'property')
+    .map((model) => model.identifier?.trim())
+    .filter((identifier): identifier is string => Boolean(identifier))
+)
 const comparisonLedgerRows = computed(() =>
   releaseLedgerRows.value.filter((batch) => !isSameId(batch.id ?? null, selectedLedgerBatchId.value))
 )
@@ -1280,7 +1333,7 @@ const selectedApplyEntries = computed(() =>
   compareRows.value
     .map((row) => ({ row, decision: decisionState.value[rowKey(row)] }))
     .filter((item): item is { row: ProductModelGovernanceCompareRow; decision: ProductModelGovernanceDecision } =>
-      item.decision === 'create' || item.decision === 'update'
+      (item.decision === 'create' || item.decision === 'update') && !isNormativeApplyBlocked(item.row)
     )
     .map(({ row, decision }) => ({
       key: rowKey(row),
@@ -2339,6 +2392,38 @@ function focusVersionLedgerStage() {
   })
 }
 
+function focusRuntimeDisplayRuleStage() {
+  nextTick(() => {
+    const stage = runtimeDisplayRuleStageRef.value
+    if (stage && typeof stage.scrollIntoView === 'function') {
+      stage.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    const field = stage?.querySelector('[data-testid="runtime-display-rule-display-name"], input') as HTMLElement | null
+    field?.focus?.()
+  })
+}
+
+function focusVendorSuggestionStage(rawIdentifier?: string) {
+  const normalizedRawIdentifier = rawIdentifier?.trim() ?? ''
+  if (normalizedRawIdentifier) {
+    router.replace({
+      path: route.path,
+      query: {
+        ...(route.query ?? {}),
+        rawIdentifier: normalizedRawIdentifier,
+        source: 'contract-compare',
+        governanceTarget: 'mapping-rule'
+      }
+    })
+  }
+  nextTick(() => {
+    const stage = vendorSuggestionStageRef.value
+    if (stage && typeof stage.scrollIntoView === 'function') {
+      stage.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
+
 function openRiskPointWorkbench() {
   void router.push({ path: '/risk-point' })
 }
@@ -2540,6 +2625,12 @@ async function handleCompare() {
 }
 
 function defaultDecisionForRow(row: ProductModelGovernanceCompareRow): GovernanceDecisionUi {
+  if (row.normativeMatchStatus === 'AMBIGUOUS') {
+    return 'review'
+  }
+  if (row.normativeMatchStatus === 'MISSED') {
+    return 'observe'
+  }
   switch (row.compareStatus) {
     case 'double_aligned':
       return 'create'
@@ -2553,6 +2644,10 @@ function defaultDecisionForRow(row: ProductModelGovernanceCompareRow): Governanc
     default:
       return 'observe'
   }
+}
+
+function isNormativeApplyBlocked(row: ProductModelGovernanceCompareRow) {
+  return row.normativeMatchStatus === 'AMBIGUOUS' || row.normativeMatchStatus === 'MISSED'
 }
 
 function buildApplyItem(row: ProductModelGovernanceCompareRow, decision: ProductModelGovernanceDecision): ProductModelGovernanceApplyItem {
@@ -2580,6 +2675,30 @@ function handleDecisionChange(payload: { key: string; decision: GovernanceDecisi
     ...decisionState.value,
     [payload.key]: payload.decision
   }
+}
+
+function handleCompareGovernanceAction(payload: CompareGovernanceActionPayload) {
+  const rawIdentifier = payload.rawIdentifier?.trim()
+  if (!rawIdentifier) {
+    return
+  }
+  if (payload.target === 'mapping-rule') {
+    focusVendorSuggestionStage(rawIdentifier)
+    return
+  }
+  runtimeDisplayFocusRawIdentifier.value = rawIdentifier
+  runtimeDisplayFocusToken.value += 1
+  router.replace({
+    path: route.path,
+    query: {
+      ...(route.query ?? {}),
+      rawIdentifier,
+      runtimeGovernanceDraft: '1',
+      source: 'contract-compare',
+      governanceTarget: 'runtime-display-rule'
+    }
+  })
+  focusRuntimeDisplayRuleStage()
 }
 
 async function handleApply() {
@@ -2768,18 +2887,12 @@ function handleVendorSuggestionAccepted(_payload?: unknown) {
   showSuggestionRefreshHint.value = true
 }
 
-function handleCandidateGoAccept() {
-  const suggestionSection = document.querySelector('[data-testid="contract-field-vendor-suggestions"]');
-  if (suggestionSection) {
-    suggestionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+function handleCandidateGoAccept(payload?: { rawIdentifier?: string | null }) {
+  focusVendorSuggestionStage(payload?.rawIdentifier ?? undefined)
 }
 
 function handleCandidateViewAll() {
-  const suggestionSection = document.querySelector('[data-testid="contract-field-vendor-suggestions"]');
-  if (suggestionSection) {
-    suggestionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  focusVendorSuggestionStage()
 }
 
 function resetVersionLedger() {

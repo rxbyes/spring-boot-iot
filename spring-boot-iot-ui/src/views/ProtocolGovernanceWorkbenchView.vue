@@ -39,8 +39,9 @@
               <p>编辑态仍按 `familyCode` 作为业务键保存；如修改编码，将按新的协议族草稿写入。</p>
             </div>
             <div class="protocol-governance-workbench__actions">
-              <StandardButton action="reset" @click="resetFamilyDraft">清空草稿</StandardButton>
+              <StandardButton v-permission="'iot:protocol-governance:family-draft'" action="reset" @click="resetFamilyDraft">清空草稿</StandardButton>
               <StandardButton
+                v-permission="'iot:protocol-governance:family-draft'"
                 action="confirm"
                 data-testid="protocol-family-save"
                 :disabled="familySaving"
@@ -116,6 +117,7 @@
             <span>{{ `已选 ${selectedFamilyIds.length} 项` }}</span>
             <div class="protocol-governance-workbench__actions">
               <StandardButton
+                v-permission="'iot:protocol-governance:family-publish'"
                 data-testid="protocol-family-batch-submit-publish"
                 :disabled="selectedFamilyIds.length === 0 || familyBatchSubmitting"
                 @click="handleSubmitFamilyBatchPublish"
@@ -123,6 +125,7 @@
                 {{ familyBatchSubmitting ? '提交中...' : '批量提交发布审批' }}
               </StandardButton>
               <StandardButton
+                v-permission="'iot:protocol-governance:family-rollback'"
                 data-testid="protocol-family-batch-submit-rollback"
                 :disabled="selectedFamilyIds.length === 0 || familyBatchSubmitting"
                 @click="handleSubmitFamilyBatchRollback"
@@ -159,6 +162,7 @@
               </div>
               <div class="protocol-governance-workbench__actions">
                 <StandardButton
+                  v-permission="'iot:protocol-governance:family-draft'"
                   :data-testid="`protocol-family-edit-${row.id}`"
                   action="default"
                   @click="applyFamilyDraft(row)"
@@ -174,6 +178,7 @@
                   {{ familyDetailLoadingKey === `family-${row.id}` ? '加载中...' : '查看详情' }}
                 </StandardButton>
                 <StandardButton
+                  v-permission="'iot:protocol-governance:family-publish'"
                   :data-testid="`protocol-family-submit-publish-${row.id}`"
                   :disabled="row.id == null || submittingKey === `family-publish-${row.id}`"
                   @click="handleSubmitFamilyPublish(row)"
@@ -181,6 +186,7 @@
                   {{ submittingKey === `family-publish-${row.id}` ? '提交中...' : '提交发布审批' }}
                 </StandardButton>
                 <StandardButton
+                  v-permission="'iot:protocol-governance:family-rollback'"
                   :data-testid="`protocol-family-submit-rollback-${row.id}`"
                   :disabled="
                     row.id == null ||
@@ -212,8 +218,9 @@
               <p>解密档案编辑同样按 `profileCode` 落草稿，便于共享环境快速维护供应商密钥配置。</p>
             </div>
             <div class="protocol-governance-workbench__actions">
-              <StandardButton action="reset" @click="resetDecryptProfileDraft">清空草稿</StandardButton>
+              <StandardButton v-permission="'iot:protocol-governance:decrypt-draft'" action="reset" @click="resetDecryptProfileDraft">清空草稿</StandardButton>
               <StandardButton
+                v-permission="'iot:protocol-governance:decrypt-draft'"
                 action="confirm"
                 data-testid="protocol-profile-save"
                 :disabled="decryptProfileSaving"
@@ -290,6 +297,7 @@
             </div>
             <div class="protocol-governance-workbench__actions">
               <StandardButton
+                v-permission="'iot:protocol-governance:decrypt-preview'"
                 action="confirm"
                 data-testid="protocol-preview-submit"
                 :disabled="previewLoading"
@@ -298,6 +306,7 @@
                 {{ previewLoading ? '试算中...' : '运行试算' }}
               </StandardButton>
               <StandardButton
+                v-permission="'iot:protocol-governance:decrypt-replay'"
                 action="default"
                 data-testid="protocol-replay-submit"
                 :disabled="replayLoading"
@@ -361,6 +370,7 @@
             <span>{{ `已选 ${selectedDecryptProfileIds.length} 项` }}</span>
             <div class="protocol-governance-workbench__actions">
               <StandardButton
+                v-permission="'iot:protocol-governance:decrypt-publish'"
                 data-testid="protocol-profile-batch-submit-publish"
                 :disabled="selectedDecryptProfileIds.length === 0 || decryptProfileBatchSubmitting"
                 @click="handleSubmitDecryptProfileBatchPublish"
@@ -368,6 +378,7 @@
                 {{ decryptProfileBatchSubmitting ? '提交中...' : '批量提交发布审批' }}
               </StandardButton>
               <StandardButton
+                v-permission="'iot:protocol-governance:decrypt-rollback'"
                 data-testid="protocol-profile-batch-submit-rollback"
                 :disabled="selectedDecryptProfileIds.length === 0 || decryptProfileBatchSubmitting"
                 @click="handleSubmitDecryptProfileBatchRollback"
@@ -404,6 +415,7 @@
               </div>
               <div class="protocol-governance-workbench__actions">
                 <StandardButton
+                  v-permission="'iot:protocol-governance:decrypt-draft'"
                   :data-testid="`protocol-profile-edit-${row.id}`"
                   action="default"
                   @click="applyDecryptProfileDraft(row)"
@@ -419,6 +431,7 @@
                   {{ decryptProfileDetailLoadingKey === `profile-${row.id}` ? '加载中...' : '查看详情' }}
                 </StandardButton>
                 <StandardButton
+                  v-permission="'iot:protocol-governance:decrypt-publish'"
                   :data-testid="`protocol-profile-submit-publish-${row.id}`"
                   :disabled="row.id == null || submittingKey === `profile-publish-${row.id}`"
                   @click="handleSubmitDecryptProfilePublish(row)"
@@ -426,6 +439,7 @@
                   {{ submittingKey === `profile-publish-${row.id}` ? '提交中...' : '提交发布审批' }}
                 </StandardButton>
                 <StandardButton
+                  v-permission="'iot:protocol-governance:decrypt-rollback'"
                   :data-testid="`protocol-profile-submit-rollback-${row.id}`"
                   :disabled="
                     row.id == null ||
@@ -457,8 +471,9 @@
               <p>模板草稿当前按 `templateCode` 作为业务键保存，先服务治理校验和后续解释执行接入。</p>
             </div>
             <div class="protocol-governance-workbench__actions">
-              <StandardButton action="reset" @click="resetTemplateDraft">清空草稿</StandardButton>
+              <StandardButton v-permission="'iot:protocol-governance:template-draft'" action="reset" @click="resetTemplateDraft">清空草稿</StandardButton>
               <StandardButton
+                v-permission="'iot:protocol-governance:template-draft'"
                 action="confirm"
                 data-testid="protocol-template-save"
                 :disabled="templateSaving"
@@ -535,6 +550,7 @@
             </div>
             <div class="protocol-governance-workbench__actions">
               <StandardButton
+                v-permission="'iot:protocol-governance:template-replay'"
                 action="default"
                 data-testid="protocol-template-replay-submit"
                 :disabled="templateReplayLoading"
@@ -595,6 +611,7 @@
               </div>
               <div class="protocol-governance-workbench__actions">
                 <StandardButton
+                  v-permission="'iot:protocol-governance:template-draft'"
                   :data-testid="`protocol-template-edit-${row.id}`"
                   action="default"
                   @click="applyTemplateDraft(row)"
@@ -610,6 +627,7 @@
                   {{ templateDetailLoadingKey === `template-${row.id}` ? '加载中...' : '查看详情' }}
                 </StandardButton>
                 <StandardButton
+                  v-permission="'iot:protocol-governance:template-publish'"
                   :data-testid="`protocol-template-publish-${row.id}`"
                   :disabled="row.id == null || submittingKey === `template-publish-${row.id}`"
                   @click="handlePublishTemplate(row)"

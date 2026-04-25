@@ -22,6 +22,8 @@ import com.ghlzm.iot.device.vo.DevicePageVO;
 import com.ghlzm.iot.device.vo.DeviceReplaceResultVO;
 import com.ghlzm.iot.device.vo.DeviceSecretRotateResultVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -45,24 +47,31 @@ public class DeviceController {
     private final DeviceService deviceService;
     private final DeviceSecretCustodyService deviceSecretCustodyService;
     private final DeviceOnboardingActivationService deviceOnboardingActivationService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public DeviceController(DeviceService deviceService,
                             DeviceSecretCustodyService deviceSecretCustodyService,
-                            DeviceOnboardingActivationService deviceOnboardingActivationService) {
+                            DeviceOnboardingActivationService deviceOnboardingActivationService,
+                            GovernancePermissionGuard permissionGuard) {
         this.deviceService = deviceService;
         this.deviceSecretCustodyService = deviceSecretCustodyService;
         this.deviceOnboardingActivationService = deviceOnboardingActivationService;
+        this.permissionGuard = permissionGuard;
     }
 
     @PostMapping("/api/device/add")
     public R<DeviceDetailVO> add(@RequestBody @Valid DeviceAddDTO dto, Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "新增设备", GovernancePermissionCodes.DEVICE_ADD);
         // 设备创建逻辑放在服务层，控制层仅做参数接收。
-        return R.ok(deviceService.addDevice(requireCurrentUserId(authentication), dto));
+        return R.ok(deviceService.addDevice(currentUserId, dto));
     }
 
     @PostMapping("/api/device/batch-add")
     public R<DeviceBatchAddResultVO> batchAdd(@RequestBody @Valid DeviceBatchAddDTO dto, Authentication authentication) {
-        return R.ok(deviceService.batchAddDevices(requireCurrentUserId(authentication), dto.getItems()));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "批量导入设备", GovernancePermissionCodes.DEVICE_IMPORT);
+        return R.ok(deviceService.batchAddDevices(currentUserId, dto.getItems()));
     }
 
     @GetMapping("/api/device/{id}")
@@ -115,19 +124,25 @@ public class DeviceController {
     @PostMapping("/api/device/onboarding/batch-activate")
     public R<DeviceOnboardingBatchResultVO> batchActivate(@RequestBody @Valid DeviceOnboardingBatchActivateDTO dto,
                                                           Authentication authentication) {
-        return R.ok(deviceOnboardingActivationService.activate(requireCurrentUserId(authentication), dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "批量转正式设备", GovernancePermissionCodes.DEVICE_IMPORT);
+        return R.ok(deviceOnboardingActivationService.activate(currentUserId, dto));
     }
 
     @PutMapping("/api/device/{id}")
     public R<DeviceDetailVO> update(@PathVariable("id") Long id, @RequestBody @Valid DeviceAddDTO dto, Authentication authentication) {
-        return R.ok(deviceService.updateDevice(requireCurrentUserId(authentication), id, dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "编辑设备", GovernancePermissionCodes.DEVICE_UPDATE);
+        return R.ok(deviceService.updateDevice(currentUserId, id, dto));
     }
 
     @PostMapping("/api/device/{id}/replace")
     public R<DeviceReplaceResultVO> replace(@PathVariable("id") Long id,
                                             @RequestBody @Valid DeviceReplaceDTO dto,
                                             Authentication authentication) {
-        return R.ok(deviceService.replaceDevice(requireCurrentUserId(authentication), id, dto));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "更换设备", GovernancePermissionCodes.DEVICE_REPLACE);
+        return R.ok(deviceService.replaceDevice(currentUserId, id, dto));
     }
 
     @PostMapping("/api/device/{id}/secret-rotate")
@@ -135,8 +150,10 @@ public class DeviceController {
                                                       @RequestBody @Valid DeviceSecretRotateDTO dto,
                                                       @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
                                                       Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "设备密钥轮换", GovernancePermissionCodes.SECRET_CUSTODY_ROTATE);
         return R.ok(deviceSecretCustodyService.rotateDeviceSecret(
-                requireCurrentUserId(authentication),
+                currentUserId,
                 id,
                 approverUserId,
                 dto
@@ -145,13 +162,17 @@ public class DeviceController {
 
     @DeleteMapping("/api/device/{id}")
     public R<Void> delete(@PathVariable("id") Long id, Authentication authentication) {
-        deviceService.deleteDevice(requireCurrentUserId(authentication), id);
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "删除设备", GovernancePermissionCodes.DEVICE_DELETE);
+        deviceService.deleteDevice(currentUserId, id);
         return R.ok();
     }
 
     @PostMapping("/api/device/batch-delete")
     public R<Void> batchDelete(@RequestBody @Valid DeviceBatchDeleteDTO dto, Authentication authentication) {
-        deviceService.batchDeleteDevices(requireCurrentUserId(authentication), dto.getIds());
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(currentUserId, "批量删除设备", GovernancePermissionCodes.DEVICE_DELETE);
+        deviceService.batchDeleteDevices(currentUserId, dto.getIds());
         return R.ok();
     }
 

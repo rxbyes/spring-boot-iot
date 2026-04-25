@@ -1943,81 +1943,6 @@
     {
       "columns": [
         {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
-          "name": "id"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
-          "name": "tenant_id"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `device_id` BIGINT NOT NULL COMMENT '设备ID'",
-          "name": "device_id"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `product_id` BIGINT DEFAULT NULL COMMENT '产品ID'",
-          "name": "product_id"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `message_type` VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）'",
-          "name": "message_type"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `topic` VARCHAR(255) DEFAULT NULL COMMENT '主题'",
-          "name": "topic"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `payload` JSON DEFAULT NULL COMMENT '原始消息'",
-          "name": "payload"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `report_time` DATETIME NOT NULL COMMENT '上报时间'",
-          "name": "report_time"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `trace_id` VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID'",
-          "name": "trace_id"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `device_code` VARCHAR(64) DEFAULT NULL COMMENT '设备编码'",
-          "name": "device_code"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `product_key` VARCHAR(64) DEFAULT NULL COMMENT '产品标识'",
-          "name": "product_key"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间'",
-          "name": "create_time"
-        }
-      ],
-      "createSql": "-- 表：iot_device_message_log\n-- 说明：设备消息日志表\nCREATE TABLE IF NOT EXISTS iot_device_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';",
-      "indexes": [
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD INDEX `idx_device_time` (`device_id`, `report_time`)",
-          "name": "idx_device_time"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD INDEX `idx_message_type` (`message_type`)",
-          "name": "idx_message_type"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD INDEX `idx_trace_id` (`trace_id`)",
-          "name": "idx_trace_id"
-        },
-        {
-          "addSql": "ALTER TABLE `iot_device_message_log` ADD INDEX `idx_device_code_time` (`device_code`, `report_time`)",
-          "name": "idx_device_code_time"
-        }
-      ],
-      "name": "iot_device_message_log",
-      "ownerModule": "spring-boot-iot-device",
-      "runtimeBootstrapMode": "schema_sync_managed",
-      "storageType": "mysql_table"
-    },
-    {
-      "columns": [
-        {
           "addSql": "ALTER TABLE `iot_device_metric_latest` ADD COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键'",
           "name": "id"
         },
@@ -2545,6 +2470,81 @@
         }
       ],
       "name": "iot_device_secret_rotation_log",
+      "ownerModule": "spring-boot-iot-device",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `device_id` BIGINT NOT NULL COMMENT '设备ID'",
+          "name": "device_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `product_id` BIGINT DEFAULT NULL COMMENT '产品ID'",
+          "name": "product_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `message_type` VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）'",
+          "name": "message_type"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `topic` VARCHAR(255) DEFAULT NULL COMMENT '主题'",
+          "name": "topic"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `payload` JSON DEFAULT NULL COMMENT '原始消息'",
+          "name": "payload"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `report_time` DATETIME NOT NULL COMMENT '上报时间'",
+          "name": "report_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `trace_id` VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID'",
+          "name": "trace_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `device_code` VARCHAR(64) DEFAULT NULL COMMENT '设备编码'",
+          "name": "device_code"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `product_key` VARCHAR(64) DEFAULT NULL COMMENT '产品标识'",
+          "name": "product_key"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间'",
+          "name": "create_time"
+        }
+      ],
+      "createSql": "-- 表：iot_message_log\n-- 说明：设备消息日志表\nCREATE TABLE IF NOT EXISTS iot_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD INDEX `idx_device_time` (`device_id`, `report_time`)",
+          "name": "idx_device_time"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD INDEX `idx_message_type` (`message_type`)",
+          "name": "idx_message_type"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD INDEX `idx_trace_id` (`trace_id`)",
+          "name": "idx_trace_id"
+        },
+        {
+          "addSql": "ALTER TABLE `iot_message_log` ADD INDEX `idx_device_code_time` (`device_code`, `report_time`)",
+          "name": "idx_device_code_time"
+        }
+      ],
+      "name": "iot_message_log",
       "ownerModule": "spring-boot-iot-device",
       "runtimeBootstrapMode": "schema_sync_managed",
       "storageType": "mysql_table"
@@ -4559,6 +4559,137 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `trace_id` VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID'",
+          "name": "trace_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `event_code` VARCHAR(128) NOT NULL COMMENT '业务事件编码'",
+          "name": "event_code"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `event_name` VARCHAR(128) DEFAULT NULL COMMENT '业务事件名称'",
+          "name": "event_name"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `domain_code` VARCHAR(64) NOT NULL COMMENT '业务域编码'",
+          "name": "domain_code"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `action_code` VARCHAR(64) NOT NULL COMMENT '业务动作编码'",
+          "name": "action_code"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `object_type` VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型'",
+          "name": "object_type"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `object_id` VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识'",
+          "name": "object_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `object_name` VARCHAR(255) DEFAULT NULL COMMENT '业务对象名称'",
+          "name": "object_name"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `actor_user_id` BIGINT DEFAULT NULL COMMENT '操作者用户ID'",
+          "name": "actor_user_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `actor_name` VARCHAR(64) DEFAULT NULL COMMENT '操作者名称'",
+          "name": "actor_name"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `result_status` VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '事件结果状态'",
+          "name": "result_status"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `source_type` VARCHAR(32) NOT NULL DEFAULT 'SYSTEM' COMMENT '事件来源类型'",
+          "name": "source_type"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `evidence_type` VARCHAR(64) DEFAULT NULL COMMENT '关联证据类型'",
+          "name": "evidence_type"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `evidence_id` VARCHAR(128) DEFAULT NULL COMMENT '关联证据标识'",
+          "name": "evidence_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `request_method` VARCHAR(16) DEFAULT NULL COMMENT '请求方法'",
+          "name": "request_method"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `request_uri` VARCHAR(255) DEFAULT NULL COMMENT '请求URI'",
+          "name": "request_uri"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `duration_ms` BIGINT DEFAULT NULL COMMENT '耗时毫秒'",
+          "name": "duration_ms"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `error_code` VARCHAR(64) DEFAULT NULL COMMENT '错误编码'",
+          "name": "error_code"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `error_message` VARCHAR(500) DEFAULT NULL COMMENT '错误摘要'",
+          "name": "error_message"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `metadata_json` JSON DEFAULT NULL COMMENT '事件扩展元数据'",
+          "name": "metadata_json"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `occurred_at` DATETIME NOT NULL COMMENT '事件发生时间'",
+          "name": "occurred_at"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：sys_business_event_log\n-- 说明：业务事件日志表\nCREATE TABLE IF NOT EXISTS sys_business_event_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  event_code VARCHAR(128) NOT NULL COMMENT '业务事件编码',\n  event_name VARCHAR(128) DEFAULT NULL COMMENT '业务事件名称',\n  domain_code VARCHAR(64) NOT NULL COMMENT '业务域编码',\n  action_code VARCHAR(64) NOT NULL COMMENT '业务动作编码',\n  object_type VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型',\n  object_id VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识',\n  object_name VARCHAR(255) DEFAULT NULL COMMENT '业务对象名称',\n  actor_user_id BIGINT DEFAULT NULL COMMENT '操作者用户ID',\n  actor_name VARCHAR(64) DEFAULT NULL COMMENT '操作者名称',\n  result_status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '事件结果状态',\n  source_type VARCHAR(32) NOT NULL DEFAULT 'SYSTEM' COMMENT '事件来源类型',\n  evidence_type VARCHAR(64) DEFAULT NULL COMMENT '关联证据类型',\n  evidence_id VARCHAR(128) DEFAULT NULL COMMENT '关联证据标识',\n  request_method VARCHAR(16) DEFAULT NULL COMMENT '请求方法',\n  request_uri VARCHAR(255) DEFAULT NULL COMMENT '请求URI',\n  duration_ms BIGINT DEFAULT NULL COMMENT '耗时毫秒',\n  error_code VARCHAR(64) DEFAULT NULL COMMENT '错误编码',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '错误摘要',\n  metadata_json JSON DEFAULT NULL COMMENT '事件扩展元数据',\n  occurred_at DATETIME NOT NULL COMMENT '事件发生时间',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_business_event_trace (trace_id),\n  KEY idx_business_event_domain_time (deleted, domain_code, occurred_at, id),\n  KEY idx_business_event_code_time (event_code, occurred_at),\n  KEY idx_business_event_object (object_type, object_id),\n  KEY idx_business_event_result_time (result_status, occurred_at)\n) COMMENT='业务事件日志表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD INDEX `idx_business_event_trace` (`trace_id`)",
+          "name": "idx_business_event_trace"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD INDEX `idx_business_event_domain_time` (`deleted`, `domain_code`, `occurred_at`, `id`)",
+          "name": "idx_business_event_domain_time"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD INDEX `idx_business_event_code_time` (`event_code`, `occurred_at`)",
+          "name": "idx_business_event_code_time"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD INDEX `idx_business_event_object` (`object_type`, `object_id`)",
+          "name": "idx_business_event_object"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_business_event_log` ADD INDEX `idx_business_event_result_time` (`result_status`, `occurred_at`)",
+          "name": "idx_business_event_result_time"
+        }
+      ],
+      "name": "sys_business_event_log",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `sys_dict` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
           "name": "id"
         },
@@ -5330,6 +5461,117 @@
     {
       "columns": [
         {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
+          "name": "id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `tenant_id` BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID'",
+          "name": "tenant_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `trace_id` VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID'",
+          "name": "trace_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `parent_span_id` BIGINT DEFAULT NULL COMMENT '父调用片段标识'",
+          "name": "parent_span_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `span_type` VARCHAR(64) NOT NULL COMMENT '调用片段类型'",
+          "name": "span_type"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `span_name` VARCHAR(128) NOT NULL COMMENT '调用片段名称'",
+          "name": "span_name"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `domain_code` VARCHAR(64) DEFAULT NULL COMMENT '业务域编码'",
+          "name": "domain_code"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `event_code` VARCHAR(128) DEFAULT NULL COMMENT '关联事件编码'",
+          "name": "event_code"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `object_type` VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型'",
+          "name": "object_type"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `object_id` VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识'",
+          "name": "object_id"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `transport_type` VARCHAR(32) DEFAULT NULL COMMENT '传输类型'",
+          "name": "transport_type"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '调用片段状态'",
+          "name": "status"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `duration_ms` BIGINT DEFAULT NULL COMMENT '耗时毫秒'",
+          "name": "duration_ms"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `started_at` DATETIME NOT NULL COMMENT '开始时间'",
+          "name": "started_at"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `finished_at` DATETIME DEFAULT NULL COMMENT '结束时间'",
+          "name": "finished_at"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `error_class` VARCHAR(255) DEFAULT NULL COMMENT '异常类型'",
+          "name": "error_class"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `error_message` VARCHAR(500) DEFAULT NULL COMMENT '异常摘要'",
+          "name": "error_message"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `tags_json` JSON DEFAULT NULL COMMENT '调用片段标签数据'",
+          "name": "tags_json"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'",
+          "name": "create_time"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记'",
+          "name": "deleted"
+        }
+      ],
+      "createSql": "-- 表：sys_observability_span_log\n-- 说明：可观测调用片段日志表\nCREATE TABLE IF NOT EXISTS sys_observability_span_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  parent_span_id BIGINT DEFAULT NULL COMMENT '父调用片段标识',\n  span_type VARCHAR(64) NOT NULL COMMENT '调用片段类型',\n  span_name VARCHAR(128) NOT NULL COMMENT '调用片段名称',\n  domain_code VARCHAR(64) DEFAULT NULL COMMENT '业务域编码',\n  event_code VARCHAR(128) DEFAULT NULL COMMENT '关联事件编码',\n  object_type VARCHAR(64) DEFAULT NULL COMMENT '业务对象类型',\n  object_id VARCHAR(128) DEFAULT NULL COMMENT '业务对象标识',\n  transport_type VARCHAR(32) DEFAULT NULL COMMENT '传输类型',\n  status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT '调用片段状态',\n  duration_ms BIGINT DEFAULT NULL COMMENT '耗时毫秒',\n  started_at DATETIME NOT NULL COMMENT '开始时间',\n  finished_at DATETIME DEFAULT NULL COMMENT '结束时间',\n  error_class VARCHAR(255) DEFAULT NULL COMMENT '异常类型',\n  error_message VARCHAR(500) DEFAULT NULL COMMENT '异常摘要',\n  tags_json JSON DEFAULT NULL COMMENT '调用片段标签数据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_observability_span_trace (trace_id),\n  KEY idx_observability_span_type_time (span_type, started_at),\n  KEY idx_observability_span_status_time (status, started_at),\n  KEY idx_observability_span_event (event_code, started_at),\n  KEY idx_observability_span_object (object_type, object_id)\n) COMMENT='可观测调用片段日志表';",
+      "indexes": [
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD INDEX `idx_observability_span_trace` (`trace_id`)",
+          "name": "idx_observability_span_trace"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD INDEX `idx_observability_span_type_time` (`span_type`, `started_at`)",
+          "name": "idx_observability_span_type_time"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD INDEX `idx_observability_span_status_time` (`status`, `started_at`)",
+          "name": "idx_observability_span_status_time"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD INDEX `idx_observability_span_event` (`event_code`, `started_at`)",
+          "name": "idx_observability_span_event"
+        },
+        {
+          "addSql": "ALTER TABLE `sys_observability_span_log` ADD INDEX `idx_observability_span_object` (`object_type`, `object_id`)",
+          "name": "idx_observability_span_object"
+        }
+      ],
+      "name": "sys_observability_span_log",
+      "ownerModule": "spring-boot-iot-system",
+      "runtimeBootstrapMode": "schema_sync_managed",
+      "storageType": "mysql_table"
+    },
+    {
+      "columns": [
+        {
           "addSql": "ALTER TABLE `sys_organization` ADD COLUMN `id` BIGINT NOT NULL COMMENT '主键'",
           "name": "id"
         },
@@ -5881,13 +6123,5 @@
       "storageType": "mysql_table"
     }
   ],
-  "views": [
-    {
-      "createOrReplaceSql": "-- 视图：iot_message_log\n-- 说明：设备消息日志兼容视图\nCREATE OR REPLACE VIEW iot_message_log AS\nSELECT id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time FROM iot_device_message_log;",
-      "name": "iot_message_log",
-      "ownerModule": "spring-boot-iot-device",
-      "runtimeBootstrapMode": "view_only",
-      "storageType": "mysql_view"
-    }
-  ]
+  "views": []
 }

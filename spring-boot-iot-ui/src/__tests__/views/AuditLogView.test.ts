@@ -12,6 +12,8 @@ import {
   getSystemErrorStats,
   pageLogs
 } from '@/api/auditLog';
+import { getTraceEvidence } from '@/api/observability';
+import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
   mockRoute: {
@@ -35,6 +37,10 @@ vi.mock('@/api/auditLog', () => ({
   deleteAuditLog: vi.fn(),
   getSystemErrorStats: vi.fn(),
   getBusinessAuditStats: vi.fn()
+}));
+
+vi.mock('@/api/observability', () => ({
+  getTraceEvidence: vi.fn()
 }));
 
 vi.mock('@/utils/confirm', () => ({
@@ -184,10 +190,26 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
   props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
   emits: ['command'],
+  setup(props) {
+    const resolvedActions = computed(() =>
+      splitWorkbenchRowActions({
+        directItems: props.directItems || [],
+        menuItems: props.menuItems || []
+      })
+    );
+    const resolvedDirectItems = computed(() => resolvedActions.value.directItems);
+    const resolvedMenuItems = computed(() => resolvedActions.value.menuItems);
+    const resolvedMenuLabel = computed(() => props.menuLabel || '更多');
+    return {
+      resolvedDirectItems,
+      resolvedMenuItems,
+      resolvedMenuLabel
+    };
+  },
   template: `
-    <div class="audit-log-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+    <div class="audit-log-row-actions-stub" :data-variant="variant" :data-menu-label="resolvedMenuLabel">
       <button
-        v-for="item in directItems || []"
+        v-for="item in resolvedDirectItems"
         :key="item.key || item.command"
         type="button"
         :disabled="Boolean(item.disabled)"
@@ -195,7 +217,17 @@ const StandardWorkbenchRowActionsStub = defineComponent({
       >
         {{ item.label }}
       </button>
-      <span class="audit-log-row-actions-stub__menu-count">{{ (menuItems || []).length }}</span>
+      <button v-if="resolvedMenuItems.length > 0" type="button">{{ resolvedMenuLabel }}</button>
+      <button
+        v-for="item in resolvedMenuItems"
+        :key="item.key || item.command"
+        type="button"
+        :disabled="Boolean(item.disabled)"
+        @click="$emit('command', item.command)"
+      >
+        {{ item.label }}
+      </button>
+      <span class="audit-log-row-actions-stub__menu-count">{{ resolvedMenuItems.length }}</span>
     </div>
   `
 });
@@ -232,6 +264,20 @@ const CsvColumnSettingDialogStub = defineComponent({
   name: 'CsvColumnSettingDialog',
   props: ['title'],
   template: '<section class="audit-log-csv-dialog-stub">{{ title }}</section>'
+});
+
+const StandardDetailDrawerStub = defineComponent({
+  name: 'StandardDetailDrawer',
+  props: ['title', 'modelValue', 'loading', 'errorMessage', 'empty', 'emptyText'],
+  template: `
+    <section v-if="modelValue" class="observability-evidence-drawer-stub">
+      <h2>{{ title }}</h2>
+      <p v-if="loading">loading</p>
+      <p v-else-if="errorMessage">{{ errorMessage }}</p>
+      <p v-else-if="empty">{{ emptyText }}</p>
+      <slot v-else />
+    </section>
+  `
 });
 
 const ElTableStub = defineComponent({
@@ -310,6 +356,7 @@ function mountView() {
         StandardPagination: StandardPaginationStub,
         AuditLogDetailDrawer: AuditLogDetailDrawerStub,
         CsvColumnSettingDialog: CsvColumnSettingDialogStub,
+        StandardDetailDrawer: StandardDetailDrawerStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub,
         ElInput: true,
@@ -334,6 +381,7 @@ describe('AuditLogView', () => {
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(getTraceEvidence).mockReset();
     vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
     vi.mocked(getSystemErrorStats).mockResolvedValue({
       code: 200,
@@ -364,6 +412,59 @@ describe('AuditLogView', () => {
         topOperationTypes: []
       }
     });
+    vi.mocked(getTraceEvidence).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        businessEvents: [
+          {
+            id: 10,
+            traceId: 'trace-001',
+            eventCode: 'product.contract.apply',
+            eventName: '合同生效',
+            domainCode: 'product',
+            actionCode: 'apply',
+            objectType: 'product_contract',
+            objectId: '20430001',
+            resultStatus: 'SUCCESS',
+            occurredAt: '2026-04-25 10:05:00'
+          }
+        ],
+        spans: [
+          {
+            id: 20,
+            traceId: 'trace-001',
+            spanType: 'SLOW_SQL',
+            spanName: 'Slow SQL',
+            status: 'SUCCESS',
+            durationMs: 1200,
+            startedAt: '2026-04-25 10:04:00'
+          }
+        ],
+        timeline: [
+          {
+            itemType: 'SPAN',
+            itemId: 20,
+            traceId: 'trace-001',
+            code: 'SLOW_SQL',
+            name: 'Slow SQL',
+            status: 'SUCCESS',
+            durationMs: 1200,
+            occurredAt: '2026-04-25 10:04:00'
+          },
+          {
+            itemType: 'BUSINESS_EVENT',
+            itemId: 10,
+            traceId: 'trace-001',
+            code: 'product.contract.apply',
+            name: '合同生效',
+            status: 'SUCCESS',
+            occurredAt: '2026-04-25 10:05:00'
+          }
+        ]
+      }
+    });
   });
 
   it('renders the anomaly page list-first without toolbar jump shortcuts or legacy eyebrow tiers', async () => {
@@ -385,11 +486,31 @@ describe('AuditLogView', () => {
     expect(rowActions.length).toBeGreaterThan(0);
     rowActions.forEach((item) => {
       expect(item.text()).toContain('详情');
+      expect(item.text()).toContain('证据');
       expect(item.text()).toContain('追踪');
       expect(item.text()).toContain('删除');
-      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('0');
-      expect(item.attributes('data-menu-label')).toBeUndefined();
+      expect(item.text()).toContain('更多');
+      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('1');
+      expect(item.attributes('data-menu-label')).toBe('更多');
     });
+  });
+
+  it('opens trace evidence drawer from system-log row actions', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '证据')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-001');
+    const drawer = wrapper.find('.observability-evidence-drawer-stub');
+    expect(drawer.exists()).toBe(true);
+    expect(drawer.text()).toContain('TraceId 证据包');
+    expect(drawer.text()).toContain('product.contract.apply');
+    expect(drawer.text()).toContain('SLOW_SQL');
+    expect(drawer.text()).toContain('1200 ms');
   });
 
   it('uses anomaly-oriented detail and export titles in system mode', async () => {
@@ -438,7 +559,7 @@ describe('AuditLogView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('160');
+    expect(actionColumn?.attributes('data-width')).toBe('200');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {

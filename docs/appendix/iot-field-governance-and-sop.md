@@ -3,7 +3,7 @@
 > 文档定位：面向业务人员的字段治理与建档联调补充指引。
 > 适用角色：业务、交付、实施、联调、运维。
 > 权威级别：附录补充；业务语义仍以 [../02-业务功能与流程说明.md](../02-业务功能与流程说明.md) 为准，交付边界仍以 [../21-业务功能清单与验收标准.md](../21-业务功能清单与验收标准.md) 与 [../19-第四阶段交付边界与复验进展.md](../19-第四阶段交付边界与复验进展.md) 为准。
-> 更新时间：2026-04-23
+> 更新时间：2026-04-25
 
 ## 1. 使用方式
 
@@ -18,6 +18,7 @@
 1. 先看“变形监测字段治理标准表”，明确监测内容、监测类型和字段集合。
 2. 再看“建档前准备”，确认产品、设备、物模型需要准备的录入信息。
 3. 联调时按“业务建档与联调 SOP”和“联调核对清单”逐项执行。
+4. 若附件规范新增了平台尚未内置的设备类型，先到 `/products/:productId/mapping-rules -> 规范字段库导入` 粘贴字段 JSON，完成预检且无冲突后再落库。
 
 ## 2. 变形监测字段治理标准表
 
@@ -41,6 +42,13 @@
    - telemetry 落库
    - 风险规则
    - 报表分析
+
+导入治理固定这样使用：
+
+1. 新设备类型的附件字段先整理为 JSON 数组，字段至少包含 `scenarioCode / deviceFamily / identifier / displayName / monitorContentCode / monitorTypeCode`。
+2. 先在 `/products/:productId/mapping-rules -> 规范字段库导入` 执行预检，确认没有缺必填、重复 `id` 或活动兜底键冲突。
+3. 预检通过后再确认导入；导入只写 `iot_normative_metric_definition`，不会直接生成当前产品正式字段。
+4. 规范字段导入后，再回到 `/products/:productId/contracts` 用真实样本执行 compare/apply，形成产品正式合同与后续风险目录治理。
 
 ### 2.2 首批字段标准
 
@@ -66,6 +74,8 @@
 3. 正式字段尚未形成前，如需先补中文名称或单位，统一到 `/products/:productId/mapping-rules -> 运行态名称/单位治理` 维护。
 4. 运行态治理只影响读侧展示，不会把 raw identifier 直接写成正式字段，也不会替代 `contracts` 页的 compare/apply。
 5. 对象洞察、属性快照和历史趋势当前统一按 `正式字段 > 运行态显示规则 > latest 属性 > raw identifier` 的顺序取展示信息。
+6. `contracts` compare 中的 `MISSED` 字段可直接跳到运行态名称/单位治理，并预填 raw identifier，便于先完成读侧可用性补齐。
+7. 如果运行态显示规则的 raw identifier 已经形成正式字段，应优先以正式字段为准；页面会提示“已被正式字段覆盖”，可快速停用临时显示规则。
 
 ### 2.4 字段分类规则
 
@@ -498,17 +508,19 @@
 1. 确认样本是否为 `1` 台设备 JSON，且样本类型已明确为 `business` 或 `status`。
 2. 先识别测点编码是否符合 `Lx_XX_n / Sx_XX_n`，并记录 `监测内容编码` 与 `监测类型编码`。
 3. 识别上报结构是“标量值”还是“对象叶子”，对象叶子需明确字段叶子（如 `value/temp/totalValue`）。
-4. 确认该产品是否已命中专用规范场景；未命中时，改走“编码前缀 + 叶子字段”兜底识别。
+4. 确认该产品是否已命中专用规范场景；未命中时，改走“编码前缀 + 叶子字段”兜底识别，并按 `MATCHED / AMBIGUOUS / MISSED` 三态记录结果。
 5. 对照当前正式字段，确认同一语义是否已存在正式 `identifier`，避免重复提炼为第二套标识。
-6. 首批已具备自动兜底能力的编码包括 `L3_QW.value`、`L3_YL.value/totalValue`、`L3_DB.temp/value`、`L4_NW.value` 与 `L4_LD.X/Y/Z/speed`；其中泥位计上报裸 `L4_NW_1` 时，正式字段应按 canonical `value` 治理，`L4_NW_1` 仅作为原始编码证据。
+6. 当前已具备自动兜底能力的编码包括 `L3_QW.value`、`L3_YL.value/totalValue`、`L3_DB.temp/value`、`L4_NW.value` 与 `L4_LD.X/Y/Z/speed`，并已按附件规范扩展 `L1_ZD.PLX/PLY/PLZ/value/SJX/SJY/SJZ/SJValue`、`L2_SF.amplitude/energy/ringing/risetime/risecount/duration/arrivaltime/RMS/ASL`、`L3_CJ.value`、`L3_QY.value` 与 `L4_BMLS.value`；其中泥位计上报裸 `L4_NW_1` 时，正式字段应按 canonical `value` 治理，`L4_NW_1` 仅作为原始编码证据。
+7. 新增或调整规范字段 seed 前，必须先确认 `id` 唯一，并确认活动定义按 `监测内容编码 / 监测类型编码 / identifier` 唯一；真实环境同步脚本会在写库前执行同一检查，发现重复会停止同步并输出冲突明细。
 
 **B. 提炼后检查（compare 结果与候选治理）**
 
-1. 核对 compare 行是否回填 `normativeIdentifier / normativeName / riskReady / rawIdentifiers`。
+1. 核对 compare 行是否回填 `normativeIdentifier / normativeName / riskReady / rawIdentifiers`，并展示命中来源、命中依据和候选项。
 2. 若同一语义出现两行（如 `L4_NW_1` 与 `L4_NW_1.value`，或裸编码与 canonical `value` 并存），必须先做语义归一再 apply。
-3. 核对 `resolvedContractIdentifierMode` 是否在同次 compare 内保持一致，避免手动样本与运行态补证标识风格分裂。
-4. 对无法自动命中的字段，使用手动提炼确认中文名、单位和归属，并同步评估是否需要新增映射规则或运行态显示规则。
-5. 对状态镜像字段（如 `S1_ZT_1.sensor_state.<logicalChannelCode>`），继续按状态治理语义处理，不把其误收口为业务测值字段。
+3. 若兜底结果为 `AMBIGUOUS`，不得自动选择 canonical，也不得默认计入待生效或提交审批；必须保留原始标识，并通过“去映射规则治理”把首个 `rawIdentifiers[]` 带到映射建议高亮。若为 `MISSED`，继续按待提炼/继续观察处理，并可通过“补名称/单位”把 raw identifier 带入运行态显示规则表单。
+4. 核对 `resolvedContractIdentifierMode` 是否在同次 compare 内保持一致，避免手动样本与运行态补证标识风格分裂。
+5. 对无法自动命中的字段，使用手动提炼确认中文名、单位和归属，并同步评估是否需要新增映射规则或运行态显示规则。
+6. 对状态镜像字段（如 `S1_ZT_1.sensor_state.<logicalChannelCode>`），继续按状态治理语义处理，不把其误收口为业务测值字段。
 
 **C. 发布前检查（合同发布与风险闭环）**
 
@@ -521,9 +533,11 @@
 补充口径：
 
 1. 新设备接入初期优先保证“能识别、可解释、可追溯”，不要求一次性把全部字段都纳入风险闭环。
-2. 若字段暂不进入正式合同，可先通过 `/products/:productId/mapping-rules` 的“运行态名称/单位治理”保障读侧可用。
-3. 一旦形成正式字段并发布，后续读侧展示与风险消费都应以正式字段真相为准，不再回退到临时别名。
-4. 运行态 `PAYLOAD_APPLY` 的编码兜底只在 published resolver snapshot、正式映射快照和草稿映射规则均未命中时触发；已有显式映射规则时，仍以发布快照或映射规则为准。
+2. 若字段暂不进入正式合同，可先通过 `/products/:productId/mapping-rules` 的“运行态名称/单位治理”保障读侧可用；从 compare 的 `MISSED` 行进入时，页面会自动带入 raw identifier。
+3. 若附件规范新增字段尚未进入平台种子，先通过 `/products/:productId/mapping-rules` 的“规范字段库导入”做预检和落库，再用真实样本走 `contracts` compare/apply。
+4. 一旦形成正式字段并发布，后续读侧展示与风险消费都应以正式字段真相为准，不再回退到临时别名。
+5. 运行态 `PAYLOAD_APPLY` 的编码兜底只在 published resolver snapshot、正式映射快照和草稿映射规则均未命中时触发；已有显式映射规则时，仍以发布快照或映射规则为准。
+6. 运行态规范库可使用轻量缓存减少重复读取，但缓存只服务兜底判定，不改变正式合同、发布批次或 resolver snapshot 真相。
 
 ### 2.10 调用接口时直接复用的请求体资产
 

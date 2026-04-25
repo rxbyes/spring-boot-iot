@@ -11,7 +11,7 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton action="add" @click="handleAdd">新增规则</StandardButton>
+        <StandardButton v-permission="'risk:linkage-rule:edit'" action="add" @click="handleAdd">新增规则</StandardButton>
       </template>
 
       <template #filters>
@@ -136,7 +136,7 @@
           <EmptyState :title="emptyStateTitle" :description="emptyStateDescription" />
           <div class="standard-list-empty-state__actions">
             <StandardButton v-if="hasAppliedFilters" action="reset" @click="handleClearAppliedFilters">清空筛选条件</StandardButton>
-            <StandardButton v-else action="add" @click="handleAdd">新增规则</StandardButton>
+            <StandardButton v-else v-permission="'risk:linkage-rule:edit'" action="add" @click="handleAdd">新增规则</StandardButton>
           </div>
         </div>
       </div>
@@ -413,8 +413,8 @@ const handleRefresh = () => {
 
 function getLinkageRowActions() {
   return [
-    { command: 'edit' as const, label: '编辑' },
-    { command: 'delete' as const, label: '删除' }
+    { command: 'edit' as const, label: '编辑', permission: 'risk:linkage-rule:edit' },
+    { command: 'delete' as const, label: '删除', permission: 'risk:linkage-rule:edit' }
   ];
 }
 

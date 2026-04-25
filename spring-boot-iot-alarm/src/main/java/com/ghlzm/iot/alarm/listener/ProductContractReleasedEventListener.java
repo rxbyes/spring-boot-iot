@@ -75,7 +75,12 @@ public class ProductContractReleasedEventListener {
         List<ProductModel> canonicalContracts = canonicalizeContractsForPublishRule(releasedContracts, snapshotPayload.snapshot());
         Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule == null
                 ? Set.of()
-                : riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(null, canonicalContracts);
+                : riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(
+                        null,
+                        event.scenarioCode(),
+                        null,
+                        canonicalContracts
+                );
         riskMetricCatalogService.publishFromReleasedContracts(
                 event.productId(),
                 event.releaseBatchId(),

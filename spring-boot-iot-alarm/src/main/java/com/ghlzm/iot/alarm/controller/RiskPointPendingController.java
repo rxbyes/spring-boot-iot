@@ -12,7 +12,10 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.vo.GovernanceSubmissionResultVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,13 +35,23 @@ public class RiskPointPendingController {
     private final RiskPointPendingBindingService pendingBindingService;
     private final RiskPointPendingRecommendationService pendingRecommendationService;
     private final RiskPointPendingPromotionService pendingPromotionService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public RiskPointPendingController(RiskPointPendingBindingService pendingBindingService,
                                       RiskPointPendingRecommendationService pendingRecommendationService,
                                       RiskPointPendingPromotionService pendingPromotionService) {
+        this(pendingBindingService, pendingRecommendationService, pendingPromotionService, null);
+    }
+
+    @Autowired
+    public RiskPointPendingController(RiskPointPendingBindingService pendingBindingService,
+                                      RiskPointPendingRecommendationService pendingRecommendationService,
+                                      RiskPointPendingPromotionService pendingPromotionService,
+                                      GovernancePermissionGuard permissionGuard) {
         this.pendingBindingService = pendingBindingService;
         this.pendingRecommendationService = pendingRecommendationService;
         this.pendingPromotionService = pendingPromotionService;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping("/pending-bindings")
@@ -69,14 +82,18 @@ public class RiskPointPendingController {
     public R<GovernanceSubmissionResultVO> promote(@PathVariable Long pendingId,
                                                    @RequestBody RiskPointPendingPromotionRequest request,
                                                    Authentication authentication) {
-        return R.ok(pendingPromotionService.submitPromotion(pendingId, request, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "待治理转正", GovernancePermissionCodes.RISK_POINT_PENDING_PROMOTION_EXECUTE);
+        return R.ok(pendingPromotionService.submitPromotion(pendingId, request, currentUserId));
     }
 
     @PostMapping("/pending-bindings/{pendingId}/ignore")
     public R<Void> ignore(@PathVariable Long pendingId,
                           @RequestBody RiskPointPendingIgnoreRequest request,
                           Authentication authentication) {
-        pendingPromotionService.ignore(pendingId, request, requireCurrentUserId(authentication));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "忽略待治理绑定", GovernancePermissionCodes.RISK_POINT_PENDING_PROMOTION_EXECUTE);
+        pendingPromotionService.ignore(pendingId, request, currentUserId);
         return R.ok();
     }
 
@@ -85,5 +102,11 @@ public class RiskPointPendingController {
             throw new BizException(401, "未认证，请先登录");
         }
         return principal.userId();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+        }
     }
 }

@@ -28,6 +28,19 @@ const PERMISSION_PREFIX_EXCLUDES = [
 const SOURCE_EXCLUDED_DIRS = new Set(['node_modules', 'target', 'logs', '.git', '__tests__', '__mocks__']);
 const SOURCE_EXTENSIONS = new Set(['.vue', '.ts', '.tsx']);
 const TEST_SOURCE_FILE_PATTERN = /(?:^|[./_-])(?:test|spec)\.(?:vue|tsx?|jsx?)$/i;
+const ACTION_BUTTON_COMPONENT_PATTERN = /<(StandardButton|StandardActionLink|button)\b([\s\S]*?)>([\s\S]*?)<\/\1>/g;
+const ACTION_BUTTON_LABEL_EXCLUDES = new Set([
+  '查询',
+  '重置',
+  '刷新列表',
+  '清空表单',
+  '取消编辑',
+  '清空选择',
+  '取消',
+  '关闭弹窗'
+]);
+const ACTION_BUTTON_KEYWORD_PATTERN = /(新增|创建|编辑|保存|删除|导入|导出|提交|发布|回滚|确认|阻塞|关闭|抑制|复盘|触发|批量|执行|生成|复制|刷新|套用|预填|应用|恢复默认|清空结果|查看原文|查看详情)/;
+const ACTION_CLICK_KEYWORD_PATTERN = /(?:^|[.(])(?:handle|submit|confirm|create|add|edit|save|delete|remove|import|export|publish|rollback|approve|reject|cancel|resubmit|dispatch|close|suppress|execute|trigger|batch|apply|promote|ignore|accept|disable|enable)[A-Z_('"]?/i;
 
 function sortValues(values) {
   return Array.from(values).sort((left, right) => left.localeCompare(right));
@@ -353,7 +366,166 @@ function parseSysMenuRows(sqlText) {
   return rows;
 }
 
-function buildAudit({ routePaths, workspacePaths, uiPermissionCodes, backendPermissionCodes, menuRows }) {
+function normalizeButtonLabel(content) {
+  const text = String(content || '');
+  const interpolationLabels = [];
+  for (const interpolation of text.matchAll(/\{\{([\s\S]*?)\}\}/g)) {
+    for (const literal of interpolation[1].matchAll(/(['"`])([^'"`]+)\1/g)) {
+      interpolationLabels.push(literal[2]);
+    }
+  }
+  return `${text} ${interpolationLabels.join(' ')}`
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\{\{[\s\S]*?\}\}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractClickExpression(attrs) {
+  const match = String(attrs || '').match(/@click(?:\.[\w-]+)*\s*=\s*(['"`])([\s\S]*?)\1/);
+  return match ? match[2].trim() : '';
+}
+
+function isLocalUiActionCandidate({ file, label, click }) {
+  const normalizedFile = String(file || '').replace(/\\/g, '/');
+  const normalizedLabel = String(label || '').trim();
+  const normalizedClick = String(click || '').trim();
+
+  if ([
+    'spring-boot-iot-ui/src/components/CsvColumnSettingDialog.vue',
+    'spring-boot-iot-ui/src/components/ResponsePanel.vue',
+    'spring-boot-iot-ui/src/components/StandardChoiceGroup.vue',
+    'spring-boot-iot-ui/src/components/StandardListFilterHeader.vue',
+    'spring-boot-iot-ui/src/components/iotAccess/IotAccessTabWorkspace.vue',
+    'spring-boot-iot-ui/src/components/product/ProductObjectInsightConfigEditor.vue',
+    'spring-boot-iot-ui/src/components/reporting/ReportingRecentDiagnosisList.vue'
+  ].includes(normalizedFile)) {
+    return true;
+  }
+
+  if (/^复制/.test(normalizedLabel) && /^(?:copy|handleCopy)[A-Z\w]*(?:\(|$)/.test(normalizedClick)) {
+    return true;
+  }
+  if (/^(清空筛选条件|重置筛选|返回列表|查看结果|重新填入草稿|查询台账|查询中\.\.\. 查询设备|分析中\.\.\. 开始分析|加载中\.\.\. 刷新数据)$/.test(normalizedLabel)) {
+    return true;
+  }
+  if (/^(?:handleClearAppliedFilters|handleReset|handleBackToList|handleSearch|handleQuery(?:Device)?|refreshAll|applyActionDraftComment|resetForm|handleOpenAcceptance)(?:\(|$)/.test(normalizedClick)
+    || /^handleNext(?:\(|$)/.test(normalizedClick)) {
+    return true;
+  }
+  if (/^handleLoad[A-Z]\w*Detail\(/.test(normalizedClick)) {
+    return true;
+  }
+  const isLocalCloseClick = /[Vv]isible\s*=\s*false/.test(normalizedClick)
+    || /update[A-Z\w]*Dialog\(false\)/.test(normalizedClick)
+    || /^emit\('(?:close|cancel)'/.test(normalizedClick);
+  if (/^(关闭|取消)/.test(normalizedLabel) && isLocalCloseClick) {
+    return true;
+  }
+  if (/导出列设置/.test(normalizedLabel) && /^open\w*ExportColumnSetting$/.test(normalizedClick)) {
+    return true;
+  }
+  if (/刷新/.test(normalizedLabel) && /^(?:handle(?:Bridge)?Refresh|handleRefreshMessageFlow|emit\('refresh(?:Commands)?'\)|\$emit\('refresh'\))$/.test(normalizedClick)) {
+    return true;
+  }
+
+  if (normalizedFile.endsWith('/ShellAccountDrawers.vue')
+    && ['updateAccountDialog(false)', 'submitProfileUpdate', 'submitChangePassword'].includes(normalizedClick)) {
+    return true;
+  }
+  if ((normalizedFile.endsWith('/ShellHelpCenterDrawer.vue') || normalizedFile.endsWith('/ShellNoticeCenterDrawer.vue'))
+    && /^emit\('(?:select|refresh|read|readAll)'/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/DeviceCapabilityExecuteDrawer.vue')
+    && /^(?:applyTemplate|saveCurrentAsFavorite|applyFavorite|applyCapabilityPreset|confirmFavoriteRename|deleteFavorite)(?:\(|$)/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/DeviceBatchImportDrawer.vue') && normalizedClick === 'triggerFileSelect') {
+    return true;
+  }
+  if (normalizedFile.endsWith('/DeviceCapabilityPanel.vue') && normalizedClick === "emit('refreshCommands')") {
+    return true;
+  }
+  if (normalizedFile.endsWith('/DeviceWorkbenchView.vue') && /^handleJumpToInsight\(/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ProductModelDesignerWorkspace.vue')
+    && /^(?:addRelationRow|handleGovernanceStepAction|selectLedgerBatch|selectComparisonBaselineBatch|handleDeviceStructureChange|handleLoadRelations|removeRelationRow|refresh(?:Rollback|Apply)ApprovalDetail)(?:\(|$)/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ProductRuntimeMetricDisplayRulePanel.vue') && /^startEdit\(/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ReportWorkbenchView.vue')
+    && /^(?:copyActualPayloadPreview|copyResponse|handleRefreshMessageFlow|syncTopic)$/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/RiskGisView.vue')
+    && (normalizedClick === 'handleSearch' || normalizedClick === 'handleRefresh')) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ProductDetailWorkbenchView.vue') && normalizedClick === 'handleRefresh') {
+    return true;
+  }
+  if (normalizedFile.endsWith('/HeaderPopoverPanel.vue') && normalizedClick === "$emit('select', item)") {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ProductDeviceMap.vue') && normalizedClick === 'handleRetry') {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ShellCommandPalette.vue') && normalizedClick === 'closePalette') {
+    return true;
+  }
+  if (normalizedFile.endsWith('/ReportWorkbenchView.vue') && /^applyTemplate\(/.test(normalizedClick)) {
+    return true;
+  }
+  if (normalizedFile.endsWith('/RiskPointView.vue')
+    && /^(?:handleBindingWorkbenchModeChange|handleSelectPendingRow)\(/.test(normalizedClick)) {
+    return true;
+  }
+
+  return false;
+}
+
+function extractUnguardedActionButtons(sourceText, absolutePath) {
+  const candidates = [];
+  const file = path.relative(repoRoot, absolutePath);
+  for (const match of sourceText.matchAll(ACTION_BUTTON_COMPONENT_PATTERN)) {
+    const attrs = match[2] || '';
+    if (!/@click(?:\.[\w-]+)*\s*=/.test(attrs) || /\bv-permission\b/.test(attrs)) {
+      continue;
+    }
+    const label = normalizeButtonLabel(match[3]);
+    const click = extractClickExpression(attrs);
+    if (
+      ACTION_BUTTON_LABEL_EXCLUDES.has(label)
+      || (!ACTION_BUTTON_KEYWORD_PATTERN.test(label) && !ACTION_CLICK_KEYWORD_PATTERN.test(click))
+    ) {
+      continue;
+    }
+    if (isLocalUiActionCandidate({ file, label, click })) {
+      continue;
+    }
+    candidates.push({
+      file,
+      line: sourceText.slice(0, match.index).split('\n').length,
+      component: match[1],
+      label,
+      click
+    });
+  }
+  return candidates;
+}
+
+function buildAudit({
+  routePaths,
+  workspacePaths,
+  uiPermissionCodes,
+  backendPermissionCodes,
+  menuRows,
+  unguardedActionButtonCandidates
+}) {
   const requiredRoutePaths = new Set([...routePaths, ...workspacePaths].map(normalizePath));
   for (const excludedPath of ROUTE_EXCLUDES) {
     requiredRoutePaths.delete(excludedPath);
@@ -371,6 +543,11 @@ function buildAudit({ routePaths, workspacePaths, uiPermissionCodes, backendPerm
       .filter((row) => (row.type === 0 || row.type === 1) && row.status === 1 && row.deleted === 0)
       .map((row) => row.path)
       .filter((rowPath) => rowPath && rowPath !== '/')
+  );
+  const activeRouteMenus = new Map(
+    menuRows
+      .filter((row) => (row.type === 0 || row.type === 1) && row.status === 1 && row.deleted === 0)
+      .map((row) => [row.path, row])
   );
   const activePermissionCodes = new Set(
     menuRows
@@ -393,7 +570,11 @@ function buildAudit({ routePaths, workspacePaths, uiPermissionCodes, backendPerm
   );
   const failures = [
     ...missingRoutePaths.map((routePath) => `missing route menu: ${routePath}`),
-    ...missingPermissionCodes.map((code) => `missing permission menu: ${code}`)
+    ...missingPermissionCodes.map((code) => `missing permission menu: ${code}`),
+    ...unguardedActionButtonCandidates.map((candidate) => {
+      const actionLabel = candidate.label || candidate.click || candidate.component;
+      return `unguarded action button: ${candidate.file}:${candidate.line} ${actionLabel}`;
+    })
   ].sort((left, right) => left.localeCompare(right));
 
   return {
@@ -406,11 +587,23 @@ function buildAudit({ routePaths, workspacePaths, uiPermissionCodes, backendPerm
       requiredPermissionCodes: requiredPermissionCodes.size,
       sysMenuRows: menuRows.length,
       activePageRows: activePagePaths.size,
-      activePermissionRows: activePermissionCodes.size
+      activePermissionRows: activePermissionCodes.size,
+      unguardedActionButtonCandidates: unguardedActionButtonCandidates.length
     },
+    coveredRouteMenus: sortValues([...requiredRoutePaths].filter((routePath) => activePagePaths.has(routePath)))
+      .map((routePath) => {
+        const row = activeRouteMenus.get(routePath);
+        return {
+          path: routePath,
+          menuName: row?.menuName || '',
+          menuCode: row?.menuCode || '',
+          visible: row?.visible ?? null
+        };
+      }),
     missingRoutePaths,
     missingPermissionCodes,
     softDeletedPermissionCodes,
+    unguardedActionButtonCandidates: unguardedActionButtonCandidates.slice(0, 80),
     failures
   };
 }
@@ -424,12 +617,14 @@ async function main() {
   const routePaths = extractRoutePaths(routerText);
   const workspacePaths = extractPathLiterals(sectionWorkspacesText);
   const uiPermissionCodes = new Set();
+  const unguardedActionButtonCandidates = [];
   const frontendSourceFiles = await listSourceFiles(path.join(repoRoot, 'spring-boot-iot-ui/src'));
   for (const sourceFile of frontendSourceFiles) {
     const sourceText = await readFile(sourceFile, 'utf8');
     for (const permissionCode of extractPermissionCodesFromSource(sourceText)) {
       uiPermissionCodes.add(permissionCode);
     }
+    unguardedActionButtonCandidates.push(...extractUnguardedActionButtons(sourceText, sourceFile));
   }
 
   const backendPermissionCodes = new Set();
@@ -445,7 +640,8 @@ async function main() {
     workspacePaths,
     uiPermissionCodes,
     backendPermissionCodes,
-    menuRows: parseSysMenuRows(sqlText)
+    menuRows: parseSysMenuRows(sqlText),
+    unguardedActionButtonCandidates
   });
 
   console.log(JSON.stringify(summary, null, 2));

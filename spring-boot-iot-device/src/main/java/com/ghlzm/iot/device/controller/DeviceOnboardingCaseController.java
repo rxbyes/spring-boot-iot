@@ -13,6 +13,8 @@ import com.ghlzm.iot.device.service.DeviceOnboardingCaseService;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseBatchResultVO;
 import com.ghlzm.iot.device.vo.DeviceOnboardingCaseVO;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,9 +33,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceOnboardingCaseController {
 
     private final DeviceOnboardingCaseService service;
+    private final GovernancePermissionGuard permissionGuard;
 
-    public DeviceOnboardingCaseController(DeviceOnboardingCaseService service) {
+    public DeviceOnboardingCaseController(DeviceOnboardingCaseService service,
+                                          GovernancePermissionGuard permissionGuard) {
         this.service = service;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping
@@ -44,13 +49,26 @@ public class DeviceOnboardingCaseController {
     @PostMapping
     public R<DeviceOnboardingCaseVO> createCase(@RequestBody @Valid DeviceOnboardingCaseCreateDTO dto,
                                                 Authentication authentication) {
-        return R.ok(service.createCase(dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例创建",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_CREATE_CASE
+        );
+        return R.ok(service.createCase(dto, currentUserId));
     }
 
     @PostMapping("/batch-create")
     public R<DeviceOnboardingCaseBatchResultVO> batchCreate(@RequestBody @Valid DeviceOnboardingCaseBatchCreateDTO dto,
                                                             Authentication authentication) {
-        return R.ok(service.batchCreateCases(dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例批量创建",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_BATCH_CREATE,
+                GovernancePermissionCodes.DEVICE_ONBOARDING_CREATE_CASE
+        );
+        return R.ok(service.batchCreateCases(dto, currentUserId));
     }
 
     @GetMapping("/{caseId}")
@@ -62,31 +80,62 @@ public class DeviceOnboardingCaseController {
     public R<DeviceOnboardingCaseVO> updateCase(@PathVariable Long caseId,
                                                 @RequestBody @Valid DeviceOnboardingCaseUpdateDTO dto,
                                                 Authentication authentication) {
-        return R.ok(service.updateCase(caseId, dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例编辑",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_UPDATE_CASE
+        );
+        return R.ok(service.updateCase(caseId, dto, currentUserId));
     }
 
     @PostMapping("/batch-apply-template")
     public R<DeviceOnboardingCaseBatchResultVO> batchApplyTemplate(
             @RequestBody @Valid DeviceOnboardingCaseBatchTemplateApplyDTO dto,
             Authentication authentication) {
-        return R.ok(service.batchApplyTemplatePack(dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例批量套用模板",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_BATCH_APPLY_TEMPLATE,
+                GovernancePermissionCodes.DEVICE_ONBOARDING_TEMPLATE_PACK
+        );
+        return R.ok(service.batchApplyTemplatePack(dto, currentUserId));
     }
 
     @PostMapping("/{caseId}/start-acceptance")
     public R<DeviceOnboardingCaseVO> startAcceptance(@PathVariable Long caseId, Authentication authentication) {
-        return R.ok(service.startAcceptance(caseId, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例触发验收",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_START_ACCEPTANCE
+        );
+        return R.ok(service.startAcceptance(caseId, currentUserId));
     }
 
     @PostMapping("/batch-start-acceptance")
     public R<DeviceOnboardingCaseBatchResultVO> batchStartAcceptance(
             @RequestBody @Valid DeviceOnboardingCaseBatchStartAcceptanceDTO dto,
             Authentication authentication) {
-        return R.ok(service.batchStartAcceptance(dto, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例批量触发验收",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_START_ACCEPTANCE
+        );
+        return R.ok(service.batchStartAcceptance(dto, currentUserId));
     }
 
     @PostMapping("/{caseId}/refresh-status")
     public R<DeviceOnboardingCaseVO> refreshStatus(@PathVariable Long caseId, Authentication authentication) {
-        return R.ok(service.refreshStatus(caseId, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireAnyPermission(
+                currentUserId,
+                "无代码接入案例刷新状态",
+                GovernancePermissionCodes.DEVICE_ONBOARDING_REFRESH_STATUS
+        );
+        return R.ok(service.refreshStatus(caseId, currentUserId));
     }
 
     private Long requireCurrentUserId(Authentication authentication) {

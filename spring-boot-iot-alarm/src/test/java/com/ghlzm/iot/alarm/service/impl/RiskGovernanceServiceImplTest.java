@@ -337,12 +337,18 @@ class RiskGovernanceServiceImplTest {
         value.setProductId(1001L);
         value.setModelType("property");
         value.setIdentifier("value");
+        value.setModelName("裂缝监测值");
         ProductModel sensorState = new ProductModel();
         sensorState.setId(3002L);
         sensorState.setProductId(1001L);
         sensorState.setModelType("property");
         sensorState.setIdentifier("sensor_state");
         when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("phase1-crack-p1");
+        product.setProductName("裂缝产品");
+        when(productMapper.selectById(any())).thenReturn(product);
 
         RiskMetricCatalog metricValue = new RiskMetricCatalog();
         metricValue.setId(9101L);
@@ -449,12 +455,18 @@ class RiskGovernanceServiceImplTest {
         value.setProductId(1001L);
         value.setModelType("property");
         value.setIdentifier("value");
+        value.setModelName("裂缝监测值");
         ProductModel sensorState = new ProductModel();
         sensorState.setId(3002L);
         sensorState.setProductId(1001L);
         sensorState.setModelType("property");
         sensorState.setIdentifier("sensor_state");
         when(productModelMapper.selectList(any())).thenReturn(List.of(value, sensorState));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("phase1-crack-p1");
+        product.setProductName("裂缝产品");
+        when(productMapper.selectById(any())).thenReturn(product);
 
         RiskMetricCatalog metricValue = new RiskMetricCatalog();
         metricValue.setId(9101L);

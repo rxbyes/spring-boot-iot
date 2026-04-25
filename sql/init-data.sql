@@ -239,7 +239,8 @@ INSERT INTO sys_menu (
     (93003403, 1, 93003010, '删除站内消息', 'system:in-app-message:delete', '', '', '', '{"caption":"删除站内消息按钮权限"}', 3903, 2, 2, '', 'system:in-app-message:delete', 3903, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003501, 1, 93003011, '新增帮助文档', 'system:help-doc:add', '', '', '', '{"caption":"新增帮助文档按钮权限"}', 4001, 2, 2, '', 'system:help-doc:add', 4001, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003502, 1, 93003011, '编辑帮助文档', 'system:help-doc:update', '', '', '', '{"caption":"编辑帮助文档按钮权限"}', 4002, 2, 2, '', 'system:help-doc:update', 4002, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003503, 1, 93003011, '删除帮助文档', 'system:help-doc:delete', '', '', '', '{"caption":"删除帮助文档按钮权限"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003503, 1, 93003011, '删除帮助文档', 'system:help-doc:delete', '', '', '', '{"caption":"删除帮助文档按钮权限"}', 4003, 2, 2, '', 'system:help-doc:delete', 4003, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003504, 1, 93003007, '删除审计日志', 'system:audit:delete', '', '', '', '{"caption":"删除审计日志按钮权限"}', 5404, 2, 2, '', 'system:audit:delete', 5404, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -326,12 +327,21 @@ INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
     route_path, permission, sort_no, visible, status, create_by, create_time, update_by, update_time, deleted
 ) VALUES
+    (93001071, 1, 93001008, '创建接入案例', 'iot:device-onboarding:create-case', '', '', '', '{"caption":"无代码接入台创建接入案例"}', 1071, 2, 2, '', 'iot:device-onboarding:create-case', 1071, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001072, 1, 93001008, '编辑接入案例', 'iot:device-onboarding:update-case', '', '', '', '{"caption":"无代码接入台编辑接入案例"}', 1072, 2, 2, '', 'iot:device-onboarding:update-case', 1072, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001073, 1, 93001008, '维护模板包', 'iot:device-onboarding:template-pack', '', '', '', '{"caption":"无代码接入台创建、编辑和预填模板包"}', 1073, 2, 2, '', 'iot:device-onboarding:template-pack', 1073, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001074, 1, 93001008, '批量创建案例', 'iot:device-onboarding:batch-create', '', '', '', '{"caption":"无代码接入台批量创建接入案例"}', 1074, 2, 2, '', 'iot:device-onboarding:batch-create', 1074, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001075, 1, 93001008, '批量套用模板', 'iot:device-onboarding:batch-apply-template', '', '', '', '{"caption":"无代码接入台批量套用模板包"}', 1075, 2, 2, '', 'iot:device-onboarding:batch-apply-template', 1075, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001076, 1, 93001008, '触发接入验收', 'iot:device-onboarding:start-acceptance', '', '', '', '{"caption":"无代码接入台单条或批量触发标准接入验收"}', 1076, 2, 2, '', 'iot:device-onboarding:start-acceptance', 1076, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001077, 1, 93001008, '刷新案例状态', 'iot:device-onboarding:refresh-status', '', '', '', '{"caption":"无代码接入台刷新接入案例步骤和状态"}', 1077, 2, 2, '', 'iot:device-onboarding:refresh-status', 1077, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001032, 1, 93001009, '协议族草稿', 'iot:protocol-governance:family-draft', '', '', '', '{"caption":"维护协议族定义草稿"}', 1132, 2, 2, '', 'iot:protocol-governance:family-draft', 1132, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001033, 1, 93001009, '协议族发布', 'iot:protocol-governance:family-publish', '', '', '', '{"caption":"提交协议族发布审批"}', 1133, 2, 2, '', 'iot:protocol-governance:family-publish', 1133, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001034, 1, 93001009, '协议族回滚', 'iot:protocol-governance:family-rollback', '', '', '', '{"caption":"提交协议族回滚审批"}', 1134, 2, 2, '', 'iot:protocol-governance:family-rollback', 1134, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001035, 1, 93001009, '解密档案草稿', 'iot:protocol-governance:decrypt-draft', '', '', '', '{"caption":"维护解密档案草稿"}', 1135, 2, 2, '', 'iot:protocol-governance:decrypt-draft', 1135, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001036, 1, 93001009, '解密命中试算', 'iot:protocol-governance:decrypt-preview', '', '', '', '{"caption":"查看解密命中试算结果"}', 1136, 2, 2, '', 'iot:protocol-governance:decrypt-preview', 1136, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001037, 1, 93001009, '解密回放', 'iot:protocol-governance:decrypt-replay', '', '', '', '{"caption":"执行解密链路回放"}', 1137, 2, 2, '', 'iot:protocol-governance:decrypt-replay', 1137, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001078, 1, 93001009, '解密档案发布', 'iot:protocol-governance:decrypt-publish', '', '', '', '{"caption":"提交解密档案发布审批"}', 1178, 2, 2, '', 'iot:protocol-governance:decrypt-publish', 1178, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001079, 1, 93001009, '解密档案回滚', 'iot:protocol-governance:decrypt-rollback', '', '', '', '{"caption":"提交解密档案回滚审批"}', 1179, 2, 2, '', 'iot:protocol-governance:decrypt-rollback', 1179, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001038, 1, 93001009, '协议模板草稿', 'iot:protocol-governance:template-draft', '', '', '', '{"caption":"维护协议模板草稿"}', 1138, 2, 2, '', 'iot:protocol-governance:template-draft', 1138, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001039, 1, 93001009, '模板回放', 'iot:protocol-governance:template-replay', '', '', '', '{"caption":"执行协议模板回放"}', 1139, 2, 2, '', 'iot:protocol-governance:template-replay', 1139, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001040, 1, 93001009, '模板发布', 'iot:protocol-governance:template-publish', '', '', '', '{"caption":"发布协议模板快照"}', 1140, 2, 2, '', 'iot:protocol-governance:template-publish', 1140, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -351,6 +361,7 @@ INSERT INTO sys_menu (
     (93001054, 1, 93001002, '导出当前结果', 'iot:devices:export-current', '', '', '', '{"caption":"导出当前筛选结果"}', 1254, 2, 2, '', 'iot:devices:export-current', 1254, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001055, 1, 93001002, '对象洞察跳转', 'iot:devices:insight', '', '', '', '{"caption":"从设备资产中心跳转对象洞察"}', 1255, 2, 2, '', 'iot:devices:insight', 1255, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001070, 1, 93001002, '设备操作', 'iot:device-capability:view', '', '', '', '{"caption":"打开设备操作抽屉并查看可执行能力"}', 1270, 2, 2, '', 'iot:device-capability:view', 1270, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001080, 1, 93001002, '设备命令下发', 'iot:device-capability:execute', '', '', '', '{"caption":"执行设备能力命令下发"}', 1280, 2, 2, '', 'iot:device-capability:execute', 1280, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001056, 1, 93001003, '结果复盘工作区', 'iot:reporting:replay-workspace', '', '', '', '{"caption":"切换结果复盘工作区"}', 1356, 2, 2, '', 'iot:reporting:replay-workspace', 1356, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001057, 1, 93001003, '模拟上报工作区', 'iot:reporting:simulate-workspace', '', '', '', '{"caption":"切换模拟上报工作区"}', 1357, 2, 2, '', 'iot:reporting:simulate-workspace', 1357, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001058, 1, 93001003, '最近会话工作区', 'iot:reporting:recent-workspace', '', '', '', '{"caption":"切换最近会话工作区"}', 1358, 2, 2, '', 'iot:reporting:recent-workspace', 1358, 1, 1, 1, NOW(), 1, NOW(), 0),
@@ -458,7 +469,14 @@ INSERT INTO sys_menu (
     (93003711, 1, 93003018, '重置计划', 'system:rd-automation-plans:reset', '', '', '', '{"caption":"恢复默认自动化计划"}', 5511, 2, 2, '', 'system:rd-automation-plans:reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003712, 1, 93003019, '复制命令', 'system:rd-automation-handoff:copy-command', '', '', '', '{"caption":"复制交付命令"}', 5612, 2, 2, '', 'system:rd-automation-handoff:copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003713, 1, 93003019, '导出计划文件', 'system:rd-automation-handoff:export-plan', '', '', '', '{"caption":"导出交付计划"}', 5613, 2, 2, '', 'system:rd-automation-handoff:export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003714, 1, 93003013, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003714, 1, 93003013, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003716, 1, 93003014, '刷新结果台账', 'system:automation-results:refresh', '', '', '', '{"caption":"刷新自动化结果运行台账"}', 5816, 2, 2, '', 'system:automation-results:refresh', 5816, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003717, 1, 93003014, '查看运行详情', 'system:automation-results:detail', '', '', '', '{"caption":"查看自动化结果运行详情"}', 5817, 2, 2, '', 'system:automation-results:detail', 5817, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003718, 1, 93003014, '查看证据原文', 'system:automation-results:evidence-preview', '', '', '', '{"caption":"查看自动化结果证据原文"}', 5818, 2, 2, '', 'system:automation-results:evidence-preview', 5818, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003719, 1, 93003014, '导入结果 JSON', 'system:automation-results:import-json', '', '', '', '{"caption":"兼容导入外部自动化结果 JSON"}', 5819, 2, 2, '', 'system:automation-results:import-json', 5819, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003720, 1, 93003014, '清空导入结果', 'system:automation-results:clear-import', '', '', '', '{"caption":"清空兼容导入的自动化结果"}', 5820, 2, 2, '', 'system:automation-results:clear-import', 5820, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003721, 1, 93003018, '编辑计划编排', 'system:rd-automation-plans:edit', '', '', '', '{"caption":"维护自动化计划场景、步骤、接口与变量捕获"}', 5521, 2, 2, '', 'system:rd-automation-plans:edit', 5521, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003722, 1, 93003016, '维护自定义页面', 'system:rd-automation-inventory:manual-page', '', '', '', '{"caption":"新增或删除页面盘点台人工补录页面"}', 5322, 2, 2, '', 'system:rd-automation-inventory:manual-page', 5322, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -539,6 +557,7 @@ FROM (
     UNION SELECT @role_management_id, 'system:governance-approval'
     UNION SELECT @role_management_id, 'system:governance-security'
     UNION SELECT @role_management_id, 'system:audit'
+    UNION SELECT @role_management_id, 'system:audit:delete'
     UNION SELECT @role_management_id, 'iot-access'
     UNION SELECT @role_management_id, 'iot-access:overview'
     UNION SELECT @role_management_id, 'iot:device-onboarding'
@@ -637,6 +656,9 @@ FROM (
     UNION SELECT @role_business_id, 'risk:event:close'
     UNION SELECT @role_business_id, 'system:business-acceptance:launch'
     UNION SELECT @role_business_id, 'system:business-acceptance:open-result'
+    UNION SELECT @role_business_id, 'system:automation-results:refresh'
+    UNION SELECT @role_business_id, 'system:automation-results:detail'
+    UNION SELECT @role_business_id, 'system:automation-results:evidence-preview'
     UNION SELECT @role_business_id, 'iot:products:export'
     UNION SELECT @role_business_id, 'iot:devices:detail'
     UNION SELECT @role_business_id, 'iot:devices:export'
@@ -652,6 +674,7 @@ FROM (
     UNION SELECT @role_ops_id, 'iot:devices:export-current'
     UNION SELECT @role_ops_id, 'iot:devices:insight'
     UNION SELECT @role_ops_id, 'iot:device-capability:view'
+    UNION SELECT @role_ops_id, 'iot:device-capability:execute'
     UNION SELECT @role_ops_id, 'iot:products:add'
     UNION SELECT @role_ops_id, 'iot:products:update'
     UNION SELECT @role_ops_id, 'iot:products:export'
@@ -663,6 +686,13 @@ FROM (
     UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:ledger'
     UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:preview'
     UNION SELECT @role_ops_id, 'iot:vendor-mapping-rule:replay'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:create-case'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:update-case'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:template-pack'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:batch-create'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:batch-apply-template'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:start-acceptance'
+    UNION SELECT @role_ops_id, 'iot:device-onboarding:refresh-status'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:edit'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:approve'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:family-draft'
@@ -671,6 +701,8 @@ FROM (
     UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-draft'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-preview'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-publish'
+    UNION SELECT @role_ops_id, 'iot:protocol-governance:decrypt-rollback'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:template-draft'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:template-replay'
     UNION SELECT @role_ops_id, 'iot:protocol-governance:template-publish'
@@ -693,6 +725,18 @@ FROM (
     UNION SELECT @role_ops_id, 'risk:event:detail'
     UNION SELECT @role_ops_id, 'risk:event:dispatch'
     UNION SELECT @role_ops_id, 'risk:event:close'
+    UNION SELECT @role_ops_id, 'system:governance-task:decision-context'
+    UNION SELECT @role_ops_id, 'system:governance-task:dispatch'
+    UNION SELECT @role_ops_id, 'system:governance-task:replay'
+    UNION SELECT @role_ops_id, 'system:governance-task:ack'
+    UNION SELECT @role_ops_id, 'system:governance-task:block'
+    UNION SELECT @role_ops_id, 'system:governance-task:close'
+    UNION SELECT @role_ops_id, 'system:governance-task:replay-feedback'
+    UNION SELECT @role_ops_id, 'system:governance-ops:replay'
+    UNION SELECT @role_ops_id, 'system:governance-ops:ack'
+    UNION SELECT @role_ops_id, 'system:governance-ops:suppress'
+    UNION SELECT @role_ops_id, 'system:governance-ops:close'
+    UNION SELECT @role_ops_id, 'system:governance-ops:replay-feedback'
     UNION SELECT @role_developer_id, 'iot:normative-library:write'
     UNION SELECT @role_developer_id, 'iot:products:add'
     UNION SELECT @role_developer_id, 'iot:products:update'
@@ -710,6 +754,14 @@ FROM (
     UNION SELECT @role_developer_id, 'iot:devices:export'
     UNION SELECT @role_developer_id, 'iot:devices:insight'
     UNION SELECT @role_developer_id, 'iot:device-capability:view'
+    UNION SELECT @role_developer_id, 'iot:device-capability:execute'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:create-case'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:update-case'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:template-pack'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:batch-create'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:batch-apply-template'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:start-acceptance'
+    UNION SELECT @role_developer_id, 'iot:device-onboarding:refresh-status'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:edit'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:family-draft'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:family-publish'
@@ -717,6 +769,8 @@ FROM (
     UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-draft'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-preview'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-replay'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-publish'
+    UNION SELECT @role_developer_id, 'iot:protocol-governance:decrypt-rollback'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:template-draft'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:template-replay'
     UNION SELECT @role_developer_id, 'iot:protocol-governance:template-publish'
@@ -735,15 +789,22 @@ FROM (
     UNION SELECT @role_developer_id, 'system:rd-automation-inventory:refresh'
     UNION SELECT @role_developer_id, 'system:rd-automation-inventory:select-uncovered'
     UNION SELECT @role_developer_id, 'system:rd-automation-inventory:generate-scaffold'
+    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:manual-page'
     UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-page-smoke'
     UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-form-submit'
     UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-list-detail'
     UNION SELECT @role_developer_id, 'system:rd-automation-plans:import'
     UNION SELECT @role_developer_id, 'system:rd-automation-plans:export'
     UNION SELECT @role_developer_id, 'system:rd-automation-plans:reset'
+    UNION SELECT @role_developer_id, 'system:rd-automation-plans:edit'
     UNION SELECT @role_developer_id, 'system:rd-automation-handoff:copy-command'
     UNION SELECT @role_developer_id, 'system:rd-automation-handoff:export-plan'
     UNION SELECT @role_developer_id, 'system:automation-execution:copy-command'
+    UNION SELECT @role_developer_id, 'system:automation-results:refresh'
+    UNION SELECT @role_developer_id, 'system:automation-results:detail'
+    UNION SELECT @role_developer_id, 'system:automation-results:evidence-preview'
+    UNION SELECT @role_developer_id, 'system:automation-results:import-json'
+    UNION SELECT @role_developer_id, 'system:automation-results:clear-import'
 ) grant_scope
 JOIN sys_menu m
   ON m.menu_code = grant_scope.menu_code
@@ -891,7 +952,67 @@ INSERT INTO iot_normative_metric_definition (
      JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'CONTEXT')),
     (920054, 1, 'phase6-radar', 'RADAR', 'speed', '雷达移动速度', 'm/s', 3, 'L4', 'LD', 0, 1,
      'speed', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
-     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'PRIMARY'))
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'RADAR', 'metricRole', 'PRIMARY')),
+    (920101, 1, 'phase1-vibration', 'VIBRATION', 'PLX', 'X 轴振动频率', 'Hz', 3, 'L1', 'ZD', 0, 1,
+     'frequency', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920102, 1, 'phase1-vibration', 'VIBRATION', 'PLY', 'Y 轴振动频率', 'Hz', 3, 'L1', 'ZD', 0, 1,
+     'frequency', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920103, 1, 'phase1-vibration', 'VIBRATION', 'PLZ', 'Z 轴振动频率', 'Hz', 3, 'L1', 'ZD', 0, 1,
+     'frequency', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920104, 1, 'phase1-vibration', 'VIBRATION', 'value', '振动幅度', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'vibration_amplitude', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'PRIMARY')),
+    (920105, 1, 'phase1-vibration', 'VIBRATION', 'SJX', 'X 轴瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920106, 1, 'phase1-vibration', 'VIBRATION', 'SJY', 'Y 轴瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920107, 1, 'phase1-vibration', 'VIBRATION', 'SJZ', 'Z 轴瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920108, 1, 'phase1-vibration', 'VIBRATION', 'SJValue', '合方向瞬时位移', 'mm', 3, 'L1', 'ZD', 0, 1,
+     'displacement', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'VIBRATION', 'metricRole', 'CONTEXT')),
+    (920109, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'amplitude', '地声幅度', 'dB', 2, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920110, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'energy', '地声能量', 'mV·ms', 2, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920111, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'ringing', '振铃计数', 'num.', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920112, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'risetime', '上升时间', 'μs', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920113, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'risecount', '上升计数', 'num.', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920114, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'duration', '持续时间', 'μs', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920115, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'arrivaltime', '到达时间', 'μs', 0, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920116, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'RMS', '有效值电压', 'V', 3, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920117, 1, 'phase2-acoustic-emission', 'ACOUSTIC_EMISSION', 'ASL', '平均信号电平', 'dB', 2, 'L2', 'SF', 0, 1,
+     'acoustic_emission', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'ACOUSTIC_EMISSION', 'metricRole', 'CONTEXT')),
+    (920118, 1, 'phase3-settlement', 'SETTLEMENT', 'value', '沉降量', 'mm', 3, 'L3', 'CJ', 0, 1,
+     'settlement', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'SETTLEMENT', 'metricRole', 'PRIMARY')),
+    (920119, 1, 'phase3-air-pressure', 'AIR_PRESSURE', 'value', '气压', 'kPa', 3, 'L3', 'QY', 0, 1,
+     'air_pressure', 'absolute', 'REFERENCE_ONLY', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'AIR_PRESSURE', 'metricRole', 'PRIMARY')),
+    (920120, 1, 'phase4-surface-flow-speed', 'SURFACE_FLOW_SPEED', 'value', '表面流速', 'm/s', 3, 'L4', 'BMLS', 0, 1,
+     'flow_speed', 'absolute', 'HIGHER_IS_RISKIER', 0, 1, 1, 'ACTIVE', 1,
+     JSON_OBJECT('thresholdKind', 'absolute', 'riskCategory', 'SURFACE_FLOW_SPEED', 'metricRole', 'PRIMARY'))
 ON DUPLICATE KEY UPDATE
     identifier = VALUES(identifier),
     display_name = VALUES(display_name),
@@ -961,7 +1082,7 @@ ON DUPLICATE KEY UPDATE
     report_time = VALUES(report_time),
     update_time = NOW();
 
-INSERT INTO iot_device_message_log (
+INSERT INTO iot_message_log (
     id, tenant_id, device_id, product_id, trace_id, device_code, product_key, message_type, topic, payload, report_time, create_time
 ) VALUES
     (5001, 1, 2001, 1001, 'trace-accept-http-0001', 'accept-http-device-01', 'accept-http-product-01', 'property', '/sys/accept-http-product-01/accept-http-device-01/thing/property/post',

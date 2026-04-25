@@ -189,6 +189,7 @@
     <template #footer>
       <StandardDrawerFooter
         :confirm-loading="submitting"
+        confirm-permission="iot:device-capability:execute"
         confirm-text="确认下发"
         @cancel="visible = false"
         @confirm="handleSubmit"

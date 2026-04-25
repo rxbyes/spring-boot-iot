@@ -54,8 +54,10 @@ class GeneratedSchemaManifestTest(unittest.TestCase):
         manifest = schema_sync.load_schema_sync_manifest()
         self.assertIn("sys_governance_approval_policy", manifest["createTableSql"])
         self.assertIn("iot_device_relation", manifest["createTableSql"])
+        self.assertIn("iot_message_log", manifest["createTableSql"])
+        self.assertNotIn("iot_device_message_log", manifest["createTableSql"])
         self.assertNotIn("risk_point_highway_detail", manifest["createTableSql"])
-        self.assertIn("iot_message_log", manifest["viewSql"])
+        self.assertNotIn("iot_device_message_log", manifest["viewSql"])
         self.assertEqual(
             manifest["tableLifecycle"]["risk_point_highway_detail"],
             "archived",
@@ -67,6 +69,59 @@ class GeneratedSchemaManifestTest(unittest.TestCase):
         self.assertEqual(schema_sync.COLUMNS_TO_ADD, manifest["columnsToAdd"])
         self.assertEqual(schema_sync.INDEXES_TO_ADD, manifest["indexesToAdd"])
         self.assertEqual(schema_sync.VIEW_SQL, manifest["viewSql"])
+
+
+class MessageLogMigrationCursor:
+    def __init__(self, legacy_table_type="BASE TABLE", target_table_type=None):
+        self.executed = []
+        self._last_sql = ""
+        self._last_params = None
+        self.legacy_table_type = legacy_table_type
+        self.target_table_type = target_table_type
+
+    def execute(self, sql, params=None):
+        self._last_sql = sql
+        self._last_params = params
+        self.executed.append((sql, params))
+
+    def fetchone(self):
+        if "FROM information_schema.TABLES" in self._last_sql and "TABLE_TYPE" in self._last_sql:
+            table = self._last_params[1]
+            if table == "iot_device_message_log":
+                return None if self.legacy_table_type is None else (self.legacy_table_type,)
+            if table == "iot_message_log":
+                return None if self.target_table_type is None else (self.target_table_type,)
+        raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
+
+
+class MessageLogPhysicalTableMigrationTest(unittest.TestCase):
+    def test_renames_legacy_physical_message_log_table_before_table_sync(self):
+        cursor = MessageLogMigrationCursor()
+
+        schema_sync.ensure_message_log_physical_table(cursor, "rm_iot")
+
+        self.assertIn(
+            ("RENAME TABLE `iot_device_message_log` TO `iot_message_log`", None),
+            cursor.executed,
+        )
+
+    def test_replaces_legacy_message_log_view_before_table_rename(self):
+        cursor = MessageLogMigrationCursor(target_table_type="VIEW")
+
+        schema_sync.ensure_message_log_physical_table(cursor, "rm_iot")
+
+        self.assertIn(("DROP VIEW `iot_message_log`", None), cursor.executed)
+        self.assertIn(
+            ("RENAME TABLE `iot_device_message_log` TO `iot_message_log`", None),
+            cursor.executed,
+        )
+
+    def test_drops_retired_legacy_message_log_view(self):
+        cursor = MessageLogMigrationCursor(legacy_table_type="VIEW", target_table_type="BASE TABLE")
+
+        schema_sync.ensure_message_log_physical_table(cursor, "rm_iot")
+
+        self.assertIn(("DROP VIEW `iot_device_message_log`", None), cursor.executed)
 
 
 class SchemaSyncCoverageTest(unittest.TestCase):
@@ -800,6 +855,94 @@ class CollectorChildBaselineSeedTest(unittest.TestCase):
         self.assertIn("NW", params_text)
         self.assertIn("泥水位高程", params_text)
         self.assertIn("water_level", params_text)
+
+    @mock.patch.object(schema_sync, "column_exists", return_value=True)
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    def test_seed_aligns_additional_normative_metric_types_from_monitoring_spec(
+        self, _mock_table_exists, _mock_column_exists
+    ):
+        cursor = CollectorChildBaselineSeedCursor()
+
+        schema_sync.ensure_collector_child_dev_baseline(cursor, "rm_iot")
+
+        write_sql = [sql for sql, _ in cursor.executed if sql.lstrip().startswith(("INSERT", "UPDATE"))]
+        combined_sql = "\n".join(write_sql)
+        self.assertIn("INSERT INTO iot_normative_metric_definition", combined_sql)
+
+        params_text = str([params for _, params in cursor.executed if params is not None])
+        self.assertIn("phase1-vibration", params_text)
+        self.assertIn("VIBRATION", params_text)
+        self.assertIn("PLX", params_text)
+        self.assertIn("SJValue", params_text)
+        self.assertIn("phase2-acoustic-emission", params_text)
+        self.assertIn("ACOUSTIC_EMISSION", params_text)
+        self.assertIn("amplitude", params_text)
+        self.assertIn("arrivaltime", params_text)
+        self.assertIn("RMS", params_text)
+        self.assertIn("phase3-settlement", params_text)
+        self.assertIn("SETTLEMENT", params_text)
+        self.assertIn("沉降量", params_text)
+        self.assertIn("phase3-air-pressure", params_text)
+        self.assertIn("AIR_PRESSURE", params_text)
+        self.assertIn("气压", params_text)
+        self.assertIn("phase4-surface-flow-speed", params_text)
+        self.assertIn("SURFACE_FLOW_SPEED", params_text)
+        self.assertIn("表面流速", params_text)
+
+    def test_normative_metric_seed_conflict_diagnostic_reports_duplicate_ids_and_fallback_keys(self):
+        seeds = (
+            {
+                "id": 1,
+                "scenario_code": "phase-a",
+                "device_family": "DEVICE_A",
+                "identifier": "value",
+                "monitor_content_code": "L4",
+                "monitor_type_code": "NW",
+                "status": "ACTIVE",
+            },
+            {
+                "id": 1,
+                "scenario_code": "phase-b",
+                "device_family": "DEVICE_B",
+                "identifier": "temp",
+                "monitor_content_code": "L3",
+                "monitor_type_code": "QW",
+                "status": "ACTIVE",
+            },
+            {
+                "id": 2,
+                "scenario_code": "phase-c",
+                "device_family": "DEVICE_C",
+                "identifier": "VALUE",
+                "monitor_content_code": "l4",
+                "monitor_type_code": "nw",
+                "status": "ACTIVE",
+            },
+            {
+                "id": 3,
+                "scenario_code": "phase-d",
+                "device_family": "DEVICE_D",
+                "identifier": "value",
+                "monitor_content_code": "L4",
+                "monitor_type_code": "NW",
+                "status": "INACTIVE",
+            },
+        )
+
+        conflicts = schema_sync.find_normative_metric_seed_conflicts(seeds)
+
+        messages = [conflict["message"] for conflict in conflicts]
+        self.assertEqual(2, len(messages))
+        self.assertTrue(any("duplicate id 1" in message for message in messages))
+        self.assertTrue(any("duplicate fallback key L4/NW/value" in message for message in messages))
+        self.assertFalse(any("phase-d" in message for message in messages))
+
+    def test_current_normative_metric_seed_has_no_duplicate_ids_or_fallback_keys(self):
+        conflicts = schema_sync.find_normative_metric_seed_conflicts(
+            schema_sync.COLLECTOR_CHILD_BASELINE_NORMATIVE_METRICS
+        )
+
+        self.assertEqual([], [conflict["message"] for conflict in conflicts])
 
 
 if __name__ == "__main__":

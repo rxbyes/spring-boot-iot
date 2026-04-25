@@ -8,8 +8,15 @@ import com.ghlzm.iot.framework.observability.HttpHandledExceptionContext;
 import com.ghlzm.iot.framework.observability.ObservabilityEventLogSupport;
 import com.ghlzm.iot.framework.observability.SensitiveLogSanitizer;
 import com.ghlzm.iot.framework.observability.TraceContextHolder;
+import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilitySpanLogRecord;
+import com.ghlzm.iot.framework.observability.evidence.ObservabilitySpanTypes;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.AuditLog;
+import com.ghlzm.iot.system.observability.BusinessEventDefinition;
+import com.ghlzm.iot.system.observability.HttpBusinessEventDictionaryResolver;
 import com.ghlzm.iot.system.service.AuditLogService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -37,8 +44,11 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Date;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * 系统接口审计日志过滤器。
@@ -61,6 +71,9 @@ public class AuditLogFilter extends OncePerRequestFilter {
     private final AuditLogService auditLogService;
     private final IotProperties iotProperties;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final HttpBusinessEventDictionaryResolver businessEventDictionaryResolver =
+            new HttpBusinessEventDictionaryResolver();
+    private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
     @Autowired
     public AuditLogFilter(AuditLogService auditLogService, IotProperties iotProperties) {
@@ -70,6 +83,13 @@ public class AuditLogFilter extends OncePerRequestFilter {
 
     AuditLogFilter(AuditLogService auditLogService) {
         this(auditLogService, new IotProperties());
+    }
+
+    @Autowired(required = false)
+    public void setObservabilityEvidenceRecorder(ObservabilityEvidenceRecorder evidenceRecorder) {
+        if (evidenceRecorder != null) {
+            this.evidenceRecorder = evidenceRecorder;
+        }
     }
 
     @Override
@@ -100,7 +120,9 @@ public class AuditLogFilter extends OncePerRequestFilter {
                                 HttpServletResponse response,
                                 Exception chainException,
                                 long costMs) {
-        if (!shouldRecord(request.getRequestURI())) {
+        boolean recordEvidence = shouldRecordEvidence(request.getRequestURI());
+        boolean recordAudit = shouldRecordAudit(request.getRequestURI());
+        if (!recordEvidence && !recordAudit) {
             return;
         }
 
@@ -127,25 +149,66 @@ public class AuditLogFilter extends OncePerRequestFilter {
         auditLog.setOperationTime(now);
         auditLog.setCreateTime(now);
         auditLog.setDeleted(0);
+        String businessAction = resolveBusinessAction(request.getMethod(), auditThrowable);
+        BusinessEventDefinition businessEventDefinition = businessEventDictionaryResolver.resolve(
+                request.getMethod(),
+                request.getRequestURI(),
+                resolveRequestPattern(request),
+                auditLog.getOperationModule(),
+                businessAction
+        );
 
-        try {
-            auditLogService.addLog(auditLog);
-        } catch (Exception saveEx) {
-            // 审计失败不影响业务请求
-            log.warn("写入审计日志失败, uri={}, error={}", request.getRequestURI(), saveEx.getMessage());
+        if (recordAudit) {
+            try {
+                auditLogService.addLog(auditLog);
+            } catch (Exception saveEx) {
+                // 审计失败不影响业务请求
+                log.warn("写入审计日志失败, uri={}, error={}", request.getRequestURI(), saveEx.getMessage());
+            }
         }
 
+        recordHttpSpan(request, response, responseCapture, auditThrowable, auditLog, costMs, businessEventDefinition);
+        if (shouldRecordBusinessEvent(request, auditThrowable, businessEventDefinition)) {
+            recordHttpBusinessEvent(request, responseCapture, auditThrowable, auditLog, costMs, recordAudit,
+                    businessEventDefinition);
+        }
         maybeLogSlowRequest(auditLog, response, responseCapture, chainException, costMs);
     }
 
-    private boolean shouldRecord(String uri) {
+    private boolean shouldRecordEvidence(String uri) {
+        return StringUtils.hasText(uri) && uri.startsWith("/api/");
+    }
+
+    private boolean shouldRecordAudit(String uri) {
         if (!StringUtils.hasText(uri) || !uri.startsWith("/api/")) {
             return false;
         }
-        if (uri.startsWith("/api/system/audit-log/")) {
+        if (uri.startsWith("/api/system/audit-log")) {
             return false;
         }
-        return !"/api/auth/login".equals(uri);
+        return true;
+    }
+
+    private boolean shouldRecordBusinessEvent(HttpServletRequest request,
+                                              Throwable auditThrowable,
+                                              BusinessEventDefinition businessEventDefinition) {
+        String uri = request.getRequestURI();
+        if (!StringUtils.hasText(uri) || uri.startsWith("/api/system/audit-log")) {
+            return false;
+        }
+        if (auditThrowable != null) {
+            return true;
+        }
+        if (businessEventDefinition.dictionaryMatched()
+                && "GET".equalsIgnoreCase(request.getMethod())
+                && "acceptance".equals(businessEventDefinition.domainCode())) {
+            return true;
+        }
+        String method = request.getMethod();
+        return "POST".equalsIgnoreCase(method)
+                || "PUT".equalsIgnoreCase(method)
+                || "PATCH".equalsIgnoreCase(method)
+                || "DELETE".equalsIgnoreCase(method);
     }
 
     private void fillUserInfo(AuditLog auditLog) {
@@ -334,6 +397,11 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return request.getMethod() + ":" + request.getRequestURI();
     }
 
+    private String resolveRequestPattern(HttpServletRequest request) {
+        Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+        return pattern == null ? request.getRequestURI() : String.valueOf(pattern);
+    }
+
     private Charset resolveCharset(String characterEncoding, String contentType) {
         return StandardCharsets.UTF_8;
     }
@@ -412,6 +480,124 @@ public class AuditLogFilter extends OncePerRequestFilter {
                 costMs,
                 details
         ));
+    }
+
+    private void recordHttpSpan(HttpServletRequest request,
+                                HttpServletResponse response,
+                                ResponseCapture responseCapture,
+                                Throwable auditThrowable,
+                                AuditLog auditLog,
+                                long costMs,
+                                BusinessEventDefinition businessEventDefinition) {
+        LocalDateTime finishedAt = LocalDateTime.now();
+        ObservabilitySpanLogRecord span = new ObservabilitySpanLogRecord();
+        span.setTenantId(DEFAULT_TENANT_ID);
+        span.setTraceId(auditLog.getTraceId());
+        span.setSpanType(ObservabilitySpanTypes.HTTP_REQUEST);
+        span.setSpanName(request.getMethod() + " " + resolveRequestPattern(request));
+        span.setDomainCode(businessEventDefinition.domainCode());
+        span.setEventCode(businessEventDefinition.dictionaryMatched()
+                ? businessEventDefinition.eventCode()
+                : "platform.http.request");
+        span.setObjectType(businessEventDefinition.objectType());
+        span.setObjectId(businessEventDefinition.objectId());
+        span.setTransportType("HTTP");
+        span.setStatus(Integer.valueOf(1).equals(auditLog.getOperationResult())
+                ? ObservabilityEvidenceStatus.SUCCESS
+                : ObservabilityEvidenceStatus.FAILURE);
+        span.setDurationMs(costMs);
+        span.setStartedAt(finishedAt.minusNanos(costMs * 1_000_000L));
+        span.setFinishedAt(finishedAt);
+        span.setErrorClass(auditLog.getExceptionClass());
+        span.setErrorMessage(auditLog.getResultMessage());
+        span.getTags().putAll(buildHttpTags(request, response, responseCapture, auditThrowable, auditLog,
+                businessEventDefinition));
+        evidenceRecorder.recordSpan(span);
+    }
+
+    private void recordHttpBusinessEvent(HttpServletRequest request,
+                                         ResponseCapture responseCapture,
+                                         Throwable auditThrowable,
+                                         AuditLog auditLog,
+                                         long costMs,
+                                         boolean auditPersisted,
+                                         BusinessEventDefinition businessEventDefinition) {
+        BusinessEventLogRecord event = new BusinessEventLogRecord();
+        event.setTenantId(DEFAULT_TENANT_ID);
+        event.setTraceId(auditLog.getTraceId());
+        event.setDomainCode(businessEventDefinition.domainCode());
+        event.setActionCode(businessEventDefinition.actionCode());
+        event.setEventCode(businessEventDefinition.eventCode());
+        event.setEventName(businessEventDefinition.eventName());
+        event.setObjectType(businessEventDefinition.objectType());
+        event.setObjectId(businessEventDefinition.objectId());
+        event.setActorUserId(auditLog.getUserId());
+        event.setActorName(auditLog.getUserName());
+        event.setResultStatus(Integer.valueOf(1).equals(auditLog.getOperationResult())
+                ? ObservabilityEvidenceStatus.SUCCESS
+                : ObservabilityEvidenceStatus.FAILURE);
+        event.setSourceType("HTTP");
+        event.setEvidenceType(auditPersisted ? "sys_audit_log" : "http_request");
+        event.setEvidenceId(auditPersisted && auditLog.getId() != null ? String.valueOf(auditLog.getId()) : null);
+        event.setRequestMethod(auditLog.getRequestMethod());
+        event.setRequestUri(auditLog.getRequestUrl());
+        event.setDurationMs(costMs);
+        event.setErrorCode(auditLog.getErrorCode());
+        event.setErrorMessage(auditThrowable == null ? null : auditLog.getResultMessage());
+        event.setOccurredAt(LocalDateTime.now());
+        event.getMetadata().putAll(buildHttpTags(request, null, responseCapture, auditThrowable, auditLog,
+                businessEventDefinition));
+        evidenceRecorder.recordBusinessEvent(event);
+    }
+
+    private Map<String, Object> buildHttpTags(HttpServletRequest request,
+                                              HttpServletResponse response,
+                                              ResponseCapture responseCapture,
+                                              Throwable auditThrowable,
+                                              AuditLog auditLog,
+                                              BusinessEventDefinition businessEventDefinition) {
+        Map<String, Object> tags = new LinkedHashMap<>();
+        tags.put("requestPattern", resolveRequestPattern(request));
+        tags.put("requestUri", auditLog.getRequestUrl());
+        tags.put("requestMethod", auditLog.getRequestMethod());
+        tags.put("operationType", auditLog.getOperationType());
+        tags.put("operationMethod", auditLog.getOperationMethod());
+        tags.put("operationModule", auditLog.getOperationModule());
+        tags.put("userId", auditLog.getUserId());
+        tags.put("ipAddress", auditLog.getIpAddress());
+        if (response != null) {
+            tags.put("httpStatus", response.getStatus());
+        }
+        if (responseCapture.businessCode() != null) {
+            tags.put("businessCode", responseCapture.businessCode());
+        }
+        if (auditThrowable != null) {
+            tags.put("errorClass", auditThrowable.getClass().getName());
+        }
+        tags.put("businessEventCode", businessEventDefinition.eventCode());
+        tags.put("businessEventName", businessEventDefinition.eventName());
+        tags.put("businessDomainCode", businessEventDefinition.domainCode());
+        tags.put("businessActionCode", businessEventDefinition.actionCode());
+        tags.put("businessObjectType", businessEventDefinition.objectType());
+        tags.put("businessObjectId", businessEventDefinition.objectId());
+        tags.putAll(businessEventDefinition.metadata());
+        return tags;
+    }
+
+    private String resolveBusinessAction(String method, Throwable auditThrowable) {
+        if (auditThrowable != null) {
+            return "failure";
+        }
+        if (!StringUtils.hasText(method)) {
+            return "unknown";
+        }
+        return switch (method.toUpperCase(Locale.ROOT)) {
+            case "GET" -> "query";
+            case "POST" -> "create_or_execute";
+            case "PUT", "PATCH" -> "update";
+            case "DELETE" -> "delete";
+            default -> method.toLowerCase(Locale.ROOT);
+        };
     }
 
     private long resolveSlowHttpThresholdMs() {

@@ -29,6 +29,7 @@
                 <span v-if="row.path === selectedPath" class="selected-label">当前预览</span>
                 <StandardButton
                   v-else
+                  v-permission="'system:automation-results:evidence-preview'"
                   action="confirm"
                   :link="true"
                   @click="$emit('select-evidence', row.path)"

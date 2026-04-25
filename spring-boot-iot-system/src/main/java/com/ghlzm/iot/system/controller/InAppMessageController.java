@@ -5,6 +5,8 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.entity.InAppMessage;
+import com.ghlzm.iot.system.security.GovernancePermissionCodes;
+import com.ghlzm.iot.system.security.GovernancePermissionGuard;
 import com.ghlzm.iot.system.service.InAppMessageBridgeQueryService;
 import com.ghlzm.iot.system.service.InAppMessageService;
 import com.ghlzm.iot.system.vo.InAppMessageBridgeAttemptVO;
@@ -13,6 +15,7 @@ import com.ghlzm.iot.system.vo.InAppMessageBridgeStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageAccessVO;
 import com.ghlzm.iot.system.vo.InAppMessageStatsVO;
 import com.ghlzm.iot.system.vo.InAppMessageUnreadStatsVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,11 +36,20 @@ public class InAppMessageController {
 
     private final InAppMessageService inAppMessageService;
     private final InAppMessageBridgeQueryService inAppMessageBridgeQueryService;
+    private final GovernancePermissionGuard permissionGuard;
 
     public InAppMessageController(InAppMessageService inAppMessageService,
                                   InAppMessageBridgeQueryService inAppMessageBridgeQueryService) {
+        this(inAppMessageService, inAppMessageBridgeQueryService, null);
+    }
+
+    @Autowired
+    public InAppMessageController(InAppMessageService inAppMessageService,
+                                  InAppMessageBridgeQueryService inAppMessageBridgeQueryService,
+                                  GovernancePermissionGuard permissionGuard) {
         this.inAppMessageService = inAppMessageService;
         this.inAppMessageBridgeQueryService = inAppMessageBridgeQueryService;
+        this.permissionGuard = permissionGuard;
     }
 
     @GetMapping("/page")
@@ -140,18 +152,24 @@ public class InAppMessageController {
 
     @PostMapping("/add")
     public R<InAppMessage> addMessage(@RequestBody InAppMessage message, Authentication authentication) {
-        return R.ok(inAppMessageService.addMessage(message, requireCurrentUserId(authentication)));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "新增站内消息", GovernancePermissionCodes.IN_APP_MESSAGE_ADD);
+        return R.ok(inAppMessageService.addMessage(message, currentUserId));
     }
 
     @PutMapping("/update")
     public R<Void> updateMessage(@RequestBody InAppMessage message, Authentication authentication) {
-        inAppMessageService.updateMessage(message, requireCurrentUserId(authentication));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "编辑站内消息", GovernancePermissionCodes.IN_APP_MESSAGE_UPDATE);
+        inAppMessageService.updateMessage(message, currentUserId);
         return R.ok();
     }
 
     @DeleteMapping("/delete/{id:[0-9]+}")
     public R<Void> deleteMessage(@PathVariable Long id, Authentication authentication) {
-        inAppMessageService.deleteMessage(id, requireCurrentUserId(authentication));
+        Long currentUserId = requireCurrentUserId(authentication);
+        requirePermission(currentUserId, "删除站内消息", GovernancePermissionCodes.IN_APP_MESSAGE_DELETE);
+        inAppMessageService.deleteMessage(id, currentUserId);
         return R.ok();
     }
 
@@ -192,5 +210,11 @@ public class InAppMessageController {
             throw new BizException(401, "未认证，请先登录");
         }
         return principal.userId();
+    }
+
+    private void requirePermission(Long currentUserId, String actionName, String permissionCode) {
+        if (permissionGuard != null) {
+            permissionGuard.requireAnyPermission(currentUserId, actionName, permissionCode);
+        }
     }
 }

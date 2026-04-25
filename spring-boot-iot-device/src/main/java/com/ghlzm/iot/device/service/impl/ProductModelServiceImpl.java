@@ -509,26 +509,41 @@ public class ProductModelServiceImpl extends ServiceImpl<ProductModelMapper, Pro
                 }
                 match = findNormativeMatch(identifier, rawIdentifiers, List.of(), activeDefinitions);
             }
-            if (match == null && !rawIdentifiers.isEmpty()) {
+            if (!isNormativeMatchResolved(match) && !rawIdentifiers.isEmpty()) {
                 match = normativeMatcher.matchPropertyByRawIdentifier(identifier, rawIdentifiers, scenarioDefinitions);
             }
-            if (match == null && !rawIdentifiers.isEmpty()) {
+            if (!isNormativeMatchResolved(match) && !rawIdentifiers.isEmpty()) {
                 if (activeDefinitions.isEmpty()) {
                     activeDefinitions = safeNormativeDefinitions(normativeMetricDefinitionService.listActive());
                 }
                 match = normativeMatcher.matchPropertyByRawIdentifier(identifier, rawIdentifiers, activeDefinitions);
             }
             if (match == null) {
+                row.setNormativeMatchStatus(ProductModelNormativeMatcher.MATCH_STATUS_MISSED);
+                row.setNormativeMatchReason("未找到可用规范定义");
+                continue;
+            }
+            row.setNormativeMatchStatus(match.matchStatus());
+            row.setNormativeMatchSource(match.matchSource());
+            row.setNormativeMatchReason(match.matchReason());
+            row.setNormativeCandidates(match.normativeCandidates());
+            row.setRawIdentifiers(match.rawIdentifiers());
+            if (!ProductModelNormativeMatcher.MATCH_STATUS_MATCHED.equals(match.matchStatus())) {
+                row.setRiskReady(false);
                 continue;
             }
             row.setNormativeIdentifier(match.normativeIdentifier());
             row.setNormativeName(displayAliases.getOrDefault(match.normativeIdentifier(), match.normativeName()));
             row.setRiskReady(match.riskReady());
-            row.setRawIdentifiers(match.rawIdentifiers());
             if (match.riskReady() && !row.getRiskFlags().contains("risk_ready")) {
                 row.getRiskFlags().add("risk_ready");
             }
         }
+    }
+
+    private boolean isNormativeMatchResolved(ProductModelNormativeMatcher.NormativeMatchResult match) {
+        return match != null
+                && !ProductModelNormativeMatcher.MATCH_STATUS_MISSED.equals(match.matchStatus());
     }
 
     private ProductModelNormativeMatcher.NormativeMatchResult findNormativeMatch(String identifier,

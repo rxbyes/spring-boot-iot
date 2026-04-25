@@ -3,6 +3,7 @@ package com.ghlzm.iot.device.service.impl;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.NormativeMetricDefinition;
 import com.ghlzm.iot.device.entity.Product;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -22,6 +23,11 @@ final class ProductModelNormativeMatcher {
     static final String SCENARIO_PHASE4_RAIN_GAUGE = "phase4-rain-gauge";
     static final String SCENARIO_PHASE5_MUD_LEVEL = "phase5-mud-level";
     static final String SCENARIO_PHASE6_RADAR = "phase6-radar";
+    static final String MATCH_STATUS_MATCHED = "MATCHED";
+    static final String MATCH_STATUS_AMBIGUOUS = "AMBIGUOUS";
+    static final String MATCH_STATUS_MISSED = "MISSED";
+    static final String MATCH_SOURCE_EXACT_IDENTIFIER = "EXACT_IDENTIFIER";
+    static final String MATCH_SOURCE_CODE_PREFIX_FALLBACK = "CODE_PREFIX_FALLBACK";
 
     String resolveScenarioCode(Product product) {
         if (product == null) {
@@ -89,10 +95,14 @@ final class ProductModelNormativeMatcher {
                 .findFirst()
                 .orElseThrow(() -> new BizException("未找到规范字段定义: " + canonicalIdentifier));
         return new NormativeMatchResult(
+                MATCH_STATUS_MATCHED,
                 definition.getIdentifier(),
                 definition.getDisplayName(),
                 Integer.valueOf(1).equals(definition.getRiskEnabled()),
-                rawIdentifiers == null ? List.of() : rawIdentifiers
+                rawIdentifiers == null ? List.of() : rawIdentifiers,
+                MATCH_SOURCE_EXACT_IDENTIFIER,
+                "依据正式字段标识 " + definition.getIdentifier(),
+                List.of(candidateLabel(definition))
         );
     }
 
@@ -110,33 +120,66 @@ final class ProductModelNormativeMatcher {
             if (parsed == null) {
                 continue;
             }
-            NormativeMetricDefinition definition = findByMonitorCodesAndIdentifier(
+            List<NormativeMetricDefinition> matches = findAllByMonitorCodesAndIdentifier(
                     definitions,
                     parsed.monitorContentCode(),
                     parsed.monitorTypeCode(),
                     parsed.leafIdentifier(),
                     canonicalIdentifier
             );
-            if (definition == null) {
+            if (matches.isEmpty()) {
                 continue;
             }
+            String reason = "依据 " + parsed.monitorContentCode() + "/" + parsed.monitorTypeCode()
+                    + " + leaf=" + parsed.leafIdentifier();
+            List<String> candidateLabels = matches.stream()
+                    .map(this::candidateLabel)
+                    .filter(StringUtils::hasText)
+                    .toList();
+            if (matches.size() > 1) {
+                return new NormativeMatchResult(
+                        MATCH_STATUS_AMBIGUOUS,
+                        null,
+                        null,
+                        false,
+                        rawIdentifiers == null ? List.of() : rawIdentifiers,
+                        MATCH_SOURCE_CODE_PREFIX_FALLBACK,
+                        reason + " 命中多个规范候选，请人工确认",
+                        candidateLabels
+                );
+            }
+            NormativeMetricDefinition definition = matches.get(0);
             return new NormativeMatchResult(
+                    MATCH_STATUS_MATCHED,
                     definition.getIdentifier(),
                     definition.getDisplayName(),
                     Integer.valueOf(1).equals(definition.getRiskEnabled()),
-                    rawIdentifiers == null ? List.of() : rawIdentifiers
+                    rawIdentifiers == null ? List.of() : rawIdentifiers,
+                    MATCH_SOURCE_CODE_PREFIX_FALLBACK,
+                    reason,
+                    candidateLabels
             );
         }
-        return null;
+        return new NormativeMatchResult(
+                MATCH_STATUS_MISSED,
+                null,
+                null,
+                false,
+                rawIdentifiers == null ? List.of() : rawIdentifiers,
+                MATCH_SOURCE_CODE_PREFIX_FALLBACK,
+                "未命中 Lx_XX_n 前缀与 leaf 的规范候选",
+                List.of()
+        );
     }
 
-    private NormativeMetricDefinition findByMonitorCodesAndIdentifier(List<NormativeMetricDefinition> definitions,
-                                                                      String monitorContentCode,
-                                                                      String monitorTypeCode,
-                                                                      String leafIdentifier,
-                                                                      String canonicalIdentifier) {
+    private List<NormativeMetricDefinition> findAllByMonitorCodesAndIdentifier(List<NormativeMetricDefinition> definitions,
+                                                                               String monitorContentCode,
+                                                                               String monitorTypeCode,
+                                                                               String leafIdentifier,
+                                                                               String canonicalIdentifier) {
         String normalizedLeaf = normalizeLower(leafIdentifier);
         String normalizedCanonical = normalizeLower(canonicalIdentifier);
+        List<NormativeMetricDefinition> matches = new ArrayList<>();
         for (NormativeMetricDefinition definition : definitions) {
             if (definition == null
                     || !equalsIgnoreCase(definition.getMonitorContentCode(), monitorContentCode)
@@ -148,13 +191,31 @@ final class ProductModelNormativeMatcher {
                 continue;
             }
             if (normalizedLeaf != null && normalizedLeaf.equals(normalizedDefinitionIdentifier)) {
-                return definition;
+                matches.add(definition);
+                continue;
             }
             if (normalizedCanonical != null && normalizedCanonical.equals(normalizedDefinitionIdentifier)) {
-                return definition;
+                matches.add(definition);
             }
         }
-        return null;
+        return matches;
+    }
+
+    private String candidateLabel(NormativeMetricDefinition definition) {
+        if (definition == null) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        if (StringUtils.hasText(definition.getScenarioCode())) {
+            parts.add(definition.getScenarioCode());
+        }
+        if (StringUtils.hasText(definition.getIdentifier())) {
+            parts.add(definition.getIdentifier());
+        }
+        if (StringUtils.hasText(definition.getDisplayName())) {
+            parts.add(definition.getDisplayName());
+        }
+        return String.join(" / ", parts);
     }
 
     private ParsedRawIdentifier parseRawIdentifier(String rawIdentifier) {
@@ -296,10 +357,14 @@ final class ProductModelNormativeMatcher {
     }
 
     record NormativeMatchResult(
+            String matchStatus,
             String normativeIdentifier,
             String normativeName,
             boolean riskReady,
-            List<String> rawIdentifiers
+            List<String> rawIdentifiers,
+            String matchSource,
+            String matchReason,
+            List<String> normativeCandidates
     ) {
     }
 

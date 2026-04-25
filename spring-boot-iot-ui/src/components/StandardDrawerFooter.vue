@@ -13,6 +13,7 @@
           {{ cancelText }}
         </StandardButton>
         <StandardButton
+          v-permission="confirmPermission"
           :action="danger ? 'delete' : 'confirm'"
           :type="confirmType"
           class="standard-drawer-footer__button"
@@ -41,6 +42,7 @@ withDefaults(
     confirmDisabled?: boolean
     showCancel?: boolean
     danger?: boolean
+    confirmPermission?: string
   }>(),
   {
     cancelText: '取消',
@@ -49,7 +51,8 @@ withDefaults(
     confirmLoading: false,
     confirmDisabled: false,
     showCancel: true,
-    danger: false
+    danger: false,
+    confirmPermission: undefined
   }
 )
 
