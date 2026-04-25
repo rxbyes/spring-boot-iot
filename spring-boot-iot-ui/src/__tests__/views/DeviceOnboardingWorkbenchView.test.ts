@@ -504,6 +504,36 @@ describe('DeviceOnboardingWorkbenchView', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/products')
   })
 
+  it('routes product governance rows with productId to contract fields', async () => {
+    const governanceRecords = buildCaseRecords().map((row) => {
+      if (row.id !== 9101) {
+        return row
+      }
+      return {
+        ...row,
+        productId: 1001,
+        protocolFamilyCode: 'legacy-dp-crack',
+        decryptProfileCode: 'aes-62000002',
+        protocolTemplateCode: 'nf-crack-v1',
+        currentStep: 'PRODUCT_GOVERNANCE',
+        status: 'BLOCKED',
+        blockers: ['待完成产品契约治理']
+      }
+    })
+
+    mockPageDeviceOnboardingCases.mockReset()
+    mockPageDeviceOnboardingCases.mockResolvedValueOnce(buildCasePageResponse(governanceRecords))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="onboarding-next-9101"]').text()).toContain('前往契约字段')
+
+    await wrapper.get('[data-testid="onboarding-next-9101"]').trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/contracts')
+  })
+
   it('routes refreshed contract release rows with productId to contract fields', async () => {
     const refreshedRecords = buildCaseRecords().map((row) => {
       if (row.id !== 9101) {

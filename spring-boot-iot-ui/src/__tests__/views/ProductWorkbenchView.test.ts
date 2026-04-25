@@ -273,6 +273,17 @@ const StandardInlineStateStub = defineComponent({
   template: '<div class="standard-inline-state-stub">{{ message }}</div>'
 })
 
+const EmptyStateStub = defineComponent({
+  name: 'EmptyState',
+  props: ['title', 'description'],
+  template: `
+    <section class="empty-state-stub">
+      <strong class="empty-state-stub__title">{{ title }}</strong>
+      <p class="empty-state-stub__description">{{ description }}</p>
+    </section>
+  `
+})
+
 const ElAlertStub = defineComponent({
   name: 'ElAlert',
   props: ['title', 'type'],
@@ -381,7 +392,7 @@ function mountView() {
         StandardTableTextColumn: StandardTableTextColumnStub,
         CsvColumnSettingDialog: true,
         DeviceListDrawer: DeviceListDrawerStub,
-        EmptyState: true,
+        EmptyState: EmptyStateStub,
         ElAlert: ElAlertStub,
         ElForm: ElFormStub,
         ElFormItem: true,
@@ -476,8 +487,9 @@ describe('ProductWorkbenchView', () => {
     expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
     expect(wrapper.text()).toContain('产品定义中心')
     expect(wrapper.text()).toContain('新增产品')
-    expect(wrapper.text()).toContain('统一维护产品定义，并承接契约治理、版本治理与风险目录入口。')
+    expect(wrapper.text()).toContain('统一维护产品定义，并作为进入产品工作台的统一入口承接契约、映射与版本治理。')
     expect(wrapper.text()).toContain('当前页同时承接产品定义、契约治理、版本治理与风险目录入口。')
+    expect(wrapper.text()).toContain('当前还没有产品定义，先新增产品，再从这里进入产品工作台继续契约、映射和版本治理。')
     expect(wrapper.text()).not.toContain('PRODUCT CENTER')
   })
 

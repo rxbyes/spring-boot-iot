@@ -224,8 +224,9 @@ describe('sectionHomes config', () => {
       '再按问题类型进入链路追踪台、异常观测台或数据校验台。',
       '最后回产品定义中心或设备资产中心完成修正。'
     ]);
-    expect(config?.cards.find((item) => item.path === '/products')?.description).toBe('维护产品定义，并承接契约治理、版本治理与风险目录入口。');
-    expect(config?.cards.find((item) => item.path === '/protocol-governance')?.description).toBe('维护协议族定义、解密档案和发布审批入口。');
+    expect(config?.cards.find((item) => item.path === '/device-onboarding')?.description).toBe('创建接入案例、查看阻塞原因，并跳到协议治理或产品工作台继续处理。');
+    expect(config?.cards.find((item) => item.path === '/products')?.description).toBe('维护产品定义，并作为进入产品工作台的统一入口承接契约、映射和版本治理。');
+    expect(config?.cards.find((item) => item.path === '/protocol-governance')?.description).toBe('维护跨产品复用的协议族、解密档案与协议模板。');
     expect(config?.cards.find((item) => item.path === '/reporting')?.description).toBe('排障起点：先发起模拟验证，再决定进入哪一条诊断分支。');
   });
 });
