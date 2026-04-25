@@ -12,7 +12,7 @@ import {
   getSystemErrorStats,
   pageLogs
 } from '@/api/auditLog';
-import { getTraceEvidence } from '@/api/observability';
+import { getTraceEvidence, listObservabilitySlowSpanSummaries } from '@/api/observability';
 import { splitWorkbenchRowActions } from '@/utils/adaptiveActionColumn';
 
 const { mockRoute, mockRouter } = vi.hoisted(() => ({
@@ -40,6 +40,7 @@ vi.mock('@/api/auditLog', () => ({
 }));
 
 vi.mock('@/api/observability', () => ({
+  listObservabilitySlowSpanSummaries: vi.fn(),
   getTraceEvidence: vi.fn()
 }));
 
@@ -381,6 +382,7 @@ describe('AuditLogView', () => {
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(listObservabilitySlowSpanSummaries).mockReset();
     vi.mocked(getTraceEvidence).mockReset();
     vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
     vi.mocked(getSystemErrorStats).mockResolvedValue({
@@ -411,6 +413,24 @@ describe('AuditLogView', () => {
         topUsers: [{ label: 'admin', count: 3 }],
         topOperationTypes: []
       }
+    });
+    vi.mocked(listObservabilitySlowSpanSummaries).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          spanType: 'SLOW_SQL',
+          domainCode: 'system',
+          eventCode: 'system.error.archive',
+          objectType: 'sql',
+          objectId: 'iot_message_log',
+          totalCount: 3,
+          avgDurationMs: 1280,
+          maxDurationMs: 2400,
+          latestTraceId: 'trace-slow-1',
+          latestStartedAt: '2026-04-25 10:08:00'
+        }
+      ]
     });
     vi.mocked(getTraceEvidence).mockResolvedValue({
       code: 200,
@@ -500,7 +520,11 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    await findButtonByText(wrapper, '证据')!.trigger('click');
+    const rowActionEvidenceButton = wrapper
+      .find('.audit-log-row-actions-stub')
+      .findAll('button')
+      .find((button) => button.text().includes('证据'));
+    await rowActionEvidenceButton!.trigger('click');
     await flushPromises();
     await nextTick();
 
@@ -511,6 +535,34 @@ describe('AuditLogView', () => {
     expect(drawer.text()).toContain('product.contract.apply');
     expect(drawer.text()).toContain('SLOW_SQL');
     expect(drawer.text()).toContain('1200 ms');
+  });
+
+  it('renders slow performance hotspots and opens evidence from the latest trace', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(listObservabilitySlowSpanSummaries).toHaveBeenCalledWith({
+      limit: 5,
+      minDurationMs: 1
+    });
+
+    const panel = wrapper.find('.audit-log-slow-summary');
+    expect(panel.exists()).toBe(true);
+    expect(panel.text()).toContain('性能慢点 Top');
+    expect(panel.text()).toContain('SLOW_SQL');
+    expect(panel.text()).toContain('system.error.archive');
+    expect(panel.text()).toContain('iot_message_log');
+    expect(panel.text()).toContain('2400 ms');
+    expect(panel.text()).toContain('3 次');
+
+    vi.mocked(getTraceEvidence).mockClear();
+    await panel.find('button').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(getTraceEvidence).toHaveBeenCalledWith('trace-slow-1');
+    expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
   });
 
   it('uses anomaly-oriented detail and export titles in system mode', async () => {

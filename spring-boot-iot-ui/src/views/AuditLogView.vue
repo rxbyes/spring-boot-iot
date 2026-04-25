@@ -140,6 +140,57 @@
         <StandardInlineState :message="systemInlineMessage" tone="info" />
       </template>
 
+      <section
+        v-if="isSystemMode"
+        v-loading="slowSummaryLoading"
+        class="audit-log-slow-summary standard-list-surface"
+        aria-label="性能慢点热点"
+        element-loading-text="正在刷新慢点热点"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <header class="audit-log-slow-summary__header">
+          <div>
+            <h3>性能慢点 Top</h3>
+          </div>
+          <span>{{ slowSummaryRows.length }} 项</span>
+        </header>
+        <div v-if="slowSummaryErrorMessage" class="audit-log-slow-summary__empty">
+          {{ slowSummaryErrorMessage }}
+        </div>
+        <div v-else-if="slowSummaryRows.length === 0" class="audit-log-slow-summary__empty">
+          暂无慢点热点
+        </div>
+        <div v-else class="audit-log-slow-summary__grid">
+          <article
+            v-for="row in slowSummaryRows"
+            :key="`${row.spanType || 'span'}-${row.domainCode || 'domain'}-${row.eventCode || 'event'}-${row.objectType || 'object'}-${row.objectId || 'id'}`"
+            class="audit-log-slow-summary__item"
+          >
+            <div class="audit-log-slow-summary__title">
+              <strong>{{ formatSlowSummaryTitle(row) }}</strong>
+              <span>{{ formatValue(row.latestStartedAt) }}</span>
+            </div>
+            <p>{{ formatSlowSummaryTarget(row) }}</p>
+            <div class="audit-log-slow-summary__metrics">
+              <span>最大 {{ formatDuration(row.maxDurationMs) }}</span>
+              <span>平均 {{ formatDuration(row.avgDurationMs) }}</span>
+              <span>{{ formatCount(row.totalCount) }} 次</span>
+            </div>
+            <div class="audit-log-slow-summary__footer">
+              <span>{{ formatValue(row.latestTraceId) }}</span>
+              <StandardButton
+                action="view"
+                link
+                :disabled="!row.latestTraceId"
+                @click="openTraceEvidenceByTraceId(row.latestTraceId)"
+              >
+                证据
+              </StandardButton>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <template #toolbar>
         <StandardTableToolbar
           compact
@@ -461,7 +512,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
-import { getTraceEvidence, type ObservabilityTraceEvidence } from '@/api/observability'
+import {
+  getTraceEvidence,
+  listObservabilitySlowSpanSummaries,
+  type ObservabilitySlowSpanSummary,
+  type ObservabilitySlowSpanSummaryQuery,
+  type ObservabilityTraceEvidence
+} from '@/api/observability'
 import { isHandledRequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
@@ -644,6 +701,9 @@ const createEmptyBusinessStats = (): BusinessAuditStats => ({
 
 const systemStats = ref<SystemErrorStats>(createEmptySystemStats())
 const businessStats = ref<BusinessAuditStats>(createEmptyBusinessStats())
+const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
+const slowSummaryLoading = ref(false)
+const slowSummaryErrorMessage = ref('')
 const quickSearchPlaceholder = computed(() => (isSystemMode.value ? '快速搜索（TraceId）' : '快速搜索（操作用户）'))
 const advancedFilterKeys = computed<
   Array<'traceId' | 'deviceCode' | 'productKey' | 'requestUrl' | 'errorCode' | 'exceptionClass'>
@@ -918,6 +978,35 @@ const getAuditLogStats = async () => {
   }
 }
 
+const buildSlowSummaryQueryParams = (): ObservabilitySlowSpanSummaryQuery => ({
+  limit: 5,
+  minDurationMs: 1
+})
+
+const getSlowSpanSummaries = async () => {
+  if (!isSystemMode.value) {
+    slowSummaryRows.value = []
+    slowSummaryErrorMessage.value = ''
+    slowSummaryLoading.value = false
+    return
+  }
+
+  slowSummaryLoading.value = true
+  slowSummaryErrorMessage.value = ''
+  try {
+    const res = await listObservabilitySlowSpanSummaries(buildSlowSummaryQueryParams())
+    if (res.code === 200) {
+      slowSummaryRows.value = Array.isArray(res.data) ? res.data : []
+    }
+  } catch (error) {
+    slowSummaryRows.value = []
+    slowSummaryErrorMessage.value = error instanceof Error ? error.message : '获取性能慢点汇总失败'
+    logPageError('获取性能慢点汇总失败', error)
+  } finally {
+    slowSummaryLoading.value = false
+  }
+}
+
 // 初始化
 onMounted(() => {
   reloadExportSelection()
@@ -927,6 +1016,7 @@ onMounted(() => {
   syncAppliedFilters()
   getAuditLogList()
   getAuditLogStats()
+  getSlowSpanSummaries()
 })
 
 watch(viewMode, (newMode, oldMode) => {
@@ -946,6 +1036,9 @@ watch(viewMode, (newMode, oldMode) => {
   evidenceTraceId.value = ''
   evidenceLoading.value = false
   evidenceErrorMessage.value = ''
+  slowSummaryRows.value = []
+  slowSummaryLoading.value = false
+  slowSummaryErrorMessage.value = ''
   exportColumnDialogVisible.value = false
   reloadExportSelection()
   applySystemRouteQuery()
@@ -954,6 +1047,7 @@ watch(viewMode, (newMode, oldMode) => {
   syncAppliedFilters()
   getAuditLogList()
   getAuditLogStats()
+  getSlowSpanSummaries()
 })
 
 watch(
@@ -981,6 +1075,7 @@ watch(
     syncAppliedFilters()
     getAuditLogList()
     getAuditLogStats()
+    getSlowSpanSummaries()
   }
 )
 
@@ -994,6 +1089,7 @@ const triggerSearch = (resetPageFirst = false) => {
   clearSelection()
   getAuditLogList()
   getAuditLogStats()
+  getSlowSpanSummaries()
 }
 
 // 处理搜索
@@ -1078,12 +1174,12 @@ const canJumpToMessageTrace = (row?: AuditLogRecord) => {
   return Boolean(context.traceId || context.deviceCode || context.productKey || context.topic)
 }
 
-const resolveEvidenceTraceId = (row?: AuditLogRecord) =>
+const resolveEvidenceTraceId = (row?: Partial<AuditLogRecord>) =>
   (row?.traceId || searchForm.traceId || appliedFilters.traceId).trim()
 
-const canOpenTraceEvidence = (row?: AuditLogRecord) => Boolean(resolveEvidenceTraceId(row))
+const canOpenTraceEvidence = (row?: Partial<AuditLogRecord>) => Boolean(resolveEvidenceTraceId(row))
 
-const openTraceEvidence = async (row?: AuditLogRecord) => {
+const openTraceEvidence = async (row?: Partial<AuditLogRecord>) => {
   const traceId = resolveEvidenceTraceId(row)
   if (!traceId) {
     ElMessage.warning('当前记录缺少 TraceId，无法查看证据包')
@@ -1108,6 +1204,15 @@ const openTraceEvidence = async (row?: AuditLogRecord) => {
   } finally {
     evidenceLoading.value = false
   }
+}
+
+const openTraceEvidenceByTraceId = async (traceId?: string | null) => {
+  const normalizedTraceId = (traceId || '').trim()
+  if (!normalizedTraceId) {
+    ElMessage.warning('当前慢点缺少 TraceId，无法查看证据包')
+    return
+  }
+  await openTraceEvidence({ traceId: normalizedTraceId })
 }
 
 const handleJumpToMessageTrace = (row?: AuditLogRecord) => {
@@ -1316,6 +1421,19 @@ const formatDuration = (durationMs?: number | null) => {
   return `${durationMs} ms`
 }
 
+const formatCount = (value?: number | null) => {
+  if (value === undefined || value === null) {
+    return '0'
+  }
+  return String(value)
+}
+
+const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
+  [row.spanType, row.domainCode].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
+
+const formatSlowSummaryTarget = (row: ObservabilitySlowSpanSummary) =>
+  [row.eventCode, row.objectType, row.objectId].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
+
 const getEvidenceItemTypeName = (type?: string | null) => {
   if (type === 'BUSINESS_EVENT') {
     return '业务事件'
@@ -1426,6 +1544,80 @@ watch(evidenceDrawerVisible, (visible) => {
 
 .audit-log-table {
   display: block;
+}
+
+.audit-log-slow-summary {
+  display: grid;
+  gap: 0.82rem;
+  margin-bottom: 0.82rem;
+  padding: 1rem;
+}
+
+.audit-log-slow-summary__header,
+.audit-log-slow-summary__title,
+.audit-log-slow-summary__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.audit-log-slow-summary__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.audit-log-slow-summary__header > span,
+.audit-log-slow-summary__title span,
+.audit-log-slow-summary__metrics,
+.audit-log-slow-summary__footer > span,
+.audit-log-slow-summary__empty {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-slow-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.audit-log-slow-summary__item {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
+}
+
+.audit-log-slow-summary__title strong,
+.audit-log-slow-summary__item p,
+.audit-log-slow-summary__footer > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-summary__title strong {
+  color: var(--text-heading);
+  font-size: 0.92rem;
+}
+
+.audit-log-slow-summary__item p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.audit-log-slow-summary__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .observability-evidence-drawer {
@@ -1585,6 +1777,10 @@ watch(evidenceDrawerVisible, (visible) => {
 
   .audit-log-table {
     display: none;
+  }
+
+  .audit-log-slow-summary__grid {
+    grid-template-columns: 1fr;
   }
 
   .audit-log-mobile-card__info {
