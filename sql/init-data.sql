@@ -455,10 +455,15 @@ INSERT INTO sys_menu (
     (93001031, 1, 93001009, '协议治理复核', 'iot:protocol-governance:approve', '', '', '', '{"caption":"协议治理发布与回滚双人复核"}', 1131, 2, 2, '', 'iot:protocol-governance:approve', 1131, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002044, 1, 93002003, '风险指标标注', 'risk:metric-catalog:tag', '', '', '', '{"caption":"维护风险指标语义标签"}', 3144, 2, 2, '', 'risk:metric-catalog:tag', 3144, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002051, 1, 93002003, '风险指标复核', 'risk:metric-catalog:approve', '', '', '', '{"caption":"风险指标标注关键写动作双人复核"}', 3145, 2, 2, '', 'risk:metric-catalog:approve', 3145, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002055, 1, 93002003, '风险绑定执行', 'risk:risk-point-binding:execute', '', '', '', '{"caption":"执行风险点正式绑定治理动作"}', 3155, 2, 2, '', 'risk:risk-point-binding:execute', 3155, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002056, 1, 93002003, '风险绑定复核', 'risk:risk-point-binding:approve', '', '', '', '{"caption":"复核风险点正式绑定治理动作"}', 3156, 2, 2, '', 'risk:risk-point-binding:approve', 3156, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002057, 1, 93002003, '待治理转正执行', 'risk:risk-point-pending-promotion:execute', '', '', '', '{"caption":"执行待治理绑定转正动作"}', 3157, 2, 2, '', 'risk:risk-point-pending-promotion:execute', 3157, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002058, 1, 93002003, '待治理转正复核', 'risk:risk-point-pending-promotion:approve', '', '', '', '{"caption":"复核待治理绑定转正动作"}', 3158, 2, 2, '', 'risk:risk-point-pending-promotion:approve', 3158, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002045, 1, 93002004, '阈值策略执行', 'risk:rule-definition:edit', '', '', '', '{"caption":"新增/更新/删除阈值策略"}', 3245, 2, 2, '', 'risk:rule-definition:edit', 3245, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002046, 1, 93002004, '阈值策略复核', 'risk:rule-definition:approve', '', '', '', '{"caption":"阈值策略关键写操作双人复核"}', 3246, 2, 2, '', 'risk:rule-definition:approve', 3246, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002047, 1, 93002005, '联动编排执行', 'risk:linkage-rule:edit', '', '', '', '{"caption":"新增/更新/删除联动规则"}', 3347, 2, 2, '', 'risk:linkage-rule:edit', 3347, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002048, 1, 93002005, '联动编排复核', 'risk:linkage-rule:approve', '', '', '', '{"caption":"联动规则关键写操作双人复核"}', 3348, 2, 2, '', 'risk:linkage-rule:approve', 3348, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93002059, 1, 93002005, '联动预案复核', 'risk:linkage-plan:approve', '', '', '', '{"caption":"复核联动预案关键治理动作"}', 3359, 2, 2, '', 'risk:linkage-plan:approve', 3359, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002049, 1, 93002006, '预案执行', 'risk:emergency-plan:edit', '', '', '', '{"caption":"新增/更新/删除应急预案"}', 3449, 2, 2, '', 'risk:emergency-plan:edit', 3449, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93002050, 1, 93002006, '预案复核', 'risk:emergency-plan:approve', '', '', '', '{"caption":"预案关键写操作双人复核"}', 3450, 2, 2, '', 'risk:emergency-plan:approve', 3450, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
@@ -565,6 +570,7 @@ INSERT INTO sys_menu (
     (93001053, 1, 93001002, '导出选中', 'iot:devices:export-selected', '', '', '', '{"caption":"导出选中的设备结果"}', 1253, 2, 2, '', 'iot:devices:export-selected', 1253, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001054, 1, 93001002, '导出当前结果', 'iot:devices:export-current', '', '', '', '{"caption":"导出当前筛选结果"}', 1254, 2, 2, '', 'iot:devices:export-current', 1254, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001055, 1, 93001002, '对象洞察跳转', 'iot:devices:insight', '', '', '', '{"caption":"从设备资产中心跳转对象洞察"}', 1255, 2, 2, '', 'iot:devices:insight', 1255, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93001070, 1, 93001002, '设备操作', 'iot:device-capability:view', '', '', '', '{"caption":"打开设备操作抽屉并查看可执行能力"}', 1270, 2, 2, '', 'iot:device-capability:view', 1270, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001056, 1, 93001003, '结果复盘工作区', 'iot:reporting:replay-workspace', '', '', '', '{"caption":"切换结果复盘工作区"}', 1356, 2, 2, '', 'iot:reporting:replay-workspace', 1356, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001057, 1, 93001003, '模拟上报工作区', 'iot:reporting:simulate-workspace', '', '', '', '{"caption":"切换模拟上报工作区"}', 1357, 2, 2, '', 'iot:reporting:simulate-workspace', 1357, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93001058, 1, 93001003, '最近会话工作区', 'iot:reporting:recent-workspace', '', '', '', '{"caption":"切换最近会话工作区"}', 1358, 2, 2, '', 'iot:reporting:recent-workspace', 1358, 1, 1, 1, NOW(), 1, NOW(), 0),
