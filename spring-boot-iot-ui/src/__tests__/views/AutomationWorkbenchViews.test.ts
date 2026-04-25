@@ -3,11 +3,19 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 function readView(fileName: string) {
-  return readFileSync(resolve(import.meta.dirname, `../../views/${fileName}`), 'utf8');
+  return decodeEscapedUnicode(
+    readFileSync(resolve(import.meta.dirname, `../../views/${fileName}`), 'utf8')
+  );
 }
 
 function readRouter() {
   return readFileSync(resolve(import.meta.dirname, '../../router/index.ts'), 'utf8');
+}
+
+function decodeEscapedUnicode(source: string) {
+  return source.replace(/\\u([0-9a-fA-F]{4})/g, (_, code: string) =>
+    String.fromCharCode(Number.parseInt(code, 16))
+  );
 }
 
 describe('automation rd workbench route splits', () => {
@@ -29,6 +37,7 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('<BusinessAcceptanceRunConfigPanel');
     expect(source).toContain('launchSelectedPackage');
     expect(source).toContain('useBusinessAcceptanceWorkbench');
+    expect(source).toContain('哪些模块没过');
     expect(source).not.toContain('<AutomationScenarioEditor');
     expect(source).not.toContain('<AutomationExecutionConfigPanel');
   });

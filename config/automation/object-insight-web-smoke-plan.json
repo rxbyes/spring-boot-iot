@@ -1,0 +1,138 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-04-25T00:00:00+08:00",
+  "target": {
+    "planName": "对象洞察台 P1 浏览器冒烟基线",
+    "frontendBaseUrl": "http://127.0.0.1:5175",
+    "backendBaseUrl": "http://127.0.0.1:10099",
+    "loginRoute": "/login",
+    "username": "admin",
+    "password": "123456",
+    "browserPath": "",
+    "headless": true,
+    "outputPrefix": "object-insight-browser",
+    "baselineDir": "config/automation/baselines",
+    "scenarioScopes": ["delivery"],
+    "failScopes": ["delivery"]
+  },
+  "tags": [
+    "playwright",
+    "config-driven",
+    "object-insight",
+    "quality-factory-p1"
+  ],
+  "plugins": [
+    "builtin-report",
+    "builtin-suggestion",
+    "capture-response"
+  ],
+  "scenarios": [
+    {
+      "key": "object-insight-login",
+      "name": "对象洞察台登录初始化",
+      "route": "/login",
+      "scope": "delivery",
+      "readySelector": "#login-submit",
+      "requiresLogin": false,
+      "description": "初始化对象洞察台自动化会话。",
+      "businessFlow": "登录鉴权与风险运营会话建立",
+      "featurePoints": [
+        "登录页可达",
+        "登录接口返回 200",
+        "进入受保护工作台"
+      ],
+      "steps": [
+        {
+          "id": "object-insight-login-fill-username",
+          "label": "填写账号",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-username"
+          },
+          "value": "${target.username}"
+        },
+        {
+          "id": "object-insight-login-fill-password",
+          "label": "填写密码",
+          "type": "fill",
+          "locator": {
+            "type": "css",
+            "value": "#login-password"
+          },
+          "value": "${target.password}"
+        },
+        {
+          "id": "object-insight-login-submit",
+          "label": "提交登录",
+          "type": "triggerApi",
+          "matcher": "/api/auth/login",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "css",
+              "value": "#login-submit"
+            }
+          }
+        },
+        {
+          "id": "object-insight-login-assert-shell",
+          "label": "断言进入风险运营入口",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "风险运营"
+        }
+      ]
+    },
+    {
+      "key": "object-insight-workbench",
+      "name": "对象洞察台可达",
+      "route": "/insight",
+      "scope": "delivery",
+      "readySelector": ".device-insight-view",
+      "requiresLogin": true,
+      "description": "验证对象洞察台可达，并能展示设备编码输入、分析动作和空态提示。",
+      "businessFlow": "单设备对象洞察入口、属性快照和趋势分析读侧入口",
+      "featurePoints": [
+        "对象洞察台可达",
+        "设备编码输入可见",
+        "分析动作可见"
+      ],
+      "steps": [
+        {
+          "id": "object-insight-assert-title",
+          "label": "断言对象洞察台标题可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "对象洞察台"
+        },
+        {
+          "id": "object-insight-assert-empty-state",
+          "label": "断言空态提示可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "请输入设备编码后开始综合分析"
+        },
+        {
+          "id": "object-insight-assert-action",
+          "label": "断言开始分析动作可见",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "开始分析"
+        }
+      ]
+    }
+  ]
+}

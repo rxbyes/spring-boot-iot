@@ -382,6 +382,9 @@ function createRuntimeOptions(rawOptions = {}) {
     scenarioScopes: rawOptions.scenarioScopes?.length
       ? [...rawOptions.scenarioScopes]
       : parseCsvList(process.env.IOT_AUTO_SCOPES, DEFAULT_SCOPE_FILTER),
+    scenarioKeys: rawOptions.scenarioKeys?.length
+      ? [...rawOptions.scenarioKeys]
+      : parseCsvList(process.env.IOT_AUTO_SCENARIO_KEYS, []),
     failScopes: rawOptions.failScopes?.length
       ? [...rawOptions.failScopes]
       : parseCsvList(process.env.IOT_AUTO_FAIL_SCOPES, DEFAULT_FAIL_SCOPES),
@@ -408,9 +411,13 @@ export async function runBrowserAcceptance({
   const runtimeOptions = createRuntimeOptions(options);
   const artifacts = runtimeOptions.artifacts;
   const unhandledAsyncErrors = [];
-  const executableScenarios = createScenarios({ runToken: artifacts.runToken }).filter((scenario) =>
-    runtimeOptions.scenarioScopes.includes(scenario.scope)
-  );
+  const executableScenarios = createScenarios({ runToken: artifacts.runToken }).filter((scenario) => {
+    const scopeMatches = runtimeOptions.scenarioScopes.includes(scenario.scope);
+    const keyMatches =
+      runtimeOptions.scenarioKeys.length === 0 ||
+      runtimeOptions.scenarioKeys.includes(scenario.key);
+    return scopeMatches && keyMatches;
+  });
 
   validateScenarioPlan(executableScenarios);
 

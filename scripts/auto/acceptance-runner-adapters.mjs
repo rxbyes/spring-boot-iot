@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 function resolvePowerShellExecutable() {
   return process.platform === 'win32' ? 'powershell' : 'pwsh';
@@ -31,6 +33,79 @@ function normalizeEvidenceFiles(values, workspaceRoot) {
         ? value.slice(workspaceRoot.length + 1).replace(/\\/g, '/')
         : value.replace(/\\/g, '/')
     );
+}
+
+function resolveWorkspaceFile(filePath, workspaceRoot) {
+  if (!filePath) {
+    return '';
+  }
+  return path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(workspaceRoot, filePath);
+}
+
+function isSmokeFailureRow(item) {
+  const status = String(item?.status || '').trim().toUpperCase();
+  return (
+    item &&
+    typeof item === 'object' &&
+    status &&
+    status !== 'PASS'
+  );
+}
+
+function normalizeSmokeSummaryRows(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+  for (const key of ['results', 'summary', 'rows', 'cases']) {
+    if (Array.isArray(payload[key])) {
+      return payload[key];
+    }
+  }
+  return [payload];
+}
+
+async function readApiSmokeFailure(meta, workspaceRoot) {
+  for (const summaryFile of [meta.REPORT_JSON, meta.DETAIL_JSON, meta.REPORT_SUMMARY, meta.SUMMARY_JSON]) {
+    if (!summaryFile) {
+      continue;
+    }
+    try {
+      const summaryText = await fs.readFile(
+        resolveWorkspaceFile(summaryFile, workspaceRoot),
+        'utf8'
+      );
+      const payload = JSON.parse(summaryText.replace(/^\uFEFF/, ''));
+      const failed = normalizeSmokeSummaryRows(payload).find(isSmokeFailureRow);
+      if (failed) {
+        return failed;
+      }
+    } catch {
+      // The command result remains the source of truth if optional metadata is unreadable.
+    }
+  }
+  return null;
+}
+
+function buildApiSmokeFailureDetails(failed) {
+  if (!failed) {
+    return {};
+  }
+  const stepLabel = [failed.point, failed.case].filter(Boolean).join('/');
+  const apiRef = [failed.method, failed.path].filter(Boolean).join(' ');
+
+  return {
+    ...(stepLabel ? { stepLabel } : {}),
+    ...(apiRef ? { apiRef } : {}),
+    ...(stepLabel
+      ? { pageAction: `执行业务烟测点 ${stepLabel}` }
+      : {}),
+    ...(failed.detail ? { failureDetail: failed.detail, smokeDetail: failed.detail } : {})
+  };
 }
 
 async function runProcess(executable, args, { cwd, env }) {
@@ -82,31 +157,41 @@ async function runCommandRunner({ executable, args, context, env = {} }) {
     ],
     context.workspaceRoot
   );
+  const status = completed.code === 0 ? 'passed' : 'failed';
+  const failedApiSmokeRow =
+    status === 'failed' && context.scenario.runnerType === 'apiSmoke'
+      ? await readApiSmokeFailure(meta, context.workspaceRoot)
+      : null;
+  const fallbackSummary =
+    meta.SUMMARY ||
+    meta.STATUS ||
+    completed.stderr.trim() ||
+    completed.stdout.trim().split(/\r?\n/).at(-1) ||
+    `${context.scenario.id} ${status}`;
 
   return {
     scenarioId: context.scenario.id,
     runnerType: context.scenario.runnerType,
-    status: completed.code === 0 ? 'passed' : 'failed',
+    status,
     blocking: context.scenario.blocking,
-    summary:
-      meta.SUMMARY ||
-      meta.STATUS ||
-      completed.stderr.trim() ||
-      completed.stdout.trim().split(/\r?\n/).at(-1) ||
-      `${context.scenario.id} ${completed.code === 0 ? 'passed' : 'failed'}`,
+    summary: failedApiSmokeRow?.detail || fallbackSummary,
     evidenceFiles,
     details: {
       executable,
       args,
       exitCode: completed.code,
       stdout: completed.stdout,
-      stderr: completed.stderr
+      stderr: completed.stderr,
+      ...buildApiSmokeFailureDetails(failedApiSmokeRow)
     }
   };
 }
 
+export const __runCommandForTest = runCommandRunner;
+
 export function createRunnerAdapters({ workspaceRoot, overrides = {} }) {
   return {
+    __runCommandForTest: runCommandRunner,
     browserPlan:
       overrides.browserPlan ||
       ((context) =>
@@ -114,7 +199,16 @@ export function createRunnerAdapters({ workspaceRoot, overrides = {} }) {
           executable: process.execPath,
           args: [
             'scripts/auto/run-browser-acceptance.mjs',
-            `--plan=${context.scenario.runner.planRef}`
+            `--plan=${context.scenario.runner.planRef}`,
+            ...(context.scenario.runner.scenarioScopes || []).length
+              ? [`--scopes=${context.scenario.runner.scenarioScopes.join(',')}`]
+              : [],
+            ...(context.scenario.runner.failScopes || []).length
+              ? [`--fail-scopes=${context.scenario.runner.failScopes.join(',')}`]
+              : [],
+            ...(context.scenario.runner.scenarioKeys || []).length
+              ? [`--scenario-keys=${context.scenario.runner.scenarioKeys.join(',')}`]
+              : []
           ],
           context,
           env: {
