@@ -7,11 +7,13 @@ import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
@@ -161,6 +163,45 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 LIMIT ? OFFSET ?
                 """.formatted(where),
                 this::mapScheduledTask,
+                rowArgs.toArray()
+        );
+        return PageResult.of(total, pageNum, pageSize, records);
+    }
+
+    @Override
+    public PageResult<ObservabilityMessageArchiveBatchVO> pageMessageArchiveBatches(
+            ObservabilityMessageArchiveBatchPageQuery query,
+            Long currentUserId
+    ) {
+        ObservabilityMessageArchiveBatchPageQuery criteria =
+                query == null ? new ObservabilityMessageArchiveBatchPageQuery() : query;
+        long pageNum = PageQueryUtils.normalizePageNum(criteria.getPageNum());
+        long pageSize = PageQueryUtils.normalizePageSize(criteria.getPageSize());
+        List<Object> args = new ArrayList<>();
+        String where = buildMessageArchiveBatchWhere(criteria, args);
+        Long total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM iot_message_log_archive_batch WHERE " + where,
+                Long.class,
+                args.toArray()
+        );
+        if (total == null || total == 0L) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        List<Object> rowArgs = new ArrayList<>(args);
+        rowArgs.add(pageSize);
+        rowArgs.add((pageNum - 1L) * pageSize);
+        List<ObservabilityMessageArchiveBatchVO> records = jdbcTemplate.query(
+                """
+                SELECT id, batch_no, source_table, governance_mode, status, retention_days,
+                       cutoff_at, confirm_report_path, confirm_report_generated_at,
+                       confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
+                       failed_reason, artifacts_json, create_time, update_time
+                FROM iot_message_log_archive_batch
+                WHERE %s
+                ORDER BY create_time DESC, id DESC
+                LIMIT ? OFFSET ?
+                """.formatted(where),
+                this::mapMessageArchiveBatch,
                 rowArgs.toArray()
         );
         return PageResult.of(total, pageNum, pageSize, records);
@@ -357,6 +398,16 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
             args.add(query.getMinDurationMs());
         }
         appendDateRange(clauses, args, "started_at", query.getDateFrom(), query.getDateTo());
+        return String.join(" AND ", clauses);
+    }
+
+    private String buildMessageArchiveBatchWhere(ObservabilityMessageArchiveBatchPageQuery query, List<Object> args) {
+        List<String> clauses = new ArrayList<>();
+        clauses.add("1 = 1");
+        appendEquals(clauses, args, "batch_no", query.getBatchNo());
+        appendEquals(clauses, args, "source_table", query.getSourceTable());
+        appendEquals(clauses, args, "status", query.getStatus());
+        appendDateRange(clauses, args, "create_time", query.getDateFrom(), query.getDateTo());
         return String.join(" AND ", clauses);
     }
 
@@ -640,6 +691,28 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return vo;
     }
 
+    private ObservabilityMessageArchiveBatchVO mapMessageArchiveBatch(ResultSet rs, int rowNum) throws SQLException {
+        ObservabilityMessageArchiveBatchVO vo = new ObservabilityMessageArchiveBatchVO();
+        vo.setId(nullableLong(rs, "id"));
+        vo.setBatchNo(rs.getString("batch_no"));
+        vo.setSourceTable(rs.getString("source_table"));
+        vo.setGovernanceMode(rs.getString("governance_mode"));
+        vo.setStatus(rs.getString("status"));
+        vo.setRetentionDays(nullableInteger(rs, "retention_days"));
+        vo.setCutoffAt(nullableDateTime(rs, "cutoff_at"));
+        vo.setConfirmReportPath(rs.getString("confirm_report_path"));
+        vo.setConfirmReportGeneratedAt(nullableDateTime(rs, "confirm_report_generated_at"));
+        vo.setConfirmedExpiredRows(nullableInteger(rs, "confirmed_expired_rows"));
+        vo.setCandidateRows(nullableInteger(rs, "candidate_rows"));
+        vo.setArchivedRows(nullableInteger(rs, "archived_rows"));
+        vo.setDeletedRows(nullableInteger(rs, "deleted_rows"));
+        vo.setFailedReason(rs.getString("failed_reason"));
+        vo.setArtifactsJson(rs.getString("artifacts_json"));
+        vo.setCreateTime(nullableDateTime(rs, "create_time"));
+        vo.setUpdateTime(nullableDateTime(rs, "update_time"));
+        return vo;
+    }
+
     private ObservabilityScheduledTaskVO mapScheduledTask(ResultSet rs, int rowNum) throws SQLException {
         ObservabilityScheduledTaskVO vo = new ObservabilityScheduledTaskVO();
         vo.setId(nullableLong(rs, "id"));
@@ -703,6 +776,11 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private Long nullableLong(ResultSet rs, String column) throws SQLException {
         Object value = rs.getObject(column);
         return value instanceof Number number ? number.longValue() : null;
+    }
+
+    private Integer nullableInteger(ResultSet rs, String column) throws SQLException {
+        Object value = rs.getObject(column);
+        return value instanceof Number number ? number.intValue() : null;
     }
 
     private LocalDateTime nullableDateTime(ResultSet rs, String column) throws SQLException {

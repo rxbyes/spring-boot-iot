@@ -48,6 +48,10 @@ def run_export(args: argparse.Namespace) -> dict[str, object]:
     expected_schema_object = governance_registry.structure_registry.mysql.get(object_entry.object_name)
     connection_args = resolve_connection_args(args)
     if object_entry.real_env_audit_profile != "mysql_archived_object_with_seed":
+        if object_entry.real_env_audit_profile == "mysql_hot_table_with_cold_archive":
+            raise RuntimeError(
+                "hot-table-with-cold-archive objects must use archive batch evidence instead of export_object_backup"
+            )
         raise RuntimeError(f"unsupported profile: {object_entry.real_env_audit_profile}")
 
     audit = audit_mysql_archived_object(connection_args, object_entry.object_name, args.sample_limit)

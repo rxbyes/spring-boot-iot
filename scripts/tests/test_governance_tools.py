@@ -60,6 +60,55 @@ class GovernanceToolsTest(unittest.TestCase):
         self.assertIn("ARCHIVE_ROWS_STILL_PRESENT", decision["blocking_reasons"])
         self.assertIn("CAPABILITY_BINDINGS_STILL_PRESENT", decision["blocking_reasons"])
 
+    def test_evaluate_hot_table_archive_health_should_block_when_archive_tables_missing(self):
+        decision = tools.evaluate_hot_table_archive_health(
+            {
+                "hot_table_exists": True,
+                "archive_table_exists": False,
+                "batch_table_exists": False,
+                "expired_rows": 12,
+                "latest_batch": None,
+            }
+        )
+
+        self.assertFalse(decision["ready"])
+        self.assertIn("ARCHIVE_TABLE_MISSING", decision["blocking_reasons"])
+        self.assertIn("ARCHIVE_BATCH_TABLE_MISSING", decision["blocking_reasons"])
+        self.assertIn("NO_ARCHIVE_BATCH_EVIDENCE", decision["blocking_reasons"])
+
+    def test_evaluate_hot_table_archive_health_should_block_when_hot_object_is_view(self):
+        decision = tools.evaluate_hot_table_archive_health(
+            {
+                "hot_table_exists": True,
+                "table_type": "VIEW",
+                "archive_table_exists": True,
+                "batch_table_exists": True,
+                "expired_rows": 0,
+                "latest_batch": None,
+            }
+        )
+
+        self.assertFalse(decision["ready"])
+        self.assertIn("HOT_OBJECT_NOT_BASE_TABLE", decision["blocking_reasons"])
+
+    def test_evaluate_hot_table_archive_health_should_pass_when_archive_chain_is_complete(self):
+        decision = tools.evaluate_hot_table_archive_health(
+            {
+                "hot_table_exists": True,
+                "table_type": "BASE TABLE",
+                "archive_table_exists": True,
+                "batch_table_exists": True,
+                "expired_rows": 0,
+                "latest_batch": {
+                    "batch_no": "iot_message_log-20260426001010",
+                    "status": "SUCCEEDED",
+                },
+            }
+        )
+
+        self.assertTrue(decision["ready"])
+        self.assertEqual([], decision["blocking_reasons"])
+
     def test_render_backup_sql_should_escape_content(self):
         sql = tools.render_backup_sql(
             table_name="risk_point_highway_detail",
@@ -161,7 +210,7 @@ class GovernanceToolsTest(unittest.TestCase):
         self.assertIn("`docs/04`", alarm_section)
         self.assertIn("`docs/08`", alarm_section)
 
-    def test_render_domain_governance_ledger_should_show_no_governance_objects_for_plain_domain(self):
+    def test_render_domain_governance_ledger_should_include_device_message_log_governance_object(self):
         registry = load_registry()
 
         markdown = render_tools.render_domain_governance_ledger(registry)
@@ -170,17 +219,17 @@ class GovernanceToolsTest(unittest.TestCase):
             device_section,
             "| Governance Object | Stage | Seed Packages | Audit Profile | Deletion Prerequisites | Notes |",
         )
-        placeholder_row = schema_contract_support.get_markdown_table_row(
+        device_object_row = schema_contract_support.get_markdown_table_row(
             governance_rows,
             "Governance Object",
-            "当前无登记治理对象",
+            "iot_message_log",
         )
 
-        self.assertEqual("-", placeholder_row["Stage"])
-        self.assertEqual("-", placeholder_row["Seed Packages"])
-        self.assertEqual("-", placeholder_row["Audit Profile"])
-        self.assertEqual("-", placeholder_row["Deletion Prerequisites"])
-        self.assertEqual("-", placeholder_row["Notes"])
+        self.assertEqual("freeze_candidate", device_object_row["Stage"])
+        self.assertEqual("-", device_object_row["Seed Packages"])
+        self.assertEqual("mysql_hot_table_with_cold_archive", device_object_row["Audit Profile"])
+        self.assertIn("archive_table_ready", device_object_row["Deletion Prerequisites"])
+        self.assertIn("冷归档治理阶段", device_object_row["Notes"])
 
     def test_render_domain_governance_ledger_should_include_relation_summary_for_alarm_domain(self):
         registry = load_registry()
@@ -232,8 +281,11 @@ class GovernanceToolsTest(unittest.TestCase):
             )
 
         self.assertEqual(
-            [path.resolve() for path in output_paths.values()],
-            [path.resolve() for path in mismatches],
+            [
+                output_paths["catalog_markdown"].resolve(),
+                output_paths["domain_ledger_markdown"].resolve(),
+            ],
+            mismatches,
         )
 
     def test_write_governance_docs_should_materialize_generated_appendices(self):
@@ -258,8 +310,11 @@ class GovernanceToolsTest(unittest.TestCase):
             domain_markdown = output_paths["domain_ledger_markdown"].read_text(encoding="utf-8")
 
         self.assertEqual(
-            [path.resolve() for path in output_paths.values()],
-            [path.resolve() for path in written],
+            [
+                output_paths["catalog_markdown"].resolve(),
+                output_paths["domain_ledger_markdown"].resolve(),
+            ],
+            written,
         )
         self.assertEqual([], mismatches)
         catalog_rows = schema_contract_support.parse_markdown_table(

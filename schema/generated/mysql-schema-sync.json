@@ -3146,6 +3146,208 @@
           "name": "id"
         },
         {
+          "commentZh": "原热表日志ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "original_log_id"
+        },
+        {
+          "commentZh": "归档批次ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "archive_batch_id"
+        },
+        {
+          "commentZh": "租户ID",
+          "definition": "BIGINT NOT NULL DEFAULT 1",
+          "isTag": false,
+          "name": "tenant_id"
+        },
+        {
+          "commentZh": "设备ID",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "device_id"
+        },
+        {
+          "commentZh": "产品ID",
+          "definition": "BIGINT DEFAULT NULL",
+          "isTag": false,
+          "name": "product_id"
+        },
+        {
+          "commentZh": "消息类型（遥测/事件/属性/应答）",
+          "definition": "VARCHAR(32) NOT NULL",
+          "isTag": false,
+          "name": "message_type"
+        },
+        {
+          "commentZh": "主题",
+          "definition": "VARCHAR(255) DEFAULT NULL",
+          "isTag": false,
+          "name": "topic"
+        },
+        {
+          "commentZh": "原始消息",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "payload"
+        },
+        {
+          "commentZh": "上报时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "report_time"
+        },
+        {
+          "commentZh": "链路追踪ID",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "trace_id"
+        },
+        {
+          "commentZh": "设备编码",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "device_code"
+        },
+        {
+          "commentZh": "产品标识",
+          "definition": "VARCHAR(64) DEFAULT NULL",
+          "isTag": false,
+          "name": "product_key"
+        },
+        {
+          "commentZh": "原日志创建时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "归档时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "archived_at"
+        }
+      ],
+      "name": "iot_message_log_archive"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
+          "commentZh": "批次号",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "batch_no"
+        },
+        {
+          "commentZh": "来源热表",
+          "definition": "VARCHAR(64) NOT NULL",
+          "isTag": false,
+          "name": "source_table"
+        },
+        {
+          "commentZh": "治理模式",
+          "definition": "VARCHAR(16) NOT NULL",
+          "isTag": false,
+          "name": "governance_mode"
+        },
+        {
+          "commentZh": "批次状态",
+          "definition": "VARCHAR(32) NOT NULL",
+          "isTag": false,
+          "name": "status"
+        },
+        {
+          "commentZh": "保留天数",
+          "definition": "INT NOT NULL",
+          "isTag": false,
+          "name": "retention_days"
+        },
+        {
+          "commentZh": "过期阈值时间",
+          "definition": "DATETIME NOT NULL",
+          "isTag": false,
+          "name": "cutoff_at"
+        },
+        {
+          "commentZh": "确认报告路径",
+          "definition": "VARCHAR(500) DEFAULT NULL",
+          "isTag": false,
+          "name": "confirm_report_path"
+        },
+        {
+          "commentZh": "确认报告生成时间",
+          "definition": "DATETIME DEFAULT NULL",
+          "isTag": false,
+          "name": "confirm_report_generated_at"
+        },
+        {
+          "commentZh": "确认过期行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "confirmed_expired_rows"
+        },
+        {
+          "commentZh": "候选过期行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "candidate_rows"
+        },
+        {
+          "commentZh": "已归档行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "archived_rows"
+        },
+        {
+          "commentZh": "已删除行数",
+          "definition": "INT NOT NULL DEFAULT 0",
+          "isTag": false,
+          "name": "deleted_rows"
+        },
+        {
+          "commentZh": "失败原因",
+          "definition": "VARCHAR(1000) DEFAULT NULL",
+          "isTag": false,
+          "name": "failed_reason"
+        },
+        {
+          "commentZh": "批次附加证据",
+          "definition": "JSON DEFAULT NULL",
+          "isTag": false,
+          "name": "artifacts_json"
+        },
+        {
+          "commentZh": "创建时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "create_time"
+        },
+        {
+          "commentZh": "更新时间",
+          "definition": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+          "isTag": false,
+          "name": "update_time"
+        }
+      ],
+      "name": "iot_message_log_archive_batch"
+    },
+    {
+      "columns": [
+        {
+          "commentZh": "主键",
+          "definition": "BIGINT NOT NULL",
+          "isTag": false,
+          "name": "id"
+        },
+        {
           "commentZh": "租户ID",
           "definition": "BIGINT NOT NULL DEFAULT 1",
           "isTag": false,
@@ -7524,6 +7726,14 @@
       "sql": "-- 表：iot_message_log\n-- 说明：设备消息日志表\nCREATE TABLE iot_message_log (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间',\n  PRIMARY KEY (id),\n  KEY idx_device_time (device_id, report_time),\n  KEY idx_message_type (message_type),\n  KEY idx_trace_id (trace_id),\n  KEY idx_device_code_time (device_code, report_time)\n) COMMENT='设备消息日志表';"
     },
     {
+      "name": "iot_message_log_archive",
+      "sql": "-- 表：iot_message_log_archive\n-- 说明：设备消息日志冷归档表\nCREATE TABLE iot_message_log_archive (\n  id BIGINT NOT NULL COMMENT '主键',\n  original_log_id BIGINT NOT NULL COMMENT '原热表日志ID',\n  archive_batch_id BIGINT NOT NULL COMMENT '归档批次ID',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  device_id BIGINT NOT NULL COMMENT '设备ID',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',\n  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',\n  payload JSON DEFAULT NULL COMMENT '原始消息',\n  report_time DATETIME NOT NULL COMMENT '上报时间',\n  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',\n  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',\n  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',\n  create_time DATETIME NOT NULL COMMENT '原日志创建时间',\n  archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_original_log_id (original_log_id),\n  KEY idx_archive_batch_id (archive_batch_id),\n  KEY idx_trace_id_report_time (trace_id, report_time),\n  KEY idx_device_code_report_time (device_code, report_time)\n) COMMENT='设备消息日志冷归档表';"
+    },
+    {
+      "name": "iot_message_log_archive_batch",
+      "sql": "-- 表：iot_message_log_archive_batch\n-- 说明：设备消息日志冷归档批次表\nCREATE TABLE iot_message_log_archive_batch (\n  id BIGINT NOT NULL COMMENT '主键',\n  batch_no VARCHAR(64) NOT NULL COMMENT '批次号',\n  source_table VARCHAR(64) NOT NULL COMMENT '来源热表',\n  governance_mode VARCHAR(16) NOT NULL COMMENT '治理模式',\n  status VARCHAR(32) NOT NULL COMMENT '批次状态',\n  retention_days INT NOT NULL COMMENT '保留天数',\n  cutoff_at DATETIME NOT NULL COMMENT '过期阈值时间',\n  confirm_report_path VARCHAR(500) DEFAULT NULL COMMENT '确认报告路径',\n  confirm_report_generated_at DATETIME DEFAULT NULL COMMENT '确认报告生成时间',\n  confirmed_expired_rows INT NOT NULL DEFAULT 0 COMMENT '确认过期行数',\n  candidate_rows INT NOT NULL DEFAULT 0 COMMENT '候选过期行数',\n  archived_rows INT NOT NULL DEFAULT 0 COMMENT '已归档行数',\n  deleted_rows INT NOT NULL DEFAULT 0 COMMENT '已删除行数',\n  failed_reason VARCHAR(1000) DEFAULT NULL COMMENT '失败原因',\n  artifacts_json JSON DEFAULT NULL COMMENT '批次附加证据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_batch_no (batch_no),\n  KEY idx_source_status_time (source_table, status, create_time)\n) COMMENT='设备消息日志冷归档批次表';"
+    },
+    {
       "name": "iot_normative_metric_definition",
       "sql": "-- 表：iot_normative_metric_definition\n-- 说明：规范字段定义表\nCREATE TABLE iot_normative_metric_definition (\n  id BIGINT NOT NULL COMMENT '主键',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  scenario_code VARCHAR(64) NOT NULL COMMENT '场景编码',\n  device_family VARCHAR(64) NOT NULL COMMENT '设备族编码',\n  identifier VARCHAR(64) NOT NULL COMMENT '规范字段标识',\n  display_name VARCHAR(128) NOT NULL COMMENT '规范字段名称',\n  unit VARCHAR(32) DEFAULT NULL COMMENT '单位',\n  precision_digits INT DEFAULT NULL COMMENT '精度',\n  monitor_content_code VARCHAR(32) DEFAULT NULL COMMENT '监测内容编码',\n  monitor_type_code VARCHAR(32) DEFAULT NULL COMMENT '监测类型编码',\n  risk_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否允许进入风险闭环',\n  trend_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用趋势展示',\n  metric_dimension VARCHAR(64) DEFAULT NULL COMMENT '指标量纲',\n  threshold_type VARCHAR(32) DEFAULT NULL COMMENT '阈值类型',\n  semantic_direction VARCHAR(32) DEFAULT NULL COMMENT '语义方向',\n  gis_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用地图展示',\n  insight_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用对象洞察',\n  analytics_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否启用运营分析',\n  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',\n  version_no INT NOT NULL DEFAULT 1 COMMENT '版本号',\n  metadata_json JSON DEFAULT NULL COMMENT '扩展元数据',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_normative_metric_scenario_identifier (scenario_code, identifier)\n) COMMENT='规范字段定义表';"
     },
@@ -8542,6 +8752,76 @@
         }
       ],
       "name": "iot_message_log"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "original_log_id"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_original_log_id"
+        },
+        {
+          "columns": [
+            "archive_batch_id"
+          ],
+          "kind": "INDEX",
+          "name": "idx_archive_batch_id"
+        },
+        {
+          "columns": [
+            "trace_id",
+            "report_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_trace_id_report_time"
+        },
+        {
+          "columns": [
+            "device_code",
+            "report_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_device_code_report_time"
+        }
+      ],
+      "name": "iot_message_log_archive"
+    },
+    {
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "kind": "PRIMARY",
+          "name": "PRIMARY"
+        },
+        {
+          "columns": [
+            "batch_no"
+          ],
+          "kind": "UNIQUE",
+          "name": "uk_batch_no"
+        },
+        {
+          "columns": [
+            "source_table",
+            "status",
+            "create_time"
+          ],
+          "kind": "INDEX",
+          "name": "idx_source_status_time"
+        }
+      ],
+      "name": "iot_message_log_archive_batch"
     },
     {
       "indexes": [
@@ -9925,6 +10205,8 @@
     "iot_governance_ops_alert": "active",
     "iot_governance_work_item": "active",
     "iot_message_log": "active",
+    "iot_message_log_archive": "active",
+    "iot_message_log_archive_batch": "active",
     "iot_normative_metric_definition": "active",
     "iot_onboarding_template_pack": "active",
     "iot_product": "active",
