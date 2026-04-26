@@ -80,6 +80,17 @@ vi.mock('element-plus', async (importOriginal) => {
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+function createDeferred<T>() {
+  let resolvePromise!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return {
+    promise,
+    resolve: resolvePromise
+  };
+}
+
 function installSessionStorageMock(value?: Record<string, string>) {
   const store = new Map<string, string>(Object.entries(value || {}));
   Object.defineProperty(window, 'sessionStorage', {
@@ -1131,6 +1142,160 @@ describe('AuditLogView', () => {
       wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
     ).toBe(0);
     expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+  });
+
+  it('clears latest summary selection after manual archive batch filter edits', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(
+      wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
+    ).toBe(1);
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('manual-batch');
+    await flushPromises();
+    await nextTick();
+
+    expect(
+      wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
+    ).toBe(0);
+    expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+
+    await wrapper.get('[data-testid="archive-batch-search-button"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      batchNo: 'manual-batch',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
+    expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
+    expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+  });
+
+  it('keeps the latest archive batch refresh result when summary refreshes resolve out of order', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+
+    const stalePage = createDeferred<any>();
+    const currentPage = createDeferred<any>();
+    const staleOverview = createDeferred<any>();
+    const currentOverview = createDeferred<any>();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches)
+      .mockImplementationOnce(() => stalePage.promise)
+      .mockImplementationOnce(() => currentPage.promise);
+    vi.mocked(getObservabilityMessageArchiveBatchOverview)
+      .mockImplementationOnce(() => staleOverview.promise)
+      .mockImplementationOnce(() => currentOverview.promise);
+
+    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-overview-drifted"]').trigger('click');
+
+    currentPage.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 88,
+            batchNo: 'current-drifted-batch',
+            sourceTable: 'iot_message_log',
+            status: 'FAILED',
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '有偏差'
+          }
+        ]
+      }
+    });
+    currentOverview.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalBatches: 2,
+        matchedBatches: 0,
+        driftedBatches: 1,
+        partialBatches: 0,
+        unavailableBatches: 0,
+        abnormalBatches: 1,
+        totalDeltaConfirmedVsDeleted: 12,
+        totalRemainingExpiredRows: 0,
+        latestAbnormalBatch: 'current-latest-batch',
+        latestAbnormalOccurredAt: '2026-04-26 10:00:00'
+      }
+    });
+    await flushPromises();
+    await nextTick();
+
+    stalePage.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 89,
+            batchNo: 'stale-old-batch',
+            sourceTable: 'iot_message_log',
+            status: 'FAILED',
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '有偏差'
+          }
+        ]
+      }
+    });
+    staleOverview.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalBatches: 1,
+        matchedBatches: 0,
+        driftedBatches: 1,
+        partialBatches: 0,
+        unavailableBatches: 0,
+        abnormalBatches: 1,
+        totalDeltaConfirmedVsDeleted: 3,
+        totalRemainingExpiredRows: 0,
+        latestAbnormalBatch: 'stale-old-latest',
+        latestAbnormalOccurredAt: '2026-04-26 09:00:00'
+      }
+    });
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(2);
+    expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledTimes(2);
+    expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
+    expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('current-drifted-batch');
+    expect(wrapper.text()).toContain('current-latest-batch');
+    expect(wrapper.text()).not.toContain('stale-old-batch');
+    expect(wrapper.text()).not.toContain('stale-old-latest');
   });
 
   it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {

@@ -1964,7 +1964,7 @@ const getScheduledTaskLedger = async () => {
   }
 }
 
-const getMessageArchiveBatchLedger = async () => {
+const getMessageArchiveBatchLedger = async (refreshSequence?: number) => {
   if (!isSystemMode.value) {
     clearMessageArchiveBatchLedger()
     return
@@ -1974,20 +1974,38 @@ const getMessageArchiveBatchLedger = async () => {
   messageArchiveBatchErrorMessage.value = ''
   try {
     const res = await pageObservabilityMessageArchiveBatches(buildMessageArchiveBatchQueryParams())
+    if (
+      refreshSequence !== undefined &&
+      refreshSequence !== messageArchiveBatchRefreshSequence
+    ) {
+      return
+    }
     if (res.code === 200 && res.data) {
       messageArchiveBatchRows.value = Array.isArray(res.data.records) ? res.data.records : []
       messageArchiveBatchTotal.value = Number(res.data.total || messageArchiveBatchRows.value.length)
     }
   } catch (error) {
+    if (
+      refreshSequence !== undefined &&
+      refreshSequence !== messageArchiveBatchRefreshSequence
+    ) {
+      return
+    }
     clearMessageArchiveBatchLedger()
     messageArchiveBatchErrorMessage.value = error instanceof Error ? error.message : '获取归档批次台账失败'
     logPageError('获取归档批次台账失败', error)
   } finally {
+    if (
+      refreshSequence !== undefined &&
+      refreshSequence !== messageArchiveBatchRefreshSequence
+    ) {
+      return
+    }
     messageArchiveBatchLoading.value = false
   }
 }
 
-const getMessageArchiveBatchOverview = async () => {
+const getMessageArchiveBatchOverview = async (refreshSequence?: number) => {
   if (!isSystemMode.value) {
     clearMessageArchiveBatchOverview()
     return
@@ -1997,17 +2015,35 @@ const getMessageArchiveBatchOverview = async () => {
   messageArchiveBatchOverviewErrorMessage.value = ''
   try {
     const res = await getObservabilityMessageArchiveBatchOverview(buildMessageArchiveBatchOverviewQueryParams())
+    if (
+      refreshSequence !== undefined &&
+      refreshSequence !== messageArchiveBatchRefreshSequence
+    ) {
+      return
+    }
     if (res.code === 200 && res.data) {
       messageArchiveBatchOverview.value = res.data
     } else {
       messageArchiveBatchOverview.value = null
     }
   } catch (error) {
+    if (
+      refreshSequence !== undefined &&
+      refreshSequence !== messageArchiveBatchRefreshSequence
+    ) {
+      return
+    }
     clearMessageArchiveBatchOverview()
     messageArchiveBatchOverviewErrorMessage.value =
       error instanceof Error ? error.message : '获取归档批次异常摘要失败'
     logPageError('获取归档批次异常摘要失败', error)
   } finally {
+    if (
+      refreshSequence !== undefined &&
+      refreshSequence !== messageArchiveBatchRefreshSequence
+    ) {
+      return
+    }
     messageArchiveBatchOverviewLoading.value = false
   }
 }
@@ -2056,7 +2092,10 @@ const resolveMessageArchiveBatchSummaryFocus = async (
 const refreshMessageArchiveBatchLedger = async () => {
   const refreshSequence = ++messageArchiveBatchRefreshSequence
   const shouldAutoOpenSummaryFocus = activeMessageArchiveBatchOverviewSelection.value === 'latest'
-  await Promise.all([getMessageArchiveBatchLedger(), getMessageArchiveBatchOverview()])
+  await Promise.all([
+    getMessageArchiveBatchLedger(refreshSequence),
+    getMessageArchiveBatchOverview(refreshSequence)
+  ])
   await resolveMessageArchiveBatchSummaryFocus(refreshSequence, shouldAutoOpenSummaryFocus)
 }
 
