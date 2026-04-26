@@ -462,13 +462,28 @@
         <div class="audit-log-archive-batch-ledger__overview">
           <article
             v-for="item in messageArchiveBatchOverviewCards"
-            :key="item.label"
-            class="audit-log-archive-batch-ledger__overview-card"
+            :key="item.key"
+            :class="[
+              'audit-log-archive-batch-ledger__overview-card',
+              {
+                'is-clickable': item.clickable,
+                'is-active': item.active
+              }
+            ]"
+            :data-testid="item.testId"
+            role="button"
+            tabindex="0"
+            @click="handleMessageArchiveBatchOverviewClick(item.key)"
+            @keydown.enter.prevent="handleMessageArchiveBatchOverviewClick(item.key)"
+            @keydown.space.prevent="handleMessageArchiveBatchOverviewClick(item.key)"
           >
             <span>{{ item.label }}</span>
             <strong>{{ item.value }}</strong>
             <p>{{ item.meta }}</p>
           </article>
+        </div>
+        <div v-if="messageArchiveBatchFocusHint" class="audit-log-archive-batch-ledger__focus-hint">
+          {{ messageArchiveBatchFocusHint }}
         </div>
         <div v-if="messageArchiveBatchOverviewLoading" class="audit-log-slow-summary__empty">
           正在汇总异常摘要
@@ -1166,7 +1181,16 @@ type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
 type ArchiveBatchDetailItem = { label: string; value: string }
 type ArchiveBatchCompareStatus = 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE'
-type ArchiveBatchOverviewCard = { label: string; value: string; meta: string }
+type ArchiveBatchOverviewSelectionKey = 'abnormal' | 'drifted' | 'remaining' | 'latest'
+type ArchiveBatchOverviewCard = {
+  key: ArchiveBatchOverviewSelectionKey
+  label: string
+  value: string
+  meta: string
+  testId: string
+  clickable: boolean
+  active: boolean
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -1325,6 +1349,10 @@ const messageArchiveBatchTotal = ref(0)
 const messageArchiveBatchOverview = ref<ObservabilityMessageArchiveBatchOverview | null>(null)
 const messageArchiveBatchOverviewLoading = ref(false)
 const messageArchiveBatchOverviewErrorMessage = ref('')
+const activeMessageArchiveBatchOverviewSelection = ref<ArchiveBatchOverviewSelectionKey | ''>('')
+const messageArchiveBatchFocusedBatchNo = ref('')
+const messageArchiveBatchPendingAutoOpen = ref(false)
+const messageArchiveBatchFocusHint = ref('')
 const messageArchiveBatchFilters = reactive({
   batchNo: '',
   status: '',
@@ -1633,24 +1661,40 @@ const messageArchiveBatchOverviewCards = computed<ArchiveBatchOverviewCard[]>(()
   const overview = messageArchiveBatchOverview.value
   return [
     {
+      key: 'abnormal',
       label: '异常批次',
       value: formatOptionalCount(overview?.abnormalBatches),
-      meta: `总批次 ${formatOptionalCount(overview?.totalBatches)}`
+      meta: `总批次 ${formatOptionalCount(overview?.totalBatches)}`,
+      testId: 'archive-batch-overview-abnormal',
+      clickable: true,
+      active: activeMessageArchiveBatchOverviewSelection.value === 'abnormal'
     },
     {
+      key: 'drifted',
       label: '执行偏差总量',
       value: formatSignedCount(overview?.totalDeltaConfirmedVsDeleted),
-      meta: `已对齐 ${formatOptionalCount(overview?.matchedBatches)}`
+      meta: `已对齐 ${formatOptionalCount(overview?.matchedBatches)}`,
+      testId: 'archive-batch-overview-drifted',
+      clickable: true,
+      active: activeMessageArchiveBatchOverviewSelection.value === 'drifted'
     },
     {
+      key: 'remaining',
       label: '剩余过期总量',
       value: formatOptionalCount(overview?.totalRemainingExpiredRows),
-      meta: `部分可比 ${formatOptionalCount(overview?.partialBatches)}`
+      meta: `部分可比 ${formatOptionalCount(overview?.partialBatches)}`,
+      testId: 'archive-batch-overview-remaining',
+      clickable: true,
+      active: activeMessageArchiveBatchOverviewSelection.value === 'remaining'
     },
     {
+      key: 'latest',
       label: '最近异常批次',
       value: formatValue(overview?.latestAbnormalBatch),
-      meta: formatValue(overview?.latestAbnormalOccurredAt)
+      meta: formatValue(overview?.latestAbnormalOccurredAt),
+      testId: 'archive-batch-overview-latest',
+      clickable: true,
+      active: activeMessageArchiveBatchOverviewSelection.value === 'latest'
     }
   ]
 })
@@ -1858,6 +1902,17 @@ const clearMessageArchiveBatchOverview = () => {
   messageArchiveBatchOverviewErrorMessage.value = ''
 }
 
+const clearMessageArchiveBatchOverviewFocus = () => {
+  messageArchiveBatchFocusedBatchNo.value = ''
+  messageArchiveBatchPendingAutoOpen.value = false
+  messageArchiveBatchFocusHint.value = ''
+}
+
+const resetMessageArchiveBatchSummarySelection = () => {
+  activeMessageArchiveBatchOverviewSelection.value = ''
+  clearMessageArchiveBatchOverviewFocus()
+}
+
 const clearMessageArchiveBatchReportPreview = () => {
   messageArchiveBatchReportPreviewLoading.value = false
   messageArchiveBatchReportPreviewErrorMessage.value = ''
@@ -1941,13 +1996,63 @@ const getMessageArchiveBatchOverview = async () => {
   }
 }
 
-const refreshMessageArchiveBatchLedger = () => {
-  void getMessageArchiveBatchLedger()
-  void getMessageArchiveBatchOverview()
+const resolveMessageArchiveBatchSummaryFocus = async () => {
+  if (!messageArchiveBatchPendingAutoOpen.value) {
+    return
+  }
+
+  messageArchiveBatchPendingAutoOpen.value = false
+  messageArchiveBatchFocusHint.value = ''
+  messageArchiveBatchFocusedBatchNo.value = String(
+    messageArchiveBatchOverview.value?.latestAbnormalBatch || ''
+  ).trim()
+  if (!messageArchiveBatchFocusedBatchNo.value) {
+    return
+  }
+
+  const matchedRow = messageArchiveBatchRows.value.find(
+    (row) => String(row.batchNo || '').trim() === messageArchiveBatchFocusedBatchNo.value
+  )
+  if (matchedRow) {
+    await openMessageArchiveBatchDetail(matchedRow)
+    return
+  }
+
+  messageArchiveBatchFocusHint.value = '最近异常批次不在当前结果中，请调整时间范围后重试'
+}
+
+const refreshMessageArchiveBatchLedger = async () => {
+  await Promise.all([getMessageArchiveBatchLedger(), getMessageArchiveBatchOverview()])
+  await resolveMessageArchiveBatchSummaryFocus()
 }
 
 const handleMessageArchiveBatchSearch = () => {
-  refreshMessageArchiveBatchLedger()
+  messageArchiveBatchFocusHint.value = ''
+  if (activeMessageArchiveBatchOverviewSelection.value === 'latest') {
+    messageArchiveBatchPendingAutoOpen.value = true
+  }
+  void refreshMessageArchiveBatchLedger()
+}
+
+const applyMessageArchiveBatchOverviewSelection = (
+  selection: ArchiveBatchOverviewSelectionKey
+) => {
+  activeMessageArchiveBatchOverviewSelection.value = selection
+  messageArchiveBatchFocusHint.value = ''
+  messageArchiveBatchFocusedBatchNo.value = ''
+  messageArchiveBatchPendingAutoOpen.value = selection === 'latest'
+  if (selection === 'drifted') {
+    messageArchiveBatchFilters.compareStatus = 'DRIFTED'
+    messageArchiveBatchFilters.onlyAbnormal = false
+    return
+  }
+  messageArchiveBatchFilters.compareStatus = ''
+  messageArchiveBatchFilters.onlyAbnormal = true
+}
+
+const handleMessageArchiveBatchOverviewClick = (selection: ArchiveBatchOverviewSelectionKey) => {
+  applyMessageArchiveBatchOverviewSelection(selection)
+  void refreshMessageArchiveBatchLedger()
 }
 
 const resetMessageArchiveBatchFilters = () => {
@@ -1957,7 +2062,8 @@ const resetMessageArchiveBatchFilters = () => {
   messageArchiveBatchFilters.onlyAbnormal = false
   messageArchiveBatchFilters.dateFrom = ''
   messageArchiveBatchFilters.dateTo = ''
-  refreshMessageArchiveBatchLedger()
+  resetMessageArchiveBatchSummarySelection()
+  void refreshMessageArchiveBatchLedger()
 }
 
 const loadMessageArchiveBatchReportPreview = async (row: ObservabilityMessageArchiveBatch) => {
@@ -2224,6 +2330,7 @@ watch(viewMode, (newMode, oldMode) => {
   clearScheduledTaskLedger()
   clearMessageArchiveBatchLedger()
   clearMessageArchiveBatchOverview()
+  resetMessageArchiveBatchSummarySelection()
   slowSummaryRows.value = []
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
@@ -2298,6 +2405,7 @@ const handleSearch = () => {
 // 重置搜索
 const handleReset = () => {
   resetSearchForm()
+  resetMessageArchiveBatchSummarySelection()
   triggerSearch(true)
 }
 
@@ -2921,6 +3029,30 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-clickable {
+  cursor: pointer;
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-clickable:hover,
+.audit-log-archive-batch-ledger__overview-card.is-clickable:focus-visible {
+  border-color: color-mix(in srgb, var(--el-color-primary) 42%, var(--panel-border));
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 80%, var(--panel-bg));
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-clickable:focus-visible {
+  outline: none;
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-active {
+  border-color: color-mix(in srgb, var(--el-color-primary) 52%, var(--panel-border));
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 88%, var(--panel-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 18%, transparent);
 }
 
 .audit-log-archive-batch-ledger__overview-card span,
@@ -2936,6 +3068,11 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   font-size: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.audit-log-archive-batch-ledger__focus-hint {
+  color: var(--el-color-warning-dark-2);
+  font-size: 0.78rem;
 }
 
 .observability-archive-batch-preview {
