@@ -1036,8 +1036,8 @@ describe('ProductModelDesignerWorkspace', () => {
     })
 
     const wrapper = mountWorkspace({
-      productKey: 'zhd-warning-siren-v1',
-      productName: '中海达 预警型 声光报警器'
+      productKey: 'zhd-monitor-multi-displacement-v1',
+      productName: '中海达 监测型 多维位移监测仪'
     })
     await flushPromises()
     await nextTick()
@@ -1047,6 +1047,11 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('重新提取字段')
     expect(wrapper.text()).not.toContain('继续核对字段')
     expect(wrapper.text()).toContain('当前已生效字段')
+    expect(wrapper.text()).toContain('若已有“设为监测数据”的正式字段，风险指标目录会按当前正式真相补齐')
+    expect(wrapper.text()).toContain('若目录已按当前正式字段补齐，仍可进入风险点绑定')
+    expect(wrapper.text()).toContain('若目录与风险点绑定已就绪，仍可继续补阈值策略')
+    expect(wrapper.text()).not.toContain('暂时不进入风险点绑定')
+    expect(wrapper.text()).not.toContain('暂时不进入阈值策略')
   })
 
   it('loads release batch diff against the previous batch and renders contract and metric deltas', async () => {
