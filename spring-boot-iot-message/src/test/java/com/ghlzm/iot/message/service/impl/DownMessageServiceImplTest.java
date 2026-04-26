@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -70,6 +71,50 @@ class DownMessageServiceImplTest {
         verify(productService).getRequiredById(1001L);
         verifyNoInteractions(mqttDownMessagePublisher);
         verify(commandRecordService, never()).create(any(CommandRecord.class));
+    }
+
+    @Test
+    void publishShouldUseIsolatedPublisherForDeviceCommands() {
+        Device device = new Device();
+        device.setId(2002L);
+        device.setTenantId(1L);
+        device.setProductId(1002L);
+        device.setDeviceCode("demo-device-02");
+        device.setClientId("demo-device-02");
+        device.setProtocolCode("mqtt-json");
+
+        Product product = new Product();
+        product.setId(1002L);
+        product.setProductKey("demo-product");
+        product.setStatus(ProductStatusEnum.ENABLED.getCode());
+
+        when(deviceService.getRequiredByCode("demo-device-02")).thenReturn(device);
+        when(productService.getRequiredById(1002L)).thenReturn(product);
+
+        DownMessageServiceImpl downMessageService = new DownMessageServiceImpl(
+                mqttDownMessagePublisher,
+                commandRecordService,
+                deviceService,
+                productService,
+                buildIotProperties()
+        );
+
+        DownMessagePublishCommand command = new DownMessagePublishCommand();
+        command.setDeviceCode("demo-device-02");
+        command.setProductKey("demo-product");
+        command.setCommandType("property");
+        command.setQos(1);
+
+        downMessageService.publish(command);
+
+        verify(mqttDownMessagePublisher).publishIsolated(
+                eq("mqtt-json"),
+                eq("/sys/demo-product/demo-device-02/thing/property/set"),
+                any(),
+                any(),
+                eq(1),
+                eq(false)
+        );
     }
 
     private IotProperties buildIotProperties() {

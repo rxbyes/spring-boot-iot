@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  buildRiskPointBindDeviceBody,
   findBindingForDeviceMetric,
   normalizeEntityId,
   resolveMetricOptionWithWarmup,
@@ -64,9 +65,9 @@ test('resolves the shared 10099 fixture for the first risk drill scenario', () =
     scenarioId: 'risk.full-drill.red-chain'
   });
 
-  assert.equal(fixture.deviceCode, 'CDXDD10099A1');
-  assert.equal(fixture.bindingId, '8176');
-  assert.equal(fixture.metricIdentifier, 'dispsY');
+  assert.equal(fixture.mode, 'fresh_device');
+  assert.equal(fixture.productKey, 'zhd-monitor-multi-displacement-v1');
+  assert.equal(fixture.metricIdentifier, 'L1_LF_1.value');
 });
 
 test('preserves long entity ids as strings for follow-up API requests', () => {
@@ -102,6 +103,28 @@ test('matches bound device rows by exact id text without numeric precision loss'
   );
 
   assert.equal(binding.id, '8176');
+});
+
+test('matches rebound device rows when the backend normalizes full-path metrics to runtime aliases', () => {
+  const binding = findBindingForDeviceMetric(
+    [
+      {
+        id: '9001',
+        deviceId: '2039603140650594306',
+        riskMetricId: '777',
+        metricIdentifier: 'value'
+      }
+    ],
+    {
+      id: '2039603140650594306'
+    },
+    {
+      riskMetricId: '777',
+      identifier: 'L1_LF_1.value'
+    }
+  );
+
+  assert.equal(binding.id, '9001');
 });
 
 test('warms up metric options once when a fresh device has no runtime metrics yet', async () => {
@@ -140,6 +163,65 @@ test('fresh risk drill provisioning uses riskPointLevel instead of legacy riskLe
 
   assert.match(source, /riskPointLevel:\s*'level_1'/);
   assert.doesNotMatch(source, /riskLevel:\s*'warning'/);
+});
+
+test('risk drill binds devices with a metrics list payload for the governance API', () => {
+  const payload = buildRiskPointBindDeviceBody(
+    {
+      id: '7001'
+    },
+    {
+      id: '8001',
+      deviceCode: 'CDXDD10099A1',
+      deviceName: 'deep-device'
+    },
+    {
+      riskMetricId: '9001',
+      identifier: 'dispsY',
+      name: 'Y 方向位移'
+    },
+    {
+      triggerThreshold: 21.6,
+      thresholdUnit: 'mm'
+    }
+  );
+
+  assert.deepEqual(payload, {
+    riskPointId: '7001',
+    deviceId: '8001',
+    deviceCode: 'CDXDD10099A1',
+    deviceName: 'deep-device',
+    metrics: [
+      {
+        riskMetricId: '9001',
+        metricIdentifier: 'dispsY',
+        metricName: 'Y 方向位移',
+        defaultThreshold: '21.6',
+        thresholdUnit: 'mm'
+      }
+    ]
+  });
+});
+
+test('fresh risk drill resolves bindable metrics from the formal risk catalog endpoint', () => {
+  const source = fs.readFileSync(path.join(scriptDir, 'auto', 'run-risk-closure-drill.mjs'), 'utf8');
+
+  assert.match(source, /loadMetrics:\s*async\s*\(\)\s*=>\s*listFormalMetricOptions\(baseUrl,\s*token,\s*deviceId\)/);
+  assert.doesNotMatch(source, /\/api\/device\/\$\{normalizedDeviceId\}\/metrics/);
+});
+
+test('shared 10099 risk drill fixture now provisions an isolated fresh device for acceptance replay', () => {
+  const source = fs.readFileSync(path.join(scriptDir, 'auto', 'run-risk-closure-drill.mjs'), 'utf8');
+
+  assert.match(source, /mode:\s*'fresh_device'/);
+  assert.match(source, /productKey:\s*'zhd-monitor-multi-displacement-v1'/);
+});
+
+test('risk drill filters alarm and event counters to the current risk point when the device has historical records', () => {
+  const source = fs.readFileSync(path.join(scriptDir, 'auto', 'run-risk-closure-drill.mjs'), 'utf8');
+
+  assert.match(source, /normalizeEntityId\(fixture\?\.riskPointId\)/);
+  assert.match(source, /normalizeEntityId\(item\?\.riskPointId\) === riskPointId/);
 });
 
 test('resolves the shared leader live-device fixture for the real deep displacement scenario', () => {

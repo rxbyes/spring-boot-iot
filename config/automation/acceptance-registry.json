@@ -187,6 +187,7 @@
         "failScopes": ["delivery"],
         "scenarioKeys": [
           "login",
+          "product-workbench",
           "product-governance-warning-fallback",
           "product-governance-unknown-capability"
         ]
@@ -195,11 +196,11 @@
       "priority": "P1",
       "failureCategory": "business-assertion",
       "dataSetup": {
-        "strategy": "reuse-seeded-products",
-        "required": "共享 dev 需保留预警产品、未知能力产品和规范治理基线。"
+        "strategy": "seeded-products-plus-ephemeral-product",
+        "required": "共享 dev 需保留预警产品和规范治理基线；运行期会创建当前 runToken 的待确认产品供工作台治理场景复用。"
       },
       "cleanupPolicy": {
-        "strategy": "read-only",
+        "strategy": "evidence-only",
         "retainedEvidence": "browser summary、report、screenshots"
       }
     },

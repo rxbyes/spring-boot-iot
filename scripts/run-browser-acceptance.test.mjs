@@ -327,6 +327,18 @@ test('sample web smoke plan matches current login and product/device workbench f
     productGovernanceScenario.steps.every((step) => step.matcher !== '/model-governance/compare'),
     'current product governance smoke should validate workspace reachability instead of old generic compare fallback'
   );
+
+  const unknownCapabilityScenario = scenarios.get('product-governance-unknown-capability');
+  assert.ok(unknownCapabilityScenario, 'unknown capability governance scenario should exist');
+  const unknownCapabilityQueryStep = unknownCapabilityScenario.steps.find(
+    (step) => step.id === 'product-governance-unknown-query'
+  );
+  assert.equal(
+    unknownCapabilityQueryStep?.type,
+    'triggerApi',
+    'unknown capability governance scenario should wait for the product page query response'
+  );
+  assert.equal(unknownCapabilityQueryStep?.matcher, '/api/device/product/page');
 });
 
 test('protocol governance smoke plan expands detail, publish and guard scenarios', () => {

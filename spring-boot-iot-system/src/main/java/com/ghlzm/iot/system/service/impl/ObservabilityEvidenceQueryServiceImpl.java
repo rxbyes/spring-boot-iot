@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -58,6 +59,7 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private final PermissionService permissionService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
+    @Autowired
     public ObservabilityEvidenceQueryServiceImpl(JdbcTemplate jdbcTemplate, PermissionService permissionService) {
         this.jdbcTemplate = jdbcTemplate;
         this.permissionService = permissionService;

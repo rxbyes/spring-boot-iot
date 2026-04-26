@@ -1,7 +1,7 @@
 # 自动化测试问题清单（2026-03-16）
 
-基线文档：`docs/21-业务功能清单与验收标准.md`  
-执行时间：2026-03-16 21:34（Asia/Shanghai）  
+基线文档：`docs/21-业务功能清单与验收标准.md`
+执行时间：2026-03-16 21:34（Asia/Shanghai）
 执行环境：`application-dev.yml` 对应真实环境，后端 `http://127.0.0.1:9999`
 
 ## 0. 持续维护约定
@@ -45,8 +45,8 @@
 
 ## 5. 浏览器自动化专项（2026-03-16 22:01）
 
-测试方式：前后端重启后，使用 Google Chrome + Playwright 浏览器自动化（不走 API 冒烟链路）  
-执行命令：`npm run acceptance:browser`（携带 `IOT_ACCEPTANCE_BROWSER_PATH` 指向 mac Chrome）  
+测试方式：前后端重启后，使用 Google Chrome + Playwright 浏览器自动化（不走 API 冒烟链路）
+执行命令：`npm run acceptance:browser`（携带 `IOT_ACCEPTANCE_BROWSER_PATH` 指向 mac Chrome）
 结果文件：
 
 - `logs/acceptance/business-browser-summary-20260316220124.json`
@@ -70,32 +70,32 @@
 
 ### 5.3 主要失败问题清单（浏览器自动化）
 
-问题 A：产品创建步骤返回 401  
-- 场景：`product-workbench`  
-- 现象：`product add returned HTTP 401`  
-- 影响：后续依赖产品/设备前置数据的场景级联失败  
-- 初步判断：浏览器脚本的鉴权状态在进入该场景后未正确附着到请求链路，或接口鉴权策略与脚本预期不一致  
+问题 A：产品创建步骤返回 401
+- 场景：`product-workbench`
+- 现象：`product add returned HTTP 401`
+- 影响：后续依赖产品/设备前置数据的场景级联失败
+- 初步判断：浏览器脚本的鉴权状态在进入该场景后未正确附着到请求链路，或接口鉴权策略与脚本预期不一致
 - 状态：待修复
 
-问题 B：多页面标题断言与当前页面文案/编码不一致  
-- 场景：`device-workbench`、`alarm-center`、`event-disposal`  
-- 现象：等待标题文本超时（如“设备运维中心/告警中心/事件处置”）  
-- 影响：页面未进入后续操作，导致对应业务点无法验证  
-- 初步判断：页面文案发生变化或存在字符编码异常，导致基于中文文本的断言失效  
+问题 B：多页面标题断言与当前页面文案/编码不一致
+- 场景：`device-workbench`、`alarm-center`、`event-disposal`
+- 现象：等待标题文本超时（如“设备运维中心/告警中心/事件处置”）
+- 影响：页面未进入后续操作，导致对应业务点无法验证
+- 初步判断：页面文案发生变化或存在字符编码异常，导致基于中文文本的断言失效
 - 状态：待修复
 
-问题 C：部分列表接口等待超时  
-- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`、`user`  
-- 现象：`waitForResponse` 15s 超时  
-- 影响：中后段配置与系统管理场景失败  
-- 初步判断：接口实际请求路径/触发时机与脚本 matcher 不一致，或页面未触发预期请求  
+问题 C：部分列表接口等待超时
+- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`、`user`
+- 现象：`waitForResponse` 15s 超时
+- 影响：中后段配置与系统管理场景失败
+- 初步判断：接口实际请求路径/触发时机与脚本 matcher 不一致，或页面未触发预期请求
 - 状态：待修复
 
-问题 D：响应体读取偶发 `Network.getResponseBody` 协议错误  
-- 场景：`risk-point`、`audit-log`  
-- 现象：`No resource with given identifier found`  
-- 影响：即使请求可能成功，脚本仍判定失败  
-- 初步判断：Playwright 在快速重载/请求完成后读取 body 存在竞态，需改为更稳健的响应解析策略  
+问题 D：响应体读取偶发 `Network.getResponseBody` 协议错误
+- 场景：`risk-point`、`audit-log`
+- 现象：`No resource with given identifier found`
+- 影响：即使请求可能成功，脚本仍判定失败
+- 初步判断：Playwright 在快速重载/请求完成后读取 body 存在竞态，需改为更稳健的响应解析策略
 - 状态：待修复
 
 ### 5.4 下一轮优化优先级（浏览器自动化）
@@ -107,8 +107,8 @@
 
 ## 6. 浏览器自动化复测（2026-03-16 22:22）
 
-测试方式：前后端重启后，使用 Google Chrome 自动化回归（不做 API 冒烟）  
-说明：本轮仅记录系统问题，不修改业务源代码  
+测试方式：前后端重启后，使用 Google Chrome 自动化回归（不做 API 冒烟）
+说明：本轮仅记录系统问题，不修改业务源代码
 结果文件：
 
 - `logs/acceptance/business-browser-summary-20260316222252.json`
@@ -131,46 +131,46 @@
 
 ### 6.2 本轮系统问题（新增/仍存在）
 
-问题 1：产品创建接口在浏览器链路中返回 401  
-- 场景：`product-workbench`  
-- 现象：`product add returned HTTP 401`  
-- 影响：后续依赖产品/设备前置数据的场景继续级联失败  
+问题 1：产品创建接口在浏览器链路中返回 401
+- 场景：`product-workbench`
+- 现象：`product add returned HTTP 401`
+- 影响：后续依赖产品/设备前置数据的场景继续级联失败
 - 状态：未修复
 
-问题 2：设备页面标题断言超时  
-- 场景：`device-workbench`  
-- 现象：等待“设备运维中心”标题超时（15s）  
-- 影响：设备创建/查询流程无法继续  
+问题 2：设备页面标题断言超时
+- 场景：`device-workbench`
+- 现象：等待“设备运维中心”标题超时（15s）
+- 影响：设备创建/查询流程无法继续
 - 状态：未修复
 
-问题 3：告警中心列表接口返回 500  
-- 场景：`alarm-center`  
-- 现象：`alarm list returned code 500`  
-- 影响：告警中心场景失败  
+问题 3：告警中心列表接口返回 500
+- 场景：`alarm-center`
+- 现象：`alarm list returned code 500`
+- 影响：告警中心场景失败
 - 状态：新增确认
 
-问题 4：事件处置详情接口返回 500  
-- 场景：`event-disposal`  
-- 现象：`event-disposal detail returned code 500`  
-- 影响：事件处置流程无法完成  
+问题 4：事件处置详情接口返回 500
+- 场景：`event-disposal`
+- 现象：`event-disposal detail returned code 500`
+- 影响：事件处置流程无法完成
 - 状态：新增确认
 
-问题 5：风险点列表接口返回 500  
-- 场景：`risk-point`  
-- 现象：`risk-point list returned code 500`  
-- 影响：风险点管理场景失败  
+问题 5：风险点列表接口返回 500
+- 场景：`risk-point`
+- 现象：`risk-point list returned code 500`
+- 影响：风险点管理场景失败
 - 状态：新增确认
 
-问题 6：规则、联动、预案页面接口等待超时  
-- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`  
-- 现象：`waitForResponse` 15 秒超时  
-- 影响：中段配置类能力无法自动化验收  
+问题 6：规则、联动、预案页面接口等待超时
+- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`
+- 现象：`waitForResponse` 15 秒超时
+- 影响：中段配置类能力无法自动化验收
 - 状态：未修复
 
-问题 7：用户页面角色选项接口等待超时  
-- 场景：`user`  
-- 现象：`user role options wait failed`（15 秒超时）  
-- 影响：用户管理链路不完整  
+问题 7：用户页面角色选项接口等待超时
+- 场景：`user`
+- 现象：`user role options wait failed`（15 秒超时）
+- 影响：用户管理链路不完整
 - 状态：未修复
 
 ### 6.3 当前可用结论
@@ -181,7 +181,7 @@
 
 ## 7. 浏览器自动化全流程复测（2026-03-17 00:35）
 
-测试方式：Google Chrome + Playwright 全流程自动化（`npm run acceptance:browser`）  
+测试方式：Google Chrome + Playwright 全流程自动化（`npm run acceptance:browser`）
 执行环境：前端 `http://127.0.0.1:5174`，后端 `http://127.0.0.1:9999`（`application-dev.yml` 真实环境）
 
 结果文件：
@@ -206,37 +206,37 @@
 
 ### 7.2 环境阻塞与前置问题（已定位）
 
-问题 1：后端端口不一致导致整轮自动化假失败（已定位）  
-- 现象：00:24 一轮执行（`20260317002404`）中，后端指向 `19999`，但前端 Vite 代理默认转发 `9999`，导致登录链路异常，最终 0/21 通过。  
-- 证据：`business-browser-summary-20260317002404.json` 显示 0 通过；`business-browser-results-20260317002404.json` 登录场景报 `POST /api/auth/login` HTTP 500。  
-- 根因判断：自动化运行时后端端口与前端代理目标不一致，属于环境配置问题。  
+问题 1：后端端口不一致导致整轮自动化假失败（已定位）
+- 现象：00:24 一轮执行（`20260317002404`）中，后端指向 `19999`，但前端 Vite 代理默认转发 `9999`，导致登录链路异常，最终 0/21 通过。
+- 证据：`business-browser-summary-20260317002404.json` 显示 0 通过；`business-browser-results-20260317002404.json` 登录场景报 `POST /api/auth/login` HTTP 500。
+- 根因判断：自动化运行时后端端口与前端代理目标不一致，属于环境配置问题。
 - 状态：已在 00:35 轮修正为后端 9999 后复测。
 
 ### 7.3 本轮新增/确认失败问题（00:35）
 
-问题 2：设备工作台标题断言超时  
-- 场景：`device-workbench`  
-- 现象：等待 `设备运维中心` 标题 15s 超时。  
-- 影响：设备创建失败，后续 `report-workbench`、`device-insight` 前置数据缺失并级联失败。  
+问题 2：设备工作台标题断言超时
+- 场景：`device-workbench`
+- 现象：等待 `设备运维中心` 标题 15s 超时。
+- 影响：设备创建失败，后续 `report-workbench`、`device-insight` 前置数据缺失并级联失败。
 - 状态：未修复。
 
-问题 3：告警中心弹窗关闭按钮被遮罩拦截，点击超时  
-- 场景：`alarm-center`  
-- 现象：`getByRole('button', { name: '关闭' })` 点击 30s 超时，日志显示 dialog overlay 持续拦截 pointer events。  
-- 影响：告警详情交互无法闭环，场景失败。  
+问题 3：告警中心弹窗关闭按钮被遮罩拦截，点击超时
+- 场景：`alarm-center`
+- 现象：`getByRole('button', { name: '关闭' })` 点击 30s 超时，日志显示 dialog overlay 持续拦截 pointer events。
+- 影响：告警详情交互无法闭环，场景失败。
 - 状态：未修复。
 
-问题 4：风险点新增接口返回 HTTP 500  
-- 场景：`risk-point`  
-- 现象：`POST /api/risk-point/add` 返回 HTTP 500（响应体为空）。  
-- 证据：`business-browser-results-20260317003522.json` 中 `risk-point.detail`。  
-- 影响：风险点场景失败，且后续规则/预案相关场景缺少有效数据联动。  
+问题 4：风险点新增接口返回 HTTP 500
+- 场景：`risk-point`
+- 现象：`POST /api/risk-point/add` 返回 HTTP 500（响应体为空）。
+- 证据：`business-browser-results-20260317003522.json` 中 `risk-point.detail`。
+- 影响：风险点场景失败，且后续规则/预案相关场景缺少有效数据联动。
 - 状态：未修复。
 
-问题 5：多模块页面统一出现标题等待超时（路由进入后未到达预期可操作态）  
-- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`、`report-analysis`、`organization`、`role`、`user`、`region`、`dict`、`channel`、`audit-log`、`risk-monitoring`、`risk-monitoring-gis`。  
-- 现象：均为 `locator.waitFor` 15s 超时，等待各页面标题可见失败。  
-- 影响：系统管理、配置能力、风险监测基线均无法自动化验收。  
+问题 5：多模块页面统一出现标题等待超时（路由进入后未到达预期可操作态）
+- 场景：`rule-definition`、`linkage-rule`、`emergency-plan`、`report-analysis`、`organization`、`role`、`user`、`region`、`dict`、`channel`、`audit-log`、`risk-monitoring`、`risk-monitoring-gis`。
+- 现象：均为 `locator.waitFor` 15s 超时，等待各页面标题可见失败。
+- 影响：系统管理、配置能力、风险监测基线均无法自动化验收。
 - 状态：未修复。
 
 ### 7.4 下一步修复建议（供后续开发）
@@ -249,8 +249,8 @@
 
 ## 8. 自动化脚本优化回归（2026-03-17 01:05）
 
-测试方式：在 00:35 轮问题基础上，继续优化浏览器自动化脚本后复测  
-执行命令：`npm run acceptance:browser`  
+测试方式：在 00:35 轮问题基础上，继续优化浏览器自动化脚本后复测
+执行命令：`npm run acceptance:browser`
 执行环境：前端 `http://127.0.0.1:5174`，后端 `http://127.0.0.1:9999`
 
 结果文件：
@@ -282,29 +282,29 @@
 
 ### 8.3 当前剩余问题（待修复）
 
-问题 1：HTTP 上报按钮在自动化中不可点击  
-- 场景：`report-workbench`  
-- 现象：`getByRole('button', { name: '发起验证' })` 点击超时。  
+问题 1：HTTP 上报按钮在自动化中不可点击
+- 场景：`report-workbench`
+- 现象：`getByRole('button', { name: '发起验证' })` 点击超时。
 - 初步判断：按钮状态与表单校验/遮罩存在竞态，自动化触发时机未命中。
 
-问题 2：设备洞察路由断言过严  
-- 场景：`device-insight`  
-- 现象：脚本期望 `/insight?deviceCode=...`，实际稳定在 `/insight`。  
+问题 2：设备洞察路由断言过严
+- 场景：`device-insight`
+- 现象：脚本期望 `/insight?deviceCode=...`，实际稳定在 `/insight`。
 - 初步判断：页面允许 query 缺失并通过内部逻辑恢复，脚本应兼容“同路径无 query”场景。
 
-问题 3：风险点场景输入框严格模式冲突  
-- 场景：`risk-point`  
-- 现象：`请输入风险点编号` 同时命中列表查询与弹窗输入框，导致 strict mode 失败。  
+问题 3：风险点场景输入框严格模式冲突
+- 场景：`risk-point`
+- 现象：`请输入风险点编号` 同时命中列表查询与弹窗输入框，导致 strict mode 失败。
 - 初步判断：需改为限定在弹窗容器内定位，避免重名输入框冲突。
 
-问题 4：用户新增场景角色下拉定位失败  
-- 场景：`user`  
-- 现象：`新增用户` 弹窗内 `请选择角色` 点击超时。  
+问题 4：用户新增场景角色下拉定位失败
+- 场景：`user`
+- 现象：`新增用户` 弹窗内 `请选择角色` 点击超时。
 - 初步判断：角色选择器未在预期容器渲染或 placeholder 与实际文案不一致，需改为更稳健定位策略（label + 下拉项）。
 
 ## 9. 自动化继续优化复测（2026-03-17 01:21）
 
-测试方式：基于第 8 节继续优化脚本后，全流程复测  
+测试方式：基于第 8 节继续优化脚本后，全流程复测
 执行命令：`npm run acceptance:browser`
 
 结果文件：
@@ -332,25 +332,25 @@
 
 ### 9.3 当前剩余问题（最新）
 
-问题 1：接入验证中心页面标题等待超时  
-- 场景：`report-workbench`  
-- 现象：等待 `接入验证中心` 标题 25s 超时。  
+问题 1：接入验证中心页面标题等待超时
+- 场景：`report-workbench`
+- 现象：等待 `接入验证中心` 标题 25s 超时。
 
-问题 2：监测对象工作台页面标题等待超时  
-- 场景：`device-insight`  
-- 现象：等待 `监测对象工作台` 标题 25s 超时（日志显示页面发生多次同路径导航）。  
+问题 2：监测对象工作台页面标题等待超时
+- 场景：`device-insight`
+- 现象：等待 `监测对象工作台` 标题 25s 超时（日志显示页面发生多次同路径导航）。
 
-问题 3：风险点绑定阶段接口等待超时  
-- 场景：`risk-point`  
-- 现象：`page.waitForResponse` 等待超时（15s）。  
+问题 3：风险点绑定阶段接口等待超时
+- 场景：`risk-point`
+- 现象：`page.waitForResponse` 等待超时（15s）。
 
-问题 4：组织管理页面标题等待超时  
-- 场景：`organization`  
+问题 4：组织管理页面标题等待超时
+- 场景：`organization`
 - 现象：等待 `组织管理` 标题 25s 超时。
 
 ## 10. 自动化收敛结果（2026-03-17 01:40）
 
-测试方式：在第 9 节基础上继续优化脚本并全流程复测  
+测试方式：在第 9 节基础上继续优化脚本并全流程复测
 执行命令：`npm run acceptance:browser`
 
 结果文件：
@@ -389,10 +389,10 @@
 
 ## 12. 浏览器自动化巡检记录（2026-03-17）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-03-17 10:12:08（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-03-17 10:12:08（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -453,10 +453,10 @@
 
 ## 13. 浏览器自动化巡检记录（2026-03-17）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-03-17 10:17:57（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-03-17 10:17:57（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -480,10 +480,10 @@
 
 ## 14. 浏览器自动化巡检记录（2026-03-18）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-03-18 13:57:35（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-03-18 13:57:35（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -584,10 +584,10 @@
 
 ## 15. 浏览器自动化巡检记录（2026-03-18）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-03-18 15:12:28（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-03-18 15:12:28（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -688,10 +688,10 @@
 
 ## 16. 浏览器自动化巡检记录（2026-03-18）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-03-18 15:29:00（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-03-18 15:29:00（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -715,10 +715,10 @@
 
 ## 17. 浏览器自动化巡检记录（2026-04-02）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-02 15:49:56（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-02 15:49:56（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -742,10 +742,10 @@
 
 ## 18. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 16:26:03（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 16:26:03（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -796,10 +796,10 @@
 
 ## 19. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 17:22:16（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 17:22:16（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -850,10 +850,10 @@
 
 ## 20. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 17:25:23（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 17:25:23（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -877,10 +877,10 @@
 
 ## 21. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 17:48:33（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 17:48:33（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -921,10 +921,10 @@
 
 ## 22. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 17:59:12（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 17:59:12（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -948,10 +948,10 @@
 
 ## 23. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 18:00:09（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 18:00:09（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -975,10 +975,10 @@
 
 ## 24. 浏览器自动化巡检记录（2026-04-06）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-06 19:15:01（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-06 19:15:01（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -1002,10 +1002,10 @@
 
 ## 25. 浏览器自动化巡检记录（2026-04-09）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-09 23:30:14（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-09 23:30:14（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
 
 结果文件：
 
@@ -1029,10 +1029,10 @@
 
 ## 26. 浏览器自动化巡检记录（2026-04-10）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-10 11:42:22（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-10 11:42:22（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
 
 结果文件：
 
@@ -1063,10 +1063,10 @@
 
 ## 27. 浏览器自动化巡检记录（2026-04-10）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-10 12:33:10（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-10 12:33:10（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
 
 结果文件：
 
@@ -1090,10 +1090,10 @@
 
 ## 28. 浏览器自动化巡检记录（2026-04-18）
 
-测试方式：浏览器自动化（Playwright）  
-执行时间：2026-04-18 15:56:36（Asia/Shanghai）  
-执行命令：`npm run acceptance:browser`  
-执行范围：`delivery, baseline`  
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-18 15:56:36（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
 
 结果文件：
 
@@ -1109,6 +1109,1524 @@
 - 失败：`0`
 - 交付范围：`5` 通过 / `0` 失败
 - 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 29. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 12:48:48（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426124848.json`
+- `logs/acceptance/config-browser-results-20260426124848.json`
+- `logs/acceptance/config-browser-report-20260426124848.md`
+- `logs/acceptance/config-browser-screenshots-20260426124848/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 30. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 12:50:19（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426125019.json`
+- `logs/acceptance/iot-access-browser-results-20260426125019.json`
+- `logs/acceptance/iot-access-browser-report-20260426125019.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426125019/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 31. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:02:14（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426130214.json`
+- `logs/acceptance/config-browser-results-20260426130214.json`
+- `logs/acceptance/config-browser-report-20260426130214.md`
+- `logs/acceptance/config-browser-screenshots-20260426130214/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 32. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:03:35（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426130335.json`
+- `logs/acceptance/iot-access-browser-results-20260426130335.json`
+- `logs/acceptance/iot-access-browser-report-20260426130335.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426130335/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 33. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:09:50（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426130950.json`
+- `logs/acceptance/config-browser-results-20260426130950.json`
+- `logs/acceptance/config-browser-report-20260426130950.md`
+- `logs/acceptance/config-browser-screenshots-20260426130950/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 34. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:11:11（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426131111.json`
+- `logs/acceptance/iot-access-browser-results-20260426131111.json`
+- `logs/acceptance/iot-access-browser-report-20260426131111.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426131111/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 35. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:13:38（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426131338.json`
+- `logs/acceptance/config-browser-results-20260426131338.json`
+- `logs/acceptance/config-browser-report-20260426131338.md`
+- `logs/acceptance/config-browser-screenshots-20260426131338/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 36. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:14:58（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426131458.json`
+- `logs/acceptance/iot-access-browser-results-20260426131458.json`
+- `logs/acceptance/iot-access-browser-report-20260426131458.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426131458/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 37. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:18:46（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426131846.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426131846.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426131846.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426131846/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 38. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:17:59（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426131759.json`
+- `logs/acceptance/config-browser-results-20260426131759.json`
+- `logs/acceptance/config-browser-report-20260426131759.md`
+- `logs/acceptance/config-browser-screenshots-20260426131759/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`5`
+- 失败：`1`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `1` 失败
+
+### 本轮失败问题
+
+### 问题 1：设备资产建档与库存校验 巡检失败
+
+- 场景：`device-workbench`
+- 路由：`/devices`
+- 范围：`baseline`
+- 现象：选择产品: locator.focus: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('#device-form-product-key').first()[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/config-browser-results-20260426131759.json`；`logs/acceptance/config-browser-screenshots-20260426131759/device-workbench-fail.png`
+- 状态：待处理
+
+## 39. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:18:56（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426131856.json`
+- `logs/acceptance/quality-factory-browser-results-20260426131856.json`
+- `logs/acceptance/quality-factory-browser-report-20260426131856.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426131856/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`2`
+- 失败：`1`
+- 交付范围：`2` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：结果与基线中心可达 巡检失败
+
+- 场景：`automation-results-workbench`
+- 路由：`/automation-results`
+- 范围：`delivery`
+- 现象：page.goto: Timeout 30000ms exceeded. Call log: [2m - navigating to "http://127.0.0.1:5176/automation-results", waiting until "domcontentloaded"[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426131856.json`；`无截图`
+- 状态：待处理
+
+## 40. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:19:45（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426131945.json`
+- `logs/acceptance/iot-access-browser-results-20260426131945.json`
+- `logs/acceptance/iot-access-browser-report-20260426131945.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426131945/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 41. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:24:07（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426132407.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426132407.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426132407.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426132407/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 42. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:24:14（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426132414.json`
+- `logs/acceptance/quality-factory-browser-results-20260426132414.json`
+- `logs/acceptance/quality-factory-browser-report-20260426132414.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426132414/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`1`
+- 失败：`2`
+- 交付范围：`1` 通过 / `2` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：质量工场登录初始化 巡检失败
+
+- 场景：`quality-factory-login`
+- 路由：`/login`
+- 范围：`delivery`
+- 现象：断言进入平台壳层: Expected text to include "质量工场", got "监测预警平台监测预警运营平台接入智维、风险运营、策略编排、平台治理一体协同登录微信扫码快速登录支持微信扫码登录，能力持续优化中。 账号登录 手机号登录 账号名密码显示请输入账号和密码完成登录登录中...忘记登录名忘记密码".
+- 初步判断：需要结合截图、网络请求和后端日志进一步判断。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426132414.json`；`logs/acceptance/quality-factory-browser-screenshots-20260426132414/quality-factory-login-fail.png`
+- 状态：待处理
+
+### 问题 2：结果与基线中心可达 巡检失败
+
+- 场景：`automation-results-workbench`
+- 路由：`/automation-results`
+- 范围：`delivery`
+- 现象：page.goto: Timeout 30000ms exceeded. Call log: [2m - navigating to "http://127.0.0.1:5176/automation-results", waiting until "domcontentloaded"[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426132414.json`；`无截图`
+- 状态：待处理
+
+## 43. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:28:30（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426132830.json`
+- `logs/acceptance/quality-factory-browser-results-20260426132830.json`
+- `logs/acceptance/quality-factory-browser-report-20260426132830.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426132830/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`2`
+- 失败：`1`
+- 交付范围：`2` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：质量工场登录初始化 巡检失败
+
+- 场景：`quality-factory-login`
+- 路由：`/login`
+- 范围：`delivery`
+- 现象：断言进入平台壳层: Expected text to include "质量工场", got "监测预警平台监测预警运营平台接入智维、风险运营、策略编排、平台治理一体协同登录微信扫码快速登录支持微信扫码登录，能力持续优化中。 账号登录 手机号登录 账号名密码显示请输入账号和密码完成登录登录中...忘记登录名忘记密码".
+- 初步判断：需要结合截图、网络请求和后端日志进一步判断。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426132830.json`；`logs/acceptance/quality-factory-browser-screenshots-20260426132830/quality-factory-login-fail.png`
+- 状态：待处理
+
+## 44. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:37:18（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426133718.json`
+- `logs/acceptance/config-browser-results-20260426133718.json`
+- `logs/acceptance/config-browser-report-20260426133718.md`
+- `logs/acceptance/config-browser-screenshots-20260426133718/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 45. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:38:39（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426133839.json`
+- `logs/acceptance/iot-access-browser-results-20260426133839.json`
+- `logs/acceptance/iot-access-browser-report-20260426133839.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426133839/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 46. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:42:01（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426134201.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426134201.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426134201.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426134201/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 47. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 13:42:07（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426134207.json`
+- `logs/acceptance/quality-factory-browser-results-20260426134207.json`
+- `logs/acceptance/quality-factory-browser-report-20260426134207.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426134207/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`3`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 48. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 14:29:52（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426142952.json`
+- `logs/acceptance/config-browser-results-20260426142952.json`
+- `logs/acceptance/config-browser-report-20260426142952.md`
+- `logs/acceptance/config-browser-screenshots-20260426142952/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 49. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 14:31:13（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426143113.json`
+- `logs/acceptance/iot-access-browser-results-20260426143113.json`
+- `logs/acceptance/iot-access-browser-report-20260426143113.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426143113/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 50. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 14:35:06（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426143506.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426143506.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426143506.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426143506/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 51. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 14:35:13（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426143513.json`
+- `logs/acceptance/quality-factory-browser-results-20260426143513.json`
+- `logs/acceptance/quality-factory-browser-report-20260426143513.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426143513/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`0`
+- 失败：`3`
+- 交付范围：`0` 通过 / `3` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：质量工场登录初始化 巡检失败
+
+- 场景：`quality-factory-login`
+- 路由：`/login?redirect=/quality-workbench`
+- 范围：`delivery`
+- 现象：提交登录: 提交登录 returned HTTP 500.
+- 初步判断：后端接口或真实环境依赖异常，需要结合后端日志和共享库状态继续定位。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426143513.json`；`logs/acceptance/quality-factory-browser-screenshots-20260426143513/quality-factory-login-fail.png`
+- 状态：待处理
+
+### 问题 2：业务验收台 P0 验收包可见 巡检失败
+
+- 场景：`business-acceptance-workbench`
+- 路由：`/business-acceptance`
+- 范围：`delivery`
+- 现象：login returned HTTP 500.
+- 初步判断：登录态或 Bearer 鉴权链路异常，需要先确认会话恢复、路由守卫和接口鉴权是否一致。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426143513.json`；`logs/acceptance/quality-factory-browser-screenshots-20260426143513/business-acceptance-workbench-fail.png`
+- 状态：待处理
+
+### 问题 3：自动化治理台结果证据可达 巡检失败
+
+- 场景：`automation-results-workbench`
+- 路由：`/automation-governance?tab=evidence`
+- 范围：`delivery`
+- 现象：login returned HTTP 500.
+- 初步判断：登录态或 Bearer 鉴权链路异常，需要先确认会话恢复、路由守卫和接口鉴权是否一致。
+- 证据：`logs/acceptance/quality-factory-browser-results-20260426143513.json`；`logs/acceptance/quality-factory-browser-screenshots-20260426143513/automation-results-workbench-fail.png`
+- 状态：待处理
+
+## 52. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 14:37:05（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426143705.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426143705.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426143705.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426143705/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 53. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 14:37:13（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426143713.json`
+- `logs/acceptance/quality-factory-browser-results-20260426143713.json`
+- `logs/acceptance/quality-factory-browser-report-20260426143713.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426143713/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`3`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 54. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:03:45（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426150345.json`
+- `logs/acceptance/config-browser-results-20260426150345.json`
+- `logs/acceptance/config-browser-report-20260426150345.md`
+- `logs/acceptance/config-browser-screenshots-20260426150345/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 55. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:05:06（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426150506.json`
+- `logs/acceptance/iot-access-browser-results-20260426150506.json`
+- `logs/acceptance/iot-access-browser-report-20260426150506.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426150506/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 56. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:10:20（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426151020.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426151020.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426151020.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426151020/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 57. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:10:26（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426151026.json`
+- `logs/acceptance/quality-factory-browser-results-20260426151026.json`
+- `logs/acceptance/quality-factory-browser-report-20260426151026.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426151026/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`3`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 58. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:34:45（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426153445.json`
+- `logs/acceptance/config-browser-results-20260426153445.json`
+- `logs/acceptance/config-browser-report-20260426153445.md`
+- `logs/acceptance/config-browser-screenshots-20260426153445/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 59. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:36:06（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/iot-access-browser-summary-20260426153606.json`
+- `logs/acceptance/iot-access-browser-results-20260426153606.json`
+- `logs/acceptance/iot-access-browser-report-20260426153606.md`
+- `logs/acceptance/iot-access-browser-screenshots-20260426153606/`
+
+### 本轮概览
+
+- 总场景：`7`
+- 通过：`7`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`2` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 60. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:38:13（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/governance-control-plane-browser-summary-20260426153813.json`
+- `logs/acceptance/governance-control-plane-browser-results-20260426153813.json`
+- `logs/acceptance/governance-control-plane-browser-report-20260426153813.md`
+- `logs/acceptance/governance-control-plane-browser-screenshots-20260426153813/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 61. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 15:38:19（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426153819.json`
+- `logs/acceptance/quality-factory-browser-results-20260426153819.json`
+- `logs/acceptance/quality-factory-browser-report-20260426153819.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426153819/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`3`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 62. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:24:11（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426172411.json`
+- `logs/acceptance/config-browser-results-20260426172411.json`
+- `logs/acceptance/config-browser-report-20260426172411.md`
+- `logs/acceptance/config-browser-screenshots-20260426172411/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 63. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:25:32（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426172532.json`
+- `logs/acceptance/config-browser-results-20260426172532.json`
+- `logs/acceptance/config-browser-report-20260426172532.md`
+- `logs/acceptance/config-browser-screenshots-20260426172532/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`2`
+- 失败：`1`
+- 交付范围：`2` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：待确认产品治理提示可达 巡检失败
+
+- 场景：`product-governance-unknown-capability`
+- 路由：`/products`
+- 范围：`delivery`
+- 现象：打开待确认产品经营工作台: locator.waitFor: Timeout 10000ms exceeded. Call log: [2m - waiting for locator('.el-table, table').first() to be visible[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/config-browser-results-20260426172532.json`；`logs/acceptance/config-browser-screenshots-20260426172532/product-governance-unknown-capability-fail.png`
+- 状态：待处理
+
+## 64. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:25:48（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426172548.json`
+- `logs/acceptance/config-browser-results-20260426172548.json`
+- `logs/acceptance/config-browser-report-20260426172548.md`
+- `logs/acceptance/config-browser-screenshots-20260426172548/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 65. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:30:33（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173033.json`
+- `logs/acceptance/config-browser-results-20260426173033.json`
+- `logs/acceptance/config-browser-report-20260426173033.md`
+- `logs/acceptance/config-browser-screenshots-20260426173033/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 66. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:31:54（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173154.json`
+- `logs/acceptance/config-browser-results-20260426173154.json`
+- `logs/acceptance/config-browser-report-20260426173154.md`
+- `logs/acceptance/config-browser-screenshots-20260426173154/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`2`
+- 失败：`1`
+- 交付范围：`2` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：待确认产品治理提示可达 巡检失败
+
+- 场景：`product-governance-unknown-capability`
+- 路由：`/products`
+- 范围：`delivery`
+- 现象：打开待确认产品经营工作台: locator.waitFor: Timeout 10000ms exceeded. Call log: [2m - waiting for locator('.el-table, table').first() to be visible[22m
+- 初步判断：页面未进入稳定可操作态，或预期接口未在当前交互链路中触发。
+- 证据：`logs/acceptance/config-browser-results-20260426173154.json`；`logs/acceptance/config-browser-screenshots-20260426173154/product-governance-unknown-capability-fail.png`
+- 状态：待处理
+
+## 67. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:32:11（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173211.json`
+- `logs/acceptance/config-browser-results-20260426173211.json`
+- `logs/acceptance/config-browser-report-20260426173211.md`
+- `logs/acceptance/config-browser-screenshots-20260426173211/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 68. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:35:41（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173541.json`
+- `logs/acceptance/config-browser-results-20260426173541.json`
+- `logs/acceptance/config-browser-report-20260426173541.md`
+- `logs/acceptance/config-browser-screenshots-20260426173541/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 69. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:37:02（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173702.json`
+- `logs/acceptance/config-browser-results-20260426173702.json`
+- `logs/acceptance/config-browser-report-20260426173702.md`
+- `logs/acceptance/config-browser-screenshots-20260426173702/`
+
+### 本轮概览
+
+- 总场景：`4`
+- 通过：`4`
+- 失败：`0`
+- 交付范围：`4` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 70. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:37:12（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173712.json`
+- `logs/acceptance/config-browser-results-20260426173712.json`
+- `logs/acceptance/config-browser-report-20260426173712.md`
+- `logs/acceptance/config-browser-screenshots-20260426173712/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 71. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:39:04（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426173904.json`
+- `logs/acceptance/config-browser-results-20260426173904.json`
+- `logs/acceptance/config-browser-report-20260426173904.md`
+- `logs/acceptance/config-browser-screenshots-20260426173904/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 72. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:40:24（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/protocol-governance-browser-summary-20260426174024.json`
+- `logs/acceptance/protocol-governance-browser-results-20260426174024.json`
+- `logs/acceptance/protocol-governance-browser-report-20260426174024.md`
+- `logs/acceptance/protocol-governance-browser-screenshots-20260426174024/`
+
+### 本轮概览
+
+- 总场景：`5`
+- 通过：`4`
+- 失败：`1`
+- 交付范围：`4` 通过 / `1` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮失败问题
+
+### 问题 1：协议治理审批写链路取证 巡检失败
+
+- 场景：`protocol-governance-approval-submit`
+- 路由：`/protocol-governance`
+- 范围：`delivery`
+- 现象：提交协议族定义发布审批: 提交协议族定义发布审批 returned code 500.
+- 最终根因：浏览器验收当时访问的是前端 `5176`，其 Vite 代理仍落到旧后端 `10099`；旧实例中的 admin jar 缺少 `com.ghlzm.iot.system.protocol.ProtocolSecurityGovernanceApprovalPayloads`，后端日志记录 `NoClassDefFoundError`，于是前端只看到了统一包装后的 `code=500 / 系统繁忙，请稍后再试`。同一审批请求直连当前验收实例 `10100` 可成功提交，并返回 `approvalOrderId`。
+- 证据：`logs/acceptance/protocol-governance-browser-results-20260426174024.json`；`logs/acceptance/protocol-governance-browser-screenshots-20260426174024/protocol-governance-approval-submit-fail.png`
+- 修复动作：单独启动 `VITE_PROXY_TARGET=http://127.0.0.1:10100 npm --prefix spring-boot-iot-ui run acceptance:dev -- --port 5177`，让浏览器流量对齐当前真实验收后端；随后使用 `--frontend-base-url=http://127.0.0.1:5177 --backend-base-url=http://127.0.0.1:10100` 复跑协议治理 P1。
+- 状态：已修复，见下方 74 号复验记录。
+
+## 73. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:56:18（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426175618.json`
+- `logs/acceptance/config-browser-results-20260426175618.json`
+- `logs/acceptance/config-browser-report-20260426175618.md`
+- `logs/acceptance/config-browser-screenshots-20260426175618/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 74. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:57:39（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/protocol-governance-browser-summary-20260426175739.json`
+- `logs/acceptance/protocol-governance-browser-results-20260426175739.json`
+- `logs/acceptance/protocol-governance-browser-report-20260426175739.md`
+- `logs/acceptance/protocol-governance-browser-screenshots-20260426175739/`
+
+### 本轮概览
+
+- 总场景：`5`
+- 通过：`5`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 75. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:58:15（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426175815.json`
+- `logs/acceptance/config-browser-results-20260426175815.json`
+- `logs/acceptance/config-browser-report-20260426175815.md`
+- `logs/acceptance/config-browser-screenshots-20260426175815/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 76. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:59:36（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/device-onboarding-browser-summary-20260426175936.json`
+- `logs/acceptance/device-onboarding-browser-results-20260426175936.json`
+- `logs/acceptance/device-onboarding-browser-report-20260426175936.md`
+- `logs/acceptance/device-onboarding-browser-screenshots-20260426175936/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 77. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 17:59:56（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426175956.json`
+- `logs/acceptance/config-browser-results-20260426175956.json`
+- `logs/acceptance/config-browser-report-20260426175956.md`
+- `logs/acceptance/config-browser-screenshots-20260426175956/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 78. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 18:01:16（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/object-insight-browser-summary-20260426180116.json`
+- `logs/acceptance/object-insight-browser-results-20260426180116.json`
+- `logs/acceptance/object-insight-browser-report-20260426180116.md`
+- `logs/acceptance/object-insight-browser-screenshots-20260426180116/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 79. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 18:01:39（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery, baseline`
+
+结果文件：
+
+- `logs/acceptance/config-browser-summary-20260426180139.json`
+- `logs/acceptance/config-browser-results-20260426180139.json`
+- `logs/acceptance/config-browser-report-20260426180139.md`
+- `logs/acceptance/config-browser-screenshots-20260426180139/`
+
+### 本轮概览
+
+- 总场景：`6`
+- 通过：`6`
+- 失败：`0`
+- 交付范围：`5` 通过 / `0` 失败
+- 基线范围：`1` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 80. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 18:03:00（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426180300.json`
+- `logs/acceptance/quality-factory-browser-results-20260426180300.json`
+- `logs/acceptance/quality-factory-browser-report-20260426180300.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426180300/`
+
+### 本轮概览
+
+- 总场景：`3`
+- 通过：`3`
+- 失败：`0`
+- 交付范围：`3` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 81. 浏览器自动化巡检记录（2026-04-26）
+
+测试方式：浏览器自动化（Playwright）
+执行时间：2026-04-26 18:03:06（Asia/Shanghai）
+执行命令：`npm run acceptance:browser`
+执行范围：`delivery`
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260426180306.json`
+- `logs/acceptance/quality-factory-browser-results-20260426180306.json`
+- `logs/acceptance/quality-factory-browser-report-20260426180306.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260426180306/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
 
 ### 本轮结论
 

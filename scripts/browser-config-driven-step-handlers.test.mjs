@@ -68,8 +68,10 @@ class FakeLocator {
 }
 
 class FakePage {
-  constructor(locators = {}) {
+  constructor(locators = {}, options = {}) {
     this.locators = locators;
+    this.currentUrl = options.url || 'http://127.0.0.1:5175/protocol-governance';
+    this.onWaitForURL = options.onWaitForURL;
   }
 
   getByTestId(testId) {
@@ -78,6 +80,19 @@ class FakePage {
 
   locator(selector) {
     return new FakeLocator(this.locators[selector]);
+  }
+
+  url() {
+    return this.currentUrl;
+  }
+
+  async waitForURL(predicate) {
+    if (typeof this.onWaitForURL === 'function') {
+      await this.onWaitForURL(this);
+    }
+    if (!predicate(new URL(this.currentUrl))) {
+      throw new Error(`Expected URL predicate to match "${this.currentUrl}".`);
+    }
   }
 }
 
@@ -230,4 +245,38 @@ test('assertDisabled step passes when the locator is disabled', async () => {
 
   assert.equal(detail.stepResults[0].status, 'passed');
   assert.equal(detail.stepResults[0].disabled, true);
+});
+
+test('assertPathnameEquals waits for the route redirect when timeout is provided', async () => {
+  const scenario = createScenario(
+    {
+      id: 'assert-quality-workbench-pathname',
+      label: 'assert quality workbench pathname',
+      type: 'assertPathnameEquals',
+      value: '/quality-workbench',
+      timeout: 1000
+    },
+    'token-5'
+  );
+
+  const detail = await scenario.run({
+    page: new FakePage(
+      {},
+      {
+        url: 'http://127.0.0.1:5175/login?redirect=/quality-workbench',
+        onWaitForURL: async (page) => {
+          page.currentUrl = 'http://127.0.0.1:5175/quality-workbench';
+        }
+      }
+    ),
+    runtime: {},
+    helpers: {
+      openRoute: async () => []
+    },
+    options: {}
+  });
+
+  assert.equal(detail.stepResults[0].status, 'passed');
+  assert.equal(detail.stepResults[0].expected, '/quality-workbench');
+  assert.equal(detail.stepResults[0].actual, '/quality-workbench');
 });

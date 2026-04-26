@@ -165,6 +165,31 @@ class RiskMonitoringServiceImplTest {
         assertEquals("red", detail.getRiskLevel());
     }
 
+    @Test
+    void listRealtimeItemsShouldIgnoreActiveAlarmFromDifferentRiskPointForSameDeviceMetric() {
+        RiskPoint riskPoint = riskPoint();
+        riskPoint.setRiskPointLevel("level_1");
+        riskPoint.setCurrentRiskLevel("blue");
+        riskPoint.setRiskLevel("blue");
+        RiskPointDevice binding = binding();
+        AlarmRecord activeAlarm = activeAlarm("critical");
+        activeAlarm.setRiskPointId(9009L);
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(deviceMapper.selectBatchIds(any())).thenReturn(List.of(device()));
+        when(productMapper.selectBatchIds(any())).thenReturn(List.of(product()));
+        when(devicePropertyMapper.selectList(any())).thenReturn(List.of(property()));
+        when(alarmRecordMapper.selectList(any())).thenReturn(List.of(activeAlarm), List.of(activeAlarm));
+        when(eventRecordMapper.selectList(any())).thenReturn(List.of());
+
+        PageResult<RiskMonitoringListItemVO> page = service.listRealtimeItems(new RiskMonitoringListQuery());
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("blue", page.getRecords().get(0).getRiskLevel());
+        assertEquals("blue", page.getRecords().get(0).getCurrentRiskLevel());
+    }
+
     private RiskPoint riskPoint() {
         RiskPoint riskPoint = new RiskPoint();
         riskPoint.setId(8001L);
