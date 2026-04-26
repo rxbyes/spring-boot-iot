@@ -118,6 +118,7 @@ async function triggerSystemLogTab(
   const button = wrapper.get(`[data-testid="system-log-tab-${key}"]`);
   await button.trigger('click');
   await flushPromises();
+  await nextTick();
 }
 
 async function clickButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
@@ -127,6 +128,7 @@ async function clickButtonByText(wrapper: ReturnType<typeof mountView>, text: st
   }
   await button.trigger('click');
   await flushPromises();
+  await nextTick();
 }
 
 const StandardWorkbenchPanelStub = defineComponent({
@@ -839,7 +841,7 @@ describe('AuditLogView', () => {
     expect(wrapper.find('[data-testid="system-log-archive-panel"]').exists()).toBe(false);
   });
 
-  it('keeps filter state per tab when switching between errors, hotspots, and archives', async () => {
+  it('keeps filter state per tab when switching between errors and archives', async () => {
     const wrapper = mountView();
 
     await triggerSystemLogTab(wrapper, 'archives');
@@ -860,11 +862,14 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
 
     await triggerSystemLogTab(wrapper, 'hotspots');
+    vi.mocked(listObservabilitySlowSpanSummaries).mockClear();
+    vi.mocked(pageObservabilityScheduledTasks).mockClear();
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     await clickButtonByText(wrapper, '刷新列表');
 
-    expect(listObservabilitySlowSpanSummaries).toHaveBeenCalled();
-    expect(pageObservabilityScheduledTasks).toHaveBeenCalled();
-    expect(pageObservabilityMessageArchiveBatches).not.toHaveBeenCalledTimes(2);
+    expect(listObservabilitySlowSpanSummaries).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityScheduledTasks).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).not.toHaveBeenCalled();
   });
 
   it('keeps /audit-log in the existing single-workbench layout without system tabs', async () => {
