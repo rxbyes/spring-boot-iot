@@ -111,6 +111,24 @@ function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
   return wrapper.findAll('button').find((button) => button.text().includes(text));
 }
 
+async function triggerSystemLogTab(
+  wrapper: ReturnType<typeof mountView>,
+  key: 'errors' | 'hotspots' | 'archives'
+) {
+  const button = wrapper.get(`[data-testid="system-log-tab-${key}"]`);
+  await button.trigger('click');
+  await flushPromises();
+}
+
+async function clickButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
+  const button = findButtonByText(wrapper, text);
+  if (!button) {
+    throw new Error(`Missing button: ${text}`);
+  }
+  await button.trigger('click');
+  await flushPromises();
+}
+
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
@@ -805,6 +823,59 @@ describe('AuditLogView', () => {
     expect(drawer.text()).toContain('product.contract.apply');
     expect(drawer.text()).toContain('SLOW_SQL');
     expect(drawer.text()).toContain('1200 ms');
+  });
+
+  it('defaults system-log to the 异常排查 tab and hides hotspot and archive sections until selected', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('异常观测台');
+    expect(wrapper.find('[data-testid="system-log-tab-errors"]').attributes('data-active')).toBe(
+      'true'
+    );
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="system-log-hotspot-panel"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="system-log-archive-panel"]').exists()).toBe(false);
+  });
+
+  it('keeps filter state per tab when switching between errors, hotspots, and archives', async () => {
+    const wrapper = mountView();
+
+    await triggerSystemLogTab(wrapper, 'archives');
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('batch-001');
+    await triggerSystemLogTab(wrapper, 'errors');
+    await wrapper.get('#quick-search').setValue('trace-001');
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(
+      (wrapper.get('[data-testid="archive-batch-filter-batch-no"]').element as HTMLInputElement)
+        .value
+    ).toBe('batch-001');
+    await triggerSystemLogTab(wrapper, 'errors');
+    expect((wrapper.get('#quick-search').element as HTMLInputElement).value).toBe('trace-001');
+  });
+
+  it('refreshes only the active system-log tab data source', async () => {
+    const wrapper = mountView();
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+    await clickButtonByText(wrapper, '刷新列表');
+
+    expect(listObservabilitySlowSpanSummaries).toHaveBeenCalled();
+    expect(pageObservabilityScheduledTasks).toHaveBeenCalled();
+    expect(pageObservabilityMessageArchiveBatches).not.toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps /audit-log in the existing single-workbench layout without system tabs', async () => {
+    mockRoute.path = '/audit-log';
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="system-log-tab-errors"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('观测热点');
+    expect(wrapper.text()).not.toContain('归档治理');
   });
 
   it('renders slow performance hotspots and opens evidence from the latest trace', async () => {
