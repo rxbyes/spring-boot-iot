@@ -1055,6 +1055,12 @@ describe('AuditLogView', () => {
     expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledWith(
       'iot_message_log-20260426090100'
     );
+
+    const drawer = wrapper
+      .findAll('.observability-evidence-drawer-stub')
+      .find((item) => item.text().includes('归档批次详情'));
+    expect(drawer?.exists()).toBe(true);
+    expect(drawer?.text()).toContain('iot_message_log-20260426090100');
   });
 
   it('shows a focus hint when latest abnormal batch is not in current page', async () => {
@@ -1079,23 +1085,41 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
     expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
       sourceTable: 'iot_message_log',
       onlyAbnormal: true,
       pageNum: 1,
       pageSize: 5
     });
+    expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
+    expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
   });
 
   it('clears summary selection and focus hint on reset', async () => {
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 5,
+        records: []
+      }
+    });
+
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    await wrapper.get('[data-testid="archive-batch-overview-abnormal"]').trigger('click');
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
     await flushPromises();
     await nextTick();
+
+    expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
 
     await wrapper.get('[data-testid="archive-batch-reset-button"]').trigger('click');
     await flushPromises();
