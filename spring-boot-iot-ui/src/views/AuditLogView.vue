@@ -358,6 +358,62 @@
         </div>
       </section>
 
+      <section
+        v-if="isSystemMode"
+        v-loading="messageArchiveBatchLoading"
+        class="audit-log-archive-batch-ledger standard-list-surface"
+        aria-label="归档批次台账"
+        element-loading-text="正在刷新归档批次台账"
+        element-loading-background="var(--loading-mask-bg)"
+      >
+        <header class="audit-log-archive-batch-ledger__header">
+          <div>
+            <h3>归档批次台账</h3>
+          </div>
+          <span>{{ messageArchiveBatchRows.length }} / {{ messageArchiveBatchTotal }}</span>
+        </header>
+        <div v-if="messageArchiveBatchErrorMessage" class="audit-log-slow-summary__empty">
+          {{ messageArchiveBatchErrorMessage }}
+        </div>
+        <div v-else-if="messageArchiveBatchRows.length === 0" class="audit-log-slow-summary__empty">
+          暂无归档批次记录
+        </div>
+        <div v-else class="audit-log-archive-batch-ledger__list">
+          <article
+            v-for="row in messageArchiveBatchRows"
+            :key="`message-archive-batch-${row.id || row.batchNo || row.createTime}`"
+            class="audit-log-archive-batch-ledger__item"
+          >
+            <div class="audit-log-archive-batch-ledger__title">
+              <strong>{{ formatArchiveBatchName(row) }}</strong>
+              <span>{{ formatValue(row.createTime || row.updateTime) }}</span>
+            </div>
+            <div class="audit-log-archive-batch-ledger__meta">
+              <span>{{ formatValue(row.status) }}</span>
+              <span>{{ formatValue(row.sourceTable) }}</span>
+              <span>{{ formatRetentionDays(row.retentionDays) }}</span>
+              <span>截止 {{ formatValue(row.cutoffAt) }}</span>
+            </div>
+            <div class="audit-log-archive-batch-ledger__metrics">
+              <span>确认 {{ formatCount(row.confirmedExpiredRows) }}</span>
+              <span>候选 {{ formatCount(row.candidateRows) }}</span>
+              <span>归档 {{ formatCount(row.archivedRows) }}</span>
+              <span>删除 {{ formatCount(row.deletedRows) }}</span>
+            </div>
+            <div class="audit-log-archive-batch-ledger__footer">
+              <span>{{ formatArchiveBatchFooter(row) }}</span>
+              <StandardButton
+                action="view"
+                link
+                @click="openMessageArchiveBatchDetail(row)"
+              >
+                详情
+              </StandardButton>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <template #toolbar>
         <StandardTableToolbar
           compact
@@ -662,6 +718,83 @@
       </div>
     </StandardDetailDrawer>
 
+    <StandardDetailDrawer
+      v-model="messageArchiveBatchDrawerVisible"
+      title="归档批次详情"
+      :subtitle="messageArchiveBatchDrawerSubtitle"
+      :empty="!activeMessageArchiveBatch"
+      empty-text="当前未选择归档批次"
+      size="56rem"
+      tag-layout="title-inline"
+      :tags="messageArchiveBatchDrawerTags"
+    >
+      <div class="observability-archive-batch-drawer">
+        <section class="observability-evidence-summary" aria-label="归档批次摘要">
+          <div
+            v-for="item in messageArchiveBatchSummaryCards"
+            :key="item.label"
+            class="observability-evidence-summary__item"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </section>
+
+        <section class="observability-evidence-split">
+          <article class="observability-evidence-section">
+            <header class="observability-evidence-section__header">
+              <h3>批次结果</h3>
+            </header>
+            <dl class="observability-archive-batch-kv">
+              <div
+                v-for="item in messageArchiveBatchResultItems"
+                :key="item.label"
+                class="observability-archive-batch-kv__item"
+              >
+                <dt>{{ item.label }}</dt>
+                <dd>{{ item.value }}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="observability-evidence-section">
+            <header class="observability-evidence-section__header">
+              <h3>确认报告</h3>
+            </header>
+            <dl class="observability-archive-batch-kv">
+              <div
+                v-for="item in messageArchiveBatchReportItems"
+                :key="item.label"
+                class="observability-archive-batch-kv__item"
+              >
+                <dt>{{ item.label }}</dt>
+                <dd>{{ item.value }}</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
+        <section class="observability-evidence-section">
+          <header class="observability-evidence-section__header">
+            <h3>附加产物</h3>
+          </header>
+          <div v-if="messageArchiveBatchArtifacts.length === 0" class="observability-evidence-empty">
+            暂无附加产物
+          </div>
+          <dl v-else class="observability-archive-batch-kv">
+            <div
+              v-for="item in messageArchiveBatchArtifacts"
+              :key="item.label"
+              class="observability-archive-batch-kv__item"
+            >
+              <dt>{{ item.label }}</dt>
+              <dd>{{ item.value }}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </StandardDetailDrawer>
+
     <CsvColumnSettingDialog
       v-model="exportColumnDialogVisible"
       :title="exportDialogTitle"
@@ -683,8 +816,11 @@ import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
+  pageObservabilityMessageArchiveBatches,
   pageObservabilityScheduledTasks,
   pageObservabilitySpans,
+  type ObservabilityMessageArchiveBatch,
+  type ObservabilityMessageArchiveBatchPageQuery,
   type ObservabilityScheduledTask,
   type ObservabilityScheduledTaskPageQuery,
   type ObservabilitySpan,
@@ -732,6 +868,7 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 
 type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
+type ArchiveBatchDetailItem = { label: string; value: string }
 
 const route = useRoute()
 const router = useRouter()
@@ -883,6 +1020,10 @@ const scheduledTaskRows = ref<ObservabilityScheduledTask[]>([])
 const scheduledTaskLoading = ref(false)
 const scheduledTaskErrorMessage = ref('')
 const scheduledTaskTotal = ref(0)
+const messageArchiveBatchRows = ref<ObservabilityMessageArchiveBatch[]>([])
+const messageArchiveBatchLoading = ref(false)
+const messageArchiveBatchErrorMessage = ref('')
+const messageArchiveBatchTotal = ref(0)
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
 const slowSummaryLoading = ref(false)
 const slowSummaryErrorMessage = ref('')
@@ -1009,6 +1150,8 @@ const evidenceLoading = ref(false)
 const evidenceErrorMessage = ref('')
 const evidenceTrace = ref<ObservabilityTraceEvidence | null>(null)
 const evidenceTraceId = ref('')
+const messageArchiveBatchDrawerVisible = ref(false)
+const activeMessageArchiveBatch = ref<ObservabilityMessageArchiveBatch | null>(null)
 
 const defaultExportKeys = exportColumns.map((column) => String(column.key))
 const evidenceBusinessEvents = computed(() => evidenceTrace.value?.businessEvents ?? [])
@@ -1027,6 +1170,50 @@ const evidenceSummaryCards = computed(() => [
   { label: '调用片段', value: String(evidenceSpans.value.length) },
   { label: '时间线节点', value: String(evidenceTimeline.value.length) }
 ])
+const messageArchiveBatchDrawerSubtitle = computed(() =>
+  activeMessageArchiveBatch.value?.batchNo
+    ? `批次号：${activeMessageArchiveBatch.value.batchNo}`
+    : '查看消息热表归档批次的确认、归档与删除结果'
+)
+const messageArchiveBatchDrawerTags = computed(() => {
+  const row = activeMessageArchiveBatch.value
+  return [
+    { label: `状态 ${formatValue(row?.status)}`, type: 'primary' as const },
+    { label: `来源 ${formatValue(row?.sourceTable)}`, type: 'info' as const }
+  ]
+})
+const messageArchiveBatchSummaryCards = computed(() => {
+  const row = activeMessageArchiveBatch.value
+  return [
+    { label: '批次号', value: formatArchiveBatchName(row) },
+    { label: '状态', value: formatValue(row?.status) },
+    { label: '确认行数', value: formatCount(row?.confirmedExpiredRows) },
+    { label: '删除行数', value: formatCount(row?.deletedRows) }
+  ]
+})
+const messageArchiveBatchResultItems = computed<ArchiveBatchDetailItem[]>(() => {
+  const row = activeMessageArchiveBatch.value
+  return [
+    { label: '来源表', value: formatValue(row?.sourceTable) },
+    { label: '治理模式', value: formatValue(row?.governanceMode) },
+    { label: '保留期', value: formatRetentionDays(row?.retentionDays) },
+    { label: '候选行数', value: formatCount(row?.candidateRows) },
+    { label: '归档行数', value: formatCount(row?.archivedRows) },
+    { label: '删除行数', value: formatCount(row?.deletedRows) }
+  ]
+})
+const messageArchiveBatchReportItems = computed<ArchiveBatchDetailItem[]>(() => {
+  const row = activeMessageArchiveBatch.value
+  return [
+    { label: '确认报告', value: formatValue(row?.confirmReportPath) },
+    { label: '报告生成时间', value: formatValue(row?.confirmReportGeneratedAt) },
+    { label: '截止时间', value: formatValue(row?.cutoffAt) },
+    { label: '失败原因', value: formatValue(row?.failedReason) }
+  ]
+})
+const messageArchiveBatchArtifacts = computed<ArchiveBatchDetailItem[]>(() =>
+  parseArchiveBatchArtifacts(activeMessageArchiveBatch.value?.artifactsJson)
+)
 
 const reloadExportSelection = () => {
   selectedExportColumnKeys.value = loadCsvColumnSelection(exportColumnStorageKey.value, defaultExportKeys)
@@ -1185,11 +1372,24 @@ const buildScheduledTaskQueryParams = (): ObservabilityScheduledTaskPageQuery =>
   pageSize: 5
 })
 
+const buildMessageArchiveBatchQueryParams = (): ObservabilityMessageArchiveBatchPageQuery => ({
+  sourceTable: 'iot_message_log',
+  pageNum: 1,
+  pageSize: 5
+})
+
 const clearScheduledTaskLedger = () => {
   scheduledTaskRows.value = []
   scheduledTaskLoading.value = false
   scheduledTaskErrorMessage.value = ''
   scheduledTaskTotal.value = 0
+}
+
+const clearMessageArchiveBatchLedger = () => {
+  messageArchiveBatchRows.value = []
+  messageArchiveBatchLoading.value = false
+  messageArchiveBatchErrorMessage.value = ''
+  messageArchiveBatchTotal.value = 0
 }
 
 const getScheduledTaskLedger = async () => {
@@ -1212,6 +1412,29 @@ const getScheduledTaskLedger = async () => {
     logPageError('获取调度任务台账失败', error)
   } finally {
     scheduledTaskLoading.value = false
+  }
+}
+
+const getMessageArchiveBatchLedger = async () => {
+  if (!isSystemMode.value) {
+    clearMessageArchiveBatchLedger()
+    return
+  }
+
+  messageArchiveBatchLoading.value = true
+  messageArchiveBatchErrorMessage.value = ''
+  try {
+    const res = await pageObservabilityMessageArchiveBatches(buildMessageArchiveBatchQueryParams())
+    if (res.code === 200 && res.data) {
+      messageArchiveBatchRows.value = Array.isArray(res.data.records) ? res.data.records : []
+      messageArchiveBatchTotal.value = Number(res.data.total || messageArchiveBatchRows.value.length)
+    }
+  } catch (error) {
+    clearMessageArchiveBatchLedger()
+    messageArchiveBatchErrorMessage.value = error instanceof Error ? error.message : '获取归档批次台账失败'
+    logPageError('获取归档批次台账失败', error)
+  } finally {
+    messageArchiveBatchLoading.value = false
   }
 }
 
@@ -1399,6 +1622,7 @@ onMounted(() => {
   getAuditLogList()
   getAuditLogStats()
   getScheduledTaskLedger()
+  getMessageArchiveBatchLedger()
   getSlowSpanSummaries()
 })
 
@@ -1420,11 +1644,14 @@ watch(viewMode, (newMode, oldMode) => {
   evidenceLoading.value = false
   evidenceErrorMessage.value = ''
   clearScheduledTaskLedger()
+  clearMessageArchiveBatchLedger()
   slowSummaryRows.value = []
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
   clearSlowSpanDrilldown()
   clearSlowTrendDrilldown()
+  messageArchiveBatchDrawerVisible.value = false
+  activeMessageArchiveBatch.value = null
   exportColumnDialogVisible.value = false
   reloadExportSelection()
   applySystemRouteQuery()
@@ -1434,6 +1661,7 @@ watch(viewMode, (newMode, oldMode) => {
   getAuditLogList()
   getAuditLogStats()
   getScheduledTaskLedger()
+  getMessageArchiveBatchLedger()
   getSlowSpanSummaries()
 })
 
@@ -1463,6 +1691,7 @@ watch(
     getAuditLogList()
     getAuditLogStats()
     getScheduledTaskLedger()
+    getMessageArchiveBatchLedger()
     getSlowSpanSummaries()
   }
 )
@@ -1478,6 +1707,7 @@ const triggerSearch = (resetPageFirst = false) => {
   getAuditLogList()
   getAuditLogStats()
   getScheduledTaskLedger()
+  getMessageArchiveBatchLedger()
   getSlowSpanSummaries()
 }
 
@@ -1817,6 +2047,13 @@ const formatCount = (value?: number | null) => {
   return String(value)
 }
 
+const formatRetentionDays = (value?: number | null) => {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  return `${value} 天`
+}
+
 const formatPercentage = (value?: number | null) => {
   if (value === undefined || value === null) {
     return '--'
@@ -1829,6 +2066,18 @@ const formatScheduledTaskName = (row: ObservabilityScheduledTask) =>
 
 const formatScheduledTaskTrigger = (row: ObservabilityScheduledTask) =>
   formatValue(row.triggerExpression || row.initialDelayExpression)
+
+const formatArchiveBatchName = (row?: Partial<ObservabilityMessageArchiveBatch> | null) =>
+  formatValue(row?.batchNo || row?.sourceTable)
+
+const formatArchiveBatchFooter = (row: ObservabilityMessageArchiveBatch) => {
+  const failedReason = String(row.failedReason || '').trim()
+  if (failedReason) {
+    return `失败原因：${failedReason}`
+  }
+  const confirmReportPath = String(row.confirmReportPath || '').trim()
+  return confirmReportPath ? `确认报告：${confirmReportPath}` : '确认报告：--'
+}
 
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
   [row.spanType, row.domainCode].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
@@ -1853,6 +2102,54 @@ const getEvidenceItemTypeName = (type?: string | null) => {
   return formatValue(type)
 }
 
+const normalizeArchiveBatchDetailValue = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    return normalized || '--'
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  try {
+    return JSON.stringify(value)
+  } catch (_error) {
+    return String(value)
+  }
+}
+
+const parseArchiveBatchArtifacts = (artifactsJson?: string | null): ArchiveBatchDetailItem[] => {
+  const raw = String(artifactsJson || '').trim()
+  if (!raw) {
+    return []
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (Array.isArray(parsed)) {
+      return parsed.map((item, index) => ({
+        label: `item[${index}]`,
+        value: normalizeArchiveBatchDetailValue(item)
+      }))
+    }
+    if (parsed && typeof parsed === 'object') {
+      return Object.entries(parsed as Record<string, unknown>).map(([key, value]) => ({
+        label: key,
+        value: normalizeArchiveBatchDetailValue(value)
+      }))
+    }
+    return [{ label: 'value', value: normalizeArchiveBatchDetailValue(parsed) }]
+  } catch (_error) {
+    return [{ label: 'raw', value: raw }]
+  }
+}
+
+const openMessageArchiveBatchDetail = (row: ObservabilityMessageArchiveBatch) => {
+  activeMessageArchiveBatch.value = row
+  messageArchiveBatchDrawerVisible.value = true
+}
+
 watch(detailVisible, (visible) => {
   if (!visible) {
     detailData.value = {}
@@ -1867,6 +2164,12 @@ watch(evidenceDrawerVisible, (visible) => {
     evidenceTraceId.value = ''
     evidenceLoading.value = false
     evidenceErrorMessage.value = ''
+  }
+})
+
+watch(messageArchiveBatchDrawerVisible, (visible) => {
+  if (!visible) {
+    activeMessageArchiveBatch.value = null
   }
 })
 </script>
@@ -2258,9 +2561,115 @@ watch(evidenceDrawerVisible, (visible) => {
   gap: 0.45rem;
 }
 
+.audit-log-archive-batch-ledger {
+  display: grid;
+  gap: 0.82rem;
+  margin-top: 0.88rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+}
+
+.audit-log-archive-batch-ledger__header,
+.audit-log-archive-batch-ledger__title,
+.audit-log-archive-batch-ledger__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.audit-log-archive-batch-ledger__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.audit-log-archive-batch-ledger__header > span,
+.audit-log-archive-batch-ledger__meta,
+.audit-log-archive-batch-ledger__metrics,
+.audit-log-archive-batch-ledger__footer > span {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-archive-batch-ledger__list {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.audit-log-archive-batch-ledger__item {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.audit-log-archive-batch-ledger__title strong,
+.audit-log-archive-batch-ledger__footer > span {
+  overflow: hidden;
+  color: var(--text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-archive-batch-ledger__title span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.audit-log-archive-batch-ledger__meta,
+.audit-log-archive-batch-ledger__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .observability-evidence-drawer {
   display: grid;
   gap: 1rem;
+}
+
+.observability-archive-batch-drawer {
+  display: grid;
+  gap: 1rem;
+}
+
+.observability-archive-batch-kv {
+  display: grid;
+  gap: 0.62rem;
+  margin: 0;
+}
+
+.observability-archive-batch-kv__item {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.observability-archive-batch-kv__item dt {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.observability-archive-batch-kv__item dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  word-break: break-all;
 }
 
 .observability-evidence-summary {
