@@ -15,9 +15,9 @@
 - 设备接入：产品定义、设备资产、HTTP / MQTT 上报、协议解析、消息日志、最新属性、在线状态、最小下行
 - 风险处置：实时监测、GIS 态势图、告警中心、事件协同、风险对象、阈值策略、联动编排、应急预案、运营分析
 - 平台治理：组织、账号中心、用户、角色、菜单、区域、字典、治理任务台、治理运维台、治理审批台、权限与密钥治理、通知渠道、站内消息、帮助文档、审计中心
-- 质量与协作：质量工场（业务验收台、自动化治理台；业务验收台支持按预置验收包选择环境/账号模板/模块范围并一键查看是否通过，自动化治理台在同一路由内承接 `资产编排 / 执行配置 / 结果证据` 三个工作区，按同一 `runId` 贯通业务验收台结果页与治理台证据，并通过结果归档索引支持按 `状态 / 执行器 / 验收包 / 环境 / 日期范围` 检索历史运行，保留证据清单/原文预览与兼容手工导入）、真实环境验收、智能助手接手模板、帮助中心消费层治理
+- 质量与协作：质量工场（业务验收台、自动化治理台；业务验收台支持按预置验收包选择环境/账号模板/模块范围并一键查看是否通过，结果页对失败模块补充 `主分类 / 判断理由 / 证据摘要`；自动化治理台在同一路由内承接 `资产编排 / 执行配置 / 结果证据` 三个工作区，按同一 `runId` 贯通业务验收台结果页与治理台证据，并通过结果归档索引支持按 `状态 / 执行器 / 验收包 / 环境 / 日期范围` 检索历史运行，在结果证据内展示运行级失败分类分布、场景级归因、证据清单/原文预览与兼容手工导入）、真实环境验收、智能助手接手模板、帮助中心消费层治理
 - 质量工场覆盖治理：`node scripts/auto/generate-acceptance-coverage.mjs` 可从统一验收注册表与业务验收包生成覆盖矩阵，用于检查 P0/P1/P2 覆盖、执行器分布、责任域和缺失引用；`node scripts/auto/diff-acceptance-coverage.mjs` 可对比两份覆盖矩阵并输出趋势证据；`node scripts/auto/run-acceptance-readiness.mjs` 可聚合覆盖矩阵、策略门禁和覆盖趋势，生成封板或 CI 前的 readiness evidence
-- 质量工场结果归档索引：`node scripts/auto/generate-automation-result-archive-index.mjs` 可从 `logs/acceptance/registry-run-*.json` 生成 `automation-result-index.latest.json` 以及时间戳 JSON/Markdown 产物，供自动化治理台结果证据工作区与 `/api/report/automation-results/page|recent|facets` 优先消费；它只提升历史结果检索能力，不替代真实环境业务验收
+- 质量工场结果归档索引：`node scripts/auto/generate-automation-result-archive-index.mjs` 可从 `logs/acceptance/registry-run-*.json` 生成 `automation-result-index.latest.json` 以及时间戳 JSON/Markdown 产物，并额外沉淀 `failureSummary / failedModules / failedScenarios` 只读失败归因，供自动化治理台结果证据工作区与 `/api/report/automation-results/page|recent|facets` 优先消费；它只提升历史结果检索与复盘能力，不替代真实环境业务验收
 
 当前唯一启动模块是 `spring-boot-iot-admin`，当前父 `pom.xml` 激活 `12` 个模块：
 
@@ -196,6 +196,7 @@ node scripts/auto/generate-automation-result-archive-index.mjs
   - readiness 聚合输出 `logs/acceptance/acceptance-readiness-<timestamp>.json` 与 `.md`，并统一回答 `passed / warning / failed`
   - readiness 只证明自动化资产治理状态，不证明真实业务链路已经跑通；真实环境验收仍需使用 `application-dev.yml`
   - 结果归档索引输出 `logs/acceptance/automation-result-index.latest.json`、`automation-result-index-<timestamp>.json` 与 `.md`；`.latest.json` 供后端和自动化治理台稳定读取，时间戳产物用于留痕与回溯
+  - 结果归档索引当前还会一并写入 `failureSummary / failedModules / failedScenarios`，供业务验收结果页与自动化治理台做只读失败归因，不改变 `passed / failed / blocked`
 
 - 后端验收脚本：
 

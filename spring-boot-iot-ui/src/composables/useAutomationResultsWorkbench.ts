@@ -105,18 +105,44 @@ export function useAutomationResultsWorkbench() {
     return `当前已选运行 ${selectedLedgerRunId.value || currentRun.value.runId || '--'} 共 ${currentRun.value.summary.total} 个场景，全部通过，可继续做基线回归与证据归档。`;
   });
 
+  const failureCategorySummaryRows = computed(() => {
+    const countsByCategory = currentRun.value?.failureSummary?.countsByCategory || {};
+    const primaryCategory = currentRun.value?.failureSummary?.primaryCategory || '';
+    return Object.entries(countsByCategory)
+      .sort((left, right) => {
+        const countDiff = Number(right[1] || 0) - Number(left[1] || 0);
+        return countDiff !== 0 ? countDiff : left[0].localeCompare(right[0], 'zh-CN');
+      })
+      .map(([category, count]) => ({
+        category,
+        count: Number(count || 0),
+        primary: category === primaryCategory
+      }));
+  });
+
+  const failurePrimaryCategory = computed(
+    () => currentRun.value?.failureSummary?.primaryCategory || ''
+  );
+
   const failedScenarioDetails = computed(() =>
     currentRun.value
       ? currentRun.value.failedResults.map((result) => {
           const registryScenario = registryScenarios.value.find((item) => item.id === result.scenarioId);
+          const failedScenario = currentRun.value?.failedScenarios?.find(
+            (item) => item.scenarioId === result.scenarioId
+          );
+          const diagnosis = failedScenario?.diagnosis || result.diagnosis;
 
           return {
             scenarioId: result.scenarioId,
-            title: registryScenario?.title || result.scenarioId,
-            runnerType: registryScenario?.runnerType || result.runnerType || 'unknown',
+            title: failedScenario?.scenarioTitle || registryScenario?.title || result.scenarioId,
+            runnerType: failedScenario?.runnerType || registryScenario?.runnerType || result.runnerType || 'unknown',
             blocking: registryScenario?.blocking || result.blocking,
             docRef: registryScenario?.docRef || '未映射文档章节',
-            summary: result.summary || '无摘要'
+            summary: result.summary || diagnosis?.evidenceSummary || '无摘要',
+            diagnosisCategory: diagnosis?.category || '其他',
+            diagnosisReason: diagnosis?.reason || '未命中已知规则，建议查看原始证据',
+            evidenceSummary: diagnosis?.evidenceSummary || result.summary || '未记录证据摘要'
           };
         })
       : []
@@ -164,6 +190,8 @@ export function useAutomationResultsWorkbench() {
     resultsMetrics,
     resultTone,
     resultMessage,
+    failureCategorySummaryRows,
+    failurePrimaryCategory,
     failedScenarioDetails,
     summaryBody,
     fetchRunLedger,

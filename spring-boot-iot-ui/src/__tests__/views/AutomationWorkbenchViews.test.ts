@@ -65,6 +65,14 @@ describe('automation rd workbench route splits', () => {
     expect(source).not.toContain('<AutomationScenarioEditor');
   });
 
+  it('keeps the business acceptance module panel showing lightweight failure diagnosis', () => {
+    const source = readComponent('BusinessAcceptanceModuleResultPanel.vue');
+
+    expect(source).toContain('主分类');
+    expect(source).toContain('判断理由');
+    expect(source).toContain('证据摘要');
+  });
+
   it('keeps the automation governance view focused on assets, execution, and evidence tabs', () => {
     const source = readView('AutomationGovernanceWorkbenchView.vue');
 
@@ -101,6 +109,10 @@ describe('automation rd workbench route splits', () => {
 
     expect(source).toContain('<AutomationRecentRunsPanel');
     expect(source).toContain('<AutomationResultEvidencePanel');
+    expect(source).toContain('失败分类分布');
+    expect(source).toContain('主分类');
+    expect(source).toContain('判断理由');
+    expect(source).toContain('证据摘要');
     expect(source).toContain('失败场景明细');
   });
 

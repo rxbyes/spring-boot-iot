@@ -20,4 +20,7 @@ public class AutomationResultRunDetailVO {
     private List<AutomationResultRunResultVO> results;
     private List<String> failedScenarioIds;
     private List<String> relatedEvidenceFiles;
+    private AutomationResultFailureSummaryVO failureSummary;
+    private List<AutomationResultFailedModuleVO> failedModules;
+    private List<AutomationResultFailedScenarioVO> failedScenarios;
 }

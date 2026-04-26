@@ -39,6 +39,9 @@ public class AutomationResultArchiveIndexVO {
         private List<String> failedScenarioIds;
         private List<String> relatedEvidenceFiles;
         private List<EvidenceItem> evidenceItems;
+        private AutomationResultFailureSummaryVO failureSummary;
+        private List<AutomationResultFailedModuleVO> failedModules;
+        private List<AutomationResultFailedScenarioVO> failedScenarios;
     }
 
     @Data

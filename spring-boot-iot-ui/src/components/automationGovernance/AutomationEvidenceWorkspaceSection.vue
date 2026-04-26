@@ -80,18 +80,55 @@
         <div v-else-if="failedScenarioDetails.length === 0" class="empty-block">
           当前没有失败场景；如果尚未选择运行，这里会在选中后展示失败明细。
         </div>
-        <el-table v-else :data="failedScenarioDetails" size="small" border>
-          <StandardTableTextColumn prop="title" label="场景" :min-width="180" />
-          <StandardTableTextColumn prop="scenarioId" label="编码" :min-width="180" />
-          <StandardTableTextColumn prop="runnerType" label="执行器" :width="110" />
-          <StandardTableTextColumn prop="blocking" label="阻断级别" :width="110" />
-          <StandardTableTextColumn prop="docRef" label="文档映射" :min-width="180" />
-          <el-table-column label="摘要" :min-width="220">
-            <template #default="{ row }">
-              <span class="failure-summary">{{ row.summary }}</span>
-            </template>
-          </el-table-column>
-        </el-table>
+        <template v-else>
+          <div v-if="failureCategorySummaryRows.length > 0" class="failure-diagnosis-overview">
+            <div class="failure-diagnosis-overview__header">
+              <div>
+                <h3>失败分类分布</h3>
+                <p>当前主分类：{{ failurePrimaryCategory || '其他' }}</p>
+              </div>
+              <span class="failure-diagnosis-overview__note">按失败场景的规则归因汇总</span>
+            </div>
+            <div class="failure-diagnosis-overview__grid">
+              <article
+                v-for="item in failureCategorySummaryRows"
+                :key="item.category"
+                :class="[
+                  'failure-diagnosis-overview__item',
+                  { 'failure-diagnosis-overview__item--primary': item.primary }
+                ]"
+              >
+                <span>{{ item.category }}</span>
+                <strong>{{ item.count }}</strong>
+                <small>失败场景</small>
+              </article>
+            </div>
+          </div>
+
+          <el-table :data="failedScenarioDetails" size="small" border>
+            <StandardTableTextColumn prop="title" label="场景" :min-width="180" />
+            <StandardTableTextColumn prop="scenarioId" label="编码" :min-width="180" />
+            <StandardTableTextColumn prop="runnerType" label="执行器" :width="110" />
+            <StandardTableTextColumn prop="blocking" label="阻断级别" :width="110" />
+            <StandardTableTextColumn prop="diagnosisCategory" label="主分类" :width="100" />
+            <StandardTableTextColumn prop="docRef" label="文档映射" :min-width="180" />
+            <el-table-column label="摘要" :min-width="220">
+              <template #default="{ row }">
+                <span class="failure-summary">{{ row.summary }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="判断理由" :min-width="220">
+              <template #default="{ row }">
+                <span class="failure-summary">{{ row.diagnosisReason }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="证据摘要" :min-width="260">
+              <template #default="{ row }">
+                <span class="failure-summary">{{ row.evidenceSummary }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
       </PanelCard>
     </section>
   </div>
@@ -134,6 +171,8 @@ const {
   resultsMetrics,
   resultTone,
   resultMessage,
+  failureCategorySummaryRows,
+  failurePrimaryCategory,
   failedScenarioDetails,
   summaryBody,
   fetchRunLedger,
@@ -186,9 +225,77 @@ onMounted(() => {
   line-height: 1.7;
 }
 
+.failure-diagnosis-overview {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 0.95rem;
+}
+
+.failure-diagnosis-overview__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.failure-diagnosis-overview__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.94rem;
+}
+
+.failure-diagnosis-overview__header p {
+  margin: 0.28rem 0 0;
+  color: var(--text-secondary);
+}
+
+.failure-diagnosis-overview__note {
+  color: var(--text-tertiary);
+  font-size: 0.84rem;
+}
+
+.failure-diagnosis-overview__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.failure-diagnosis-overview__item {
+  display: grid;
+  gap: 0.24rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.failure-diagnosis-overview__item span,
+.failure-diagnosis-overview__item small {
+  color: var(--text-secondary);
+}
+
+.failure-diagnosis-overview__item strong {
+  color: var(--text-heading);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.failure-diagnosis-overview__item--primary {
+  border-color: color-mix(in srgb, var(--danger, #d84f45) 24%, var(--panel-border));
+  background: color-mix(in srgb, var(--danger, #d84f45) 6%, white);
+}
+
 @media (max-width: 1024px) {
   .results-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .failure-diagnosis-overview__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .failure-diagnosis-overview__header {
+    flex-direction: column;
   }
 }
 </style>

@@ -63,7 +63,14 @@ class AutomationResultQueryServiceImplTest {
                               "runnerType": "riskDrill",
                               "status": "failed",
                               "blocking": "blocker",
-                              "summary": "simulated failure",
+                              "summary": "simulated failure 500",
+                              "details": {
+                                "moduleCode": "risk",
+                                "moduleName": "风险闭环",
+                                "stepLabel": "触发全链路演练",
+                                "apiRef": "POST /api/risk/drill/start",
+                                "pageAction": "点击开始演练"
+                              },
                               "evidenceFiles": [
                                 "logs/acceptance/risk-drill-1775116282733.json"
                               ]
@@ -150,8 +157,14 @@ class AutomationResultQueryServiceImplTest {
         assertThat(detail.getOptions()).containsEntry("accountTemplate", "acceptance-default");
         assertThat(detail.getOptions()).containsEntry("selectedModules", "product-create,product-query");
         assertThat(detail.getSummary().getFailed()).isEqualTo(1);
+        assertThat(detail.getFailureSummary().getPrimaryCategory()).isEqualTo("接口");
+        assertThat(detail.getFailedModules()).hasSize(1);
+        assertThat(detail.getFailedModules().get(0).getDiagnosis().getCategory()).isEqualTo("接口");
+        assertThat(detail.getFailedScenarios()).hasSize(1);
+        assertThat(detail.getFailedScenarios().get(0).getDiagnosis().getEvidenceSummary()).contains("simulated failure 500");
         assertThat(detail.getResults()).hasSize(1);
         assertThat(detail.getResults().get(0).getScenarioId()).isEqualTo("risk.full-drill.red-chain");
+        assertThat(detail.getResults().get(0).getDiagnosis().getCategory()).isEqualTo("接口");
     }
 
     @Test

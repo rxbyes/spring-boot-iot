@@ -217,6 +217,24 @@ describe('useAutomationRegistryWorkbench', () => {
       msg: 'success',
       data: createRunDetail('20260403093000', {
         summary: { total: 2, passed: 1, failed: 1 },
+        failureSummary: {
+          primaryCategory: '接口',
+          countsByCategory: {
+            接口: 1
+          }
+        },
+        failedScenarios: [
+          {
+            scenarioId: 'scenario.20260403093000',
+            scenarioTitle: '消息链路演练',
+            runnerType: 'messageFlow',
+            diagnosis: {
+              category: '接口',
+              reason: '命中 5xx、响应异常或契约缺口信号',
+              evidenceSummary: 'message flow failed 500'
+            }
+          }
+        ],
         results: [
           {
             scenarioId: 'scenario.20260403093000',
@@ -224,6 +242,11 @@ describe('useAutomationRegistryWorkbench', () => {
             status: 'failed',
             blocking: 'blocker',
             summary: 'message flow failed',
+            diagnosis: {
+              category: '接口',
+              reason: '命中 5xx、响应异常或契约缺口信号',
+              evidenceSummary: 'message flow failed 500'
+            },
             evidenceFiles: ['logs/acceptance/message-flow-20260403093000.json']
           }
         ],
@@ -267,6 +290,8 @@ describe('useAutomationRegistryWorkbench', () => {
     );
     expect(workbench.currentRun.value?.runId).toBe('20260403093000');
     expect(workbench.currentRun.value?.failedScenarioIds).toEqual(['scenario.20260403093000']);
+    expect(workbench.currentRun.value?.failureSummary?.primaryCategory).toBe('接口');
+    expect(workbench.currentRun.value?.failedScenarios?.[0]?.diagnosis?.category).toBe('接口');
     expect(workbench.activeEvidenceRunId.value).toBe('20260403093000');
     expect(workbench.visibleEvidenceItems.value).toHaveLength(2);
     expect(workbench.selectedEvidencePath.value).toBe('logs/acceptance/registry-run-20260403093000.json');

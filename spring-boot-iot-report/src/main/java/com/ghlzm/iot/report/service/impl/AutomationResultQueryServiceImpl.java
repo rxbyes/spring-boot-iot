@@ -4,11 +4,13 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.report.service.AutomationResultArchiveIndexService;
 import com.ghlzm.iot.report.service.AutomationResultQueryService;
+import com.ghlzm.iot.report.vo.AutomationFailureDiagnosisVO;
 import com.ghlzm.iot.report.vo.AutomationResultArchiveFacetVO;
 import com.ghlzm.iot.report.vo.AutomationResultArchiveIndexVO;
 import com.ghlzm.iot.report.vo.AutomationResultArchiveRefreshVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceContentVO;
 import com.ghlzm.iot.report.vo.AutomationResultEvidenceItemVO;
+import com.ghlzm.iot.report.vo.AutomationResultFailedScenarioVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunSummaryVO;
@@ -159,7 +161,7 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
 
     @Override
     public AutomationResultRunDetailVO getRunDetail(String runId) {
-        return readRunDetail(resolveRunFile(runId));
+        return attachIndexedDiagnosis(readRunDetail(resolveRunFile(runId)));
     }
 
     @Override
@@ -295,6 +297,49 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
         } catch (IOException e) {
             throw new BizException(500, "读取自动化运行结果失败: " + file.getFileName(), e);
         }
+    }
+
+    private AutomationResultRunDetailVO attachIndexedDiagnosis(AutomationResultRunDetailVO detail) {
+        AutomationResultArchiveIndexVO.RunRecord indexedRun = findIndexedRun(detail.getRunId());
+        if (indexedRun == null) {
+            return detail;
+        }
+        detail.setFailureSummary(indexedRun.getFailureSummary());
+        detail.setFailedModules(indexedRun.getFailedModules());
+        detail.setFailedScenarios(indexedRun.getFailedScenarios());
+
+        Map<String, AutomationFailureDiagnosisVO> scenarioDiagnosisMap = new LinkedHashMap<>();
+        List<AutomationResultFailedScenarioVO> failedScenarios = indexedRun.getFailedScenarios();
+        if (failedScenarios != null) {
+            failedScenarios.forEach(item -> {
+                if (StringUtils.hasText(item.getScenarioId()) && item.getDiagnosis() != null) {
+                    scenarioDiagnosisMap.putIfAbsent(item.getScenarioId(), item.getDiagnosis());
+                }
+            });
+        }
+        detail.getResults().forEach(result -> result.setDiagnosis(scenarioDiagnosisMap.get(result.getScenarioId())));
+        return detail;
+    }
+
+    private AutomationResultArchiveIndexVO.RunRecord findIndexedRun(String runId) {
+        if (!StringUtils.hasText(runId)) {
+            return null;
+        }
+        AutomationResultArchiveIndexVO.RunRecord indexedRun = archiveIndexService.loadArchiveIndex(false)
+                .getRuns()
+                .stream()
+                .filter(item -> runId.equals(item.getRunId()))
+                .findFirst()
+                .orElse(null);
+        if (indexedRun != null && indexedRun.getFailureSummary() != null) {
+            return indexedRun;
+        }
+        return archiveIndexService.loadArchiveIndex(true)
+                .getRuns()
+                .stream()
+                .filter(item -> runId.equals(item.getRunId()))
+                .findFirst()
+                .orElse(indexedRun);
     }
 
     private String resolveRunId(AutomationResultRunDetailVO detail, Path file) {

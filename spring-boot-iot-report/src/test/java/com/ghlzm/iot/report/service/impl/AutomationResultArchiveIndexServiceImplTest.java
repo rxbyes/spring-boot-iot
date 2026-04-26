@@ -68,7 +68,14 @@ class AutomationResultArchiveIndexServiceImplTest {
                               "runnerType": "riskDrill",
                               "status": "failed",
                               "blocking": "blocker",
-                              "summary": "failed"
+                              "summary": "接口响应异常 500",
+                              "details": {
+                                "moduleCode": "product",
+                                "moduleName": "产品治理",
+                                "stepLabel": "提交产品发布",
+                                "apiRef": "POST /device/product/release",
+                                "pageAction": "点击发布产品"
+                              }
                             }
                           ]
                         }
@@ -91,6 +98,11 @@ class AutomationResultArchiveIndexServiceImplTest {
         assertThat(refresh.getSkippedFiles()).isEqualTo(1);
         assertThat(index.getRuns()).hasSize(2);
         assertThat(index.getRuns().get(0).getRunId()).isEqualTo("20260425160000");
+        assertThat(index.getRuns().get(0).getFailureSummary().getPrimaryCategory()).isEqualTo("接口");
+        assertThat(index.getRuns().get(0).getFailedModules()).hasSize(1);
+        assertThat(index.getRuns().get(0).getFailedModules().get(0).getDiagnosis().getCategory()).isEqualTo("接口");
+        assertThat(index.getRuns().get(0).getFailedScenarios()).hasSize(1);
+        assertThat(index.getRuns().get(0).getFailedScenarios().get(0).getDiagnosis().getCategory()).isEqualTo("接口");
         assertThat(index.getRuns().get(1).getEvidenceItems()).hasSize(2);
         assertThat(index.getSkippedFiles()).hasSize(1);
         assertThat(facets.getPackageCodes()).containsExactly("product-governance-p1", "quality-factory-p0");

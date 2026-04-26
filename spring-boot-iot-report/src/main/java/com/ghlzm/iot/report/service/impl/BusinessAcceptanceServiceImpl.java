@@ -6,7 +6,11 @@ import com.ghlzm.iot.framework.observability.TraceContextHolder;
 import com.ghlzm.iot.framework.observability.evidence.BusinessEventLogRecord;
 import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceRecorder;
 import com.ghlzm.iot.framework.observability.evidence.ObservabilityEvidenceStatus;
+import com.ghlzm.iot.report.service.AutomationResultArchiveIndexService;
 import com.ghlzm.iot.report.service.BusinessAcceptanceService;
+import com.ghlzm.iot.report.vo.AutomationFailureDiagnosisVO;
+import com.ghlzm.iot.report.vo.AutomationResultArchiveIndexVO;
+import com.ghlzm.iot.report.vo.AutomationResultFailedScenarioVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceAccountTemplateVO;
@@ -69,7 +73,9 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
     private static final DateTimeFormatter UPDATED_AT_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
     private static final DateTimeFormatter RUN_ID_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
+    private static final int MAX_DIAGNOSIS_EVIDENCE_LENGTH = 160;
     private static final List<String> ENVIRONMENT_BLOCK_KEYWORDS = List.of("econnrefused", "connection refused", "timed out", "timeout", "fetch failed", "login", "health", "unavailable");
+    private static final List<String> DIAGNOSIS_CATEGORY_PRIORITY = List.of("权限", "环境", "接口", "UI", "数据", "断言", "其他");
 
     private final Path workspaceRoot;
     private final Path packagesConfigPath;
@@ -78,6 +84,7 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
     private final Path registryRunnerScriptPath;
     private final String nodeCommand;
     private final ObjectMapper objectMapper;
+    private final AutomationResultArchiveIndexService archiveIndexService;
     private final Map<String, JobState> jobStates = new ConcurrentHashMap<>();
     private ObservabilityEvidenceRecorder evidenceRecorder = ObservabilityEvidenceRecorder.noop();
 
@@ -105,6 +112,7 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         this.registryRunnerScriptPath = normalizePath(registryRunnerScriptPath, this.workspaceRoot);
         this.nodeCommand = normalizeText(nodeCommand);
         this.objectMapper = objectMapper;
+        this.archiveIndexService = new AutomationResultArchiveIndexServiceImpl(this.resultsDir, this.objectMapper);
     }
 
     @Autowired(required = false)
@@ -172,7 +180,8 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
     public BusinessAcceptanceResultVO getRunResult(String packageCode, String runId) {
         LoadedDefinition definition = loadDefinition();
         BusinessAcceptancePackageConfig pkg = resolvePackage(definition, packageCode);
-        return buildBusinessResult(pkg, readLedgerRun(runId), definition);
+        LedgerRun ledgerRun = readLedgerRun(runId);
+        return buildBusinessResult(pkg, ledgerRun, definition, findIndexedRun(resolveRunId(ledgerRun.detail(), ledgerRun.file())));
     }
 
     protected void submitLaunch(String jobId, Path derivedRegistryPath, List<String> command) {
@@ -349,7 +358,13 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
             latestResult.setFailedModuleNames(Collections.emptyList());
             return latestResult;
         }
-        BusinessAcceptanceResultVO result = buildBusinessResult(pkg, latestRun.get(), definition);
+        LedgerRun ledgerRun = latestRun.get();
+        BusinessAcceptanceResultVO result = buildBusinessResult(
+                pkg,
+                ledgerRun,
+                definition,
+                findIndexedRun(resolveRunId(ledgerRun.detail(), ledgerRun.file()))
+        );
         BusinessAcceptanceLatestResultVO latestResult = new BusinessAcceptanceLatestResultVO();
         latestResult.setRunId(result.getRunId());
         latestResult.setStatus(result.getStatus());
@@ -360,11 +375,16 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         return latestResult;
     }
 
-    private BusinessAcceptanceResultVO buildBusinessResult(BusinessAcceptancePackageConfig pkg, LedgerRun ledgerRun, LoadedDefinition definition) {
+    private BusinessAcceptanceResultVO buildBusinessResult(
+            BusinessAcceptancePackageConfig pkg,
+            LedgerRun ledgerRun,
+            LoadedDefinition definition,
+            AutomationResultArchiveIndexVO.RunRecord indexedRun
+    ) {
         Set<String> selectedModuleCodes = resolveSelectedModuleCodes(ledgerRun.detail().getOptions(), pkg.getModules());
         List<BusinessAcceptanceModuleResultVO> modules = pkg.getModules().stream()
                 .filter(module -> selectedModuleCodes.contains(module.getModuleCode()))
-                .map(module -> buildModuleResult(module, ledgerRun.detail(), definition))
+                .map(module -> buildModuleResult(module, ledgerRun.detail(), definition, indexedRun))
                 .toList();
 
         BusinessAcceptanceResultVO result = new BusinessAcceptanceResultVO();
@@ -375,18 +395,24 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         result.setFailedModuleCount((int) modules.stream().filter(item -> !"passed".equals(item.getStatus())).count());
         result.setFailedModuleNames(modules.stream().filter(item -> !"passed".equals(item.getStatus())).map(BusinessAcceptanceModuleResultVO::getModuleName).toList());
         result.setDurationText(resolveDurationText(result.getRunId(), ledgerRun.updatedAtEpochMillis()));
-        result.setJumpToAutomationResultsPath("/automation-results?runId=" + result.getRunId());
+        result.setJumpToAutomationResultsPath("/automation-governance?tab=evidence&runId=" + result.getRunId());
         result.setModules(modules);
         return result;
     }
 
-    private BusinessAcceptanceModuleResultVO buildModuleResult(BusinessAcceptanceModuleConfig module, AutomationResultRunDetailVO detail, LoadedDefinition definition) {
+    private BusinessAcceptanceModuleResultVO buildModuleResult(
+            BusinessAcceptanceModuleConfig module,
+            AutomationResultRunDetailVO detail,
+            LoadedDefinition definition,
+            AutomationResultArchiveIndexVO.RunRecord indexedRun
+    ) {
         List<AutomationResultRunResultVO> relatedResults = normalizeResults(detail.getResults()).stream()
                 .filter(item -> module.getScenarioRefs().contains(normalizeText(item.getScenarioId())))
                 .toList();
         List<AutomationResultRunResultVO> failedResults = relatedResults.stream()
                 .filter(item -> !"passed".equalsIgnoreCase(normalizeText(item.getStatus())))
                 .toList();
+        List<AutomationResultFailedScenarioVO> failedDiagnoses = resolveFailedScenarioDiagnoses(module, indexedRun);
         boolean blocked = relatedResults.isEmpty() || failedResults.stream().anyMatch(this::environmentFailureDetected);
         String status = blocked ? "blocked" : failedResults.isEmpty() ? "passed" : "failed";
 
@@ -399,6 +425,7 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
                 ? module.getScenarioRefs().stream().map(scenarioId -> resolveScenarioTitle(definition, scenarioId)).toList()
                 : failedResults.stream().map(item -> resolveScenarioTitle(definition, item.getScenarioId())).toList());
         moduleResult.setFailedScenarioCount("passed".equals(status) ? 0 : Math.max(1, moduleResult.getFailedScenarioTitles().size()));
+        moduleResult.setDiagnosis(resolveModuleDiagnosis(module, failedResults, failedDiagnoses, status));
         moduleResult.setFailureDetails("passed".equals(status) ? Collections.emptyList() : buildFailureDetails(module, failedResults, definition, status));
         return moduleResult;
     }
@@ -418,6 +445,86 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
             }
             return failure;
         }).toList();
+    }
+
+    private List<AutomationResultFailedScenarioVO> resolveFailedScenarioDiagnoses(
+            BusinessAcceptanceModuleConfig module,
+            AutomationResultArchiveIndexVO.RunRecord indexedRun
+    ) {
+        if (indexedRun == null || indexedRun.getFailedScenarios() == null) {
+            return Collections.emptyList();
+        }
+        return indexedRun.getFailedScenarios().stream()
+                .filter(item -> module.getScenarioRefs().contains(normalizeText(item.getScenarioId())))
+                .toList();
+    }
+
+    private AutomationFailureDiagnosisVO resolveModuleDiagnosis(
+            BusinessAcceptanceModuleConfig module,
+            List<AutomationResultRunResultVO> failedResults,
+            List<AutomationResultFailedScenarioVO> failedDiagnoses,
+            String moduleStatus
+    ) {
+        if ("passed".equals(moduleStatus)) {
+            return null;
+        }
+        if (!failedDiagnoses.isEmpty()) {
+            return aggregateModuleDiagnosis(failedDiagnoses);
+        }
+
+        AutomationFailureDiagnosisVO diagnosis = new AutomationFailureDiagnosisVO();
+        if ("blocked".equals(moduleStatus)) {
+            diagnosis.setCategory("环境");
+            diagnosis.setReason("未读取到有效运行结果，疑似环境阻塞");
+        } else {
+            diagnosis.setCategory("其他");
+            diagnosis.setReason("未命中已知规则，建议查看原始证据");
+        }
+        String evidenceSummary = failedResults.stream()
+                .map(AutomationResultRunResultVO::getSummary)
+                .map(this::normalizeText)
+                .filter(StringUtils::hasText)
+                .findFirst()
+                .orElseGet(() -> module.getFallbackFailure() == null ? "" : normalizeText(module.getFallbackFailure().getSummary()));
+        diagnosis.setEvidenceSummary(StringUtils.hasText(evidenceSummary) ? truncateDiagnosisText(evidenceSummary) : "未记录证据摘要");
+        return diagnosis;
+    }
+
+    private AutomationFailureDiagnosisVO aggregateModuleDiagnosis(List<AutomationResultFailedScenarioVO> failedDiagnoses) {
+        LinkedHashMap<String, Integer> countsByCategory = new LinkedHashMap<>();
+        failedDiagnoses.forEach(item -> {
+            String category = normalizeText(item.getDiagnosis() == null ? null : item.getDiagnosis().getCategory());
+            String resolvedCategory = StringUtils.hasText(category) ? category : "其他";
+            countsByCategory.put(resolvedCategory, countsByCategory.getOrDefault(resolvedCategory, 0) + 1);
+        });
+        String primaryCategory = countsByCategory.keySet().stream()
+                .sorted((left, right) -> {
+                    int countDiff = countsByCategory.getOrDefault(right, 0) - countsByCategory.getOrDefault(left, 0);
+                    return countDiff != 0 ? countDiff : compareDiagnosisCategoryPriority(left, right);
+                })
+                .findFirst()
+                .orElse("其他");
+        int primaryCount = countsByCategory.getOrDefault(primaryCategory, 0);
+        List<String> extraCategories = countsByCategory.entrySet().stream()
+                .filter(item -> !item.getKey().equals(primaryCategory))
+                .map(item -> item.getValue() + " 个 " + item.getKey() + " 问题")
+                .toList();
+
+        AutomationFailureDiagnosisVO diagnosis = new AutomationFailureDiagnosisVO();
+        diagnosis.setCategory(primaryCategory);
+        diagnosis.setReason(extraCategories.isEmpty()
+                ? failedDiagnoses.size() + " 个失败场景中 " + primaryCount + " 个命中" + primaryCategory + "问题"
+                : failedDiagnoses.size() + " 个失败场景中 " + primaryCount + " 个命中" + primaryCategory + "问题，另有 " + String.join("、", extraCategories));
+        diagnosis.setEvidenceSummary(truncateDiagnosisText(String.join("；", uniqueDiagnosisParts(
+                failedDiagnoses.stream()
+                        .map(item -> item.getDiagnosis() == null ? null : item.getDiagnosis().getEvidenceSummary())
+                        .limit(2)
+                        .toList()
+        ))));
+        if (!StringUtils.hasText(diagnosis.getEvidenceSummary())) {
+            diagnosis.setEvidenceSummary("未记录证据摘要");
+        }
+        return diagnosis;
     }
 
     private BusinessAcceptanceFailureDetailVO buildFallbackFailure(BusinessAcceptanceModuleConfig module, String scenarioId, LoadedDefinition definition, String moduleStatus) {
@@ -646,6 +753,27 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
         }
     }
 
+    private AutomationResultArchiveIndexVO.RunRecord findIndexedRun(String runId) {
+        if (!StringUtils.hasText(runId)) {
+            return null;
+        }
+        AutomationResultArchiveIndexVO.RunRecord indexedRun = archiveIndexService.loadArchiveIndex(false)
+                .getRuns()
+                .stream()
+                .filter(item -> runId.equals(item.getRunId()))
+                .findFirst()
+                .orElse(null);
+        if (indexedRun != null && indexedRun.getFailureSummary() != null) {
+            return indexedRun;
+        }
+        return archiveIndexService.loadArchiveIndex(true)
+                .getRuns()
+                .stream()
+                .filter(item -> runId.equals(item.getRunId()))
+                .findFirst()
+                .orElse(indexedRun);
+    }
+
     private Optional<LedgerRun> findLatestRun(String packageCode) {
         if (!Files.isDirectory(resultsDir)) {
             return Optional.empty();
@@ -810,6 +938,32 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
 
     private String normalizeText(String value) {
         return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
+    private int compareDiagnosisCategoryPriority(String left, String right) {
+        int leftIndex = DIAGNOSIS_CATEGORY_PRIORITY.indexOf(left);
+        int rightIndex = DIAGNOSIS_CATEGORY_PRIORITY.indexOf(right);
+        if (leftIndex < 0) {
+            leftIndex = DIAGNOSIS_CATEGORY_PRIORITY.size();
+        }
+        if (rightIndex < 0) {
+            rightIndex = DIAGNOSIS_CATEGORY_PRIORITY.size();
+        }
+        return Integer.compare(leftIndex, rightIndex);
+    }
+
+    private List<String> uniqueDiagnosisParts(List<String> values) {
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        values.stream().map(this::normalizeText).filter(StringUtils::hasText).forEach(normalized::add);
+        return List.copyOf(normalized);
+    }
+
+    private String truncateDiagnosisText(String value) {
+        String normalized = normalizeText(value);
+        if (!StringUtils.hasText(normalized) || normalized.length() <= MAX_DIAGNOSIS_EVIDENCE_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, MAX_DIAGNOSIS_EVIDENCE_LENGTH - 1) + "...";
     }
 
     private List<String> normalizeStringList(List<String> values) {

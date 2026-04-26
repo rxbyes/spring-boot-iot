@@ -232,7 +232,12 @@ class BusinessAcceptanceServiceImplTest {
                               "runnerType": "browserPlan",
                               "status": "failed",
                               "blocking": "blocker",
-                              "summary": "browser smoke failed",
+                              "summary": "接口响应异常 500",
+                              "details": {
+                                "stepLabel": "提交产品新增表单",
+                                "apiRef": "POST /device/product/add",
+                                "pageAction": "点击新增产品并提交"
+                              },
                               "evidenceFiles": []
                             },
                             {
@@ -262,11 +267,15 @@ class BusinessAcceptanceServiceImplTest {
         assertThat(result.getStatus()).isEqualTo("failed");
         assertThat(result.getPassedModuleCount()).isEqualTo(1);
         assertThat(result.getFailedModuleNames()).containsExactly("产品新增");
-        assertThat(result.getJumpToAutomationResultsPath()).isEqualTo("/automation-results?runId=20260404153000");
+        assertThat(result.getJumpToAutomationResultsPath()).isEqualTo("/automation-governance?tab=evidence&runId=20260404153000");
         var failedModule = result.getModules().stream()
                 .filter(item -> "product-create".equals(item.getModuleCode()))
                 .findFirst()
                 .orElseThrow();
+        assertThat(failedModule.getDiagnosis()).isNotNull();
+        assertThat(failedModule.getDiagnosis().getCategory()).isEqualTo("接口");
+        assertThat(failedModule.getDiagnosis().getReason()).contains("接口问题");
+        assertThat(failedModule.getDiagnosis().getEvidenceSummary()).contains("接口响应异常 500");
         assertThat(failedModule.getFailureDetails()).hasSize(1);
         assertThat(failedModule.getFailureDetails().get(0).getStepLabel()).isEqualTo("提交产品新增表单");
         assertThat(failedModule.getFailureDetails().get(0).getApiRef()).isEqualTo("POST /device/product/add");
