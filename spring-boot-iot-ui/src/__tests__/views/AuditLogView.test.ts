@@ -1011,6 +1011,13 @@ describe('AuditLogView', () => {
   });
 
   it('opens latest abnormal archive batch from summary card', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1031,28 +1038,23 @@ describe('AuditLogView', () => {
       }
     });
 
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
-    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
-    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
-
     await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
     await flushPromises();
     await nextTick();
 
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
     expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
       sourceTable: 'iot_message_log',
       onlyAbnormal: true,
       pageNum: 1,
       pageSize: 5
     });
-    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenCalledWith(
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenCalledTimes(1);
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenLastCalledWith(
       'iot_message_log-20260426090100'
     );
-    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledWith(
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledTimes(1);
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenLastCalledWith(
       'iot_message_log-20260426090100'
     );
 
@@ -1064,6 +1066,13 @@ describe('AuditLogView', () => {
   });
 
   it('shows a focus hint when latest abnormal batch is not in current page', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1074,12 +1083,6 @@ describe('AuditLogView', () => {
         records: []
       }
     });
-
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
 
     await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
     await flushPromises();
@@ -1098,6 +1101,11 @@ describe('AuditLogView', () => {
   });
 
   it('clears summary selection and focus hint on reset', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -1108,12 +1116,6 @@ describe('AuditLogView', () => {
         records: []
       }
     });
-
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
-    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
 
     await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
     await flushPromises();
