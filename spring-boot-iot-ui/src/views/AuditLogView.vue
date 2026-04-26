@@ -3,13 +3,13 @@
     <StandardWorkbenchPanel
       :title="panelTitle"
       :description="pageDescription"
-      show-filters
-      :show-applied-filters="hasAppliedFilters"
-      show-toolbar
-      :show-inline-state="showSystemInlineState"
-      show-pagination
+      :show-filters="isBusinessMode"
+      :show-applied-filters="isBusinessMode && hasAppliedFilters"
+      :show-toolbar="isBusinessMode"
+      :show-inline-state="false"
+      :show-pagination="isBusinessMode"
     >
-      <template #filters>
+      <template v-if="isBusinessMode" #filters>
         <StandardListFilterHeader
           :model="searchForm"
           :show-advanced="showAdvancedFilters"
@@ -128,7 +128,7 @@
         </div>
       </template>
 
-      <template #applied-filters>
+      <template v-if="isBusinessMode" #applied-filters>
         <StandardAppliedFiltersBar
           :tags="activeFilterTags"
           @remove="handleRemoveAppliedFilter"
@@ -136,421 +136,7 @@
         />
       </template>
 
-      <template v-if="showSystemInlineState" #inline-state>
-        <StandardInlineState :message="systemInlineMessage" tone="info" />
-      </template>
-
-      <section
-        v-if="isSystemMode"
-        v-loading="slowSummaryLoading"
-        class="audit-log-slow-summary standard-list-surface"
-        aria-label="性能慢点热点"
-        element-loading-text="正在刷新慢点热点"
-        element-loading-background="var(--loading-mask-bg)"
-      >
-        <header class="audit-log-slow-summary__header">
-          <div>
-            <h3>性能慢点 Top</h3>
-          </div>
-          <span>{{ slowSummaryRows.length }} 项</span>
-        </header>
-        <div v-if="slowSummaryErrorMessage" class="audit-log-slow-summary__empty">
-          {{ slowSummaryErrorMessage }}
-        </div>
-        <div v-else-if="slowSummaryRows.length === 0" class="audit-log-slow-summary__empty">
-          暂无慢点热点
-        </div>
-        <div v-else class="audit-log-slow-summary__grid">
-          <article
-            v-for="row in slowSummaryRows"
-            :key="`${row.spanType || 'span'}-${row.domainCode || 'domain'}-${row.eventCode || 'event'}-${row.objectType || 'object'}-${row.objectId || 'id'}`"
-            class="audit-log-slow-summary__item"
-          >
-            <div class="audit-log-slow-summary__title">
-              <strong>{{ formatSlowSummaryTitle(row) }}</strong>
-              <span>{{ formatValue(row.latestStartedAt) }}</span>
-            </div>
-            <p>{{ formatSlowSummaryTarget(row) }}</p>
-            <div class="audit-log-slow-summary__metrics">
-              <span>最大 {{ formatDuration(row.maxDurationMs) }}</span>
-              <span>平均 {{ formatDuration(row.avgDurationMs) }}</span>
-              <span>{{ formatCount(row.totalCount) }} 次</span>
-            </div>
-            <div class="audit-log-slow-summary__footer">
-              <span>{{ formatValue(row.latestTraceId) }}</span>
-              <StandardButton
-                action="view"
-                link
-                :disabled="!row.latestTraceId"
-                @click="openTraceEvidenceByTraceId(row.latestTraceId)"
-              >
-                证据
-              </StandardButton>
-              <StandardButton
-                action="view"
-                link
-                @click="loadSlowSpanDrilldown(row)"
-              >
-                明细
-              </StandardButton>
-              <StandardButton
-                action="view"
-                link
-                @click="loadSlowTrendDrilldown(row, defaultSlowTrendWindow)"
-              >
-                趋势
-              </StandardButton>
-            </div>
-          </article>
-        </div>
-        <section
-          v-if="activeSlowSummary"
-          v-loading="slowSpanLoading"
-          class="audit-log-slow-span-drilldown"
-          aria-label="慢点调用片段明细"
-          element-loading-text="正在刷新慢点明细"
-          element-loading-background="var(--loading-mask-bg)"
-        >
-          <header class="audit-log-slow-span-drilldown__header">
-            <div>
-              <h3>慢点明细</h3>
-              <p>{{ formatSlowSummaryTitle(activeSlowSummary) }} · {{ formatSlowSummaryTarget(activeSlowSummary) }}</p>
-            </div>
-            <span>{{ slowSpanTotal }} 条</span>
-          </header>
-          <div v-if="slowSpanErrorMessage" class="audit-log-slow-summary__empty">
-            {{ slowSpanErrorMessage }}
-          </div>
-          <div v-else-if="slowSpanRows.length === 0" class="audit-log-slow-summary__empty">
-            暂无慢点明细
-          </div>
-          <div v-else class="audit-log-slow-span-drilldown__list">
-            <article
-              v-for="span in slowSpanRows"
-              :key="`slow-span-${span.id || span.traceId || span.startedAt}`"
-              class="audit-log-slow-span-drilldown__item"
-            >
-              <div class="audit-log-slow-span-drilldown__title">
-                <strong>{{ formatValue(span.spanName || span.spanType) }}</strong>
-                <span>{{ formatDuration(span.durationMs) }}</span>
-              </div>
-              <div class="audit-log-slow-span-drilldown__meta">
-                <span>{{ formatValue(span.traceId) }}</span>
-                <span>{{ formatValue(span.status) }}</span>
-                <span>{{ formatValue(span.startedAt) }}</span>
-              </div>
-              <div class="audit-log-slow-span-drilldown__footer">
-                <span>{{ formatValue(span.eventCode) }} / {{ formatValue(span.objectId) }}</span>
-                <StandardButton
-                  action="view"
-                  link
-                  :disabled="!span.traceId"
-                  @click="openTraceEvidenceByTraceId(span.traceId)"
-                >
-                  证据
-                </StandardButton>
-              </div>
-            </article>
-          </div>
-        </section>
-        <section
-          v-if="activeSlowTrendSummary"
-          v-loading="slowTrendLoading"
-          class="audit-log-slow-trend-drilldown"
-          aria-label="慢点趋势"
-          element-loading-text="正在刷新慢点趋势"
-          element-loading-background="var(--loading-mask-bg)"
-        >
-          <header class="audit-log-slow-trend-drilldown__header">
-            <div>
-              <h3>慢点趋势</h3>
-              <p>{{ formatSlowSummaryTitle(activeSlowTrendSummary) }} · {{ formatSlowSummaryTarget(activeSlowTrendSummary) }}</p>
-            </div>
-            <div class="audit-log-slow-trend-drilldown__actions">
-              <span>{{ slowTrendRows.length }} 桶</span>
-              <StandardChoiceGroup
-                :model-value="slowTrendWindow"
-                :options="slowTrendWindowOptions"
-                @update:model-value="handleSlowTrendWindowChange"
-              />
-            </div>
-          </header>
-          <div v-if="slowTrendErrorMessage" class="audit-log-slow-summary__empty">
-            {{ slowTrendErrorMessage }}
-          </div>
-          <div v-else-if="slowTrendRows.length === 0" class="audit-log-slow-summary__empty">
-            暂无慢点趋势
-          </div>
-          <div v-else class="audit-log-slow-trend-drilldown__list">
-            <article
-              v-for="item in slowTrendRows"
-              :key="`slow-trend-${item.bucket || 'bucket'}-${item.bucketStart || item.bucketEnd}`"
-              class="audit-log-slow-trend-drilldown__item"
-            >
-              <div class="audit-log-slow-trend-drilldown__title">
-                <strong>{{ formatSlowTrendBucketLabel(item) }}</strong>
-                <span>{{ formatCount(item.totalCount) }} 次</span>
-              </div>
-              <div class="audit-log-slow-trend-drilldown__metrics">
-                <span>P95 {{ formatDuration(item.p95DurationMs) }}</span>
-                <span>P99 {{ formatDuration(item.p99DurationMs) }}</span>
-                <span>平均 {{ formatDuration(item.avgDurationMs) }}</span>
-                <span>最大 {{ formatDuration(item.maxDurationMs) }}</span>
-                <span>错误率 {{ formatPercentage(item.errorRate) }}</span>
-              </div>
-              <div class="audit-log-slow-trend-drilldown__footer">
-                <span>成功 {{ formatCount(item.successCount) }} / 异常 {{ formatCount(item.errorCount) }}</span>
-              </div>
-            </article>
-          </div>
-        </section>
-      </section>
-
-      <section
-        v-if="isSystemMode"
-        v-loading="scheduledTaskLoading"
-        class="audit-log-scheduled-task-ledger standard-list-surface"
-        aria-label="调度任务台账"
-        element-loading-text="正在刷新调度任务台账"
-        element-loading-background="var(--loading-mask-bg)"
-      >
-        <header class="audit-log-scheduled-task-ledger__header">
-          <div>
-            <h3>调度任务台账</h3>
-          </div>
-          <span>{{ scheduledTaskRows.length }} / {{ scheduledTaskTotal }}</span>
-        </header>
-        <div v-if="scheduledTaskErrorMessage" class="audit-log-slow-summary__empty">
-          {{ scheduledTaskErrorMessage }}
-        </div>
-        <div v-else-if="scheduledTaskRows.length === 0" class="audit-log-slow-summary__empty">
-          暂无调度任务记录
-        </div>
-        <div v-else class="audit-log-scheduled-task-ledger__list">
-          <article
-            v-for="row in scheduledTaskRows"
-            :key="`scheduled-task-${row.id || row.traceId || row.taskCode}`"
-            class="audit-log-scheduled-task-ledger__item"
-          >
-            <div class="audit-log-scheduled-task-ledger__title">
-              <strong>{{ formatScheduledTaskName(row) }}</strong>
-              <span>{{ formatDuration(row.durationMs) }}</span>
-            </div>
-            <div class="audit-log-scheduled-task-ledger__meta">
-              <span>{{ formatValue(row.triggerType) }}</span>
-              <span>{{ formatScheduledTaskTrigger(row) }}</span>
-              <span>{{ formatValue(row.status) }}</span>
-              <span>{{ formatValue(row.startedAt) }}</span>
-            </div>
-            <div class="audit-log-scheduled-task-ledger__footer">
-              <span>{{ formatValue(row.traceId) }}</span>
-              <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
-              <StandardButton
-                action="view"
-                link
-                :disabled="!row.traceId"
-                @click="openTraceEvidenceByTraceId(row.traceId)"
-              >
-                证据
-              </StandardButton>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section
-        v-if="isSystemMode"
-        v-loading="messageArchiveBatchLoading"
-        class="audit-log-archive-batch-ledger standard-list-surface"
-        aria-label="归档批次台账"
-        element-loading-text="正在刷新归档批次台账"
-        element-loading-background="var(--loading-mask-bg)"
-      >
-        <header class="audit-log-archive-batch-ledger__header">
-          <div class="audit-log-archive-batch-ledger__header-main">
-            <div>
-              <h3>归档批次台账</h3>
-            </div>
-            <div class="audit-log-archive-batch-ledger__filters">
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>批次号</span>
-                <input
-                  v-model.trim="messageArchiveBatchFilters.batchNo"
-                  data-testid="archive-batch-filter-batch-no"
-                  type="text"
-                  placeholder="按批次号筛选"
-                  @input="handleMessageArchiveBatchFilterEdit"
-                  @keyup.enter="handleMessageArchiveBatchSearch"
-                >
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>状态</span>
-                <select
-                  v-model="messageArchiveBatchFilters.status"
-                  data-testid="archive-batch-filter-status"
-                  @change="handleMessageArchiveBatchFilterEdit"
-                >
-                  <option value="">全部状态</option>
-                  <option
-                    v-for="option in messageArchiveBatchStatusOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>对比结论</span>
-                <select
-                  v-model="messageArchiveBatchFilters.compareStatus"
-                  data-testid="archive-batch-filter-compare-status"
-                  @change="handleMessageArchiveBatchFilterEdit"
-                >
-                  <option value="">全部结论</option>
-                  <option
-                    v-for="option in messageArchiveBatchCompareStatusOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>开始日期</span>
-                <input
-                  v-model="messageArchiveBatchFilters.dateFrom"
-                  data-testid="archive-batch-filter-date-from"
-                  type="date"
-                  @change="handleMessageArchiveBatchFilterEdit"
-                >
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>结束日期</span>
-                <input
-                  v-model="messageArchiveBatchFilters.dateTo"
-                  data-testid="archive-batch-filter-date-to"
-                  type="date"
-                  @change="handleMessageArchiveBatchFilterEdit"
-                >
-              </label>
-              <div class="audit-log-archive-batch-ledger__filter-field audit-log-archive-batch-ledger__filter-field--checkbox">
-                <span>异常筛选</span>
-                <label class="audit-log-archive-batch-ledger__checkbox">
-                  <input
-                    v-model="messageArchiveBatchFilters.onlyAbnormal"
-                    data-testid="archive-batch-filter-only-abnormal"
-                    type="checkbox"
-                    @change="handleMessageArchiveBatchFilterEdit"
-                  >
-                  <span>仅看异常</span>
-                </label>
-              </div>
-              <div class="audit-log-archive-batch-ledger__filter-actions">
-                <StandardButton
-                  data-testid="archive-batch-search-button"
-                  @click="handleMessageArchiveBatchSearch"
-                >
-                  筛选
-                </StandardButton>
-                <StandardButton
-                  data-testid="archive-batch-reset-button"
-                  @click="resetMessageArchiveBatchFilters"
-                >
-                  重置
-                </StandardButton>
-              </div>
-            </div>
-          </div>
-          <span>{{ messageArchiveBatchRows.length }} / {{ messageArchiveBatchTotal }}</span>
-        </header>
-        <div class="audit-log-archive-batch-ledger__overview">
-          <article
-            v-for="item in messageArchiveBatchOverviewCards"
-            :key="item.key"
-            :class="[
-              'audit-log-archive-batch-ledger__overview-card',
-              {
-                'is-clickable': item.clickable,
-                'is-active': item.active
-              }
-            ]"
-            :data-testid="item.testId"
-            role="button"
-            tabindex="0"
-            @click="handleMessageArchiveBatchOverviewClick(item.key)"
-            @keydown.enter.prevent="handleMessageArchiveBatchOverviewClick(item.key)"
-            @keydown.space.prevent="handleMessageArchiveBatchOverviewClick(item.key)"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <p>{{ item.meta }}</p>
-          </article>
-        </div>
-        <div v-if="messageArchiveBatchFocusHint" class="audit-log-archive-batch-ledger__focus-hint">
-          {{ messageArchiveBatchFocusHint }}
-        </div>
-        <div v-if="messageArchiveBatchOverviewLoading" class="audit-log-slow-summary__empty">
-          正在汇总异常摘要
-        </div>
-        <div v-else-if="messageArchiveBatchOverviewErrorMessage" class="audit-log-slow-summary__empty">
-          {{ messageArchiveBatchOverviewErrorMessage }}
-        </div>
-        <div v-if="messageArchiveBatchErrorMessage" class="audit-log-slow-summary__empty">
-          {{ messageArchiveBatchErrorMessage }}
-        </div>
-        <div v-else-if="messageArchiveBatchRows.length === 0" class="audit-log-slow-summary__empty">
-          暂无归档批次记录
-        </div>
-        <div v-else class="audit-log-archive-batch-ledger__list">
-          <article
-            v-for="row in messageArchiveBatchRows"
-            :key="`message-archive-batch-${row.id || row.batchNo || row.createTime}`"
-            :class="[
-              'audit-log-archive-batch-ledger__item',
-              resolveArchiveBatchCompareStatusClass(row),
-              { 'is-abnormal': isArchiveBatchAbnormalStatus(row.compareStatus) }
-            ]"
-          >
-            <div class="audit-log-archive-batch-ledger__title">
-              <strong>{{ formatArchiveBatchName(row) }}</strong>
-              <span>{{ formatValue(row.createTime || row.updateTime) }}</span>
-            </div>
-            <div class="audit-log-archive-batch-ledger__meta">
-              <span>{{ formatValue(row.status) }}</span>
-              <span>{{ formatValue(row.compareStatusLabel || formatArchiveBatchCompareStatus(row.compareStatus)) }}</span>
-              <span>{{ formatValue(row.sourceTable) }}</span>
-              <span>{{ formatRetentionDays(row.retentionDays) }}</span>
-              <span>截止 {{ formatValue(row.cutoffAt) }}</span>
-            </div>
-            <div class="audit-log-archive-batch-ledger__metrics">
-              <span>确认 {{ formatCount(row.confirmedExpiredRows) }}</span>
-              <span>候选 {{ formatCount(row.candidateRows) }}</span>
-              <span>归档 {{ formatCount(row.archivedRows) }}</span>
-              <span>删除 {{ formatCount(row.deletedRows) }}</span>
-            </div>
-            <div class="audit-log-archive-batch-ledger__insights">
-              <span>确认差值 {{ formatSignedCount(row.deltaConfirmedVsDeleted) }}</span>
-              <span>dry-run 差值 {{ formatSignedCount(row.deltaDryRunVsDeleted) }}</span>
-              <span>剩余过期 {{ formatOptionalCount(row.remainingExpiredRows) }}</span>
-              <span>报告 {{ formatArchiveBatchPreviewAvailability(row) }}</span>
-            </div>
-            <div class="audit-log-archive-batch-ledger__footer">
-              <span>{{ formatArchiveBatchFooter(row) }}</span>
-              <StandardButton
-                action="view"
-                link
-                @click="openMessageArchiveBatchDetail(row)"
-              >
-                详情
-              </StandardButton>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <template #toolbar>
+      <template v-if="isBusinessMode" #toolbar>
         <StandardTableToolbar
           compact
           :meta-items="[
@@ -575,165 +161,271 @@
         </StandardTableToolbar>
       </template>
 
-      <div
-        v-loading="loading"
-        class="audit-log-table-wrap standard-list-surface"
-        element-loading-text="正在刷新审计列表"
-        element-loading-background="var(--loading-mask-bg)"
-      >
-        <div v-if="tableData.length > 0" class="audit-log-mobile-list standard-mobile-record-list">
-          <div class="audit-log-mobile-list__grid standard-mobile-record-grid">
-            <article
-              v-for="row in tableData"
-              :key="row.id || row.traceId || row.operationTime || row.operationModule"
-              class="audit-log-mobile-card standard-mobile-record-card"
-            >
-              <div class="audit-log-mobile-card__header">
-                <div class="audit-log-mobile-card__heading">
-                  <strong class="audit-log-mobile-card__title">
-                    {{ isSystemMode ? formatValue(row.traceId || row.operationModule) : formatValue(row.operationModule || row.userName) }}
-                  </strong>
-                  <span class="audit-log-mobile-card__sub">
-                    {{ isSystemMode ? formatValue(row.deviceCode) : formatValue(row.userName) }}
-                  </span>
-                </div>
-                <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
-                  {{ getOperationResultName(row.operationResult) }}
-                </span>
-              </div>
+      <div v-if="isSystemMode" class="audit-log-system-workbench">
+        <AuditLogSystemOverviewStrip
+          :active-tab="activeSystemLogTab"
+          :items="systemOverviewItems"
+          @change-tab="handleSystemOverviewTabChange"
+        />
 
-              <div class="audit-log-mobile-card__meta">
-                <span
-                  v-if="isBusinessMode"
-                  class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item"
-                >
-                  {{ getOperationTypeName(row.operationType || '') }}
-                </span>
-                <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
-                  {{ formatValue(row.requestMethod) }}
-                </span>
-                <span
-                  v-if="isSystemMode"
-                  class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item"
-                >
-                  {{ formatValue(row.errorCode) }}
-                </span>
-                <span
-                  v-else
-                  class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item"
-                >
-                  {{ formatValue(row.ipAddress) }}
-                </span>
-              </div>
+        <StandardTableToolbar compact :meta-items="systemToolbarMetaItems">
+          <template #right>
+            <StandardButton action="refresh" link @click="handleSystemTabRefresh">刷新列表</StandardButton>
+            <StandardActionMenu
+              v-if="activeSystemLogTab === 'errors'"
+              label="更多操作"
+              :items="auditToolbarActions"
+              @command="handleToolbarAction"
+            />
+          </template>
+        </StandardTableToolbar>
 
-              <div class="audit-log-mobile-card__info">
-                <div class="audit-log-mobile-card__field">
-                  <span class="standard-mobile-record-card__field-label">
-                    {{ isSystemMode ? '异常模块' : '操作模块' }}
-                  </span>
-                  <strong class="standard-mobile-record-card__field-value">
-                    {{ formatValue(row.operationModule) }}
-                  </strong>
-                </div>
-                <div class="audit-log-mobile-card__field">
-                  <span class="standard-mobile-record-card__field-label">
-                    {{ isSystemMode ? '设备编码' : '操作方法' }}
-                  </span>
-                  <strong class="standard-mobile-record-card__field-value">
-                    {{ isSystemMode ? formatValue(row.deviceCode) : formatValue(row.operationMethod) }}
-                  </strong>
-                </div>
-                <div class="audit-log-mobile-card__field">
-                  <span class="standard-mobile-record-card__field-label">
-                    {{ isSystemMode ? '产品标识' : '操作时间' }}
-                  </span>
-                  <strong class="standard-mobile-record-card__field-value">
-                    {{ isSystemMode ? formatValue(row.productKey) : formatValue(row.operationTime) }}
-                  </strong>
-                </div>
-                <div class="audit-log-mobile-card__field">
-                  <span class="standard-mobile-record-card__field-label">
-                    {{ isSystemMode ? '异常类型' : '操作结果' }}
-                  </span>
-                  <strong class="standard-mobile-record-card__field-value">
-                    {{ isSystemMode ? formatValue(row.exceptionClass) : getOperationResultName(row.operationResult) }}
-                  </strong>
-                </div>
-                <div class="audit-log-mobile-card__field audit-log-mobile-card__field--full">
-                  <span class="standard-mobile-record-card__field-label">
-                    {{ isSystemMode ? '异常摘要' : '请求目标' }}
-                  </span>
-                  <strong class="standard-mobile-record-card__field-value">
-                    {{ isSystemMode ? formatValue(row.resultMessage) : formatValue(row.requestUrl) }}
-                  </strong>
-                </div>
-              </div>
-
-              <StandardWorkbenchRowActions
-                variant="card"
-                :direct-items="getAuditDirectActions(row)"
-                @command="(command) => handleAuditRowAction(command, row)"
-              />
-            </article>
-          </div>
-        </div>
-
-        <el-table
-          ref="tableRef"
-          class="audit-log-table"
-          :data="tableData"
-          border
-          stripe
-          style="width: 100%"
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="48" />
-          <el-table-column v-if="isBusinessMode" prop="operationType" label="操作类型" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getOperationTypeTag(row.operationType)">
-                {{ getOperationTypeName(row.operationType) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <StandardTableTextColumn prop="operationModule" label="操作模块" :width="150" />
-          <StandardTableTextColumn prop="operationMethod" label="操作方法" :min-width="180" />
-          <StandardTableTextColumn prop="requestUrl" label="请求URL/目标" :min-width="220" />
-          <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
-          <StandardTableTextColumn v-if="isSystemMode" prop="traceId" label="TraceId" :min-width="180" />
-          <StandardTableTextColumn v-if="isSystemMode" prop="deviceCode" label="设备编码" :min-width="140" />
-          <StandardTableTextColumn v-if="isSystemMode" prop="productKey" label="产品标识" :min-width="140" />
-          <StandardTableTextColumn v-if="isSystemMode" prop="errorCode" label="异常编码" :min-width="120" />
-          <StandardTableTextColumn v-if="isSystemMode" prop="exceptionClass" label="异常类型" :min-width="180" />
-          <StandardTableTextColumn v-if="isBusinessMode" prop="userName" label="操作用户" :width="120" />
-          <StandardTableTextColumn v-if="isBusinessMode" prop="ipAddress" label="操作IP" :width="150" />
-          <StandardTableTextColumn v-if="isSystemMode" prop="resultMessage" label="异常摘要" :min-width="220" />
-          <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
-          <el-table-column prop="operationResult" label="操作结果" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getOperationResultTag(row.operationResult)" round>
-                {{ getOperationResultName(row.operationResult) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="操作"
-            :width="auditActionColumnWidth"
-            fixed="right"
-            class-name="standard-row-actions-column"
-            :show-overflow-tooltip="false"
+        <div ref="systemTabWorkspaceRef">
+          <IotAccessTabWorkspace
+            v-model="activeSystemLogTab"
+            :items="systemLogTabItems"
+            default-key="errors"
+            query-key="systemLogTab"
+            :sync-query="false"
+            @change="handleSystemLogTabChange"
           >
-            <template #default="{ row }">
-              <StandardWorkbenchRowActions
-                variant="table"
-                :direct-items="getAuditDirectActions(row)"
-                @command="(command) => handleAuditRowAction(command, row)"
+            <template #default="{ activeKey }">
+              <AuditLogErrorTabPanel
+                v-if="activeKey === 'errors'"
+                :search-form="searchForm"
+                :quick-search-keyword="quickSearchKeyword"
+                :show-advanced-filters="showAdvancedFilters"
+                :advanced-filter-hint="advancedFilterHint"
+                :request-method-options="systemRequestMethodOptions"
+                :applied-quick-search-value="appliedQuickSearchValue"
+                :active-filter-tags="activeFilterTags"
+                :has-applied-filters="hasAppliedFilters"
+                :show-inline-state="showSystemInlineState"
+                :inline-message="systemInlineMessage"
+                :loading="loading"
+                :table-data="tableData"
+                :pagination="pagination"
+                :audit-action-column-width="auditActionColumnWidth"
+                :format-value="formatValue"
+                :get-operation-result-name="getOperationResultName"
+                :get-operation-result-tag="getOperationResultTag"
+                :get-audit-direct-actions="getAuditDirectActions"
+                @update:quick-search-keyword="quickSearchKeyword = $event"
+                @search="handleSearch"
+                @reset="handleReset"
+                @quick-search="handleQuickSearch"
+                @clear-quick-search="handleClearQuickSearch"
+                @toggle-advanced="toggleAdvancedFilters"
+                @clear-applied-filters="handleClearAppliedFilters"
+                @remove-applied-filter="handleRemoveAppliedFilter"
+                @selection-change="handleSelectionChange"
+                @audit-row-action="handleAuditPanelRowAction"
+                @size-change="handleSizeChange"
+                @page-change="handlePageChange"
+              />
+
+              <AuditLogHotspotTabPanel
+                v-else-if="activeKey === 'hotspots'"
+                :slow-summary-loading="slowSummaryLoading"
+                :slow-summary-rows="slowSummaryRows"
+                :slow-summary-error-message="slowSummaryErrorMessage"
+                :format-slow-summary-title="formatSlowSummaryTitle"
+                :format-slow-summary-target="formatSlowSummaryTarget"
+                :format-value="formatValue"
+                :format-duration="formatDuration"
+                :format-count="formatCount"
+                :active-slow-summary="activeSlowSummary"
+                :slow-span-loading="slowSpanLoading"
+                :slow-span-total="slowSpanTotal"
+                :slow-span-rows="slowSpanRows"
+                :slow-span-error-message="slowSpanErrorMessage"
+                :active-slow-trend-summary="activeSlowTrendSummary"
+                :slow-trend-loading="slowTrendLoading"
+                :slow-trend-rows="slowTrendRows"
+                :slow-trend-error-message="slowTrendErrorMessage"
+                :slow-trend-window="slowTrendWindow"
+                :slow-trend-window-options="slowTrendWindowOptions"
+                :default-slow-trend-window="defaultSlowTrendWindow"
+                :format-slow-trend-bucket-label="formatSlowTrendBucketLabel"
+                :format-percentage="formatPercentage"
+                :scheduled-task-loading="scheduledTaskLoading"
+                :scheduled-task-rows="scheduledTaskRows"
+                :scheduled-task-total="scheduledTaskTotal"
+                :scheduled-task-error-message="scheduledTaskErrorMessage"
+                :format-scheduled-task-name="formatScheduledTaskName"
+                :format-scheduled-task-trigger="formatScheduledTaskTrigger"
+                @open-trace-evidence="openTraceEvidenceByTraceId"
+                @open-slow-span-detail="loadSlowSpanDrilldown"
+                @open-slow-trend="loadSlowTrendDrilldown"
+                @change-slow-trend-window="handleSlowTrendWindowChange"
+              />
+
+              <AuditLogArchiveTabPanel
+                v-else
+                :loading="messageArchiveBatchLoading"
+                :total="messageArchiveBatchTotal"
+                :rows="messageArchiveBatchRows"
+                :error-message="messageArchiveBatchErrorMessage"
+                :overview-loading="messageArchiveBatchOverviewLoading"
+                :overview-error-message="messageArchiveBatchOverviewErrorMessage"
+                :focus-hint="messageArchiveBatchFocusHint"
+                :filters="messageArchiveBatchFilters"
+                :status-options="messageArchiveBatchStatusOptions"
+                :compare-status-options="messageArchiveBatchCompareStatusOptions"
+                :overview-cards="messageArchiveBatchOverviewCards"
+                :format-value="formatValue"
+                :format-count="formatCount"
+                :format-optional-count="formatOptionalCount"
+                :format-signed-count="formatSignedCount"
+                :format-retention-days="formatRetentionDays"
+                :format-archive-batch-name="formatArchiveBatchName"
+                :format-archive-batch-compare-status="formatArchiveBatchCompareStatus"
+                :format-archive-batch-preview-availability="formatArchiveBatchPreviewAvailability"
+                :format-archive-batch-footer="formatArchiveBatchFooter"
+                :resolve-archive-batch-compare-status-class="resolveArchiveBatchCompareStatusClass"
+                :is-archive-batch-abnormal-status="isArchiveBatchAbnormalStatus"
+                @update-filter="handleMessageArchiveBatchFilterUpdate"
+                @select-overview-card="handleMessageArchiveBatchOverviewClick"
+                @open-detail="openMessageArchiveBatchDetail"
               />
             </template>
-          </el-table-column>
-        </el-table>
+          </IotAccessTabWorkspace>
+        </div>
       </div>
 
-      <template #pagination>
+      <template v-else>
+        <div
+          v-loading="loading"
+          class="audit-log-table-wrap standard-list-surface"
+          element-loading-text="正在刷新审计列表"
+          element-loading-background="var(--loading-mask-bg)"
+        >
+          <div v-if="tableData.length > 0" class="audit-log-mobile-list standard-mobile-record-list">
+            <div class="audit-log-mobile-list__grid standard-mobile-record-grid">
+              <article
+                v-for="row in tableData"
+                :key="row.id || row.traceId || row.operationTime || row.operationModule"
+                class="audit-log-mobile-card standard-mobile-record-card"
+              >
+                <div class="audit-log-mobile-card__header">
+                  <div class="audit-log-mobile-card__heading">
+                    <strong class="audit-log-mobile-card__title">
+                      {{ formatValue(row.operationModule || row.userName) }}
+                    </strong>
+                    <span class="audit-log-mobile-card__sub">
+                      {{ formatValue(row.userName) }}
+                    </span>
+                  </div>
+                  <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ getOperationResultName(row.operationResult) }}
+                  </span>
+                </div>
+
+                <div class="audit-log-mobile-card__meta">
+                  <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ getOperationTypeName(row.operationType || '') }}
+                  </span>
+                  <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ formatValue(row.requestMethod) }}
+                  </span>
+                  <span class="audit-log-mobile-card__meta-item standard-mobile-record-card__meta-item">
+                    {{ formatValue(row.ipAddress) }}
+                  </span>
+                </div>
+
+                <div class="audit-log-mobile-card__info">
+                  <div class="audit-log-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">操作模块</span>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ formatValue(row.operationModule) }}
+                    </strong>
+                  </div>
+                  <div class="audit-log-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">操作方法</span>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ formatValue(row.operationMethod) }}
+                    </strong>
+                  </div>
+                  <div class="audit-log-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">操作时间</span>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ formatValue(row.operationTime) }}
+                    </strong>
+                  </div>
+                  <div class="audit-log-mobile-card__field">
+                    <span class="standard-mobile-record-card__field-label">操作结果</span>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ getOperationResultName(row.operationResult) }}
+                    </strong>
+                  </div>
+                  <div class="audit-log-mobile-card__field audit-log-mobile-card__field--full">
+                    <span class="standard-mobile-record-card__field-label">请求目标</span>
+                    <strong class="standard-mobile-record-card__field-value">
+                      {{ formatValue(row.requestUrl) }}
+                    </strong>
+                  </div>
+                </div>
+
+                <StandardWorkbenchRowActions
+                  variant="card"
+                  :direct-items="getAuditDirectActions(row)"
+                  @command="(command) => handleAuditRowAction(command, row)"
+                />
+              </article>
+            </div>
+          </div>
+
+          <el-table
+            ref="tableRef"
+            class="audit-log-table"
+            :data="tableData"
+            border
+            stripe
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+          >
+            <el-table-column type="selection" width="48" />
+            <el-table-column prop="operationType" label="操作类型" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getOperationTypeTag(row.operationType)">
+                  {{ getOperationTypeName(row.operationType) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <StandardTableTextColumn prop="operationModule" label="操作模块" :width="150" />
+            <StandardTableTextColumn prop="operationMethod" label="操作方法" :min-width="180" />
+            <StandardTableTextColumn prop="requestUrl" label="请求URL/目标" :min-width="220" />
+            <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
+            <StandardTableTextColumn prop="userName" label="操作用户" :width="120" />
+            <StandardTableTextColumn prop="ipAddress" label="操作IP" :width="150" />
+            <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
+            <el-table-column prop="operationResult" label="操作结果" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getOperationResultTag(row.operationResult)" round>
+                  {{ getOperationResultName(row.operationResult) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="操作"
+              :width="auditActionColumnWidth"
+              fixed="right"
+              class-name="standard-row-actions-column"
+              :show-overflow-tooltip="false"
+            >
+              <template #default="{ row }">
+                <StandardWorkbenchRowActions
+                  variant="table"
+                  :direct-items="getAuditDirectActions(row)"
+                  @command="(command) => handleAuditRowAction(command, row)"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </template>
+
+      <template v-if="isBusinessMode" #pagination>
         <div v-if="pagination.total > 0" class="ops-pagination">
           <StandardPagination
             v-model:current-page="pagination.pageNum"
@@ -1116,7 +808,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
@@ -1151,11 +843,14 @@ import {
 import { isHandledRequestError } from '@/api/request'
 import type { BusinessAuditStats, SystemErrorStats } from '@/types/api'
 import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
+import AuditLogArchiveTabPanel from '@/components/auditLog/AuditLogArchiveTabPanel.vue'
+import AuditLogErrorTabPanel from '@/components/auditLog/AuditLogErrorTabPanel.vue'
+import AuditLogHotspotTabPanel from '@/components/auditLog/AuditLogHotspotTabPanel.vue'
+import AuditLogSystemOverviewStrip from '@/components/auditLog/AuditLogSystemOverviewStrip.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
+import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
 import StandardActionMenu from '@/components/StandardActionMenu.vue'
-import StandardChoiceGroup from '@/components/StandardChoiceGroup.vue'
-import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
 import StandardPagination from '@/components/StandardPagination.vue'
@@ -1185,9 +880,15 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 
 type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
+type SystemLogTabKey = 'errors' | 'hotspots' | 'archives'
 type ArchiveBatchDetailItem = { label: string; value: string }
 type ArchiveBatchCompareStatus = 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE'
 type ArchiveBatchOverviewSelectionKey = 'abnormal' | 'drifted' | 'remaining' | 'latest'
+type SystemLogTabItem = {
+  key: SystemLogTabKey
+  label: string
+  testId: string
+}
 type ArchiveBatchOverviewCard = {
   key: ArchiveBatchOverviewSelectionKey
   label: string
@@ -1203,6 +904,13 @@ const router = useRouter()
 const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' ? 'system' : 'business'))
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
+const activeSystemLogTab = ref<SystemLogTabKey>('errors')
+const systemTabWorkspaceRef = ref<HTMLElement | null>(null)
+const systemLogTabItems = computed<SystemLogTabItem[]>(() => [
+  { key: 'errors', label: '异常排查', testId: 'system-log-tab-errors' },
+  { key: 'hotspots', label: '观测热点', testId: 'system-log-tab-hotspots' },
+  { key: 'archives', label: '归档治理', testId: 'system-log-tab-archives' }
+])
 const auditActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidth({
     directItems: isSystemMode.value
@@ -1704,6 +1412,56 @@ const messageArchiveBatchOverviewCards = computed<ArchiveBatchOverviewCard[]>(()
     }
   ]
 })
+const systemOverviewItems = computed(() => [
+  {
+    key: 'errors',
+    label: '异常',
+    value: formatCount(systemStats.value.total),
+    targetTab: 'errors' as SystemLogTabKey
+  },
+  {
+    key: 'hotspots',
+    label: '慢点',
+    value: formatCount(slowSummaryRows.value.length),
+    targetTab: 'hotspots' as SystemLogTabKey
+  },
+  {
+    key: 'tasks',
+    label: '调度',
+    value: formatCount(scheduledTaskTotal.value),
+    targetTab: 'hotspots' as SystemLogTabKey
+  },
+  {
+    key: 'archives',
+    label: '异常批次',
+    value: formatOptionalCount(messageArchiveBatchOverview.value?.abnormalBatches),
+    targetTab: 'archives' as SystemLogTabKey
+  }
+])
+const systemToolbarMetaItems = computed(() => {
+  if (activeSystemLogTab.value === 'hotspots') {
+    return [
+      `慢点 ${slowSummaryRows.value.length}`,
+      `调度 ${scheduledTaskTotal.value}`,
+      activeSlowSummary.value ? `明细 ${slowSpanTotal.value}` : '明细 0',
+      activeSlowTrendSummary.value ? `趋势 ${slowTrendRows.value.length}` : '趋势 0'
+    ]
+  }
+  if (activeSystemLogTab.value === 'archives') {
+    return [
+      `批次 ${messageArchiveBatchTotal.value}`,
+      `异常 ${formatOptionalCount(messageArchiveBatchOverview.value?.abnormalBatches)}`,
+      `偏差 ${formatSignedCount(messageArchiveBatchOverview.value?.totalDeltaConfirmedVsDeleted)}`,
+      `剩余 ${formatOptionalCount(messageArchiveBatchOverview.value?.totalRemainingExpiredRows)}`
+    ]
+  }
+  return [
+    `已选 ${selectedRows.value.length} 项`,
+    `异常 ${systemStats.value.total}`,
+    `今日 ${systemStats.value.todayCount}`,
+    `链路 ${systemStats.value.distinctTraceCount}`
+  ]
+})
 
 const reloadExportSelection = () => {
   selectedExportColumnKeys.value = loadCsvColumnSelection(exportColumnStorageKey.value, defaultExportKeys)
@@ -1778,6 +1536,46 @@ const applySystemRouteQuery = () => {
   searchForm.operationResult = parseOptionalNumber(readRouteQueryValue('operationResult'))
   syncQuickSearchKeywordFromFilters()
   syncAdvancedFilterState()
+}
+
+const loadAuditWorkbenchData = () => {
+  getAuditLogList()
+  getAuditLogStats()
+}
+
+const loadSystemTabWorkbenchData = () => {
+  getScheduledTaskLedger()
+  refreshMessageArchiveBatchLedger()
+  getSlowSpanSummaries()
+}
+
+const loadCurrentViewData = () => {
+  loadAuditWorkbenchData()
+  if (isSystemMode.value) {
+    loadSystemTabWorkbenchData()
+  }
+}
+
+const syncSystemLogTabTestHooks = async () => {
+  if (!isSystemMode.value) {
+    return
+  }
+  await nextTick()
+  const root = systemTabWorkspaceRef.value
+  if (!root) {
+    return
+  }
+  const buttons = root.querySelectorAll<HTMLButtonElement>(
+    '.iot-access-tab-workspace__tab, .iot-access-tab-workspace-stub__tabs > button'
+  )
+  systemLogTabItems.value.forEach((item, index) => {
+    const button = buttons[index]
+    if (!button) {
+      return
+    }
+    button.setAttribute('data-testid', item.testId)
+    button.setAttribute('data-active', String(item.key === activeSystemLogTab.value))
+  })
 }
 
 // 获取审计日志查询条件
@@ -2111,6 +1909,17 @@ const handleMessageArchiveBatchFilterEdit = () => {
   syncMessageArchiveBatchSummarySelectionWithFilters()
 }
 
+const handleMessageArchiveBatchFilterUpdate = ({
+  field,
+  value
+}: {
+  field: 'batchNo' | 'status' | 'compareStatus'
+  value: string
+}) => {
+  messageArchiveBatchFilters[field] = value
+  handleMessageArchiveBatchFilterEdit()
+}
+
 const handleMessageArchiveBatchSearch = () => {
   syncMessageArchiveBatchSummarySelectionWithFilters()
   messageArchiveBatchFocusHint.value = ''
@@ -2386,11 +2195,8 @@ onMounted(() => {
   syncQuickSearchKeywordFromFilters()
   syncAdvancedFilterState()
   syncAppliedFilters()
-  getAuditLogList()
-  getAuditLogStats()
-  getScheduledTaskLedger()
-  refreshMessageArchiveBatchLedger()
-  getSlowSpanSummaries()
+  loadCurrentViewData()
+  void syncSystemLogTabTestHooks()
 })
 
 watch(viewMode, (newMode, oldMode) => {
@@ -2422,16 +2228,14 @@ watch(viewMode, (newMode, oldMode) => {
   messageArchiveBatchDrawerVisible.value = false
   activeMessageArchiveBatch.value = null
   exportColumnDialogVisible.value = false
+  activeSystemLogTab.value = 'errors'
   reloadExportSelection()
   applySystemRouteQuery()
   syncQuickSearchKeywordFromFilters()
   syncAdvancedFilterState()
   syncAppliedFilters()
-  getAuditLogList()
-  getAuditLogStats()
-  getScheduledTaskLedger()
-  refreshMessageArchiveBatchLedger()
-  getSlowSpanSummaries()
+  loadCurrentViewData()
+  void syncSystemLogTabTestHooks()
 })
 
 watch(
@@ -2457,13 +2261,13 @@ watch(
     resetPage()
     clearSelection()
     syncAppliedFilters()
-    getAuditLogList()
-    getAuditLogStats()
-    getScheduledTaskLedger()
-    refreshMessageArchiveBatchLedger()
-    getSlowSpanSummaries()
+    loadAuditWorkbenchData()
   }
 )
+
+watch([isSystemMode, activeSystemLogTab], () => {
+  void syncSystemLogTabTestHooks()
+})
 
 const triggerSearch = (resetPageFirst = false) => {
   applyQuickSearchKeywordToFilters()
@@ -2473,11 +2277,7 @@ const triggerSearch = (resetPageFirst = false) => {
     resetPage()
   }
   clearSelection()
-  getAuditLogList()
-  getAuditLogStats()
-  getScheduledTaskLedger()
-  refreshMessageArchiveBatchLedger()
-  getSlowSpanSummaries()
+  loadAuditWorkbenchData()
 }
 
 // 处理搜索
@@ -2527,6 +2327,39 @@ const clearSelection = () => {
 
 const handleRefresh = () => {
   triggerSearch(false)
+}
+
+const handleSystemOverviewTabChange = (tabKey: string) => {
+  handleSystemLogTabChange(tabKey)
+}
+
+const handleSystemLogTabChange = (tabKey: string) => {
+  if (tabKey === 'hotspots' || tabKey === 'archives' || tabKey === 'errors') {
+    activeSystemLogTab.value = tabKey
+  }
+}
+
+const handleSystemTabRefresh = () => {
+  if (activeSystemLogTab.value === 'hotspots') {
+    getSlowSpanSummaries()
+    getScheduledTaskLedger()
+    return
+  }
+  if (activeSystemLogTab.value === 'archives') {
+    void refreshMessageArchiveBatchLedger()
+    return
+  }
+  triggerSearch(false)
+}
+
+const handleAuditPanelRowAction = ({
+  command,
+  row
+}: {
+  command: string | number | object
+  row: AuditLogRecord
+}) => {
+  handleAuditRowAction(command, row)
 }
 
 const formatValue = (value: unknown) => {

@@ -164,6 +164,43 @@ const StandardPageShellStub = defineComponent({
   `
 });
 
+const IotAccessTabWorkspaceStub = defineComponent({
+  name: 'IotAccessTabWorkspace',
+  props: ['items', 'modelValue', 'defaultKey'],
+  emits: ['update:modelValue', 'change'],
+  computed: {
+    activeKey(): string {
+      return String(this.modelValue || this.defaultKey || this.items?.[0]?.key || '');
+    }
+  },
+  methods: {
+    handleTabChange(nextKey: string) {
+      if (nextKey === this.activeKey) {
+        return;
+      }
+      this.$emit('update:modelValue', nextKey);
+      this.$emit('change', nextKey);
+    }
+  },
+  template: `
+    <section class="iot-access-tab-workspace-stub">
+      <nav class="iot-access-tab-workspace-stub__tabs">
+        <button
+          v-for="item in items || []"
+          :key="item.key"
+          :data-testid="item.testId || undefined"
+          :data-active="String(item.key === activeKey)"
+          type="button"
+          @click="handleTabChange(item.key)"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
+      <slot :active-key="activeKey" :active-item="(items || []).find((item) => item.key === activeKey) || null" />
+    </section>
+  `
+});
+
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
@@ -329,6 +366,26 @@ const StandardDetailDrawerStub = defineComponent({
   `
 });
 
+const ElInputStub = defineComponent({
+  name: 'ElInput',
+  props: ['modelValue', 'id', 'placeholder'],
+  emits: ['update:modelValue', 'keyup', 'clear'],
+  methods: {
+    handleInput(event: Event) {
+      this.$emit('update:modelValue', (event.target as HTMLInputElement).value);
+    }
+  },
+  template: `
+    <input
+      :id="id"
+      :value="modelValue || ''"
+      :placeholder="placeholder"
+      @input="handleInput"
+      @keyup="$emit('keyup', $event)"
+    />
+  `
+});
+
 const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
@@ -393,6 +450,7 @@ function mountView() {
       stubs: {
         StandardPageShell: StandardPageShellStub,
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
+        IotAccessTabWorkspace: IotAccessTabWorkspaceStub,
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
         StandardTableToolbar: StandardTableToolbarStub,
@@ -408,7 +466,7 @@ function mountView() {
         StandardDetailDrawer: StandardDetailDrawerStub,
         ElTable: ElTableStub,
         ElTableColumn: ElTableColumnStub,
-        ElInput: true,
+        ElInput: ElInputStub,
         ElSelect: true,
         ElOption: true,
         ElTag: true,
@@ -841,13 +899,37 @@ describe('AuditLogView', () => {
     expect(wrapper.find('[data-testid="system-log-archive-panel"]').exists()).toBe(false);
   });
 
-  it('keeps filter state per tab when switching between errors and archives', async () => {
+  it('keeps the anomaly list surface only inside the 异常排查 panel', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(true);
+    expect(wrapper.find('.audit-log-table-stub').exists()).toBe(true);
+    expect(wrapper.find('#quick-search').exists()).toBe(true);
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(false);
+    expect(wrapper.find('.audit-log-table-stub').exists()).toBe(false);
+    expect(wrapper.find('#quick-search').exists()).toBe(false);
+
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(wrapper.find('[data-testid="system-log-error-panel"]').exists()).toBe(false);
+    expect(wrapper.find('.audit-log-table-stub').exists()).toBe(false);
+    expect(wrapper.find('#quick-search').exists()).toBe(false);
+  });
+
+  it('keeps filter state per tab when switching between errors, hotspots, and archives', async () => {
     const wrapper = mountView();
 
     await triggerSystemLogTab(wrapper, 'archives');
     await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('batch-001');
     await triggerSystemLogTab(wrapper, 'errors');
     await wrapper.get('#quick-search').setValue('trace-001');
+    await triggerSystemLogTab(wrapper, 'hotspots');
+    expect(wrapper.find('[data-testid="system-log-hotspot-panel"]').exists()).toBe(true);
     await triggerSystemLogTab(wrapper, 'archives');
 
     expect(
@@ -887,6 +969,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
 
     expect(listObservabilitySlowSpanSummaries).toHaveBeenCalledWith({
       limit: 5,
@@ -915,6 +998,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
 
     expect(pageObservabilityScheduledTasks).toHaveBeenCalledWith({
       pageNum: 1,
@@ -942,6 +1026,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledWith({
       sourceTable: 'iot_message_log'
@@ -1006,10 +1091,11 @@ describe('AuditLogView', () => {
     expect(drawer?.text()).toContain('# 归档报告');
   });
 
-  it('filters archive batch ledger by batch number, status and create date window', async () => {
+  it('filters archive batch ledger by batch number and compare status on archive refresh', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(getObservabilityMessageArchiveBatchOverview).mockClear();
@@ -1019,11 +1105,7 @@ describe('AuditLogView', () => {
     );
     await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('SUCCEEDED');
     await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
-    await wrapper.get('[data-testid="archive-batch-filter-only-abnormal"]').setValue(true);
-    await wrapper.get('[data-testid="archive-batch-filter-date-from"]').setValue('2026-04-26');
-    await wrapper.get('[data-testid="archive-batch-filter-date-to"]').setValue('2026-04-26');
-
-    await wrapper.get('[data-testid="archive-batch-search-button"]').trigger('click');
+    await clickButtonByText(wrapper, '刷新列表');
     await flushPromises();
     await nextTick();
 
@@ -1032,16 +1114,11 @@ describe('AuditLogView', () => {
       sourceTable: 'iot_message_log',
       status: 'SUCCEEDED',
       compareStatus: 'DRIFTED',
-      onlyAbnormal: true,
-      dateFrom: '2026-04-26 00:00:00',
-      dateTo: '2026-04-26 23:59:59',
       pageNum: 1,
       pageSize: 5
     });
     expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledWith({
-      sourceTable: 'iot_message_log',
-      dateFrom: '2026-04-26 00:00:00',
-      dateTo: '2026-04-26 23:59:59'
+      sourceTable: 'iot_message_log'
     });
   });
 
@@ -1049,6 +1126,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     const abnormalCard = wrapper.get('[data-testid="archive-batch-overview-abnormal"]');
     const driftedCard = wrapper.get('[data-testid="archive-batch-overview-drifted"]');
@@ -1101,6 +1179,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
@@ -1156,6 +1235,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
@@ -1187,10 +1267,11 @@ describe('AuditLogView', () => {
     expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
   });
 
-  it('clears summary selection and focus hint on reset', async () => {
+  it('clears summary selection and focus hint after manual archive filter edits', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
@@ -1210,7 +1291,7 @@ describe('AuditLogView', () => {
 
     expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
 
-    await wrapper.get('[data-testid="archive-batch-reset-button"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('manual-batch');
     await flushPromises();
     await nextTick();
 
@@ -1224,6 +1305,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
     await flushPromises();
@@ -1246,7 +1328,7 @@ describe('AuditLogView', () => {
     ).toBe(0);
     expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
 
-    await wrapper.get('[data-testid="archive-batch-search-button"]').trigger('click');
+    await clickButtonByText(wrapper, '刷新列表');
     await flushPromises();
     await nextTick();
 
@@ -1267,6 +1349,7 @@ describe('AuditLogView', () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(getObservabilityMessageArchiveBatchOverview).mockClear();
@@ -1374,10 +1457,11 @@ describe('AuditLogView', () => {
     expect(wrapper.text()).not.toContain('stale-old-latest');
   });
 
-  it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {
+  it('drills slow hotspot into recent span records', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
 
     const panel = wrapper.find('.audit-log-slow-summary');
     const detailButton = panel.findAll('button').find((button) => button.text().includes('明细'));
@@ -1403,21 +1487,13 @@ describe('AuditLogView', () => {
     expect(drilldown.text()).toContain('trace-slow-1');
     expect(drilldown.text()).toContain('2400 ms');
     expect(drilldown.text()).toContain('SUCCESS');
-
-    vi.mocked(getTraceEvidence).mockClear();
-    const evidenceButton = drilldown.findAll('button').find((button) => button.text().includes('证据'));
-    await evidenceButton!.trigger('click');
-    await flushPromises();
-    await nextTick();
-
-    expect(getTraceEvidence).toHaveBeenCalledWith('trace-slow-1');
-    expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
   });
 
   it('drills slow hotspot into trend buckets and allows switching trend windows', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
 
     const panel = wrapper.find('.audit-log-slow-summary');
     const trendButton = panel.findAll('button').find((button) => button.text().includes('趋势'));
