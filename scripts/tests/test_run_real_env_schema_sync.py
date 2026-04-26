@@ -124,6 +124,95 @@ class MessageLogPhysicalTableMigrationTest(unittest.TestCase):
         self.assertIn(("DROP VIEW `iot_device_message_log`", None), cursor.executed)
 
 
+class MessageLogCommentCursor:
+    def __init__(self):
+        self.executed = []
+
+    def execute(self, sql, params=None):
+        self.executed.append((sql, params))
+
+
+class MessageLogCommentAlignmentTest(unittest.TestCase):
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    @mock.patch.object(
+        schema_sync,
+        "column_comments",
+        return_value={
+            "id": "主键",
+            "tenant_id": "租户ID",
+            "device_id": "设备ID",
+            "product_id": "产品ID",
+            "message_type": "消息类型 telemetry/event/property/reply",
+            "topic": "主题",
+            "payload": "原始消息",
+            "report_time": "上报时间",
+            "trace_id": "trace id",
+            "device_code": "device code",
+            "product_key": "product key",
+            "create_time": "",
+        },
+    )
+    @mock.patch.object(schema_sync, "table_comment", return_value="legacy device message log")
+    def test_aligns_iot_message_log_comments_from_registry(
+        self, _mock_table_comment, _mock_column_comments, _mock_table_exists
+    ):
+        cursor = MessageLogCommentCursor()
+
+        repairs = schema_sync.ensure_registry_comments(cursor, "rm_iot", schema_sync.MESSAGE_LOG_SCHEMA_OBJECT)
+
+        executed_sql = [sql for sql, _ in cursor.executed]
+        self.assertEqual(6, repairs)
+        self.assertIn("ALTER TABLE `iot_message_log` COMMENT = '设备消息日志表'", executed_sql)
+        self.assertIn(
+            "ALTER TABLE `iot_message_log` MODIFY COLUMN `message_type` "
+            "VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）'",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `iot_message_log` MODIFY COLUMN `trace_id` "
+            "VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID'",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `iot_message_log` MODIFY COLUMN `device_code` "
+            "VARCHAR(64) DEFAULT NULL COMMENT '设备编码'",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `iot_message_log` MODIFY COLUMN `product_key` "
+            "VARCHAR(64) DEFAULT NULL COMMENT '产品标识'",
+            executed_sql,
+        )
+        self.assertIn(
+            "ALTER TABLE `iot_message_log` MODIFY COLUMN `create_time` "
+            "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '日志创建时间'",
+            executed_sql,
+        )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    @mock.patch.object(
+        schema_sync,
+        "column_comments",
+        return_value={
+            field.name: field.comment_zh for field in schema_sync.MESSAGE_LOG_SCHEMA_OBJECT.fields
+        },
+    )
+    @mock.patch.object(
+        schema_sync,
+        "table_comment",
+        return_value=schema_sync.MESSAGE_LOG_SCHEMA_OBJECT.table_comment_zh,
+    )
+    def test_skips_comment_repair_when_iot_message_log_already_matches_registry(
+        self, _mock_table_comment, _mock_column_comments, _mock_table_exists
+    ):
+        cursor = MessageLogCommentCursor()
+
+        repairs = schema_sync.ensure_registry_comments(cursor, "rm_iot", schema_sync.MESSAGE_LOG_SCHEMA_OBJECT)
+
+        self.assertEqual(0, repairs)
+        self.assertEqual([], cursor.executed)
+
+
 class SchemaSyncCoverageTest(unittest.TestCase):
     def test_create_table_sql_covers_device_relation_table(self):
         self.assertIn("iot_device_relation", schema_sync.CREATE_TABLE_SQL)
