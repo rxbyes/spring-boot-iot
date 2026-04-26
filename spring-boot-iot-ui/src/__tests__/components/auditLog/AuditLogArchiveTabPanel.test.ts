@@ -91,4 +91,44 @@ describe('AuditLogArchiveTabPanel', () => {
     await wrapper.get('[data-testid="archive-batch-open-detail"]').trigger('click');
     expect(wrapper.emitted('open-detail')).toHaveLength(1);
   });
+
+  it('emits filter edits and overview-card selections with focused payloads', async () => {
+    const wrapper = mount(AuditLogArchiveTabPanel, {
+      props: archivePropsFactory(),
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub
+        }
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('batch-20260426');
+    await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('DONE');
+    await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
+    await wrapper.get('[data-testid="archive-batch-overview-abnormal"]').trigger('click');
+
+    expect(wrapper.emitted('update-filter')).toEqual([
+      [{ field: 'batchNo', value: 'batch-20260426' }],
+      [{ field: 'status', value: 'DONE' }],
+      [{ field: 'compareStatus', value: 'DRIFTED' }]
+    ]);
+    expect(wrapper.emitted('select-overview-card')?.[0]).toEqual(['abnormal']);
+  });
+
+  it('renders the archive overview error branch when overview aggregation fails', () => {
+    const wrapper = mount(AuditLogArchiveTabPanel, {
+      props: {
+        ...archivePropsFactory(),
+        rows: [],
+        overviewErrorMessage: '批次摘要汇总失败'
+      },
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain('批次摘要汇总失败');
+  });
 });

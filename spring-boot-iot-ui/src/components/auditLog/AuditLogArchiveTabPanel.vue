@@ -9,11 +9,21 @@
           <div class="audit-log-archive-batch-ledger__filters">
             <label class="audit-log-archive-batch-ledger__filter-field">
               <span>批次号</span>
-              <input :value="filters.batchNo" data-testid="archive-batch-filter-batch-no" type="text" placeholder="按批次号筛选">
+              <input
+                :value="filters.batchNo"
+                data-testid="archive-batch-filter-batch-no"
+                type="text"
+                placeholder="按批次号筛选"
+                @input="handleFilterInput('batchNo', $event)"
+              >
             </label>
             <label class="audit-log-archive-batch-ledger__filter-field">
               <span>状态</span>
-              <select :value="filters.status" data-testid="archive-batch-filter-status">
+              <select
+                :value="filters.status"
+                data-testid="archive-batch-filter-status"
+                @change="handleFilterSelect('status', $event)"
+              >
                 <option value="">全部状态</option>
                 <option v-for="option in statusOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
@@ -22,7 +32,11 @@
             </label>
             <label class="audit-log-archive-batch-ledger__filter-field">
               <span>对比结论</span>
-              <select :value="filters.compareStatus" data-testid="archive-batch-filter-compare-status">
+              <select
+                :value="filters.compareStatus"
+                data-testid="archive-batch-filter-compare-status"
+                @change="handleFilterSelect('compareStatus', $event)"
+              >
                 <option value="">全部结论</option>
                 <option v-for="option in compareStatusOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
@@ -42,6 +56,11 @@
             { 'is-clickable': item.clickable, 'is-active': item.active }
           ]"
           :data-testid="item.testId"
+          :role="item.clickable ? 'button' : undefined"
+          :tabindex="item.clickable ? 0 : undefined"
+          @click="item.clickable && emit('select-overview-card', item.key)"
+          @keydown.enter.prevent="item.clickable && emit('select-overview-card', item.key)"
+          @keydown.space.prevent="item.clickable && emit('select-overview-card', item.key)"
         >
           <span>{{ item.label }}</span>
           <strong>{{ item.value }}</strong>
@@ -114,49 +133,100 @@
 </template>
 
 <script setup lang="ts">
-type Formatter<T = unknown, R = string> = (value: T) => R;
+interface ArchiveBatchFilters {
+  batchNo: string;
+  status: string;
+  compareStatus: string;
+  dateFrom: string;
+  dateTo: string;
+  onlyAbnormal: boolean;
+}
+
+type ArchiveFilterField = 'batchNo' | 'status' | 'compareStatus';
+
+interface ArchiveBatchOption {
+  label: string;
+  value: string;
+}
+
+interface ArchiveOverviewCard {
+  key: string;
+  label: string;
+  value: string;
+  meta: string;
+  clickable: boolean;
+  active: boolean;
+  testId: string;
+}
+
+interface ArchiveBatchRow {
+  id?: number | string | null;
+  batchNo?: string | null;
+  createTime?: string | null;
+  updateTime?: string | null;
+  status?: string | null;
+  compareStatus?: string | null;
+  compareStatusLabel?: string | null;
+  sourceTable?: string | null;
+  retentionDays?: number | null;
+  cutoffAt?: string | null;
+  confirmedExpiredRows?: number | null;
+  candidateRows?: number | null;
+  archivedRows?: number | null;
+  deletedRows?: number | null;
+  deltaConfirmedVsDeleted?: number | null;
+  deltaDryRunVsDeleted?: number | null;
+  remainingExpiredRows?: number | null;
+}
+
+type ValueFormatter = (value: string | number | null | undefined) => string;
+type CountFormatter = (value: number | null | undefined) => string;
+type ArchiveBatchFormatter = (row: ArchiveBatchRow) => string;
+type CompareStatusResolver = (row: ArchiveBatchRow) => string;
+type AbnormalStatusResolver = (status: string | null | undefined) => boolean;
 
 defineProps<{
   loading: boolean;
   total: number;
-  rows: Record<string, any>[];
+  rows: ArchiveBatchRow[];
   errorMessage: string;
   overviewLoading: boolean;
   overviewErrorMessage: string;
   focusHint: string;
-  filters: {
-    batchNo: string;
-    status: string;
-    compareStatus: string;
-    dateFrom: string;
-    dateTo: string;
-    onlyAbnormal: boolean;
-  };
-  statusOptions: Array<{ label: string; value: string }>;
-  compareStatusOptions: Array<{ label: string; value: string }>;
-  overviewCards: Array<{
-    key: string;
-    label: string;
-    value: string;
-    meta: string;
-    clickable: boolean;
-    active: boolean;
-    testId: string;
-  }>;
-  formatValue: Formatter;
-  formatCount: Formatter<number | null | undefined>;
-  formatOptionalCount: Formatter<number | null | undefined>;
-  formatSignedCount: Formatter<number | null | undefined>;
-  formatRetentionDays: Formatter<number | null | undefined>;
-  formatArchiveBatchName: Formatter;
-  formatArchiveBatchCompareStatus: Formatter;
-  formatArchiveBatchPreviewAvailability: Formatter;
-  formatArchiveBatchFooter: Formatter;
-  resolveArchiveBatchCompareStatusClass: (row: Record<string, any>) => string;
-  isArchiveBatchAbnormalStatus: (status: string) => boolean;
+  filters: ArchiveBatchFilters;
+  statusOptions: ArchiveBatchOption[];
+  compareStatusOptions: ArchiveBatchOption[];
+  overviewCards: ArchiveOverviewCard[];
+  formatValue: ValueFormatter;
+  formatCount: CountFormatter;
+  formatOptionalCount: CountFormatter;
+  formatSignedCount: CountFormatter;
+  formatRetentionDays: CountFormatter;
+  formatArchiveBatchName: ArchiveBatchFormatter;
+  formatArchiveBatchCompareStatus: ValueFormatter;
+  formatArchiveBatchPreviewAvailability: ArchiveBatchFormatter;
+  formatArchiveBatchFooter: ArchiveBatchFormatter;
+  resolveArchiveBatchCompareStatusClass: CompareStatusResolver;
+  isArchiveBatchAbnormalStatus: AbnormalStatusResolver;
 }>();
 
 const emit = defineEmits<{
-  (event: 'open-detail', row: Record<string, any>): void;
+  (event: 'update-filter', payload: { field: ArchiveFilterField; value: string }): void;
+  (event: 'select-overview-card', key: string): void;
+  (event: 'open-detail', row: ArchiveBatchRow): void;
 }>();
+
+function handleFilterInput(field: ArchiveFilterField, event: Event) {
+  emit('update-filter', {
+    field,
+    value: (event.target as HTMLInputElement).value
+  });
+}
+
+function handleFilterSelect(field: ArchiveFilterField, event: Event) {
+  emit('update-filter', {
+    field,
+    value: (event.target as HTMLSelectElement).value
+  });
+}
 </script>

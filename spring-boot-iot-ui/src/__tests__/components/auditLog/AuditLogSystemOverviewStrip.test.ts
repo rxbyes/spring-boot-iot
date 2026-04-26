@@ -17,6 +17,8 @@ describe('AuditLogSystemOverviewStrip', () => {
       }
     });
 
+    expect(wrapper.get('[data-testid="system-log-overview-errors"]').classes()).toContain('is-active');
+    expect(wrapper.get('[data-testid="system-log-overview-hotspots"]').classes()).not.toContain('is-active');
     await wrapper.get('[data-testid="system-log-overview-hotspots"]').trigger('click');
     expect(wrapper.emitted('change-tab')?.[0]).toEqual(['hotspots']);
   });

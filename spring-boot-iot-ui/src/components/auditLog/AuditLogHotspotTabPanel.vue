@@ -31,13 +31,18 @@
           </div>
           <div class="audit-log-slow-summary__footer">
             <span>{{ formatValue(row.latestTraceId) }}</span>
-            <StandardButton action="view" link :disabled="!row.latestTraceId">
+            <StandardButton
+              action="view"
+              link
+              :disabled="!row.latestTraceId"
+              @click="row.latestTraceId && emit('open-trace-evidence', row.latestTraceId)"
+            >
               证据
             </StandardButton>
-            <StandardButton action="view" link>
+            <StandardButton action="view" link @click="emit('open-slow-span-detail', row)">
               明细
             </StandardButton>
-            <StandardButton action="view" link>
+            <StandardButton action="view" link @click="emit('open-slow-trend', row, defaultSlowTrendWindow)">
               趋势
             </StandardButton>
           </div>
@@ -91,7 +96,11 @@
           </div>
           <div class="audit-log-slow-trend-drilldown__actions">
             <span>{{ slowTrendRows.length }} 桶</span>
-            <StandardChoiceGroup :model-value="slowTrendWindow" :options="slowTrendWindowOptions" />
+            <StandardChoiceGroup
+              :model-value="slowTrendWindow"
+              :options="slowTrendWindowOptions"
+              @update:model-value="emit('change-slow-trend-window', $event)"
+            />
           </div>
         </header>
         <div v-if="slowTrendErrorMessage" class="audit-log-slow-summary__empty">
@@ -154,7 +163,12 @@
           <div class="audit-log-scheduled-task-ledger__footer">
             <span>{{ formatValue(row.traceId) }}</span>
             <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
-            <StandardButton action="view" link :disabled="!row.traceId">
+            <StandardButton
+              action="view"
+              link
+              :disabled="!row.traceId"
+              @click="row.traceId && emit('open-trace-evidence', row.traceId)"
+            >
               证据
             </StandardButton>
           </div>
@@ -165,36 +179,103 @@
 </template>
 
 <script setup lang="ts">
-type Formatter<T = unknown, R = string> = (value: T) => R;
+interface SlowSummaryRow {
+  spanType?: string | null;
+  domainCode?: string | null;
+  eventCode?: string | null;
+  objectType?: string | null;
+  objectId?: string | null;
+  latestStartedAt?: string | null;
+  latestTraceId?: string | null;
+  maxDurationMs?: number | null;
+  avgDurationMs?: number | null;
+  totalCount?: number | null;
+}
+
+interface SlowSpanRow {
+  id?: number | string | null;
+  traceId?: string | null;
+  spanName?: string | null;
+  spanType?: string | null;
+  status?: string | null;
+  startedAt?: string | null;
+  durationMs?: number | null;
+  eventCode?: string | null;
+  objectId?: string | null;
+}
+
+interface SlowTrendRow {
+  bucket?: string | null;
+  bucketStart?: string | null;
+  bucketEnd?: string | null;
+  totalCount?: number | null;
+  p95DurationMs?: number | null;
+  p99DurationMs?: number | null;
+  avgDurationMs?: number | null;
+  maxDurationMs?: number | null;
+  errorRate?: number | null;
+  successCount?: number | null;
+  errorCount?: number | null;
+}
+
+interface ScheduledTaskRow {
+  id?: number | string | null;
+  taskCode?: string | null;
+  traceId?: string | null;
+  triggerType?: string | null;
+  triggerExpression?: string | null;
+  status?: string | null;
+  startedAt?: string | null;
+  durationMs?: number | null;
+  errorMessage?: string | null;
+}
+
+interface SlowTrendWindowOption {
+  label: string;
+  value: string;
+}
+
+type ValueFormatter = (value: string | number | null | undefined) => string;
+type CountFormatter = (value: number | null | undefined) => string;
+type SlowSummaryFormatter = (row: SlowSummaryRow) => string;
+type SlowTrendFormatter = (row: SlowTrendRow) => string;
+type ScheduledTaskFormatter = (row: ScheduledTaskRow) => string;
 
 defineProps<{
   slowSummaryLoading: boolean;
-  slowSummaryRows: Record<string, any>[];
+  slowSummaryRows: SlowSummaryRow[];
   slowSummaryErrorMessage: string;
-  formatSlowSummaryTitle: Formatter;
-  formatSlowSummaryTarget: Formatter;
-  formatValue: Formatter;
-  formatDuration: Formatter<number | null | undefined>;
-  formatCount: Formatter<number | null | undefined>;
-  activeSlowSummary: Record<string, any> | null;
+  formatSlowSummaryTitle: SlowSummaryFormatter;
+  formatSlowSummaryTarget: SlowSummaryFormatter;
+  formatValue: ValueFormatter;
+  formatDuration: CountFormatter;
+  formatCount: CountFormatter;
+  activeSlowSummary: SlowSummaryRow | null;
   slowSpanLoading: boolean;
   slowSpanTotal: number;
-  slowSpanRows: Record<string, any>[];
+  slowSpanRows: SlowSpanRow[];
   slowSpanErrorMessage: string;
-  activeSlowTrendSummary: Record<string, any> | null;
+  activeSlowTrendSummary: SlowSummaryRow | null;
   slowTrendLoading: boolean;
-  slowTrendRows: Record<string, any>[];
+  slowTrendRows: SlowTrendRow[];
   slowTrendErrorMessage: string;
   slowTrendWindow: string;
-  slowTrendWindowOptions: Array<{ label: string; value: string }>;
+  slowTrendWindowOptions: SlowTrendWindowOption[];
   defaultSlowTrendWindow: string;
-  formatSlowTrendBucketLabel: Formatter;
-  formatPercentage: Formatter<number | null | undefined>;
+  formatSlowTrendBucketLabel: SlowTrendFormatter;
+  formatPercentage: CountFormatter;
   scheduledTaskLoading: boolean;
-  scheduledTaskRows: Record<string, any>[];
+  scheduledTaskRows: ScheduledTaskRow[];
   scheduledTaskTotal: number;
   scheduledTaskErrorMessage: string;
-  formatScheduledTaskName: Formatter;
-  formatScheduledTaskTrigger: Formatter;
+  formatScheduledTaskName: ScheduledTaskFormatter;
+  formatScheduledTaskTrigger: ScheduledTaskFormatter;
+}>();
+
+const emit = defineEmits<{
+  (event: 'open-trace-evidence', traceId: string): void;
+  (event: 'open-slow-span-detail', row: SlowSummaryRow): void;
+  (event: 'open-slow-trend', row: SlowSummaryRow, window: string): void;
+  (event: 'change-slow-trend-window', value: string): void;
 }>();
 </script>
