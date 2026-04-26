@@ -114,9 +114,45 @@ describe('permission store route guard', () => {
     expect(permissionStore.allowedPaths).toContain('/automation-governance');
     expect(permissionStore.hasRoutePermission('/quality-workbench')).toBe(true);
     expect(permissionStore.hasRoutePermission('/automation-governance')).toBe(true);
-    expect(permissionStore.hasRoutePermission('/rd-workbench')).toBe(false);
-    expect(permissionStore.hasRoutePermission('/automation-execution')).toBe(false);
-    expect(permissionStore.hasRoutePermission('/automation-results')).toBe(false);
+    expect(permissionStore.hasRoutePermission('/rd-workbench')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-execution')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-results?runId=20260426183000')).toBe(true);
+  });
+
+  it('treats legacy quality menus as governance compatibility paths for RD roles', () => {
+    const permissionStore = usePermissionStore();
+    permissionStore.setAccessToken('token');
+    permissionStore.setAuthContext(
+      createAuthContext({
+        roleCodes: ['DEVELOPER_STAFF'],
+        roles: [{ id: 31, roleCode: 'DEVELOPER_STAFF', roleName: '开发人员' }],
+        menus: [
+          {
+            id: 93000005,
+            menuName: '质量工场',
+            menuCode: 'quality-workbench',
+            path: '',
+            type: 0,
+            children: [
+              {
+                id: 93003015,
+                parentId: 93000005,
+                menuName: '研发工场',
+                menuCode: 'system:rd-workbench',
+                path: '/rd-workbench',
+                type: 1,
+                children: []
+              }
+            ]
+          }
+        ]
+      })
+    );
+
+    expect(permissionStore.allowedPaths).toContain('/rd-workbench');
+    expect(permissionStore.hasRoutePermission('/rd-workbench')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-governance')).toBe(true);
+    expect(permissionStore.hasRoutePermission('/automation-governance?assetTab=plans')).toBe(true);
   });
 
   it('keeps business roles blocked from automation-governance when only business acceptance is granted', () => {
@@ -152,7 +188,7 @@ describe('permission store route guard', () => {
     expect(permissionStore.allowedPaths).toContain('/business-acceptance');
     expect(permissionStore.hasRoutePermission('/business-acceptance')).toBe(true);
     expect(permissionStore.hasRoutePermission('/automation-governance')).toBe(false);
-    expect(permissionStore.hasRoutePermission('/automation-results')).toBe(false);
+    expect(permissionStore.hasRoutePermission('/automation-results?runId=20260426183000')).toBe(false);
   });
 
   it('keeps no-role users blocked even when menu tree is empty', () => {

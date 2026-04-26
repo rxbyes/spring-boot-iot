@@ -12,6 +12,7 @@ import {
 } from '../utils/sectionWorkspaces';
 import type { LoginResult, MenuTreeNode, UserAuthContext } from '../types/auth';
 import { normalizeOptionalRoutePath, normalizeRoutePath } from '../utils/routePath';
+import { resolveWorkspacePermissionPath } from '../utils/workspaceRouteCompatibility';
 
 const ACCESS_TOKEN_KEY = 'spring-boot-iot.access-token';
 const AUTH_CONTEXT_KEY = 'spring-boot-iot.auth-context';
@@ -246,7 +247,7 @@ export const usePermissionStore = defineStore('permission', () => {
   }
 
   function hasRoutePermission(path: string): boolean {
-    const normalizedPath = normalizeRoutePath(path);
+    const normalizedPath = resolveWorkspacePermissionPath(path) || normalizeRoutePath(path);
     if (normalizedPath === '/') {
       return true;
     }
