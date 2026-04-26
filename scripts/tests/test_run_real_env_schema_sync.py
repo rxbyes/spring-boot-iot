@@ -594,6 +594,8 @@ class EnsureIndexesCursor:
             return None
         if "risk_metric_emergency_plan_binding" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
             return None
+        if "sys_dict" in self._last_sql and "HAVING COUNT(1) > 1" in self._last_sql:
+            return None
         raise AssertionError(f"Unexpected fetchone for SQL: {self._last_sql}")
 
     def fetchall(self):
@@ -601,7 +603,9 @@ class EnsureIndexesCursor:
             db, table, index = self._last_params
             if db != "rm_iot":
                 raise AssertionError(f"Unexpected db in params: {self._last_params}")
-            expected = schema_sync.BINDING_INDEX_EXPECTED_SHAPES.get((table, index))
+            expected = schema_sync.EXPECTED_INDEX_SHAPES.get((table, index))
+            if expected is None:
+                expected = schema_sync.BINDING_INDEX_EXPECTED_SHAPES.get((table, index))
             if expected is not None:
                 is_unique, columns = expected
                 non_unique = 0 if is_unique else 1
@@ -719,6 +723,72 @@ class EnsureIndexesBehaviorTest(unittest.TestCase):
             "ALTER TABLE `risk_metric_linkage_binding` ADD UNIQUE INDEX `uk_risk_metric_linkage_active` (`tenant_id`, `risk_metric_id`, `linkage_rule_id`, `deleted`)",
             executed_sql,
         )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    @mock.patch.object(schema_sync, "index_exists", return_value=True)
+    def test_ensure_indexes_repairs_whitelisted_uniqueness_drift_when_columns_match(
+        self, _mock_index_exists, _mock_table_exists
+    ):
+        cursor = EnsureIndexesCursor()
+        original_fetchall = cursor.fetchall
+
+        def fetchall_with_repairable_drift():
+            if (
+                "FROM information_schema.STATISTICS" in cursor._last_sql
+                and cursor._last_params == ("rm_iot", "sys_dict", "uk_dict_code_tenant")
+            ):
+                return [
+                    (1, "tenant_id", 1),
+                    (1, "dict_code", 2),
+                ]
+            return original_fetchall()
+
+        cursor.fetchall = fetchall_with_repairable_drift
+
+        schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        executed_sql = [sql for sql, _ in cursor.executed]
+        self.assertIn("ALTER TABLE `sys_dict` DROP INDEX `uk_dict_code_tenant`", executed_sql)
+        self.assertIn(
+            "ALTER TABLE `sys_dict` ADD UNIQUE INDEX `uk_dict_code_tenant` (`tenant_id`, `dict_code`)",
+            executed_sql,
+        )
+
+    @mock.patch.object(schema_sync, "table_exists", return_value=True)
+    @mock.patch.object(schema_sync, "index_exists", return_value=True)
+    def test_ensure_indexes_repairable_uniqueness_drift_still_raises_on_duplicates(
+        self, _mock_index_exists, _mock_table_exists
+    ):
+        cursor = EnsureIndexesCursor()
+        original_fetchall = cursor.fetchall
+        original_fetchone = cursor.fetchone
+
+        def fetchall_with_repairable_drift():
+            if (
+                "FROM information_schema.STATISTICS" in cursor._last_sql
+                and cursor._last_params == ("rm_iot", "sys_dict", "uk_dict_code_tenant")
+            ):
+                return [
+                    (1, "tenant_id", 1),
+                    (1, "dict_code", 2),
+                ]
+            return original_fetchall()
+
+        def fetchone_with_duplicate():
+            if "sys_dict" in cursor._last_sql and "HAVING COUNT(1) > 1" in cursor._last_sql:
+                return (1,)
+            return original_fetchone()
+
+        cursor.fetchall = fetchall_with_repairable_drift
+        cursor.fetchone = fetchone_with_duplicate
+
+        with self.assertRaises(RuntimeError) as cm:
+            schema_sync.ensure_indexes(cursor, "rm_iot")
+
+        self.assertIn("sys_dict.uk_dict_code_tenant", str(cm.exception))
+        self.assertIn("duplicate rows must be cleaned before schema sync can continue", str(cm.exception))
+        executed_sql = [sql for sql, _ in cursor.executed]
+        self.assertNotIn("ALTER TABLE `sys_dict` DROP INDEX `uk_dict_code_tenant`", executed_sql)
 
 
 class CollectorChildBaselineSeedCursor:
