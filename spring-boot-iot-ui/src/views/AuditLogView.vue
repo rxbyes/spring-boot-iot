@@ -379,6 +379,7 @@
                   data-testid="archive-batch-filter-batch-no"
                   type="text"
                   placeholder="按批次号筛选"
+                  @input="handleMessageArchiveBatchFilterEdit"
                   @keyup.enter="handleMessageArchiveBatchSearch"
                 >
               </label>
@@ -387,6 +388,7 @@
                 <select
                   v-model="messageArchiveBatchFilters.status"
                   data-testid="archive-batch-filter-status"
+                  @change="handleMessageArchiveBatchFilterEdit"
                 >
                   <option value="">全部状态</option>
                   <option
@@ -403,7 +405,7 @@
                 <select
                   v-model="messageArchiveBatchFilters.compareStatus"
                   data-testid="archive-batch-filter-compare-status"
-                  @change="handleMessageArchiveBatchAnomalyFilterEdit"
+                  @change="handleMessageArchiveBatchFilterEdit"
                 >
                   <option value="">全部结论</option>
                   <option
@@ -421,6 +423,7 @@
                   v-model="messageArchiveBatchFilters.dateFrom"
                   data-testid="archive-batch-filter-date-from"
                   type="date"
+                  @change="handleMessageArchiveBatchFilterEdit"
                 >
               </label>
               <label class="audit-log-archive-batch-ledger__filter-field">
@@ -429,6 +432,7 @@
                   v-model="messageArchiveBatchFilters.dateTo"
                   data-testid="archive-batch-filter-date-to"
                   type="date"
+                  @change="handleMessageArchiveBatchFilterEdit"
                 >
               </label>
               <div class="audit-log-archive-batch-ledger__filter-field audit-log-archive-batch-ledger__filter-field--checkbox">
@@ -438,7 +442,7 @@
                     v-model="messageArchiveBatchFilters.onlyAbnormal"
                     data-testid="archive-batch-filter-only-abnormal"
                     type="checkbox"
-                    @change="handleMessageArchiveBatchAnomalyFilterEdit"
+                    @change="handleMessageArchiveBatchFilterEdit"
                   >
                   <span>仅看异常</span>
                 </label>
@@ -1352,8 +1356,8 @@ const messageArchiveBatchOverview = ref<ObservabilityMessageArchiveBatchOverview
 const messageArchiveBatchOverviewLoading = ref(false)
 const messageArchiveBatchOverviewErrorMessage = ref('')
 const activeMessageArchiveBatchOverviewSelection = ref<ArchiveBatchOverviewSelectionKey | ''>('')
+const messageArchiveBatchSummarySelectionFilterContext = ref('')
 const messageArchiveBatchFocusedBatchNo = ref('')
-const messageArchiveBatchPendingAutoOpen = ref(false)
 const messageArchiveBatchFocusHint = ref('')
 const messageArchiveBatchFilters = reactive({
   batchNo: '',
@@ -1884,6 +1888,16 @@ const buildMessageArchiveBatchOverviewQueryParams = (): ObservabilityMessageArch
   dateTo: buildMessageArchiveBatchBoundary(messageArchiveBatchFilters.dateTo, 'end')
 })
 
+const buildMessageArchiveBatchFilterContext = () =>
+  JSON.stringify({
+    batchNo: messageArchiveBatchFilters.batchNo.trim(),
+    status: messageArchiveBatchFilters.status.trim(),
+    compareStatus: String(messageArchiveBatchFilters.compareStatus || '').trim().toUpperCase(),
+    onlyAbnormal: messageArchiveBatchFilters.onlyAbnormal,
+    dateFrom: messageArchiveBatchFilters.dateFrom.trim(),
+    dateTo: messageArchiveBatchFilters.dateTo.trim()
+  })
+
 const clearScheduledTaskLedger = () => {
   scheduledTaskRows.value = []
   scheduledTaskLoading.value = false
@@ -1906,12 +1920,12 @@ const clearMessageArchiveBatchOverview = () => {
 
 const clearMessageArchiveBatchOverviewFocus = () => {
   messageArchiveBatchFocusedBatchNo.value = ''
-  messageArchiveBatchPendingAutoOpen.value = false
   messageArchiveBatchFocusHint.value = ''
 }
 
 const resetMessageArchiveBatchSummarySelection = () => {
   activeMessageArchiveBatchOverviewSelection.value = ''
+  messageArchiveBatchSummarySelectionFilterContext.value = ''
   clearMessageArchiveBatchOverviewFocus()
 }
 
@@ -1998,23 +2012,39 @@ const getMessageArchiveBatchOverview = async () => {
   }
 }
 
-const resolveMessageArchiveBatchSummaryFocus = async () => {
-  if (!messageArchiveBatchPendingAutoOpen.value) {
+let messageArchiveBatchRefreshSequence = 0
+
+const isMessageArchiveBatchSummarySelectionCurrent = () =>
+  Boolean(messageArchiveBatchSummarySelectionFilterContext.value) &&
+  messageArchiveBatchSummarySelectionFilterContext.value === buildMessageArchiveBatchFilterContext()
+
+const resolveMessageArchiveBatchSummaryFocus = async (
+  refreshSequence: number,
+  shouldAutoOpenSummaryFocus: boolean
+) => {
+  if (
+    !shouldAutoOpenSummaryFocus ||
+    refreshSequence !== messageArchiveBatchRefreshSequence ||
+    activeMessageArchiveBatchOverviewSelection.value !== 'latest' ||
+    !isMessageArchiveBatchSummarySelectionCurrent()
+  ) {
     return
   }
 
-  messageArchiveBatchPendingAutoOpen.value = false
   messageArchiveBatchFocusHint.value = ''
   messageArchiveBatchFocusedBatchNo.value = String(
     messageArchiveBatchOverview.value?.latestAbnormalBatch || ''
   ).trim()
-  if (!messageArchiveBatchFocusedBatchNo.value) {
+  if (!messageArchiveBatchFocusedBatchNo.value || refreshSequence !== messageArchiveBatchRefreshSequence) {
     return
   }
 
   const matchedRow = messageArchiveBatchRows.value.find(
     (row) => String(row.batchNo || '').trim() === messageArchiveBatchFocusedBatchNo.value
   )
+  if (refreshSequence !== messageArchiveBatchRefreshSequence) {
+    return
+  }
   if (matchedRow) {
     await openMessageArchiveBatchDetail(matchedRow)
     return
@@ -2024,57 +2054,44 @@ const resolveMessageArchiveBatchSummaryFocus = async () => {
 }
 
 const refreshMessageArchiveBatchLedger = async () => {
+  const refreshSequence = ++messageArchiveBatchRefreshSequence
+  const shouldAutoOpenSummaryFocus = activeMessageArchiveBatchOverviewSelection.value === 'latest'
   await Promise.all([getMessageArchiveBatchLedger(), getMessageArchiveBatchOverview()])
-  await resolveMessageArchiveBatchSummaryFocus()
-}
-
-const normalizeMessageArchiveBatchCompareStatusFilter = () =>
-  String(messageArchiveBatchFilters.compareStatus || '').trim().toUpperCase()
-
-const doesMessageArchiveBatchSelectionMatchFilters = (
-  selection: ArchiveBatchOverviewSelectionKey
-) => {
-  if (selection === 'drifted') {
-    return normalizeMessageArchiveBatchCompareStatusFilter() === 'DRIFTED' && !messageArchiveBatchFilters.onlyAbnormal
-  }
-  return normalizeMessageArchiveBatchCompareStatusFilter() === '' && messageArchiveBatchFilters.onlyAbnormal
+  await resolveMessageArchiveBatchSummaryFocus(refreshSequence, shouldAutoOpenSummaryFocus)
 }
 
 const syncMessageArchiveBatchSummarySelectionWithFilters = () => {
   const selection = activeMessageArchiveBatchOverviewSelection.value
-  if (!selection || doesMessageArchiveBatchSelectionMatchFilters(selection)) {
+  if (!selection || isMessageArchiveBatchSummarySelectionCurrent()) {
     return
   }
   resetMessageArchiveBatchSummarySelection()
 }
 
-const handleMessageArchiveBatchAnomalyFilterEdit = () => {
+const handleMessageArchiveBatchFilterEdit = () => {
   syncMessageArchiveBatchSummarySelectionWithFilters()
 }
 
 const handleMessageArchiveBatchSearch = () => {
   syncMessageArchiveBatchSummarySelectionWithFilters()
   messageArchiveBatchFocusHint.value = ''
-  if (activeMessageArchiveBatchOverviewSelection.value === 'latest') {
-    messageArchiveBatchPendingAutoOpen.value = true
-  }
   void refreshMessageArchiveBatchLedger()
 }
 
 const applyMessageArchiveBatchOverviewSelection = (
   selection: ArchiveBatchOverviewSelectionKey
 ) => {
-  activeMessageArchiveBatchOverviewSelection.value = selection
   messageArchiveBatchFocusHint.value = ''
   messageArchiveBatchFocusedBatchNo.value = ''
-  messageArchiveBatchPendingAutoOpen.value = selection === 'latest'
   if (selection === 'drifted') {
     messageArchiveBatchFilters.compareStatus = 'DRIFTED'
     messageArchiveBatchFilters.onlyAbnormal = false
-    return
+  } else {
+    messageArchiveBatchFilters.compareStatus = ''
+    messageArchiveBatchFilters.onlyAbnormal = true
   }
-  messageArchiveBatchFilters.compareStatus = ''
-  messageArchiveBatchFilters.onlyAbnormal = true
+  activeMessageArchiveBatchOverviewSelection.value = selection
+  messageArchiveBatchSummarySelectionFilterContext.value = buildMessageArchiveBatchFilterContext()
 }
 
 const handleMessageArchiveBatchOverviewClick = (selection: ArchiveBatchOverviewSelectionKey) => {
