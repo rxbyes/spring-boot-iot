@@ -207,6 +207,16 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 query == null ? new ObservabilityMessageArchiveBatchPageQuery() : query;
         long pageNum = PageQueryUtils.normalizePageNum(criteria.getPageNum());
         long pageSize = PageQueryUtils.normalizePageSize(criteria.getPageSize());
+        if (hasMessageArchiveBatchProjectionFilters(criteria)) {
+            List<ObservabilityMessageArchiveBatchVO> filtered = loadProjectedMessageArchiveBatches(criteria);
+            long total = filtered.size();
+            if (total == 0L) {
+                return PageResult.empty(pageNum, pageSize);
+            }
+            int fromIndex = (int) Math.min((pageNum - 1L) * pageSize, total);
+            int toIndex = (int) Math.min(fromIndex + pageSize, total);
+            return PageResult.of(total, pageNum, pageSize, filtered.subList(fromIndex, toIndex));
+        }
         List<Object> args = new ArrayList<>();
         String where = buildMessageArchiveBatchWhere(criteria, args);
         Long total = jdbcTemplate.queryForObject(
@@ -234,6 +244,7 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 this::mapMessageArchiveBatch,
                 rowArgs.toArray()
         );
+        records.forEach(this::decorateMessageArchiveBatchProjection);
         return PageResult.of(total, pageNum, pageSize, records);
     }
 
@@ -242,7 +253,25 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
             ObservabilityMessageArchiveBatchOverviewQuery query,
             Long currentUserId
     ) {
-        return new ObservabilityMessageArchiveBatchOverviewVO();
+        ObservabilityMessageArchiveBatchOverviewQuery criteria =
+                query == null ? new ObservabilityMessageArchiveBatchOverviewQuery() : query;
+        List<Object> args = new ArrayList<>();
+        String where = buildMessageArchiveBatchOverviewWhere(criteria, args);
+        List<ObservabilityMessageArchiveBatchVO> rows = jdbcTemplate.query(
+                """
+                SELECT id, batch_no, source_table, governance_mode, status, retention_days,
+                       cutoff_at, confirm_report_path, confirm_report_generated_at,
+                       confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
+                       failed_reason, artifacts_json, create_time, update_time
+                FROM iot_message_log_archive_batch
+                WHERE %s
+                ORDER BY create_time DESC, id DESC
+                """.formatted(where),
+                this::mapMessageArchiveBatch,
+                args.toArray()
+        );
+        rows.forEach(this::decorateMessageArchiveBatchProjection);
+        return aggregateMessageArchiveBatchOverview(rows);
     }
 
     @Override
@@ -810,6 +839,15 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return String.join(" AND ", clauses);
     }
 
+    private String buildMessageArchiveBatchOverviewWhere(ObservabilityMessageArchiveBatchOverviewQuery query,
+                                                         List<Object> args) {
+        List<String> clauses = new ArrayList<>();
+        clauses.add("1 = 1");
+        appendEquals(clauses, args, "source_table", query.getSourceTable());
+        appendDateRange(clauses, args, "create_time", query.getDateFrom(), query.getDateTo());
+        return String.join(" AND ", clauses);
+    }
+
     private String buildSlowSpanTrendWhere(ObservabilitySlowSpanTrendQuery query,
                                            Long tenantId,
                                            LocalDateTime from,
@@ -1213,6 +1251,153 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         vo.setCreateTime(nullableDateTime(rs, "create_time"));
         vo.setUpdateTime(nullableDateTime(rs, "update_time"));
         return vo;
+    }
+
+    private boolean hasMessageArchiveBatchProjectionFilters(ObservabilityMessageArchiveBatchPageQuery query) {
+        return Boolean.TRUE.equals(query.getOnlyAbnormal()) || StringUtils.hasText(normalize(query.getCompareStatus()));
+    }
+
+    private List<ObservabilityMessageArchiveBatchVO> loadProjectedMessageArchiveBatches(
+            ObservabilityMessageArchiveBatchPageQuery query
+    ) {
+        List<Object> args = new ArrayList<>();
+        String where = buildMessageArchiveBatchWhere(query, args);
+        List<ObservabilityMessageArchiveBatchVO> rows = jdbcTemplate.query(
+                """
+                SELECT id, batch_no, source_table, governance_mode, status, retention_days,
+                       cutoff_at, confirm_report_path, confirm_report_generated_at,
+                       confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
+                       failed_reason, artifacts_json, create_time, update_time
+                FROM iot_message_log_archive_batch
+                WHERE %s
+                ORDER BY create_time DESC, id DESC
+                """.formatted(where),
+                this::mapMessageArchiveBatch,
+                args.toArray()
+        );
+        rows.forEach(this::decorateMessageArchiveBatchProjection);
+        return rows.stream()
+                .filter(row -> matchesMessageArchiveBatchProjectionFilter(row, query))
+                .toList();
+    }
+
+    private boolean matchesMessageArchiveBatchProjectionFilter(ObservabilityMessageArchiveBatchVO row,
+                                                               ObservabilityMessageArchiveBatchPageQuery query) {
+        String compareStatus = normalize(row.getCompareStatus());
+        if (Boolean.TRUE.equals(query.getOnlyAbnormal())) {
+            return ARCHIVE_COMPARE_DRIFTED.equalsIgnoreCase(compareStatus)
+                    || ARCHIVE_COMPARE_PARTIAL.equalsIgnoreCase(compareStatus)
+                    || ARCHIVE_COMPARE_UNAVAILABLE.equalsIgnoreCase(compareStatus);
+        }
+        String expected = normalize(query.getCompareStatus());
+        if (!StringUtils.hasText(expected)) {
+            return true;
+        }
+        return expected.equalsIgnoreCase(compareStatus);
+    }
+
+    private void decorateMessageArchiveBatchProjection(ObservabilityMessageArchiveBatchVO row) {
+        if (row == null) {
+            return;
+        }
+        ObservabilityMessageArchiveBatchCompareVO compare = buildMessageArchiveBatchCompare(row);
+        row.setCompareStatus(compare.getCompareStatus());
+        row.setCompareStatusLabel(resolveMessageArchiveBatchCompareStatusLabel(compare.getCompareStatus()));
+        if (compare.getSummaryCompare() != null) {
+            row.setDeltaConfirmedVsDeleted(compare.getSummaryCompare().getDeltaConfirmedVsDeleted());
+            row.setDeltaDryRunVsDeleted(compare.getSummaryCompare().getDeltaDryRunVsDeleted());
+            row.setRemainingExpiredRows(compare.getSummaryCompare().getRemainingExpiredRows());
+        }
+        ObservabilityMessageArchiveBatchReportPreviewVO preview = buildMessageArchiveBatchReportPreview(row);
+        row.setPreviewAvailable(Boolean.TRUE.equals(preview.getAvailable()));
+        row.setPreviewReasonCode(preview.getReasonCode());
+    }
+
+    private String resolveMessageArchiveBatchCompareStatusLabel(String status) {
+        String normalized = normalize(status);
+        if (ARCHIVE_COMPARE_MATCHED.equalsIgnoreCase(normalized)) {
+            return "已对齐";
+        }
+        if (ARCHIVE_COMPARE_DRIFTED.equalsIgnoreCase(normalized)) {
+            return "有偏差";
+        }
+        if (ARCHIVE_COMPARE_PARTIAL.equalsIgnoreCase(normalized)) {
+            return "部分可比";
+        }
+        if (ARCHIVE_COMPARE_UNAVAILABLE.equalsIgnoreCase(normalized)) {
+            return "不可用";
+        }
+        return defaultIfBlank(status, "未知");
+    }
+
+    private ObservabilityMessageArchiveBatchOverviewVO aggregateMessageArchiveBatchOverview(
+            List<ObservabilityMessageArchiveBatchVO> rows
+    ) {
+        ObservabilityMessageArchiveBatchOverviewVO overview = new ObservabilityMessageArchiveBatchOverviewVO();
+        overview.setTotalBatches((long) rows.size());
+        long matched = 0L;
+        long drifted = 0L;
+        long partial = 0L;
+        long unavailable = 0L;
+        long totalDelta = 0L;
+        long totalRemaining = 0L;
+        boolean hasDelta = false;
+        boolean hasRemaining = false;
+        ObservabilityMessageArchiveBatchVO latestAbnormal = null;
+        for (ObservabilityMessageArchiveBatchVO row : rows) {
+            String compareStatus = normalize(row.getCompareStatus());
+            if (ARCHIVE_COMPARE_MATCHED.equalsIgnoreCase(compareStatus)) {
+                matched++;
+            } else if (ARCHIVE_COMPARE_DRIFTED.equalsIgnoreCase(compareStatus)) {
+                drifted++;
+            } else if (ARCHIVE_COMPARE_PARTIAL.equalsIgnoreCase(compareStatus)) {
+                partial++;
+            } else {
+                unavailable++;
+            }
+            if (row.getDeltaConfirmedVsDeleted() != null) {
+                totalDelta += row.getDeltaConfirmedVsDeleted();
+                hasDelta = true;
+            }
+            if (row.getRemainingExpiredRows() != null) {
+                totalRemaining += row.getRemainingExpiredRows();
+                hasRemaining = true;
+            }
+            if (!ARCHIVE_COMPARE_MATCHED.equalsIgnoreCase(compareStatus) && row.getBatchNo() != null) {
+                if (latestAbnormal == null || isAfterMessageArchiveBatch(row, latestAbnormal)) {
+                    latestAbnormal = row;
+                }
+            }
+        }
+        overview.setMatchedBatches(matched);
+        overview.setDriftedBatches(drifted);
+        overview.setPartialBatches(partial);
+        overview.setUnavailableBatches(unavailable);
+        overview.setAbnormalBatches(drifted + partial + unavailable);
+        overview.setTotalDeltaConfirmedVsDeleted(hasDelta ? totalDelta : null);
+        overview.setTotalRemainingExpiredRows(hasRemaining ? totalRemaining : null);
+        if (latestAbnormal != null) {
+            overview.setLatestAbnormalBatch(latestAbnormal.getBatchNo());
+            overview.setLatestAbnormalOccurredAt(
+                    latestAbnormal.getCreateTime() != null
+                            ? latestAbnormal.getCreateTime()
+                            : latestAbnormal.getUpdateTime()
+            );
+        }
+        return overview;
+    }
+
+    private boolean isAfterMessageArchiveBatch(ObservabilityMessageArchiveBatchVO left,
+                                               ObservabilityMessageArchiveBatchVO right) {
+        LocalDateTime leftTime = left.getCreateTime() != null ? left.getCreateTime() : left.getUpdateTime();
+        LocalDateTime rightTime = right.getCreateTime() != null ? right.getCreateTime() : right.getUpdateTime();
+        if (leftTime == null) {
+            return false;
+        }
+        if (rightTime == null) {
+            return true;
+        }
+        return leftTime.isAfter(rightTime);
     }
 
     private ObservabilityScheduledTaskVO mapScheduledTask(ResultSet rs, int rowNum) throws SQLException {
