@@ -1,5 +1,4 @@
 import type { ActivityEntry } from '../types/api';
-import { legacyQualityWorkspaceRoutes } from './workspaceRouteCompatibility';
 
 export interface SectionHomeCard {
   path: string;
@@ -225,17 +224,9 @@ const specialRouteMetaPresets: Record<string, RouteMetaPreset> = {
   }
 };
 
-const legacyQualityWorkspacePaths = legacyQualityWorkspaceRoutes.map((route) => route.sourcePath);
+const workspaceCompatibilityRouteMap: Record<string, string[]> = {};
 
-const workspaceCompatibilityRouteMap: Record<string, string[]> = {
-  '/automation-governance': legacyQualityWorkspacePaths
-};
-
-legacyQualityWorkspacePaths.forEach((path) => {
-  workspaceCompatibilityRouteMap[path] = ['/automation-governance'];
-});
-
-const hiddenCompatibilityWorkspacePaths = new Set<string>(legacyQualityWorkspacePaths);
+const hiddenCompatibilityWorkspacePaths = new Set<string>();
 
 const canonicalGroupNavOrders: Record<string, string[]> = {
   'quality-workbench': [

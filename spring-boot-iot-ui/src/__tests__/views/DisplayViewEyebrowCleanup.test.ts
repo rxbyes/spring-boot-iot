@@ -86,7 +86,7 @@ vi.mock('../../api/riskGovernance', () => ({
   })
 }))
 
-import AutomationTestCenterView from '@/views/AutomationTestCenterView.vue'
+import AutomationGovernanceWorkbenchView from '@/views/AutomationGovernanceWorkbenchView.vue'
 import CockpitView from '@/views/CockpitView.vue'
 import FutureLabView from '@/views/FutureLabView.vue'
 
@@ -117,6 +117,24 @@ const ResponsePanelStub = defineComponent({
   `
 })
 
+const StandardPageShellStub = defineComponent({
+  name: 'StandardPageShell',
+  template: '<section class="standard-page-shell-stub"><slot /></section>'
+})
+
+const StandardWorkbenchPanelStub = defineComponent({
+  name: 'StandardWorkbenchPanel',
+  props: ['title', 'description'],
+  template: `
+    <section class="standard-workbench-panel-stub">
+      <h1>{{ title }}</h1>
+      <p v-if="description">{{ description }}</p>
+      <slot name="notices" />
+      <slot />
+    </section>
+  `
+})
+
 function buildPanelGlobal() {
   return {
     plugins: [createPinia()],
@@ -129,7 +147,12 @@ function buildPanelGlobal() {
       StandardTableToolbar: true,
       StandardTableTextColumn: true,
       StandardFlowRail: true,
+      StandardPageShell: StandardPageShellStub,
+      StandardWorkbenchPanel: StandardWorkbenchPanelStub,
       AutomationExecutionConfigPanel: true,
+      AutomationAssetsWorkspaceSection: true,
+      AutomationExecutionWorkspaceSection: true,
+      AutomationEvidenceWorkspaceSection: true,
       AutomationSuggestionPanel: true,
       AutomationPageDiscoveryPanel: true,
       AutomationScenarioEditor: true,
@@ -146,21 +169,15 @@ function buildPanelGlobal() {
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('display view eyebrow cleanup', () => {
-  it('keeps the automation center hero and cards free from legacy English eyebrow tiers', async () => {
-    const wrapper = mount(AutomationTestCenterView, {
+  it('keeps the automation governance workbench free from legacy English eyebrow tiers', async () => {
+    const wrapper = mount(AutomationGovernanceWorkbenchView, {
       global: buildPanelGlobal()
     })
 
     await flushPromises()
 
-    const panelCards = wrapper.findAllComponents(PanelCardStub)
-    const responsePanel = wrapper.findComponent(ResponsePanelStub)
-
-    expect(panelCards.length).toBeGreaterThan(0)
-    expect(panelCards.every((item) => item.props('eyebrow') === undefined)).toBe(true)
-    if (responsePanel.exists()) {
-      expect(responsePanel.props('eyebrow')).toBeUndefined()
-    }
+    expect(wrapper.text()).toContain('自动化治理台')
+    expect(wrapper.text()).not.toContain('RD Workbench')
     expect(wrapper.text()).not.toContain('Automation Studio')
   })
 

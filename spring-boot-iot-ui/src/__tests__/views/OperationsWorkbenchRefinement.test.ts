@@ -501,13 +501,13 @@ describe('operations workbench refinement', () => {
     expect(source).not.toContain('Emergency Plans');
   });
 
-  it('keeps the legacy automation wrapper views aligned with the shared governance shell', () => {
-    const entrySource = readViewSource('AutomationTestCenterView.vue');
-    const landingSource = readViewSource('RdWorkbenchLandingView.vue');
+  it('keeps the automation governance workbench as the only shared quality shell', () => {
+    const governanceSource = readViewSource('AutomationGovernanceWorkbenchView.vue');
 
-    expect(entrySource).toContain('<RdWorkbenchLandingView />');
-    expect(landingSource).toContain('<AutomationGovernanceWorkbenchView />');
-    expect(landingSource).not.toContain('研发工场总览');
+    expect(governanceSource).toContain('<AutomationAssetsWorkspaceSection');
+    expect(governanceSource).toContain('<AutomationExecutionWorkspaceSection');
+    expect(governanceSource).toContain('<AutomationEvidenceWorkspaceSection');
+    expect(governanceSource).not.toContain('研发工场总览');
   });
 
   it('aligns audit-log action columns with adaptive shared row actions', () => {

@@ -174,7 +174,7 @@ function buildCaseRecords() {
         status: 'PASSED',
         summary: '8/8 检查项通过',
         failedLayers: [],
-        jumpPath: '/automation-results?runId=20260418193000'
+        jumpPath: '/automation-governance?tab=evidence&runId=20260418193000'
       }
     },
     {
@@ -590,7 +590,7 @@ describe('DeviceOnboardingWorkbenchView', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/products/1001/contracts')
   })
 
-  it('shows acceptance summary and normalizes legacy acceptance result links into governance evidence', async () => {
+  it('shows acceptance summary and routes run links into governance evidence', async () => {
     const wrapper = mountView()
     await flushPromises()
 

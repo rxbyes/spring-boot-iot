@@ -124,15 +124,22 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('刷新索引');
   });
 
-  it('registers automation-governance route and keeps legacy quality entries as redirects only', () => {
+  it('registers automation-governance route and retires the old rd/execution/result routes', () => {
     const source = readRouter();
 
     expect(source).toContain("path: '/quality-workbench'");
     expect(source).toContain("path: '/business-acceptance'");
     expect(source).toContain("path: '/business-acceptance/results/:runId'");
     expect(source).toContain("path: '/automation-governance'");
-    expect(source).toContain('legacyQualityWorkbenchRedirects');
-    expect(source).toContain("path: route.sourcePath");
+    expect(source).not.toContain("path: '/rd-workbench'");
+    expect(source).not.toContain("path: '/rd-automation-inventory'");
+    expect(source).not.toContain("path: '/rd-automation-templates'");
+    expect(source).not.toContain("path: '/rd-automation-plans'");
+    expect(source).not.toContain("path: '/rd-automation-handoff'");
+    expect(source).not.toContain("path: '/automation-assets'");
+    expect(source).not.toContain("path: '/automation-execution'");
+    expect(source).not.toContain("path: '/automation-results'");
+    expect(source).not.toContain("path: '/automation-test'");
     expect(source).not.toContain("component: () => import('../views/RdWorkbenchLandingView.vue')");
     expect(source).not.toContain("component: () => import('../views/AutomationExecutionView.vue')");
     expect(source).not.toContain("component: () => import('../views/AutomationResultsView.vue')");

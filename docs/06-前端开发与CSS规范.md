@@ -162,7 +162,7 @@
 - `/insight` 的指标编排当前采用“样板设备直配 + 设备类型模板 + 运行时属性识别 + 轻配置覆盖”四层口径：样板设备可固定指定优先监测项；其他设备至少要按 `预警型 / 监测型 / 采集型` 差异化挑选核心监测值与状态值；已知多维监测标识符需优先按属性快照映射固定中文名称，例如 `L1_LF_1.value -> 裂缝量`、`L1_QJ_1.angle -> 水平面夹角`。对象洞察重要指标的正式真相源固定为产品 `metadataJson.objectInsight.customMetrics[]`，运行时必须消费 `enabled / includeInTrend / includeInExtension / sortNo`：`enabled=false` 或 `includeInTrend=false` 的指标不得进入趋势/历史，`includeInExtension=false` 的重点趋势项必须按 `sortNo` 前置；平台也不再默认按运行时属性自动补齐 `监测数据 / 状态数据`，趋势预览默认空白，需由产品手工配置后才展示。设备元数据仅保留兼容扩展覆盖，不得反向演进为第二正式状态源。
 - `/products` 当前允许在既有新增/编辑表单、产品经营工作台 `编辑档案`，以及 `契约字段 -> 当前已生效字段` 内维护同一份产品级正式对象洞察配置，但不得为此新增单独路由、第二套抽屉或页面私有配置中心。`当前已生效字段` 里的趋势快捷动作当前只允许作用于正式 `property` 字段，并统一写回 `metadataJson.objectInsight.customMetrics[]`。若正式字段名称被改名，且该字段已进入对象洞察趋势配置，前端必须同步更新 `customMetrics[].displayName`，避免 `/insight` 继续显示旧名称或历史 telemetry 别名。
 - `接入智维`、`风险运营`、`风险策略`、`质量工场` 下的主工作台页，当前统一通过 `StandardPageShell + StandardWorkbenchPanel` 对齐平台治理的字距、标题节奏和导航到首卡片的垂直留白；`/device-access`、`/reporting`、`/message-trace`、`/file-debug`、`/system-log`、`/insight`、`/report-analysis` 这类页级入口也已纳入同一规则，页面根节点不得再声明私有 `padding / background / border / box-shadow` 来制造第二层壳。
-- `自动化工场` 这类非列表型工程工作台，若正文仍由多个 `PanelCard`、编排器或结果面板组成，也必须把首屏标题与说明收口到同一 `StandardWorkbenchPanel` 头部；不得再保留独立 Hero 页头抬高导航到主卡片的间距。
+- `自动化治理台` 这类非列表型工程工作台，若正文仍由多个 `PanelCard`、编排器或结果面板组成，也必须把首屏标题与说明收口到同一 `StandardWorkbenchPanel` 头部；不得再保留独立 Hero 页头抬高导航到主卡片的间距。
 - `接入智维` 六个核心页在完成两层结构收口后，第二轮视觉精修继续保持当前系统主配色不变；现代化优先通过标题层级、筛选密度、工具条轻重、表头亮度和操作列节奏实现，不得为单页引入新的综合色或私有主题。
 - 单主列表页与真页签诊断页当前统一采用“静稳控制台”语法：更轻的边框、更软的卡片阴影、更淡的表头底色、更短的说明文案和更明确的主按钮，不回退到厚重卡片、营销式渐变头或大段引导文案。
 - `deviceCode` 是链路验证中心唯一主查询入口；`productKey`、`protocolCode`、`clientId` 必须保持只读派生字段，不得恢复为手工填写。

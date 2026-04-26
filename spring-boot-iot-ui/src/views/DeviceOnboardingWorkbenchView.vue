@@ -1010,9 +1010,6 @@ function handleOpenAcceptance(row: DeviceOnboardingCase): void {
 
 function acceptanceJumpPath(row: DeviceOnboardingCase): string {
   if (row.acceptance?.jumpPath) {
-    if (row.acceptance.jumpPath.startsWith('/automation-results')) {
-      return buildAutomationGovernanceEvidencePath(row.acceptance.runId)
-    }
     return row.acceptance.jumpPath
   }
   if (row.acceptance?.runId) {

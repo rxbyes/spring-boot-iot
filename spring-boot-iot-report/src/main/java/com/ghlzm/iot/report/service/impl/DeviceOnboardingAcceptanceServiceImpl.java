@@ -505,7 +505,7 @@ public class DeviceOnboardingAcceptanceServiceImpl implements DeviceOnboardingAc
                 resolveProgressStatus(normalizedResults),
                 buildSummaryText(summary, failedLayers),
                 failedLayers,
-                "/automation-results?runId=" + runId
+                "/automation-governance?tab=evidence&runId=" + runId
         );
     }
 

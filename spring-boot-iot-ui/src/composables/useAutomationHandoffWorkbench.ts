@@ -8,7 +8,7 @@ export function useAutomationHandoffWorkbench() {
   const executionAdvice = computed(() => [
     `建议优先执行范围：${planBuilder.plan.value.target.scenarioScopes.join(' / ') || '未设置'}`,
     `当前失败阻断范围：${planBuilder.plan.value.target.failScopes.join(' / ') || '未设置'}`,
-    `执行命令沿用既有浏览器计划执行器，建议先导出计划再进入执行中心复核注册表。`
+    `执行命令沿用既有浏览器计划执行器，建议先导出计划再进入执行配置工作区复核注册表。`
   ]);
 
   const deliveryNotes = computed(() => [

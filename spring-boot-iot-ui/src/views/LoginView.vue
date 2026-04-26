@@ -135,7 +135,6 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { login as loginApi } from '../api/auth';
 import type { RequestError } from '../api/request';
 import { usePermissionStore } from '../stores/permission';
-import { normalizeWorkspaceRedirectTarget } from '../utils/workspaceRouteCompatibility';
 
 type LoginTab = 'account' | 'phone';
 
@@ -195,10 +194,13 @@ function showForgotHint(type: string) {
 }
 
 function resolveRedirectPath() {
-  const redirect = normalizeWorkspaceRedirectTarget(
-    typeof route.query.redirect === 'string' ? route.query.redirect : undefined
-  );
-  if (redirect && redirect !== '/login' && permissionStore.hasRoutePermission(redirect)) {
+  const redirect = route.query.redirect;
+  if (
+    typeof redirect === 'string' &&
+    redirect.startsWith('/') &&
+    redirect !== '/login' &&
+    permissionStore.hasRoutePermission(redirect)
+  ) {
     return redirect;
   }
   return permissionStore.homePath || '/';

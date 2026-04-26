@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { usePermissionStore } from '../stores/permission';
 import { getRouteMetaPreset } from '../utils/sectionWorkspaces';
-import { legacyQualityWorkspaceRoutes, normalizeWorkspaceRedirectTarget } from '../utils/workspaceRouteCompatibility';
 import { appScrollBehavior } from './scrollBehavior';
 
 function routeMeta(path: string, overrides: Record<string, unknown> = {}) {
@@ -12,11 +11,6 @@ function routeMeta(path: string, overrides: Record<string, unknown> = {}) {
     ...overrides
   };
 }
-
-const legacyQualityWorkbenchRedirects: RouteRecordRaw[] = legacyQualityWorkspaceRoutes.map((route) => ({
-  path: route.sourcePath,
-  redirect: (to) => normalizeWorkspaceRedirectTarget(to.fullPath) || route.targetPath
-}));
 
 const routes: RouteRecordRaw[] = [
   {
@@ -323,7 +317,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/AutomationGovernanceWorkbenchView.vue'),
     meta: routeMeta('/automation-governance')
   },
-  ...legacyQualityWorkbenchRedirects,
   {
     path: '/audit-log',
     name: 'audit-log',
@@ -344,18 +337,16 @@ const router = createRouter({
 });
 
 function resolveRedirectTarget(permissionStore: ReturnType<typeof usePermissionStore>, redirect?: string) {
-  const normalizedRedirect = normalizeWorkspaceRedirectTarget(redirect);
-  if (normalizedRedirect && normalizedRedirect !== '/login') {
-    if (normalizedRedirect === '/' || permissionStore.hasRoutePermission(normalizedRedirect)) {
-      return normalizedRedirect;
+  if (redirect && redirect.startsWith('/') && redirect !== '/login') {
+    if (redirect === '/' || permissionStore.hasRoutePermission(redirect)) {
+      return redirect;
     }
   }
   return permissionStore.homePath || '/';
 }
 
 function createLoginRedirect(fullPath: string) {
-  const normalizedRedirect = normalizeWorkspaceRedirectTarget(fullPath);
-  if (!normalizedRedirect || normalizedRedirect === '/login') {
+  if (!fullPath || fullPath === '/login') {
     return {
       path: '/login'
     };
@@ -363,7 +354,7 @@ function createLoginRedirect(fullPath: string) {
   return {
     path: '/login',
     query: {
-      redirect: normalizedRedirect
+      redirect: fullPath
     }
   };
 }

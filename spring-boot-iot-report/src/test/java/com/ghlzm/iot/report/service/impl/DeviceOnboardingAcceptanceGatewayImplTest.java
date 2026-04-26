@@ -40,7 +40,7 @@ class DeviceOnboardingAcceptanceGatewayImplTest {
                 "PASSED",
                 "8/8 检查项通过",
                 List.of(),
-                "/automation-results?runId=20260418193000"
+                "/automation-governance?tab=evidence&runId=20260418193000"
         );
         when(acceptanceService.run(request)).thenReturn(finished);
         when(acceptanceService.loadProgress("20260418193000")).thenReturn(finished);
@@ -53,7 +53,7 @@ class DeviceOnboardingAcceptanceGatewayImplTest {
         assertThat(launch.jobId()).startsWith("doa-");
         assertThat(progress.runId()).isEqualTo("20260418193000");
         assertThat(progress.status()).isEqualTo("PASSED");
-        assertThat(progress.jumpPath()).isEqualTo("/automation-results?runId=20260418193000");
+        assertThat(progress.jumpPath()).isEqualTo("/automation-governance?tab=evidence&runId=20260418193000");
     }
 
     @Test
@@ -64,7 +64,7 @@ class DeviceOnboardingAcceptanceGatewayImplTest {
                 "PASSED",
                 "8/8 检查项通过",
                 List.of(),
-                "/automation-results?runId=20260418193000"
+                "/automation-governance?tab=evidence&runId=20260418193000"
         );
         when(acceptanceService.loadProgress("20260418193000")).thenReturn(finished);
 

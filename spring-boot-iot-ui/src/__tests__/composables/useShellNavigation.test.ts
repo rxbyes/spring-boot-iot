@@ -137,9 +137,9 @@ function createLegacyQualityMenus(): MenuTreeNode[] {
       path: '',
       type: 0,
       meta: {
-        description: '研发工场、执行组织与结果基线',
+        description: '业务验收与自动化治理',
         menuTitle: '质量工场',
-        menuHint: '覆盖研发资产编排、执行组织与结果基线治理。'
+        menuHint: '覆盖业务验收与自动化治理。'
       },
       children: [
         {
