@@ -967,17 +967,14 @@ describe('AuditLogView', () => {
     const driftedCard = wrapper.get('[data-testid="archive-batch-overview-drifted"]');
     const remainingCard = wrapper.get('[data-testid="archive-batch-overview-remaining"]');
 
-    expect(abnormalCard.exists()).toBe(true);
-    expect(driftedCard.exists()).toBe(true);
-    expect(remainingCard.exists()).toBe(true);
-
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
 
     await abnormalCard.trigger('click');
     await flushPromises();
     await nextTick();
 
-    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
       sourceTable: 'iot_message_log',
       onlyAbnormal: true,
       pageNum: 1,
@@ -990,7 +987,8 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
       sourceTable: 'iot_message_log',
       compareStatus: 'DRIFTED',
       pageNum: 1,
@@ -1003,7 +1001,8 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledTimes(1);
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
       sourceTable: 'iot_message_log',
       onlyAbnormal: true,
       pageNum: 1,
