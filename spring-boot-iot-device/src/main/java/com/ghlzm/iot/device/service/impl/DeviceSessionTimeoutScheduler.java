@@ -9,6 +9,7 @@ import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
  * 设备会话超时巡检，统一把长时间无上报的设备收口为离线。
  */
 @Component
+@ConditionalOnProperty(value = "iot.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 public class DeviceSessionTimeoutScheduler {
 
     private final DeviceMapper deviceMapper;
