@@ -43,6 +43,49 @@
                 </option>
               </select>
             </label>
+            <label class="audit-log-archive-batch-ledger__filter-field">
+              <span>开始日期</span>
+              <input
+                :value="filters.dateFrom"
+                data-testid="archive-batch-filter-date-from"
+                type="date"
+                @input="handleFilterInput('dateFrom', $event)"
+              >
+            </label>
+            <label class="audit-log-archive-batch-ledger__filter-field">
+              <span>结束日期</span>
+              <input
+                :value="filters.dateTo"
+                data-testid="archive-batch-filter-date-to"
+                type="date"
+                @input="handleFilterInput('dateTo', $event)"
+              >
+            </label>
+            <label class="audit-log-archive-batch-ledger__filter-field audit-log-archive-batch-ledger__filter-field--checkbox">
+              <span>仅看异常</span>
+              <input
+                :checked="filters.onlyAbnormal"
+                data-testid="archive-batch-filter-only-abnormal"
+                type="checkbox"
+                @change="handleFilterToggle('onlyAbnormal', $event)"
+              >
+            </label>
+          </div>
+          <div class="audit-log-archive-batch-ledger__filter-actions">
+            <StandardButton
+              data-testid="archive-batch-search-button"
+              action="query"
+              @click="emit('search')"
+            >
+              筛选
+            </StandardButton>
+            <StandardButton
+              data-testid="archive-batch-reset-button"
+              action="reset"
+              @click="emit('reset')"
+            >
+              重置
+            </StandardButton>
           </div>
         </div>
         <span>{{ rows.length }} / {{ total }}</span>
@@ -142,7 +185,13 @@ interface ArchiveBatchFilters {
   onlyAbnormal: boolean;
 }
 
-type ArchiveFilterField = 'batchNo' | 'status' | 'compareStatus';
+type ArchiveFilterField =
+  | 'batchNo'
+  | 'status'
+  | 'compareStatus'
+  | 'dateFrom'
+  | 'dateTo'
+  | 'onlyAbnormal';
 
 interface ArchiveBatchOption {
   label: string;
@@ -211,22 +260,31 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (event: 'update-filter', payload: { field: ArchiveFilterField; value: string }): void;
+  (event: 'update-filter', payload: { field: ArchiveFilterField; value: string | boolean }): void;
+  (event: 'search'): void;
+  (event: 'reset'): void;
   (event: 'select-overview-card', key: string): void;
   (event: 'open-detail', row: ArchiveBatchRow): void;
 }>();
 
-function handleFilterInput(field: ArchiveFilterField, event: Event) {
+function handleFilterInput(field: Extract<ArchiveFilterField, 'batchNo' | 'dateFrom' | 'dateTo'>, event: Event) {
   emit('update-filter', {
     field,
     value: (event.target as HTMLInputElement).value
   });
 }
 
-function handleFilterSelect(field: ArchiveFilterField, event: Event) {
+function handleFilterSelect(field: Extract<ArchiveFilterField, 'status' | 'compareStatus'>, event: Event) {
   emit('update-filter', {
     field,
     value: (event.target as HTMLSelectElement).value
+  });
+}
+
+function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, event: Event) {
+  emit('update-filter', {
+    field,
+    value: (event.target as HTMLInputElement).checked
   });
 }
 </script>

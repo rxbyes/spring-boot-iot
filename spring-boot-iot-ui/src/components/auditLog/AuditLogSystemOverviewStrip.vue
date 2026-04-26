@@ -6,7 +6,7 @@
       :data-testid="`system-log-overview-${item.key}`"
       type="button"
       class="audit-log-system-overview-strip__item"
-      :class="{ 'is-active': item.targetTab === activeTab }"
+      :class="{ 'is-active': resolveActiveState(item) }"
       @click="emit('change-tab', item.targetTab)"
     >
       <span>{{ item.label }}</span>
@@ -23,12 +23,17 @@ interface AuditLogSystemOverviewItem {
   targetTab: string;
 }
 
-defineProps<{
+const props = defineProps<{
   activeTab: string;
+  activeItemKey?: string;
   items: AuditLogSystemOverviewItem[];
 }>();
 
 const emit = defineEmits<{
   (event: 'change-tab', tabKey: string): void;
 }>();
+
+function resolveActiveState(item: AuditLogSystemOverviewItem) {
+  return item.key === (props.activeItemKey || props.activeTab)
+}
 </script>

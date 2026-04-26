@@ -92,7 +92,7 @@ describe('AuditLogArchiveTabPanel', () => {
     expect(wrapper.emitted('open-detail')).toHaveLength(1);
   });
 
-  it('emits filter edits and overview-card selections with focused payloads', async () => {
+  it('renders the restored archive filter surface and emits filter updates', async () => {
     const wrapper = mount(AuditLogArchiveTabPanel, {
       props: archivePropsFactory(),
       global: {
@@ -102,17 +102,46 @@ describe('AuditLogArchiveTabPanel', () => {
       }
     });
 
+    expect(wrapper.get('[data-testid="archive-batch-filter-date-from"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="archive-batch-filter-date-to"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="archive-batch-filter-only-abnormal"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="archive-batch-search-button"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="archive-batch-reset-button"]').exists()).toBe(true);
+
     await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('batch-20260426');
     await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('DONE');
     await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
+    await wrapper.get('[data-testid="archive-batch-filter-date-from"]').setValue('2026-04-20');
+    await wrapper.get('[data-testid="archive-batch-filter-date-to"]').setValue('2026-04-26');
+    await wrapper.get('[data-testid="archive-batch-filter-only-abnormal"]').setValue(true);
     await wrapper.get('[data-testid="archive-batch-overview-abnormal"]').trigger('click');
 
     expect(wrapper.emitted('update-filter')).toEqual([
       [{ field: 'batchNo', value: 'batch-20260426' }],
       [{ field: 'status', value: 'DONE' }],
-      [{ field: 'compareStatus', value: 'DRIFTED' }]
+      [{ field: 'compareStatus', value: 'DRIFTED' }],
+      [{ field: 'dateFrom', value: '2026-04-20' }],
+      [{ field: 'dateTo', value: '2026-04-26' }],
+      [{ field: 'onlyAbnormal', value: true }]
     ]);
     expect(wrapper.emitted('select-overview-card')?.[0]).toEqual(['abnormal']);
+  });
+
+  it('emits search and reset actions from the archive filter toolbar', async () => {
+    const wrapper = mount(AuditLogArchiveTabPanel, {
+      props: archivePropsFactory(),
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub
+        }
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-batch-search-button"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-reset-button"]').trigger('click');
+
+    expect(wrapper.emitted('search')).toHaveLength(1);
+    expect(wrapper.emitted('reset')).toHaveLength(1);
   });
 
   it('renders the archive overview error branch when overview aggregation fails', () => {

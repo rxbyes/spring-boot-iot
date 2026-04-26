@@ -164,6 +164,7 @@
       <div v-if="isSystemMode" class="audit-log-system-workbench">
         <AuditLogSystemOverviewStrip
           :active-tab="activeSystemLogTab"
+          :active-item-key="activeSystemOverviewItemKey"
           :items="systemOverviewItems"
           @change-tab="handleSystemOverviewTabChange"
         />
@@ -286,6 +287,8 @@
                 :resolve-archive-batch-compare-status-class="resolveArchiveBatchCompareStatusClass"
                 :is-archive-batch-abnormal-status="isArchiveBatchAbnormalStatus"
                 @update-filter="handleMessageArchiveBatchFilterUpdate"
+                @search="handleMessageArchiveBatchSearch"
+                @reset="resetMessageArchiveBatchFilters"
                 @select-overview-card="handleMessageArchiveBatchOverviewClick"
                 @open-detail="openMessageArchiveBatchDetail"
               />
@@ -1458,6 +1461,12 @@ const systemOverviewItems = computed(() => [
     targetTab: 'archives' as SystemLogTabKey
   }
 ])
+const activeSystemOverviewItemKey = computed(() => {
+  if (activeSystemLogTab.value === 'hotspots') {
+    return 'hotspots'
+  }
+  return activeSystemLogTab.value
+})
 const systemToolbarMetaItems = computed(() => {
   if (activeSystemLogTab.value === 'hotspots') {
     return [
@@ -1911,10 +1920,14 @@ const handleMessageArchiveBatchFilterUpdate = ({
   field,
   value
 }: {
-  field: 'batchNo' | 'status' | 'compareStatus'
-  value: string
+  field: 'batchNo' | 'status' | 'compareStatus' | 'dateFrom' | 'dateTo' | 'onlyAbnormal'
+  value: string | boolean
 }) => {
-  messageArchiveBatchFilters[field] = value
+  if (field === 'onlyAbnormal') {
+    messageArchiveBatchFilters.onlyAbnormal = value === true
+  } else {
+    messageArchiveBatchFilters[field] = typeof value === 'string' ? value : ''
+  }
   handleMessageArchiveBatchFilterEdit()
 }
 
