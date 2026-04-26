@@ -13,6 +13,7 @@ import {
   pageLogs
 } from '@/api/auditLog';
 import {
+  getObservabilityMessageArchiveBatchCompare,
   getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
@@ -48,6 +49,7 @@ vi.mock('@/api/auditLog', () => ({
 }));
 
 vi.mock('@/api/observability', () => ({
+  getObservabilityMessageArchiveBatchCompare: vi.fn(),
   getObservabilityMessageArchiveBatchReportPreview: vi.fn(),
   pageObservabilityMessageArchiveBatches: vi.fn(),
   pageObservabilityScheduledTasks: vi.fn(),
@@ -395,6 +397,7 @@ describe('AuditLogView', () => {
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockReset();
     vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockReset();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockReset();
     vi.mocked(pageObservabilityScheduledTasks).mockReset();
@@ -457,6 +460,46 @@ describe('AuditLogView', () => {
             artifactsJson: '{"reportJsonPath":"logs/observability/observability-log-governance-20260426-000200.json","reportMarkdownPath":"logs/observability/observability-log-governance-20260426-000200.md"}',
             createTime: '2026-04-26 00:01:19',
             updateTime: '2026-04-26 00:02:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchNo: 'iot_message_log-20260426000119',
+        sourceTable: 'iot_message_log',
+        status: 'SUCCEEDED',
+        compareStatus: 'MATCHED',
+        compareMessage: '已按确认结果落地',
+        sources: {
+          confirmReportPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+          resolvedDryRunJsonPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+          resolvedApplyJsonPath: 'logs/observability/observability-log-governance-20260426-000200.json',
+          dryRunAvailable: true,
+          applyAvailable: true
+        },
+        summaryCompare: {
+          confirmedExpiredRows: 16098,
+          dryRunExpiredRows: 16098,
+          applyArchivedRows: 16098,
+          applyDeletedRows: 16098,
+          remainingExpiredRows: 0,
+          deltaConfirmedVsDeleted: 0,
+          deltaDryRunVsDeleted: 0,
+          matched: true
+        },
+        tableComparisons: [
+          {
+            tableName: 'iot_message_log',
+            label: '消息热表',
+            dryRunExpiredRows: 16098,
+            applyArchivedRows: 16098,
+            applyDeletedRows: 16098,
+            applyRemainingExpiredRows: 0,
+            deltaDryRunVsDeleted: 0,
+            matched: true
           }
         ]
       }
@@ -812,6 +855,9 @@ describe('AuditLogView', () => {
     expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledWith(
       'iot_message_log-20260426000119'
     );
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenCalledWith(
+      'iot_message_log-20260426000119'
+    );
 
     const drawer = wrapper
       .findAll('.observability-evidence-drawer-stub')
@@ -821,6 +867,12 @@ describe('AuditLogView', () => {
     expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260425-235900.json');
     expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260426-000200.json');
     expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260426-000200.md');
+    expect(drawer?.text()).toContain('批次对比');
+    expect(drawer?.text()).toContain('已按确认结果落地');
+    expect(drawer?.text()).toContain('确认过期');
+    expect(drawer?.text()).toContain('dry-run 过期');
+    expect(drawer?.text()).toContain('apply 删除');
+    expect(drawer?.text()).toContain('已对齐');
     expect(drawer?.text()).toContain('确认报告预览');
     expect(drawer?.text()).toContain('消息热表');
     expect(drawer?.text()).toContain('过期 16098');

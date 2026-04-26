@@ -855,6 +855,89 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
+            <h3>批次对比</h3>
+          </header>
+          <div v-if="messageArchiveBatchCompareLoading" class="observability-evidence-empty">
+            正在加载批次对比
+          </div>
+          <div v-else-if="messageArchiveBatchCompareErrorMessage" class="observability-evidence-empty">
+            {{ messageArchiveBatchCompareErrorMessage }}
+          </div>
+          <div v-else-if="!activeMessageArchiveBatchCompare" class="observability-evidence-empty">
+            暂无批次对比
+          </div>
+          <div v-else class="observability-archive-batch-compare">
+            <article
+              class="observability-archive-batch-compare__status"
+              :class="messageArchiveBatchCompareStatusClass"
+            >
+              <div class="observability-archive-batch-compare__status-copy">
+                <strong>{{ messageArchiveBatchCompareHeadline }}</strong>
+                <p>{{ formatArchiveBatchCompareMessage(activeMessageArchiveBatchCompare) }}</p>
+              </div>
+              <span>{{ messageArchiveBatchCompareStatusName }}</span>
+            </article>
+
+            <dl class="observability-archive-batch-kv">
+              <div
+                v-for="item in messageArchiveBatchCompareSourceItems"
+                :key="item.label"
+                class="observability-archive-batch-kv__item"
+              >
+                <dt>{{ item.label }}</dt>
+                <dd>{{ item.value }}</dd>
+              </div>
+            </dl>
+
+            <div
+              v-if="messageArchiveBatchCompareSummaryItems.length > 0"
+              class="observability-archive-batch-preview__summary"
+            >
+              <article
+                v-for="item in messageArchiveBatchCompareSummaryItems"
+                :key="item.label"
+                class="observability-archive-batch-preview__summary-item"
+              >
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+
+            <div v-if="messageArchiveBatchCompareTableComparisons.length === 0" class="observability-evidence-empty">
+              暂无分表对比
+            </div>
+            <div v-else class="observability-archive-batch-compare__tables">
+              <article
+                v-for="item in messageArchiveBatchCompareTableComparisons"
+                :key="item.tableName || item.label"
+                class="observability-archive-batch-compare__table"
+                :class="{
+                  'is-drifted': item.matched === false,
+                  'is-partial': item.matched === null
+                }"
+              >
+                <div class="observability-archive-batch-compare__table-title">
+                  <strong>{{ formatValue(item.label || item.tableName) }}</strong>
+                  <span>{{ formatArchiveBatchCompareRowStatus(item.matched) }}</span>
+                </div>
+                <div class="observability-archive-batch-compare__table-metrics">
+                  <span>dry-run 过期 {{ formatOptionalCount(item.dryRunExpiredRows) }}</span>
+                  <span>apply 归档 {{ formatOptionalCount(item.applyArchivedRows) }}</span>
+                  <span>apply 删除 {{ formatOptionalCount(item.applyDeletedRows) }}</span>
+                  <span>剩余 {{ formatOptionalCount(item.applyRemainingExpiredRows) }}</span>
+                </div>
+                <div class="observability-archive-batch-compare__table-meta">
+                  <span>{{ formatValue(item.tableName) }}</span>
+                  <span>差值 {{ formatOptionalCount(item.deltaDryRunVsDeleted) }}</span>
+                  <span v-if="item.reason">{{ item.reason }}</span>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="observability-evidence-section">
+          <header class="observability-evidence-section__header">
             <h3>确认报告预览</h3>
           </header>
           <div v-if="messageArchiveBatchReportPreviewLoading" class="observability-evidence-empty">
@@ -962,6 +1045,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
 import {
+  getObservabilityMessageArchiveBatchCompare,
   getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
@@ -969,6 +1053,8 @@ import {
   pageObservabilityMessageArchiveBatches,
   pageObservabilityScheduledTasks,
   pageObservabilitySpans,
+  type ObservabilityMessageArchiveBatchCompare,
+  type ObservabilityMessageArchiveBatchCompareTable,
   type ObservabilityMessageArchiveBatch,
   type ObservabilityMessageArchiveBatchPageQuery,
   type ObservabilityMessageArchiveBatchReportPreview,
@@ -1021,6 +1107,7 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
 type ArchiveBatchDetailItem = { label: string; value: string }
+type ArchiveBatchCompareStatus = 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE'
 
 const route = useRoute()
 const router = useRouter()
@@ -1315,6 +1402,9 @@ const evidenceTrace = ref<ObservabilityTraceEvidence | null>(null)
 const evidenceTraceId = ref('')
 const messageArchiveBatchDrawerVisible = ref(false)
 const activeMessageArchiveBatch = ref<ObservabilityMessageArchiveBatch | null>(null)
+const messageArchiveBatchCompareLoading = ref(false)
+const messageArchiveBatchCompareErrorMessage = ref('')
+const activeMessageArchiveBatchCompare = ref<ObservabilityMessageArchiveBatchCompare | null>(null)
 const messageArchiveBatchReportPreviewLoading = ref(false)
 const messageArchiveBatchReportPreviewErrorMessage = ref('')
 const activeMessageArchiveBatchReportPreview = ref<ObservabilityMessageArchiveBatchReportPreview | null>(null)
@@ -1379,6 +1469,66 @@ const messageArchiveBatchReportItems = computed<ArchiveBatchDetailItem[]>(() => 
 })
 const messageArchiveBatchArtifacts = computed<ArchiveBatchDetailItem[]>(() =>
   parseArchiveBatchArtifacts(activeMessageArchiveBatch.value?.artifactsJson)
+)
+const messageArchiveBatchCompareStatus = computed<ArchiveBatchCompareStatus>(() => {
+  const normalized = String(activeMessageArchiveBatchCompare.value?.compareStatus || '').trim().toUpperCase()
+  if (normalized === 'MATCHED' || normalized === 'DRIFTED' || normalized === 'PARTIAL') {
+    return normalized
+  }
+  return 'UNAVAILABLE'
+})
+const messageArchiveBatchCompareStatusName = computed(() =>
+  formatArchiveBatchCompareStatus(messageArchiveBatchCompareStatus.value)
+)
+const messageArchiveBatchCompareHeadline = computed(() => {
+  switch (messageArchiveBatchCompareStatus.value) {
+    case 'MATCHED':
+      return '已按确认结果落地'
+    case 'DRIFTED':
+      return '执行结果与确认结果存在偏差'
+    case 'PARTIAL':
+      return '仅完成部分比对'
+    default:
+      return '当前缺少可信对比证据'
+  }
+})
+const messageArchiveBatchCompareStatusClass = computed(
+  () => `is-${messageArchiveBatchCompareStatus.value.toLowerCase()}`
+)
+const messageArchiveBatchCompareSourceItems = computed<ArchiveBatchDetailItem[]>(() => {
+  const compare = activeMessageArchiveBatchCompare.value
+  const sources = compare?.sources
+  if (!compare || !sources) {
+    return []
+  }
+  return [
+    { label: '确认报告', value: formatValue(sources.confirmReportPath) },
+    {
+      label: 'dry-run JSON',
+      value: formatValue(sources.resolvedDryRunJsonPath || sources.confirmReportPath)
+    },
+    { label: 'apply JSON', value: formatValue(sources.resolvedApplyJsonPath) },
+    { label: 'dry-run 可用', value: sources.dryRunAvailable ? '是' : '否' },
+    { label: 'apply 可用', value: sources.applyAvailable ? '是' : '否' }
+  ]
+})
+const messageArchiveBatchCompareSummaryItems = computed<ArchiveBatchDetailItem[]>(() => {
+  const summary = activeMessageArchiveBatchCompare.value?.summaryCompare
+  if (!summary) {
+    return []
+  }
+  return [
+    { label: '确认过期', value: formatOptionalCount(summary.confirmedExpiredRows) },
+    { label: 'dry-run 过期', value: formatOptionalCount(summary.dryRunExpiredRows) },
+    { label: 'apply 归档', value: formatOptionalCount(summary.applyArchivedRows) },
+    { label: 'apply 删除', value: formatOptionalCount(summary.applyDeletedRows) },
+    { label: '剩余过期', value: formatOptionalCount(summary.remainingExpiredRows) },
+    { label: '确认差值', value: formatOptionalCount(summary.deltaConfirmedVsDeleted) },
+    { label: 'dry-run 差值', value: formatOptionalCount(summary.deltaDryRunVsDeleted) }
+  ]
+})
+const messageArchiveBatchCompareTableComparisons = computed<ObservabilityMessageArchiveBatchCompareTable[]>(
+  () => activeMessageArchiveBatchCompare.value?.tableComparisons ?? []
 )
 const messageArchiveBatchReportPreviewMetaItems = computed<ArchiveBatchDetailItem[]>(() => {
   const preview = activeMessageArchiveBatchReportPreview.value
@@ -1605,6 +1755,12 @@ const clearMessageArchiveBatchReportPreview = () => {
   activeMessageArchiveBatchReportPreview.value = null
 }
 
+const clearMessageArchiveBatchCompare = () => {
+  messageArchiveBatchCompareLoading.value = false
+  messageArchiveBatchCompareErrorMessage.value = ''
+  activeMessageArchiveBatchCompare.value = null
+}
+
 const getScheduledTaskLedger = async () => {
   if (!isSystemMode.value) {
     clearScheduledTaskLedger()
@@ -1688,6 +1844,34 @@ const loadMessageArchiveBatchReportPreview = async (row: ObservabilityMessageArc
     logPageError('加载确认报告预览失败', error)
   } finally {
     messageArchiveBatchReportPreviewLoading.value = false
+  }
+}
+
+const loadMessageArchiveBatchCompare = async (row: ObservabilityMessageArchiveBatch) => {
+  const batchNo = String(row.batchNo || '').trim()
+  if (!batchNo) {
+    clearMessageArchiveBatchCompare()
+    messageArchiveBatchCompareErrorMessage.value = '当前批次缺少批次号，无法加载批次对比'
+    return
+  }
+
+  messageArchiveBatchCompareLoading.value = true
+  messageArchiveBatchCompareErrorMessage.value = ''
+  activeMessageArchiveBatchCompare.value = null
+  try {
+    const res = await getObservabilityMessageArchiveBatchCompare(batchNo)
+    if (res.code === 200 && res.data) {
+      activeMessageArchiveBatchCompare.value = res.data
+    } else {
+      messageArchiveBatchCompareErrorMessage.value = '批次对比未返回有效内容'
+    }
+  } catch (error) {
+    clearMessageArchiveBatchCompare()
+    messageArchiveBatchCompareErrorMessage.value =
+      error instanceof Error ? error.message : '加载批次对比失败'
+    logPageError('加载批次对比失败', error)
+  } finally {
+    messageArchiveBatchCompareLoading.value = false
   }
 }
 
@@ -2300,6 +2484,13 @@ const formatCount = (value?: number | null) => {
   return String(value)
 }
 
+const formatOptionalCount = (value?: number | null) => {
+  if (value === undefined || value === null) {
+    return '--'
+  }
+  return String(value)
+}
+
 const formatRetentionDays = (value?: number | null) => {
   if (value === undefined || value === null) {
     return '--'
@@ -2345,6 +2536,32 @@ const formatArchiveBatchReportSummaryLabel = (key: string) => {
 
 const formatArchiveBatchReportPreviewReason = (preview?: Partial<ObservabilityMessageArchiveBatchReportPreview> | null) =>
   formatValue(preview?.reasonMessage || preview?.reasonCode || '当前确认报告暂不可预览')
+
+const formatArchiveBatchCompareStatus = (status?: ArchiveBatchCompareStatus | string | null) => {
+  switch (String(status || '').trim().toUpperCase()) {
+    case 'MATCHED':
+      return '已对齐'
+    case 'DRIFTED':
+      return '有偏差'
+    case 'PARTIAL':
+      return '部分可比'
+    default:
+      return '不可比对'
+  }
+}
+
+const formatArchiveBatchCompareMessage = (compare?: Partial<ObservabilityMessageArchiveBatchCompare> | null) =>
+  formatValue(compare?.compareMessage || messageArchiveBatchCompareHeadline.value)
+
+const formatArchiveBatchCompareRowStatus = (matched?: boolean | null) => {
+  if (matched === true) {
+    return '已对齐'
+  }
+  if (matched === false) {
+    return '有偏差'
+  }
+  return '部分可比'
+}
 
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
   [row.spanType, row.domainCode].map(formatValue).filter((value) => value !== '--').join(' / ') || '--'
@@ -2415,7 +2632,10 @@ const parseArchiveBatchArtifacts = (artifactsJson?: string | null): ArchiveBatch
 const openMessageArchiveBatchDetail = async (row: ObservabilityMessageArchiveBatch) => {
   activeMessageArchiveBatch.value = row
   messageArchiveBatchDrawerVisible.value = true
-  await loadMessageArchiveBatchReportPreview(row)
+  await Promise.all([
+    loadMessageArchiveBatchCompare(row),
+    loadMessageArchiveBatchReportPreview(row)
+  ])
 }
 
 watch(detailVisible, (visible) => {
@@ -2438,6 +2658,7 @@ watch(evidenceDrawerVisible, (visible) => {
 watch(messageArchiveBatchDrawerVisible, (visible) => {
   if (!visible) {
     activeMessageArchiveBatch.value = null
+    clearMessageArchiveBatchCompare()
     clearMessageArchiveBatchReportPreview()
   }
 })
@@ -2503,6 +2724,63 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   gap: 1rem;
 }
 
+.observability-archive-batch-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.observability-archive-batch-compare__status {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 0.5rem;
+  background: var(--el-fill-color-extra-light);
+}
+
+.observability-archive-batch-compare__status.is-matched {
+  border-color: color-mix(in srgb, var(--el-color-success) 42%, var(--el-border-color-lighter));
+  background: color-mix(in srgb, var(--el-color-success-light-9) 88%, white);
+}
+
+.observability-archive-batch-compare__status.is-drifted {
+  border-color: color-mix(in srgb, var(--el-color-danger) 42%, var(--el-border-color-lighter));
+  background: color-mix(in srgb, var(--el-color-danger-light-9) 88%, white);
+}
+
+.observability-archive-batch-compare__status.is-partial,
+.observability-archive-batch-compare__status.is-unavailable {
+  border-color: color-mix(in srgb, var(--el-color-warning) 38%, var(--el-border-color-lighter));
+  background: color-mix(in srgb, var(--el-color-warning-light-9) 86%, white);
+}
+
+.observability-archive-batch-compare__status-copy {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.observability-archive-batch-compare__status-copy strong {
+  color: var(--text-heading);
+  font-size: 0.94rem;
+}
+
+.observability-archive-batch-compare__status-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.observability-archive-batch-compare__status > span {
+  flex: 0 0 auto;
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
 .observability-archive-batch-preview__summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
@@ -2551,6 +2829,50 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 .observability-archive-batch-preview__table-meta {
   color: var(--el-text-color-secondary);
   font-size: 0.88rem;
+}
+
+.observability-archive-batch-compare__tables {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.observability-archive-batch-compare__table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 0.5rem;
+  background: var(--el-bg-color);
+}
+
+.observability-archive-batch-compare__table.is-drifted {
+  border-color: color-mix(in srgb, var(--el-color-danger) 42%, var(--el-border-color-lighter));
+}
+
+.observability-archive-batch-compare__table.is-partial {
+  border-color: color-mix(in srgb, var(--el-color-warning) 42%, var(--el-border-color-lighter));
+}
+
+.observability-archive-batch-compare__table-title,
+.observability-archive-batch-compare__table-metrics,
+.observability-archive-batch-compare__table-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.observability-archive-batch-compare__table-title strong {
+  color: var(--text-heading);
+  font-size: 0.92rem;
+}
+
+.observability-archive-batch-compare__table-title span,
+.observability-archive-batch-compare__table-metrics,
+.observability-archive-batch-compare__table-meta {
+  color: var(--text-caption);
+  font-size: 0.82rem;
 }
 
 .observability-archive-batch-preview__markdown {

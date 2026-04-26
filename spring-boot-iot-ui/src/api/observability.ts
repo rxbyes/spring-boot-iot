@@ -176,6 +176,48 @@ export interface ObservabilityMessageArchiveBatchReportPreview {
   tableSummaries?: ObservabilityMessageArchiveBatchReportTableSummary[]
 }
 
+export interface ObservabilityMessageArchiveBatchCompareSource {
+  confirmReportPath?: string | null
+  resolvedDryRunJsonPath?: string | null
+  resolvedApplyJsonPath?: string | null
+  dryRunAvailable?: boolean | null
+  applyAvailable?: boolean | null
+}
+
+export interface ObservabilityMessageArchiveBatchCompareSummary {
+  confirmedExpiredRows?: number | null
+  dryRunExpiredRows?: number | null
+  applyArchivedRows?: number | null
+  applyDeletedRows?: number | null
+  remainingExpiredRows?: number | null
+  deltaConfirmedVsDeleted?: number | null
+  deltaDryRunVsDeleted?: number | null
+  matched?: boolean | null
+}
+
+export interface ObservabilityMessageArchiveBatchCompareTable {
+  tableName?: string | null
+  label?: string | null
+  dryRunExpiredRows?: number | null
+  applyArchivedRows?: number | null
+  applyDeletedRows?: number | null
+  applyRemainingExpiredRows?: number | null
+  deltaDryRunVsDeleted?: number | null
+  matched?: boolean | null
+  reason?: string | null
+}
+
+export interface ObservabilityMessageArchiveBatchCompare {
+  batchNo?: string | null
+  sourceTable?: string | null
+  status?: string | null
+  compareStatus?: 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE' | string | null
+  compareMessage?: string | null
+  sources?: ObservabilityMessageArchiveBatchCompareSource | null
+  summaryCompare?: ObservabilityMessageArchiveBatchCompareSummary | null
+  tableComparisons?: ObservabilityMessageArchiveBatchCompareTable[]
+}
+
 export interface ObservabilityBusinessEventPageQuery {
   traceId?: string
   eventCode?: string
@@ -292,6 +334,14 @@ export function getObservabilityMessageArchiveBatchReportPreview(
   const query = buildQueryString({ batchNo })
   const path = `/api/system/observability/message-archive-batches/report-preview${query ? `?${query}` : ''}`
   return request<ObservabilityMessageArchiveBatchReportPreview>(path, { method: 'GET' })
+}
+
+export function getObservabilityMessageArchiveBatchCompare(
+  batchNo: string
+): Promise<ApiEnvelope<ObservabilityMessageArchiveBatchCompare>> {
+  const query = buildQueryString({ batchNo })
+  const path = `/api/system/observability/message-archive-batches/compare${query ? `?${query}` : ''}`
+  return request<ObservabilityMessageArchiveBatchCompare>(path, { method: 'GET' })
 }
 
 export function listObservabilitySlowSpanSummaries(

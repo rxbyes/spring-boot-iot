@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  getObservabilityMessageArchiveBatchCompare,
   getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
@@ -124,6 +125,17 @@ describe('observability api', () => {
 
     expect(request).toHaveBeenCalledWith(
       '/api/system/observability/message-archive-batches/report-preview?batchNo=iot_message_log-20260426000119',
+      {
+        method: 'GET'
+      }
+    )
+  })
+
+  it('loads message archive batch compare by batch number', async () => {
+    await getObservabilityMessageArchiveBatchCompare('iot_message_log-20260426000119')
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/system/observability/message-archive-batches/compare?batchNo=iot_message_log-20260426000119',
       {
         method: 'GET'
       }

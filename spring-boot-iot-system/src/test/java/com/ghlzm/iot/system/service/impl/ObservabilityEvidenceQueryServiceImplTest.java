@@ -10,6 +10,7 @@ import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
@@ -329,6 +330,201 @@ class ObservabilityEvidenceQueryServiceImplTest {
         assertTrue(Boolean.TRUE.equals(result.getMarkdownTruncated()));
         assertNotNull(result.getMarkdownPreview());
         assertTrue(result.getMarkdownPreview().length() <= 6000);
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldRejectDryRunPathOutsideObservabilityLogs() {
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setConfirmReportPath("../secrets/report.json");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000119", 10001L);
+
+        assertEquals("UNAVAILABLE", result.getCompareStatus());
+        assertEquals("确认报告路径超出允许目录", result.getCompareMessage());
+        assertFalse(Boolean.TRUE.equals(result.getSources().getDryRunAvailable()));
+        assertFalse(Boolean.TRUE.equals(result.getSources().getApplyAvailable()));
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldReturnPartialWhenApplyReportMissing() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-dry-run.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        row.setConfirmedExpiredRows(16098);
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000119", 10001L);
+
+        assertEquals("PARTIAL", result.getCompareStatus());
+        assertEquals("缺少 apply 报告，仅完成部分比对", result.getCompareMessage());
+        assertTrue(Boolean.TRUE.equals(result.getSources().getDryRunAvailable()));
+        assertFalse(Boolean.TRUE.equals(result.getSources().getApplyAvailable()));
+        assertEquals(16098L, result.getSummaryCompare().getDryRunExpiredRows());
+        assertEquals(1, result.getTableComparisons().size());
+        assertNull(result.getTableComparisons().get(0).getMatched());
+        assertEquals("缺少 apply 分表证据", result.getTableComparisons().get(0).getReason());
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldReturnMatchedWhenDryRunAndApplyAlign() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-dry-run-matched.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        Path applyJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-apply-matched.json",
+                """
+                {
+                  "generatedAt": "2026-04-26T00:02:00",
+                  "mode": "APPLY",
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 0
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        row.setConfirmedExpiredRows(16098);
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        row.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(applyJsonPath) + "\"}");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000119", 10001L);
+
+        assertEquals("MATCHED", result.getCompareStatus());
+        assertEquals("已按确认结果落地", result.getCompareMessage());
+        assertTrue(Boolean.TRUE.equals(result.getSources().getDryRunAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getSources().getApplyAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getSummaryCompare().getMatched()));
+        assertEquals(0L, result.getSummaryCompare().getRemainingExpiredRows());
+        assertEquals(1, result.getTableComparisons().size());
+        assertTrue(Boolean.TRUE.equals(result.getTableComparisons().get(0).getMatched()));
+        assertNull(result.getTableComparisons().get(0).getReason());
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldReturnDriftedWhenApplyLeavesRemainingRows() throws IOException {
+        Path dryRunJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-dry-run-drifted.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 16098
+                    }
+                  }
+                }
+                """
+        );
+        Path applyJsonPath = writeObservabilityReportFile(
+                "observability-log-governance-apply-drifted.json",
+                """
+                {
+                  "generatedAt": "2026-04-26T00:02:00",
+                  "mode": "APPLY",
+                  "summary": {
+                    "archivedRows": 16098,
+                    "deletedRows": 16098
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "archivedRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 118
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000120");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(dryRunJsonPath));
+        row.setConfirmedExpiredRows(16098);
+        row.setArchivedRows(16098);
+        row.setDeletedRows(16098);
+        row.setArtifactsJson("{\"reportJsonPath\":\"" + toRepoRelativePath(applyJsonPath) + "\"}");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchCompareVO result =
+                service.getMessageArchiveBatchCompare("iot_message_log-20260426000120", 10001L);
+
+        assertEquals("DRIFTED", result.getCompareStatus());
+        assertEquals("执行结果与确认结果存在偏差", result.getCompareMessage());
+        assertFalse(Boolean.TRUE.equals(result.getSummaryCompare().getMatched()));
+        assertEquals(118L, result.getSummaryCompare().getRemainingExpiredRows());
+        assertEquals(1, result.getTableComparisons().size());
+        assertFalse(Boolean.TRUE.equals(result.getTableComparisons().get(0).getMatched()));
+        assertEquals("apply 后仍存在剩余过期量", result.getTableComparisons().get(0).getReason());
     }
 
     @Test

@@ -13,6 +13,10 @@ import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareSourceVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareSummaryVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareTableVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportTableSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
@@ -38,9 +42,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -57,6 +64,10 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private static final int MAX_SLOW_SUMMARY_LIMIT = 50;
     private static final String SLOW_TREND_BUCKET_HOUR = "HOUR";
     private static final String SLOW_TREND_BUCKET_DAY = "DAY";
+    private static final String ARCHIVE_COMPARE_MATCHED = "MATCHED";
+    private static final String ARCHIVE_COMPARE_DRIFTED = "DRIFTED";
+    private static final String ARCHIVE_COMPARE_PARTIAL = "PARTIAL";
+    private static final String ARCHIVE_COMPARE_UNAVAILABLE = "UNAVAILABLE";
     private static final int MARKDOWN_PREVIEW_MAX_LINES = 80;
     private static final int MARKDOWN_PREVIEW_MAX_CHARS = 6000;
     private static final DateTimeFormatter SPACE_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -239,6 +250,19 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     }
 
     @Override
+    public ObservabilityMessageArchiveBatchCompareVO getMessageArchiveBatchCompare(String batchNo, Long currentUserId) {
+        String normalizedBatchNo = normalize(batchNo);
+        if (!StringUtils.hasText(normalizedBatchNo)) {
+            throw new BizException(400, "batchNo 不能为空");
+        }
+        ObservabilityMessageArchiveBatchVO batch = loadMessageArchiveBatchByBatchNo(normalizedBatchNo);
+        if (batch == null) {
+            throw new BizException(404, "归档批次不存在");
+        }
+        return buildMessageArchiveBatchCompare(batch);
+    }
+
+    @Override
     public List<ObservabilitySlowSpanSummaryVO> listSlowSpanSummaries(ObservabilitySlowSpanSummaryQuery query,
                                                                       Long currentUserId) {
         ObservabilitySlowSpanSummaryQuery criteria =
@@ -410,6 +434,275 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         } catch (IOException ex) {
             return markPreviewUnavailable(preview, "REPORT_PARSE_FAILED", "确认报告解析失败");
         }
+    }
+
+    private ObservabilityMessageArchiveBatchCompareVO buildMessageArchiveBatchCompare(
+            ObservabilityMessageArchiveBatchVO batch
+    ) {
+        String reportPath = normalize(batch.getConfirmReportPath());
+        if (!StringUtils.hasText(reportPath)) {
+            return buildUnavailableCompare(batch, "当前批次未绑定确认报告");
+        }
+        Path dryRunJsonPath = resolveAllowedObservabilityPath(reportPath);
+        if (dryRunJsonPath == null) {
+            return buildUnavailableCompare(batch, "确认报告路径超出允许目录");
+        }
+        if (!Files.exists(dryRunJsonPath)) {
+            return buildUnavailableCompare(batch, "确认报告 JSON 文件不存在");
+        }
+
+        Map<String, Object> dryRunPayload;
+        try {
+            dryRunPayload = readJsonMap(dryRunJsonPath);
+        } catch (IOException ex) {
+            return buildUnavailableCompare(batch, "确认报告解析失败");
+        }
+        String applyReportPath = extractReportJsonPath(batch.getArtifactsJson());
+        if (!StringUtils.hasText(applyReportPath)) {
+            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "缺少 apply 报告，仅完成部分比对");
+        }
+        Path applyJsonPath = resolveAllowedObservabilityPath(applyReportPath);
+        if (applyJsonPath == null) {
+            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "apply 报告路径超出允许目录，仅完成部分比对");
+        }
+        if (!Files.exists(applyJsonPath)) {
+            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "apply 报告 JSON 文件不存在，仅完成部分比对");
+        }
+
+        Map<String, Object> applyPayload;
+        try {
+            applyPayload = readJsonMap(applyJsonPath);
+        } catch (IOException ex) {
+            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "apply 报告解析失败，仅完成部分比对");
+        }
+        return buildCompleteCompare(batch, dryRunJsonPath, applyJsonPath, dryRunPayload, applyPayload);
+    }
+
+    private ObservabilityMessageArchiveBatchCompareVO buildBaseCompare(ObservabilityMessageArchiveBatchVO batch) {
+        ObservabilityMessageArchiveBatchCompareVO compare = new ObservabilityMessageArchiveBatchCompareVO();
+        compare.setBatchNo(batch.getBatchNo());
+        compare.setSourceTable(batch.getSourceTable());
+        compare.setStatus(batch.getStatus());
+        compare.setTableComparisons(List.of());
+        ObservabilityMessageArchiveBatchCompareSourceVO sources = new ObservabilityMessageArchiveBatchCompareSourceVO();
+        sources.setConfirmReportPath(batch.getConfirmReportPath());
+        sources.setDryRunAvailable(false);
+        sources.setApplyAvailable(false);
+        compare.setSources(sources);
+        return compare;
+    }
+
+    private ObservabilityMessageArchiveBatchCompareVO buildUnavailableCompare(
+            ObservabilityMessageArchiveBatchVO batch,
+            String reasonMessage
+    ) {
+        ObservabilityMessageArchiveBatchCompareVO compare = buildBaseCompare(batch);
+        compare.setCompareStatus(ARCHIVE_COMPARE_UNAVAILABLE);
+        compare.setCompareMessage(reasonMessage);
+        return compare;
+    }
+
+    private ObservabilityMessageArchiveBatchCompareVO buildPartialCompare(
+            ObservabilityMessageArchiveBatchVO batch,
+            Path dryRunJsonPath,
+            Map<String, Object> dryRunPayload,
+            String reasonMessage
+    ) {
+        ObservabilityMessageArchiveBatchCompareVO compare = buildBaseCompare(batch);
+        compare.setCompareStatus(ARCHIVE_COMPARE_PARTIAL);
+        compare.setCompareMessage(reasonMessage);
+        compare.getSources().setDryRunAvailable(true);
+        compare.getSources().setApplyAvailable(false);
+        compare.getSources().setResolvedDryRunJsonPath(toDisplayPath(dryRunJsonPath));
+        compare.setSummaryCompare(buildPartialSummary(batch, dryRunPayload));
+        compare.setTableComparisons(buildPartialTableComparisons(dryRunPayload));
+        return compare;
+    }
+
+    private ObservabilityMessageArchiveBatchCompareVO buildCompleteCompare(
+            ObservabilityMessageArchiveBatchVO batch,
+            Path dryRunJsonPath,
+            Path applyJsonPath,
+            Map<String, Object> dryRunPayload,
+            Map<String, Object> applyPayload
+    ) {
+        ObservabilityMessageArchiveBatchCompareVO compare = buildBaseCompare(batch);
+        compare.getSources().setDryRunAvailable(true);
+        compare.getSources().setApplyAvailable(true);
+        compare.getSources().setResolvedDryRunJsonPath(toDisplayPath(dryRunJsonPath));
+        compare.getSources().setResolvedApplyJsonPath(toDisplayPath(applyJsonPath));
+        ObservabilityMessageArchiveBatchCompareSummaryVO summaryCompare =
+                buildCompleteSummary(batch, dryRunPayload, applyPayload);
+        List<ObservabilityMessageArchiveBatchCompareTableVO> tableComparisons =
+                buildTableComparisons(dryRunPayload, applyPayload);
+        boolean tablesMatched = tableComparisons.stream()
+                .allMatch(item -> !Boolean.FALSE.equals(item.getMatched()));
+        boolean matched = Boolean.TRUE.equals(summaryCompare.getMatched()) && tablesMatched;
+        compare.setSummaryCompare(summaryCompare);
+        compare.setTableComparisons(tableComparisons);
+        compare.setCompareStatus(matched ? ARCHIVE_COMPARE_MATCHED : ARCHIVE_COMPARE_DRIFTED);
+        compare.setCompareMessage(matched ? "已按确认结果落地" : "执行结果与确认结果存在偏差");
+        return compare;
+    }
+
+    private ObservabilityMessageArchiveBatchCompareSummaryVO buildPartialSummary(
+            ObservabilityMessageArchiveBatchVO batch,
+            Map<String, Object> dryRunPayload
+    ) {
+        Map<String, Object> dryRunSummary = nestedMap(dryRunPayload.get("summary"));
+        ObservabilityMessageArchiveBatchCompareSummaryVO summary = new ObservabilityMessageArchiveBatchCompareSummaryVO();
+        summary.setConfirmedExpiredRows(toLong(batch.getConfirmedExpiredRows()));
+        summary.setDryRunExpiredRows(longValue(dryRunSummary.get("expiredRows")));
+        summary.setApplyArchivedRows(toLong(batch.getArchivedRows()));
+        summary.setApplyDeletedRows(toLong(batch.getDeletedRows()));
+        summary.setRemainingExpiredRows(null);
+        summary.setDeltaConfirmedVsDeleted(safeSubtract(summary.getConfirmedExpiredRows(), summary.getApplyDeletedRows()));
+        summary.setDeltaDryRunVsDeleted(safeSubtract(summary.getDryRunExpiredRows(), summary.getApplyDeletedRows()));
+        summary.setMatched(null);
+        return summary;
+    }
+
+    private ObservabilityMessageArchiveBatchCompareSummaryVO buildCompleteSummary(
+            ObservabilityMessageArchiveBatchVO batch,
+            Map<String, Object> dryRunPayload,
+            Map<String, Object> applyPayload
+    ) {
+        Map<String, Object> dryRunSummary = nestedMap(dryRunPayload.get("summary"));
+        Map<String, Object> applySummary = nestedMap(applyPayload.get("summary"));
+        List<ObservabilityMessageArchiveBatchCompareTableVO> tableComparisons =
+                buildTableComparisons(dryRunPayload, applyPayload);
+        ObservabilityMessageArchiveBatchCompareSummaryVO summary = new ObservabilityMessageArchiveBatchCompareSummaryVO();
+        summary.setConfirmedExpiredRows(toLong(batch.getConfirmedExpiredRows()));
+        summary.setDryRunExpiredRows(longValue(dryRunSummary.get("expiredRows")));
+        summary.setApplyArchivedRows(defaultLong(longValue(applySummary.get("archivedRows")), toLong(batch.getArchivedRows())));
+        summary.setApplyDeletedRows(defaultLong(longValue(applySummary.get("deletedRows")), toLong(batch.getDeletedRows())));
+        summary.setRemainingExpiredRows(sumRemainingExpiredRows(tableComparisons));
+        summary.setDeltaConfirmedVsDeleted(safeSubtract(summary.getConfirmedExpiredRows(), summary.getApplyDeletedRows()));
+        summary.setDeltaDryRunVsDeleted(safeSubtract(summary.getDryRunExpiredRows(), summary.getApplyDeletedRows()));
+        boolean matched = Objects.equals(summary.getConfirmedExpiredRows(), summary.getApplyDeletedRows())
+                && Objects.equals(summary.getDryRunExpiredRows(), summary.getApplyDeletedRows())
+                && Objects.equals(summary.getRemainingExpiredRows(), 0L)
+                && (!"iot_message_log".equalsIgnoreCase(normalize(batch.getSourceTable()))
+                || Objects.equals(summary.getApplyArchivedRows(), summary.getApplyDeletedRows()));
+        summary.setMatched(matched);
+        return summary;
+    }
+
+    private List<ObservabilityMessageArchiveBatchCompareTableVO> buildPartialTableComparisons(
+            Map<String, Object> dryRunPayload
+    ) {
+        Map<String, Object> dryRunTables = nestedMap(dryRunPayload.get("tables"));
+        if (dryRunTables.isEmpty()) {
+            return List.of();
+        }
+        List<ObservabilityMessageArchiveBatchCompareTableVO> items = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : dryRunTables.entrySet()) {
+            Map<String, Object> dryRunTable = nestedMap(entry.getValue());
+            ObservabilityMessageArchiveBatchCompareTableVO item = new ObservabilityMessageArchiveBatchCompareTableVO();
+            item.setTableName(entry.getKey());
+            item.setLabel(defaultIfBlank(stringValue(dryRunTable.get("label")), entry.getKey()));
+            item.setDryRunExpiredRows(longValue(dryRunTable.get("expiredRows")));
+            item.setMatched(null);
+            item.setReason("缺少 apply 分表证据");
+            items.add(item);
+        }
+        return items;
+    }
+
+    private List<ObservabilityMessageArchiveBatchCompareTableVO> buildTableComparisons(
+            Map<String, Object> dryRunPayload,
+            Map<String, Object> applyPayload
+    ) {
+        Map<String, Object> dryRunTables = nestedMap(dryRunPayload.get("tables"));
+        Map<String, Object> applyTables = nestedMap(applyPayload.get("tables"));
+        Set<String> tableNames = new LinkedHashSet<>();
+        tableNames.addAll(dryRunTables.keySet());
+        tableNames.addAll(applyTables.keySet());
+        if (tableNames.isEmpty()) {
+            return List.of();
+        }
+        List<ObservabilityMessageArchiveBatchCompareTableVO> items = new ArrayList<>();
+        for (String tableName : tableNames) {
+            Map<String, Object> dryRunTable = nestedMap(dryRunTables.get(tableName));
+            Map<String, Object> applyTable = nestedMap(applyTables.get(tableName));
+            ObservabilityMessageArchiveBatchCompareTableVO item = new ObservabilityMessageArchiveBatchCompareTableVO();
+            item.setTableName(tableName);
+            item.setLabel(defaultIfBlank(
+                    stringValue(applyTable.get("label")),
+                    defaultIfBlank(stringValue(dryRunTable.get("label")), tableName)
+            ));
+            item.setDryRunExpiredRows(longValue(dryRunTable.get("expiredRows")));
+            item.setApplyArchivedRows(longValue(applyTable.get("archivedRows")));
+            item.setApplyDeletedRows(longValue(applyTable.get("deletedRows")));
+            item.setApplyRemainingExpiredRows(longValue(applyTable.get("remainingExpiredRows")));
+            item.setDeltaDryRunVsDeleted(safeSubtract(item.getDryRunExpiredRows(), item.getApplyDeletedRows()));
+            boolean matched = Objects.equals(item.getDryRunExpiredRows(), item.getApplyDeletedRows())
+                    && Objects.equals(item.getApplyRemainingExpiredRows(), 0L)
+                    && (item.getApplyArchivedRows() == null || Objects.equals(item.getApplyArchivedRows(), item.getApplyDeletedRows()));
+            item.setMatched(matched);
+            if (!matched) {
+                item.setReason(resolveTableReason(item));
+            }
+            items.add(item);
+        }
+        return items;
+    }
+
+    private String resolveTableReason(ObservabilityMessageArchiveBatchCompareTableVO item) {
+        if (!Objects.equals(item.getDryRunExpiredRows(), item.getApplyDeletedRows())) {
+            return "dry-run 过期量与 apply 删除量不一致";
+        }
+        if (!Objects.equals(item.getApplyRemainingExpiredRows(), 0L)) {
+            return "apply 后仍存在剩余过期量";
+        }
+        if (item.getApplyArchivedRows() != null && !Objects.equals(item.getApplyArchivedRows(), item.getApplyDeletedRows())) {
+            return "apply 归档量与删除量不一致";
+        }
+        return "存在未分类偏差";
+    }
+
+    private Map<String, Object> nestedMap(Object value) {
+        if (!(value instanceof Map<?, ?> map)) {
+            return Map.of();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (entry.getKey() != null) {
+                result.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+        }
+        return result;
+    }
+
+    private String extractReportJsonPath(String artifactsJson) {
+        Map<String, Object> artifacts = parseJsonMap(artifactsJson);
+        return normalize(stringValue(artifacts.get("reportJsonPath")));
+    }
+
+    private Long sumRemainingExpiredRows(List<ObservabilityMessageArchiveBatchCompareTableVO> tableComparisons) {
+        Long total = null;
+        for (ObservabilityMessageArchiveBatchCompareTableVO table : tableComparisons) {
+            if (table.getApplyRemainingExpiredRows() == null) {
+                continue;
+            }
+            total = total == null ? table.getApplyRemainingExpiredRows() : total + table.getApplyRemainingExpiredRows();
+        }
+        return total;
+    }
+
+    private Long safeSubtract(Long left, Long right) {
+        if (left == null || right == null) {
+            return null;
+        }
+        return left - right;
+    }
+
+    private Long defaultLong(Long preferred, Long fallback) {
+        return preferred != null ? preferred : fallback;
+    }
+
+    private Long toLong(Integer value) {
+        return value == null ? null : value.longValue();
     }
 
     private String buildBusinessEventWhere(ObservabilityBusinessEventPageQuery query, Long tenantId, List<Object> args) {

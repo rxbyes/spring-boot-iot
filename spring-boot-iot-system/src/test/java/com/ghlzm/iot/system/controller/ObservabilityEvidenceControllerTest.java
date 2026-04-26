@@ -11,6 +11,7 @@ import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
@@ -179,6 +180,30 @@ class ObservabilityEvidenceControllerTest {
         assertEquals("iot_message_log-20260426000119", response.getData().getBatchNo());
         assertTrue(Boolean.TRUE.equals(response.getData().getAvailable()));
         verify(observabilityEvidenceQueryService).getMessageArchiveBatchReportPreview(
+                "iot_message_log-20260426000119",
+                10001L
+        );
+    }
+
+    @Test
+    void getMessageArchiveBatchCompareShouldDelegateByBatchNo() {
+        ObservabilityMessageArchiveBatchCompareVO compare = new ObservabilityMessageArchiveBatchCompareVO();
+        compare.setBatchNo("iot_message_log-20260426000119");
+        compare.setCompareStatus("MATCHED");
+        when(observabilityEvidenceQueryService.getMessageArchiveBatchCompare(
+                "iot_message_log-20260426000119",
+                10001L
+        )).thenReturn(compare);
+
+        R<ObservabilityMessageArchiveBatchCompareVO> response =
+                controller.getMessageArchiveBatchCompare(
+                        "iot_message_log-20260426000119",
+                        authentication(10001L)
+                );
+
+        assertEquals("iot_message_log-20260426000119", response.getData().getBatchNo());
+        assertEquals("MATCHED", response.getData().getCompareStatus());
+        verify(observabilityEvidenceQueryService).getMessageArchiveBatchCompare(
                 "iot_message_log-20260426000119",
                 10001L
         );
