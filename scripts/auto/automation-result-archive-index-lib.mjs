@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { buildRunFailureDiagnosis } from './automation-result-diagnosis-lib.mjs';
 
 const REGISTRY_RUN_FILE_RE = /^registry-run-(.+)\.json$/;
 const ACCEPTANCE_SEGMENTS = ['logs', 'acceptance'];
@@ -80,6 +81,24 @@ async function pathExists(filePath) {
   }
 }
 
+async function readTextIfPresent(filePath) {
+  try {
+    return await fs.readFile(filePath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function resolveEvidenceAbsolutePath(rawPath, resultsDir) {
+  const candidatePath = cleanText(rawPath);
+  if (!candidatePath) {
+    return '';
+  }
+  return path.isAbsolute(candidatePath)
+    ? candidatePath
+    : path.resolve(resultsDir, candidatePath.replace(/^logs\/acceptance\//, ''));
+}
+
 function resolveEvidenceCategory(displayPath, reportPath) {
   if (displayPath === reportPath) {
     return 'run-summary';
@@ -145,6 +164,29 @@ async function resolveEvidenceItems({ payload, reportFilePath, resultsDir }) {
   return items;
 }
 
+async function resolveScenarioEvidenceTexts(results = [], resultsDir) {
+  const scenarioEvidenceTexts = new Map();
+  for (const result of asArray(results)) {
+    const scenarioId = cleanText(result?.scenarioId);
+    if (!scenarioId) {
+      continue;
+    }
+    const evidenceTexts = [];
+    for (const evidencePath of asArray(result?.evidenceFiles)) {
+      const resolvedPath = resolveEvidenceAbsolutePath(evidencePath, resultsDir);
+      if (!resolvedPath || !(await pathExists(resolvedPath))) {
+        continue;
+      }
+      const rawText = cleanText(await readTextIfPresent(resolvedPath));
+      if (rawText) {
+        evidenceTexts.push(rawText);
+      }
+    }
+    scenarioEvidenceTexts.set(scenarioId, evidenceTexts);
+  }
+  return scenarioEvidenceTexts;
+}
+
 async function normalizeRunRecord({ filePath, resultsDir }) {
   const fileName = path.basename(filePath);
   const raw = await fs.readFile(filePath, 'utf8');
@@ -163,6 +205,8 @@ async function normalizeRunRecord({ filePath, resultsDir }) {
     reportFilePath: filePath,
     resultsDir
   });
+  const scenarioEvidenceTexts = await resolveScenarioEvidenceTexts(results, resultsDir);
+  const failureDiagnosis = buildRunFailureDiagnosis(results, scenarioEvidenceTexts);
 
   return {
     runId: resolveRunId(payload, fileName),
@@ -174,7 +218,10 @@ async function normalizeRunRecord({ filePath, resultsDir }) {
     environmentCode: cleanText(payload.options?.environmentCode),
     runnerTypes,
     failedScenarioIds,
-    evidenceItems
+    evidenceItems,
+    failureSummary: failureDiagnosis.failureSummary,
+    failedModules: failureDiagnosis.failedModules,
+    failedScenarios: failureDiagnosis.failedScenarios
   };
 }
 

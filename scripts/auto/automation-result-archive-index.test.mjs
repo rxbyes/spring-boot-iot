@@ -29,7 +29,9 @@ function createRun({
   runnerType = 'browserPlan',
   failedScenarioId = '',
   relatedEvidenceFiles = [],
-  scenarioEvidenceFiles = []
+  scenarioEvidenceFiles = [],
+  summaryText,
+  details
 }) {
   const failed = status === 'failed' ? 1 : 0;
   return {
@@ -50,8 +52,9 @@ function createRun({
         runnerType,
         status,
         blocking: failed ? 'blocker' : 'warning',
-        summary: failed ? '场景失败' : '场景通过',
-        evidenceFiles: scenarioEvidenceFiles
+        summary: summaryText || (failed ? '场景失败' : '场景通过'),
+        evidenceFiles: scenarioEvidenceFiles,
+        details
       }
     ],
     relatedEvidenceFiles
@@ -174,4 +177,104 @@ test('runAutomationResultArchiveIndexCli writes latest and timestamped artifacts
 
   const latest = JSON.parse(await fs.readFile(result.latestJsonPath, 'utf8'));
   assert.equal(latest.runs[0].packageCode, 'quality-factory-p0');
+});
+
+test('buildAutomationResultArchiveIndex adds scenario and module diagnosis fields', async () => {
+  const workspaceRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'automation-result-archive-index-diagnosis-')
+  );
+  const resultsDir = path.join(workspaceRoot, 'logs', 'acceptance');
+
+  await writeJson(path.join(resultsDir, 'registry-run-20260426010000.json'), {
+    runId: '20260426010000',
+    updatedAt: '2026-04-26T01:00:00+08:00',
+    options: {
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev'
+    },
+    summary: {
+      total: 3,
+      passed: 0,
+      failed: 3
+    },
+    results: [
+      {
+        scenarioId: 'product.contract.compare',
+        runnerType: 'apiSmoke',
+        status: 'failed',
+        blocking: 'blocker',
+        summary: 'compare 接口返回 500',
+        evidenceFiles: ['logs/acceptance/compare-500.log'],
+        details: {
+          stepLabel: '调用 compare 接口',
+          apiRef: 'POST /api/device/product/1/compare'
+        }
+      },
+      {
+        scenarioId: 'product.version.ledger',
+        runnerType: 'apiSmoke',
+        status: 'failed',
+        blocking: 'blocker',
+        summary: '版本台账接口响应缺字段',
+        evidenceFiles: ['logs/acceptance/version-ledger.log'],
+        details: {
+          stepLabel: '读取版本台账',
+          apiRef: 'GET /api/device/product/1/releases'
+        }
+      },
+      {
+        scenarioId: 'quality-workbench.dialog',
+        runnerType: 'browserPlan',
+        status: 'failed',
+        blocking: 'warning',
+        summary: '发布弹窗未出现',
+        evidenceFiles: ['logs/acceptance/dialog-missing.md'],
+        details: {
+          pageAction: '点击发布按钮'
+        }
+      }
+    ]
+  });
+  await writeText(path.join(resultsDir, 'compare-500.log'), 'HTTP 500 compare failed');
+  await writeText(path.join(resultsDir, 'version-ledger.log'), 'response missing releaseBatchId field');
+  await writeText(path.join(resultsDir, 'dialog-missing.md'), 'selector not found for publish dialog');
+
+  const index = await buildAutomationResultArchiveIndex({ workspaceRoot, resultsDir });
+
+  assert.equal(index.runs[0].failureSummary.primaryCategory, '接口');
+  assert.deepEqual(index.runs[0].failureSummary.countsByCategory, {
+    接口: 2,
+    UI: 1
+  });
+  assert.equal(index.runs[0].failedModules[0].diagnosis.category, '接口');
+  assert.match(index.runs[0].failedModules[0].diagnosis.reason, /命中接口问题|接口问题占多数/);
+  assert.equal(index.runs[0].failedScenarios[0].diagnosis.category, '接口');
+  assert.match(index.runs[0].failedScenarios[0].diagnosis.reason, /500|响应异常/);
+  assert.equal(index.runs[0].failedScenarios[2].diagnosis.category, 'UI');
+});
+
+test('buildAutomationResultArchiveIndex falls back to 其他 when no diagnosis rule matches', async () => {
+  const workspaceRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'automation-result-archive-index-other-')
+  );
+  const resultsDir = path.join(workspaceRoot, 'logs', 'acceptance');
+
+  await writeJson(
+    path.join(resultsDir, 'registry-run-20260426013000.json'),
+    createRun({
+      runId: '20260426013000',
+      packageCode: 'quality-factory-p0',
+      environmentCode: 'dev',
+      status: 'failed',
+      failedScenarioId: 'custom.unmatched',
+      summaryText: 'unexpected mismatch happened',
+      scenarioEvidenceFiles: ['logs/acceptance/custom-unmatched.txt']
+    })
+  );
+  await writeText(path.join(resultsDir, 'custom-unmatched.txt'), 'free form message without known keyword');
+
+  const index = await buildAutomationResultArchiveIndex({ workspaceRoot, resultsDir });
+
+  assert.equal(index.runs[0].failedScenarios[0].diagnosis.category, '其他');
+  assert.match(index.runs[0].failedScenarios[0].diagnosis.reason, /未命中已知规则/);
 });
