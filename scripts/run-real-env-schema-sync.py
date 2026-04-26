@@ -15,6 +15,12 @@ from typing import Dict, List, Tuple
 
 import pymysql
 
+SCRIPT_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_REPO_ROOT))
+
+from scripts.schema.load_registry import RegistryObject, load_registry
+
 
 CreateSqlMap = Dict[str, str]
 ColumnSpecMap = Dict[str, List[Tuple[str, str]]]
@@ -1464,7 +1470,9 @@ def collector_child_property_seeds() -> List[Tuple[int, str, str, str, str, str]
     return seeds
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SCRIPT_REPO_ROOT
+SCHEMA_REGISTRY = load_registry(REPO_ROOT / "schema")
+MESSAGE_LOG_SCHEMA_OBJECT = SCHEMA_REGISTRY.mysql["iot_message_log"]
 SCHEMA_SYNC_MANIFEST_PATH = REPO_ROOT / "schema" / "generated" / "mysql-schema-sync.json"
 
 
@@ -1618,6 +1626,44 @@ def table_type(cur: pymysql.cursors.Cursor, db: str, table: str) -> str | None:
     return None if row is None else str(row[0])
 
 
+def table_comment(cur: pymysql.cursors.Cursor, db: str, table: str) -> str:
+    cur.execute(
+        """
+        SELECT TABLE_COMMENT
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s
+        LIMIT 1
+        """,
+        (db, table),
+    )
+    row = cur.fetchone()
+    return "" if row is None else str(row[0] or "")
+
+
+def column_comments(cur: pymysql.cursors.Cursor, db: str, table: str) -> Dict[str, str]:
+    cur.execute(
+        """
+        SELECT COLUMN_NAME, COLUMN_COMMENT
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s
+        """,
+        (db, table),
+    )
+    rows = cur.fetchall() or []
+    comments: Dict[str, str] = {}
+    for row in rows:
+        column_name = ""
+        column_comment = ""
+        if isinstance(row, dict):
+            column_name = str(row.get("COLUMN_NAME") or row.get("column_name") or "")
+            column_comment = str(row.get("COLUMN_COMMENT") or row.get("column_comment") or "")
+        else:
+            column_name = str(row[0] or "")
+            column_comment = str(row[1] or "")
+        comments[column_name] = column_comment
+    return comments
+
+
 def ensure_message_log_physical_table(cur: pymysql.cursors.Cursor, db: str) -> None:
     legacy_type = table_type(cur, db, "iot_device_message_log")
     target_type = table_type(cur, db, "iot_message_log")
@@ -1646,6 +1692,34 @@ def ensure_message_log_physical_table(cur: pymysql.cursors.Cursor, db: str) -> N
     )
     cur.execute("DROP TABLE `iot_device_message_log`")
     print("[message-log] merged legacy iot_device_message_log table into iot_message_log")
+
+
+def _escape_comment(value: str) -> str:
+    return value.replace("'", "''")
+
+
+def ensure_registry_comments(cur: pymysql.cursors.Cursor, db: str, expected_object: RegistryObject) -> int:
+    table = expected_object.name
+    if not table_exists(cur, db, table):
+        return 0
+
+    repairs = 0
+    expected_table_comment = expected_object.table_comment_zh
+    if table_comment(cur, db, table) != expected_table_comment:
+        cur.execute(f"ALTER TABLE `{table}` COMMENT = '{_escape_comment(expected_table_comment)}'")
+        repairs += 1
+
+    actual_column_comments = column_comments(cur, db, table)
+    for field in expected_object.fields:
+        actual_comment = actual_column_comments.get(field.name)
+        if actual_comment is None or actual_comment == field.comment_zh:
+            continue
+        cur.execute(
+            f"ALTER TABLE `{table}` MODIFY COLUMN `{field.name}` "
+            f"{field.data_type} COMMENT '{_escape_comment(field.comment_zh)}'"
+        )
+        repairs += 1
+    return repairs
 
 
 def column_exists(cur: pymysql.cursors.Cursor, db: str, table: str, column: str) -> bool:
@@ -3327,6 +3401,12 @@ def main() -> int:
                             continue
                         cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}")
                         print(f"[column] {table}.{column} added")
+
+                message_log_comment_repairs = ensure_registry_comments(cur, args.db, MESSAGE_LOG_SCHEMA_OBJECT)
+                if message_log_comment_repairs:
+                    print(f"[message-log] registry comments aligned ({message_log_comment_repairs} repairs)")
+                else:
+                    print("[message-log] registry comments already aligned")
 
                 if table_exists(cur, args.db, "sys_dict"):
                     if column_exists(cur, args.db, "sys_dict", "dict_value") and column_exists(
