@@ -403,6 +403,7 @@
                 <select
                   v-model="messageArchiveBatchFilters.compareStatus"
                   data-testid="archive-batch-filter-compare-status"
+                  @change="handleMessageArchiveBatchAnomalyFilterEdit"
                 >
                   <option value="">全部结论</option>
                   <option
@@ -437,6 +438,7 @@
                     v-model="messageArchiveBatchFilters.onlyAbnormal"
                     data-testid="archive-batch-filter-only-abnormal"
                     type="checkbox"
+                    @change="handleMessageArchiveBatchAnomalyFilterEdit"
                   >
                   <span>仅看异常</span>
                 </label>
@@ -2026,7 +2028,32 @@ const refreshMessageArchiveBatchLedger = async () => {
   await resolveMessageArchiveBatchSummaryFocus()
 }
 
+const normalizeMessageArchiveBatchCompareStatusFilter = () =>
+  String(messageArchiveBatchFilters.compareStatus || '').trim().toUpperCase()
+
+const doesMessageArchiveBatchSelectionMatchFilters = (
+  selection: ArchiveBatchOverviewSelectionKey
+) => {
+  if (selection === 'drifted') {
+    return normalizeMessageArchiveBatchCompareStatusFilter() === 'DRIFTED' && !messageArchiveBatchFilters.onlyAbnormal
+  }
+  return normalizeMessageArchiveBatchCompareStatusFilter() === '' && messageArchiveBatchFilters.onlyAbnormal
+}
+
+const syncMessageArchiveBatchSummarySelectionWithFilters = () => {
+  const selection = activeMessageArchiveBatchOverviewSelection.value
+  if (!selection || doesMessageArchiveBatchSelectionMatchFilters(selection)) {
+    return
+  }
+  resetMessageArchiveBatchSummarySelection()
+}
+
+const handleMessageArchiveBatchAnomalyFilterEdit = () => {
+  syncMessageArchiveBatchSummarySelectionWithFilters()
+}
+
 const handleMessageArchiveBatchSearch = () => {
+  syncMessageArchiveBatchSummarySelectionWithFilters()
   messageArchiveBatchFocusHint.value = ''
   if (activeMessageArchiveBatchOverviewSelection.value === 'latest') {
     messageArchiveBatchPendingAutoOpen.value = true
