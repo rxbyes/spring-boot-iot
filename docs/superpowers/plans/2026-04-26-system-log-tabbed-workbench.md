@@ -8,6 +8,40 @@
 
 **Tech Stack:** Vue 3 `<script setup>`, TypeScript, Element Plus, existing `IotAccessTabWorkspace` / `Standard*` shared UI components, Vitest + Vue Test Utils, Vite build.
 
+## Status Snapshot (2026-04-26)
+
+- `codex/dev` has already merged the main `/system-log` tabbed-workbench implementation.
+- The lightweight overview strip, `异常排查 / 观测热点 / 归档治理` three-tab structure, shared drawers, archive filter restoration, and related docs are all in place.
+- Focused frontend verification already passed on the merged branch:
+  - `AuditLogView.test.ts`
+  - `MessageTraceView.test.ts`
+  - `AuditLogSystemOverviewStrip.test.ts`
+  - `AuditLogHotspotTabPanel.test.ts`
+  - `AuditLogArchiveTabPanel.test.ts`
+  - `IotAccessTabWorkspace.test.ts`
+- `npm --prefix spring-boot-iot-ui run build` also passed on the merged branch.
+
+## Deferred Follow-Ups For Next Session
+
+- [ ] **Browser acceptance after login**
+  - Re-open local `/system-log` in the browser after completing the local login step.
+  - Verify the real rendered workbench, not just unit-test behavior:
+    - default tab is `异常排查`
+    - top overview strip stays lightweight
+    - `观测热点` and `归档治理` switch cleanly
+    - shared evidence / archive drawers still open correctly
+    - archive filters render and behave correctly in the live page
+
+- [ ] **Add view-level regression for restored archive filters**
+  - Extend `spring-boot-iot-ui/src/__tests__/views/AuditLogView.test.ts`
+  - Cover end-to-end page behavior for restored archive controls:
+    - `dateFrom`
+    - `dateTo`
+    - `onlyAbnormal`
+    - `search`
+    - `reset`
+  - Assert these controls affect the actual archive query payload, not only the component-level emits.
+
 ---
 
 ## File Structure
