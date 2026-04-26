@@ -69,7 +69,8 @@
                 multiple
                 collapse-tags
                 collapse-tags-tooltip
-                placeholder="请选择测点"
+                :placeholder="addMetricLoading ? '正在加载测点...' : '请选择测点'"
+                :loading="addMetricLoading"
                 :disabled="!addForm.deviceId || addMetricOptions.length === 0 || addSubmitting"
               >
                 <el-option
@@ -285,6 +286,7 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const addSubmitting = ref(false)
+const addMetricLoading = ref(false)
 const actionLoadingKey = ref('')
 const bindingGroups = ref<RiskPointBindingDeviceGroup[]>([])
 const bindableDevices = ref<DeviceOption[]>([])
@@ -320,6 +322,9 @@ const addDeviceHint = computed(() => {
   }
   if (!showAddMetricSelector.value) {
     return getDeviceOnlyBindingHint(selectedAddDevice.value)
+  }
+  if (addMetricLoading.value) {
+    return '正在加载当前设备可绑定的正式目录测点。'
   }
   return addMetricOptions.value.length === 0 ? '当前设备所属产品暂无可用于风险绑定的正式目录字段。' : ''
 })
@@ -424,6 +429,7 @@ const resetDrawerState = () => {
   latestReplaceMetricRequestId += 1
   loading.value = false
   addSubmitting.value = false
+  addMetricLoading.value = false
   bindingGroups.value = []
   bindableDevices.value = []
   addMetricOptions.value = []
@@ -526,6 +532,7 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
   const requestId = ++latestAddMetricRequestId
   addForm.metricIdentifiers = []
   addMetricOptions.value = []
+  addMetricLoading.value = false
   if (!deviceId) {
     selectedAddDevice.value = null
     return
@@ -535,6 +542,7 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
   if (!supportsMetricBinding(device)) {
     return
   }
+  addMetricLoading.value = true
   try {
     const options = filterAvailableMetricOptions(deviceId, await getMetricOptions(deviceId))
     if (
@@ -551,6 +559,14 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
     }
     console.error('加载新增测点选项失败', error)
     ElMessage.error(error instanceof Error ? error.message : '加载测点列表失败')
+  } finally {
+    if (
+      requestId === latestAddMetricRequestId
+      && props.modelValue
+      && getIdKey(addForm.deviceId) === getIdKey(deviceId)
+    ) {
+      addMetricLoading.value = false
+    }
   }
 }
 

@@ -73,6 +73,9 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
         if (parsed == null) {
             return false;
         }
+        if (context.excludesRiskCatalog()) {
+            return false;
+        }
         if ("L1".equals(parsed.level()) && "LF".equals(parsed.monitorType())) {
             return "value".equals(parsed.leaf());
         }
@@ -113,6 +116,11 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
             return matchesCrack(contract) || matchesLaser(contract) || matchesRain(contract);
         }
 
+        private boolean excludesRiskCatalog() {
+            return matchesScopeOnly("phase5-mud-level", "mud-level", "mud_level", "泥位")
+                    || matchesScopeOnly("base-station", "base_station", "基准站");
+        }
+
         private boolean matchesCrack(ProductModel contract) {
             return matchesAny(contract, "phase1-crack", "crack", "裂缝");
         }
@@ -131,6 +139,20 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
 
         private boolean matchesDeepDisplacement(ProductModel contract) {
             return matchesAny(contract, "phase3-deep-displacement", "deep-displacement", "deep_displacement", "深部位移");
+        }
+
+        private boolean matchesScopeOnly(String... tokens) {
+            String blob = String.join(" ",
+                    safeLower(productKey),
+                    safeLower(productName),
+                    safeLower(scenarioCode)
+            );
+            for (String token : tokens) {
+                if (StringUtils.hasText(token) && blob.contains(token.toLowerCase(Locale.ROOT))) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private boolean matchesAny(ProductModel contract, String... tokens) {

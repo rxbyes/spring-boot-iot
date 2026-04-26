@@ -474,6 +474,239 @@ class RiskPointBindingMaintenanceServiceImplTest {
     }
 
     @Test
+    void listFormalBindingMetricOptionsShouldBackfillGnssTotalsForFullPathMonitoringProducts() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
+        ProductMapper productMapper = mock(ProductMapper.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService,
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule()
+        );
+        Device device = new Device();
+        device.setId(3003L);
+        device.setProductId(2004L);
+        device.setDeviceName("NF-GNSS-01 - GNSS位移监测仪");
+        when(deviceService.getRequiredById(3003L)).thenReturn(device);
+
+        Product product = new Product();
+        product.setId(2004L);
+        product.setProductKey("nf-monitor-gnss-monitor-v1");
+        product.setProductName("南方测绘 监测型 GNSS位移监测仪");
+        when(productMapper.selectById(2004L)).thenReturn(product);
+
+        ProductModel gpsTotalX = productModel(4301L, 2004L, "L1_GP_1.gpsTotalX", "X方向累计变形量");
+        ProductModel gpsTotalY = productModel(4302L, 2004L, "L1_GP_1.gpsTotalY", "Y方向累计变形量");
+        ProductModel gpsTotalZ = productModel(4303L, 2004L, "L1_GP_1.gpsTotalZ", "Z方向累计变形量");
+        ProductModel accelX = productModel(4304L, 2004L, "L1_JS_1.gX", "X轴加速度");
+        ProductModel tiltAngle = productModel(4305L, 2004L, "L1_QJ_1.angle", "水平面夹角");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(gpsTotalX, gpsTotalY, gpsTotalZ, accelX, tiltAngle));
+
+        when(deviceService.listMetricOptions(1001L, 3003L))
+                .thenReturn(List.of(
+                        formalOption("L1_GP_1.gpsTotalX", "X方向累计变形量", null),
+                        formalOption("L1_GP_1.gpsTotalY", "Y方向累计变形量", null),
+                        formalOption("L1_GP_1.gpsTotalZ", "Z方向累计变形量", null),
+                        formalOption("L1_JS_1.gX", "X轴加速度", null),
+                        formalOption("L1_QJ_1.angle", "水平面夹角", null)
+                ))
+                .thenReturn(List.of(
+                        formalOption("L1_GP_1.gpsTotalX", "X方向累计变形量", 9201L),
+                        formalOption("L1_GP_1.gpsTotalY", "Y方向累计变形量", 9202L),
+                        formalOption("L1_GP_1.gpsTotalZ", "Z方向累计变形量", 9203L),
+                        formalOption("L1_JS_1.gX", "X轴加速度", null),
+                        formalOption("L1_QJ_1.angle", "水平面夹角", null)
+                ));
+
+        List<DeviceMetricOptionVO> result = service.listFormalBindingMetricOptions(3003L, 1001L);
+
+        assertEquals(
+                List.of("L1_GP_1.gpsTotalX", "L1_GP_1.gpsTotalY", "L1_GP_1.gpsTotalZ"),
+                result.stream().map(DeviceMetricOptionVO::getIdentifier).toList()
+        );
+        assertEquals(List.of(9201L, 9202L, 9203L), result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList());
+        verify(riskMetricCatalogService).publishFromReleasedContracts(
+                eq(2004L),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(List.of(gpsTotalX, gpsTotalY, gpsTotalZ, accelX, tiltAngle)),
+                eq(Set.of("L1_GP_1.gpsTotalX", "L1_GP_1.gpsTotalY", "L1_GP_1.gpsTotalZ"))
+        );
+    }
+
+    @Test
+    void listFormalBindingMetricOptionsShouldNotBackfillBareCrackChannelWithoutLeafIntoFormalCatalog() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
+        ProductMapper productMapper = mock(ProductMapper.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService,
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule()
+        );
+        Device device = new Device();
+        device.setId(3004L);
+        device.setProductId(2005L);
+        device.setDeviceName("NF-CRACK-01 - 裂缝计");
+        when(deviceService.getRequiredById(3004L)).thenReturn(device);
+
+        Product product = new Product();
+        product.setId(2005L);
+        product.setProductKey("nf-monitor-crack-meter-v1");
+        product.setProductName("南方测绘 监测型 裂缝计");
+        when(productMapper.selectById(2005L)).thenReturn(product);
+
+        ProductModel crackChannel = productModel(4401L, 2005L, "L1_LF_1", "裂缝值");
+        ProductModel sensorState = productModel(4402L, 2005L, "S1_ZT_1.sensor_state.L1_LF_1", "裂缝计状态");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(crackChannel, sensorState));
+        when(deviceService.listMetricOptions(1001L, 3004L)).thenReturn(List.of(
+                formalOption("L1_LF_1", "裂缝值", null),
+                formalOption("S1_ZT_1.sensor_state.L1_LF_1", "裂缝计状态", null)
+        ));
+
+        List<DeviceMetricOptionVO> result = service.listFormalBindingMetricOptions(3004L, 1001L);
+
+        assertEquals(List.of(), result);
+        verify(riskMetricCatalogService, never()).publishFromReleasedContracts(any(), any(), any(), any());
+        verify(deviceService, times(1)).listMetricOptions(1001L, 3004L);
+    }
+
+    @Test
+    void listFormalBindingMetricOptionsShouldNotBackfillMudLevelPlaceholderIntoFormalCatalog() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
+        ProductMapper productMapper = mock(ProductMapper.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService,
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule()
+        );
+        Device device = new Device();
+        device.setId(3005L);
+        device.setProductId(2006L);
+        device.setDeviceName("NF-MUD-01 - 泥位计");
+        when(deviceService.getRequiredById(3005L)).thenReturn(device);
+
+        Product product = new Product();
+        product.setId(2006L);
+        product.setProductKey("nf-monitor-mud-level-meter-v1");
+        product.setProductName("南方测绘 监测型 泥位计");
+        when(productMapper.selectById(2006L)).thenReturn(product);
+
+        ProductModel mudLevel = productModel(4501L, 2006L, "L4_NW_1", "泥位高程值");
+        ProductModel sensorState = productModel(4502L, 2006L, "S1_ZT_1.sensor_state.L4_NW_1", "传感器状态");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(mudLevel, sensorState));
+        when(deviceService.listMetricOptions(1001L, 3005L)).thenReturn(List.of(
+                formalOption("L4_NW_1", "泥位高程值", null),
+                formalOption("S1_ZT_1.sensor_state.L4_NW_1", "传感器状态", null)
+        ));
+
+        List<DeviceMetricOptionVO> result = service.listFormalBindingMetricOptions(3005L, 1001L);
+
+        assertEquals(List.of(), result);
+        verify(riskMetricCatalogService, never()).publishFromReleasedContracts(any(), any(), any(), any());
+        verify(deviceService, times(1)).listMetricOptions(1001L, 3005L);
+    }
+
+    @Test
+    void listFormalBindingMetricOptionsShouldNotBackfillBaseStationMetricsIntoFormalCatalog() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
+        ProductMapper productMapper = mock(ProductMapper.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService,
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule()
+        );
+        Device device = new Device();
+        device.setId(3002L);
+        device.setProductId(2003L);
+        device.setDeviceName("SJ11F2148734260A - GNSS基准站");
+        when(deviceService.getRequiredById(3002L)).thenReturn(device);
+
+        Product product = new Product();
+        product.setId(2003L);
+        product.setProductKey("nf-monitor-gnss-base-station-v1");
+        product.setProductName("南方测绘 监测型 GNSS基准站");
+        when(productMapper.selectById(2003L)).thenReturn(product);
+
+        ProductModel gpsTotalX = productModel(4201L, 2003L, "L1_GP_1.gpsTotalX", "GNSS累计位移 X");
+        ProductModel gpsTotalY = productModel(4202L, 2003L, "L1_GP_1.gpsTotalY", "GNSS累计位移 Y");
+        ProductModel gpsTotalZ = productModel(4203L, 2003L, "L1_GP_1.gpsTotalZ", "GNSS累计位移 Z");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(gpsTotalX, gpsTotalY, gpsTotalZ));
+        when(deviceService.listMetricOptions(1001L, 3002L)).thenReturn(List.of(
+                formalOption("L1_GP_1.gpsTotalX", "GNSS累计位移 X", null),
+                formalOption("L1_GP_1.gpsTotalY", "GNSS累计位移 Y", null),
+                formalOption("L1_GP_1.gpsTotalZ", "GNSS累计位移 Z", null)
+        ));
+
+        List<DeviceMetricOptionVO> result = service.listFormalBindingMetricOptions(3002L, 1001L);
+
+        assertEquals(List.of(), result);
+        verify(riskMetricCatalogService, never()).publishFromReleasedContracts(any(), any(), any(), any());
+        verify(deviceService, times(1)).listMetricOptions(1001L, 3002L);
+    }
+
+    @Test
     void submitBindDeviceShouldRejectMetricOutsideFormalCatalog() {
         RiskPointService riskPointService = mock(RiskPointService.class);
         RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);

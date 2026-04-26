@@ -110,6 +110,38 @@ class DefaultRiskMetricCatalogPublishRuleTest {
     }
 
     @Test
+    void resolveRiskEnabledIdentifiersShouldNotPublishGnssTotalsForBaseStationProducts() {
+        Product product = product("nf-monitor-gnss-base-station-v1", "南方测绘 监测型 GNSS基准站");
+        ProductModel gpsTotalX = productModel("L1_GP_1.gpsTotalX", "GNSS累计位移 X");
+        ProductModel gpsTotalY = productModel("L1_GP_1.gpsTotalY", "GNSS累计位移 Y");
+        ProductModel gpsTotalZ = productModel("L1_GP_1.gpsTotalZ", "GNSS累计位移 Z");
+
+        Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                product,
+                "phase2-gnss",
+                null,
+                List.of(gpsTotalX, gpsTotalY, gpsTotalZ)
+        );
+
+        assertEquals(Set.of(), identifiers);
+    }
+
+    @Test
+    void resolveRiskEnabledIdentifiersShouldNotPublishMudLevelValueEvenWhenScenarioResolved() {
+        Product product = product("nf-monitor-mud-level-meter-v1", "南方测绘 监测型 泥位计");
+        ProductModel value = productModel("value", "泥水位高程");
+
+        Set<String> identifiers = rule.resolveRiskEnabledIdentifiers(
+                product,
+                "phase5-mud-level",
+                null,
+                List.of(value)
+        );
+
+        assertEquals(Set.of(), identifiers);
+    }
+
+    @Test
     void resolveRiskEnabledIdentifiersShouldNotPublishGenericValueWithoutRiskContext() {
         ProductModel genericValue = productModel("value", "监测值");
         ProductModel sensorState = productModel("sensor_state", "设备状态");

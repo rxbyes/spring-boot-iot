@@ -17,9 +17,11 @@ import com.ghlzm.iot.common.util.JsonPayloadUtils;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +87,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
     private final RiskMetricCatalogService riskMetricCatalogService;
     private final RiskMetricCatalogPublishRule riskMetricCatalogPublishRule;
+    private ProductMapper productMapper;
     private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
@@ -144,6 +147,11 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule == null
                 ? new DefaultRiskMetricCatalogPublishRule()
                 : riskMetricCatalogPublishRule;
+    }
+
+    @Autowired(required = false)
+    void setProductMapper(ProductMapper productMapper) {
+        this.productMapper = productMapper;
     }
 
     @Override
@@ -212,7 +220,13 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         if (riskMetricCatalogService == null || device == null || device.getProductId() == null || productModels == null || productModels.isEmpty()) {
             return;
         }
-        Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(device, productModels);
+        Product product = productMapper == null ? null : productMapper.selectById(device.getProductId());
+        Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(
+                product,
+                null,
+                device,
+                productModels
+        );
         if (riskEnabledIdentifiers.isEmpty()) {
             return;
         }

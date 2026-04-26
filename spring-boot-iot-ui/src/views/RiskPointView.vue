@@ -392,7 +392,8 @@
                   multiple
                   collapse-tags
                   collapse-tags-tooltip
-                  placeholder="请选择测点"
+                  :placeholder="metricLoading ? '正在加载测点...' : '请选择测点'"
+                  :loading="metricLoading"
                   data-testid="risk-point-bind-metric-select"
                 >
                   <el-option
@@ -794,6 +795,7 @@ const knownUsers = reactive<Record<string, User>>({});
 const regionRootsLoaded = ref(false);
 const regionRootsLoading = ref(false);
 let latestListRequestId = 0;
+let latestMetricRequestId = 0;
 
 const getIdKey = (value?: IdType | null) => {
   if (value === undefined || value === null || value === '') {
@@ -850,9 +852,13 @@ const bindingWorkbenchGovernanceNote = computed(() => {
 const bindApprovalNotice = computed(() =>
   bindDeviceVisible.value ? formatPendingApprovalNotice(bindSubmissionResult.value) : ''
 );
+const metricLoading = ref(false);
 const bindMetricEmptyText = computed(() => {
   if (!getIdKey(bindForm.deviceId) || metricList.value.length > 0) {
     return '';
+  }
+  if (metricLoading.value) {
+    return '正在加载当前设备可绑定的正式目录测点';
   }
   return '当前设备所属产品暂无可用于风险绑定的正式目录字段';
 });
@@ -1220,15 +1226,26 @@ const loadBindableDeviceOptions = async (riskPointId: string | number) => {
   }
 };
 
-const loadMetricOptions = async (deviceId: string | number) => {
+const loadMetricOptions = async (deviceId: string | number, requestId: number) => {
+  metricLoading.value = true;
   try {
     const res = await listFormalBindingMetricOptions(deviceId);
+    if (requestId !== latestMetricRequestId || String(bindForm.deviceId) !== String(deviceId)) {
+      return;
+    }
     if (res.code === 200) {
       metricList.value = res.data || [];
     }
   } catch (error) {
+    if (requestId !== latestMetricRequestId || String(bindForm.deviceId) !== String(deviceId)) {
+      return;
+    }
     logRiskPointRequestError('加载测点选项失败', error);
     showRiskPointRequestError(error, '加载测点列表失败');
+  } finally {
+    if (requestId === latestMetricRequestId && String(bindForm.deviceId) === String(deviceId)) {
+      metricLoading.value = false;
+    }
   }
 };
 
@@ -1953,10 +1970,12 @@ watch(
 watch(
   () => bindForm.deviceId,
   async (deviceId) => {
+    const requestId = ++latestMetricRequestId;
     bindForm.deviceCode = '';
     bindForm.deviceName = '';
     bindForm.metricIdentifiers = [];
     metricList.value = [];
+    metricLoading.value = false;
     if (!getIdKey(deviceId)) {
       return;
     }
@@ -1965,7 +1984,7 @@ watch(
       bindForm.deviceCode = selectedDevice.deviceCode;
       bindForm.deviceName = selectedDevice.deviceName;
     }
-    await loadMetricOptions(deviceId);
+    await loadMetricOptions(deviceId, requestId);
   }
 );
 

@@ -399,16 +399,17 @@ const ElInputStub = defineComponent({
 const ElSelectStub = defineComponent({
   name: 'ElSelect',
   inheritAttrs: false,
-  props: ['modelValue', 'filterable', 'placeholder'],
+  props: ['modelValue', 'filterable', 'placeholder', 'loading'],
   setup(props, { attrs }) {
     const isFilterable = computed(() => props.filterable === '' || props.filterable === true || attrs.filterable === '')
-    return { attrs, isFilterable }
+    return { attrs, isFilterable, props }
   },
   template: `
     <div
       class="el-select-stub"
       :data-filterable="isFilterable ? 'true' : 'false'"
       :data-placeholder="placeholder || ''"
+      :data-loading="loading ? 'true' : 'false'"
       v-bind="attrs"
     >
       <slot />
@@ -2119,6 +2120,54 @@ describe('RiskPointView', () => {
 
     expect(mockListFormalBindingMetricOptions).toHaveBeenCalledWith(2001)
     expect(wrapper.text()).toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
+  })
+
+  it('shows a loading hint instead of the empty-state hint while the bind drawer metrics are still loading', async () => {
+    const metricRequest = createDeferred<{
+      code: number;
+      msg: string;
+      data: Array<{ identifier: string; name: string; riskMetricId: number; dataType: string }>;
+    }>()
+
+    mockPageRiskPointList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [createRiskPointRow()]
+      }
+    })
+    mockListFormalBindingMetricOptions.mockReset()
+    mockListFormalBindingMetricOptions.mockReturnValueOnce(metricRequest.promise)
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    ;(wrapper.vm as any).bindDeviceVisible = true
+    ;(wrapper.vm as any).deviceList = [
+      { id: 2001, productId: 1001, deviceCode: 'CXH15522812', deviceName: '多维检测仪', orgId: 7101, orgName: '平台运维中心' }
+    ]
+    ;(wrapper.vm as any).bindForm.deviceId = 2001
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="risk-point-bind-metric-select"]').attributes('data-loading')).toBe('true')
+    expect(wrapper.text()).toContain('正在加载当前设备可绑定的正式目录测点')
+    expect(wrapper.text()).not.toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
+
+    metricRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: [{ identifier: 'value', name: '裂缝量', riskMetricId: 6102, dataType: 'double' }]
+    })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="risk-point-bind-metric-select"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.text()).not.toContain('正在加载当前设备可绑定的正式目录测点')
+    expect((wrapper.vm as any).metricList).toEqual([
+      { identifier: 'value', name: '裂缝量', riskMetricId: 6102, dataType: 'double' }
+    ])
   })
 
 })

@@ -12,9 +12,11 @@ import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.DeviceMessageLog;
 import com.ghlzm.iot.device.entity.DeviceProperty;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import com.ghlzm.iot.device.mapper.DeviceMessageLogMapper;
 import com.ghlzm.iot.device.mapper.DevicePropertyMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.service.DeviceService;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -282,6 +285,28 @@ class RiskPointPendingRecommendationServiceImplTest {
     }
 
     @Test
+    void getCandidatesShouldNotPublishGnssBaseStationMetricsForCatalogGovernance() {
+        Fixture fixture = new Fixture();
+        fixture.device.setDeviceName("DB6-基准点（GNSS）");
+        fixture.pending.setDeviceName("DB6-基准点（GNSS）");
+        when(fixture.productMapper.selectById(2001L))
+                .thenReturn(fixture.product("nf-monitor-gnss-base-station-v1", "南方测绘 监测型 GNSS基准站"));
+
+        ProductModel gpsTotalX = fixture.productModel("L1_GP_1.gpsTotalX", "GNSS累计位移 X", "double", 1);
+        ProductModel gpsTotalY = fixture.productModel("L1_GP_1.gpsTotalY", "GNSS累计位移 Y", "double", 2);
+        ProductModel gpsTotalZ = fixture.productModel("L1_GP_1.gpsTotalZ", "GNSS累计位移 Z", "double", 3);
+
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(gpsTotalX, gpsTotalY, gpsTotalZ));
+        when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
+        when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
+
+        fixture.service.getCandidates(9001L, 1001L);
+
+        verify(fixture.riskMetricCatalogService, never()).publishFromReleasedContracts(any(), any(), any(), any());
+    }
+
+    @Test
     void listRecommendedMetricIdentifiersShouldDelegateToCatalogService() {
         Fixture fixture = new Fixture();
         when(fixture.riskMetricCatalogService.listRiskBindingRecommendedIdentifiers(2001L)).thenReturn(List.of("value"));
@@ -326,6 +351,7 @@ class RiskPointPendingRecommendationServiceImplTest {
         private final DevicePropertyMapper devicePropertyMapper = mock(DevicePropertyMapper.class);
         private final DeviceMessageLogMapper deviceMessageLogMapper = mock(DeviceMessageLogMapper.class);
         private final RiskPointDevicePendingPromotionMapper promotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        private final ProductMapper productMapper = mock(ProductMapper.class);
         private final RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
         private final RiskPointPendingRecommendationServiceImpl service = new RiskPointPendingRecommendationServiceImpl(
                 bindingService,
@@ -340,6 +366,7 @@ class RiskPointPendingRecommendationServiceImplTest {
         private final Device device = device();
 
         private Fixture() {
+            service.setProductMapper(productMapper);
             when(bindingService.getRequiredPending(9001L, 1001L)).thenReturn(pending);
             when(deviceService.getRequiredById(3002L)).thenReturn(device);
         }
@@ -376,6 +403,14 @@ class RiskPointPendingRecommendationServiceImplTest {
             value.setDataType(dataType);
             value.setSortNo(sortNo);
             value.setDeleted(0);
+            return value;
+        }
+
+        private Product product(String productKey, String productName) {
+            Product value = new Product();
+            value.setId(2001L);
+            value.setProductKey(productKey);
+            value.setProductName(productName);
             return value;
         }
 

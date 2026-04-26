@@ -127,7 +127,7 @@ const ElFormItemStub = defineComponent({
 
 const ElSelectStub = defineComponent({
   name: 'ElSelect',
-  props: ['modelValue', 'placeholder', 'disabled', 'filterable', 'multiple'],
+  props: ['modelValue', 'placeholder', 'disabled', 'filterable', 'multiple', 'loading'],
   emits: ['update:modelValue', 'change'],
   methods: {
     normalizeValue(value: string) {
@@ -152,6 +152,7 @@ const ElSelectStub = defineComponent({
       :disabled="Boolean(disabled)"
       :data-filterable="String(filterable === '' || Boolean(filterable))"
       :data-multiple="String(Boolean(multiple))"
+      :data-loading="String(Boolean(loading))"
       @change="
         $emit('update:modelValue', multiple ? collectMultipleValues($event) : normalizeValue($event.target.value));
         $emit('change', multiple ? collectMultipleValues($event) : normalizeValue($event.target.value));
@@ -515,6 +516,39 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
+  })
+
+  it('shows a loading hint instead of the empty-state hint while formal metrics are still loading', async () => {
+    const metricRequest = createDeferred<{ code: number; msg: string; data: ReturnType<typeof createMetricOptions> }>()
+
+    mockListFormalBindingMetricOptions.mockReset()
+    mockListFormalBindingMetricOptions.mockReturnValueOnce(metricRequest.promise)
+
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="binding-add-metric"]').attributes('data-loading')).toBe('true')
+    expect(wrapper.text()).toContain('正在加载当前设备可绑定的正式目录测点')
+    expect(wrapper.text()).not.toContain('当前设备所属产品暂无可用于风险绑定的正式目录字段')
+
+    metricRequest.resolve({
+      code: 200,
+      msg: 'success',
+      data: createMetricOptions()
+    })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="binding-add-metric"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.text()).not.toContain('正在加载当前设备可绑定的正式目录测点')
+    const optionTexts = wrapper
+      .get('[data-testid="binding-add-metric"]')
+      .findAll('option')
+      .map((node) => node.text())
+
+    expect(optionTexts).toContain('Y轴倾角')
   })
 
   it('keeps unsafe long ids as strings when loading metrics and submitting bindings', async () => {
