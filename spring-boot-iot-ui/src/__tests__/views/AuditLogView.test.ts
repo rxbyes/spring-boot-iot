@@ -13,6 +13,7 @@ import {
   pageLogs
 } from '@/api/auditLog';
 import {
+  getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
@@ -47,6 +48,7 @@ vi.mock('@/api/auditLog', () => ({
 }));
 
 vi.mock('@/api/observability', () => ({
+  getObservabilityMessageArchiveBatchReportPreview: vi.fn(),
   pageObservabilityMessageArchiveBatches: vi.fn(),
   pageObservabilityScheduledTasks: vi.fn(),
   listObservabilitySlowSpanSummaries: vi.fn(),
@@ -393,6 +395,7 @@ describe('AuditLogView', () => {
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockReset();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockReset();
     vi.mocked(pageObservabilityScheduledTasks).mockReset();
     vi.mocked(listObservabilitySlowSpanSummaries).mockReset();
@@ -454,6 +457,44 @@ describe('AuditLogView', () => {
             artifactsJson: '{"reportJsonPath":"logs/observability/observability-log-governance-20260426-000200.json","reportMarkdownPath":"logs/observability/observability-log-governance-20260426-000200.md"}',
             createTime: '2026-04-26 00:01:19',
             updateTime: '2026-04-26 00:02:00'
+          }
+        ]
+      }
+    });
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        batchNo: 'iot_message_log-20260426000119',
+        sourceTable: 'iot_message_log',
+        status: 'SUCCEEDED',
+        confirmReportPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+        confirmReportGeneratedAt: '2026-04-25 23:59:00',
+        available: true,
+        resolvedJsonPath: 'logs/observability/observability-log-governance-20260425-235900.json',
+        resolvedMarkdownPath: 'logs/observability/observability-log-governance-20260425-235900.md',
+        markdownAvailable: true,
+        markdownTruncated: false,
+        markdownPreview: '# 归档报告\n- APPLY succeeded',
+        fileLastModifiedAt: '2026-04-26 00:02:00',
+        summary: {
+          generatedAt: '2026-04-26T00:02:00',
+          mode: 'APPLY',
+          expiredRows: 16098,
+          deletedRows: 16098,
+          tablesWithExpiredRows: 1
+        },
+        tableSummaries: [
+          {
+            tableName: 'iot_message_log',
+            label: '消息热表',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 00:00:00',
+            expiredRows: 16098,
+            deletedRows: 16098,
+            remainingExpiredRows: 0,
+            earliestRecordAt: '2026-03-01 00:00:00',
+            latestRecordAt: '2026-03-26 23:59:59'
           }
         ]
       }
@@ -765,7 +806,12 @@ describe('AuditLogView', () => {
 
     const detailButton = ledger.findAll('button').find((button) => button.text().includes('详情'));
     await detailButton!.trigger('click');
+    await flushPromises();
     await nextTick();
+
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledWith(
+      'iot_message_log-20260426000119'
+    );
 
     const drawer = wrapper
       .findAll('.observability-evidence-drawer-stub')
@@ -775,6 +821,39 @@ describe('AuditLogView', () => {
     expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260425-235900.json');
     expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260426-000200.json');
     expect(drawer?.text()).toContain('logs/observability/observability-log-governance-20260426-000200.md');
+    expect(drawer?.text()).toContain('确认报告预览');
+    expect(drawer?.text()).toContain('消息热表');
+    expect(drawer?.text()).toContain('过期 16098');
+    expect(drawer?.text()).toContain('# 归档报告');
+  });
+
+  it('filters archive batch ledger by batch number, status and create date window', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue(
+      'iot_message_log-20260426000119'
+    );
+    await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('SUCCEEDED');
+    await wrapper.get('[data-testid="archive-batch-filter-date-from"]').setValue('2026-04-26');
+    await wrapper.get('[data-testid="archive-batch-filter-date-to"]').setValue('2026-04-26');
+
+    await wrapper.get('[data-testid="archive-batch-search-button"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+      batchNo: 'iot_message_log-20260426000119',
+      sourceTable: 'iot_message_log',
+      status: 'SUCCEEDED',
+      dateFrom: '2026-04-26 00:00:00',
+      dateTo: '2026-04-26 23:59:59',
+      pageNum: 1,
+      pageSize: 5
+    });
   });
 
   it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {
