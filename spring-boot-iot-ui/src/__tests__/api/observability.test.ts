@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   getObservabilityMessageArchiveBatchCompare,
+  getObservabilityMessageArchiveBatchOverview,
   getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
@@ -106,6 +107,8 @@ describe('observability api', () => {
       batchNo: 'iot_message_log-20260426000119',
       sourceTable: 'iot_message_log',
       status: 'SUCCEEDED',
+      compareStatus: 'DRIFTED',
+      onlyAbnormal: true,
       dateFrom: '2026-04-26T00:00:00',
       dateTo: '2026-04-26T23:59:59',
       pageNum: 1,
@@ -113,7 +116,22 @@ describe('observability api', () => {
     })
 
     expect(request).toHaveBeenCalledWith(
-      '/api/system/observability/message-archive-batches/page?batchNo=iot_message_log-20260426000119&sourceTable=iot_message_log&status=SUCCEEDED&dateFrom=2026-04-26T00%3A00%3A00&dateTo=2026-04-26T23%3A59%3A59&pageNum=1&pageSize=10',
+      '/api/system/observability/message-archive-batches/page?batchNo=iot_message_log-20260426000119&sourceTable=iot_message_log&status=SUCCEEDED&compareStatus=DRIFTED&onlyAbnormal=true&dateFrom=2026-04-26T00%3A00%3A00&dateTo=2026-04-26T23%3A59%3A59&pageNum=1&pageSize=10',
+      {
+        method: 'GET'
+      }
+    )
+  })
+
+  it('loads message archive batch overview with the selected date window', async () => {
+    await getObservabilityMessageArchiveBatchOverview({
+      sourceTable: 'iot_message_log',
+      dateFrom: '2026-04-26T00:00:00',
+      dateTo: '2026-04-26T23:59:59'
+    })
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/system/observability/message-archive-batches/overview?sourceTable=iot_message_log&dateFrom=2026-04-26T00%3A00%3A00&dateTo=2026-04-26T23%3A59%3A59',
       {
         method: 'GET'
       }

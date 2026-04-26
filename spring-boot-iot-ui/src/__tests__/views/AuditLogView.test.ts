@@ -14,6 +14,7 @@ import {
 } from '@/api/auditLog';
 import {
   getObservabilityMessageArchiveBatchCompare,
+  getObservabilityMessageArchiveBatchOverview,
   getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
@@ -50,6 +51,7 @@ vi.mock('@/api/auditLog', () => ({
 
 vi.mock('@/api/observability', () => ({
   getObservabilityMessageArchiveBatchCompare: vi.fn(),
+  getObservabilityMessageArchiveBatchOverview: vi.fn(),
   getObservabilityMessageArchiveBatchReportPreview: vi.fn(),
   pageObservabilityMessageArchiveBatches: vi.fn(),
   pageObservabilityScheduledTasks: vi.fn(),
@@ -398,6 +400,7 @@ describe('AuditLogView', () => {
     vi.mocked(getSystemErrorStats).mockReset();
     vi.mocked(getBusinessAuditStats).mockReset();
     vi.mocked(getObservabilityMessageArchiveBatchCompare).mockReset();
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockReset();
     vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockReset();
     vi.mocked(pageObservabilityMessageArchiveBatches).mockReset();
     vi.mocked(pageObservabilityScheduledTasks).mockReset();
@@ -457,11 +460,33 @@ describe('AuditLogView', () => {
             candidateRows: 16098,
             archivedRows: 16098,
             deletedRows: 16098,
+            compareStatus: 'MATCHED',
+            compareStatusLabel: '已对齐',
+            deltaConfirmedVsDeleted: 0,
+            deltaDryRunVsDeleted: 0,
+            remainingExpiredRows: 0,
+            previewAvailable: true,
             artifactsJson: '{"reportJsonPath":"logs/observability/observability-log-governance-20260426-000200.json","reportMarkdownPath":"logs/observability/observability-log-governance-20260426-000200.md"}',
             createTime: '2026-04-26 00:01:19',
             updateTime: '2026-04-26 00:02:00'
           }
         ]
+      }
+    });
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        totalBatches: 4,
+        matchedBatches: 1,
+        driftedBatches: 1,
+        partialBatches: 1,
+        unavailableBatches: 1,
+        abnormalBatches: 3,
+        totalDeltaConfirmedVsDeleted: 18,
+        totalRemainingExpiredRows: 18,
+        latestAbnormalBatch: 'iot_message_log-20260426090100',
+        latestAbnormalOccurredAt: '2026-04-26 09:01:00'
       }
     });
     vi.mocked(getObservabilityMessageArchiveBatchCompare).mockResolvedValue({
@@ -831,6 +856,9 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
+    expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log'
+    });
     expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
       sourceTable: 'iot_message_log',
       pageNum: 1,
@@ -840,11 +868,23 @@ describe('AuditLogView', () => {
     const ledger = wrapper.find('.audit-log-archive-batch-ledger');
     expect(ledger.exists()).toBe(true);
     expect(ledger.text()).toContain('归档批次台账');
+    expect(ledger.text()).toContain('异常批次');
+    expect(ledger.text()).toContain('3');
+    expect(ledger.text()).toContain('执行偏差总量');
+    expect(ledger.text()).toContain('+18');
+    expect(ledger.text()).toContain('剩余过期总量');
+    expect(ledger.text()).toContain('最近异常批次');
+    expect(ledger.text()).toContain('iot_message_log-20260426090100');
     expect(ledger.text()).toContain('iot_message_log-20260426000119');
     expect(ledger.text()).toContain('SUCCEEDED');
+    expect(ledger.text()).toContain('已对齐');
     expect(ledger.text()).toContain('确认 16098');
     expect(ledger.text()).toContain('归档 16098');
     expect(ledger.text()).toContain('删除 16098');
+    expect(ledger.text()).toContain('确认差值 0');
+    expect(ledger.text()).toContain('dry-run 差值 0');
+    expect(ledger.text()).toContain('剩余过期 0');
+    expect(ledger.text()).toContain('报告 可预览');
     expect(ledger.text()).toContain('logs/observability/observability-log-governance-20260425-235900.json');
 
     const detailButton = ledger.findAll('button').find((button) => button.text().includes('详情'));
@@ -885,11 +925,14 @@ describe('AuditLogView', () => {
     await nextTick();
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchOverview).mockClear();
 
     await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue(
       'iot_message_log-20260426000119'
     );
     await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('SUCCEEDED');
+    await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
+    await wrapper.get('[data-testid="archive-batch-filter-only-abnormal"]').setValue(true);
     await wrapper.get('[data-testid="archive-batch-filter-date-from"]').setValue('2026-04-26');
     await wrapper.get('[data-testid="archive-batch-filter-date-to"]').setValue('2026-04-26');
 
@@ -901,10 +944,17 @@ describe('AuditLogView', () => {
       batchNo: 'iot_message_log-20260426000119',
       sourceTable: 'iot_message_log',
       status: 'SUCCEEDED',
+      compareStatus: 'DRIFTED',
+      onlyAbnormal: true,
       dateFrom: '2026-04-26 00:00:00',
       dateTo: '2026-04-26 23:59:59',
       pageNum: 1,
       pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchOverview).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log',
+      dateFrom: '2026-04-26 00:00:00',
+      dateTo: '2026-04-26 23:59:59'
     });
   });
 
