@@ -6,12 +6,14 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchOverviewQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchOverviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
@@ -141,6 +143,8 @@ class ObservabilityEvidenceControllerTest {
         query.setBatchNo("iot_message_log-20260426000119");
         query.setSourceTable("iot_message_log");
         query.setStatus("SUCCEEDED");
+        query.setCompareStatus("DRIFTED");
+        query.setOnlyAbnormal(true);
         query.setDateFrom("2026-04-26 00:00:00");
         query.setDateTo("2026-04-26 23:59:59");
         query.setPageNum(1L);
@@ -159,6 +163,27 @@ class ObservabilityEvidenceControllerTest {
         assertEquals(1L, response.getData().getTotal());
         assertEquals("SUCCEEDED", response.getData().getRecords().get(0).getStatus());
         verify(observabilityEvidenceQueryService).pageMessageArchiveBatches(query, 10001L);
+    }
+
+    @Test
+    void getMessageArchiveBatchOverviewShouldDelegateQuery() {
+        ObservabilityMessageArchiveBatchOverviewQuery query = new ObservabilityMessageArchiveBatchOverviewQuery();
+        query.setSourceTable("iot_message_log");
+        query.setDateFrom("2026-04-26 00:00:00");
+        query.setDateTo("2026-04-26 23:59:59");
+
+        ObservabilityMessageArchiveBatchOverviewVO overview = new ObservabilityMessageArchiveBatchOverviewVO();
+        overview.setAbnormalBatches(2L);
+        overview.setTotalRemainingExpiredRows(118L);
+        when(observabilityEvidenceQueryService.getMessageArchiveBatchOverview(query, 10001L))
+                .thenReturn(overview);
+
+        R<ObservabilityMessageArchiveBatchOverviewVO> response =
+                controller.getMessageArchiveBatchOverview(query, authentication(10001L));
+
+        assertEquals(2L, response.getData().getAbnormalBatches());
+        assertEquals(118L, response.getData().getTotalRemainingExpiredRows());
+        verify(observabilityEvidenceQueryService).getMessageArchiveBatchOverview(query, 10001L);
     }
 
     @Test

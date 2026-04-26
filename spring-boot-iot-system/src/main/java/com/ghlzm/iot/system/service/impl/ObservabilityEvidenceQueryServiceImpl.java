@@ -8,6 +8,7 @@ import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchOverviewQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
@@ -17,6 +18,7 @@ import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareSourceVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareTableVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchOverviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportTableSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
@@ -233,6 +235,14 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 rowArgs.toArray()
         );
         return PageResult.of(total, pageNum, pageSize, records);
+    }
+
+    @Override
+    public ObservabilityMessageArchiveBatchOverviewVO getMessageArchiveBatchOverview(
+            ObservabilityMessageArchiveBatchOverviewQuery query,
+            Long currentUserId
+    ) {
+        return new ObservabilityMessageArchiveBatchOverviewVO();
     }
 
     @Override

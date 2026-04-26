@@ -7,12 +7,14 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
+import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchOverviewQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchOverviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
@@ -61,6 +63,17 @@ public class ObservabilityEvidenceController {
             Authentication authentication
     ) {
         return R.ok(observabilityEvidenceQueryService.pageMessageArchiveBatches(
+                query,
+                requireCurrentUserId(authentication)
+        ));
+    }
+
+    @GetMapping("/message-archive-batches/overview")
+    public R<ObservabilityMessageArchiveBatchOverviewVO> getMessageArchiveBatchOverview(
+            ObservabilityMessageArchiveBatchOverviewQuery query,
+            Authentication authentication
+    ) {
+        return R.ok(observabilityEvidenceQueryService.getMessageArchiveBatchOverview(
                 query,
                 requireCurrentUserId(authentication)
         ));
