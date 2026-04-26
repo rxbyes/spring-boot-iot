@@ -4,6 +4,7 @@ import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.alarm.vo.RiskPointPendingCandidateBundleVO;
@@ -248,12 +249,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         assertEquals(1, result.getCandidates().size());
         assertEquals(7001L, result.getCandidates().get(0).getRiskMetricId());
-        verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
-                org.mockito.ArgumentMatchers.eq(2001L),
-                org.mockito.ArgumentMatchers.isNull(),
-                any(),
-                org.mockito.ArgumentMatchers.eq(java.util.Set.of("value"))
-        );
+        verify(fixture.rebuildService).rebuildLatestRelease(2001L);
     }
 
     @Test
@@ -276,34 +272,20 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         fixture.service.getCandidates(9001L, 1001L);
 
-        verify(fixture.riskMetricCatalogService).publishFromReleasedContracts(
-                org.mockito.ArgumentMatchers.eq(2001L),
-                org.mockito.ArgumentMatchers.isNull(),
-                any(),
-                org.mockito.ArgumentMatchers.eq(Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ"))
-        );
+        verify(fixture.rebuildService).rebuildLatestRelease(2001L);
     }
 
     @Test
-    void getCandidatesShouldNotPublishGnssBaseStationMetricsForCatalogGovernance() {
+    void getCandidatesShouldSkipCatalogRebuildWhenProductHasNoReleasedContracts() {
         Fixture fixture = new Fixture();
-        fixture.device.setDeviceName("DB6-基准点（GNSS）");
-        fixture.pending.setDeviceName("DB6-基准点（GNSS）");
-        when(fixture.productMapper.selectById(2001L))
-                .thenReturn(fixture.product("nf-monitor-gnss-base-station-v1", "南方测绘 监测型 GNSS基准站"));
-
-        ProductModel gpsTotalX = fixture.productModel("L1_GP_1.gpsTotalX", "GNSS累计位移 X", "double", 1);
-        ProductModel gpsTotalY = fixture.productModel("L1_GP_1.gpsTotalY", "GNSS累计位移 Y", "double", 2);
-        ProductModel gpsTotalZ = fixture.productModel("L1_GP_1.gpsTotalZ", "GNSS累计位移 Z", "double", 3);
-
-        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of(gpsTotalX, gpsTotalY, gpsTotalZ));
+        when(fixture.productModelMapper.selectList(any())).thenReturn(List.of());
         when(fixture.devicePropertyMapper.selectList(any())).thenReturn(List.of());
         when(fixture.deviceMessageLogMapper.selectList(any())).thenReturn(List.of());
         when(fixture.promotionMapper.selectList(any())).thenReturn(List.of());
 
         fixture.service.getCandidates(9001L, 1001L);
 
-        verify(fixture.riskMetricCatalogService, never()).publishFromReleasedContracts(any(), any(), any(), any());
+        verify(fixture.rebuildService, never()).rebuildLatestRelease(any());
     }
 
     @Test
@@ -353,6 +335,7 @@ class RiskPointPendingRecommendationServiceImplTest {
         private final RiskPointDevicePendingPromotionMapper promotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
         private final ProductMapper productMapper = mock(ProductMapper.class);
         private final RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        private final RiskMetricCatalogRebuildService rebuildService = mock(RiskMetricCatalogRebuildService.class);
         private final RiskPointPendingRecommendationServiceImpl service = new RiskPointPendingRecommendationServiceImpl(
                 bindingService,
                 deviceService,
@@ -367,6 +350,7 @@ class RiskPointPendingRecommendationServiceImplTest {
 
         private Fixture() {
             service.setProductMapper(productMapper);
+            service.setRiskMetricCatalogRebuildService(rebuildService);
             when(bindingService.getRequiredPending(9001L, 1001L)).thenReturn(pending);
             when(deviceService.getRequiredById(3002L)).thenReturn(device);
         }

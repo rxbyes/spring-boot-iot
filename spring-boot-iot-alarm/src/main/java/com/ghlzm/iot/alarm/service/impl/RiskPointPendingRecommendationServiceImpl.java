@@ -6,6 +6,7 @@ import com.ghlzm.iot.alarm.entity.RiskPointDevicePendingPromotion;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingBindingService;
 import com.ghlzm.iot.alarm.service.RiskPointPendingRecommendationService;
@@ -87,6 +88,7 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
     private final RiskPointDevicePendingPromotionMapper pendingPromotionMapper;
     private final RiskMetricCatalogService riskMetricCatalogService;
     private final RiskMetricCatalogPublishRule riskMetricCatalogPublishRule;
+    private RiskMetricCatalogRebuildService riskMetricCatalogRebuildService;
     private ProductMapper productMapper;
     private final RiskPointPendingMetricGovernanceRules metricGovernanceRules = new RiskPointPendingMetricGovernanceRules();
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -154,6 +156,11 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
         this.productMapper = productMapper;
     }
 
+    @Autowired(required = false)
+    void setRiskMetricCatalogRebuildService(RiskMetricCatalogRebuildService riskMetricCatalogRebuildService) {
+        this.riskMetricCatalogRebuildService = riskMetricCatalogRebuildService;
+    }
+
     @Override
     public RiskPointPendingCandidateBundleVO getCandidates(Long pendingId, Long currentUserId) {
         RiskPointDevicePendingBinding pending = pendingBindingService.getRequiredPending(pendingId, currentUserId);
@@ -218,6 +225,10 @@ public class RiskPointPendingRecommendationServiceImpl implements RiskPointPendi
 
     private void publishRiskMetricCatalog(Device device, List<ProductModel> productModels) {
         if (riskMetricCatalogService == null || device == null || device.getProductId() == null || productModels == null || productModels.isEmpty()) {
+            return;
+        }
+        if (riskMetricCatalogRebuildService != null) {
+            riskMetricCatalogRebuildService.rebuildLatestRelease(device.getProductId());
             return;
         }
         Product product = productMapper == null ? null : productMapper.selectById(device.getProductId());

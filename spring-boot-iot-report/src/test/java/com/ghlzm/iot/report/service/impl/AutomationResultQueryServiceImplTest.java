@@ -132,7 +132,7 @@ class AutomationResultQueryServiceImplTest {
                               "runnerType": "riskDrill",
                               "status": "failed",
                               "blocking": "blocker",
-                              "summary": "simulated failure",
+                              "summary": "simulated failure 500",
                               "evidenceFiles": [
                                 "logs/acceptance/risk-drill-1775116282733.json"
                               ]

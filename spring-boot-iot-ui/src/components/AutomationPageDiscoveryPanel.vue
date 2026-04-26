@@ -5,11 +5,11 @@
   >
     <template #actions>
       <StandardActionGroup gap="sm">
-        <StandardButton v-permission="'system:rd-automation-inventory:refresh'" action="refresh" @click="$emit('refresh')">刷新盘点</StandardButton>
-        <StandardButton v-permission="'system:rd-automation-inventory:select-uncovered'" action="batch" plain @click="$emit('select-uncovered')">勾选未覆盖</StandardButton>
-        <StandardButton v-permission="'system:rd-automation-inventory:generate-scaffold'" action="confirm" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
-        <StandardButton v-permission="'system:rd-automation-inventory:generate-scaffold'" action="batch" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
-        <StandardButton v-permission="'system:rd-automation-inventory:manual-page'" action="add" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-refresh'" action="refresh" @click="$emit('refresh')">刷新盘点</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-select-uncovered'" action="batch" plain @click="$emit('select-uncovered')">勾选未覆盖</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-generate-scaffold'" action="confirm" @click="$emit('generate-selected')">生成勾选场景</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-generate-scaffold'" action="batch" @click="$emit('generate-uncovered')">一键生成全部未覆盖</StandardButton>
+        <StandardButton v-permission="'system:automation-governance:assets:inventory-manual-page'" action="add" @click="$emit('open-manual-page')">新增自定义页面</StandardButton>
       </StandardActionGroup>
     </template>
 
@@ -88,7 +88,7 @@
         <template #default="{ row }">
           <StandardWorkbenchRowActions
             v-if="row.source === 'manual'"
-            v-permission="'system:rd-automation-inventory:manual-page'"
+            v-permission="'system:automation-governance:assets:inventory-manual-page'"
             variant="table"
             :direct-items="manualPageRowActions"
             @command="() => $emit('remove-manual-page', row.id)"

@@ -23,21 +23,21 @@
         </ul>
         <StandardActionGroup gap="sm">
           <StandardButton
-            v-permission="'system:rd-automation-inventory:refresh'"
+            v-permission="'system:automation-governance:assets:inventory-refresh'"
             action="refresh"
             @click="refreshPageInventory"
           >
             刷新盘点
           </StandardButton>
           <StandardButton
-            v-permission="'system:rd-automation-inventory:select-uncovered'"
+            v-permission="'system:automation-governance:assets:inventory-select-uncovered'"
             action="batch"
             @click="selectUncoveredPages"
           >
             勾选未覆盖
           </StandardButton>
           <StandardButton
-            v-permission="'system:rd-automation-inventory:generate-scaffold'"
+            v-permission="'system:automation-governance:assets:inventory-generate-scaffold'"
             action="confirm"
             @click="generateUncoveredInventoryScenarios"
           >

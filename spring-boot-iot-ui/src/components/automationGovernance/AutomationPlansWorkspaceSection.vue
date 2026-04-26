@@ -22,21 +22,21 @@
         </ul>
         <StandardActionGroup gap="sm">
           <StandardButton
-            v-permission="'system:rd-automation-plans:import'"
+            v-permission="'system:automation-governance:assets:plans-import'"
             action="batch"
             @click="showImportDialog = true"
           >
             导入计划
           </StandardButton>
           <StandardButton
-            v-permission="'system:rd-automation-plans:export'"
+            v-permission="'system:automation-governance:assets:plans-export'"
             action="confirm"
             @click="downloadPlan"
           >
             导出 JSON
           </StandardButton>
           <StandardButton
-            v-permission="'system:rd-automation-plans:reset'"
+            v-permission="'system:automation-governance:assets:plans-reset'"
             action="reset"
             @click="resetPlan"
           >

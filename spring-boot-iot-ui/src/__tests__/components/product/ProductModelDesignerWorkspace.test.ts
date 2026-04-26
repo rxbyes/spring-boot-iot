@@ -1279,6 +1279,7 @@ describe('ProductModelDesignerWorkspace', () => {
     expect(wrapper.text()).toContain('设为监测数据')
     expect(wrapper.text()).toContain('设为状态事件')
     expect(wrapper.text()).toContain('设为运行参数')
+    expect(wrapper.text()).toContain('只有执行“设为监测数据”的正式字段才会进入风险指标目录')
     expect(wrapper.text()).not.toContain('设为状态趋势')
   })
 
@@ -1335,6 +1336,64 @@ describe('ProductModelDesignerWorkspace', () => {
         metadataJson: expect.stringContaining('"identifier":"signal_4g"')
       })
     )
+  })
+
+  it('blocks switching a catalog-backed measure metric to status-event before remove', async () => {
+    const wrapper = mountWorkspace({
+      metadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'value',
+              displayName: '裂缝值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true,
+              sortNo: 10
+            }
+          ]
+        }
+      })
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-trend-status-event-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(ElMessage.warning).toHaveBeenCalledWith('请先取消趋势展示，使该字段退出风险目录后再改成状态事件')
+    expect(mockUpdateProduct).not.toHaveBeenCalled()
+  })
+
+  it('blocks switching a catalog-backed measure metric to runtime before remove', async () => {
+    const wrapper = mountWorkspace({
+      metadataJson: JSON.stringify({
+        objectInsight: {
+          customMetrics: [
+            {
+              identifier: 'value',
+              displayName: '裂缝值',
+              group: 'measure',
+              includeInTrend: true,
+              includeInExtension: false,
+              enabled: true,
+              sortNo: 10
+            }
+          ]
+        }
+      })
+    })
+    await flushPromises()
+    await nextTick()
+
+    await wrapper.get('[data-testid="formal-model-trend-runtime-2001"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(ElMessage.warning).toHaveBeenCalledWith('请先取消趋势展示，使该字段退出风险目录后再改成运行参数')
+    expect(mockUpdateProduct).not.toHaveBeenCalled()
   })
 
   it('does not add a second toast when handled object-insight runtime save errors happen', async () => {

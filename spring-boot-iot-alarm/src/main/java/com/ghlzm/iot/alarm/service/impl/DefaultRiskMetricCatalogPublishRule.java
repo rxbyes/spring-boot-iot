@@ -6,32 +6,29 @@ import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.entity.ProductModel;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 风险指标目录发布规则默认实现。
+ *
+ * <p>目录准入真相源只来自契约字段页显式保存的
+ * {@code metadataJson.objectInsight.customMetrics[]} 中
+ * {@code group=measure && enabled=true && includeInTrend=true} 的正式字段。</p>
  */
 @Component
 public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPublishRule {
 
-    /**
-     * 风险闭环只发布主监测值，状态、初始值和倾角/加速度等治理字段不进入该目录。
-     */
-    private static final Set<String> GNSS_TOTAL_IDENTIFIERS = Set.of("gpsTotalX", "gpsTotalY", "gpsTotalZ");
-    private static final Set<String> DEEP_DISPLACEMENT_IDENTIFIERS = Set.of("dispsX", "dispsY");
-    private static final Pattern LOGICAL_CHANNEL_PATTERN = Pattern.compile("(?i)^(L\\d+)_([A-Z]+)_(\\d+)$");
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Override
     public Set<String> resolveRiskEnabledIdentifiers(Device device, List<ProductModel> releasedContracts) {
-        return resolveRiskEnabledIdentifiers(null, null, device, releasedContracts);
+        return Set.of();
     }
 
     @Override
@@ -39,183 +36,71 @@ public class DefaultRiskMetricCatalogPublishRule implements RiskMetricCatalogPub
                                                      String scenarioCode,
                                                      Device device,
                                                      List<ProductModel> releasedContracts) {
-        if (releasedContracts == null || releasedContracts.isEmpty()) {
+        if (releasedContracts == null || releasedContracts.isEmpty() || product == null) {
             return Set.of();
         }
-        Map<String, ProductModel> releasedByIdentifier = collectReleasedByIdentifier(releasedContracts);
-        if (releasedByIdentifier.isEmpty()) {
+        Set<String> measureTruthIdentifiers = resolveMeasureTruthIdentifiers(product.getMetadataJson());
+        if (measureTruthIdentifiers.isEmpty()) {
             return Set.of();
         }
-        PublishContext context = PublishContext.from(product, scenarioCode, device);
         Set<String> enabledIdentifiers = new LinkedHashSet<>();
-        for (Map.Entry<String, ProductModel> entry : releasedByIdentifier.entrySet()) {
-            String identifier = entry.getKey();
-            if (isRiskReadyIdentifier(identifier, context, entry.getValue())) {
+        for (ProductModel contract : releasedContracts) {
+            if (contract == null) {
+                continue;
+            }
+            String modelType = normalize(contract.getModelType());
+            if (StringUtils.hasText(modelType) && !"property".equalsIgnoreCase(modelType)) {
+                continue;
+            }
+            String identifier = normalize(contract.getIdentifier());
+            if (StringUtils.hasText(identifier) && measureTruthIdentifiers.contains(identifier)) {
                 enabledIdentifiers.add(identifier);
             }
         }
         return enabledIdentifiers;
     }
 
-    private Map<String, ProductModel> collectReleasedByIdentifier(List<ProductModel> releasedContracts) {
-        Map<String, ProductModel> normalizedByIdentifier = new LinkedHashMap<>();
-        for (ProductModel contract : releasedContracts) {
-            String identifier = normalize(contract == null ? null : contract.getIdentifier());
-            if (identifier != null) {
-                normalizedByIdentifier.putIfAbsent(identifier, contract);
+    private Set<String> resolveMeasureTruthIdentifiers(String metadataJson) {
+        JsonNode customMetrics = readCustomMetrics(metadataJson);
+        if (customMetrics == null || !customMetrics.isArray()) {
+            return Set.of();
+        }
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (JsonNode item : customMetrics) {
+            if (item == null || !item.isObject()) {
+                continue;
+            }
+            String identifier = normalize(item.path("identifier").asText(null));
+            String group = normalize(item.path("group").asText(null));
+            boolean enabled = !item.has("enabled") || item.path("enabled").asBoolean(true);
+            boolean includeInTrend = !item.has("includeInTrend") || item.path("includeInTrend").asBoolean(true);
+            if (StringUtils.hasText(identifier)
+                    && "measure".equalsIgnoreCase(group)
+                    && enabled
+                    && includeInTrend) {
+                identifiers.add(identifier);
             }
         }
-        return normalizedByIdentifier;
+        return identifiers;
     }
 
-    private boolean isRiskReadyIdentifier(String identifier, PublishContext context, ProductModel contract) {
-        ParsedIdentifier parsed = ParsedIdentifier.parse(identifier);
-        if (parsed == null) {
-            return false;
+    private JsonNode readCustomMetrics(String metadataJson) {
+        String normalized = normalize(metadataJson);
+        if (!StringUtils.hasText(normalized)) {
+            return null;
         }
-        if (context.excludesRiskCatalog()) {
-            return false;
+        try {
+            JsonNode root = objectMapper.readTree(normalized);
+            if (root == null || !root.isObject()) {
+                return null;
+            }
+            return root.path("objectInsight").path("customMetrics");
+        } catch (Exception ex) {
+            return null;
         }
-        if ("L1".equals(parsed.level()) && "LF".equals(parsed.monitorType())) {
-            return "value".equals(parsed.leaf());
-        }
-        if ("L1".equals(parsed.level()) && "GP".equals(parsed.monitorType())) {
-            return GNSS_TOTAL_IDENTIFIERS.contains(parsed.leaf());
-        }
-        String original = parsed.original();
-        if (DEEP_DISPLACEMENT_IDENTIFIERS.contains(original)) {
-            return context.matchesDeepDisplacement(contract);
-        }
-        if (GNSS_TOTAL_IDENTIFIERS.contains(original)) {
-            return context.matchesGnss(contract);
-        }
-        if ("value".equals(original)) {
-            return context.matchesSingleValueRisk(contract);
-        }
-        return false;
     }
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
-    }
-
-    private record PublishContext(String productKey, String productName, String scenarioCode, String deviceName) {
-
-        private static PublishContext from(Product product,
-                                           String scenarioCode,
-                                           Device device) {
-            return new PublishContext(
-                    normalizeValue(product == null ? null : product.getProductKey()),
-                    normalizeValue(product == null ? null : product.getProductName()),
-                    normalizeValue(scenarioCode),
-                    normalizeValue(device == null ? null : device.getDeviceName())
-            );
-        }
-
-        private boolean matchesSingleValueRisk(ProductModel contract) {
-            return matchesCrack(contract) || matchesLaser(contract) || matchesRain(contract);
-        }
-
-        private boolean excludesRiskCatalog() {
-            return matchesScopeOnly("phase5-mud-level", "mud-level", "mud_level", "泥位")
-                    || matchesScopeOnly("base-station", "base_station", "基准站");
-        }
-
-        private boolean matchesCrack(ProductModel contract) {
-            return matchesAny(contract, "phase1-crack", "crack", "裂缝");
-        }
-
-        private boolean matchesLaser(ProductModel contract) {
-            return matchesAny(contract, "laser-rangefinder", "laser_rangefinder", "laser", "激光", "测距");
-        }
-
-        private boolean matchesRain(ProductModel contract) {
-            return matchesAny(contract, "phase4-rain-gauge", "rain-gauge", "rain_gauge", "rain", "雨量");
-        }
-
-        private boolean matchesGnss(ProductModel contract) {
-            return matchesAny(contract, "phase2-gnss", "gnss", "北斗");
-        }
-
-        private boolean matchesDeepDisplacement(ProductModel contract) {
-            return matchesAny(contract, "phase3-deep-displacement", "deep-displacement", "deep_displacement", "深部位移");
-        }
-
-        private boolean matchesScopeOnly(String... tokens) {
-            String blob = String.join(" ",
-                    safeLower(productKey),
-                    safeLower(productName),
-                    safeLower(scenarioCode)
-            );
-            for (String token : tokens) {
-                if (StringUtils.hasText(token) && blob.contains(token.toLowerCase(Locale.ROOT))) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean matchesAny(ProductModel contract, String... tokens) {
-            String blob = String.join(" ",
-                    safeLower(productKey),
-                    safeLower(productName),
-                    safeLower(scenarioCode),
-                    safeLower(deviceName),
-                    safeLower(contract == null ? null : contract.getModelName()),
-                    safeLower(contract == null ? null : contract.getDescription())
-            );
-            for (String token : tokens) {
-                if (StringUtils.hasText(token) && blob.contains(token.toLowerCase(Locale.ROOT))) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private static String normalizeValue(String value) {
-            return StringUtils.hasText(value) ? value.trim() : null;
-        }
-
-        private static String safeLower(String value) {
-            return StringUtils.hasText(value) ? value.trim().toLowerCase(Locale.ROOT) : "";
-        }
-    }
-
-    private record ParsedIdentifier(String original, String level, String monitorType, String channelNo, String leaf) {
-
-        private static ParsedIdentifier parse(String identifier) {
-            if (!StringUtils.hasText(identifier)) {
-                return null;
-            }
-            String original = identifier.trim();
-            String prefix = null;
-            String leaf = original;
-            int dotIndex = original.lastIndexOf('.');
-            if (dotIndex > 0 && dotIndex < original.length() - 1) {
-                prefix = original.substring(0, dotIndex);
-                leaf = original.substring(dotIndex + 1);
-            } else if (isLogicalChannel(original)) {
-                prefix = original;
-                leaf = null;
-            }
-            if (!StringUtils.hasText(prefix)) {
-                return new ParsedIdentifier(original, null, null, null, leaf);
-            }
-            Matcher matcher = LOGICAL_CHANNEL_PATTERN.matcher(prefix);
-            if (!matcher.matches()) {
-                return new ParsedIdentifier(original, null, null, null, leaf);
-            }
-            return new ParsedIdentifier(
-                    original,
-                    matcher.group(1).toUpperCase(Locale.ROOT),
-                    matcher.group(2).toUpperCase(Locale.ROOT),
-                    matcher.group(3),
-                    leaf
-            );
-        }
-
-        private static boolean isLogicalChannel(String value) {
-            return StringUtils.hasText(value) && LOGICAL_CHANNEL_PATTERN.matcher(value.trim()).matches();
-        }
     }
 }

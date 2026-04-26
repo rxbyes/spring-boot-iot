@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ghlzm.iot.common.event.governance.ProductObjectInsightMetricsChangedEvent;
 import com.ghlzm.iot.common.enums.DeviceStatusEnum;
 import com.ghlzm.iot.common.enums.ProductStatusEnum;
 import com.ghlzm.iot.common.exception.BizException;
@@ -41,8 +42,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -63,6 +66,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     private final DeviceOnlineSessionService deviceOnlineSessionService;
     private final PublishedProductContractSnapshotService snapshotService;
     private final MetricIdentifierResolver metricIdentifierResolver;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Autowired
@@ -71,13 +75,32 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                               ProductContractReleaseBatchMapper releaseBatchMapper,
                               DeviceOnlineSessionService deviceOnlineSessionService,
                               PublishedProductContractSnapshotService snapshotService,
-                              MetricIdentifierResolver metricIdentifierResolver) {
+                              MetricIdentifierResolver metricIdentifierResolver,
+                              ApplicationEventPublisher applicationEventPublisher) {
         this.deviceMapper = deviceMapper;
         this.productModelMapper = productModelMapper;
         this.releaseBatchMapper = releaseBatchMapper;
         this.deviceOnlineSessionService = deviceOnlineSessionService;
         this.snapshotService = snapshotService;
         this.metricIdentifierResolver = metricIdentifierResolver;
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    public ProductServiceImpl(DeviceMapper deviceMapper,
+                              ProductModelMapper productModelMapper,
+                              ProductContractReleaseBatchMapper releaseBatchMapper,
+                              DeviceOnlineSessionService deviceOnlineSessionService,
+                              PublishedProductContractSnapshotService snapshotService,
+                              MetricIdentifierResolver metricIdentifierResolver) {
+        this(
+                deviceMapper,
+                productModelMapper,
+                releaseBatchMapper,
+                deviceOnlineSessionService,
+                snapshotService,
+                metricIdentifierResolver,
+                null
+        );
     }
 
     public ProductServiceImpl(DeviceMapper deviceMapper,
@@ -90,7 +113,8 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 releaseBatchMapper,
                 deviceOnlineSessionService,
                 new PublishedProductContractSnapshotServiceImpl(productModelMapper, releaseBatchMapper),
-                new DefaultMetricIdentifierResolver()
+                new DefaultMetricIdentifierResolver(),
+                null
         );
     }
 
@@ -198,8 +222,10 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             }
         }
 
+        String previousMetadataJson = product.getMetadataJson();
         applyEditableFields(product, dto);
         updateById(product);
+        publishObjectInsightMetricSyncEvent(product, previousMetadataJson);
 
         if (protocolChanged || nodeTypeChanged) {
             syncRelatedDeviceBaseInfo(product);
@@ -408,6 +434,34 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             return null;
         }
         return batches.get(0);
+    }
+
+    private void publishObjectInsightMetricSyncEvent(Product product, String previousMetadataJson) {
+        if (applicationEventPublisher == null || product == null) {
+            return;
+        }
+        String normalizedPreviousMetadataJson = normalizeMetadataJsonForComparison(product.getId(), previousMetadataJson);
+        if (Objects.equals(normalizedPreviousMetadataJson, product.getMetadataJson())) {
+            return;
+        }
+        ProductContractReleaseBatch latestBatch = loadLatestReleaseBatch(product.getId());
+        applicationEventPublisher.publishEvent(new ProductObjectInsightMetricsChangedEvent(
+                product.getTenantId(),
+                product.getId(),
+                latestBatch == null ? null : latestBatch.getId(),
+                null
+        ));
+    }
+
+    private String normalizeMetadataJsonForComparison(Long productId, String metadataJson) {
+        if (!StringUtils.hasText(metadataJson)) {
+            return null;
+        }
+        try {
+            return normalizeMetadataJson(productId, metadataJson);
+        } catch (BizException ex) {
+            return metadataJson.trim();
+        }
     }
 
     private ProductPageVO toPageVO(Product product, ProductDeviceStatRow stat) {

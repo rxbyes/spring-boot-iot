@@ -7,10 +7,10 @@
     >
       <template #actions>
         <StandardRowActions variant="editor" gap="comfortable">
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" :disabled="scenarioIndex === 0" @click="$emit('move-scenario', -1)">上移</StandardActionLink>
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" :disabled="scenarioIndex === scenarioCount - 1" @click="$emit('move-scenario', 1)">下移</StandardActionLink>
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('copy-scenario')">复制</StandardActionLink>
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('remove-scenario')">删除</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" :disabled="scenarioIndex === 0" @click="$emit('move-scenario', -1)">上移</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" :disabled="scenarioIndex === scenarioCount - 1" @click="$emit('move-scenario', 1)">下移</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="$emit('copy-scenario')">复制</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="$emit('remove-scenario')">删除</StandardActionLink>
         </StandardRowActions>
       </template>
     </StandardInlineSectionHeader>
@@ -60,7 +60,7 @@
     <section class="automation-scenario-editor__block">
       <StandardInlineSectionHeader title="业务点梳理">
         <template #actions>
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="scenario.featurePoints.push('')">新增业务点</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="scenario.featurePoints.push('')">新增业务点</StandardActionLink>
         </template>
       </StandardInlineSectionHeader>
       <div v-if="scenario.featurePoints.length === 0" class="automation-scenario-editor__empty">
@@ -75,14 +75,14 @@
           v-model="scenario.featurePoints[pointIndex]"
           placeholder="例如：新增、查询、详情、导出、状态切换"
         />
-        <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="scenario.featurePoints.splice(pointIndex, 1)">移除</StandardActionLink>
+        <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="scenario.featurePoints.splice(pointIndex, 1)">移除</StandardActionLink>
       </div>
     </section>
 
     <section class="automation-scenario-editor__block">
       <StandardInlineSectionHeader title="首屏接口">
         <template #actions>
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('add-initial-api')">新增接口</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="$emit('add-initial-api')">新增接口</StandardActionLink>
         </template>
       </StandardInlineSectionHeader>
       <div v-if="scenario.initialApis.length === 0" class="automation-scenario-editor__empty">
@@ -109,14 +109,14 @@
           <span>可选接口</span>
           <el-switch v-model="api.optional" />
         </label>
-        <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="scenario.initialApis.splice(apiIndex, 1)">移除</StandardActionLink>
+        <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="scenario.initialApis.splice(apiIndex, 1)">移除</StandardActionLink>
       </div>
     </section>
 
     <section class="automation-scenario-editor__block">
       <StandardInlineSectionHeader title="步骤编排">
         <template #actions>
-          <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('add-step')">新增步骤</StandardActionLink>
+          <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="$emit('add-step')">新增步骤</StandardActionLink>
         </template>
       </StandardInlineSectionHeader>
       <AutomationStepEditor

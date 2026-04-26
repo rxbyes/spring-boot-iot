@@ -1,9 +1,11 @@
 # 监测型产品风险指标目录补齐设计
 
+> 历史说明：该设计文档记录的是 `2026-04-25` 的过渡方案。自 `2026-04-26` 起，风险指标目录的当前正式真相已切换为产品 `metadataJson.objectInsight.customMetrics[]` 中显式 `group=measure && enabled=true && includeInTrend=true` 的正式字段；“取消趋势展示”会同步把字段移出 `risk_metric_catalog`。下文保留为当日问题背景与过渡实现记录，不再代表当前发布真相。
+
 **Date:** 2026-04-25  
-**Status:** Approved in-session for spec drafting  
+**Status:** Historical draft, superseded on 2026-04-26 by explicit `设为监测数据` measure truth
 **Audience:** 设备治理 / 风险对象中心 / 风险目录发布链路 / 测试验收 / 文档维护  
-**Scope:** 修复监测型产品正式合同已经发布、但风险绑定正式目录为空的问题，首批覆盖多维位移、GNSS 位移与裂缝计，保持倾角仪、泥位计和 GNSS 基准站不进入本轮风险闭环。
+**Scope:** 记录修复监测型产品正式合同已经发布、但风险绑定正式目录为空的问题的过渡方案；当前正式范围与行为以后续 measure truth 方案为准。
 
 ## 1. 背景
 
