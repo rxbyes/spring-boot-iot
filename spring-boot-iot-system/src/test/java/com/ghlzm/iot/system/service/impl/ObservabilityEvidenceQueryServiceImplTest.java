@@ -10,17 +10,22 @@ import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
+import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +34,7 @@ import org.springframework.jdbc.core.RowMapper;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,11 +53,14 @@ class ObservabilityEvidenceQueryServiceImplTest {
     @Mock
     private PermissionService permissionService;
 
+    @TempDir
+    Path tempDir;
+
     private ObservabilityEvidenceQueryServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new ObservabilityEvidenceQueryServiceImpl(jdbcTemplate, permissionService);
+        service = new ObservabilityEvidenceQueryServiceImpl(jdbcTemplate, permissionService, tempDir);
         lenient().when(permissionService.getDataPermissionContext(10001L))
                 .thenReturn(new DataPermissionContext(10001L, 1L, 10L, null, false));
     }
@@ -219,6 +228,107 @@ class ObservabilityEvidenceQueryServiceImplTest {
         assertTrue(sql.contains("create_time >= ?"));
         assertTrue(sql.contains("create_time <= ?"));
         assertFalse(sql.contains("tenant_id = ?"));
+    }
+
+    @Test
+    void getMessageArchiveBatchReportPreviewShouldRejectPathOutsideObservabilityLogs() {
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setConfirmReportPath("../secrets/report.json");
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchReportPreviewVO result =
+                service.getMessageArchiveBatchReportPreview("iot_message_log-20260426000119", 10001L);
+
+        assertFalse(Boolean.TRUE.equals(result.getAvailable()));
+        assertEquals("REPORT_PATH_REJECTED", result.getReasonCode());
+    }
+
+    @Test
+    void getMessageArchiveBatchReportPreviewShouldKeepJsonSummaryWhenMarkdownMissing() throws IOException {
+        Path jsonPath = writeObservabilityReportFile(
+                "observability-log-governance-preview.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "APPLY",
+                  "summary": {
+                    "expiredRows": 16098,
+                    "deletedRows": 16098,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "timeField": "report_time",
+                      "cutoffAt": "2026-03-27T00:01:19",
+                      "totalRows": 584835,
+                      "expiredRows": 16098,
+                      "deletedRows": 16098,
+                      "remainingExpiredRows": 0
+                    }
+                  }
+                }
+                """
+        );
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000119");
+        row.setSourceTable("iot_message_log");
+        row.setStatus("SUCCEEDED");
+        row.setConfirmReportPath(toRepoRelativePath(jsonPath));
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchReportPreviewVO result =
+                service.getMessageArchiveBatchReportPreview("iot_message_log-20260426000119", 10001L);
+
+        assertTrue(Boolean.TRUE.equals(result.getAvailable()));
+        assertFalse(Boolean.TRUE.equals(result.getMarkdownAvailable()));
+        assertEquals(16098, ((Number) result.getSummary().get("expiredRows")).intValue());
+        assertEquals("APPLY", result.getSummary().get("mode"));
+        assertEquals(1, result.getTableSummaries().size());
+        assertEquals("iot_message_log", result.getTableSummaries().get(0).getTableName());
+    }
+
+    @Test
+    void getMessageArchiveBatchReportPreviewShouldTruncateMarkdownPreview() throws IOException {
+        Path jsonPath = writeObservabilityReportFile(
+                "observability-log-governance-truncated.json",
+                """
+                {
+                  "generatedAt": "2026-04-25T23:59:00",
+                  "mode": "DRY_RUN",
+                  "summary": {
+                    "expiredRows": 5,
+                    "deletedRows": 0,
+                    "tablesWithExpiredRows": 1
+                  },
+                  "tables": {
+                    "iot_message_log": {
+                      "label": "设备消息日志",
+                      "retentionDays": 30,
+                      "expiredRows": 5,
+                      "deletedRows": 0,
+                      "remainingExpiredRows": 5
+                    }
+                  }
+                }
+                """
+        );
+        writeObservabilityReportFile("observability-log-governance-truncated.md", buildLongMarkdown());
+        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
+        row.setBatchNo("iot_message_log-20260426000120");
+        row.setConfirmReportPath(toRepoRelativePath(jsonPath));
+        mockArchiveBatchLookup(row);
+
+        ObservabilityMessageArchiveBatchReportPreviewVO result =
+                service.getMessageArchiveBatchReportPreview("iot_message_log-20260426000120", 10001L);
+
+        assertTrue(Boolean.TRUE.equals(result.getAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getMarkdownAvailable()));
+        assertTrue(Boolean.TRUE.equals(result.getMarkdownTruncated()));
+        assertNotNull(result.getMarkdownPreview());
+        assertTrue(result.getMarkdownPreview().length() <= 6000);
     }
 
     @Test
@@ -429,5 +539,33 @@ class ObservabilityEvidenceQueryServiceImplTest {
         assertEquals(2, result.getTimeline().size());
         assertEquals("SPAN", result.getTimeline().get(0).getItemType());
         assertEquals("BUSINESS_EVENT", result.getTimeline().get(1).getItemType());
+    }
+
+    private void mockArchiveBatchLookup(ObservabilityMessageArchiveBatchVO row) {
+        doReturn(List.of(row)).when(jdbcTemplate).query(
+                contains("FROM iot_message_log_archive_batch"),
+                any(RowMapper.class),
+                any(Object[].class)
+        );
+    }
+
+    private Path writeObservabilityReportFile(String fileName, String content) throws IOException {
+        Path directory = tempDir.resolve("logs").resolve("observability");
+        Files.createDirectories(directory);
+        Path file = directory.resolve(fileName);
+        Files.writeString(file, content);
+        return file;
+    }
+
+    private String toRepoRelativePath(Path file) {
+        return tempDir.relativize(file).toString().replace('\\', '/');
+    }
+
+    private String buildLongMarkdown() {
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < 120; index++) {
+            builder.append("line ").append(index).append(" preview payload ").append("x".repeat(80)).append('\n');
+        }
+        return builder.toString();
     }
 }
