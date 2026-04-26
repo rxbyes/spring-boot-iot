@@ -958,6 +958,59 @@ describe('AuditLogView', () => {
     });
   });
 
+  it('replaces archive batch filters from summary cards', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const abnormalCard = wrapper.get('[data-testid="archive-batch-overview-abnormal"]');
+    const driftedCard = wrapper.get('[data-testid="archive-batch-overview-drifted"]');
+    const remainingCard = wrapper.get('[data-testid="archive-batch-overview-remaining"]');
+
+    expect(abnormalCard.exists()).toBe(true);
+    expect(driftedCard.exists()).toBe(true);
+    expect(remainingCard.exists()).toBe(true);
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await abnormalCard.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await driftedCard.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log',
+      compareStatus: 'DRIFTED',
+      pageNum: 1,
+      pageSize: 5
+    });
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await remainingCard.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+  });
+
   it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {
     const wrapper = mountView();
     await flushPromises();
