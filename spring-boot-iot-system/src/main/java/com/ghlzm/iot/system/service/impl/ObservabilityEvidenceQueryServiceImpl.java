@@ -8,19 +8,11 @@ import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
-import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchOverviewQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareSourceVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareSummaryVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareTableVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchOverviewVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportTableSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
@@ -28,11 +20,6 @@ import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
 import com.ghlzm.iot.system.vo.ObservabilitySpanVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceItemVO;
 import com.ghlzm.iot.system.vo.ObservabilityTraceEvidenceVO;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -44,12 +31,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.TreeMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -66,12 +50,6 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private static final int MAX_SLOW_SUMMARY_LIMIT = 50;
     private static final String SLOW_TREND_BUCKET_HOUR = "HOUR";
     private static final String SLOW_TREND_BUCKET_DAY = "DAY";
-    private static final String ARCHIVE_COMPARE_MATCHED = "MATCHED";
-    private static final String ARCHIVE_COMPARE_DRIFTED = "DRIFTED";
-    private static final String ARCHIVE_COMPARE_PARTIAL = "PARTIAL";
-    private static final String ARCHIVE_COMPARE_UNAVAILABLE = "UNAVAILABLE";
-    private static final int MARKDOWN_PREVIEW_MAX_LINES = 80;
-    private static final int MARKDOWN_PREVIEW_MAX_CHARS = 6000;
     private static final DateTimeFormatter SPACE_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
@@ -79,18 +57,10 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private final JdbcTemplate jdbcTemplate;
     private final PermissionService permissionService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
-    private final Path repoRoot;
-    private final Path observabilityLogDir;
 
     public ObservabilityEvidenceQueryServiceImpl(JdbcTemplate jdbcTemplate, PermissionService permissionService) {
-        this(jdbcTemplate, permissionService, Paths.get("").toAbsolutePath().normalize());
-    }
-
-    ObservabilityEvidenceQueryServiceImpl(JdbcTemplate jdbcTemplate, PermissionService permissionService, Path repoRoot) {
         this.jdbcTemplate = jdbcTemplate;
         this.permissionService = permissionService;
-        this.repoRoot = repoRoot.toAbsolutePath().normalize();
-        this.observabilityLogDir = this.repoRoot.resolve("logs").resolve("observability").normalize();
     }
 
     @Override
@@ -207,16 +177,6 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 query == null ? new ObservabilityMessageArchiveBatchPageQuery() : query;
         long pageNum = PageQueryUtils.normalizePageNum(criteria.getPageNum());
         long pageSize = PageQueryUtils.normalizePageSize(criteria.getPageSize());
-        if (hasMessageArchiveBatchProjectionFilters(criteria)) {
-            List<ObservabilityMessageArchiveBatchVO> filtered = loadProjectedMessageArchiveBatches(criteria);
-            long total = filtered.size();
-            if (total == 0L) {
-                return PageResult.empty(pageNum, pageSize);
-            }
-            int fromIndex = (int) Math.min((pageNum - 1L) * pageSize, total);
-            int toIndex = (int) Math.min(fromIndex + pageSize, total);
-            return PageResult.of(total, pageNum, pageSize, filtered.subList(fromIndex, toIndex));
-        }
         List<Object> args = new ArrayList<>();
         String where = buildMessageArchiveBatchWhere(criteria, args);
         Long total = jdbcTemplate.queryForObject(
@@ -244,61 +204,7 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
                 this::mapMessageArchiveBatch,
                 rowArgs.toArray()
         );
-        records.forEach(this::decorateMessageArchiveBatchProjection);
         return PageResult.of(total, pageNum, pageSize, records);
-    }
-
-    @Override
-    public ObservabilityMessageArchiveBatchOverviewVO getMessageArchiveBatchOverview(
-            ObservabilityMessageArchiveBatchOverviewQuery query,
-            Long currentUserId
-    ) {
-        ObservabilityMessageArchiveBatchOverviewQuery criteria =
-                query == null ? new ObservabilityMessageArchiveBatchOverviewQuery() : query;
-        List<Object> args = new ArrayList<>();
-        String where = buildMessageArchiveBatchOverviewWhere(criteria, args);
-        List<ObservabilityMessageArchiveBatchVO> rows = jdbcTemplate.query(
-                """
-                SELECT id, batch_no, source_table, governance_mode, status, retention_days,
-                       cutoff_at, confirm_report_path, confirm_report_generated_at,
-                       confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
-                       failed_reason, artifacts_json, create_time, update_time
-                FROM iot_message_log_archive_batch
-                WHERE %s
-                ORDER BY create_time DESC, id DESC
-                """.formatted(where),
-                this::mapMessageArchiveBatch,
-                args.toArray()
-        );
-        rows.forEach(this::decorateMessageArchiveBatchProjection);
-        return aggregateMessageArchiveBatchOverview(rows);
-    }
-
-    @Override
-    public ObservabilityMessageArchiveBatchReportPreviewVO getMessageArchiveBatchReportPreview(String batchNo,
-                                                                                               Long currentUserId) {
-        String normalizedBatchNo = normalize(batchNo);
-        if (!StringUtils.hasText(normalizedBatchNo)) {
-            throw new BizException(400, "batchNo 不能为空");
-        }
-        ObservabilityMessageArchiveBatchVO batch = loadMessageArchiveBatchByBatchNo(normalizedBatchNo);
-        if (batch == null) {
-            throw new BizException(404, "归档批次不存在");
-        }
-        return buildMessageArchiveBatchReportPreview(batch);
-    }
-
-    @Override
-    public ObservabilityMessageArchiveBatchCompareVO getMessageArchiveBatchCompare(String batchNo, Long currentUserId) {
-        String normalizedBatchNo = normalize(batchNo);
-        if (!StringUtils.hasText(normalizedBatchNo)) {
-            throw new BizException(400, "batchNo 不能为空");
-        }
-        ObservabilityMessageArchiveBatchVO batch = loadMessageArchiveBatchByBatchNo(normalizedBatchNo);
-        if (batch == null) {
-            throw new BizException(404, "归档批次不存在");
-        }
-        return buildMessageArchiveBatchCompare(batch);
     }
 
     @Override
@@ -410,340 +316,6 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return result;
     }
 
-    private ObservabilityMessageArchiveBatchVO loadMessageArchiveBatchByBatchNo(String batchNo) {
-        List<ObservabilityMessageArchiveBatchVO> rows = jdbcTemplate.query(
-                """
-                SELECT id, batch_no, source_table, governance_mode, status, retention_days,
-                       cutoff_at, confirm_report_path, confirm_report_generated_at,
-                       confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
-                       failed_reason, artifacts_json, create_time, update_time
-                FROM iot_message_log_archive_batch
-                WHERE batch_no = ?
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                this::mapMessageArchiveBatch,
-                batchNo
-        );
-        return rows.isEmpty() ? null : rows.get(0);
-    }
-
-    private ObservabilityMessageArchiveBatchReportPreviewVO buildMessageArchiveBatchReportPreview(
-            ObservabilityMessageArchiveBatchVO batch
-    ) {
-        ObservabilityMessageArchiveBatchReportPreviewVO preview = new ObservabilityMessageArchiveBatchReportPreviewVO();
-        preview.setBatchNo(batch.getBatchNo());
-        preview.setSourceTable(batch.getSourceTable());
-        preview.setStatus(batch.getStatus());
-        preview.setConfirmReportPath(batch.getConfirmReportPath());
-        preview.setConfirmReportGeneratedAt(batch.getConfirmReportGeneratedAt());
-        preview.setAvailable(false);
-        preview.setMarkdownAvailable(false);
-        preview.setMarkdownTruncated(false);
-        preview.setTableSummaries(List.of());
-
-        String reportPath = normalize(batch.getConfirmReportPath());
-        if (!StringUtils.hasText(reportPath)) {
-            return markPreviewUnavailable(preview, "MISSING_REPORT_PATH", "当前批次未绑定确认报告");
-        }
-        Path resolvedJsonPath = resolveAllowedObservabilityPath(reportPath);
-        if (resolvedJsonPath == null) {
-            return markPreviewUnavailable(preview, "REPORT_PATH_REJECTED", "确认报告路径超出允许目录");
-        }
-        preview.setResolvedJsonPath(toDisplayPath(resolvedJsonPath));
-        if (!Files.exists(resolvedJsonPath)) {
-            return markPreviewUnavailable(preview, "REPORT_JSON_NOT_FOUND", "确认报告 JSON 文件不存在");
-        }
-        try {
-            Map<String, Object> payload = readJsonMap(resolvedJsonPath);
-            preview.setAvailable(true);
-            preview.setSummary(buildPreviewSummary(payload));
-            preview.setTableSummaries(buildTableSummaries(payload.get("tables")));
-            preview.setFileLastModifiedAt(lastModifiedAt(resolvedJsonPath));
-
-            Path resolvedMarkdownPath = resolveMarkdownPath(resolvedJsonPath);
-            preview.setResolvedMarkdownPath(toDisplayPath(resolvedMarkdownPath));
-            if (Files.exists(resolvedMarkdownPath)) {
-                MarkdownPreview markdownPreview = readMarkdownPreview(resolvedMarkdownPath);
-                preview.setMarkdownAvailable(true);
-                preview.setMarkdownPreview(markdownPreview.content());
-                preview.setMarkdownTruncated(markdownPreview.truncated());
-            }
-            return preview;
-        } catch (IOException ex) {
-            return markPreviewUnavailable(preview, "REPORT_PARSE_FAILED", "确认报告解析失败");
-        }
-    }
-
-    private ObservabilityMessageArchiveBatchCompareVO buildMessageArchiveBatchCompare(
-            ObservabilityMessageArchiveBatchVO batch
-    ) {
-        String reportPath = normalize(batch.getConfirmReportPath());
-        if (!StringUtils.hasText(reportPath)) {
-            return buildUnavailableCompare(batch, "当前批次未绑定确认报告");
-        }
-        Path dryRunJsonPath = resolveAllowedObservabilityPath(reportPath);
-        if (dryRunJsonPath == null) {
-            return buildUnavailableCompare(batch, "确认报告路径超出允许目录");
-        }
-        if (!Files.exists(dryRunJsonPath)) {
-            return buildUnavailableCompare(batch, "确认报告 JSON 文件不存在");
-        }
-
-        Map<String, Object> dryRunPayload;
-        try {
-            dryRunPayload = readJsonMap(dryRunJsonPath);
-        } catch (IOException ex) {
-            return buildUnavailableCompare(batch, "确认报告解析失败");
-        }
-        String applyReportPath = extractReportJsonPath(batch.getArtifactsJson());
-        if (!StringUtils.hasText(applyReportPath)) {
-            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "缺少 apply 报告，仅完成部分比对");
-        }
-        Path applyJsonPath = resolveAllowedObservabilityPath(applyReportPath);
-        if (applyJsonPath == null) {
-            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "apply 报告路径超出允许目录，仅完成部分比对");
-        }
-        if (!Files.exists(applyJsonPath)) {
-            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "apply 报告 JSON 文件不存在，仅完成部分比对");
-        }
-
-        Map<String, Object> applyPayload;
-        try {
-            applyPayload = readJsonMap(applyJsonPath);
-        } catch (IOException ex) {
-            return buildPartialCompare(batch, dryRunJsonPath, dryRunPayload, "apply 报告解析失败，仅完成部分比对");
-        }
-        return buildCompleteCompare(batch, dryRunJsonPath, applyJsonPath, dryRunPayload, applyPayload);
-    }
-
-    private ObservabilityMessageArchiveBatchCompareVO buildBaseCompare(ObservabilityMessageArchiveBatchVO batch) {
-        ObservabilityMessageArchiveBatchCompareVO compare = new ObservabilityMessageArchiveBatchCompareVO();
-        compare.setBatchNo(batch.getBatchNo());
-        compare.setSourceTable(batch.getSourceTable());
-        compare.setStatus(batch.getStatus());
-        compare.setTableComparisons(List.of());
-        ObservabilityMessageArchiveBatchCompareSourceVO sources = new ObservabilityMessageArchiveBatchCompareSourceVO();
-        sources.setConfirmReportPath(batch.getConfirmReportPath());
-        sources.setDryRunAvailable(false);
-        sources.setApplyAvailable(false);
-        compare.setSources(sources);
-        return compare;
-    }
-
-    private ObservabilityMessageArchiveBatchCompareVO buildUnavailableCompare(
-            ObservabilityMessageArchiveBatchVO batch,
-            String reasonMessage
-    ) {
-        ObservabilityMessageArchiveBatchCompareVO compare = buildBaseCompare(batch);
-        compare.setCompareStatus(ARCHIVE_COMPARE_UNAVAILABLE);
-        compare.setCompareMessage(reasonMessage);
-        return compare;
-    }
-
-    private ObservabilityMessageArchiveBatchCompareVO buildPartialCompare(
-            ObservabilityMessageArchiveBatchVO batch,
-            Path dryRunJsonPath,
-            Map<String, Object> dryRunPayload,
-            String reasonMessage
-    ) {
-        ObservabilityMessageArchiveBatchCompareVO compare = buildBaseCompare(batch);
-        compare.setCompareStatus(ARCHIVE_COMPARE_PARTIAL);
-        compare.setCompareMessage(reasonMessage);
-        compare.getSources().setDryRunAvailable(true);
-        compare.getSources().setApplyAvailable(false);
-        compare.getSources().setResolvedDryRunJsonPath(toDisplayPath(dryRunJsonPath));
-        compare.setSummaryCompare(buildPartialSummary(batch, dryRunPayload));
-        compare.setTableComparisons(buildPartialTableComparisons(dryRunPayload));
-        return compare;
-    }
-
-    private ObservabilityMessageArchiveBatchCompareVO buildCompleteCompare(
-            ObservabilityMessageArchiveBatchVO batch,
-            Path dryRunJsonPath,
-            Path applyJsonPath,
-            Map<String, Object> dryRunPayload,
-            Map<String, Object> applyPayload
-    ) {
-        ObservabilityMessageArchiveBatchCompareVO compare = buildBaseCompare(batch);
-        compare.getSources().setDryRunAvailable(true);
-        compare.getSources().setApplyAvailable(true);
-        compare.getSources().setResolvedDryRunJsonPath(toDisplayPath(dryRunJsonPath));
-        compare.getSources().setResolvedApplyJsonPath(toDisplayPath(applyJsonPath));
-        ObservabilityMessageArchiveBatchCompareSummaryVO summaryCompare =
-                buildCompleteSummary(batch, dryRunPayload, applyPayload);
-        List<ObservabilityMessageArchiveBatchCompareTableVO> tableComparisons =
-                buildTableComparisons(dryRunPayload, applyPayload);
-        boolean tablesMatched = tableComparisons.stream()
-                .allMatch(item -> !Boolean.FALSE.equals(item.getMatched()));
-        boolean matched = Boolean.TRUE.equals(summaryCompare.getMatched()) && tablesMatched;
-        compare.setSummaryCompare(summaryCompare);
-        compare.setTableComparisons(tableComparisons);
-        compare.setCompareStatus(matched ? ARCHIVE_COMPARE_MATCHED : ARCHIVE_COMPARE_DRIFTED);
-        compare.setCompareMessage(matched ? "已按确认结果落地" : "执行结果与确认结果存在偏差");
-        return compare;
-    }
-
-    private ObservabilityMessageArchiveBatchCompareSummaryVO buildPartialSummary(
-            ObservabilityMessageArchiveBatchVO batch,
-            Map<String, Object> dryRunPayload
-    ) {
-        Map<String, Object> dryRunSummary = nestedMap(dryRunPayload.get("summary"));
-        ObservabilityMessageArchiveBatchCompareSummaryVO summary = new ObservabilityMessageArchiveBatchCompareSummaryVO();
-        summary.setConfirmedExpiredRows(toLong(batch.getConfirmedExpiredRows()));
-        summary.setDryRunExpiredRows(longValue(dryRunSummary.get("expiredRows")));
-        summary.setApplyArchivedRows(toLong(batch.getArchivedRows()));
-        summary.setApplyDeletedRows(toLong(batch.getDeletedRows()));
-        summary.setRemainingExpiredRows(null);
-        summary.setDeltaConfirmedVsDeleted(safeSubtract(summary.getConfirmedExpiredRows(), summary.getApplyDeletedRows()));
-        summary.setDeltaDryRunVsDeleted(safeSubtract(summary.getDryRunExpiredRows(), summary.getApplyDeletedRows()));
-        summary.setMatched(null);
-        return summary;
-    }
-
-    private ObservabilityMessageArchiveBatchCompareSummaryVO buildCompleteSummary(
-            ObservabilityMessageArchiveBatchVO batch,
-            Map<String, Object> dryRunPayload,
-            Map<String, Object> applyPayload
-    ) {
-        Map<String, Object> dryRunSummary = nestedMap(dryRunPayload.get("summary"));
-        Map<String, Object> applySummary = nestedMap(applyPayload.get("summary"));
-        List<ObservabilityMessageArchiveBatchCompareTableVO> tableComparisons =
-                buildTableComparisons(dryRunPayload, applyPayload);
-        ObservabilityMessageArchiveBatchCompareSummaryVO summary = new ObservabilityMessageArchiveBatchCompareSummaryVO();
-        summary.setConfirmedExpiredRows(toLong(batch.getConfirmedExpiredRows()));
-        summary.setDryRunExpiredRows(longValue(dryRunSummary.get("expiredRows")));
-        summary.setApplyArchivedRows(defaultLong(longValue(applySummary.get("archivedRows")), toLong(batch.getArchivedRows())));
-        summary.setApplyDeletedRows(defaultLong(longValue(applySummary.get("deletedRows")), toLong(batch.getDeletedRows())));
-        summary.setRemainingExpiredRows(sumRemainingExpiredRows(tableComparisons));
-        summary.setDeltaConfirmedVsDeleted(safeSubtract(summary.getConfirmedExpiredRows(), summary.getApplyDeletedRows()));
-        summary.setDeltaDryRunVsDeleted(safeSubtract(summary.getDryRunExpiredRows(), summary.getApplyDeletedRows()));
-        boolean matched = Objects.equals(summary.getConfirmedExpiredRows(), summary.getApplyDeletedRows())
-                && Objects.equals(summary.getDryRunExpiredRows(), summary.getApplyDeletedRows())
-                && Objects.equals(summary.getRemainingExpiredRows(), 0L)
-                && (!"iot_message_log".equalsIgnoreCase(normalize(batch.getSourceTable()))
-                || Objects.equals(summary.getApplyArchivedRows(), summary.getApplyDeletedRows()));
-        summary.setMatched(matched);
-        return summary;
-    }
-
-    private List<ObservabilityMessageArchiveBatchCompareTableVO> buildPartialTableComparisons(
-            Map<String, Object> dryRunPayload
-    ) {
-        Map<String, Object> dryRunTables = nestedMap(dryRunPayload.get("tables"));
-        if (dryRunTables.isEmpty()) {
-            return List.of();
-        }
-        List<ObservabilityMessageArchiveBatchCompareTableVO> items = new ArrayList<>();
-        for (Map.Entry<String, Object> entry : dryRunTables.entrySet()) {
-            Map<String, Object> dryRunTable = nestedMap(entry.getValue());
-            ObservabilityMessageArchiveBatchCompareTableVO item = new ObservabilityMessageArchiveBatchCompareTableVO();
-            item.setTableName(entry.getKey());
-            item.setLabel(defaultIfBlank(stringValue(dryRunTable.get("label")), entry.getKey()));
-            item.setDryRunExpiredRows(longValue(dryRunTable.get("expiredRows")));
-            item.setMatched(null);
-            item.setReason("缺少 apply 分表证据");
-            items.add(item);
-        }
-        return items;
-    }
-
-    private List<ObservabilityMessageArchiveBatchCompareTableVO> buildTableComparisons(
-            Map<String, Object> dryRunPayload,
-            Map<String, Object> applyPayload
-    ) {
-        Map<String, Object> dryRunTables = nestedMap(dryRunPayload.get("tables"));
-        Map<String, Object> applyTables = nestedMap(applyPayload.get("tables"));
-        Set<String> tableNames = new LinkedHashSet<>();
-        tableNames.addAll(dryRunTables.keySet());
-        tableNames.addAll(applyTables.keySet());
-        if (tableNames.isEmpty()) {
-            return List.of();
-        }
-        List<ObservabilityMessageArchiveBatchCompareTableVO> items = new ArrayList<>();
-        for (String tableName : tableNames) {
-            Map<String, Object> dryRunTable = nestedMap(dryRunTables.get(tableName));
-            Map<String, Object> applyTable = nestedMap(applyTables.get(tableName));
-            ObservabilityMessageArchiveBatchCompareTableVO item = new ObservabilityMessageArchiveBatchCompareTableVO();
-            item.setTableName(tableName);
-            item.setLabel(defaultIfBlank(
-                    stringValue(applyTable.get("label")),
-                    defaultIfBlank(stringValue(dryRunTable.get("label")), tableName)
-            ));
-            item.setDryRunExpiredRows(longValue(dryRunTable.get("expiredRows")));
-            item.setApplyArchivedRows(longValue(applyTable.get("archivedRows")));
-            item.setApplyDeletedRows(longValue(applyTable.get("deletedRows")));
-            item.setApplyRemainingExpiredRows(longValue(applyTable.get("remainingExpiredRows")));
-            item.setDeltaDryRunVsDeleted(safeSubtract(item.getDryRunExpiredRows(), item.getApplyDeletedRows()));
-            boolean matched = Objects.equals(item.getDryRunExpiredRows(), item.getApplyDeletedRows())
-                    && Objects.equals(item.getApplyRemainingExpiredRows(), 0L)
-                    && (item.getApplyArchivedRows() == null || Objects.equals(item.getApplyArchivedRows(), item.getApplyDeletedRows()));
-            item.setMatched(matched);
-            if (!matched) {
-                item.setReason(resolveTableReason(item));
-            }
-            items.add(item);
-        }
-        return items;
-    }
-
-    private String resolveTableReason(ObservabilityMessageArchiveBatchCompareTableVO item) {
-        if (!Objects.equals(item.getDryRunExpiredRows(), item.getApplyDeletedRows())) {
-            return "dry-run 过期量与 apply 删除量不一致";
-        }
-        if (!Objects.equals(item.getApplyRemainingExpiredRows(), 0L)) {
-            return "apply 后仍存在剩余过期量";
-        }
-        if (item.getApplyArchivedRows() != null && !Objects.equals(item.getApplyArchivedRows(), item.getApplyDeletedRows())) {
-            return "apply 归档量与删除量不一致";
-        }
-        return "存在未分类偏差";
-    }
-
-    private Map<String, Object> nestedMap(Object value) {
-        if (!(value instanceof Map<?, ?> map)) {
-            return Map.of();
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            if (entry.getKey() != null) {
-                result.put(String.valueOf(entry.getKey()), entry.getValue());
-            }
-        }
-        return result;
-    }
-
-    private String extractReportJsonPath(String artifactsJson) {
-        Map<String, Object> artifacts = parseJsonMap(artifactsJson);
-        return normalize(stringValue(artifacts.get("reportJsonPath")));
-    }
-
-    private Long sumRemainingExpiredRows(List<ObservabilityMessageArchiveBatchCompareTableVO> tableComparisons) {
-        Long total = null;
-        for (ObservabilityMessageArchiveBatchCompareTableVO table : tableComparisons) {
-            if (table.getApplyRemainingExpiredRows() == null) {
-                continue;
-            }
-            total = total == null ? table.getApplyRemainingExpiredRows() : total + table.getApplyRemainingExpiredRows();
-        }
-        return total;
-    }
-
-    private Long safeSubtract(Long left, Long right) {
-        if (left == null || right == null) {
-            return null;
-        }
-        return left - right;
-    }
-
-    private Long defaultLong(Long preferred, Long fallback) {
-        return preferred != null ? preferred : fallback;
-    }
-
-    private Long toLong(Integer value) {
-        return value == null ? null : value.longValue();
-    }
-
     private String buildBusinessEventWhere(ObservabilityBusinessEventPageQuery query, Long tenantId, List<Object> args) {
         List<String> clauses = new ArrayList<>();
         clauses.add("deleted = 0");
@@ -835,15 +407,6 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         appendEquals(clauses, args, "batch_no", query.getBatchNo());
         appendEquals(clauses, args, "source_table", query.getSourceTable());
         appendEquals(clauses, args, "status", query.getStatus());
-        appendDateRange(clauses, args, "create_time", query.getDateFrom(), query.getDateTo());
-        return String.join(" AND ", clauses);
-    }
-
-    private String buildMessageArchiveBatchOverviewWhere(ObservabilityMessageArchiveBatchOverviewQuery query,
-                                                         List<Object> args) {
-        List<String> clauses = new ArrayList<>();
-        clauses.add("1 = 1");
-        appendEquals(clauses, args, "source_table", query.getSourceTable());
         appendDateRange(clauses, args, "create_time", query.getDateFrom(), query.getDateTo());
         return String.join(" AND ", clauses);
     }
@@ -1060,109 +623,6 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         return value.plusHours(1L);
     }
 
-    private Path resolveAllowedObservabilityPath(String rawPath) {
-        if (!StringUtils.hasText(rawPath)) {
-            return null;
-        }
-        Path candidate = Paths.get(rawPath);
-        Path resolved = candidate.isAbsolute()
-                ? candidate.normalize()
-                : repoRoot.resolve(candidate).normalize();
-        return resolved.startsWith(observabilityLogDir) ? resolved : null;
-    }
-
-    private Path resolveMarkdownPath(Path jsonPath) {
-        String fileName = jsonPath.getFileName().toString();
-        if (fileName.endsWith(".md")) {
-            return jsonPath;
-        }
-        if (fileName.endsWith(".json")) {
-            String markdownName = fileName.substring(0, fileName.length() - ".json".length()) + ".md";
-            return jsonPath.resolveSibling(markdownName);
-        }
-        return jsonPath.resolveSibling(fileName + ".md");
-    }
-
-    private Map<String, Object> readJsonMap(Path path) throws IOException {
-        Map<String, Object> parsed = objectMapper.readValue(Files.readString(path, StandardCharsets.UTF_8), MAP_TYPE);
-        return parsed == null ? Map.of() : new LinkedHashMap<>(parsed);
-    }
-
-    private Map<String, Object> buildPreviewSummary(Map<String, Object> payload) {
-        Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("generatedAt", stringValue(payload.get("generatedAt")));
-        summary.put("mode", stringValue(payload.get("mode")));
-        Object summaryNode = payload.get("summary");
-        if (summaryNode instanceof Map<?, ?> nestedSummary) {
-            for (Map.Entry<?, ?> entry : nestedSummary.entrySet()) {
-                if (entry.getKey() != null) {
-                    summary.put(String.valueOf(entry.getKey()), entry.getValue());
-                }
-            }
-        }
-        return summary;
-    }
-
-    private List<ObservabilityMessageArchiveBatchReportTableSummaryVO> buildTableSummaries(Object tablesNode) {
-        if (!(tablesNode instanceof Map<?, ?> tableMap)) {
-            return List.of();
-        }
-        List<ObservabilityMessageArchiveBatchReportTableSummaryVO> summaries = new ArrayList<>();
-        for (Map.Entry<?, ?> entry : tableMap.entrySet()) {
-            if (!(entry.getValue() instanceof Map<?, ?> valueMap) || entry.getKey() == null) {
-                continue;
-            }
-            ObservabilityMessageArchiveBatchReportTableSummaryVO summary =
-                    new ObservabilityMessageArchiveBatchReportTableSummaryVO();
-            summary.setTableName(String.valueOf(entry.getKey()));
-            summary.setLabel(stringValue(valueMap.get("label")));
-            summary.setRetentionDays(integerValue(valueMap.get("retentionDays")));
-            summary.setTimeField(stringValue(valueMap.get("timeField")));
-            summary.setCutoffAt(stringValue(valueMap.get("cutoffAt")));
-            summary.setTotalRows(longValue(valueMap.get("totalRows")));
-            summary.setExpiredRows(longValue(valueMap.get("expiredRows")));
-            summary.setDeletedRows(longValue(valueMap.get("deletedRows")));
-            summary.setRemainingExpiredRows(longValue(valueMap.get("remainingExpiredRows")));
-            summary.setEarliestRecordAt(stringValue(valueMap.get("earliestRecordAt")));
-            summary.setLatestRecordAt(stringValue(valueMap.get("latestRecordAt")));
-            summaries.add(summary);
-        }
-        return summaries;
-    }
-
-    private MarkdownPreview readMarkdownPreview(Path path) throws IOException {
-        List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-        String preview = String.join(System.lineSeparator(), lines.stream().limit(MARKDOWN_PREVIEW_MAX_LINES).toList());
-        boolean truncated = lines.size() > MARKDOWN_PREVIEW_MAX_LINES;
-        if (preview.length() > MARKDOWN_PREVIEW_MAX_CHARS) {
-            preview = preview.substring(0, MARKDOWN_PREVIEW_MAX_CHARS);
-            truncated = true;
-        }
-        return new MarkdownPreview(preview, truncated);
-    }
-
-    private LocalDateTime lastModifiedAt(Path path) throws IOException {
-        return LocalDateTime.ofInstant(Files.getLastModifiedTime(path).toInstant(), java.time.ZoneId.systemDefault());
-    }
-
-    private String toDisplayPath(Path path) {
-        if (path == null) {
-            return null;
-        }
-        return repoRoot.relativize(path).toString().replace('\\', '/');
-    }
-
-    private ObservabilityMessageArchiveBatchReportPreviewVO markPreviewUnavailable(
-            ObservabilityMessageArchiveBatchReportPreviewVO preview,
-            String reasonCode,
-            String reasonMessage
-    ) {
-        preview.setAvailable(false);
-        preview.setReasonCode(reasonCode);
-        preview.setReasonMessage(reasonMessage);
-        return preview;
-    }
-
     private ObservabilityBusinessEventVO mapBusinessEvent(ResultSet rs, int rowNum) throws SQLException {
         ObservabilityBusinessEventVO vo = new ObservabilityBusinessEventVO();
         vo.setId(nullableLong(rs, "id"));
@@ -1251,153 +711,6 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
         vo.setCreateTime(nullableDateTime(rs, "create_time"));
         vo.setUpdateTime(nullableDateTime(rs, "update_time"));
         return vo;
-    }
-
-    private boolean hasMessageArchiveBatchProjectionFilters(ObservabilityMessageArchiveBatchPageQuery query) {
-        return Boolean.TRUE.equals(query.getOnlyAbnormal()) || StringUtils.hasText(normalize(query.getCompareStatus()));
-    }
-
-    private List<ObservabilityMessageArchiveBatchVO> loadProjectedMessageArchiveBatches(
-            ObservabilityMessageArchiveBatchPageQuery query
-    ) {
-        List<Object> args = new ArrayList<>();
-        String where = buildMessageArchiveBatchWhere(query, args);
-        List<ObservabilityMessageArchiveBatchVO> rows = jdbcTemplate.query(
-                """
-                SELECT id, batch_no, source_table, governance_mode, status, retention_days,
-                       cutoff_at, confirm_report_path, confirm_report_generated_at,
-                       confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
-                       failed_reason, artifacts_json, create_time, update_time
-                FROM iot_message_log_archive_batch
-                WHERE %s
-                ORDER BY create_time DESC, id DESC
-                """.formatted(where),
-                this::mapMessageArchiveBatch,
-                args.toArray()
-        );
-        rows.forEach(this::decorateMessageArchiveBatchProjection);
-        return rows.stream()
-                .filter(row -> matchesMessageArchiveBatchProjectionFilter(row, query))
-                .toList();
-    }
-
-    private boolean matchesMessageArchiveBatchProjectionFilter(ObservabilityMessageArchiveBatchVO row,
-                                                               ObservabilityMessageArchiveBatchPageQuery query) {
-        String compareStatus = normalize(row.getCompareStatus());
-        if (Boolean.TRUE.equals(query.getOnlyAbnormal())) {
-            return ARCHIVE_COMPARE_DRIFTED.equalsIgnoreCase(compareStatus)
-                    || ARCHIVE_COMPARE_PARTIAL.equalsIgnoreCase(compareStatus)
-                    || ARCHIVE_COMPARE_UNAVAILABLE.equalsIgnoreCase(compareStatus);
-        }
-        String expected = normalize(query.getCompareStatus());
-        if (!StringUtils.hasText(expected)) {
-            return true;
-        }
-        return expected.equalsIgnoreCase(compareStatus);
-    }
-
-    private void decorateMessageArchiveBatchProjection(ObservabilityMessageArchiveBatchVO row) {
-        if (row == null) {
-            return;
-        }
-        ObservabilityMessageArchiveBatchCompareVO compare = buildMessageArchiveBatchCompare(row);
-        row.setCompareStatus(compare.getCompareStatus());
-        row.setCompareStatusLabel(resolveMessageArchiveBatchCompareStatusLabel(compare.getCompareStatus()));
-        if (compare.getSummaryCompare() != null) {
-            row.setDeltaConfirmedVsDeleted(compare.getSummaryCompare().getDeltaConfirmedVsDeleted());
-            row.setDeltaDryRunVsDeleted(compare.getSummaryCompare().getDeltaDryRunVsDeleted());
-            row.setRemainingExpiredRows(compare.getSummaryCompare().getRemainingExpiredRows());
-        }
-        ObservabilityMessageArchiveBatchReportPreviewVO preview = buildMessageArchiveBatchReportPreview(row);
-        row.setPreviewAvailable(Boolean.TRUE.equals(preview.getAvailable()));
-        row.setPreviewReasonCode(preview.getReasonCode());
-    }
-
-    private String resolveMessageArchiveBatchCompareStatusLabel(String status) {
-        String normalized = normalize(status);
-        if (ARCHIVE_COMPARE_MATCHED.equalsIgnoreCase(normalized)) {
-            return "已对齐";
-        }
-        if (ARCHIVE_COMPARE_DRIFTED.equalsIgnoreCase(normalized)) {
-            return "有偏差";
-        }
-        if (ARCHIVE_COMPARE_PARTIAL.equalsIgnoreCase(normalized)) {
-            return "部分可比";
-        }
-        if (ARCHIVE_COMPARE_UNAVAILABLE.equalsIgnoreCase(normalized)) {
-            return "不可用";
-        }
-        return defaultIfBlank(status, "未知");
-    }
-
-    private ObservabilityMessageArchiveBatchOverviewVO aggregateMessageArchiveBatchOverview(
-            List<ObservabilityMessageArchiveBatchVO> rows
-    ) {
-        ObservabilityMessageArchiveBatchOverviewVO overview = new ObservabilityMessageArchiveBatchOverviewVO();
-        overview.setTotalBatches((long) rows.size());
-        long matched = 0L;
-        long drifted = 0L;
-        long partial = 0L;
-        long unavailable = 0L;
-        long totalDelta = 0L;
-        long totalRemaining = 0L;
-        boolean hasDelta = false;
-        boolean hasRemaining = false;
-        ObservabilityMessageArchiveBatchVO latestAbnormal = null;
-        for (ObservabilityMessageArchiveBatchVO row : rows) {
-            String compareStatus = normalize(row.getCompareStatus());
-            if (ARCHIVE_COMPARE_MATCHED.equalsIgnoreCase(compareStatus)) {
-                matched++;
-            } else if (ARCHIVE_COMPARE_DRIFTED.equalsIgnoreCase(compareStatus)) {
-                drifted++;
-            } else if (ARCHIVE_COMPARE_PARTIAL.equalsIgnoreCase(compareStatus)) {
-                partial++;
-            } else {
-                unavailable++;
-            }
-            if (row.getDeltaConfirmedVsDeleted() != null) {
-                totalDelta += row.getDeltaConfirmedVsDeleted();
-                hasDelta = true;
-            }
-            if (row.getRemainingExpiredRows() != null) {
-                totalRemaining += row.getRemainingExpiredRows();
-                hasRemaining = true;
-            }
-            if (!ARCHIVE_COMPARE_MATCHED.equalsIgnoreCase(compareStatus) && row.getBatchNo() != null) {
-                if (latestAbnormal == null || isAfterMessageArchiveBatch(row, latestAbnormal)) {
-                    latestAbnormal = row;
-                }
-            }
-        }
-        overview.setMatchedBatches(matched);
-        overview.setDriftedBatches(drifted);
-        overview.setPartialBatches(partial);
-        overview.setUnavailableBatches(unavailable);
-        overview.setAbnormalBatches(drifted + partial + unavailable);
-        overview.setTotalDeltaConfirmedVsDeleted(hasDelta ? totalDelta : null);
-        overview.setTotalRemainingExpiredRows(hasRemaining ? totalRemaining : null);
-        if (latestAbnormal != null) {
-            overview.setLatestAbnormalBatch(latestAbnormal.getBatchNo());
-            overview.setLatestAbnormalOccurredAt(
-                    latestAbnormal.getCreateTime() != null
-                            ? latestAbnormal.getCreateTime()
-                            : latestAbnormal.getUpdateTime()
-            );
-        }
-        return overview;
-    }
-
-    private boolean isAfterMessageArchiveBatch(ObservabilityMessageArchiveBatchVO left,
-                                               ObservabilityMessageArchiveBatchVO right) {
-        LocalDateTime leftTime = left.getCreateTime() != null ? left.getCreateTime() : left.getUpdateTime();
-        LocalDateTime rightTime = right.getCreateTime() != null ? right.getCreateTime() : right.getUpdateTime();
-        if (leftTime == null) {
-            return false;
-        }
-        if (rightTime == null) {
-            return true;
-        }
-        return leftTime.isAfter(rightTime);
     }
 
     private ObservabilityScheduledTaskVO mapScheduledTask(ResultSet rs, int rowNum) throws SQLException {
@@ -1526,8 +839,5 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
 
     private String defaultIfBlank(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
-    }
-
-    private record MarkdownPreview(String content, boolean truncated) {
     }
 }

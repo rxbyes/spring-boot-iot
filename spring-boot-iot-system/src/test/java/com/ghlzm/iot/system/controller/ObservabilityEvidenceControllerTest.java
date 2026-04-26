@@ -6,15 +6,11 @@ import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
-import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchOverviewQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchCompareVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchOverviewVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
@@ -32,7 +28,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -143,8 +138,6 @@ class ObservabilityEvidenceControllerTest {
         query.setBatchNo("iot_message_log-20260426000119");
         query.setSourceTable("iot_message_log");
         query.setStatus("SUCCEEDED");
-        query.setCompareStatus("DRIFTED");
-        query.setOnlyAbnormal(true);
         query.setDateFrom("2026-04-26 00:00:00");
         query.setDateTo("2026-04-26 23:59:59");
         query.setPageNum(1L);
@@ -163,75 +156,6 @@ class ObservabilityEvidenceControllerTest {
         assertEquals(1L, response.getData().getTotal());
         assertEquals("SUCCEEDED", response.getData().getRecords().get(0).getStatus());
         verify(observabilityEvidenceQueryService).pageMessageArchiveBatches(query, 10001L);
-    }
-
-    @Test
-    void getMessageArchiveBatchOverviewShouldDelegateQuery() {
-        ObservabilityMessageArchiveBatchOverviewQuery query = new ObservabilityMessageArchiveBatchOverviewQuery();
-        query.setSourceTable("iot_message_log");
-        query.setDateFrom("2026-04-26 00:00:00");
-        query.setDateTo("2026-04-26 23:59:59");
-
-        ObservabilityMessageArchiveBatchOverviewVO overview = new ObservabilityMessageArchiveBatchOverviewVO();
-        overview.setAbnormalBatches(2L);
-        overview.setTotalRemainingExpiredRows(118L);
-        when(observabilityEvidenceQueryService.getMessageArchiveBatchOverview(query, 10001L))
-                .thenReturn(overview);
-
-        R<ObservabilityMessageArchiveBatchOverviewVO> response =
-                controller.getMessageArchiveBatchOverview(query, authentication(10001L));
-
-        assertEquals(2L, response.getData().getAbnormalBatches());
-        assertEquals(118L, response.getData().getTotalRemainingExpiredRows());
-        verify(observabilityEvidenceQueryService).getMessageArchiveBatchOverview(query, 10001L);
-    }
-
-    @Test
-    void getMessageArchiveBatchReportPreviewShouldDelegateByBatchNo() {
-        ObservabilityMessageArchiveBatchReportPreviewVO preview = new ObservabilityMessageArchiveBatchReportPreviewVO();
-        preview.setBatchNo("iot_message_log-20260426000119");
-        preview.setAvailable(true);
-        when(observabilityEvidenceQueryService.getMessageArchiveBatchReportPreview(
-                "iot_message_log-20260426000119",
-                10001L
-        )).thenReturn(preview);
-
-        R<ObservabilityMessageArchiveBatchReportPreviewVO> response =
-                controller.getMessageArchiveBatchReportPreview(
-                        "iot_message_log-20260426000119",
-                        authentication(10001L)
-                );
-
-        assertEquals("iot_message_log-20260426000119", response.getData().getBatchNo());
-        assertTrue(Boolean.TRUE.equals(response.getData().getAvailable()));
-        verify(observabilityEvidenceQueryService).getMessageArchiveBatchReportPreview(
-                "iot_message_log-20260426000119",
-                10001L
-        );
-    }
-
-    @Test
-    void getMessageArchiveBatchCompareShouldDelegateByBatchNo() {
-        ObservabilityMessageArchiveBatchCompareVO compare = new ObservabilityMessageArchiveBatchCompareVO();
-        compare.setBatchNo("iot_message_log-20260426000119");
-        compare.setCompareStatus("MATCHED");
-        when(observabilityEvidenceQueryService.getMessageArchiveBatchCompare(
-                "iot_message_log-20260426000119",
-                10001L
-        )).thenReturn(compare);
-
-        R<ObservabilityMessageArchiveBatchCompareVO> response =
-                controller.getMessageArchiveBatchCompare(
-                        "iot_message_log-20260426000119",
-                        authentication(10001L)
-                );
-
-        assertEquals("iot_message_log-20260426000119", response.getData().getBatchNo());
-        assertEquals("MATCHED", response.getData().getCompareStatus());
-        verify(observabilityEvidenceQueryService).getMessageArchiveBatchCompare(
-                "iot_message_log-20260426000119",
-                10001L
-        );
     }
 
     @Test

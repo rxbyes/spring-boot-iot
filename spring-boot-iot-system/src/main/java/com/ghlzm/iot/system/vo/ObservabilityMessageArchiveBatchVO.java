@@ -21,13 +21,6 @@ public class ObservabilityMessageArchiveBatchVO {
     private Integer deletedRows;
     private String failedReason;
     private String artifactsJson;
-    private String compareStatus;
-    private String compareStatusLabel;
-    private Long deltaConfirmedVsDeleted;
-    private Long deltaDryRunVsDeleted;
-    private Long remainingExpiredRows;
-    private Boolean previewAvailable;
-    private String previewReasonCode;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

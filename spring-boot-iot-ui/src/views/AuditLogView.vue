@@ -367,115 +367,11 @@
         element-loading-background="var(--loading-mask-bg)"
       >
         <header class="audit-log-archive-batch-ledger__header">
-          <div class="audit-log-archive-batch-ledger__header-main">
-            <div>
-              <h3>归档批次台账</h3>
-            </div>
-            <div class="audit-log-archive-batch-ledger__filters">
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>批次号</span>
-                <input
-                  v-model.trim="messageArchiveBatchFilters.batchNo"
-                  data-testid="archive-batch-filter-batch-no"
-                  type="text"
-                  placeholder="按批次号筛选"
-                  @keyup.enter="handleMessageArchiveBatchSearch"
-                >
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>状态</span>
-                <select
-                  v-model="messageArchiveBatchFilters.status"
-                  data-testid="archive-batch-filter-status"
-                >
-                  <option value="">全部状态</option>
-                  <option
-                    v-for="option in messageArchiveBatchStatusOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>对比结论</span>
-                <select
-                  v-model="messageArchiveBatchFilters.compareStatus"
-                  data-testid="archive-batch-filter-compare-status"
-                >
-                  <option value="">全部结论</option>
-                  <option
-                    v-for="option in messageArchiveBatchCompareStatusOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>开始日期</span>
-                <input
-                  v-model="messageArchiveBatchFilters.dateFrom"
-                  data-testid="archive-batch-filter-date-from"
-                  type="date"
-                >
-              </label>
-              <label class="audit-log-archive-batch-ledger__filter-field">
-                <span>结束日期</span>
-                <input
-                  v-model="messageArchiveBatchFilters.dateTo"
-                  data-testid="archive-batch-filter-date-to"
-                  type="date"
-                >
-              </label>
-              <div class="audit-log-archive-batch-ledger__filter-field audit-log-archive-batch-ledger__filter-field--checkbox">
-                <span>异常筛选</span>
-                <label class="audit-log-archive-batch-ledger__checkbox">
-                  <input
-                    v-model="messageArchiveBatchFilters.onlyAbnormal"
-                    data-testid="archive-batch-filter-only-abnormal"
-                    type="checkbox"
-                  >
-                  <span>仅看异常</span>
-                </label>
-              </div>
-              <div class="audit-log-archive-batch-ledger__filter-actions">
-                <StandardButton
-                  data-testid="archive-batch-search-button"
-                  @click="handleMessageArchiveBatchSearch"
-                >
-                  筛选
-                </StandardButton>
-                <StandardButton
-                  data-testid="archive-batch-reset-button"
-                  @click="resetMessageArchiveBatchFilters"
-                >
-                  重置
-                </StandardButton>
-              </div>
-            </div>
+          <div>
+            <h3>归档批次台账</h3>
           </div>
           <span>{{ messageArchiveBatchRows.length }} / {{ messageArchiveBatchTotal }}</span>
         </header>
-        <div class="audit-log-archive-batch-ledger__overview">
-          <article
-            v-for="item in messageArchiveBatchOverviewCards"
-            :key="item.label"
-            class="audit-log-archive-batch-ledger__overview-card"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <p>{{ item.meta }}</p>
-          </article>
-        </div>
-        <div v-if="messageArchiveBatchOverviewLoading" class="audit-log-slow-summary__empty">
-          正在汇总异常摘要
-        </div>
-        <div v-else-if="messageArchiveBatchOverviewErrorMessage" class="audit-log-slow-summary__empty">
-          {{ messageArchiveBatchOverviewErrorMessage }}
-        </div>
         <div v-if="messageArchiveBatchErrorMessage" class="audit-log-slow-summary__empty">
           {{ messageArchiveBatchErrorMessage }}
         </div>
@@ -486,11 +382,7 @@
           <article
             v-for="row in messageArchiveBatchRows"
             :key="`message-archive-batch-${row.id || row.batchNo || row.createTime}`"
-            :class="[
-              'audit-log-archive-batch-ledger__item',
-              resolveArchiveBatchCompareStatusClass(row),
-              { 'is-abnormal': isArchiveBatchAbnormalStatus(row.compareStatus) }
-            ]"
+            class="audit-log-archive-batch-ledger__item"
           >
             <div class="audit-log-archive-batch-ledger__title">
               <strong>{{ formatArchiveBatchName(row) }}</strong>
@@ -498,7 +390,6 @@
             </div>
             <div class="audit-log-archive-batch-ledger__meta">
               <span>{{ formatValue(row.status) }}</span>
-              <span>{{ formatValue(row.compareStatusLabel || formatArchiveBatchCompareStatus(row.compareStatus)) }}</span>
               <span>{{ formatValue(row.sourceTable) }}</span>
               <span>{{ formatRetentionDays(row.retentionDays) }}</span>
               <span>截止 {{ formatValue(row.cutoffAt) }}</span>
@@ -508,12 +399,6 @@
               <span>候选 {{ formatCount(row.candidateRows) }}</span>
               <span>归档 {{ formatCount(row.archivedRows) }}</span>
               <span>删除 {{ formatCount(row.deletedRows) }}</span>
-            </div>
-            <div class="audit-log-archive-batch-ledger__insights">
-              <span>确认差值 {{ formatSignedCount(row.deltaConfirmedVsDeleted) }}</span>
-              <span>dry-run 差值 {{ formatSignedCount(row.deltaDryRunVsDeleted) }}</span>
-              <span>剩余过期 {{ formatOptionalCount(row.remainingExpiredRows) }}</span>
-              <span>报告 {{ formatArchiveBatchPreviewAvailability(row) }}</span>
             </div>
             <div class="audit-log-archive-batch-ledger__footer">
               <span>{{ formatArchiveBatchFooter(row) }}</span>
@@ -907,178 +792,6 @@
             </div>
           </dl>
         </section>
-
-        <section class="observability-evidence-section">
-          <header class="observability-evidence-section__header">
-            <h3>批次对比</h3>
-          </header>
-          <div v-if="messageArchiveBatchCompareLoading" class="observability-evidence-empty">
-            正在加载批次对比
-          </div>
-          <div v-else-if="messageArchiveBatchCompareErrorMessage" class="observability-evidence-empty">
-            {{ messageArchiveBatchCompareErrorMessage }}
-          </div>
-          <div v-else-if="!activeMessageArchiveBatchCompare" class="observability-evidence-empty">
-            暂无批次对比
-          </div>
-          <div v-else class="observability-archive-batch-compare">
-            <article
-              class="observability-archive-batch-compare__status"
-              :class="messageArchiveBatchCompareStatusClass"
-            >
-              <div class="observability-archive-batch-compare__status-copy">
-                <strong>{{ messageArchiveBatchCompareHeadline }}</strong>
-                <p>{{ formatArchiveBatchCompareMessage(activeMessageArchiveBatchCompare) }}</p>
-              </div>
-              <span>{{ messageArchiveBatchCompareStatusName }}</span>
-            </article>
-
-            <dl class="observability-archive-batch-kv">
-              <div
-                v-for="item in messageArchiveBatchCompareSourceItems"
-                :key="item.label"
-                class="observability-archive-batch-kv__item"
-              >
-                <dt>{{ item.label }}</dt>
-                <dd>{{ item.value }}</dd>
-              </div>
-            </dl>
-
-            <div
-              v-if="messageArchiveBatchCompareSummaryItems.length > 0"
-              class="observability-archive-batch-preview__summary"
-            >
-              <article
-                v-for="item in messageArchiveBatchCompareSummaryItems"
-                :key="item.label"
-                class="observability-archive-batch-preview__summary-item"
-              >
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </article>
-            </div>
-
-            <div v-if="messageArchiveBatchCompareTableComparisons.length === 0" class="observability-evidence-empty">
-              暂无分表对比
-            </div>
-            <div v-else class="observability-archive-batch-compare__tables">
-              <article
-                v-for="item in messageArchiveBatchCompareTableComparisons"
-                :key="item.tableName || item.label"
-                class="observability-archive-batch-compare__table"
-                :class="{
-                  'is-drifted': item.matched === false,
-                  'is-partial': item.matched === null
-                }"
-              >
-                <div class="observability-archive-batch-compare__table-title">
-                  <strong>{{ formatValue(item.label || item.tableName) }}</strong>
-                  <span>{{ formatArchiveBatchCompareRowStatus(item.matched) }}</span>
-                </div>
-                <div class="observability-archive-batch-compare__table-metrics">
-                  <span>dry-run 过期 {{ formatOptionalCount(item.dryRunExpiredRows) }}</span>
-                  <span>apply 归档 {{ formatOptionalCount(item.applyArchivedRows) }}</span>
-                  <span>apply 删除 {{ formatOptionalCount(item.applyDeletedRows) }}</span>
-                  <span>剩余 {{ formatOptionalCount(item.applyRemainingExpiredRows) }}</span>
-                </div>
-                <div class="observability-archive-batch-compare__table-meta">
-                  <span>{{ formatValue(item.tableName) }}</span>
-                  <span>差值 {{ formatOptionalCount(item.deltaDryRunVsDeleted) }}</span>
-                  <span v-if="item.reason">{{ item.reason }}</span>
-                </div>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="observability-evidence-section">
-          <header class="observability-evidence-section__header">
-            <h3>确认报告预览</h3>
-          </header>
-          <div v-if="messageArchiveBatchReportPreviewLoading" class="observability-evidence-empty">
-            正在加载确认报告预览
-          </div>
-          <div v-else-if="messageArchiveBatchReportPreviewErrorMessage" class="observability-evidence-empty">
-            {{ messageArchiveBatchReportPreviewErrorMessage }}
-          </div>
-          <div v-else-if="!activeMessageArchiveBatchReportPreview" class="observability-evidence-empty">
-            暂无确认报告预览
-          </div>
-          <div
-            v-else-if="activeMessageArchiveBatchReportPreview.available === false"
-            class="observability-evidence-empty"
-          >
-            {{ formatArchiveBatchReportPreviewReason(activeMessageArchiveBatchReportPreview) }}
-          </div>
-          <div v-else class="observability-archive-batch-preview">
-            <dl class="observability-archive-batch-kv">
-              <div
-                v-for="item in messageArchiveBatchReportPreviewMetaItems"
-                :key="item.label"
-                class="observability-archive-batch-kv__item"
-              >
-                <dt>{{ item.label }}</dt>
-                <dd>{{ item.value }}</dd>
-              </div>
-            </dl>
-
-            <div
-              v-if="messageArchiveBatchReportPreviewSummaryItems.length > 0"
-              class="observability-archive-batch-preview__summary"
-            >
-              <article
-                v-for="item in messageArchiveBatchReportPreviewSummaryItems"
-                :key="item.label"
-                class="observability-archive-batch-preview__summary-item"
-              >
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </article>
-            </div>
-
-            <div v-if="messageArchiveBatchReportPreviewTableSummaries.length === 0" class="observability-evidence-empty">
-              暂无表级摘要
-            </div>
-            <div v-else class="observability-archive-batch-preview__tables">
-              <article
-                v-for="item in messageArchiveBatchReportPreviewTableSummaries"
-                :key="item.tableName || item.label"
-                class="observability-archive-batch-preview__table"
-              >
-                <div class="observability-archive-batch-preview__table-title">
-                  <strong>{{ formatValue(item.label || item.tableName) }}</strong>
-                  <span>{{ formatValue(item.tableName) }}</span>
-                </div>
-                <div class="observability-archive-batch-preview__table-metrics">
-                  <span>过期 {{ formatCount(item.expiredRows) }}</span>
-                  <span>删除 {{ formatCount(item.deletedRows) }}</span>
-                  <span>剩余 {{ formatCount(item.remainingExpiredRows) }}</span>
-                </div>
-                <div class="observability-archive-batch-preview__table-meta">
-                  <span>保留 {{ formatRetentionDays(item.retentionDays) }}</span>
-                  <span>截止 {{ formatValue(item.cutoffAt) }}</span>
-                  <span>窗口 {{ formatValue(item.earliestRecordAt) }} - {{ formatValue(item.latestRecordAt) }}</span>
-                </div>
-              </article>
-            </div>
-
-            <article class="observability-archive-batch-preview__markdown">
-              <header class="observability-evidence-section__header">
-                <h3>Markdown 摘要</h3>
-                <small v-if="activeMessageArchiveBatchReportPreview.markdownTruncated">
-                  仅展示前 80 行 / 6000 字符
-                </small>
-              </header>
-              <div
-                v-if="!activeMessageArchiveBatchReportPreview.markdownAvailable || !activeMessageArchiveBatchReportPreview.markdownPreview"
-                class="observability-evidence-empty"
-              >
-                当前仅保留 JSON 摘要，未生成 Markdown 预览
-              </div>
-              <pre v-else class="observability-archive-batch-preview__markdown-body">{{ activeMessageArchiveBatchReportPreview.markdownPreview }}</pre>
-            </article>
-          </div>
-        </section>
       </div>
     </StandardDetailDrawer>
 
@@ -1100,23 +813,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
 import {
-  getObservabilityMessageArchiveBatchCompare,
-  getObservabilityMessageArchiveBatchOverview,
-  getObservabilityMessageArchiveBatchReportPreview,
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
   pageObservabilityMessageArchiveBatches,
   pageObservabilityScheduledTasks,
   pageObservabilitySpans,
-  type ObservabilityMessageArchiveBatchCompare,
-  type ObservabilityMessageArchiveBatchCompareTable,
   type ObservabilityMessageArchiveBatch,
-  type ObservabilityMessageArchiveBatchOverview,
-  type ObservabilityMessageArchiveBatchOverviewQuery,
   type ObservabilityMessageArchiveBatchPageQuery,
-  type ObservabilityMessageArchiveBatchReportPreview,
-  type ObservabilityMessageArchiveBatchReportTableSummary,
   type ObservabilityScheduledTask,
   type ObservabilityScheduledTaskPageQuery,
   type ObservabilitySpan,
@@ -1165,8 +869,6 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
 type ArchiveBatchDetailItem = { label: string; value: string }
-type ArchiveBatchCompareStatus = 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE'
-type ArchiveBatchOverviewCard = { label: string; value: string; meta: string }
 
 const route = useRoute()
 const router = useRouter()
@@ -1322,28 +1024,6 @@ const messageArchiveBatchRows = ref<ObservabilityMessageArchiveBatch[]>([])
 const messageArchiveBatchLoading = ref(false)
 const messageArchiveBatchErrorMessage = ref('')
 const messageArchiveBatchTotal = ref(0)
-const messageArchiveBatchOverview = ref<ObservabilityMessageArchiveBatchOverview | null>(null)
-const messageArchiveBatchOverviewLoading = ref(false)
-const messageArchiveBatchOverviewErrorMessage = ref('')
-const messageArchiveBatchFilters = reactive({
-  batchNo: '',
-  status: '',
-  compareStatus: '',
-  onlyAbnormal: false,
-  dateFrom: '',
-  dateTo: ''
-})
-const messageArchiveBatchStatusOptions = [
-  { label: '成功', value: 'SUCCEEDED' },
-  { label: '失败', value: 'FAILED' },
-  { label: '运行中', value: 'RUNNING' }
-]
-const messageArchiveBatchCompareStatusOptions = [
-  { label: '已对齐', value: 'MATCHED' },
-  { label: '有偏差', value: 'DRIFTED' },
-  { label: '部分可比', value: 'PARTIAL' },
-  { label: '不可用', value: 'UNAVAILABLE' }
-]
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
 const slowSummaryLoading = ref(false)
 const slowSummaryErrorMessage = ref('')
@@ -1472,12 +1152,6 @@ const evidenceTrace = ref<ObservabilityTraceEvidence | null>(null)
 const evidenceTraceId = ref('')
 const messageArchiveBatchDrawerVisible = ref(false)
 const activeMessageArchiveBatch = ref<ObservabilityMessageArchiveBatch | null>(null)
-const messageArchiveBatchCompareLoading = ref(false)
-const messageArchiveBatchCompareErrorMessage = ref('')
-const activeMessageArchiveBatchCompare = ref<ObservabilityMessageArchiveBatchCompare | null>(null)
-const messageArchiveBatchReportPreviewLoading = ref(false)
-const messageArchiveBatchReportPreviewErrorMessage = ref('')
-const activeMessageArchiveBatchReportPreview = ref<ObservabilityMessageArchiveBatchReportPreview | null>(null)
 
 const defaultExportKeys = exportColumns.map((column) => String(column.key))
 const evidenceBusinessEvents = computed(() => evidenceTrace.value?.businessEvents ?? [])
@@ -1540,120 +1214,6 @@ const messageArchiveBatchReportItems = computed<ArchiveBatchDetailItem[]>(() => 
 const messageArchiveBatchArtifacts = computed<ArchiveBatchDetailItem[]>(() =>
   parseArchiveBatchArtifacts(activeMessageArchiveBatch.value?.artifactsJson)
 )
-const messageArchiveBatchCompareStatus = computed<ArchiveBatchCompareStatus>(() => {
-  const normalized = String(activeMessageArchiveBatchCompare.value?.compareStatus || '').trim().toUpperCase()
-  if (normalized === 'MATCHED' || normalized === 'DRIFTED' || normalized === 'PARTIAL') {
-    return normalized
-  }
-  return 'UNAVAILABLE'
-})
-const messageArchiveBatchCompareStatusName = computed(() =>
-  formatArchiveBatchCompareStatus(messageArchiveBatchCompareStatus.value)
-)
-const messageArchiveBatchCompareHeadline = computed(() => {
-  switch (messageArchiveBatchCompareStatus.value) {
-    case 'MATCHED':
-      return '已按确认结果落地'
-    case 'DRIFTED':
-      return '执行结果与确认结果存在偏差'
-    case 'PARTIAL':
-      return '仅完成部分比对'
-    default:
-      return '当前缺少可信对比证据'
-  }
-})
-const messageArchiveBatchCompareStatusClass = computed(
-  () => `is-${messageArchiveBatchCompareStatus.value.toLowerCase()}`
-)
-const messageArchiveBatchCompareSourceItems = computed<ArchiveBatchDetailItem[]>(() => {
-  const compare = activeMessageArchiveBatchCompare.value
-  const sources = compare?.sources
-  if (!compare || !sources) {
-    return []
-  }
-  return [
-    { label: '确认报告', value: formatValue(sources.confirmReportPath) },
-    {
-      label: 'dry-run JSON',
-      value: formatValue(sources.resolvedDryRunJsonPath || sources.confirmReportPath)
-    },
-    { label: 'apply JSON', value: formatValue(sources.resolvedApplyJsonPath) },
-    { label: 'dry-run 可用', value: sources.dryRunAvailable ? '是' : '否' },
-    { label: 'apply 可用', value: sources.applyAvailable ? '是' : '否' }
-  ]
-})
-const messageArchiveBatchCompareSummaryItems = computed<ArchiveBatchDetailItem[]>(() => {
-  const summary = activeMessageArchiveBatchCompare.value?.summaryCompare
-  if (!summary) {
-    return []
-  }
-  return [
-    { label: '确认过期', value: formatOptionalCount(summary.confirmedExpiredRows) },
-    { label: 'dry-run 过期', value: formatOptionalCount(summary.dryRunExpiredRows) },
-    { label: 'apply 归档', value: formatOptionalCount(summary.applyArchivedRows) },
-    { label: 'apply 删除', value: formatOptionalCount(summary.applyDeletedRows) },
-    { label: '剩余过期', value: formatOptionalCount(summary.remainingExpiredRows) },
-    { label: '确认差值', value: formatOptionalCount(summary.deltaConfirmedVsDeleted) },
-    { label: 'dry-run 差值', value: formatOptionalCount(summary.deltaDryRunVsDeleted) }
-  ]
-})
-const messageArchiveBatchCompareTableComparisons = computed<ObservabilityMessageArchiveBatchCompareTable[]>(
-  () => activeMessageArchiveBatchCompare.value?.tableComparisons ?? []
-)
-const messageArchiveBatchReportPreviewMetaItems = computed<ArchiveBatchDetailItem[]>(() => {
-  const preview = activeMessageArchiveBatchReportPreview.value
-  if (!preview || preview.available === false) {
-    return []
-  }
-  return [
-    { label: 'JSON 路径', value: formatValue(preview.resolvedJsonPath || preview.confirmReportPath) },
-    {
-      label: 'Markdown 路径',
-      value: preview.markdownAvailable ? formatValue(preview.resolvedMarkdownPath) : '未生成'
-    },
-    { label: '文件更新时间', value: formatValue(preview.fileLastModifiedAt) },
-    { label: '报告生成时间', value: formatValue(preview.confirmReportGeneratedAt) }
-  ]
-})
-const messageArchiveBatchReportPreviewSummaryItems = computed<ArchiveBatchDetailItem[]>(() => {
-  const preview = activeMessageArchiveBatchReportPreview.value
-  const summary = preview?.summary
-  if (!summary || typeof summary !== 'object') {
-    return []
-  }
-  return Object.entries(summary).map(([key, value]) => ({
-    label: formatArchiveBatchReportSummaryLabel(key),
-    value: normalizeArchiveBatchDetailValue(value)
-  }))
-})
-const messageArchiveBatchReportPreviewTableSummaries = computed<ObservabilityMessageArchiveBatchReportTableSummary[]>(
-  () => activeMessageArchiveBatchReportPreview.value?.tableSummaries ?? []
-)
-const messageArchiveBatchOverviewCards = computed<ArchiveBatchOverviewCard[]>(() => {
-  const overview = messageArchiveBatchOverview.value
-  return [
-    {
-      label: '异常批次',
-      value: formatOptionalCount(overview?.abnormalBatches),
-      meta: `总批次 ${formatOptionalCount(overview?.totalBatches)}`
-    },
-    {
-      label: '执行偏差总量',
-      value: formatSignedCount(overview?.totalDeltaConfirmedVsDeleted),
-      meta: `已对齐 ${formatOptionalCount(overview?.matchedBatches)}`
-    },
-    {
-      label: '剩余过期总量',
-      value: formatOptionalCount(overview?.totalRemainingExpiredRows),
-      meta: `部分可比 ${formatOptionalCount(overview?.partialBatches)}`
-    },
-    {
-      label: '最近异常批次',
-      value: formatValue(overview?.latestAbnormalBatch),
-      meta: formatValue(overview?.latestAbnormalOccurredAt)
-    }
-  ]
-})
 
 const reloadExportSelection = () => {
   selectedExportColumnKeys.value = loadCsvColumnSelection(exportColumnStorageKey.value, defaultExportKeys)
@@ -1812,30 +1372,10 @@ const buildScheduledTaskQueryParams = (): ObservabilityScheduledTaskPageQuery =>
   pageSize: 5
 })
 
-const buildMessageArchiveBatchBoundary = (date: string, mode: 'start' | 'end') => {
-  const normalized = date.trim()
-  if (!normalized) {
-    return undefined
-  }
-  return `${normalized} ${mode === 'start' ? '00:00:00' : '23:59:59'}`
-}
-
 const buildMessageArchiveBatchQueryParams = (): ObservabilityMessageArchiveBatchPageQuery => ({
   sourceTable: 'iot_message_log',
-  batchNo: messageArchiveBatchFilters.batchNo.trim() || undefined,
-  status: messageArchiveBatchFilters.status.trim() || undefined,
-  compareStatus: messageArchiveBatchFilters.compareStatus.trim() || undefined,
-  onlyAbnormal: messageArchiveBatchFilters.onlyAbnormal || undefined,
-  dateFrom: buildMessageArchiveBatchBoundary(messageArchiveBatchFilters.dateFrom, 'start'),
-  dateTo: buildMessageArchiveBatchBoundary(messageArchiveBatchFilters.dateTo, 'end'),
   pageNum: 1,
   pageSize: 5
-})
-
-const buildMessageArchiveBatchOverviewQueryParams = (): ObservabilityMessageArchiveBatchOverviewQuery => ({
-  sourceTable: 'iot_message_log',
-  dateFrom: buildMessageArchiveBatchBoundary(messageArchiveBatchFilters.dateFrom, 'start'),
-  dateTo: buildMessageArchiveBatchBoundary(messageArchiveBatchFilters.dateTo, 'end')
 })
 
 const clearScheduledTaskLedger = () => {
@@ -1850,24 +1390,6 @@ const clearMessageArchiveBatchLedger = () => {
   messageArchiveBatchLoading.value = false
   messageArchiveBatchErrorMessage.value = ''
   messageArchiveBatchTotal.value = 0
-}
-
-const clearMessageArchiveBatchOverview = () => {
-  messageArchiveBatchOverview.value = null
-  messageArchiveBatchOverviewLoading.value = false
-  messageArchiveBatchOverviewErrorMessage.value = ''
-}
-
-const clearMessageArchiveBatchReportPreview = () => {
-  messageArchiveBatchReportPreviewLoading.value = false
-  messageArchiveBatchReportPreviewErrorMessage.value = ''
-  activeMessageArchiveBatchReportPreview.value = null
-}
-
-const clearMessageArchiveBatchCompare = () => {
-  messageArchiveBatchCompareLoading.value = false
-  messageArchiveBatchCompareErrorMessage.value = ''
-  activeMessageArchiveBatchCompare.value = null
 }
 
 const getScheduledTaskLedger = async () => {
@@ -1913,106 +1435,6 @@ const getMessageArchiveBatchLedger = async () => {
     logPageError('获取归档批次台账失败', error)
   } finally {
     messageArchiveBatchLoading.value = false
-  }
-}
-
-const getMessageArchiveBatchOverview = async () => {
-  if (!isSystemMode.value) {
-    clearMessageArchiveBatchOverview()
-    return
-  }
-
-  messageArchiveBatchOverviewLoading.value = true
-  messageArchiveBatchOverviewErrorMessage.value = ''
-  try {
-    const res = await getObservabilityMessageArchiveBatchOverview(buildMessageArchiveBatchOverviewQueryParams())
-    if (res.code === 200 && res.data) {
-      messageArchiveBatchOverview.value = res.data
-    } else {
-      messageArchiveBatchOverview.value = null
-    }
-  } catch (error) {
-    clearMessageArchiveBatchOverview()
-    messageArchiveBatchOverviewErrorMessage.value =
-      error instanceof Error ? error.message : '获取归档批次异常摘要失败'
-    logPageError('获取归档批次异常摘要失败', error)
-  } finally {
-    messageArchiveBatchOverviewLoading.value = false
-  }
-}
-
-const refreshMessageArchiveBatchLedger = () => {
-  void getMessageArchiveBatchLedger()
-  void getMessageArchiveBatchOverview()
-}
-
-const handleMessageArchiveBatchSearch = () => {
-  refreshMessageArchiveBatchLedger()
-}
-
-const resetMessageArchiveBatchFilters = () => {
-  messageArchiveBatchFilters.batchNo = ''
-  messageArchiveBatchFilters.status = ''
-  messageArchiveBatchFilters.compareStatus = ''
-  messageArchiveBatchFilters.onlyAbnormal = false
-  messageArchiveBatchFilters.dateFrom = ''
-  messageArchiveBatchFilters.dateTo = ''
-  refreshMessageArchiveBatchLedger()
-}
-
-const loadMessageArchiveBatchReportPreview = async (row: ObservabilityMessageArchiveBatch) => {
-  const batchNo = String(row.batchNo || '').trim()
-  if (!batchNo) {
-    clearMessageArchiveBatchReportPreview()
-    messageArchiveBatchReportPreviewErrorMessage.value = '当前批次缺少批次号，无法加载确认报告预览'
-    return
-  }
-
-  messageArchiveBatchReportPreviewLoading.value = true
-  messageArchiveBatchReportPreviewErrorMessage.value = ''
-  activeMessageArchiveBatchReportPreview.value = null
-  try {
-    const res = await getObservabilityMessageArchiveBatchReportPreview(batchNo)
-    if (res.code === 200 && res.data) {
-      activeMessageArchiveBatchReportPreview.value = res.data
-    } else {
-      messageArchiveBatchReportPreviewErrorMessage.value = '确认报告预览未返回有效内容'
-    }
-  } catch (error) {
-    clearMessageArchiveBatchReportPreview()
-    messageArchiveBatchReportPreviewErrorMessage.value =
-      error instanceof Error ? error.message : '加载确认报告预览失败'
-    logPageError('加载确认报告预览失败', error)
-  } finally {
-    messageArchiveBatchReportPreviewLoading.value = false
-  }
-}
-
-const loadMessageArchiveBatchCompare = async (row: ObservabilityMessageArchiveBatch) => {
-  const batchNo = String(row.batchNo || '').trim()
-  if (!batchNo) {
-    clearMessageArchiveBatchCompare()
-    messageArchiveBatchCompareErrorMessage.value = '当前批次缺少批次号，无法加载批次对比'
-    return
-  }
-
-  messageArchiveBatchCompareLoading.value = true
-  messageArchiveBatchCompareErrorMessage.value = ''
-  activeMessageArchiveBatchCompare.value = null
-  try {
-    const res = await getObservabilityMessageArchiveBatchCompare(batchNo)
-    if (res.code === 200 && res.data) {
-      activeMessageArchiveBatchCompare.value = res.data
-    } else {
-      messageArchiveBatchCompareErrorMessage.value = '批次对比未返回有效内容'
-    }
-  } catch (error) {
-    clearMessageArchiveBatchCompare()
-    messageArchiveBatchCompareErrorMessage.value =
-      error instanceof Error ? error.message : '加载批次对比失败'
-    logPageError('加载批次对比失败', error)
-  } finally {
-    messageArchiveBatchCompareLoading.value = false
   }
 }
 
@@ -2200,7 +1622,7 @@ onMounted(() => {
   getAuditLogList()
   getAuditLogStats()
   getScheduledTaskLedger()
-  refreshMessageArchiveBatchLedger()
+  getMessageArchiveBatchLedger()
   getSlowSpanSummaries()
 })
 
@@ -2223,7 +1645,6 @@ watch(viewMode, (newMode, oldMode) => {
   evidenceErrorMessage.value = ''
   clearScheduledTaskLedger()
   clearMessageArchiveBatchLedger()
-  clearMessageArchiveBatchOverview()
   slowSummaryRows.value = []
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
@@ -2240,7 +1661,7 @@ watch(viewMode, (newMode, oldMode) => {
   getAuditLogList()
   getAuditLogStats()
   getScheduledTaskLedger()
-  refreshMessageArchiveBatchLedger()
+  getMessageArchiveBatchLedger()
   getSlowSpanSummaries()
 })
 
@@ -2270,7 +1691,7 @@ watch(
     getAuditLogList()
     getAuditLogStats()
     getScheduledTaskLedger()
-    refreshMessageArchiveBatchLedger()
+    getMessageArchiveBatchLedger()
     getSlowSpanSummaries()
   }
 )
@@ -2286,7 +1707,7 @@ const triggerSearch = (resetPageFirst = false) => {
   getAuditLogList()
   getAuditLogStats()
   getScheduledTaskLedger()
-  refreshMessageArchiveBatchLedger()
+  getMessageArchiveBatchLedger()
   getSlowSpanSummaries()
 }
 
@@ -2626,23 +2047,6 @@ const formatCount = (value?: number | null) => {
   return String(value)
 }
 
-const formatOptionalCount = (value?: number | null) => {
-  if (value === undefined || value === null) {
-    return '--'
-  }
-  return String(value)
-}
-
-const formatSignedCount = (value?: number | null) => {
-  if (value === undefined || value === null) {
-    return '--'
-  }
-  if (value > 0) {
-    return `+${value}`
-  }
-  return String(value)
-}
-
 const formatRetentionDays = (value?: number | null) => {
   if (value === undefined || value === null) {
     return '--'
@@ -2673,66 +2077,6 @@ const formatArchiveBatchFooter = (row: ObservabilityMessageArchiveBatch) => {
   }
   const confirmReportPath = String(row.confirmReportPath || '').trim()
   return confirmReportPath ? `确认报告：${confirmReportPath}` : '确认报告：--'
-}
-
-const formatArchiveBatchReportSummaryLabel = (key: string) => {
-  const map: Record<string, string> = {
-    generatedAt: '报告生成时间',
-    mode: '治理模式',
-    expiredRows: '过期行数',
-    deletedRows: '删除行数',
-    tablesWithExpiredRows: '命中过期表'
-  }
-  return map[key] || key
-}
-
-const formatArchiveBatchReportPreviewReason = (preview?: Partial<ObservabilityMessageArchiveBatchReportPreview> | null) =>
-  formatValue(preview?.reasonMessage || preview?.reasonCode || '当前确认报告暂不可预览')
-
-const formatArchiveBatchCompareStatus = (status?: ArchiveBatchCompareStatus | string | null) => {
-  switch (String(status || '').trim().toUpperCase()) {
-    case 'MATCHED':
-      return '已对齐'
-    case 'DRIFTED':
-      return '有偏差'
-    case 'PARTIAL':
-      return '部分可比'
-    default:
-      return '不可比对'
-  }
-}
-
-const formatArchiveBatchCompareMessage = (compare?: Partial<ObservabilityMessageArchiveBatchCompare> | null) =>
-  formatValue(compare?.compareMessage || messageArchiveBatchCompareHeadline.value)
-
-const formatArchiveBatchCompareRowStatus = (matched?: boolean | null) => {
-  if (matched === true) {
-    return '已对齐'
-  }
-  if (matched === false) {
-    return '有偏差'
-  }
-  return '部分可比'
-}
-
-const isArchiveBatchAbnormalStatus = (status?: string | null) => {
-  const normalized = String(status || '').trim().toUpperCase()
-  return normalized === 'DRIFTED' || normalized === 'PARTIAL' || normalized === 'UNAVAILABLE'
-}
-
-const resolveArchiveBatchCompareStatusClass = (row?: Partial<ObservabilityMessageArchiveBatch> | null) => {
-  const normalized = String(row?.compareStatus || '').trim().toUpperCase()
-  if (normalized === 'MATCHED' || normalized === 'DRIFTED' || normalized === 'PARTIAL') {
-    return `is-${normalized.toLowerCase()}`
-  }
-  return 'is-unavailable'
-}
-
-const formatArchiveBatchPreviewAvailability = (row?: Partial<ObservabilityMessageArchiveBatch> | null) => {
-  if (row?.previewAvailable) {
-    return '可预览'
-  }
-  return formatValue(row?.previewReasonCode || '不可预览')
 }
 
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
@@ -2801,13 +2145,9 @@ const parseArchiveBatchArtifacts = (artifactsJson?: string | null): ArchiveBatch
   }
 }
 
-const openMessageArchiveBatchDetail = async (row: ObservabilityMessageArchiveBatch) => {
+const openMessageArchiveBatchDetail = (row: ObservabilityMessageArchiveBatch) => {
   activeMessageArchiveBatch.value = row
   messageArchiveBatchDrawerVisible.value = true
-  await Promise.all([
-    loadMessageArchiveBatchCompare(row),
-    loadMessageArchiveBatchReportPreview(row)
-  ])
 }
 
 watch(detailVisible, (visible) => {
@@ -2830,8 +2170,6 @@ watch(evidenceDrawerVisible, (visible) => {
 watch(messageArchiveBatchDrawerVisible, (visible) => {
   if (!visible) {
     activeMessageArchiveBatch.value = null
-    clearMessageArchiveBatchCompare()
-    clearMessageArchiveBatchReportPreview()
   }
 })
 </script>
@@ -2839,280 +2177,6 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 <style scoped>
 .audit-log-view {
   min-width: 0;
-}
-
-.audit-log-archive-batch-ledger__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.audit-log-archive-batch-ledger__header-main {
-  flex: 1;
-  min-width: 18rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.audit-log-archive-batch-ledger__filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.75rem;
-  align-items: end;
-}
-
-.audit-log-archive-batch-ledger__filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.88rem;
-  color: var(--el-text-color-secondary);
-}
-
-.audit-log-archive-batch-ledger__filter-field--checkbox {
-  justify-content: space-between;
-}
-
-.audit-log-archive-batch-ledger__filter-field input,
-.audit-log-archive-batch-ledger__filter-field select {
-  width: 100%;
-  min-height: 2.25rem;
-  border: 1px solid var(--el-border-color);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-}
-
-.audit-log-archive-batch-ledger__checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.25rem;
-  color: var(--el-text-color-primary);
-}
-
-.audit-log-archive-batch-ledger__checkbox input {
-  width: 1rem;
-  height: 1rem;
-}
-
-.audit-log-archive-batch-ledger__filter-actions {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.audit-log-archive-batch-ledger__overview {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.72rem;
-}
-
-.audit-log-archive-batch-ledger__overview-card {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-  padding: 0.85rem 0.95rem;
-  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
-}
-
-.audit-log-archive-batch-ledger__overview-card span,
-.audit-log-archive-batch-ledger__overview-card p {
-  margin: 0;
-  color: var(--text-caption);
-  font-size: 0.78rem;
-}
-
-.audit-log-archive-batch-ledger__overview-card strong {
-  overflow: hidden;
-  color: var(--text-heading);
-  font-size: 1rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.observability-archive-batch-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.observability-archive-batch-compare {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.observability-archive-batch-compare__status {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.9rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 0.5rem;
-  background: var(--el-fill-color-extra-light);
-}
-
-.observability-archive-batch-compare__status.is-matched {
-  border-color: color-mix(in srgb, var(--el-color-success) 42%, var(--el-border-color-lighter));
-  background: color-mix(in srgb, var(--el-color-success-light-9) 88%, white);
-}
-
-.observability-archive-batch-compare__status.is-drifted {
-  border-color: color-mix(in srgb, var(--el-color-danger) 42%, var(--el-border-color-lighter));
-  background: color-mix(in srgb, var(--el-color-danger-light-9) 88%, white);
-}
-
-.observability-archive-batch-compare__status.is-partial,
-.observability-archive-batch-compare__status.is-unavailable {
-  border-color: color-mix(in srgb, var(--el-color-warning) 38%, var(--el-border-color-lighter));
-  background: color-mix(in srgb, var(--el-color-warning-light-9) 86%, white);
-}
-
-.observability-archive-batch-compare__status-copy {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.observability-archive-batch-compare__status-copy strong {
-  color: var(--text-heading);
-  font-size: 0.94rem;
-}
-
-.observability-archive-batch-compare__status-copy p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
-.observability-archive-batch-compare__status > span {
-  flex: 0 0 auto;
-  color: var(--text-caption);
-  font-size: 0.78rem;
-}
-
-.observability-archive-batch-preview__summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem;
-}
-
-.observability-archive-batch-preview__summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.85rem 0.95rem;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 0.5rem;
-  background: var(--el-fill-color-extra-light);
-}
-
-.observability-archive-batch-preview__summary-item span {
-  font-size: 0.82rem;
-  color: var(--el-text-color-secondary);
-}
-
-.observability-archive-batch-preview__tables {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.observability-archive-batch-preview__table {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 0.5rem;
-}
-
-.observability-archive-batch-preview__table-title,
-.observability-archive-batch-preview__table-metrics,
-.observability-archive-batch-preview__table-meta {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.observability-archive-batch-preview__table-title span,
-.observability-archive-batch-preview__table-meta {
-  color: var(--el-text-color-secondary);
-  font-size: 0.88rem;
-}
-
-.observability-archive-batch-compare__tables {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.observability-archive-batch-compare__table {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 0.5rem;
-  background: var(--el-bg-color);
-}
-
-.observability-archive-batch-compare__table.is-drifted {
-  border-color: color-mix(in srgb, var(--el-color-danger) 42%, var(--el-border-color-lighter));
-}
-
-.observability-archive-batch-compare__table.is-partial {
-  border-color: color-mix(in srgb, var(--el-color-warning) 42%, var(--el-border-color-lighter));
-}
-
-.observability-archive-batch-compare__table-title,
-.observability-archive-batch-compare__table-metrics,
-.observability-archive-batch-compare__table-meta {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.observability-archive-batch-compare__table-title strong {
-  color: var(--text-heading);
-  font-size: 0.92rem;
-}
-
-.observability-archive-batch-compare__table-title span,
-.observability-archive-batch-compare__table-metrics,
-.observability-archive-batch-compare__table-meta {
-  color: var(--text-caption);
-  font-size: 0.82rem;
-}
-
-.observability-archive-batch-preview__markdown {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.observability-archive-batch-preview__markdown-body {
-  margin: 0;
-  padding: 0.9rem 1rem;
-  max-height: 18rem;
-  overflow: auto;
-  border-radius: 0.5rem;
-  background: var(--el-fill-color-dark);
-  color: var(--el-color-white);
-  font-size: 0.82rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .audit-log-quick-search-tag {
@@ -3547,15 +2611,6 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
 }
 
-.audit-log-archive-batch-ledger__item.is-drifted {
-  border-color: color-mix(in srgb, var(--el-color-danger) 42%, var(--panel-border));
-}
-
-.audit-log-archive-batch-ledger__item.is-partial,
-.audit-log-archive-batch-ledger__item.is-unavailable {
-  border-color: color-mix(in srgb, var(--el-color-warning) 42%, var(--panel-border));
-}
-
 .audit-log-archive-batch-ledger__title strong,
 .audit-log-archive-batch-ledger__footer > span {
   overflow: hidden;
@@ -3574,14 +2629,6 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-}
-
-.audit-log-archive-batch-ledger__insights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
 }
 
 .observability-evidence-drawer {
@@ -3780,10 +2827,6 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   }
 
   .audit-log-slow-summary__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .audit-log-archive-batch-ledger__overview {
     grid-template-columns: 1fr;
   }
 

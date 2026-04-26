@@ -139,103 +139,8 @@ export interface ObservabilityMessageArchiveBatch {
   deletedRows?: number | null
   failedReason?: string | null
   artifactsJson?: string | null
-  compareStatus?: 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE' | string | null
-  compareStatusLabel?: string | null
-  deltaConfirmedVsDeleted?: number | null
-  deltaDryRunVsDeleted?: number | null
-  remainingExpiredRows?: number | null
-  previewAvailable?: boolean | null
-  previewReasonCode?: string | null
   createTime?: string | null
   updateTime?: string | null
-}
-
-export interface ObservabilityMessageArchiveBatchReportTableSummary {
-  tableName?: string | null
-  label?: string | null
-  retentionDays?: number | null
-  timeField?: string | null
-  cutoffAt?: string | null
-  totalRows?: number | null
-  expiredRows?: number | null
-  deletedRows?: number | null
-  remainingExpiredRows?: number | null
-  earliestRecordAt?: string | null
-  latestRecordAt?: string | null
-}
-
-export interface ObservabilityMessageArchiveBatchReportPreview {
-  batchNo?: string | null
-  sourceTable?: string | null
-  status?: string | null
-  confirmReportPath?: string | null
-  confirmReportGeneratedAt?: string | null
-  available?: boolean | null
-  reasonCode?: string | null
-  reasonMessage?: string | null
-  resolvedJsonPath?: string | null
-  resolvedMarkdownPath?: string | null
-  markdownAvailable?: boolean | null
-  markdownTruncated?: boolean | null
-  markdownPreview?: string | null
-  fileLastModifiedAt?: string | null
-  summary?: Record<string, unknown> | null
-  tableSummaries?: ObservabilityMessageArchiveBatchReportTableSummary[]
-}
-
-export interface ObservabilityMessageArchiveBatchCompareSource {
-  confirmReportPath?: string | null
-  resolvedDryRunJsonPath?: string | null
-  resolvedApplyJsonPath?: string | null
-  dryRunAvailable?: boolean | null
-  applyAvailable?: boolean | null
-}
-
-export interface ObservabilityMessageArchiveBatchCompareSummary {
-  confirmedExpiredRows?: number | null
-  dryRunExpiredRows?: number | null
-  applyArchivedRows?: number | null
-  applyDeletedRows?: number | null
-  remainingExpiredRows?: number | null
-  deltaConfirmedVsDeleted?: number | null
-  deltaDryRunVsDeleted?: number | null
-  matched?: boolean | null
-}
-
-export interface ObservabilityMessageArchiveBatchCompareTable {
-  tableName?: string | null
-  label?: string | null
-  dryRunExpiredRows?: number | null
-  applyArchivedRows?: number | null
-  applyDeletedRows?: number | null
-  applyRemainingExpiredRows?: number | null
-  deltaDryRunVsDeleted?: number | null
-  matched?: boolean | null
-  reason?: string | null
-}
-
-export interface ObservabilityMessageArchiveBatchCompare {
-  batchNo?: string | null
-  sourceTable?: string | null
-  status?: string | null
-  compareStatus?: 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE' | string | null
-  compareMessage?: string | null
-  sources?: ObservabilityMessageArchiveBatchCompareSource | null
-  summaryCompare?: ObservabilityMessageArchiveBatchCompareSummary | null
-  tableComparisons?: ObservabilityMessageArchiveBatchCompareTable[]
-}
-
-export interface ObservabilityMessageArchiveBatchOverview {
-  totalBatches?: number | null
-  matchedBatches?: number | null
-  driftedBatches?: number | null
-  partialBatches?: number | null
-  unavailableBatches?: number | null
-  abnormalBatches?: number | null
-  totalDeltaConfirmedVsDeleted?: number | null
-  totalRemainingExpiredRows?: number | null
-  latestAbnormalBatch?: string | null
-  latestAbnormalOccurredAt?: string | null
 }
 
 export interface ObservabilityBusinessEventPageQuery {
@@ -284,18 +189,10 @@ export interface ObservabilityMessageArchiveBatchPageQuery {
   batchNo?: string
   sourceTable?: string
   status?: string
-  compareStatus?: string
-  onlyAbnormal?: boolean
   dateFrom?: string
   dateTo?: string
   pageNum?: number
   pageSize?: number
-}
-
-export interface ObservabilityMessageArchiveBatchOverviewQuery {
-  sourceTable?: string
-  dateFrom?: string
-  dateTo?: string
 }
 
 export interface ObservabilitySlowSpanSummaryQuery {
@@ -354,30 +251,6 @@ export function pageObservabilityMessageArchiveBatches(
   const query = buildQueryString(params)
   const path = `/api/system/observability/message-archive-batches/page${query ? `?${query}` : ''}`
   return request<PageResult<ObservabilityMessageArchiveBatch>>(path, { method: 'GET' })
-}
-
-export function getObservabilityMessageArchiveBatchOverview(
-  params: ObservabilityMessageArchiveBatchOverviewQuery = {}
-): Promise<ApiEnvelope<ObservabilityMessageArchiveBatchOverview>> {
-  const query = buildQueryString(params)
-  const path = `/api/system/observability/message-archive-batches/overview${query ? `?${query}` : ''}`
-  return request<ObservabilityMessageArchiveBatchOverview>(path, { method: 'GET' })
-}
-
-export function getObservabilityMessageArchiveBatchReportPreview(
-  batchNo: string
-): Promise<ApiEnvelope<ObservabilityMessageArchiveBatchReportPreview>> {
-  const query = buildQueryString({ batchNo })
-  const path = `/api/system/observability/message-archive-batches/report-preview${query ? `?${query}` : ''}`
-  return request<ObservabilityMessageArchiveBatchReportPreview>(path, { method: 'GET' })
-}
-
-export function getObservabilityMessageArchiveBatchCompare(
-  batchNo: string
-): Promise<ApiEnvelope<ObservabilityMessageArchiveBatchCompare>> {
-  const query = buildQueryString({ batchNo })
-  const path = `/api/system/observability/message-archive-batches/compare${query ? `?${query}` : ''}`
-  return request<ObservabilityMessageArchiveBatchCompare>(path, { method: 'GET' })
 }
 
 export function listObservabilitySlowSpanSummaries(

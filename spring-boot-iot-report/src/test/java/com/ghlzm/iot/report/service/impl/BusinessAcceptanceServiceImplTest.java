@@ -12,6 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -158,6 +159,27 @@ class BusinessAcceptanceServiceImplTest {
         assertThat(pkg.getLatestResult().getRunId()).isEqualTo("20260404153000");
         assertThat(service.listAccountTemplates()).hasSize(1);
         assertThat(service.listAccountTemplates().get(0).getTemplateCode()).isEqualTo("acceptance-default");
+    }
+
+    @Test
+    void shouldResolveAcceptanceConfigFromRepositoryRootWhenStartedInsideAdminModule() throws Exception {
+        Path repoRoot = Files.createDirectories(tempDir.resolve("repo"));
+        Path automationDir = Files.createDirectories(repoRoot.resolve("config").resolve("automation"));
+        Files.createDirectories(repoRoot.resolve("logs").resolve("acceptance"));
+        Path adminModuleDir = Files.createDirectories(repoRoot.resolve("spring-boot-iot-admin"));
+        writeRegistryConfig(automationDir);
+        writePackageConfig(automationDir);
+
+        BusinessAcceptanceServiceImpl service = new BusinessAcceptanceServiceImpl(
+                adminModuleDir,
+                Paths.get("config/automation/business-acceptance-packages.json"),
+                Paths.get("config/automation/acceptance-registry.json"),
+                Paths.get("logs/acceptance"),
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        assertThat(service.listPackages()).hasSize(1);
+        assertThat(service.listAccountTemplates()).hasSize(1);
     }
 
     @Test
