@@ -34,7 +34,7 @@
     {
       "key": "quality-factory-login",
       "name": "质量工场登录初始化",
-      "route": "/login",
+      "route": "/login?redirect=/quality-workbench",
       "scope": "delivery",
       "readySelector": "#login-submit",
       "requiresLogin": false,
@@ -80,14 +80,21 @@
           }
         },
         {
+          "id": "quality-login-assert-route",
+          "label": "断言进入质量工场路由",
+          "type": "assertPathnameEquals",
+          "value": "/quality-workbench",
+          "timeout": 10000
+        },
+        {
           "id": "quality-login-assert-shell",
-          "label": "断言进入平台壳层",
+          "label": "断言工场总览可见",
           "type": "assertText",
           "locator": {
             "type": "css",
             "value": "body"
           },
-          "value": "质量工场"
+          "value": "工场总览"
         }
       ]
     },
@@ -150,13 +157,13 @@
     },
     {
       "key": "automation-results-workbench",
-      "name": "结果与基线中心可达",
-      "route": "/automation-results",
+      "name": "自动化治理台结果证据可达",
+      "route": "/automation-governance?tab=evidence",
       "scope": "delivery",
-      "readySelector": ".automation-results-view",
+      "readySelector": ".automation-governance-workbench",
       "requiresLogin": true,
-      "description": "验证结果与基线中心可达并加载历史台账区域。",
-      "businessFlow": "质量工场结果中心历史运行和证据复盘",
+      "description": "验证自动化治理台结果证据工作区可达并加载历史台账区域。",
+      "businessFlow": "自动化治理台结果证据历史运行和证据复盘",
       "featurePoints": [
         "历史台账可见",
         "证据区域可见",
@@ -171,23 +178,23 @@
       "steps": [
         {
           "id": "automation-results-assert-title",
-          "label": "断言结果与基线中心标题可见",
+          "label": "断言自动化治理台标题可见",
           "type": "assertText",
           "locator": {
             "type": "css",
             "value": "body"
           },
-          "value": "结果与基线中心"
+          "value": "自动化治理台"
         },
         {
           "id": "automation-results-assert-evidence",
-          "label": "断言证据区域可见",
+          "label": "断言结果证据区域可见",
           "type": "assertText",
           "locator": {
             "type": "css",
             "value": "body"
           },
-          "value": "证据"
+          "value": "结果证据"
         }
       ]
     }

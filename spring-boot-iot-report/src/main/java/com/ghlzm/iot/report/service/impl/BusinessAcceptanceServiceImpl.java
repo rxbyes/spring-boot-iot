@@ -105,7 +105,8 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
     }
 
     BusinessAcceptanceServiceImpl(Path workspaceRoot, Path packagesConfigPath, Path acceptanceRegistryPath, Path resultsDir, String nodeCommand, Path registryRunnerScriptPath, ObjectMapper objectMapper) {
-        this.workspaceRoot = normalizePath(workspaceRoot, null);
+        Path normalizedWorkspaceRoot = normalizePath(workspaceRoot, null);
+        this.workspaceRoot = resolveWorkspaceRoot(normalizedWorkspaceRoot, packagesConfigPath, acceptanceRegistryPath);
         this.packagesConfigPath = normalizePath(packagesConfigPath, this.workspaceRoot);
         this.acceptanceRegistryPath = normalizePath(acceptanceRegistryPath, this.workspaceRoot);
         this.resultsDir = normalizePath(resultsDir, this.workspaceRoot);
@@ -934,6 +935,27 @@ public class BusinessAcceptanceServiceImpl implements BusinessAcceptanceService 
             resolved = basePath.resolve(path);
         }
         return resolved.toAbsolutePath().normalize();
+    }
+
+    private Path resolveWorkspaceRoot(Path configuredWorkspaceRoot, Path packagesConfigPath, Path acceptanceRegistryPath) {
+        Path candidate = configuredWorkspaceRoot;
+        while (candidate != null) {
+            if (matchesWorkspacePath(candidate, packagesConfigPath) && matchesWorkspacePath(candidate, acceptanceRegistryPath)) {
+                if (!candidate.equals(configuredWorkspaceRoot)) {
+                    log.info("Adjusted business acceptance workspace root from {} to {}", configuredWorkspaceRoot, candidate);
+                }
+                return candidate;
+            }
+            candidate = candidate.getParent();
+        }
+        return configuredWorkspaceRoot;
+    }
+
+    private boolean matchesWorkspacePath(Path workspaceRoot, Path path) {
+        if (path == null || path.isAbsolute()) {
+            return true;
+        }
+        return Files.exists(workspaceRoot.resolve(path));
     }
 
     private String normalizeText(String value) {

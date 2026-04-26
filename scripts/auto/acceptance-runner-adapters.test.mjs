@@ -4,7 +4,12 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { createRunnerAdapters } from './acceptance-runner-adapters.mjs';
+import {
+  createRunnerAdapters,
+  resolveApiSmokeCommandForTest,
+  resolvePythonExecutableForTest,
+  buildMessageFlowCommandForTest
+} from './acceptance-runner-adapters.mjs';
 
 test('apiSmoke adapter maps first failing summary row to business failure details', async () => {
   const workspaceRoot = await fs.mkdtemp(
@@ -155,4 +160,52 @@ test('apiSmoke adapter ignores metadata rows without explicit failure status', a
   assert.equal(result.summary, 'telemetry failed');
   assert.equal(result.details.stepLabel, undefined);
   assert.equal(result.details.apiRef, undefined);
+});
+
+test('apiSmoke adapter falls back to the node smoke runner on non-Windows hosts without PowerShell', () => {
+  const runner = resolveApiSmokeCommandForTest({
+    workspaceRoot: '/repo',
+    backendBaseUrl: 'http://127.0.0.1:10099',
+    pointFilters: ['TELEMETRY', 'SYS-AUDIT'],
+    platform: 'darwin',
+    availableCommands: ['bash', 'sh']
+  });
+
+  assert.equal(runner.executable, process.execPath);
+  assert.deepEqual(runner.args, [
+    'scripts/run-business-function-smoke.mjs',
+    '-BaseUrl',
+    'http://127.0.0.1:10099',
+    '-PointFilter',
+    'TELEMETRY',
+    '-PointFilter',
+    'SYS-AUDIT'
+  ]);
+});
+
+test('messageFlow prefers python3 on non-Windows hosts when python is unavailable', () => {
+  assert.equal(
+    resolvePythonExecutableForTest({
+      platform: 'darwin',
+      availableCommands: ['python3']
+    }),
+    'python3'
+  );
+});
+
+test('messageFlow adapter forwards backend base url to the python acceptance script', () => {
+  const command = buildMessageFlowCommandForTest({
+    backendBaseUrl: 'http://127.0.0.1:10099',
+    expiredTraceId: 'trace-1',
+    platform: 'darwin',
+    availableCommands: ['python3']
+  });
+
+  assert.equal(command.executable, 'python3');
+  assert.deepEqual(command.args, [
+    'scripts/run-message-flow-acceptance.py',
+    '--base-url=http://127.0.0.1:10099',
+    '--expired-trace-id',
+    'trace-1'
+  ]);
 });

@@ -378,6 +378,112 @@ test('runRegistryCli accepts a derived registry path and persists business metad
   assert.equal(report.options.selectedModules, 'product-create,device-query');
 });
 
+test('runRegistryCli filters package scenarios by selected business modules and includes dependencies', async () => {
+  const registrySource = {
+    version: '1.0.0',
+    scenarios: [
+      {
+        id: 'auth.browser-smoke',
+        module: 'device',
+        runnerType: 'browserPlan',
+        scope: 'delivery',
+        blocking: 'blocker',
+        dependsOn: [],
+        runner: {}
+      },
+      {
+        id: 'telemetry.api-smoke',
+        module: 'telemetry',
+        runnerType: 'apiSmoke',
+        scope: 'delivery',
+        blocking: 'warning',
+        dependsOn: ['auth.browser-smoke'],
+        runner: {}
+      },
+      {
+        id: 'risk.full-drill.red-chain',
+        module: 'alarm',
+        runnerType: 'riskDrill',
+        scope: 'delivery',
+        blocking: 'blocker',
+        dependsOn: ['auth.browser-smoke'],
+        runner: {}
+      }
+    ]
+  };
+
+  const packagesSource = {
+    version: '1.0.0',
+    packages: [
+      {
+        packageCode: 'platform-p0-full-flow',
+        packageName: 'P0',
+        defaultAccountTemplate: 'manager-default',
+        supportedEnvironments: ['dev'],
+        targetRoles: ['manager'],
+        modules: [
+          {
+            moduleCode: 'login-auth',
+            moduleName: '登录',
+            scenarioRefs: ['auth.browser-smoke']
+          },
+          {
+            moduleCode: 'telemetry-read',
+            moduleName: '遥测',
+            scenarioRefs: ['telemetry.api-smoke']
+          },
+          {
+            moduleCode: 'risk-closure',
+            moduleName: '风险',
+            scenarioRefs: ['risk.full-drill.red-chain']
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = await runRegistryCli({
+    argv: [
+      '--package-code=platform-p0-full-flow',
+      '--selected-modules=telemetry-read',
+      '--include-deps'
+    ],
+    registrySource,
+    packagesSource,
+    adapterOverrides: {
+      browserPlan: async (context) => ({
+        scenarioId: context.scenario.id,
+        runnerType: 'browserPlan',
+        status: 'passed',
+        blocking: context.scenario.blocking,
+        summary: 'ok',
+        evidenceFiles: []
+      }),
+      apiSmoke: async (context) => ({
+        scenarioId: context.scenario.id,
+        runnerType: 'apiSmoke',
+        status: 'passed',
+        blocking: context.scenario.blocking,
+        summary: 'ok',
+        evidenceFiles: []
+      }),
+      riskDrill: async (context) => ({
+        scenarioId: context.scenario.id,
+        runnerType: 'riskDrill',
+        status: 'passed',
+        blocking: context.scenario.blocking,
+        summary: 'ok',
+        evidenceFiles: []
+      })
+    }
+  });
+
+  assert.deepEqual(
+    result.results.map((item) => item.scenarioId),
+    ['auth.browser-smoke', 'telemetry.api-smoke']
+  );
+});
+
 test('canonical registry includes P0 full-flow quality factory scenarios', async () => {
   const canonicalRegistryPath = path.resolve(
     process.cwd(),
@@ -496,7 +602,12 @@ test('canonical registry includes P1 quality factory coverage metadata', async (
 
   assert.deepEqual(
     byId.get('product-governance.contracts.browser-smoke')?.runner.scenarioKeys,
-    ['login', 'product-governance-warning-fallback', 'product-governance-unknown-capability']
+    [
+      'login',
+      'product-workbench',
+      'product-governance-warning-fallback',
+      'product-governance-unknown-capability'
+    ]
   );
   assert.equal(
     byId.get('device-onboarding.p1.browser-smoke')?.runner.planRef,

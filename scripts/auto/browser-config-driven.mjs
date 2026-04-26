@@ -594,11 +594,37 @@ function registerBuiltinPlanStepHandlers() {
 
   registerPlanStepHandler('assertUrlIncludes', async ({ step, page, utils }) => {
     const expected = utils.interpolateTemplate(step.value || '');
+    const timeout = Number(step.timeout || 0);
+    if (!page.url().includes(expected) && timeout > 0) {
+      await page.waitForURL((url) => url.toString().includes(expected), {
+        timeout
+      });
+    }
     if (!page.url().includes(expected)) {
       throw new Error(`Expected URL to include "${expected}", got "${page.url()}".`);
     }
     return {
-      expected
+      expected,
+      actual: page.url()
+    };
+  });
+
+  registerPlanStepHandler('assertPathnameEquals', async ({ step, page, utils }) => {
+    const expected = utils.interpolateTemplate(step.value || '');
+    const readPathname = () => new URL(page.url()).pathname;
+    const timeout = Number(step.timeout || 0);
+    if (readPathname() !== expected && timeout > 0) {
+      await page.waitForURL((url) => new URL(url.toString()).pathname === expected, {
+        timeout
+      });
+    }
+    const actual = readPathname();
+    if (actual !== expected) {
+      throw new Error(`Expected pathname "${expected}", got "${actual}".`);
+    }
+    return {
+      expected,
+      actual
     };
   });
 

@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -80,6 +81,7 @@ public class ObservabilityEvidenceQueryServiceImpl implements ObservabilityEvide
     private final Path repoRoot;
     private final Path observabilityLogDir;
 
+    @Autowired
     public ObservabilityEvidenceQueryServiceImpl(JdbcTemplate jdbcTemplate, PermissionService permissionService) {
         this(jdbcTemplate, permissionService, Paths.get("").toAbsolutePath().normalize());
     }

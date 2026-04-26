@@ -6,8 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { createRunnerAdapters } from './acceptance-runner-adapters.mjs';
 import {
   filterRegistryScenarios,
-  loadAcceptanceRegistry
+  loadAcceptanceRegistry,
+  orderRegistryScenarios
 } from './acceptance-registry-lib.mjs';
+
+const DEFAULT_ACCEPTANCE_PACKAGES_PATH = 'config/automation/business-acceptance-packages.json';
 
 function parseRegistryArgs(argv) {
   const options = {
@@ -91,6 +94,129 @@ function createRunId() {
   return parts.join('');
 }
 
+function parseSelectedModuleCodes(selectedModules = '') {
+  return String(selectedModules || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function loadAcceptancePackages({
+  workspaceRoot,
+  packagesPath = DEFAULT_ACCEPTANCE_PACKAGES_PATH,
+  source
+}) {
+  const raw =
+    source ??
+    JSON.parse(
+      await fs.readFile(path.resolve(workspaceRoot, packagesPath), 'utf8')
+    );
+  return Array.isArray(raw?.packages) ? raw.packages : [];
+}
+
+async function loadAcceptancePackagesIfPresent({
+  workspaceRoot,
+  source
+}) {
+  try {
+    return await loadAcceptancePackages({
+      workspaceRoot,
+      source
+    });
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function filterPackageScenarios({
+  registry,
+  packages,
+  options
+}) {
+  const acceptancePackage = packages.find(
+    (item) => String(item?.packageCode || '').trim() === options.packageCode
+  );
+  if (!acceptancePackage) {
+    throw new Error(`Unknown business acceptance package: ${options.packageCode}`);
+  }
+
+  const packageModules = Array.isArray(acceptancePackage.modules)
+    ? acceptancePackage.modules
+    : [];
+  const allowedModuleCodes = new Set(
+    packageModules
+      .map((item) => String(item?.moduleCode || '').trim())
+      .filter(Boolean)
+  );
+  const requestedModuleCodes = parseSelectedModuleCodes(options.selectedModules);
+  const effectiveModuleCodes = requestedModuleCodes.length > 0
+    ? requestedModuleCodes
+    : Array.from(allowedModuleCodes);
+
+  for (const moduleCode of effectiveModuleCodes) {
+    if (!allowedModuleCodes.has(moduleCode)) {
+      throw new Error(
+        `Business acceptance module does not belong to package ${options.packageCode}: ${moduleCode}`
+      );
+    }
+  }
+
+  const scenarioIds = new Set();
+  packageModules
+    .filter((item) => effectiveModuleCodes.includes(String(item?.moduleCode || '').trim()))
+    .forEach((module) => {
+      const refs = Array.isArray(module?.scenarioRefs) ? module.scenarioRefs : [];
+      refs.forEach((scenarioId) => {
+        const normalized = String(scenarioId || '').trim();
+        if (normalized) {
+          scenarioIds.add(normalized);
+        }
+      });
+    });
+
+  const selected = registry.scenarios.filter((scenario) => {
+    if (!scenarioIds.has(scenario.id)) {
+      return false;
+    }
+    if (options.id && scenario.id !== options.id) {
+      return false;
+    }
+    if (options.module && scenario.module !== options.module) {
+      return false;
+    }
+    if (options.scope && scenario.scope !== options.scope) {
+      return false;
+    }
+    return true;
+  });
+
+  if (!options.includeDeps) {
+    return orderRegistryScenarios(selected);
+  }
+
+  const scenarioMap = new Map(registry.scenarios.map((item) => [item.id, item]));
+  const required = new Map();
+
+  const visit = (scenario) => {
+    required.set(scenario.id, scenario);
+    (scenario.dependsOn || []).forEach((depId) => {
+      const dependency = scenarioMap.get(depId);
+      if (!dependency) {
+        throw new Error(`Missing dependency: ${depId}`);
+      }
+      if (!required.has(depId)) {
+        visit(dependency);
+      }
+    });
+  };
+
+  selected.forEach(visit);
+  return orderRegistryScenarios([...required.values()]);
+}
+
 function buildSummary(results) {
   return {
     total: results.length,
@@ -167,6 +293,7 @@ export async function runRegistryCli({
   argv = process.argv.slice(2),
   workspaceRoot = process.cwd(),
   registrySource,
+  packagesSource,
   adapterOverrides
 } = {}) {
   const options = parseRegistryArgs(argv);
@@ -177,13 +304,40 @@ export async function runRegistryCli({
   });
 
   if (options.list) {
+    const packageScopedList = options.packageCode
+      ? await loadAcceptancePackagesIfPresent({
+          workspaceRoot,
+          source: packagesSource
+        }).then((packages) =>
+          packages
+            ? filterPackageScenarios({
+                registry,
+                packages,
+                options
+              })
+            : filterRegistryScenarios(registry, options)
+        )
+      : null;
     return {
       exitCode: 0,
-      listed: filterRegistryScenarios(registry, options)
+      listed: packageScopedList || filterRegistryScenarios(registry, options)
     };
   }
 
-  const scenarios = filterRegistryScenarios(registry, options);
+  const scenarios = options.packageCode
+    ? await loadAcceptancePackagesIfPresent({
+        workspaceRoot,
+        source: packagesSource
+      }).then((packages) =>
+        packages
+          ? filterPackageScenarios({
+              registry,
+              packages,
+              options
+            })
+          : filterRegistryScenarios(registry, options)
+      )
+    : filterRegistryScenarios(registry, options);
   const adapters = createRunnerAdapters({
     workspaceRoot,
     overrides: adapterOverrides

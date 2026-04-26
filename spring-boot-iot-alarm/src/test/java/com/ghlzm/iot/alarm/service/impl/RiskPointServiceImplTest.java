@@ -18,6 +18,10 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
 import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.service.DeviceService;
+import com.ghlzm.iot.device.service.MetricIdentifierResolver;
+import com.ghlzm.iot.device.service.PublishedProductContractSnapshotService;
+import com.ghlzm.iot.device.service.model.MetricIdentifierResolution;
+import com.ghlzm.iot.device.service.model.PublishedProductContractSnapshot;
 import com.ghlzm.iot.device.service.ProductService;
 import com.ghlzm.iot.device.vo.DeviceMetricOptionVO;
 import com.ghlzm.iot.device.vo.DeviceOptionVO;
@@ -1086,6 +1090,88 @@ class RiskPointServiceImplTest {
 
         assertEquals("目录指标与测点标识符不一致", error.getMessage());
         verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
+    }
+
+    @Test
+    void bindDeviceAndReturnShouldNormalizeCatalogMetricIdentifierToRuntimeAlias() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        PublishedProductContractSnapshotService snapshotService = mock(PublishedProductContractSnapshotService.class);
+        MetricIdentifierResolver metricIdentifierResolver = mock(MetricIdentifierResolver.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                null,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService,
+                riskMetricCatalogService,
+                null,
+                snapshotService,
+                metricIdentifierResolver
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(12L);
+        request.setDeviceId(2001L);
+        request.setRiskMetricId(9101L);
+        request.setMetricIdentifier("L1_LF_1.value");
+        request.setMetricName("裂缝量");
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(12L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(2001L, 7101L, "ops-device-01");
+        device.setProductId(3001L);
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9101L);
+        catalog.setProductId(3001L);
+        catalog.setContractIdentifier("L1_LF_1.value");
+        catalog.setRiskMetricName("裂缝量");
+        PublishedProductContractSnapshot snapshot = PublishedProductContractSnapshot.builder()
+                .productId(3001L)
+                .publishedIdentifier("L1_LF_1.value")
+                .canonicalAlias("L1_LF_1.value", "value")
+                .canonicalAlias("value", "value")
+                .build();
+
+        doReturn(riskPoint).when(service).getById(12L);
+        doReturn(riskPoint).when(service).getById(12L, 1001L);
+        doReturn(null).when(deviceMapper).selectOne(any());
+        doReturn(List.of()).when(deviceMapper).selectList(any());
+        when(deviceService.getRequiredById(1001L, 2001L)).thenReturn(device);
+        when(riskMetricCatalogService.getById(9101L)).thenReturn(catalog);
+        when(snapshotService.getRequiredSnapshot(3001L)).thenReturn(snapshot);
+        when(metricIdentifierResolver.resolveForRuntime(snapshot, "L1_LF_1.value"))
+                .thenReturn(MetricIdentifierResolution.of(
+                        "L1_LF_1.value",
+                        "value",
+                        MetricIdentifierResolution.SOURCE_PUBLISHED_SNAPSHOT
+                ));
+        doAnswer(invocation -> {
+            RiskPointDevice saved = invocation.getArgument(0);
+            saved.setId(9004L);
+            return 1;
+        }).when(deviceMapper).insert(any(RiskPointDevice.class));
+
+        RiskPointDevice saved = service.bindDeviceAndReturn(request, 1001L);
+
+        assertEquals("value", saved.getMetricIdentifier());
+        assertEquals("裂缝量", saved.getMetricName());
+        verify(deviceMapper).insert(org.mockito.ArgumentMatchers.<RiskPointDevice>argThat(binding ->
+                Long.valueOf(12L).equals(binding.getRiskPointId())
+                        && Long.valueOf(2001L).equals(binding.getDeviceId())
+                        && "value".equals(binding.getMetricIdentifier())
+                        && "裂缝量".equals(binding.getMetricName())
+        ));
     }
 
     @Test

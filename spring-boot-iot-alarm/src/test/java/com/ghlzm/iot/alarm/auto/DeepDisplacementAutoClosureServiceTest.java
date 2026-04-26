@@ -130,6 +130,30 @@ class DeepDisplacementAutoClosureServiceTest {
     }
 
     @Test
+    void processShouldMatchNormalizedLeafAliasWhenBindingUsesFullPathMetricIdentifier() {
+        RiskPoint riskPoint = buildRiskPoint(8001L, "info", null);
+        RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "L1_LF_1.value", "裂缝量");
+
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding), List.of(binding));
+        when(riskPointMapper.selectList(any())).thenReturn(List.of(riskPoint));
+        when(riskPointMapper.selectById(riskPoint.getId())).thenReturn(riskPoint);
+        when(devicePropertyMapper.selectOne(any())).thenReturn(buildProperty(binding.getDeviceId(), "value", "6.2"));
+        when(linkageRuleMapper.selectList(any())).thenReturn(List.of());
+        when(emergencyPlanMapper.selectList(any())).thenReturn(List.of());
+        when(alarmRecordService.getOne(any())).thenReturn(null);
+
+        service.process(buildEvent("84330701", Map.of("value", 6.2)));
+
+        ArgumentCaptor<AlarmRecord> alarmCaptor = ArgumentCaptor.forClass(AlarmRecord.class);
+        verify(alarmRecordService).addAlarm(alarmCaptor.capture());
+        assertEquals("yellow", alarmCaptor.getValue().getAlarmLevel());
+
+        ArgumentCaptor<RiskPoint> riskPointCaptor = ArgumentCaptor.forClass(RiskPoint.class);
+        verify(riskPointMapper).updateById(riskPointCaptor.capture());
+        assertEquals("yellow", riskPointCaptor.getValue().getCurrentRiskLevel());
+    }
+
+    @Test
     void processShouldCreateAlarmEventAndDispatchForRed() {
         RiskPoint riskPoint = buildRiskPoint(8001L, "info", 88L);
         RiskPointDevice binding = buildBinding(8001L, 3002L, "84330701", "dispsX", "顺滑动方向累计变形量");
@@ -400,9 +424,13 @@ class DeepDisplacementAutoClosureServiceTest {
     }
 
     private DeviceProperty buildProperty(RiskPointDevice binding, String value) {
+        return buildProperty(binding.getDeviceId(), binding.getMetricIdentifier(), value);
+    }
+
+    private DeviceProperty buildProperty(Long deviceId, String identifier, String value) {
         DeviceProperty property = new DeviceProperty();
-        property.setDeviceId(binding.getDeviceId());
-        property.setIdentifier(binding.getMetricIdentifier());
+        property.setDeviceId(deviceId);
+        property.setIdentifier(identifier);
         property.setPropertyValue(new BigDecimal(value).stripTrailingZeros().toPlainString());
         return property;
     }
