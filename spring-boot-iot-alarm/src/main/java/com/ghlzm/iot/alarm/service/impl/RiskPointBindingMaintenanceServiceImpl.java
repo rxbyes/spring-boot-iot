@@ -419,8 +419,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         }
         List<DeviceMetricOptionVO> options = deviceService.listMetricOptions(currentUserId, deviceId);
         options = options == null ? List.of() : options;
-        if (options.stream().noneMatch(option -> option.getRiskMetricId() != null)
-                && ensureRiskMetricCatalogReadyForDevice(deviceId)) {
+        if (shouldRefreshRiskMetricCatalog(deviceId, options) && ensureRiskMetricCatalogReadyForDevice(deviceId)) {
             options = deviceService.listMetricOptions(currentUserId, deviceId);
             options = options == null ? List.of() : options;
         }
@@ -428,6 +427,40 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 .filter(option -> option.getRiskMetricId() != null)
                 .sorted(Comparator.comparing(DeviceMetricOptionVO::getIdentifier, Comparator.nullsLast(String::compareTo)))
                 .toList();
+    }
+
+    private boolean shouldRefreshRiskMetricCatalog(Long deviceId, List<DeviceMetricOptionVO> options) {
+        if (deviceId == null
+                || deviceService == null
+                || productModelMapper == null
+                || riskMetricCatalogService == null
+                || riskMetricCatalogPublishRule == null) {
+            return false;
+        }
+        Device device = deviceService.getRequiredById(deviceId);
+        if (device == null || device.getProductId() == null) {
+            return false;
+        }
+        List<ProductModel> productModels = listFormalProductModels(device.getProductId());
+        if (productModels.isEmpty()) {
+            return false;
+        }
+        Product product = productMapper == null ? null : productMapper.selectById(device.getProductId());
+        Set<String> expectedIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(
+                product,
+                null,
+                device,
+                productModels
+        );
+        Set<String> publishedIdentifiers = options == null ? Set.of() : options.stream()
+                .filter(option -> option.getRiskMetricId() != null)
+                .map(DeviceMetricOptionVO::getIdentifier)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> normalizedExpectedIdentifiers = expectedIdentifiers == null
+                ? Set.of()
+                : new LinkedHashSet<>(expectedIdentifiers);
+        return !publishedIdentifiers.equals(normalizedExpectedIdentifiers);
     }
 
     private boolean ensureRiskMetricCatalogReadyForDevice(Long deviceId) {
@@ -442,13 +475,8 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         if (device == null || device.getProductId() == null) {
             return false;
         }
-        List<ProductModel> productModels = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
-                .eq(ProductModel::getDeleted, 0)
-                .eq(ProductModel::getProductId, device.getProductId())
-                .eq(ProductModel::getModelType, "property")
-                .orderByAsc(ProductModel::getSortNo)
-                .orderByAsc(ProductModel::getIdentifier));
-        if (productModels == null || productModels.isEmpty()) {
+        List<ProductModel> productModels = listFormalProductModels(device.getProductId());
+        if (productModels.isEmpty()) {
             return false;
         }
         if (riskMetricCatalogRebuildService != null) {
@@ -466,6 +494,19 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         }
         riskMetricCatalogService.publishFromReleasedContracts(device.getProductId(), null, productModels, riskEnabledIdentifiers);
         return true;
+    }
+
+    private List<ProductModel> listFormalProductModels(Long productId) {
+        if (productId == null || productModelMapper == null) {
+            return List.of();
+        }
+        List<ProductModel> productModels = productModelMapper.selectList(new LambdaQueryWrapper<ProductModel>()
+                .eq(ProductModel::getDeleted, 0)
+                .eq(ProductModel::getProductId, productId)
+                .eq(ProductModel::getModelType, "property")
+                .orderByAsc(ProductModel::getSortNo)
+                .orderByAsc(ProductModel::getIdentifier));
+        return productModels == null ? List.of() : productModels;
     }
 
     @Override

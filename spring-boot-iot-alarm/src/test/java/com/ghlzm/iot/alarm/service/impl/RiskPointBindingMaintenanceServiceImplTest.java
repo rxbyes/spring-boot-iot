@@ -38,7 +38,9 @@ import org.mockito.ArgumentCaptor;
 import java.util.Date;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -458,6 +460,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
         product.setId(2002L);
         product.setProductKey("zhd-monitor-multi-displacement-v1");
         product.setProductName("中海达多维位移产品");
+        product.setMetadataJson(measureMetadata("L1_LF_1.value"));
         when(productMapper.selectById(2002L)).thenReturn(product);
 
         ProductModel crackValue = productModel(4101L, 2002L, "L1_LF_1.value", "裂缝量");
@@ -522,6 +525,11 @@ class RiskPointBindingMaintenanceServiceImplTest {
         product.setId(2004L);
         product.setProductKey("nf-monitor-gnss-monitor-v1");
         product.setProductName("南方测绘 监测型 GNSS位移监测仪");
+        product.setMetadataJson(measureMetadata(
+                "L1_GP_1.gpsTotalX",
+                "L1_GP_1.gpsTotalY",
+                "L1_GP_1.gpsTotalZ"
+        ));
         when(productMapper.selectById(2004L)).thenReturn(product);
 
         ProductModel gpsTotalX = productModel(4301L, 2004L, "L1_GP_1.gpsTotalX", "X方向累计变形量");
@@ -555,6 +563,119 @@ class RiskPointBindingMaintenanceServiceImplTest {
         );
         assertEquals(List.of(9201L, 9202L, 9203L), result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList());
         verify(rebuildService).rebuildLatestRelease(2004L);
+    }
+
+    @Test
+    void listFormalBindingMetricOptionsShouldRebuildWhenCatalogIsPartiallyStale() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
+        ProductMapper productMapper = mock(ProductMapper.class);
+        RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskMetricCatalogRebuildService rebuildService = mock(RiskMetricCatalogRebuildService.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                null,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                deviceService,
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule()
+        );
+        service.setRiskMetricCatalogBackfillDependencies(
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule(),
+                rebuildService
+        );
+        Device device = new Device();
+        device.setId(3006L);
+        device.setProductId(2002L);
+        device.setDeviceName("CXH15522812 - 多维检测仪");
+        when(deviceService.getRequiredById(3006L)).thenReturn(device);
+        when(rebuildService.rebuildLatestRelease(2002L)).thenReturn(true);
+
+        Product product = new Product();
+        product.setId(2002L);
+        product.setProductKey("zhd-monitor-multi-displacement-v1");
+        product.setProductName("中海达多维位移产品");
+        product.setMetadataJson(measureMetadata(
+                "L1_LF_1.value",
+                "L1_QJ_1.X",
+                "L1_QJ_1.Y",
+                "L1_QJ_1.Z",
+                "L1_JS_1.gX",
+                "L1_JS_1.gY",
+                "L1_JS_1.gZ"
+        ));
+        when(productMapper.selectById(2002L)).thenReturn(product);
+
+        ProductModel crackValue = productModel(4601L, 2002L, "L1_LF_1.value", "裂缝量");
+        ProductModel tiltX = productModel(4602L, 2002L, "L1_QJ_1.X", "X轴倾角");
+        ProductModel tiltY = productModel(4603L, 2002L, "L1_QJ_1.Y", "Y轴倾角");
+        ProductModel tiltZ = productModel(4604L, 2002L, "L1_QJ_1.Z", "Z轴倾角");
+        ProductModel accelX = productModel(4605L, 2002L, "L1_JS_1.gX", "X轴加速度");
+        ProductModel accelY = productModel(4606L, 2002L, "L1_JS_1.gY", "Y轴加速度");
+        ProductModel accelZ = productModel(4607L, 2002L, "L1_JS_1.gZ", "Z轴加速度");
+        when(productModelMapper.selectList(any())).thenReturn(List.of(
+                crackValue,
+                tiltX,
+                tiltY,
+                tiltZ,
+                accelX,
+                accelY,
+                accelZ
+        ));
+
+        when(deviceService.listMetricOptions(1001L, 3006L))
+                .thenReturn(List.of(
+                        formalOption("L1_LF_1.value", "裂缝量", 9301L),
+                        formalOption("L1_QJ_1.X", "X轴倾角", null),
+                        formalOption("L1_QJ_1.Y", "Y轴倾角", null),
+                        formalOption("L1_QJ_1.Z", "Z轴倾角", null),
+                        formalOption("L1_JS_1.gX", "X轴加速度", null),
+                        formalOption("L1_JS_1.gY", "Y轴加速度", null),
+                        formalOption("L1_JS_1.gZ", "Z轴加速度", null)
+                ))
+                .thenReturn(List.of(
+                        formalOption("L1_LF_1.value", "裂缝量", 9301L),
+                        formalOption("L1_QJ_1.X", "X轴倾角", 9302L),
+                        formalOption("L1_QJ_1.Y", "Y轴倾角", 9303L),
+                        formalOption("L1_QJ_1.Z", "Z轴倾角", 9304L),
+                        formalOption("L1_JS_1.gX", "X轴加速度", 9305L),
+                        formalOption("L1_JS_1.gY", "Y轴加速度", 9306L),
+                        formalOption("L1_JS_1.gZ", "Z轴加速度", 9307L)
+                ));
+
+        List<DeviceMetricOptionVO> result = service.listFormalBindingMetricOptions(3006L, 1001L);
+
+        assertEquals(
+                List.of(
+                        "L1_JS_1.gX",
+                        "L1_JS_1.gY",
+                        "L1_JS_1.gZ",
+                        "L1_LF_1.value",
+                        "L1_QJ_1.X",
+                        "L1_QJ_1.Y",
+                        "L1_QJ_1.Z"
+                ),
+                result.stream().map(DeviceMetricOptionVO::getIdentifier).toList()
+        );
+        assertEquals(
+                List.of(9305L, 9306L, 9307L, 9301L, 9302L, 9303L, 9304L),
+                result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList()
+        );
+        verify(rebuildService).rebuildLatestRelease(2002L);
     }
 
     @Test
@@ -1193,6 +1314,28 @@ class RiskPointBindingMaintenanceServiceImplTest {
         option.setDataType("double");
         option.setRiskMetricId(riskMetricId);
         return option;
+    }
+
+    private String measureMetadata(String... identifiers) {
+        String metricEntries = identifiers == null ? "" : Arrays.stream(identifiers)
+                .filter(Objects::nonNull)
+                .map(identifier -> """
+                        {
+                          "identifier":"%s",
+                          "displayName":"%s",
+                          "group":"measure",
+                          "enabled":true,
+                          "includeInTrend":true
+                        }
+                        """.formatted(identifier, identifier))
+                .collect(Collectors.joining(","));
+        return """
+                {
+                  "objectInsight": {
+                    "customMetrics": [%s]
+                  }
+                }
+                """.formatted(metricEntries);
     }
 
     private RiskPointDeviceCapabilityBindingRequest capabilityRequest(Long riskPointId, Long deviceId, String deviceCapabilityType) {
