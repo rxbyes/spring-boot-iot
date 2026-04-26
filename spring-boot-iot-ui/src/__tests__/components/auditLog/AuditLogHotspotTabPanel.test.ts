@@ -167,7 +167,8 @@ describe('AuditLogHotspotTabPanel', () => {
     await buttons[0]!.trigger('click');
     await buttons[1]!.trigger('click');
     await buttons[2]!.trigger('click');
-    await buttons[5]!.trigger('click');
+    await buttons[3]!.trigger('click');
+    await buttons[6]!.trigger('click');
     await wrapper.get('[data-testid="slow-trend-window-7d"]').trigger('click');
 
     expect(wrapper.emitted('open-trace-evidence')?.[0]).toEqual(['trace-hotspot-001']);
@@ -176,7 +177,8 @@ describe('AuditLogHotspotTabPanel', () => {
       expect.objectContaining({ latestTraceId: 'trace-hotspot-001' }),
       '24h'
     ]);
-    expect(wrapper.emitted('open-trace-evidence')?.[1]).toEqual(['trace-task-001']);
+    expect(wrapper.emitted('open-trace-evidence')?.[1]).toEqual(['trace-span-001']);
+    expect(wrapper.emitted('open-trace-evidence')?.[2]).toEqual(['trace-task-001']);
     expect(wrapper.emitted('change-slow-trend-window')?.[0]).toEqual(['7d']);
   });
 

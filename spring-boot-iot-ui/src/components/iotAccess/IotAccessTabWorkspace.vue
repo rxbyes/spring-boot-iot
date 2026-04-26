@@ -9,6 +9,7 @@
         :class="{ 'iot-access-tab-workspace__tab--active': item.key === activeKey }"
         :disabled="Boolean(item.disabled)"
         :aria-current="item.key === activeKey ? 'page' : undefined"
+        v-bind="resolveButtonAttrs(item)"
         @click="handleTabChange(item.key)"
       >
         {{ item.label }}
@@ -29,6 +30,8 @@ export interface IotAccessTabWorkspaceItem {
   key: string
   label: string
   disabled?: boolean
+  buttonAttrs?: Record<string, string | number | boolean | undefined>
+  activeButtonAttrs?: Record<string, string | number | boolean | undefined>
 }
 
 const props = withDefaults(
@@ -80,6 +83,12 @@ watch(
 )
 
 const activeItem = computed(() => props.items.find((item) => item.key === activeKey.value) || null)
+
+function resolveButtonAttrs(item: IotAccessTabWorkspaceItem) {
+  return item.key === activeKey.value
+    ? { ...(item.buttonAttrs || {}), ...(item.activeButtonAttrs || {}) }
+    : { ...(item.buttonAttrs || {}) }
+}
 
 async function handleTabChange(nextKey: string) {
   if (!isValidKey(nextKey) || nextKey === activeKey.value) {

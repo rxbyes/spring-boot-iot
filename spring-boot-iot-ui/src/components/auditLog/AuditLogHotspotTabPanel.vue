@@ -81,6 +81,17 @@
               <span>{{ formatValue(span.status) }}</span>
               <span>{{ formatValue(span.startedAt) }}</span>
             </div>
+            <div class="audit-log-slow-span-drilldown__footer">
+              <span>{{ formatValue(span.eventCode) }} / {{ formatValue(span.objectId) }}</span>
+              <StandardButton
+                action="view"
+                link
+                :disabled="!span.traceId"
+                @click="span.traceId && emit('open-trace-evidence', span.traceId)"
+              >
+                证据
+              </StandardButton>
+            </div>
           </article>
         </div>
       </section>

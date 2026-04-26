@@ -108,7 +108,11 @@ function installSessionStorageMock(value?: Record<string, string>) {
 }
 
 function findButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
-  return wrapper.findAll('button').find((button) => button.text().includes(text));
+  const buttons = wrapper.findAll('button');
+  return (
+    buttons.find((button) => button.text().trim() === text) ||
+    buttons.find((button) => button.text().includes(text))
+  );
 }
 
 async function triggerSystemLogTab(
@@ -121,8 +125,15 @@ async function triggerSystemLogTab(
   await nextTick();
 }
 
-async function clickButtonByText(wrapper: ReturnType<typeof mountView>, text: string) {
-  const button = findButtonByText(wrapper, text);
+async function clickButtonByText(
+  wrapper: ReturnType<typeof mountView>,
+  text: string,
+  within?: ReturnType<typeof mountView> | ReturnType<typeof mount>
+) {
+  const scope = within ?? wrapper;
+  const button =
+    scope.findAll('button').find((candidate) => candidate.text().trim() === text) ||
+    scope.findAll('button').find((candidate) => candidate.text().includes(text));
   if (!button) {
     throw new Error(`Missing button: ${text}`);
   }
@@ -188,8 +199,7 @@ const IotAccessTabWorkspaceStub = defineComponent({
         <button
           v-for="item in items || []"
           :key="item.key"
-          :data-testid="item.testId || undefined"
-          :data-active="String(item.key === activeKey)"
+          v-bind="item.key === activeKey ? { ...(item.buttonAttrs || {}), ...(item.activeButtonAttrs || {}) } : (item.buttonAttrs || {})"
           type="button"
           @click="handleTabChange(item.key)"
         >
@@ -219,8 +229,10 @@ const StandardAppliedFiltersBarStub = defineComponent({
 
 const StandardTableToolbarStub = defineComponent({
   name: 'StandardTableToolbar',
+  props: ['metaItems'],
   template: `
     <div class="audit-log-toolbar-stub">
+      <div class="audit-log-toolbar-stub__meta">{{ Array.isArray(metaItems) ? metaItems.join(',') : '' }}</div>
       <slot />
       <slot name="right" />
     </div>
@@ -952,6 +964,29 @@ describe('AuditLogView', () => {
     expect(listObservabilitySlowSpanSummaries).toHaveBeenCalledTimes(1);
     expect(pageObservabilityScheduledTasks).toHaveBeenCalledTimes(1);
     expect(pageObservabilityMessageArchiveBatches).not.toHaveBeenCalled();
+  });
+
+  it('clears selected rows when switching away from the errors tab', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const errorPanel = wrapper.findComponent({ name: 'AuditLogErrorTabPanel' });
+    errorPanel.vm.$emit('selection-change', [
+      {
+        id: 1,
+        traceId: 'trace-001',
+        operationModule: 'mqtt-consumer'
+      }
+    ]);
+    await nextTick();
+
+    expect(wrapper.find('.audit-log-toolbar-stub__meta').text()).toContain('已选 1 项');
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+    await triggerSystemLogTab(wrapper, 'errors');
+
+    expect(wrapper.find('.audit-log-toolbar-stub__meta').text()).toContain('已选 0 项');
   });
 
   it('keeps /audit-log in the existing single-workbench layout without system tabs', async () => {

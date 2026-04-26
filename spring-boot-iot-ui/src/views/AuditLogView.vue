@@ -180,14 +180,14 @@
           </template>
         </StandardTableToolbar>
 
-        <div ref="systemTabWorkspaceRef">
+        <div>
           <IotAccessTabWorkspace
-            v-model="activeSystemLogTab"
+            :model-value="activeSystemLogTab"
             :items="systemLogTabItems"
             default-key="errors"
             query-key="systemLogTab"
             :sync-query="false"
-            @change="handleSystemLogTabChange"
+            @update:model-value="handleSystemLogTabChange"
           >
             <template #default="{ activeKey }">
               <AuditLogErrorTabPanel
@@ -211,6 +211,7 @@
                 :get-operation-result-tag="getOperationResultTag"
                 :get-audit-direct-actions="getAuditDirectActions"
                 @update:quick-search-keyword="quickSearchKeyword = $event"
+                @update-search-field="handleSystemErrorSearchFieldUpdate"
                 @search="handleSearch"
                 @reset="handleReset"
                 @quick-search="handleQuickSearch"
@@ -808,7 +809,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
@@ -888,6 +889,8 @@ type SystemLogTabItem = {
   key: SystemLogTabKey
   label: string
   testId: string
+  buttonAttrs: Record<string, string>
+  activeButtonAttrs: Record<string, string>
 }
 type ArchiveBatchOverviewCard = {
   key: ArchiveBatchOverviewSelectionKey
@@ -905,11 +908,28 @@ const viewMode = computed<AuditLogViewMode>(() => (route.path === '/system-log' 
 const isSystemMode = computed(() => viewMode.value === 'system')
 const isBusinessMode = computed(() => viewMode.value === 'business')
 const activeSystemLogTab = ref<SystemLogTabKey>('errors')
-const systemTabWorkspaceRef = ref<HTMLElement | null>(null)
 const systemLogTabItems = computed<SystemLogTabItem[]>(() => [
-  { key: 'errors', label: '异常排查', testId: 'system-log-tab-errors' },
-  { key: 'hotspots', label: '观测热点', testId: 'system-log-tab-hotspots' },
-  { key: 'archives', label: '归档治理', testId: 'system-log-tab-archives' }
+  {
+    key: 'errors',
+    label: '异常排查',
+    testId: 'system-log-tab-errors',
+    buttonAttrs: { 'data-testid': 'system-log-tab-errors', 'data-active': 'false' },
+    activeButtonAttrs: { 'data-active': 'true' }
+  },
+  {
+    key: 'hotspots',
+    label: '观测热点',
+    testId: 'system-log-tab-hotspots',
+    buttonAttrs: { 'data-testid': 'system-log-tab-hotspots', 'data-active': 'false' },
+    activeButtonAttrs: { 'data-active': 'true' }
+  },
+  {
+    key: 'archives',
+    label: '归档治理',
+    testId: 'system-log-tab-archives',
+    buttonAttrs: { 'data-testid': 'system-log-tab-archives', 'data-active': 'false' },
+    activeButtonAttrs: { 'data-active': 'true' }
+  }
 ])
 const auditActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidth({
@@ -1556,28 +1576,6 @@ const loadCurrentViewData = () => {
   }
 }
 
-const syncSystemLogTabTestHooks = async () => {
-  if (!isSystemMode.value) {
-    return
-  }
-  await nextTick()
-  const root = systemTabWorkspaceRef.value
-  if (!root) {
-    return
-  }
-  const buttons = root.querySelectorAll<HTMLButtonElement>(
-    '.iot-access-tab-workspace__tab, .iot-access-tab-workspace-stub__tabs > button'
-  )
-  systemLogTabItems.value.forEach((item, index) => {
-    const button = buttons[index]
-    if (!button) {
-      return
-    }
-    button.setAttribute('data-testid', item.testId)
-    button.setAttribute('data-active', String(item.key === activeSystemLogTab.value))
-  })
-}
-
 // 获取审计日志查询条件
 const buildAuditLogQueryParams = () => ({
   traceId: appliedFilters.traceId,
@@ -2196,7 +2194,6 @@ onMounted(() => {
   syncAdvancedFilterState()
   syncAppliedFilters()
   loadCurrentViewData()
-  void syncSystemLogTabTestHooks()
 })
 
 watch(viewMode, (newMode, oldMode) => {
@@ -2235,7 +2232,6 @@ watch(viewMode, (newMode, oldMode) => {
   syncAdvancedFilterState()
   syncAppliedFilters()
   loadCurrentViewData()
-  void syncSystemLogTabTestHooks()
 })
 
 watch(
@@ -2264,10 +2260,6 @@ watch(
     loadAuditWorkbenchData()
   }
 )
-
-watch([isSystemMode, activeSystemLogTab], () => {
-  void syncSystemLogTabTestHooks()
-})
 
 const triggerSearch = (resetPageFirst = false) => {
   applyQuickSearchKeywordToFilters()
@@ -2325,6 +2317,28 @@ const clearSelection = () => {
   selectedRows.value = []
 }
 
+const handleSystemErrorSearchFieldUpdate = ({
+  field,
+  value
+}: {
+  field:
+    | 'deviceCode'
+    | 'productKey'
+    | 'operationModule'
+    | 'requestMethod'
+    | 'requestUrl'
+    | 'errorCode'
+    | 'exceptionClass'
+    | 'operationResult'
+  value: string | number | undefined
+}) => {
+  if (field === 'operationResult') {
+    searchForm.operationResult = typeof value === 'number' ? value : undefined
+    return
+  }
+  searchForm[field] = typeof value === 'string' ? value : ''
+}
+
 const handleRefresh = () => {
   triggerSearch(false)
 }
@@ -2334,9 +2348,14 @@ const handleSystemOverviewTabChange = (tabKey: string) => {
 }
 
 const handleSystemLogTabChange = (tabKey: string) => {
-  if (tabKey === 'hotspots' || tabKey === 'archives' || tabKey === 'errors') {
-    activeSystemLogTab.value = tabKey
+  if (tabKey !== 'hotspots' && tabKey !== 'archives' && tabKey !== 'errors') {
+    return
   }
+  if (tabKey === activeSystemLogTab.value) {
+    return
+  }
+  clearSelection()
+  activeSystemLogTab.value = tabKey
 }
 
 const handleSystemTabRefresh = () => {

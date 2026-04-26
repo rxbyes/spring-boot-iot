@@ -22,20 +22,31 @@
         </el-form-item>
         <el-form-item>
           <el-input
-            v-model="searchForm.operationModule"
+            :model-value="searchForm.operationModule"
             placeholder="异常模块"
             clearable
+            @update:model-value="emitFieldUpdate('operationModule', String($event || ''))"
             @keyup.enter="emit('search')"
           />
         </el-form-item>
         <el-form-item>
-          <el-select v-model="searchForm.operationResult" placeholder="操作结果" clearable>
+          <el-select
+            :model-value="searchForm.operationResult"
+            placeholder="操作结果"
+            clearable
+            @update:model-value="emitFieldUpdate('operationResult', normalizeOptionalNumber($event))"
+          >
             <el-option label="成功" :value="1" />
             <el-option label="失败" :value="0" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-select v-model="searchForm.requestMethod" placeholder="请求通道" clearable>
+          <el-select
+            :model-value="searchForm.requestMethod"
+            placeholder="请求通道"
+            clearable
+            @update:model-value="emitFieldUpdate('requestMethod', String($event || ''))"
+          >
             <el-option
               v-for="item in requestMethodOptions"
               :key="item.value"
@@ -49,41 +60,46 @@
       <template #advanced>
         <el-form-item>
           <el-input
-            v-model="searchForm.requestUrl"
+            :model-value="searchForm.requestUrl"
             placeholder="目标 / URL"
             clearable
+            @update:model-value="emitFieldUpdate('requestUrl', String($event || ''))"
             @keyup.enter="emit('search')"
           />
         </el-form-item>
         <el-form-item>
           <el-input
-            v-model="searchForm.deviceCode"
+            :model-value="searchForm.deviceCode"
             placeholder="设备编码"
             clearable
+            @update:model-value="emitFieldUpdate('deviceCode', String($event || ''))"
             @keyup.enter="emit('search')"
           />
         </el-form-item>
         <el-form-item>
           <el-input
-            v-model="searchForm.productKey"
+            :model-value="searchForm.productKey"
             placeholder="产品标识"
             clearable
+            @update:model-value="emitFieldUpdate('productKey', String($event || ''))"
             @keyup.enter="emit('search')"
           />
         </el-form-item>
         <el-form-item>
           <el-input
-            v-model="searchForm.errorCode"
+            :model-value="searchForm.errorCode"
             placeholder="异常编码"
             clearable
+            @update:model-value="emitFieldUpdate('errorCode', String($event || ''))"
             @keyup.enter="emit('search')"
           />
         </el-form-item>
         <el-form-item>
           <el-input
-            v-model="searchForm.exceptionClass"
+            :model-value="searchForm.exceptionClass"
             placeholder="异常类型"
             clearable
+            @update:model-value="emitFieldUpdate('exceptionClass', String($event || ''))"
             @keyup.enter="emit('search')"
           />
         </el-form-item>
@@ -289,6 +305,16 @@ interface WorkbenchActionItem {
   permission?: string;
 }
 
+type SearchFieldKey =
+  | 'deviceCode'
+  | 'productKey'
+  | 'operationModule'
+  | 'requestMethod'
+  | 'requestUrl'
+  | 'errorCode'
+  | 'exceptionClass'
+  | 'operationResult';
+
 defineProps<{
   searchForm: SearchFormModel;
   quickSearchKeyword: string;
@@ -319,9 +345,18 @@ const emit = defineEmits<{
   (event: 'toggle-advanced'): void;
   (event: 'clear-applied-filters'): void;
   (event: 'remove-applied-filter', key: string): void;
+  (event: 'update-search-field', payload: { field: SearchFieldKey; value: string | number | undefined }): void;
   (event: 'selection-change', rows: AuditLogRecord[]): void;
   (event: 'audit-row-action', payload: { command: string | number | object; row: AuditLogRecord }): void;
   (event: 'size-change', size: number): void;
   (event: 'page-change', page: number): void;
 }>();
+
+function normalizeOptionalNumber(value: unknown) {
+  return typeof value === 'number' ? value : undefined;
+}
+
+function emitFieldUpdate(field: SearchFieldKey, value: string | number | undefined) {
+  emit('update-search-field', { field, value });
+}
 </script>
