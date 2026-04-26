@@ -382,12 +382,16 @@
         {
           "id": "product-governance-unknown-query",
           "label": "按待确认产品名称查询台账",
-          "type": "click",
-          "locator": {
-            "type": "role",
-            "role": "button",
-            "name": "查询",
-            "exact": true
+          "type": "triggerApi",
+          "matcher": "/api/device/product/page",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "role",
+              "role": "button",
+              "name": "查询",
+              "exact": true
+            }
           },
           "optional": false
         },

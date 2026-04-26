@@ -326,9 +326,9 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                         Function.identity(),
                         (left, right) -> left));
 
-        Map<String, Boolean> activeAlarmFlags = listActiveAlarmFlags(deviceIds);
-        Map<String, AlarmRecord> latestActiveAlarmMap = listLatestActiveAlarms(deviceIds);
-        Map<String, EventRecord> latestEventMap = listLatestEvents(deviceIds);
+        Map<String, Boolean> activeAlarmFlags = listActiveAlarmFlags(deviceIds, riskPointIds);
+        Map<String, AlarmRecord> latestActiveAlarmMap = listLatestActiveAlarms(deviceIds, riskPointIds);
+        Map<String, EventRecord> latestEventMap = listLatestEvents(deviceIds, riskPointIds);
         return new MonitoringContext(riskPointMap, deviceMap, productMap, propertyMap, activeAlarmFlags, latestActiveAlarmMap, latestEventMap);
     }
 
@@ -342,51 +342,54 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
                 .collect(Collectors.toMap(Device::getId, Function.identity(), (left, right) -> left));
     }
 
-    private Map<String, Boolean> listActiveAlarmFlags(Set<Long> deviceIds) {
-        if (deviceIds.isEmpty()) {
+    private Map<String, Boolean> listActiveAlarmFlags(Set<Long> deviceIds, Set<Long> riskPointIds) {
+        if (deviceIds.isEmpty() || riskPointIds.isEmpty()) {
             return Collections.emptyMap();
         }
         return alarmRecordMapper.selectList(new LambdaQueryWrapper<AlarmRecord>()
                         .eq(AlarmRecord::getDeleted, 0)
                         .in(AlarmRecord::getStatus, ACTIVE_ALARM_STATUSES)
+                        .in(AlarmRecord::getRiskPointId, riskPointIds)
                         .in(AlarmRecord::getDeviceId, deviceIds))
                 .stream()
-                .filter(alarm -> alarm.getDeviceId() != null && alarm.getMetricName() != null)
+                .filter(alarm -> alarm.getRiskPointId() != null && alarm.getDeviceId() != null && alarm.getMetricName() != null)
                 .collect(Collectors.toMap(
-                        alarm -> alarmKey(alarm.getDeviceId(), alarm.getMetricName()),
+                        alarm -> alarmKey(alarm.getRiskPointId(), alarm.getDeviceId(), alarm.getMetricName()),
                         alarm -> Boolean.TRUE,
                         (left, right) -> left));
     }
 
-    private Map<String, AlarmRecord> listLatestActiveAlarms(Set<Long> deviceIds) {
-        if (deviceIds.isEmpty()) {
+    private Map<String, AlarmRecord> listLatestActiveAlarms(Set<Long> deviceIds, Set<Long> riskPointIds) {
+        if (deviceIds.isEmpty() || riskPointIds.isEmpty()) {
             return Collections.emptyMap();
         }
         return alarmRecordMapper.selectList(new LambdaQueryWrapper<AlarmRecord>()
                         .eq(AlarmRecord::getDeleted, 0)
                         .in(AlarmRecord::getStatus, ACTIVE_ALARM_STATUSES)
+                        .in(AlarmRecord::getRiskPointId, riskPointIds)
                         .in(AlarmRecord::getDeviceId, deviceIds))
                 .stream()
-                .filter(alarm -> alarm.getDeviceId() != null && alarm.getMetricName() != null)
+                .filter(alarm -> alarm.getRiskPointId() != null && alarm.getDeviceId() != null && alarm.getMetricName() != null)
                 .collect(Collectors.toMap(
-                        alarm -> alarmKey(alarm.getDeviceId(), alarm.getMetricName()),
+                        alarm -> alarmKey(alarm.getRiskPointId(), alarm.getDeviceId(), alarm.getMetricName()),
                         Function.identity(),
                         this::pickHigherPriorityAlarm
                 ));
     }
 
-    private Map<String, EventRecord> listLatestEvents(Set<Long> deviceIds) {
-        if (deviceIds.isEmpty()) {
+    private Map<String, EventRecord> listLatestEvents(Set<Long> deviceIds, Set<Long> riskPointIds) {
+        if (deviceIds.isEmpty() || riskPointIds.isEmpty()) {
             return Collections.emptyMap();
         }
         return eventRecordMapper.selectList(new LambdaQueryWrapper<EventRecord>()
                         .eq(EventRecord::getDeleted, 0)
+                        .in(EventRecord::getRiskPointId, riskPointIds)
                         .in(EventRecord::getDeviceId, deviceIds)
                         .orderByDesc(EventRecord::getCreateTime))
                 .stream()
-                .filter(event -> event.getDeviceId() != null && event.getMetricName() != null)
+                .filter(event -> event.getRiskPointId() != null && event.getDeviceId() != null && event.getMetricName() != null)
                 .collect(Collectors.toMap(
-                        event -> alarmKey(event.getDeviceId(), event.getMetricName()),
+                        event -> alarmKey(event.getRiskPointId(), event.getDeviceId(), event.getMetricName()),
                         Function.identity(),
                         this::pickHigherPriorityEvent
                 ));
@@ -401,9 +404,9 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
 
         Product product = context.productMap.get(device.getProductId());
         DeviceProperty property = context.propertyMap.get(propertyKey(binding.getDeviceId(), binding.getMetricIdentifier()));
-        boolean activeAlarm = context.activeAlarmFlags.containsKey(alarmKey(binding.getDeviceId(), binding.getMetricName()));
-        AlarmRecord latestActiveAlarm = context.latestActiveAlarmMap.get(alarmKey(binding.getDeviceId(), binding.getMetricName()));
-        EventRecord latestEvent = context.latestEventMap.get(alarmKey(binding.getDeviceId(), binding.getMetricName()));
+        boolean activeAlarm = context.activeAlarmFlags.containsKey(alarmKey(binding.getRiskPointId(), binding.getDeviceId(), binding.getMetricName()));
+        AlarmRecord latestActiveAlarm = context.latestActiveAlarmMap.get(alarmKey(binding.getRiskPointId(), binding.getDeviceId(), binding.getMetricName()));
+        EventRecord latestEvent = context.latestEventMap.get(alarmKey(binding.getRiskPointId(), binding.getDeviceId(), binding.getMetricName()));
 
         RiskMonitoringListItemVO item = new RiskMonitoringListItemVO();
         item.setBindingId(binding.getId());
@@ -626,8 +629,8 @@ public class RiskMonitoringServiceImpl implements RiskMonitoringService {
         return deviceId + "#" + identifier;
     }
 
-    private String alarmKey(Long deviceId, String metricName) {
-        return deviceId + "#" + metricName;
+    private String alarmKey(Long riskPointId, Long deviceId, String metricName) {
+        return riskPointId + "#" + deviceId + "#" + metricName;
     }
 
     private AlarmRecord pickHigherPriorityAlarm(AlarmRecord left, AlarmRecord right) {

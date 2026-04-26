@@ -45,16 +45,25 @@ const DEFAULT_LEVELS = [
 const SHARED_FIXTURES = {
   'risk.full-drill.red-chain': {
     'http://127.0.0.1:10099': {
-      deviceCode: 'CDXDD10099A1',
-      deviceId: '2039578962673213442',
-      productKey: 'nf-monitor-deep-displacement-v1',
-      bindingId: '8176',
-      riskPointId: '8',
-      riskPointName: 'codex-drill-risk-point-a2',
-      metricIdentifier: 'dispsY',
+      mode: 'fresh_device',
+      productKey: 'zhd-monitor-multi-displacement-v1',
+      metricIdentifier: 'L1_LF_1.value',
+      metricName: '裂缝量',
       receiveUser: 1,
       tenantId: '1',
       protocolCode: 'mqtt-json',
+      thresholdUnit: 'mm',
+      levels: DEFAULT_LEVELS
+    },
+    'http://127.0.0.1:10100': {
+      mode: 'fresh_device',
+      productKey: 'zhd-monitor-multi-displacement-v1',
+      metricIdentifier: 'L1_LF_1.value',
+      metricName: '裂缝量',
+      receiveUser: 1,
+      tenantId: '1',
+      protocolCode: 'mqtt-json',
+      thresholdUnit: 'mm',
       levels: DEFAULT_LEVELS
     }
   },
@@ -174,13 +183,52 @@ export function normalizeEntityId(value) {
   return String(value);
 }
 
+function normalizeMetricIdentifier(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function extractLeafMetricIdentifier(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  const lastDotIndex = normalized.lastIndexOf('.');
+  if (lastDotIndex < 0 || lastDotIndex >= normalized.length - 1) {
+    return normalized.toLowerCase();
+  }
+  return normalized.slice(lastDotIndex + 1).toLowerCase();
+}
+
 export function findBindingForDeviceMetric(bindings = [], device = {}, metric = {}) {
   const expectedDeviceId = normalizeEntityId(device?.id);
+  const expectedDeviceCode = String(device?.deviceCode || '').trim();
+  const expectedMetricIdentifier = normalizeMetricIdentifier(metric?.identifier);
+  const expectedLeafIdentifier = extractLeafMetricIdentifier(metric?.identifier);
+  const expectedRiskMetricId = normalizeEntityId(metric?.riskMetricId);
   return (
     bindings.find(
-      (item) =>
-        normalizeEntityId(item?.deviceId) === expectedDeviceId &&
-        item?.metricIdentifier === metric?.identifier
+      (item) => {
+        const deviceIdMatches = expectedDeviceId
+          ? normalizeEntityId(item?.deviceId) === expectedDeviceId
+          : true;
+        const deviceCodeMatches = expectedDeviceCode
+          ? String(item?.deviceCode || '').trim() === expectedDeviceCode
+          : true;
+        if (!deviceIdMatches || !deviceCodeMatches) {
+          return false;
+        }
+        if (expectedRiskMetricId && normalizeEntityId(item?.riskMetricId) === expectedRiskMetricId) {
+          return true;
+        }
+        const actualMetricIdentifier = normalizeMetricIdentifier(item?.metricIdentifier);
+        if (actualMetricIdentifier && actualMetricIdentifier === expectedMetricIdentifier) {
+          return true;
+        }
+        return Boolean(
+          expectedLeafIdentifier
+            && extractLeafMetricIdentifier(item?.metricIdentifier) === expectedLeafIdentifier
+        );
+      }
     ) || null
   );
 }
@@ -286,6 +334,26 @@ export function resolveRiskClosureFixture({
   return {
     ...fixture,
     backendBaseUrl: trimTrailingSlash(backendBaseUrl)
+  };
+}
+
+export function buildRiskPointBindDeviceBody(riskPoint, device, metric, fixture = {}) {
+  return {
+    riskPointId: riskPoint.id,
+    deviceId: device.id,
+    deviceCode: device.deviceCode,
+    deviceName: device.deviceName,
+    metrics: [
+      {
+        riskMetricId: metric.riskMetricId,
+        metricIdentifier: metric.identifier,
+        metricName: metric.name,
+        defaultThreshold: String(
+          fixture.triggerThreshold ?? fixture.defaultThreshold ?? 20
+        ),
+        thresholdUnit: fixture.thresholdUnit || 'mm'
+      }
+    ]
   };
 }
 
@@ -427,30 +495,10 @@ async function createFreshDevice(baseUrl, token, fixture, suffix) {
   });
 }
 
-async function listMetricOptions(baseUrl, token, deviceId) {
-  const normalizedDeviceId = normalizeEntityId(deviceId);
-  if (!normalizedDeviceId) {
-    throw new Error('Device id is unavailable for metric lookup.');
-  }
-  return requestEnvelope(baseUrl, `/api/device/${normalizedDeviceId}/metrics`, {
-    headers: buildAuthHeaders(token)
-  });
-}
-
-async function getMetricOption(baseUrl, token, deviceId, metricIdentifier, warmupFixture) {
+async function getMetricOption(baseUrl, token, deviceId, metricIdentifier) {
   return resolveMetricOptionWithWarmup({
     metricIdentifier,
-    loadMetrics: async () => listMetricOptions(baseUrl, token, deviceId),
-    warmupMetric:
-      warmupFixture == null
-        ? undefined
-        : async () => {
-            await sendMetricReport(
-              baseUrl,
-              warmupFixture,
-              warmupFixture.warmupMetricValue
-            );
-          }
+    loadMetrics: async () => listFormalMetricOptions(baseUrl, token, deviceId)
   });
 }
 
@@ -475,19 +523,7 @@ async function bindRiskPointDevice(baseUrl, token, riskPoint, device, metric, fi
   await requestEnvelope(baseUrl, '/api/risk-point/bind-device', {
     method: 'POST',
     headers: buildAuthHeaders(token),
-    body: {
-      riskPointId: riskPoint.id,
-      deviceId: device.id,
-      deviceCode: device.deviceCode,
-      deviceName: device.deviceName,
-      riskMetricId: metric.riskMetricId,
-      metricIdentifier: metric.identifier,
-      metricName: metric.name,
-      defaultThreshold: String(
-        fixture.triggerThreshold ?? fixture.defaultThreshold ?? 20
-      ),
-      thresholdUnit: fixture.thresholdUnit || 'mm'
-    }
+    body: buildRiskPointBindDeviceBody(riskPoint, device, metric, fixture)
   });
   const bindings = await requestEnvelope(
     baseUrl,
@@ -498,6 +534,60 @@ async function bindRiskPointDevice(baseUrl, token, riskPoint, device, metric, fi
   );
   const bindingItems = Array.isArray(bindings) ? bindings : [];
   return findBindingForDeviceMetric(bindingItems, device, metric);
+}
+
+async function unbindRiskPointDevice(baseUrl, token, riskPointId, deviceId) {
+  if (!normalizeEntityId(riskPointId) || !normalizeEntityId(deviceId)) {
+    throw new Error('riskPointId and deviceId are required for unbind.');
+  }
+  await requestEnvelope(
+    baseUrl,
+    `/api/risk-point/unbind-device?riskPointId=${encodeURIComponent(normalizeEntityId(riskPointId))}&deviceId=${encodeURIComponent(normalizeEntityId(deviceId))}`,
+    {
+      method: 'POST',
+      headers: buildAuthHeaders(token)
+    }
+  );
+}
+
+async function findCurrentRiskBinding(baseUrl, token, deviceCode, metricIdentifier = '') {
+  if (!deviceCode) {
+    return null;
+  }
+  const headers = buildAuthHeaders(token);
+  const riskPoints = await requestEnvelope(baseUrl, '/api/risk-point/list', { headers });
+  const riskPointItems = Array.isArray(riskPoints) ? riskPoints : [];
+  for (const riskPoint of riskPointItems) {
+    const riskPointId = normalizeEntityId(riskPoint?.id);
+    if (!riskPointId) {
+      continue;
+    }
+    const bindings = await requestEnvelope(
+      baseUrl,
+      `/api/risk-point/bound-devices/${encodeURIComponent(riskPointId)}`,
+      { headers }
+    ).catch(() => []);
+    const binding = findBindingForDeviceMetric(
+      Array.isArray(bindings) ? bindings : [],
+      { id: '', deviceCode },
+      { identifier: metricIdentifier }
+    ) || (
+      Array.isArray(bindings)
+        ? bindings.find((item) => item?.deviceCode === deviceCode) || null
+        : null
+    );
+    if (!binding) {
+      continue;
+    }
+    return {
+      bindingId: normalizeEntityId(binding?.id),
+      riskPointId,
+      riskPointName: riskPoint?.riskPointName || binding?.riskPointName || '',
+      metricIdentifier: binding?.metricIdentifier || '',
+      riskMetricId: normalizeEntityId(binding?.riskMetricId)
+    };
+  }
+  return null;
 }
 
 async function provisionFreshFixture(baseUrl, token, templateFixture) {
@@ -512,18 +602,11 @@ async function provisionFreshFixture(baseUrl, token, templateFixture) {
   }
 
   const device = await createFreshDevice(baseUrl, token, templateFixture, suffix);
-  const warmupMetricValue = templateFixture.levels?.[0]?.value ?? 0.0014;
   const metric = await getMetricOption(
     baseUrl,
     token,
     device.id,
-    templateFixture.metricIdentifier,
-    {
-      ...templateFixture,
-      deviceCode: device.deviceCode,
-      metricIdentifier: templateFixture.metricIdentifier,
-      warmupMetricValue
-    }
+    templateFixture.metricIdentifier
   );
   if (!metric?.identifier) {
     throw new Error(
@@ -565,6 +648,82 @@ async function provisionFreshFixture(baseUrl, token, templateFixture) {
     regionId: normalizeEntityId(region.id),
     regionName: region.regionName
   };
+}
+
+async function provisionExistingBindingFixture(baseUrl, token, templateFixture) {
+  if (!templateFixture?.deviceCode) {
+    throw new Error('Existing binding fixture requires deviceCode.');
+  }
+  if (!templateFixture?.bindingId || !templateFixture?.riskPointId) {
+    throw new Error('Existing binding fixture requires bindingId and riskPointId.');
+  }
+
+  const device = await getDeviceByCode(baseUrl, token, templateFixture.deviceCode);
+  if (!device?.id) {
+    throw new Error(`Existing binding device ${templateFixture.deviceCode} was not found.`);
+  }
+  const metrics = await listFormalMetricOptions(baseUrl, token, device.id).catch(() => []);
+  const metricItems = Array.isArray(metrics) ? metrics : [];
+  const metric =
+    metricItems.find((item) => item?.identifier === templateFixture.metricIdentifier) || null;
+
+  return {
+    ...templateFixture,
+    deviceId: normalizeEntityId(templateFixture.deviceId || device.id),
+    deviceCode: device.deviceCode || templateFixture.deviceCode,
+    deviceName: device.deviceName || templateFixture.deviceName || '',
+    productKey: device.productKey || templateFixture.productKey,
+    metricIdentifier: metric?.identifier || templateFixture.metricIdentifier,
+    metricName: metric?.name || templateFixture.metricName || templateFixture.metricIdentifier,
+    riskMetricId: normalizeEntityId(metric?.riskMetricId || templateFixture.riskMetricId)
+  };
+}
+
+async function resolveExistingBindableDeviceCandidate(baseUrl, token, templateFixture) {
+  const candidateSnapshots = [];
+  for (const candidate of templateFixture.candidates || []) {
+    try {
+      const device = await getDeviceByCode(baseUrl, token, candidate.deviceCode);
+      if (!device?.id) {
+        continue;
+      }
+      const metricOptions = await listFormalMetricOptions(baseUrl, token, device.id);
+      const selectedMetric = (Array.isArray(metricOptions) ? metricOptions : []).find(
+        (item) => item?.identifier === (candidate.metricIdentifier || templateFixture.metricIdentifier)
+      ) || null;
+      candidateSnapshots.push({
+        ...candidate,
+        device,
+        metric: selectedMetric,
+        hasFormalMetric: Boolean(selectedMetric?.identifier)
+      });
+      if (selectedMetric?.identifier) {
+        return {
+          ...candidate,
+          device,
+          metric: selectedMetric,
+          hasFormalMetric: true
+        };
+      }
+    } catch (error) {
+      candidateSnapshots.push({
+        ...candidate,
+        hasFormalMetric: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  throw new Error(
+    `No eligible bindable device candidate was found: ${JSON.stringify(
+      candidateSnapshots.map((item) => ({
+        deviceCode: item.deviceCode,
+        metricIdentifier: item.metricIdentifier,
+        hasFormalMetric: Boolean(item.hasFormalMetric),
+        error: item.error || ''
+      }))
+    )}`
+  );
 }
 
 async function resolveExistingDeviceLiveCandidate(baseUrl, token, templateFixture) {
@@ -770,6 +929,98 @@ async function provisionExistingDeviceLiveFixture(baseUrl, token, templateFixtur
   };
 }
 
+async function provisionExistingDeviceRebindFixture(baseUrl, token, templateFixture) {
+  const suffix = Date.now().toString().slice(-10);
+  const organization = await getFirstActiveOrganization(baseUrl, token);
+  const region = await getFirstActiveRegion(baseUrl, token);
+  if (!organization) {
+    throw new Error('No active organization is available for shared risk drill provisioning.');
+  }
+  if (!region) {
+    throw new Error('No active region is available for shared risk drill provisioning.');
+  }
+
+  const candidate = await resolveExistingBindableDeviceCandidate(baseUrl, token, templateFixture);
+  const currentBinding = await findCurrentRiskBinding(
+    baseUrl,
+    token,
+    candidate.device?.deviceCode,
+    candidate.metric?.identifier || templateFixture.metricIdentifier
+  );
+  const riskPoint = await createFreshRiskPoint(baseUrl, token, organization, region, suffix);
+  const restoreOriginalBinding = Boolean(
+    currentBinding?.riskPointId && candidate?.device?.id
+  );
+  let originalBindingReleased = false;
+  try {
+    if (restoreOriginalBinding) {
+      await unbindRiskPointDevice(
+        baseUrl,
+        token,
+        currentBinding.riskPointId,
+        candidate.device.id
+      );
+      originalBindingReleased = true;
+    }
+    const binding = await bindRiskPointDevice(
+      baseUrl,
+      token,
+      riskPoint,
+      candidate.device,
+      candidate.metric,
+      templateFixture
+    );
+    if (!binding?.id) {
+      throw new Error('Shared device risk point binding was not created.');
+    }
+
+    return {
+      ...templateFixture,
+      deviceId: normalizeEntityId(candidate.device?.id),
+      deviceCode: candidate.device?.deviceCode,
+      deviceName: candidate.device?.deviceName,
+      productKey: candidate.device?.productKey || templateFixture.productKey,
+      metricIdentifier: candidate.metric?.identifier || templateFixture.metricIdentifier,
+      metricName: candidate.metric?.name || templateFixture.metricName || templateFixture.metricIdentifier,
+      riskMetricId: normalizeEntityId(candidate.metric?.riskMetricId),
+      bindingId: normalizeEntityId(binding.id),
+      riskPointId: normalizeEntityId(riskPoint.id),
+      riskPointCode: riskPoint.riskPointCode,
+      riskPointName: riskPoint.riskPointName,
+      orgId: normalizeEntityId(organization.id),
+      orgName: organization.orgName,
+      regionId: normalizeEntityId(region.id),
+      regionName: region.regionName,
+      cleanupAfterRun: true,
+      restoreOriginalBinding,
+      originalBindingId: currentBinding?.bindingId || '',
+      originalRiskPointId: currentBinding?.riskPointId || '',
+      originalRiskPointName: currentBinding?.riskPointName || '',
+      restoreMetricIdentifier: candidate.metric?.identifier || templateFixture.metricIdentifier,
+      restoreMetricName: candidate.metric?.name || templateFixture.metricName || templateFixture.metricIdentifier,
+      restoreRiskMetricId: normalizeEntityId(candidate.metric?.riskMetricId)
+    };
+  } catch (error) {
+    if (originalBindingReleased) {
+      try {
+        await bindRiskPointDevice(
+          baseUrl,
+          token,
+          { id: currentBinding.riskPointId },
+          candidate.device,
+          candidate.metric,
+          templateFixture
+        );
+      } catch (restoreError) {
+        throw new Error(
+          `${error instanceof Error ? error.message : String(error)}; restore original binding failed: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`
+        );
+      }
+    }
+    throw error;
+  }
+}
+
 async function waitForNextLiveTrace(baseUrl, token, fixture) {
   const timeoutMs = Number(fixture.liveTraceTimeoutMs || 900000);
   const pollIntervalMs = Number(fixture.liveTracePollIntervalMs || 15000);
@@ -815,8 +1066,13 @@ async function fetchCurrentCounts(baseUrl, token, fixture) {
       headers: authHeaders
     }
   );
-  const alarmItems = Array.isArray(alarms) ? alarms : [];
-  const eventItems = Array.isArray(events) ? events : [];
+  const riskPointId = normalizeEntityId(fixture?.riskPointId);
+  const alarmItems = (Array.isArray(alarms) ? alarms : []).filter((item) => {
+    return !riskPointId || normalizeEntityId(item?.riskPointId) === riskPointId;
+  });
+  const eventItems = (Array.isArray(events) ? events : []).filter((item) => {
+    return !riskPointId || normalizeEntityId(item?.riskPointId) === riskPointId;
+  });
   const relevantEventCodes = new Set(
     eventItems.map((item) => item.eventCode).filter(Boolean)
   );
@@ -871,6 +1127,31 @@ async function cleanupRiskDrillArtifacts(baseUrl, token, fixture) {
         headers: directHeaders
       }
     );
+  }
+  if (fixture.restoreOriginalBinding && fixture.originalRiskPointId && fixture.deviceId) {
+    try {
+      await bindRiskPointDevice(
+        baseUrl,
+        token,
+        { id: fixture.originalRiskPointId },
+        {
+          id: fixture.deviceId,
+          deviceCode: fixture.deviceCode,
+          deviceName: fixture.deviceName
+        },
+        {
+          riskMetricId: fixture.restoreRiskMetricId,
+          identifier: fixture.restoreMetricIdentifier || fixture.metricIdentifier,
+          name: fixture.restoreMetricName || fixture.metricName || fixture.metricIdentifier
+        },
+        fixture
+      );
+      result.removed.push('restore-original-binding');
+    } catch (error) {
+      result.failed.push(
+        `restore-original-binding: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
   if (fixture.ruleId && governedHeaders) {
     await tryCleanup(`delete-rule:${fixture.ruleId}`, `/api/rule-definition/delete/${encodeURIComponent(fixture.ruleId)}`, {
@@ -974,8 +1255,13 @@ async function fetchCurrentSnapshot(baseUrl, token, fixture, baseline) {
     }
   );
 
-  const alarmItems = Array.isArray(alarms) ? alarms : [];
-  const eventItems = Array.isArray(events) ? events : [];
+  const riskPointId = normalizeEntityId(fixture?.riskPointId);
+  const alarmItems = (Array.isArray(alarms) ? alarms : []).filter((item) => {
+    return !riskPointId || normalizeEntityId(item?.riskPointId) === riskPointId;
+  });
+  const eventItems = (Array.isArray(events) ? events : []).filter((item) => {
+    return !riskPointId || normalizeEntityId(item?.riskPointId) === riskPointId;
+  });
   const relevantEventCodes = new Set(
     eventItems.map((item) => item.eventCode).filter(Boolean)
   );
@@ -1088,6 +1374,10 @@ export async function runRiskClosureDrill({
     removed: [],
     failed: []
   };
+  const useExistingBinding =
+    templateFixture.mode === 'existing_device_live' ||
+    templateFixture.mode === 'existing_device_rebind' ||
+    templateFixture.mode === 'existing_binding';
 
   try {
     fixture =
@@ -1097,9 +1387,21 @@ export async function runRiskClosureDrill({
             token,
             templateFixture
           )
+        : templateFixture.mode === 'existing_binding'
+          ? await provisionExistingBindingFixture(
+              backendBaseUrl,
+              token,
+              templateFixture
+            )
+        : templateFixture.mode === 'existing_device_rebind'
+          ? await provisionExistingDeviceRebindFixture(
+              backendBaseUrl,
+              token,
+              templateFixture
+            )
         : await provisionFreshFixture(backendBaseUrl, token, templateFixture);
     baseline =
-      templateFixture.mode === 'existing_device_live'
+      useExistingBinding
         ? await fetchCurrentCounts(backendBaseUrl, token, fixture)
         : baseline;
 

@@ -120,16 +120,13 @@ public class DeepDisplacementAutoClosureService {
 
         Set<Long> touchedRiskPointIds = new LinkedHashSet<>();
         for (RiskPointDevice binding : bindings) {
-            if (!event.getProperties().containsKey(binding.getMetricIdentifier())) {
-                continue;
-            }
             RiskPoint riskPoint = riskPointMap.get(binding.getRiskPointId());
             if (riskPoint == null) {
                 continue;
             }
-            BigDecimal currentValue = parseNumeric(event.getProperties().get(binding.getMetricIdentifier()));
+            BigDecimal currentValue = resolveEventMetricValue(event, binding);
             if (currentValue == null) {
-                log.warn("深部位移自动闭环跳过非数值测点, deviceCode={}, metricIdentifier={}, traceId={}",
+                log.warn("深部位移自动闭环未命中可执行测点, deviceCode={}, metricIdentifier={}, traceId={}",
                         event.getDeviceCode(), binding.getMetricIdentifier(), event.getTraceId());
                 continue;
             }
@@ -597,13 +594,7 @@ public class DeepDisplacementAutoClosureService {
     }
 
     private RiskPolicyDecision resolveLatestDecision(RiskPointDevice binding, Long tenantId) {
-        DeviceProperty property = devicePropertyMapper.selectOne(
-                new LambdaQueryWrapper<DeviceProperty>()
-                        .eq(DeviceProperty::getDeviceId, binding.getDeviceId())
-                        .eq(DeviceProperty::getIdentifier, binding.getMetricIdentifier())
-                        .orderByDesc(DeviceProperty::getReportTime)
-                        .last("limit 1")
-        );
+        DeviceProperty property = resolveLatestMetricProperty(binding);
         if (property == null || !StringUtils.hasText(property.getPropertyValue())) {
             return null;
         }
@@ -612,6 +603,67 @@ public class DeepDisplacementAutoClosureService {
             return null;
         }
         return riskPolicyResolver.resolve(tenantId, binding, value.abs());
+    }
+
+    private BigDecimal resolveEventMetricValue(DeviceRiskEvaluationEvent event, RiskPointDevice binding) {
+        if (event == null || event.getProperties() == null || event.getProperties().isEmpty() || binding == null) {
+            return null;
+        }
+        for (String identifier : resolveMetricLookupIdentifiers(binding)) {
+            if (!StringUtils.hasText(identifier) || !event.getProperties().containsKey(identifier)) {
+                continue;
+            }
+            BigDecimal value = parseNumeric(event.getProperties().get(identifier));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private DeviceProperty resolveLatestMetricProperty(RiskPointDevice binding) {
+        if (binding == null || binding.getDeviceId() == null) {
+            return null;
+        }
+        for (String identifier : resolveMetricLookupIdentifiers(binding)) {
+            if (!StringUtils.hasText(identifier)) {
+                continue;
+            }
+            DeviceProperty property = devicePropertyMapper.selectOne(
+                    new LambdaQueryWrapper<DeviceProperty>()
+                            .eq(DeviceProperty::getDeviceId, binding.getDeviceId())
+                            .eq(DeviceProperty::getIdentifier, identifier)
+                            .orderByDesc(DeviceProperty::getReportTime)
+                            .last("limit 1")
+            );
+            if (property != null && StringUtils.hasText(property.getPropertyValue())) {
+                return property;
+            }
+        }
+        return null;
+    }
+
+    private List<String> resolveMetricLookupIdentifiers(RiskPointDevice binding) {
+        LinkedHashSet<String> identifiers = new LinkedHashSet<>();
+        String canonicalAlias = extractCanonicalAlias(binding == null ? null : binding.getMetricIdentifier());
+        if (StringUtils.hasText(canonicalAlias)) {
+            identifiers.add(canonicalAlias);
+        }
+        if (binding != null && StringUtils.hasText(binding.getMetricIdentifier())) {
+            identifiers.add(binding.getMetricIdentifier());
+        }
+        return new ArrayList<>(identifiers);
+    }
+
+    private String extractCanonicalAlias(String metricIdentifier) {
+        if (!StringUtils.hasText(metricIdentifier)) {
+            return null;
+        }
+        int lastDotIndex = metricIdentifier.lastIndexOf('.');
+        if (lastDotIndex < 0 || lastDotIndex >= metricIdentifier.length() - 1) {
+            return metricIdentifier;
+        }
+        return metricIdentifier.substring(lastDotIndex + 1);
     }
 
     private AlarmRecord buildAlarmRecord(DeviceRiskEvaluationEvent event,

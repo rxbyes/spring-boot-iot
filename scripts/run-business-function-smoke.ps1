@@ -994,3 +994,6 @@ Write-Output "REPORT_SUMMARY=$summaryPath"
 Write-Output "REPORT_MD=$mdPath"
 Write-Output "TOTAL_CASES=$($results.Count)"
 Write-Output "TOTAL_FAILED=$($failed.Count)"
+if ($failed.Count -gt 0) {
+    exit 1
+}
