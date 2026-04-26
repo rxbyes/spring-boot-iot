@@ -1010,6 +1010,103 @@ describe('AuditLogView', () => {
     });
   });
 
+  it('opens latest abnormal archive batch from summary card', async () => {
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 99,
+            batchNo: 'iot_message_log-20260426090100',
+            sourceTable: 'iot_message_log',
+            status: 'FAILED',
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '有偏差'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
+    vi.mocked(getObservabilityMessageArchiveBatchReportPreview).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(getObservabilityMessageArchiveBatchCompare).toHaveBeenCalledWith(
+      'iot_message_log-20260426090100'
+    );
+    expect(getObservabilityMessageArchiveBatchReportPreview).toHaveBeenCalledWith(
+      'iot_message_log-20260426090100'
+    );
+  });
+
+  it('shows a focus hint when latest abnormal batch is not in current page', async () => {
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 5,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
+
+    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(pageObservabilityMessageArchiveBatches).toHaveBeenLastCalledWith({
+      sourceTable: 'iot_message_log',
+      onlyAbnormal: true,
+      pageNum: 1,
+      pageSize: 5
+    });
+    expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+  });
+
+  it('clears summary selection and focus hint on reset', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.get('[data-testid="archive-batch-overview-abnormal"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.get('[data-testid="archive-batch-reset-button"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(
+      wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
+    ).toBe(0);
+    expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+  });
+
   it('drills slow hotspot into recent span records and opens evidence from a span row', async () => {
     const wrapper = mountView();
     await flushPromises();
