@@ -123,26 +123,6 @@ export interface ObservabilitySlowSpanTrend {
   p99DurationMs?: number | null
 }
 
-export interface ObservabilityMessageArchiveBatch {
-  id?: IdType | null
-  batchNo?: string | null
-  sourceTable?: string | null
-  governanceMode?: string | null
-  status?: string | null
-  retentionDays?: number | null
-  cutoffAt?: string | null
-  confirmReportPath?: string | null
-  confirmReportGeneratedAt?: string | null
-  confirmedExpiredRows?: number | null
-  candidateRows?: number | null
-  archivedRows?: number | null
-  deletedRows?: number | null
-  failedReason?: string | null
-  artifactsJson?: string | null
-  createTime?: string | null
-  updateTime?: string | null
-}
-
 export interface ObservabilityBusinessEventPageQuery {
   traceId?: string
   eventCode?: string
@@ -179,16 +159,6 @@ export interface ObservabilityScheduledTaskPageQuery {
   triggerType?: string
   status?: string
   minDurationMs?: number
-  dateFrom?: string
-  dateTo?: string
-  pageNum?: number
-  pageSize?: number
-}
-
-export interface ObservabilityMessageArchiveBatchPageQuery {
-  batchNo?: string
-  sourceTable?: string
-  status?: string
   dateFrom?: string
   dateTo?: string
   pageNum?: number
@@ -243,14 +213,6 @@ export function pageObservabilityScheduledTasks(
   const query = buildQueryString(params)
   const path = `/api/system/observability/scheduled-tasks/page${query ? `?${query}` : ''}`
   return request<PageResult<ObservabilityScheduledTask>>(path, { method: 'GET' })
-}
-
-export function pageObservabilityMessageArchiveBatches(
-  params: ObservabilityMessageArchiveBatchPageQuery = {}
-): Promise<ApiEnvelope<PageResult<ObservabilityMessageArchiveBatch>>> {
-  const query = buildQueryString(params)
-  const path = `/api/system/observability/message-archive-batches/page${query ? `?${query}` : ''}`
-  return request<PageResult<ObservabilityMessageArchiveBatch>>(path, { method: 'GET' })
 }
 
 export function listObservabilitySlowSpanSummaries(

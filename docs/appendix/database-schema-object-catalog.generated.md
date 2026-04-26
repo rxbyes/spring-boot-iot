@@ -30,8 +30,6 @@ Generated from the schema registry. Do not edit by hand.
 | iot_device_relation | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备逻辑通道关系表 |
 | iot_device_secret_rotation_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备密钥轮换日志表 |
 | iot_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
-| iot_message_log_archive | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志冷归档表 |
-| iot_message_log_archive_batch | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志冷归档批次表 |
 | iot_normative_metric_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 规范字段定义表 |
 | iot_onboarding_template_pack | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备无代码接入模板包表 |
 | iot_product | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品表 |

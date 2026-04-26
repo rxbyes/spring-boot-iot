@@ -4,13 +4,11 @@ import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.service.model.DataPermissionContext;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
-import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
@@ -27,7 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +32,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,7 +48,7 @@ class ObservabilityEvidenceQueryServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new ObservabilityEvidenceQueryServiceImpl(jdbcTemplate, permissionService);
-        lenient().when(permissionService.getDataPermissionContext(10001L))
+        when(permissionService.getDataPermissionContext(10001L))
                 .thenReturn(new DataPermissionContext(10001L, 1L, 10L, null, false));
     }
 
@@ -178,47 +174,6 @@ class ObservabilityEvidenceQueryServiceImplTest {
         assertTrue(sql.contains("JSON_UNQUOTE(JSON_EXTRACT(tags_json, '$.triggerType')) = ?"));
         assertTrue(sql.contains("started_at >= ?"));
         assertTrue(sql.contains("started_at <= ?"));
-    }
-
-    @Test
-    void pageMessageArchiveBatchesShouldApplyBatchFiltersWithoutTenantScope() {
-        ObservabilityMessageArchiveBatchPageQuery query = new ObservabilityMessageArchiveBatchPageQuery();
-        query.setBatchNo(" iot_message_log-20260426000119 ");
-        query.setSourceTable("iot_message_log");
-        query.setStatus("SUCCEEDED");
-        query.setDateFrom("2026-04-26");
-        query.setDateTo("2026-04-26");
-        query.setPageNum(1L);
-        query.setPageSize(20L);
-
-        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
-        row.setBatchNo("iot_message_log-20260426000119");
-        row.setSourceTable("iot_message_log");
-        row.setStatus("SUCCEEDED");
-        row.setArchivedRows(16098);
-        row.setDeletedRows(16098);
-        when(jdbcTemplate.queryForObject(contains("FROM iot_message_log_archive_batch"), eq(Long.class), any(Object[].class)))
-                .thenReturn(1L);
-        doReturn(List.of(row)).when(jdbcTemplate).query(
-                contains("ORDER BY create_time DESC"),
-                any(RowMapper.class),
-                any(Object[].class)
-        );
-
-        PageResult<ObservabilityMessageArchiveBatchVO> result = service.pageMessageArchiveBatches(query, 10001L);
-
-        assertEquals(1L, result.getTotal());
-        assertEquals("SUCCEEDED", result.getRecords().get(0).getStatus());
-        assertEquals(16098, result.getRecords().get(0).getArchivedRows());
-        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), eq(Long.class), any(Object[].class));
-        String sql = sqlCaptor.getValue();
-        assertTrue(sql.contains("batch_no = ?"));
-        assertTrue(sql.contains("source_table = ?"));
-        assertTrue(sql.contains("status = ?"));
-        assertTrue(sql.contains("create_time >= ?"));
-        assertTrue(sql.contains("create_time <= ?"));
-        assertFalse(sql.contains("tenant_id = ?"));
     }
 
     @Test

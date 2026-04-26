@@ -127,14 +127,14 @@ graph TD
 
 | Metric | Value |
 | --- | --- |
-| Objects | 24 |
-| Relations | 58 |
-| Owner Modules | spring-boot-iot-device(24) |
-| Lineage Roles | device_domain_state(7), domain_master_data(7), governance_batch_log(1), operation_log(3), operation_log_archive(1), relationship_mapping(1), snapshot_baseline(3), transaction_record(1) |
+| Objects | 22 |
+| Relations | 54 |
+| Owner Modules | spring-boot-iot-device(22) |
+| Lineage Roles | device_domain_state(7), domain_master_data(7), operation_log(3), relationship_mapping(1), snapshot_baseline(3), transaction_record(1) |
 
 | Lifecycle | Count |
 | --- | --- |
-| active | 24 |
+| active | 22 |
 | archived | 0 |
 | pending_delete | 0 |
 
@@ -151,8 +151,6 @@ graph TD
 | iot_device_relation | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备逻辑通道关系表 |
 | iot_device_secret_rotation_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备密钥轮换日志表 |
 | iot_message_log | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志表 |
-| iot_message_log_archive | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志冷归档表 |
-| iot_message_log_archive_batch | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备消息日志冷归档批次表 |
 | iot_normative_metric_definition | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 规范字段定义表 |
 | iot_onboarding_template_pack | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 设备无代码接入模板包表 |
 | iot_product | mysql_table | active | yes | yes | schema_sync_managed | spring-boot-iot-device | 产品表 |
@@ -167,7 +165,7 @@ graph TD
 
 | Governance Object | Stage | Seed Packages | Audit Profile | Deletion Prerequisites | Notes |
 | --- | --- | --- | --- | --- | --- |
-| iot_message_log | freeze_candidate | - | mysql_hot_table_with_cold_archive | archive_table_ready<br>archive_batch_recorded<br>confirmed_report_matches_apply<br>docs_and_registry_updated | 设备消息日志热表进入冷归档治理阶段，保留 active 热表定位，不直接退场。 |
+| 当前无登记治理对象 | - | - | - | - | - |
 
 | Object | Relations |
 | --- | --- |
@@ -182,8 +180,6 @@ graph TD
 | iot_device_relation | iot_device（belongs_to:parent_device_id）<br>iot_device（belongs_to:child_device_id）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_device_secret_rotation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） |
 | iot_message_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
-| iot_message_log_archive | iot_message_log_archive_batch（belongs_to:archive_batch_id）<br>iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） |
-| iot_message_log_archive_batch | - |
 | iot_normative_metric_definition | sys_tenant（belongs_to:tenant_id） |
 | iot_onboarding_template_pack | sys_tenant（belongs_to:tenant_id） |
 | iot_product | sys_tenant（belongs_to:tenant_id） |
@@ -243,12 +239,6 @@ graph TD
   iot_message_log["iot_message_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_message_log["iot_message_log"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_message_log["iot_message_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
-  iot_message_log_archive["iot_message_log_archive"]
-  iot_message_log_archive_batch["iot_message_log_archive_batch"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via archive_batch_id"| iot_message_log_archive_batch["iot_message_log_archive_batch"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via device_id"| iot_device["iot_device"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via product_id"| iot_product["iot_product"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_normative_metric_definition["iot_normative_metric_definition"]
   iot_normative_metric_definition["iot_normative_metric_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_onboarding_template_pack["iot_onboarding_template_pack"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]

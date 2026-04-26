@@ -2,13 +2,11 @@ package com.ghlzm.iot.system.service;
 
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
-import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
@@ -24,11 +22,6 @@ public interface ObservabilityEvidenceQueryService {
 
     PageResult<ObservabilityScheduledTaskVO> pageScheduledTasks(ObservabilityScheduledTaskPageQuery query,
                                                                 Long currentUserId);
-
-    PageResult<ObservabilityMessageArchiveBatchVO> pageMessageArchiveBatches(
-            ObservabilityMessageArchiveBatchPageQuery query,
-            Long currentUserId
-    );
 
     List<ObservabilitySlowSpanSummaryVO> listSlowSpanSummaries(ObservabilitySlowSpanSummaryQuery query, Long currentUserId);
 

@@ -6,13 +6,11 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
-import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
@@ -51,17 +49,6 @@ public class ObservabilityEvidenceController {
     public R<PageResult<ObservabilityScheduledTaskVO>> pageScheduledTasks(ObservabilityScheduledTaskPageQuery query,
                                                                           Authentication authentication) {
         return R.ok(observabilityEvidenceQueryService.pageScheduledTasks(query, requireCurrentUserId(authentication)));
-    }
-
-    @GetMapping("/message-archive-batches/page")
-    public R<PageResult<ObservabilityMessageArchiveBatchVO>> pageMessageArchiveBatches(
-            ObservabilityMessageArchiveBatchPageQuery query,
-            Authentication authentication
-    ) {
-        return R.ok(observabilityEvidenceQueryService.pageMessageArchiveBatches(
-                query,
-                requireCurrentUserId(authentication)
-        ));
     }
 
     @GetMapping("/spans/slow-summary")

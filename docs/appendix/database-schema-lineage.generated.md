@@ -5,7 +5,7 @@ Generated from the schema registry. Do not edit by hand.
 | Domain | Objects | Relations | Roles |
 | --- | --- | --- | --- |
 | alarm | 15 | 39 | binding_registry / catalog_registry / domain_master_data / transaction_record |
-| device | 24 | 58 | device_domain_state / domain_master_data / governance_batch_log / operation_log / operation_log_archive / relationship_mapping / snapshot_baseline / transaction_record |
+| device | 22 | 54 | device_domain_state / domain_master_data / operation_log / relationship_mapping / snapshot_baseline / transaction_record |
 | governance | 12 | 29 | domain_master_data / governance_master_data |
 | system | 19 | 28 | business_event_evidence / governance_master_data / observability_span_evidence |
 | telemetry | 5 | 19 | telemetry_compatibility_fallback / telemetry_hourly_aggregate / telemetry_raw_timeseries |
@@ -109,8 +109,6 @@ graph TD
 | iot_device_relation | relationship_mapping | iot_device（belongs_to:parent_device_id）<br>iot_device（belongs_to:child_device_id）<br>sys_tenant（belongs_to:tenant_id） | 用于设备逻辑通道关系表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_device_secret_rotation_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_key）<br>sys_tenant（belongs_to:tenant_id） | 用于设备密钥轮换日志表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_message_log | operation_log | iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于统一消息日志的数据持久化与查询，归属设备域并作为链路追踪、验收证据和治理回放的物理真相源。 |
-| iot_message_log_archive | operation_log_archive | iot_message_log_archive_batch（belongs_to:archive_batch_id）<br>iot_device（belongs_to:device_id）<br>iot_product（belongs_to:product_id）<br>sys_tenant（belongs_to:tenant_id） | 用于保存超过热表保留期的设备消息原始证据，归属设备域并服务冷归档治理、审计核查和后续人工导出。 |
-| iot_message_log_archive_batch | governance_batch_log | - | 用于记录设备消息日志冷归档治理批次的确认信息、归档结果、删除结果和失败证据，归属设备域治理运行真相。 |
 | iot_normative_metric_definition | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于规范字段定义表的数据持久化与查询，归属设备域并服务真实环境基线。 |
 | iot_onboarding_template_pack | device_domain_state | sys_tenant（belongs_to:tenant_id） | 用于无代码接入模板包的引用资产、默认治理配置与预填信息持久化，不承载协议或合同正式快照。 |
 | iot_product | domain_master_data | sys_tenant（belongs_to:tenant_id） | 用于产品表的数据持久化与查询，归属设备域并服务真实环境基线。 |
@@ -170,12 +168,6 @@ graph TD
   iot_message_log["iot_message_log"] -->|"belongs_to via device_id"| iot_device["iot_device"]
   iot_message_log["iot_message_log"] -->|"belongs_to via product_id"| iot_product["iot_product"]
   iot_message_log["iot_message_log"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
-  iot_message_log_archive["iot_message_log_archive"]
-  iot_message_log_archive_batch["iot_message_log_archive_batch"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via archive_batch_id"| iot_message_log_archive_batch["iot_message_log_archive_batch"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via device_id"| iot_device["iot_device"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via product_id"| iot_product["iot_product"]
-  iot_message_log_archive["iot_message_log_archive"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_normative_metric_definition["iot_normative_metric_definition"]
   iot_normative_metric_definition["iot_normative_metric_definition"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]
   iot_onboarding_template_pack["iot_onboarding_template_pack"] -->|"belongs_to via tenant_id"| sys_tenant["sys_tenant"]

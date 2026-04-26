@@ -5,13 +5,11 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.service.ObservabilityEvidenceQueryService;
 import com.ghlzm.iot.system.service.model.ObservabilityBusinessEventPageQuery;
-import com.ghlzm.iot.system.service.model.ObservabilityMessageArchiveBatchPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilityScheduledTaskPageQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanTrendVO;
@@ -130,32 +128,6 @@ class ObservabilityEvidenceControllerTest {
         assertEquals(1L, response.getData().getTotal());
         assertEquals("FIXED_DELAY", response.getData().getRecords().get(0).getTriggerType());
         verify(observabilityEvidenceQueryService).pageScheduledTasks(query, 10001L);
-    }
-
-    @Test
-    void pageMessageArchiveBatchesShouldDelegateFilters() {
-        ObservabilityMessageArchiveBatchPageQuery query = new ObservabilityMessageArchiveBatchPageQuery();
-        query.setBatchNo("iot_message_log-20260426000119");
-        query.setSourceTable("iot_message_log");
-        query.setStatus("SUCCEEDED");
-        query.setDateFrom("2026-04-26 00:00:00");
-        query.setDateTo("2026-04-26 23:59:59");
-        query.setPageNum(1L);
-        query.setPageSize(10L);
-
-        ObservabilityMessageArchiveBatchVO row = new ObservabilityMessageArchiveBatchVO();
-        row.setBatchNo("iot_message_log-20260426000119");
-        row.setStatus("SUCCEEDED");
-        row.setArchivedRows(16098);
-        when(observabilityEvidenceQueryService.pageMessageArchiveBatches(query, 10001L))
-                .thenReturn(PageResult.of(1L, 1L, 10L, List.of(row)));
-
-        R<PageResult<ObservabilityMessageArchiveBatchVO>> response =
-                controller.pageMessageArchiveBatches(query, authentication(10001L));
-
-        assertEquals(1L, response.getData().getTotal());
-        assertEquals("SUCCEEDED", response.getData().getRecords().get(0).getStatus());
-        verify(observabilityEvidenceQueryService).pageMessageArchiveBatches(query, 10001L);
     }
 
     @Test

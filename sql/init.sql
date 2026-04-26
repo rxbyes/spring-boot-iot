@@ -48,8 +48,6 @@ DROP TABLE IF EXISTS iot_product_contract_release_batch;
 DROP TABLE IF EXISTS iot_product;
 DROP TABLE IF EXISTS iot_onboarding_template_pack;
 DROP TABLE IF EXISTS iot_normative_metric_definition;
-DROP TABLE IF EXISTS iot_message_log_archive_batch;
-DROP TABLE IF EXISTS iot_message_log_archive;
 DROP TABLE IF EXISTS iot_message_log;
 DROP TABLE IF EXISTS iot_device_secret_rotation_log;
 DROP TABLE IF EXISTS iot_device_relation;
@@ -794,56 +792,6 @@ CREATE TABLE iot_message_log (
   KEY idx_trace_id (trace_id),
   KEY idx_device_code_time (device_code, report_time)
 ) COMMENT='设备消息日志表';
-
--- 表：iot_message_log_archive
--- 说明：设备消息日志冷归档表
-CREATE TABLE iot_message_log_archive (
-  id BIGINT NOT NULL COMMENT '主键',
-  original_log_id BIGINT NOT NULL COMMENT '原热表日志ID',
-  archive_batch_id BIGINT NOT NULL COMMENT '归档批次ID',
-  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',
-  device_id BIGINT NOT NULL COMMENT '设备ID',
-  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
-  message_type VARCHAR(32) NOT NULL COMMENT '消息类型（遥测/事件/属性/应答）',
-  topic VARCHAR(255) DEFAULT NULL COMMENT '主题',
-  payload JSON DEFAULT NULL COMMENT '原始消息',
-  report_time DATETIME NOT NULL COMMENT '上报时间',
-  trace_id VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
-  device_code VARCHAR(64) DEFAULT NULL COMMENT '设备编码',
-  product_key VARCHAR(64) DEFAULT NULL COMMENT '产品标识',
-  create_time DATETIME NOT NULL COMMENT '原日志创建时间',
-  archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '归档时间',
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_original_log_id (original_log_id),
-  KEY idx_archive_batch_id (archive_batch_id),
-  KEY idx_trace_id_report_time (trace_id, report_time),
-  KEY idx_device_code_report_time (device_code, report_time)
-) COMMENT='设备消息日志冷归档表';
-
--- 表：iot_message_log_archive_batch
--- 说明：设备消息日志冷归档批次表
-CREATE TABLE iot_message_log_archive_batch (
-  id BIGINT NOT NULL COMMENT '主键',
-  batch_no VARCHAR(64) NOT NULL COMMENT '批次号',
-  source_table VARCHAR(64) NOT NULL COMMENT '来源热表',
-  governance_mode VARCHAR(16) NOT NULL COMMENT '治理模式',
-  status VARCHAR(32) NOT NULL COMMENT '批次状态',
-  retention_days INT NOT NULL COMMENT '保留天数',
-  cutoff_at DATETIME NOT NULL COMMENT '过期阈值时间',
-  confirm_report_path VARCHAR(500) DEFAULT NULL COMMENT '确认报告路径',
-  confirm_report_generated_at DATETIME DEFAULT NULL COMMENT '确认报告生成时间',
-  confirmed_expired_rows INT NOT NULL DEFAULT 0 COMMENT '确认过期行数',
-  candidate_rows INT NOT NULL DEFAULT 0 COMMENT '候选过期行数',
-  archived_rows INT NOT NULL DEFAULT 0 COMMENT '已归档行数',
-  deleted_rows INT NOT NULL DEFAULT 0 COMMENT '已删除行数',
-  failed_reason VARCHAR(1000) DEFAULT NULL COMMENT '失败原因',
-  artifacts_json JSON DEFAULT NULL COMMENT '批次附加证据',
-  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_batch_no (batch_no),
-  KEY idx_source_status_time (source_table, status, create_time)
-) COMMENT='设备消息日志冷归档批次表';
 
 -- 表：iot_normative_metric_definition
 -- 说明：规范字段定义表

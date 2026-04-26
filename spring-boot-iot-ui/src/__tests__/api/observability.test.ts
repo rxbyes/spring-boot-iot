@@ -4,7 +4,6 @@ import {
   getTraceEvidence,
   listObservabilitySlowSpanSummaries,
   listObservabilitySlowSpanTrends,
-  pageObservabilityMessageArchiveBatches,
   pageObservabilityScheduledTasks,
   pageObservabilityBusinessEvents,
   pageObservabilitySpans
@@ -93,25 +92,6 @@ describe('observability api', () => {
 
     expect(request).toHaveBeenCalledWith(
       '/api/system/observability/scheduled-tasks/page?traceId=trace-scheduled-1&taskCode=DeviceSessionTimeoutScheduler%23closeTimedOutSessions&triggerType=FIXED_DELAY&status=SUCCESS&minDurationMs=200&pageNum=1&pageSize=5',
-      {
-        method: 'GET'
-      }
-    )
-  })
-
-  it('builds message archive batch page query parameters correctly', async () => {
-    await pageObservabilityMessageArchiveBatches({
-      batchNo: 'iot_message_log-20260426000119',
-      sourceTable: 'iot_message_log',
-      status: 'SUCCEEDED',
-      dateFrom: '2026-04-26T00:00:00',
-      dateTo: '2026-04-26T23:59:59',
-      pageNum: 1,
-      pageSize: 10
-    })
-
-    expect(request).toHaveBeenCalledWith(
-      '/api/system/observability/message-archive-batches/page?batchNo=iot_message_log-20260426000119&sourceTable=iot_message_log&status=SUCCEEDED&dateFrom=2026-04-26T00%3A00%3A00&dateTo=2026-04-26T23%3A59%3A59&pageNum=1&pageSize=10',
       {
         method: 'GET'
       }

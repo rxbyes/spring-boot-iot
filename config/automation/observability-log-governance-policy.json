@@ -20,11 +20,7 @@
       "label": "设备消息日志",
       "timeField": "report_time",
       "retentionDays": 30,
-      "deleteBatchSize": 500,
-      "archiveEnabled": true,
-      "archiveTable": "iot_message_log_archive",
-      "archiveBatchTable": "iot_message_log_archive_batch",
-      "archiveChunkSize": 500
+      "deleteBatchSize": 500
     }
   },
   "lightweightEvidence": {

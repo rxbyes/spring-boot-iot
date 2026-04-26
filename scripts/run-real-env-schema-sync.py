@@ -1557,9 +1557,6 @@ UNIQUE_INDEX_DUPLICATE_GUARDS: Dict[Tuple[str, str], Tuple[str, ...]] = _SCHEMA_
     "uniqueIndexDuplicateGuards"
 ]
 EXPECTED_INDEX_SHAPES: IndexShapeMap = _SCHEMA_SYNC_MANIFEST["expectedIndexShapes"]
-REPAIRABLE_INDEX_UNIQUENESS_DRIFTS = {
-    ("sys_dict", "uk_dict_code_tenant"),
-}
 
 
 BINDING_INDEX_EXPECTED_SHAPES: Dict[Tuple[str, str], Tuple[bool, Tuple[str, ...]]] = {
@@ -1694,13 +1691,7 @@ def load_index_shape(
     return is_unique, columns
 
 
-def ensure_existing_index_shape(
-    cur: pymysql.cursors.Cursor,
-    db: str,
-    table: str,
-    index: str,
-    ddl: str | None = None,
-) -> None:
+def ensure_existing_index_shape(cur: pymysql.cursors.Cursor, db: str, table: str, index: str) -> None:
     expected = EXPECTED_INDEX_SHAPES.get((table, index))
     if expected is None:
         return
@@ -1708,8 +1699,6 @@ def ensure_existing_index_shape(
     if actual is None:
         return
     if actual != expected:
-        if ddl and repair_existing_index_shape_if_supported(cur, table, index, expected, actual, ddl):
-            return
         expected_unique, expected_columns = expected
         actual_unique, actual_columns = actual
         expected_kind = "UNIQUE" if expected_unique else "INDEX"
@@ -1718,33 +1707,6 @@ def ensure_existing_index_shape(
             f"Existing index {table}.{index} drifts from expected shape: "
             f"expected {expected_kind} {expected_columns}, got {actual_kind} {actual_columns}."
         )
-
-
-def repair_existing_index_shape_if_supported(
-    cur: pymysql.cursors.Cursor,
-    table: str,
-    index: str,
-    expected: Tuple[bool, Tuple[str, ...]],
-    actual: Tuple[bool, Tuple[str, ...]],
-    ddl: str,
-) -> bool:
-    if (table, index) not in REPAIRABLE_INDEX_UNIQUENESS_DRIFTS:
-        return False
-    expected_unique, expected_columns = expected
-    actual_unique, actual_columns = actual
-    if expected_columns != actual_columns or expected_unique == actual_unique:
-        return False
-    if expected_unique:
-        unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index), expected_columns)
-        if has_duplicate_unique_key_rows(cur, table, unique_columns):
-            raise RuntimeError(
-                f"Cannot repair unique index {table}.{index}: duplicate rows detected; "
-                "duplicate rows must be cleaned before schema sync can continue."
-            )
-    cur.execute(f"ALTER TABLE `{table}` DROP INDEX `{index}`")
-    cur.execute(ddl)
-    print(f"[index] {table}.{index} rebuilt to expected shape")
-    return True
 
 
 def ensure_dict_defaults(cur: pymysql.cursors.Cursor) -> None:
@@ -2822,7 +2784,7 @@ def ensure_indexes(cur: pymysql.cursors.Cursor, db: str) -> None:
                         f"Existing index {table}.{index_name} drifts from expected shape and must be "
                         "corrected before schema sync can continue."
                     )
-                ensure_existing_index_shape(cur, db, table, index_name, ddl)
+                ensure_existing_index_shape(cur, db, table, index_name)
                 continue
             unique_columns = UNIQUE_INDEX_DUPLICATE_GUARDS.get((table, index_name))
             if unique_columns and has_duplicate_unique_key_rows(cur, table, unique_columns):

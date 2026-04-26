@@ -16,9 +16,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.governance.domain_audit_support import (
     attach_schema_comment_drift,
     audit_mysql_archived_object,
-    audit_mysql_hot_table_with_cold_archive,
     evaluate_deletion_readiness,
-    evaluate_hot_table_archive_health,
     resolve_connection_args,
     write_json,
 )
@@ -55,18 +53,12 @@ def run_audit(args: argparse.Namespace) -> dict[str, object]:
             "notes": object_entry.notes,
         }
         try:
-            if object_entry.real_env_audit_profile == "mysql_archived_object_with_seed":
-                audit = audit_mysql_archived_object(connection_args, object_entry.object_name, args.sample_limit)
-                attach_schema_comment_drift(audit, expected_schema_object)
-                payload["audit"] = {key: value for key, value in audit.items() if key not in {"export_columns", "export_rows"}}
-                payload["deletionDecision"] = evaluate_deletion_readiness(audit)
-            elif object_entry.real_env_audit_profile == "mysql_hot_table_with_cold_archive":
-                audit = audit_mysql_hot_table_with_cold_archive(connection_args, object_entry.object_name, args.sample_limit)
-                attach_schema_comment_drift(audit, expected_schema_object)
-                payload["audit"] = {key: value for key, value in audit.items() if key not in {"export_columns", "export_rows"}}
-                payload["deletionDecision"] = evaluate_hot_table_archive_health(audit)
-            else:
+            if object_entry.real_env_audit_profile != "mysql_archived_object_with_seed":
                 raise RuntimeError(f"unsupported profile: {object_entry.real_env_audit_profile}")
+            audit = audit_mysql_archived_object(connection_args, object_entry.object_name, args.sample_limit)
+            attach_schema_comment_drift(audit, expected_schema_object)
+            payload["audit"] = {key: value for key, value in audit.items() if key not in {"export_columns", "export_rows"}}
+            payload["deletionDecision"] = evaluate_deletion_readiness(audit)
         except Exception as exc:  # noqa: BLE001
             payload["audit_error"] = str(exc)
             payload["deletionDecision"] = {

@@ -228,19 +228,8 @@ test('runObservabilityLogGovernanceCli allows apply with fresh matching dry-run 
           {
             generatedAt: '2026-04-25T23:15:00',
             mode: 'APPLY',
-            tables: {
-              iot_message_log: {
-                archiveBatch: {
-                  status: 'SUCCEEDED',
-                  batchNo: 'iot_message_log-20260425231500',
-                  archivedRows: 8,
-                  deletedRows: 8
-                }
-              }
-            },
             summary: {
               expiredRows: 8,
-              archivedRows: 8,
               deletedRows: 8
             }
           },
@@ -261,18 +250,7 @@ test('runObservabilityLogGovernanceCli allows apply with fresh matching dry-run 
 
   assert.ok(capturedArgv);
   assert.equal(capturedArgv.includes('--apply'), true);
-  assert.ok(
-    capturedArgv.includes(`--confirm-report-path=${reportPath}`)
-  );
-  assert.ok(
-    capturedArgv.includes('--confirm-report-generated-at=2026-04-25T09:00:00')
-  );
-  assert.ok(
-    capturedArgv.includes('--confirmed-expired-rows=8')
-  );
   assert.equal(result.mode, 'APPLY');
   assert.equal(result.confirmation.required, true);
   assert.equal(result.confirmation.confirmedExpiredRows, 8);
-  assert.equal(result.archiveBatch.status, 'SUCCEEDED');
-  assert.equal(result.archiveBatch.batchNo, 'iot_message_log-20260425231500');
 });

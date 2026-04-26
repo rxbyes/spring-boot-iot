@@ -42,21 +42,6 @@ class GovernanceRegistryTest(unittest.TestCase):
         self.assertTrue(seed_package.allowed_in_init_data)
         self.assertIn("risk_point_highway_detail", seed_package.bound_objects)
 
-    def test_device_governance_domain_should_register_message_log_freeze_candidate(self):
-        registry = governance_registry_loader.load_governance_registry(
-            REPO_ROOT / "schema-governance",
-            REPO_ROOT / "schema",
-        )
-
-        self.assertIn("device", registry.domains)
-        device_domain = registry.domains["device"]
-        self.assertIn("iot_message_log", device_domain.objects)
-
-        object_entry = device_domain.objects["iot_message_log"]
-        self.assertEqual("freeze_candidate", object_entry.governance_stage)
-        self.assertEqual("mysql_hot_table_with_cold_archive", object_entry.real_env_audit_profile)
-        self.assertEqual(tuple(), object_entry.seed_packages)
-
     def test_load_governance_registry_should_fail_when_object_missing_in_structure_registry(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = pathlib.Path(temp_dir)

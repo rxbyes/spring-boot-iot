@@ -7,7 +7,7 @@ import csv
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Sequence
 from urllib.parse import urlparse
@@ -19,7 +19,6 @@ from scripts.schema.load_registry import RegistryObject
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 APP_DEV_PATH = REPO_ROOT / "spring-boot-iot-admin" / "src" / "main" / "resources" / "application-dev.yml"
-OBSERVABILITY_LOG_POLICY_PATH = REPO_ROOT / "config" / "automation" / "observability-log-governance-policy.json"
 RELATED_RISK_POINT_TABLE = "risk_point"
 RISK_POINT_DEVICE_TABLE = "risk_point_device"
 RISK_POINT_CAPABILITY_TABLE = "risk_point_device_capability_binding"
@@ -105,19 +104,6 @@ def get_table_comment(cursor: pymysql.cursors.Cursor, database: str, table_name:
     return str(row.get("table_comment") or "")
 
 
-def get_table_type(cursor: pymysql.cursors.Cursor, database: str, table_name: str) -> str:
-    row = query_one(
-        cursor,
-        """
-        SELECT table_type
-        FROM information_schema.tables
-        WHERE table_schema = %s AND table_name = %s
-        """,
-        (database, table_name),
-    )
-    return str(row.get("table_type") or "")
-
-
 def get_columns(cursor: pymysql.cursors.Cursor, database: str, table_name: str) -> list[dict[str, object]]:
     return query_all(
         cursor,
@@ -156,7 +142,7 @@ def get_indexes(cursor: pymysql.cursors.Cursor, database: str, table_name: str) 
 
 def resolve_create_table_sql(show_create_row: dict[str, object]) -> str:
     for key, value in show_create_row.items():
-        if key.startswith("create table") or key.startswith("create view"):
+        if key.startswith("create table"):
             return str(value)
     raise RuntimeError("Unable to resolve SHOW CREATE TABLE output.")
 
@@ -183,24 +169,11 @@ def fetch_all_table_rows(cursor: pymysql.cursors.Cursor, table_name: str, column
     return query_all(cursor, f"SELECT * FROM `{table_name}` ORDER BY `{pick_order_column(column_names)}` ASC")
 
 
-def load_observability_log_policy() -> dict[str, object]:
-    return json.loads(OBSERVABILITY_LOG_POLICY_PATH.read_text(encoding="utf-8"))
-
-
-def resolve_message_log_retention_days() -> int:
-    policy = load_observability_log_policy()
-    return int(
-        ((policy.get("tables") or {}).get("iot_message_log") or {}).get("retentionDays")
-        or 30
-    )
-
-
 def collect_mysql_table_audit(
     cursor: pymysql.cursors.Cursor,
     database: str,
     table_name: str,
     sample_limit: int,
-    include_export_rows: bool = True,
 ) -> dict[str, object]:
     audit: dict[str, object] = {
         "table_name": table_name,
@@ -214,7 +187,6 @@ def collect_mysql_table_audit(
     show_create_row = query_one(cursor, f"SHOW CREATE TABLE `{table_name}`")
 
     audit["columns"] = columns
-    audit["table_type"] = get_table_type(cursor, database, table_name)
     audit["table_comment"] = get_table_comment(cursor, database, table_name)
     audit["indexes"] = get_indexes(cursor, database, table_name)
     audit["create_table_sql"] = resolve_create_table_sql(show_create_row)
@@ -236,11 +208,7 @@ def collect_mysql_table_audit(
         (max(sample_limit, 1),),
     )
     audit["export_columns"] = column_names
-    if include_export_rows:
-        audit["export_rows"] = fetch_all_table_rows(cursor, table_name, column_names)
-    else:
-        audit["export_rows"] = []
-        audit["export_rows_omitted"] = True
+    audit["export_rows"] = fetch_all_table_rows(cursor, table_name, column_names)
     return audit
 
 
@@ -347,87 +315,6 @@ def audit_mysql_archived_object(connection_args: dict[str, object], object_name:
             return audit
 
 
-def audit_mysql_hot_table_with_cold_archive(
-    connection_args: dict[str, object],
-    object_name: str,
-    sample_limit: int,
-    archive_table_name: str | None = None,
-    batch_table_name: str | None = None,
-) -> dict[str, object]:
-    archive_table_name = archive_table_name or f"{object_name}_archive"
-    batch_table_name = batch_table_name or f"{object_name}_archive_batch"
-    retention_days = resolve_message_log_retention_days()
-    cutoff_at = datetime.now() - timedelta(days=max(retention_days, 0))
-    with pymysql.connect(
-        host=str(connection_args["host"]),
-        port=int(connection_args["port"]),
-        user=str(connection_args["user"]),
-        password=str(connection_args["password"]),
-        database=str(connection_args["database"]),
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=10,
-        read_timeout=30,
-        write_timeout=30,
-        autocommit=True,
-    ) as connection:
-        with connection.cursor() as cursor:
-            hot_audit = collect_mysql_table_audit(
-                cursor,
-                str(connection_args["database"]),
-                object_name,
-                sample_limit,
-                include_export_rows=False,
-            )
-            hot_exists = bool(hot_audit.get("table_exists"))
-            archive_exists = table_exists(cursor, str(connection_args["database"]), archive_table_name)
-            batch_exists = table_exists(cursor, str(connection_args["database"]), batch_table_name)
-
-            expired_rows = 0
-            if hot_exists:
-                expired_rows = int(
-                    query_one(
-                        cursor,
-                        f"SELECT COUNT(*) AS c FROM `{object_name}` WHERE report_time < %s",
-                        (cutoff_at,),
-                    )["c"]
-                )
-
-            latest_batch = None
-            recent_batches: list[dict[str, object]] = []
-            if batch_exists:
-                recent_batches = query_all(
-                    cursor,
-                    f"""
-                    SELECT id, batch_no, governance_mode, status, retention_days, cutoff_at,
-                           confirmed_expired_rows, candidate_rows, archived_rows, deleted_rows,
-                           failed_reason, create_time, update_time
-                    FROM `{batch_table_name}`
-                    ORDER BY create_time DESC, id DESC
-                    LIMIT %s
-                    """,
-                    (max(sample_limit, 1),),
-                )
-                latest_batch = recent_batches[0] if recent_batches else None
-
-            hot_audit["hot_table_exists"] = hot_exists
-            hot_audit["archive_table_name"] = archive_table_name
-            hot_audit["archive_table_exists"] = archive_exists
-            hot_audit["batch_table_name"] = batch_table_name
-            hot_audit["batch_table_exists"] = batch_exists
-            hot_audit["archive_row_count_total"] = (
-                int(query_one(cursor, f"SELECT COUNT(*) AS c FROM `{archive_table_name}`")["c"])
-                if archive_exists
-                else 0
-            )
-            hot_audit["retention_days"] = retention_days
-            hot_audit["cutoff_at"] = cutoff_at.strftime("%Y-%m-%d %H:%M:%S")
-            hot_audit["expired_rows"] = expired_rows
-            hot_audit["latest_batch"] = latest_batch
-            hot_audit["recent_batches"] = recent_batches
-            return hot_audit
-
-
 def build_schema_comment_drift(audit: dict[str, object], expected_schema_object: RegistryObject) -> dict[str, object]:
     actual_table_comment = str(audit.get("table_comment") or "")
     expected_table_comment = expected_schema_object.table_comment_zh
@@ -497,37 +384,6 @@ def evaluate_deletion_readiness(audit: dict[str, object]) -> dict[str, object]:
         "ready": len(blocking_reasons) == 0,
         "blocking_reasons": blocking_reasons,
         "checklist": checklist,
-    }
-
-
-def evaluate_hot_table_archive_health(audit: dict[str, object]) -> dict[str, object]:
-    blocking_reasons: list[str] = []
-    if not audit.get("hot_table_exists"):
-        blocking_reasons.append("HOT_TABLE_MISSING")
-    table_type = str(audit.get("table_type") or "").upper()
-    if table_type and table_type != "BASE TABLE":
-        blocking_reasons.append("HOT_OBJECT_NOT_BASE_TABLE")
-    if not audit.get("archive_table_exists"):
-        blocking_reasons.append("ARCHIVE_TABLE_MISSING")
-    if not audit.get("batch_table_exists"):
-        blocking_reasons.append("ARCHIVE_BATCH_TABLE_MISSING")
-
-    latest_batch = audit.get("latest_batch")
-    if int(audit.get("expired_rows") or 0) > 0 and not latest_batch:
-        blocking_reasons.append("NO_ARCHIVE_BATCH_EVIDENCE")
-    if latest_batch and str(latest_batch.get("status") or "").upper() not in {"SUCCEEDED", "RUNNING"}:
-        blocking_reasons.append("LATEST_BATCH_NOT_HEALTHY")
-    if latest_batch and int(latest_batch.get("deleted_rows") or 0) > int(latest_batch.get("archived_rows") or 0):
-        blocking_reasons.append("ARCHIVE_DELETE_COUNT_MISMATCH")
-
-    return {
-        "ready": len(blocking_reasons) == 0,
-        "blocking_reasons": blocking_reasons,
-        "checklist": [
-            "确认冷归档表与批次表都已完成 schema sync",
-            "确认最近一次 apply 批次状态正常且归档/删除统计一致",
-            "确认 docs/04、docs/08、docs/11、README.md、AGENTS.md 与 schema-governance 已同步更新",
-        ],
     }
 
 
