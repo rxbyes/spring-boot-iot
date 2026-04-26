@@ -2,6 +2,7 @@ package com.ghlzm.iot.report.service.impl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,18 @@ class AutomationResultArchiveIndexServiceImplTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void springBeanFactoryShouldResolveConfiguredResultsDirConstructor() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(AutomationResultArchiveIndexServiceImpl.class);
+
+            context.refresh();
+
+            assertThat(context.getBean(AutomationResultArchiveIndexServiceImpl.class))
+                    .isInstanceOf(AutomationResultArchiveIndexServiceImpl.class);
+        }
+    }
 
     @Test
     void shouldRefreshLatestIndexAndCollectFacets() throws Exception {

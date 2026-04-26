@@ -40,7 +40,7 @@
           <li>截图基线</li>
         </ul>
         <StandardButton
-          v-permission="'system:rd-automation-templates:add-page-smoke'"
+          v-permission="'system:automation-governance:assets:templates-add-page-smoke'"
           action="add"
           @click="addScenario('pageSmoke')"
         >
@@ -55,7 +55,7 @@
           <li>接口回执</li>
         </ul>
         <StandardButton
-          v-permission="'system:rd-automation-templates:add-form-submit'"
+          v-permission="'system:automation-governance:assets:templates-add-form-submit'"
           action="add"
           @click="addScenario('formSubmit')"
         >
@@ -70,7 +70,7 @@
           <li>详情抽屉</li>
         </ul>
         <StandardButton
-          v-permission="'system:rd-automation-templates:add-list-detail'"
+          v-permission="'system:automation-governance:assets:templates-add-list-detail'"
           action="add"
           @click="addScenario('listDetail')"
         >

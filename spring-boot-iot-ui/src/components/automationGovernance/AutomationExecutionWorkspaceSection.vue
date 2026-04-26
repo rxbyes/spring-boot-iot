@@ -25,7 +25,7 @@
         </ul>
         <StandardActionGroup gap="sm">
           <StandardButton
-            v-permission="'system:automation-execution:copy-command'"
+            v-permission="'system:automation-governance:execution:copy-command'"
             action="confirm"
             @click="copyCommand"
           >

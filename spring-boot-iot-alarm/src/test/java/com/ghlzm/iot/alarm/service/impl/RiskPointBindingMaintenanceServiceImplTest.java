@@ -14,6 +14,7 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
@@ -423,6 +424,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
         ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
         ProductMapper productMapper = mock(ProductMapper.class);
         RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskMetricCatalogRebuildService rebuildService = mock(RiskMetricCatalogRebuildService.class);
         RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
                 riskPointService,
                 riskPointDeviceMapper,
@@ -438,11 +440,19 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 riskMetricCatalogService,
                 new DefaultRiskMetricCatalogPublishRule()
         );
+        service.setRiskMetricCatalogBackfillDependencies(
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule(),
+                rebuildService
+        );
         Device device = new Device();
         device.setId(3001L);
         device.setProductId(2002L);
         device.setDeviceName("CXH15522812 - 多维检测仪");
         when(deviceService.getRequiredById(3001L)).thenReturn(device);
+        when(rebuildService.rebuildLatestRelease(2002L)).thenReturn(true);
 
         Product product = new Product();
         product.setId(2002L);
@@ -465,12 +475,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
 
         assertEquals(List.of("L1_LF_1.value"), result.stream().map(DeviceMetricOptionVO::getIdentifier).toList());
         assertEquals(List.of(9101L), result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList());
-        verify(riskMetricCatalogService).publishFromReleasedContracts(
-                eq(2002L),
-                org.mockito.ArgumentMatchers.isNull(),
-                eq(List.of(crackValue, tiltAngle)),
-                eq(Set.of("L1_LF_1.value"))
-        );
+        verify(rebuildService).rebuildLatestRelease(2002L);
     }
 
     @Test
@@ -483,6 +488,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
         ProductModelMapper productModelMapper = mock(ProductModelMapper.class);
         ProductMapper productMapper = mock(ProductMapper.class);
         RiskMetricCatalogService riskMetricCatalogService = mock(RiskMetricCatalogService.class);
+        RiskMetricCatalogRebuildService rebuildService = mock(RiskMetricCatalogRebuildService.class);
         RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
                 riskPointService,
                 riskPointDeviceMapper,
@@ -498,11 +504,19 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 riskMetricCatalogService,
                 new DefaultRiskMetricCatalogPublishRule()
         );
+        service.setRiskMetricCatalogBackfillDependencies(
+                productModelMapper,
+                productMapper,
+                riskMetricCatalogService,
+                new DefaultRiskMetricCatalogPublishRule(),
+                rebuildService
+        );
         Device device = new Device();
         device.setId(3003L);
         device.setProductId(2004L);
         device.setDeviceName("NF-GNSS-01 - GNSS位移监测仪");
         when(deviceService.getRequiredById(3003L)).thenReturn(device);
+        when(rebuildService.rebuildLatestRelease(2004L)).thenReturn(true);
 
         Product product = new Product();
         product.setId(2004L);
@@ -540,12 +554,7 @@ class RiskPointBindingMaintenanceServiceImplTest {
                 result.stream().map(DeviceMetricOptionVO::getIdentifier).toList()
         );
         assertEquals(List.of(9201L, 9202L, 9203L), result.stream().map(DeviceMetricOptionVO::getRiskMetricId).toList());
-        verify(riskMetricCatalogService).publishFromReleasedContracts(
-                eq(2004L),
-                org.mockito.ArgumentMatchers.isNull(),
-                eq(List.of(gpsTotalX, gpsTotalY, gpsTotalZ, accelX, tiltAngle)),
-                eq(Set.of("L1_GP_1.gpsTotalX", "L1_GP_1.gpsTotalY", "L1_GP_1.gpsTotalZ"))
-        );
+        verify(rebuildService).rebuildLatestRelease(2004L);
     }
 
     @Test

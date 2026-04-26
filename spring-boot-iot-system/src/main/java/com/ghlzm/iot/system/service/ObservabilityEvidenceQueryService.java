@@ -8,7 +8,6 @@ import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
@@ -30,8 +29,6 @@ public interface ObservabilityEvidenceQueryService {
             ObservabilityMessageArchiveBatchPageQuery query,
             Long currentUserId
     );
-
-    ObservabilityMessageArchiveBatchReportPreviewVO getMessageArchiveBatchReportPreview(String batchNo, Long currentUserId);
 
     List<ObservabilitySlowSpanSummaryVO> listSlowSpanSummaries(ObservabilitySlowSpanSummaryQuery query, Long currentUserId);
 

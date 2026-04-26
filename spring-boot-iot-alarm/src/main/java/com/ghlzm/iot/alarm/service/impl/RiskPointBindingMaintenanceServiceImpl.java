@@ -17,6 +17,7 @@ import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDevicePendingPromotionMapper;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
+import com.ghlzm.iot.alarm.service.RiskMetricCatalogRebuildService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
@@ -92,6 +93,7 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     private ProductMapper productMapper;
     private RiskMetricCatalogService riskMetricCatalogService;
     private RiskMetricCatalogPublishRule riskMetricCatalogPublishRule;
+    private RiskMetricCatalogRebuildService riskMetricCatalogRebuildService;
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     public RiskPointBindingMaintenanceServiceImpl(RiskPointService riskPointService,
@@ -245,11 +247,13 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
     void setRiskMetricCatalogBackfillDependencies(ProductModelMapper productModelMapper,
                                                   ProductMapper productMapper,
                                                   @Lazy RiskMetricCatalogService riskMetricCatalogService,
-                                                  RiskMetricCatalogPublishRule riskMetricCatalogPublishRule) {
+                                                  RiskMetricCatalogPublishRule riskMetricCatalogPublishRule,
+                                                  @Lazy RiskMetricCatalogRebuildService riskMetricCatalogRebuildService) {
         this.productModelMapper = productModelMapper;
         this.productMapper = productMapper;
         this.riskMetricCatalogService = riskMetricCatalogService;
         this.riskMetricCatalogPublishRule = riskMetricCatalogPublishRule;
+        this.riskMetricCatalogRebuildService = riskMetricCatalogRebuildService;
     }
 
     @Override
@@ -446,6 +450,9 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
                 .orderByAsc(ProductModel::getIdentifier));
         if (productModels == null || productModels.isEmpty()) {
             return false;
+        }
+        if (riskMetricCatalogRebuildService != null) {
+            return riskMetricCatalogRebuildService.rebuildLatestRelease(device.getProductId());
         }
         Product product = productMapper == null ? null : productMapper.selectById(device.getProductId());
         Set<String> riskEnabledIdentifiers = riskMetricCatalogPublishRule.resolveRiskEnabledIdentifiers(

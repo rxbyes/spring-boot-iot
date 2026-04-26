@@ -12,7 +12,6 @@ import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanSummaryQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySlowSpanTrendQuery;
 import com.ghlzm.iot.system.service.model.ObservabilitySpanPageQuery;
 import com.ghlzm.iot.system.vo.ObservabilityBusinessEventVO;
-import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchReportPreviewVO;
 import com.ghlzm.iot.system.vo.ObservabilityMessageArchiveBatchVO;
 import com.ghlzm.iot.system.vo.ObservabilityScheduledTaskVO;
 import com.ghlzm.iot.system.vo.ObservabilitySlowSpanSummaryVO;
@@ -61,17 +60,6 @@ public class ObservabilityEvidenceController {
     ) {
         return R.ok(observabilityEvidenceQueryService.pageMessageArchiveBatches(
                 query,
-                requireCurrentUserId(authentication)
-        ));
-    }
-
-    @GetMapping("/message-archive-batches/report-preview")
-    public R<ObservabilityMessageArchiveBatchReportPreviewVO> getMessageArchiveBatchReportPreview(
-            String batchNo,
-            Authentication authentication
-    ) {
-        return R.ok(observabilityEvidenceQueryService.getMessageArchiveBatchReportPreview(
-                batchNo,
                 requireCurrentUserId(authentication)
         ));
     }

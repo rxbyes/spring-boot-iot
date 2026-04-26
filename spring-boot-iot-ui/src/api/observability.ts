@@ -143,39 +143,6 @@ export interface ObservabilityMessageArchiveBatch {
   updateTime?: string | null
 }
 
-export interface ObservabilityMessageArchiveBatchReportTableSummary {
-  tableName?: string | null
-  label?: string | null
-  retentionDays?: number | null
-  timeField?: string | null
-  cutoffAt?: string | null
-  totalRows?: number | null
-  expiredRows?: number | null
-  deletedRows?: number | null
-  remainingExpiredRows?: number | null
-  earliestRecordAt?: string | null
-  latestRecordAt?: string | null
-}
-
-export interface ObservabilityMessageArchiveBatchReportPreview {
-  batchNo?: string | null
-  sourceTable?: string | null
-  status?: string | null
-  confirmReportPath?: string | null
-  confirmReportGeneratedAt?: string | null
-  available?: boolean | null
-  reasonCode?: string | null
-  reasonMessage?: string | null
-  resolvedJsonPath?: string | null
-  resolvedMarkdownPath?: string | null
-  markdownAvailable?: boolean | null
-  markdownTruncated?: boolean | null
-  markdownPreview?: string | null
-  fileLastModifiedAt?: string | null
-  summary?: Record<string, unknown> | null
-  tableSummaries?: ObservabilityMessageArchiveBatchReportTableSummary[]
-}
-
 export interface ObservabilityBusinessEventPageQuery {
   traceId?: string
   eventCode?: string
@@ -284,14 +251,6 @@ export function pageObservabilityMessageArchiveBatches(
   const query = buildQueryString(params)
   const path = `/api/system/observability/message-archive-batches/page${query ? `?${query}` : ''}`
   return request<PageResult<ObservabilityMessageArchiveBatch>>(path, { method: 'GET' })
-}
-
-export function getObservabilityMessageArchiveBatchReportPreview(
-  batchNo: string
-): Promise<ApiEnvelope<ObservabilityMessageArchiveBatchReportPreview>> {
-  const query = buildQueryString({ batchNo })
-  const path = `/api/system/observability/message-archive-batches/report-preview${query ? `?${query}` : ''}`
-  return request<ObservabilityMessageArchiveBatchReportPreview>(path, { method: 'GET' })
 }
 
 export function listObservabilitySlowSpanSummaries(

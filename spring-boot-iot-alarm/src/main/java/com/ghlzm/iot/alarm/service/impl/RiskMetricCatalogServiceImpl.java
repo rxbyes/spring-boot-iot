@@ -81,14 +81,12 @@ public class RiskMetricCatalogServiceImpl implements RiskMetricCatalogService {
             return;
         }
         Set<String> enabledIdentifiers = normalizeIdentifiers(riskEnabledIdentifiers);
-        if (enabledIdentifiers.isEmpty()) {
-            return;
-        }
         Map<String, RiskMetricCatalog> existingByIdentifier = listAllByProduct(productId).stream()
                 .filter(row -> StringUtils.hasText(row.getContractIdentifier()))
                 .collect(LinkedHashMap::new, (map, row) -> map.put(normalize(row.getContractIdentifier()), row), Map::putAll);
-        Map<String, MetricSemanticProfile> semanticByIdentifier =
-                resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers);
+        Map<String, MetricSemanticProfile> semanticByIdentifier = enabledIdentifiers.isEmpty()
+                ? Map.of()
+                : resolveSemanticProfiles(productId, releasedContracts, enabledIdentifiers);
         Set<String> publishedIdentifiers = new LinkedHashSet<>();
         List<Long> publishedRiskMetricIds = new ArrayList<>();
         List<Long> retiredRiskMetricIds = new ArrayList<>();

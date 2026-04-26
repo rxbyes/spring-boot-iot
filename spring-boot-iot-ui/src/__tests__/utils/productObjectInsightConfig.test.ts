@@ -5,6 +5,7 @@ import {
   createEmptyProductObjectInsightMetric,
   createProductObjectInsightMetricFromModel,
   findProductObjectInsightMetric,
+  isProductObjectInsightMeasureTruthMetric,
   removeProductObjectInsightMetric,
   parseProductObjectInsightMetrics,
   upsertProductObjectInsightMetric,
@@ -156,5 +157,51 @@ describe('productObjectInsightConfig', () => {
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.analysisTemplate).toBe('{{label}}来自旧配置')
     expect(findProductObjectInsightMetric(updated, 'L1_LF_1.value')?.unit).toBe('mm')
     expect(removeProductObjectInsightMetric(updated, 'L1_LF_1.value')).toEqual([])
+  })
+
+  it('treats only enabled trend measure metrics as risk catalog truth', () => {
+    expect(
+      isProductObjectInsightMeasureTruthMetric({
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'L1_QJ_1.angle',
+        displayName: '倾角',
+        group: 'measure',
+        enabled: true,
+        includeInTrend: true
+      })
+    ).toBe(true)
+
+    expect(
+      isProductObjectInsightMeasureTruthMetric({
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'L1_QJ_1.angle',
+        displayName: '倾角',
+        group: 'statusEvent',
+        enabled: true,
+        includeInTrend: true
+      })
+    ).toBe(false)
+
+    expect(
+      isProductObjectInsightMeasureTruthMetric({
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'L1_QJ_1.angle',
+        displayName: '倾角',
+        group: 'measure',
+        enabled: true,
+        includeInTrend: false
+      })
+    ).toBe(false)
+
+    expect(
+      isProductObjectInsightMeasureTruthMetric({
+        ...createEmptyProductObjectInsightMetric(),
+        identifier: 'L1_QJ_1.angle',
+        displayName: '倾角',
+        group: 'measure',
+        enabled: false,
+        includeInTrend: true
+      })
+    ).toBe(false)
   })
 })

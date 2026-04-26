@@ -272,6 +272,83 @@ WHERE tenant_id = 1
   AND menu_code IN ('risk:rule-definition:write', 'risk:linkage-rule:write', 'risk:emergency-plan:write')
   AND deleted = 0;
 
+UPDATE sys_role_menu rm
+JOIN sys_menu m ON m.id = rm.menu_id
+SET rm.deleted = 1,
+    rm.update_by = 1,
+    rm.update_time = NOW()
+WHERE m.tenant_id = 1
+  AND m.menu_code IN (
+    'system:rd-workbench',
+    'system:rd-automation-inventory',
+    'system:rd-automation-templates',
+    'system:rd-automation-plans',
+    'system:rd-automation-handoff',
+    'system:automation-assets',
+    'system:automation-execution',
+    'system:automation-results',
+    'system:automation-test',
+    'system:rd-automation-inventory:refresh',
+    'system:rd-automation-inventory:select-uncovered',
+    'system:rd-automation-inventory:generate-scaffold',
+    'system:rd-automation-inventory:manual-page',
+    'system:rd-automation-templates:add-page-smoke',
+    'system:rd-automation-templates:add-form-submit',
+    'system:rd-automation-templates:add-list-detail',
+    'system:rd-automation-plans:import',
+    'system:rd-automation-plans:export',
+    'system:rd-automation-plans:reset',
+    'system:rd-automation-plans:edit',
+    'system:rd-automation-handoff:copy-command',
+    'system:rd-automation-handoff:export-plan',
+    'system:automation-execution:copy-command',
+    'system:automation-results:refresh',
+    'system:automation-results:detail',
+    'system:automation-results:evidence-preview',
+    'system:automation-results:import-json',
+    'system:automation-results:clear-import'
+  )
+  AND rm.deleted = 0;
+
+UPDATE sys_menu
+SET deleted = 1,
+    visible = 0,
+    status = 0,
+    update_by = 1,
+    update_time = NOW()
+WHERE tenant_id = 1
+  AND menu_code IN (
+    'system:rd-workbench',
+    'system:rd-automation-inventory',
+    'system:rd-automation-templates',
+    'system:rd-automation-plans',
+    'system:rd-automation-handoff',
+    'system:automation-assets',
+    'system:automation-execution',
+    'system:automation-results',
+    'system:automation-test',
+    'system:rd-automation-inventory:refresh',
+    'system:rd-automation-inventory:select-uncovered',
+    'system:rd-automation-inventory:generate-scaffold',
+    'system:rd-automation-inventory:manual-page',
+    'system:rd-automation-templates:add-page-smoke',
+    'system:rd-automation-templates:add-form-submit',
+    'system:rd-automation-templates:add-list-detail',
+    'system:rd-automation-plans:import',
+    'system:rd-automation-plans:export',
+    'system:rd-automation-plans:reset',
+    'system:rd-automation-plans:edit',
+    'system:rd-automation-handoff:copy-command',
+    'system:rd-automation-handoff:export-plan',
+    'system:automation-execution:copy-command',
+    'system:automation-results:refresh',
+    'system:automation-results:detail',
+    'system:automation-results:evidence-preview',
+    'system:automation-results:import-json',
+    'system:automation-results:clear-import'
+  )
+  AND deleted = 0;
+
 -- governance fine-grained permission seeds
 INSERT INTO sys_menu (
     id, tenant_id, parent_id, menu_name, menu_code, path, component, icon, meta_json, sort, type, menu_type,
@@ -450,25 +527,25 @@ INSERT INTO sys_menu (
     (93003646, 1, 93003022, '影响分析', 'system:governance-approval:impact', '', '', '', '{"caption":"查看审批影响分析"}', 5246, 2, 2, '', 'system:governance-approval:impact', 5246, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003701, 1, 93003020, '发起验收', 'system:business-acceptance:launch', '', '', '', '{"caption":"发起业务验收"}', 5701, 2, 2, '', 'system:business-acceptance:launch', 5701, 1, 1, 1, NOW(), 1, NOW(), 0),
     (93003702, 1, 93003020, '打开结果', 'system:business-acceptance:open-result', '', '', '', '{"caption":"打开最近一次验收结果"}', 5702, 2, 2, '', 'system:business-acceptance:open-result', 5702, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003703, 1, 93003015, '刷新盘点', 'system:rd-automation-inventory:refresh', '', '', '', '{"caption":"刷新页面盘点结果"}', 5303, 2, 2, '', 'system:rd-automation-inventory:refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003704, 1, 93003015, '勾选未覆盖', 'system:rd-automation-inventory:select-uncovered', '', '', '', '{"caption":"勾选未覆盖页面"}', 5304, 2, 2, '', 'system:rd-automation-inventory:select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003705, 1, 93003015, '生成脚手架', 'system:rd-automation-inventory:generate-scaffold', '', '', '', '{"caption":"一键生成自动化脚手架"}', 5305, 2, 2, '', 'system:rd-automation-inventory:generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003706, 1, 93003015, '新增页面冒烟模板', 'system:rd-automation-templates:add-page-smoke', '', '', '', '{"caption":"新增页面冒烟模板"}', 5406, 2, 2, '', 'system:rd-automation-templates:add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003707, 1, 93003015, '新增表单提交模板', 'system:rd-automation-templates:add-form-submit', '', '', '', '{"caption":"新增表单提交模板"}', 5407, 2, 2, '', 'system:rd-automation-templates:add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003708, 1, 93003015, '新增列表详情模板', 'system:rd-automation-templates:add-list-detail', '', '', '', '{"caption":"新增列表详情模板"}', 5408, 2, 2, '', 'system:rd-automation-templates:add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003709, 1, 93003015, '导入计划', 'system:rd-automation-plans:import', '', '', '', '{"caption":"导入自动化计划"}', 5509, 2, 2, '', 'system:rd-automation-plans:import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003710, 1, 93003015, '导出计划', 'system:rd-automation-plans:export', '', '', '', '{"caption":"导出自动化计划 JSON"}', 5510, 2, 2, '', 'system:rd-automation-plans:export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003711, 1, 93003015, '重置计划', 'system:rd-automation-plans:reset', '', '', '', '{"caption":"恢复默认自动化计划"}', 5511, 2, 2, '', 'system:rd-automation-plans:reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003712, 1, 93003015, '复制命令', 'system:rd-automation-handoff:copy-command', '', '', '', '{"caption":"复制交付命令"}', 5612, 2, 2, '', 'system:rd-automation-handoff:copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003713, 1, 93003015, '导出计划文件', 'system:rd-automation-handoff:export-plan', '', '', '', '{"caption":"导出交付计划"}', 5613, 2, 2, '', 'system:rd-automation-handoff:export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003714, 1, 93003015, '复制执行命令', 'system:automation-execution:copy-command', '', '', '', '{"caption":"复制执行中心命令"}', 5714, 2, 2, '', 'system:automation-execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003716, 1, 93003015, '刷新结果台账', 'system:automation-results:refresh', '', '', '', '{"caption":"刷新自动化结果运行台账"}', 5816, 2, 2, '', 'system:automation-results:refresh', 5816, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003717, 1, 93003015, '查看运行详情', 'system:automation-results:detail', '', '', '', '{"caption":"查看自动化结果运行详情"}', 5817, 2, 2, '', 'system:automation-results:detail', 5817, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003718, 1, 93003015, '查看证据原文', 'system:automation-results:evidence-preview', '', '', '', '{"caption":"查看自动化结果证据原文"}', 5818, 2, 2, '', 'system:automation-results:evidence-preview', 5818, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003719, 1, 93003015, '导入结果 JSON', 'system:automation-results:import-json', '', '', '', '{"caption":"兼容导入外部自动化结果 JSON"}', 5819, 2, 2, '', 'system:automation-results:import-json', 5819, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003720, 1, 93003015, '清空导入结果', 'system:automation-results:clear-import', '', '', '', '{"caption":"清空兼容导入的自动化结果"}', 5820, 2, 2, '', 'system:automation-results:clear-import', 5820, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003721, 1, 93003015, '编辑计划编排', 'system:rd-automation-plans:edit', '', '', '', '{"caption":"维护自动化计划场景、步骤、接口与变量捕获"}', 5521, 2, 2, '', 'system:rd-automation-plans:edit', 5521, 1, 1, 1, NOW(), 1, NOW(), 0),
-    (93003722, 1, 93003015, '维护自定义页面', 'system:rd-automation-inventory:manual-page', '', '', '', '{"caption":"新增或删除页面盘点台人工补录页面"}', 5322, 2, 2, '', 'system:rd-automation-inventory:manual-page', 5322, 1, 1, 1, NOW(), 1, NOW(), 0)
+    (93003703, 1, 93003015, '刷新盘点', 'system:automation-governance:assets:inventory-refresh', '', '', '', '{"caption":"刷新自动化治理台页面盘点结果"}', 5303, 2, 2, '', 'system:automation-governance:assets:inventory-refresh', 5303, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003704, 1, 93003015, '勾选未覆盖', 'system:automation-governance:assets:inventory-select-uncovered', '', '', '', '{"caption":"勾选自动化治理台未覆盖页面"}', 5304, 2, 2, '', 'system:automation-governance:assets:inventory-select-uncovered', 5304, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003705, 1, 93003015, '生成脚手架', 'system:automation-governance:assets:inventory-generate-scaffold', '', '', '', '{"caption":"一键生成自动化治理台页面脚手架"}', 5305, 2, 2, '', 'system:automation-governance:assets:inventory-generate-scaffold', 5305, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003706, 1, 93003015, '新增页面冒烟模板', 'system:automation-governance:assets:templates-add-page-smoke', '', '', '', '{"caption":"新增自动化治理台页面冒烟模板"}', 5406, 2, 2, '', 'system:automation-governance:assets:templates-add-page-smoke', 5406, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003707, 1, 93003015, '新增表单提交模板', 'system:automation-governance:assets:templates-add-form-submit', '', '', '', '{"caption":"新增自动化治理台表单提交模板"}', 5407, 2, 2, '', 'system:automation-governance:assets:templates-add-form-submit', 5407, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003708, 1, 93003015, '新增列表详情模板', 'system:automation-governance:assets:templates-add-list-detail', '', '', '', '{"caption":"新增自动化治理台列表详情模板"}', 5408, 2, 2, '', 'system:automation-governance:assets:templates-add-list-detail', 5408, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003709, 1, 93003015, '导入计划', 'system:automation-governance:assets:plans-import', '', '', '', '{"caption":"导入自动化治理台计划"}', 5509, 2, 2, '', 'system:automation-governance:assets:plans-import', 5509, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003710, 1, 93003015, '导出计划', 'system:automation-governance:assets:plans-export', '', '', '', '{"caption":"导出自动化治理台计划 JSON"}', 5510, 2, 2, '', 'system:automation-governance:assets:plans-export', 5510, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003711, 1, 93003015, '重置计划', 'system:automation-governance:assets:plans-reset', '', '', '', '{"caption":"恢复自动化治理台默认计划"}', 5511, 2, 2, '', 'system:automation-governance:assets:plans-reset', 5511, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003712, 1, 93003015, '复制命令', 'system:automation-governance:assets:handoff-copy-command', '', '', '', '{"caption":"复制自动化治理台交付命令"}', 5612, 2, 2, '', 'system:automation-governance:assets:handoff-copy-command', 5612, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003713, 1, 93003015, '导出计划文件', 'system:automation-governance:assets:handoff-export-plan', '', '', '', '{"caption":"导出自动化治理台交付计划"}', 5613, 2, 2, '', 'system:automation-governance:assets:handoff-export-plan', 5613, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003714, 1, 93003015, '复制执行命令', 'system:automation-governance:execution:copy-command', '', '', '', '{"caption":"复制自动化治理台执行命令"}', 5714, 2, 2, '', 'system:automation-governance:execution:copy-command', 5714, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003716, 1, 93003015, '刷新结果台账', 'system:automation-governance:evidence:refresh', '', '', '', '{"caption":"刷新自动化治理台结果证据台账"}', 5816, 2, 2, '', 'system:automation-governance:evidence:refresh', 5816, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003717, 1, 93003015, '查看运行详情', 'system:automation-governance:evidence:detail', '', '', '', '{"caption":"查看自动化治理台运行详情"}', 5817, 2, 2, '', 'system:automation-governance:evidence:detail', 5817, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003718, 1, 93003015, '查看证据原文', 'system:automation-governance:evidence:evidence-preview', '', '', '', '{"caption":"查看自动化治理台结果证据原文"}', 5818, 2, 2, '', 'system:automation-governance:evidence:evidence-preview', 5818, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003719, 1, 93003015, '导入结果 JSON', 'system:automation-governance:evidence:import-json', '', '', '', '{"caption":"兼容导入自动化治理台外部结果 JSON"}', 5819, 2, 2, '', 'system:automation-governance:evidence:import-json', 5819, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003720, 1, 93003015, '清空导入结果', 'system:automation-governance:evidence:clear-import', '', '', '', '{"caption":"清空自动化治理台兼容导入结果"}', 5820, 2, 2, '', 'system:automation-governance:evidence:clear-import', 5820, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003721, 1, 93003015, '编辑计划编排', 'system:automation-governance:assets:plans-edit', '', '', '', '{"caption":"维护自动化治理台计划场景、步骤、接口与变量捕获"}', 5521, 2, 2, '', 'system:automation-governance:assets:plans-edit', 5521, 1, 1, 1, NOW(), 1, NOW(), 0),
+    (93003722, 1, 93003015, '维护自定义页面', 'system:automation-governance:assets:inventory-manual-page', '', '', '', '{"caption":"新增或删除自动化治理台页面盘点补录页面"}', 5322, 2, 2, '', 'system:automation-governance:assets:inventory-manual-page', 5322, 1, 1, 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     parent_id = VALUES(parent_id),
     menu_name = VALUES(menu_name),
@@ -765,25 +842,25 @@ FROM (
     UNION SELECT @role_developer_id, 'risk:rule-definition:edit'
     UNION SELECT @role_developer_id, 'risk:linkage-rule:edit'
     UNION SELECT @role_developer_id, 'risk:emergency-plan:edit'
-    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:refresh'
-    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:select-uncovered'
-    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:generate-scaffold'
-    UNION SELECT @role_developer_id, 'system:rd-automation-inventory:manual-page'
-    UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-page-smoke'
-    UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-form-submit'
-    UNION SELECT @role_developer_id, 'system:rd-automation-templates:add-list-detail'
-    UNION SELECT @role_developer_id, 'system:rd-automation-plans:import'
-    UNION SELECT @role_developer_id, 'system:rd-automation-plans:export'
-    UNION SELECT @role_developer_id, 'system:rd-automation-plans:reset'
-    UNION SELECT @role_developer_id, 'system:rd-automation-plans:edit'
-    UNION SELECT @role_developer_id, 'system:rd-automation-handoff:copy-command'
-    UNION SELECT @role_developer_id, 'system:rd-automation-handoff:export-plan'
-    UNION SELECT @role_developer_id, 'system:automation-execution:copy-command'
-    UNION SELECT @role_developer_id, 'system:automation-results:refresh'
-    UNION SELECT @role_developer_id, 'system:automation-results:detail'
-    UNION SELECT @role_developer_id, 'system:automation-results:evidence-preview'
-    UNION SELECT @role_developer_id, 'system:automation-results:import-json'
-    UNION SELECT @role_developer_id, 'system:automation-results:clear-import'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-refresh'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-select-uncovered'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-generate-scaffold'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:inventory-manual-page'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:templates-add-page-smoke'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:templates-add-form-submit'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:templates-add-list-detail'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-import'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-export'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-reset'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:plans-edit'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:handoff-copy-command'
+    UNION SELECT @role_developer_id, 'system:automation-governance:assets:handoff-export-plan'
+    UNION SELECT @role_developer_id, 'system:automation-governance:execution:copy-command'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:refresh'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:detail'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:evidence-preview'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:import-json'
+    UNION SELECT @role_developer_id, 'system:automation-governance:evidence:clear-import'
 ) grant_scope
 JOIN sys_menu m
   ON m.menu_code = grant_scope.menu_code

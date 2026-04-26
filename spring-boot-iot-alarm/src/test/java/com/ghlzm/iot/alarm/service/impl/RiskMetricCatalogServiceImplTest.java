@@ -309,6 +309,42 @@ class RiskMetricCatalogServiceImplTest {
     }
 
     @Test
+    void publishFromReleasedContractsShouldRetireExistingCatalogRowsWhenMeasureTruthBecomesEmpty() {
+        RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
+                riskMetricCatalogMapper,
+                productMapper,
+                normativeMetricDefinitionService,
+                List.of(new KeywordRiskMetricScenarioResolver()),
+                applicationEventPublisher,
+                snapshotService
+        );
+        RiskMetricCatalog stale = new RiskMetricCatalog();
+        stale.setId(7101L);
+        stale.setProductId(2002L);
+        stale.setContractIdentifier("L1_QJ_1.angle");
+        stale.setEnabled(1);
+        stale.setLifecycleStatus("ACTIVE");
+        stale.setDeleted(0);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(stale));
+
+        ProductModel tiltAngle = new ProductModel();
+        tiltAngle.setId(4102L);
+        tiltAngle.setProductId(2002L);
+        tiltAngle.setIdentifier("L1_QJ_1.angle");
+        tiltAngle.setModelName("倾角");
+        tiltAngle.setDataType("double");
+
+        service.publishFromReleasedContracts(2002L, 8002L, List.of(tiltAngle), Set.of());
+
+        verify(riskMetricCatalogMapper).updateById(argThat((RiskMetricCatalog row) ->
+                Long.valueOf(7101L).equals(row.getId())
+                        && Integer.valueOf(0).equals(row.getEnabled())
+                        && "RETIRED".equals(row.getLifecycleStatus())
+        ));
+        verify(riskMetricCatalogMapper, never()).insert(any(RiskMetricCatalog.class));
+    }
+
+    @Test
     void listObjectInsightRecommendedIdentifiersShouldOnlyKeepInsightEnabledCatalogMetrics() {
         RiskMetricCatalogServiceImpl service = new RiskMetricCatalogServiceImpl(
                 riskMetricCatalogMapper,

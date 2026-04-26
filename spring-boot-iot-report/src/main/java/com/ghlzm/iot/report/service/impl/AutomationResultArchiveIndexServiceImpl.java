@@ -13,9 +13,12 @@ import com.ghlzm.iot.report.vo.AutomationResultRunDetailVO;
 import com.ghlzm.iot.report.vo.AutomationResultRunResultVO;
 import com.ghlzm.iot.report.vo.AutomationResultSummaryVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -54,6 +57,13 @@ public class AutomationResultArchiveIndexServiceImpl implements AutomationResult
 
     private final Path resultsDir;
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    public AutomationResultArchiveIndexServiceImpl(
+            @Value("${iot.automation.results-dir:logs/acceptance}") String resultsDir
+    ) {
+        this(Paths.get(resultsDir), JsonMapper.builder().findAndAddModules().build());
+    }
 
     AutomationResultArchiveIndexServiceImpl(Path resultsDir, ObjectMapper objectMapper) {
         this.resultsDir = resultsDir.toAbsolutePath().normalize();

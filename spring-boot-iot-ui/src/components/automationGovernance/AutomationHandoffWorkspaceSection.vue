@@ -23,14 +23,14 @@
         </ul>
         <StandardActionGroup gap="sm">
           <StandardButton
-            v-permission="'system:rd-automation-handoff:copy-command'"
+            v-permission="'system:automation-governance:assets:handoff-copy-command'"
             action="confirm"
             @click="copyCommand"
           >
             复制命令
           </StandardButton>
           <StandardButton
-            v-permission="'system:rd-automation-handoff:export-plan'"
+            v-permission="'system:automation-governance:assets:handoff-export-plan'"
             action="batch"
             @click="downloadPlan"
           >

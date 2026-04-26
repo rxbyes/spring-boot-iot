@@ -950,6 +950,9 @@
             <h3>当前已生效字段</h3>
           </div>
         </header>
+        <p class="product-model-designer__governance-tip">
+          只有执行“设为监测数据”的正式字段才会进入风险指标目录；“取消趋势展示”会同步将其移出目录。
+        </p>
 
         <div class="product-model-designer__formal-tabs" role="tablist" aria-label="正式字段类型">
           <button
@@ -1163,6 +1166,7 @@ import {
   buildProductMetadataJson,
   createProductObjectInsightMetricFromModel,
   findProductObjectInsightMetric,
+  isProductObjectInsightMeasureTruthMetric,
   parseProductObjectInsightMetrics,
   removeProductObjectInsightMetric,
   upsertProductObjectInsightMetric
@@ -1916,6 +1920,10 @@ function resolveTrendMetricConfig(model: ProductModel) {
   return findProductObjectInsightMetric(trendMetricRows.value, model.identifier)
 }
 
+function isCatalogTruthMetric(model: ProductModel) {
+  return isProductObjectInsightMeasureTruthMetric(resolveTrendMetricConfig(model))
+}
+
 function resolveTrendMetricStateLabel(model: ProductModel) {
   const metric = resolveTrendMetricConfig(model)
   if (!metric || metric.includeInTrend === false || metric.enabled === false) {
@@ -2221,12 +2229,23 @@ async function handleSetTrendMetric(model: ProductModel, group: ProductObjectIns
   if (!product?.id) {
     return
   }
+  if (group !== 'measure' && isCatalogTruthMetric(model)) {
+    ElMessage.warning(
+      group === 'statusEvent'
+        ? '请先取消趋势展示，使该字段退出风险目录后再改成状态事件'
+        : '请先取消趋势展示，使该字段退出风险目录后再改成运行参数'
+    )
+    return
+  }
 
   const nextRows = upsertProductObjectInsightMetric(
     trendMetricRows.value,
     createProductObjectInsightMetricFromModel(model, group)
   )
-  await persistTrendMetricConfig(product, nextRows, `${String(model.id ?? model.identifier)}:${group}`, `${model.modelName}已加入对象洞察趋势`)
+  const successMessage = group === 'measure'
+    ? `${model.modelName}已设为监测数据，后续正式发布后会进入风险指标目录`
+    : `${model.modelName}已设为${getObjectInsightMetricGroupLabel(group)}`
+  await persistTrendMetricConfig(product, nextRows, `${String(model.id ?? model.identifier)}:${group}`, successMessage)
 }
 
 async function handleRemoveTrendMetric(model: ProductModel) {
@@ -2245,7 +2264,7 @@ async function handleRemoveTrendMetric(model: ProductModel) {
     product,
     nextRows,
     `${String(model.id ?? model.identifier)}:remove`,
-    `${model.modelName}已取消对象洞察趋势`
+    `${model.modelName}已取消趋势展示，并会同步退出风险指标目录`
   )
 }
 
@@ -3504,6 +3523,12 @@ function inferRelationStrategies(
 .product-model-designer__formal-tabs {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.72rem;
+}
+
+.product-model-designer__governance-tip {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.56;
 }
 
 .product-model-designer__formal-tab {

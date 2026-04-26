@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit monitoring-product risk metric catalog coverage in the shared dev database."""
+"""Audit risk metric catalog coverage against objectInsight measure truth in the shared dev database."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class ParsedIdentifier:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Audit monitoring-product risk metric catalog coverage")
+    parser = argparse.ArgumentParser(description="Audit risk metric catalog coverage against objectInsight measure truth")
     parser.add_argument("--product-key", action="append", default=[], help="Audit only the specified productKey. Repeatable.")
     parser.add_argument("--limit", type=int, default=200, help="Max products to inspect when no productKey is specified.")
     parser.add_argument("--jdbc-url", help="Override JDBC url. Defaults to application-dev.yml / env.")
@@ -130,6 +130,7 @@ def fetch_products(cur: pymysql.cursors.Cursor, product_keys: List[str], limit: 
                p.product_name,
                p.manufacturer,
                p.description,
+               p.metadata_json,
                COUNT(DISTINCT b.id) AS release_batch_count,
                MAX(b.id) AS latest_release_batch_id,
                MAX(b.create_time) AS latest_release_time
@@ -351,16 +352,7 @@ def is_risk_ready_identifier(product: Dict[str, object], contract: Dict[str, obj
 
 
 def resolve_risk_enabled_identifiers(product: Dict[str, object], property_models: List[Dict[str, object]]) -> List[str]:
-    identifiers = []
-    seen = set()
-    for contract in property_models:
-        identifier = normalize_identifier(contract.get("identifier"))
-        if not identifier or identifier in seen:
-            continue
-        seen.add(identifier)
-        if is_risk_ready_identifier(product, contract):
-            identifiers.append(identifier)
-    return identifiers
+    return resolve_measure_truth_identifiers(product, property_models)
 
 
 def resolve_scope_scenario_code(product: Dict[str, object]) -> str | None:
@@ -407,6 +399,8 @@ def resolve_semantic_reference(product: Dict[str, object], identifier: str | Non
 
 
 def parse_json_object(value: object) -> Dict[str, object]:
+    if isinstance(value, dict):
+        return value
     text = normalize_text(value)
     if not text:
         return {}
@@ -461,6 +455,53 @@ def read_boolean_as_int(source: Dict[str, object], *keys: str) -> int | None:
 def normalize_flag(value: object) -> int | None:
     parsed = to_boolean_int(value)
     return parsed
+
+
+def extract_custom_metrics(product: Dict[str, object] | None) -> List[Dict[str, object]]:
+    metadata = parse_json_object({} if product is None else product.get("metadata_json"))
+    object_insight = metadata.get("objectInsight")
+    if not isinstance(object_insight, dict):
+        return []
+    custom_metrics = object_insight.get("customMetrics")
+    if not isinstance(custom_metrics, list):
+        return []
+    return [item for item in custom_metrics if isinstance(item, dict)]
+
+
+def is_measure_truth_metric(metric: Dict[str, object]) -> bool:
+    identifier = normalize_identifier(metric.get("identifier"))
+    if not identifier:
+        return False
+    if safe_lower(metric.get("group")) != "measure":
+        return False
+    enabled = read_boolean_as_int(metric, "enabled")
+    if enabled == 0:
+        return False
+    include_in_trend = read_boolean_as_int(metric, "includeInTrend")
+    if include_in_trend == 0:
+        return False
+    return True
+
+
+def resolve_measure_truth_identifiers(product: Dict[str, object], property_models: List[Dict[str, object]]) -> List[str]:
+    released_contract_identifiers = {
+        normalize_identifier(contract.get("identifier"))
+        for contract in property_models
+        if normalize_identifier(contract.get("identifier"))
+    }
+    identifiers: List[str] = []
+    seen = set()
+    for metric in extract_custom_metrics(product):
+        identifier = normalize_identifier(metric.get("identifier"))
+        if not identifier or identifier in seen:
+            continue
+        if identifier not in released_contract_identifiers:
+            continue
+        if not is_measure_truth_metric(metric):
+            continue
+        seen.add(identifier)
+        identifiers.append(identifier)
+    return identifiers
 
 
 def first_non_blank(*values: object) -> str | None:
@@ -645,16 +686,16 @@ def classify_product_audit(
 
     notes: List[str] = []
     if audit_status == STATUS_NEEDS_BACKFILL:
-        notes.append("已有正式发布批次，但当前启用目录为空，建议补一次目录回填。")
+        notes.append("已有正式发布批次，但当前启用目录缺少已明确“设为监测数据”且仍保留趋势展示的正式字段。")
     if audit_status == STATUS_SELF_HEAL_ONLY:
-        notes.append("当前无正式发布批次，风险绑定依赖 formal-metrics 读侧自愈。")
+        notes.append("当前无正式发布批次；即使已设为监测数据，formal-metrics 读侧也只能等正式批次出现后再自愈。")
     if audit_status == STATUS_EXPECTED_EMPTY and expected_set == set():
-        notes.append("按当前风险目录发布规则，空目录是预期结果。")
+        notes.append("按当前对象洞察 measure 真相，空目录是预期结果。")
     if audit_status == STATUS_RULE_DRIFT:
         if missing_identifiers:
-            notes.append("当前启用目录缺少按规则应发布的正式字段。")
+            notes.append("当前启用目录缺少已明确“设为监测数据”且仍保留趋势展示的正式字段。")
         if unexpected_identifiers:
-            notes.append("当前启用目录存在按规则不应发布的正式字段。")
+            notes.append("当前启用目录仍保留未设为监测数据、已禁用或已取消趋势展示的正式字段。")
 
     return {
         "productId": product.get("id"),
@@ -681,10 +722,11 @@ def summarize_results(results: List[Dict[str, object]]) -> Dict[str, int]:
 def render_markdown_report(report: Dict[str, object]) -> str:
     summary = report["summary"]
     lines = [
-        "# Monitoring Risk Metric Catalog Audit",
+        "# Monitoring Risk Metric Catalog Measure Truth Audit",
         "",
         f"- Generated at: {report['generatedAt']}",
         f"- Scope: {report['scopeDescription']}",
+        "- Truth source: `metadataJson.objectInsight.customMetrics[]` entries that are `group=measure`, `enabled=true`, and `includeInTrend=true`.",
         "",
         "## Summary",
         "",
@@ -777,7 +819,7 @@ def build_repair_plan(
                     "productId": product_id,
                     "productKey": result["productKey"],
                     "auditStatus": audit_status,
-                    "reason": "当前无正式发布批次，仅建议保留 formal-metrics 读侧自愈，不生成持久化目录回填动作。",
+                    "reason": "当前无正式发布批次；即使已设为监测数据，formal-metrics 读侧也只能等正式批次出现后再自愈，不生成持久化目录回填动作。",
                 }
             )
             continue
@@ -875,10 +917,11 @@ def build_repair_plan(
 def render_repair_markdown(plan: Dict[str, object]) -> str:
     summary = plan["summary"]
     lines = [
-        "# Monitoring Risk Metric Catalog Repair Plan",
+        "# Monitoring Risk Metric Catalog Measure Truth Repair Plan",
         "",
         f"- Generated at: {plan['generatedAt']}",
         f"- Scope: {plan['scopeDescription']}",
+        "- Repair semantics: upsert identifiers still marked as `设为监测数据`, and retire rows that were disabled or removed via `取消趋势展示`.",
         "",
         "## Summary",
         "",

@@ -2,7 +2,7 @@
   <div class="automation-capture-editor">
     <StandardInlineSectionHeader :title="title">
       <template #actions>
-        <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('add')">{{ addText }}</StandardActionLink>
+        <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="$emit('add')">{{ addText }}</StandardActionLink>
       </template>
     </StandardInlineSectionHeader>
 
@@ -17,7 +17,7 @@
     >
       <el-input v-model="capture.variable" :placeholder="variablePlaceholder" />
       <el-input v-model="capture.path" :placeholder="pathPlaceholder" />
-      <StandardActionLink v-permission="'system:rd-automation-plans:edit'" @click="$emit('remove', captureIndex)">移除</StandardActionLink>
+      <StandardActionLink v-permission="'system:automation-governance:assets:plans-edit'" @click="$emit('remove', captureIndex)">移除</StandardActionLink>
     </div>
   </div>
 </template>
