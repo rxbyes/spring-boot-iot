@@ -39,6 +39,23 @@
         <div v-if="activeModule.failureDetails.length === 0" class="business-acceptance-module-result-panel__empty">
           当前模块没有失败明细。
         </div>
+        <div
+          v-if="activeModule.diagnosis"
+          class="business-acceptance-module-result-panel__diagnosis"
+        >
+          <article>
+            <h4>主分类</h4>
+            <p>{{ activeModule.diagnosis.category || '其他' }}</p>
+          </article>
+          <article>
+            <h4>判断理由</h4>
+            <p>{{ activeModule.diagnosis.reason || '未命中已知规则，建议查看原始证据' }}</p>
+          </article>
+          <article>
+            <h4>证据摘要</h4>
+            <p>{{ activeModule.diagnosis.evidenceSummary || '未记录证据摘要' }}</p>
+          </article>
+        </div>
         <details
           v-for="detail in activeModule.failureDetails"
           :key="`${activeModule.moduleCode}-${detail.scenarioId}`"
@@ -195,6 +212,33 @@ function toggleExpandAll() {
   padding: 0.95rem 1rem;
 }
 
+.business-acceptance-module-result-panel__diagnosis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.business-acceptance-module-result-panel__diagnosis article {
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.business-acceptance-module-result-panel__diagnosis h4 {
+  margin: 0 0 0.42rem;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.business-acceptance-module-result-panel__diagnosis p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
 .business-acceptance-module-result-panel__failure summary {
   display: grid;
   gap: 0.32rem;
@@ -242,6 +286,7 @@ function toggleExpandAll() {
 }
 
 @media (max-width: 900px) {
+  .business-acceptance-module-result-panel__diagnosis,
   .business-acceptance-module-result-panel__failure-grid {
     grid-template-columns: 1fr;
   }

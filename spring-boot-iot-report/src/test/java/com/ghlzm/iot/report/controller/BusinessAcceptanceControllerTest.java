@@ -2,7 +2,9 @@ package com.ghlzm.iot.report.controller;
 
 import com.ghlzm.iot.framework.advice.GlobalExceptionHandler;
 import com.ghlzm.iot.report.service.BusinessAcceptanceService;
+import com.ghlzm.iot.report.vo.AutomationFailureDiagnosisVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceAccountTemplateVO;
+import com.ghlzm.iot.report.vo.BusinessAcceptanceModuleResultVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceResultVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceRunLaunchVO;
 import com.ghlzm.iot.report.vo.BusinessAcceptanceRunStatusVO;
@@ -103,16 +105,26 @@ class BusinessAcceptanceControllerTest {
 
     @Test
     void shouldExposeBusinessAcceptanceResultRoute() throws Exception {
+        AutomationFailureDiagnosisVO diagnosisVO = new AutomationFailureDiagnosisVO();
+        diagnosisVO.setCategory("接口");
+        diagnosisVO.setReason("1 个失败场景中 1 个命中接口问题");
+        diagnosisVO.setEvidenceSummary("接口响应异常 500");
+        BusinessAcceptanceModuleResultVO moduleResultVO = new BusinessAcceptanceModuleResultVO();
+        moduleResultVO.setModuleCode("product-create");
+        moduleResultVO.setModuleName("产品新增");
+        moduleResultVO.setDiagnosis(diagnosisVO);
         BusinessAcceptanceResultVO resultVO = new BusinessAcceptanceResultVO();
         resultVO.setRunId("20260404153000");
         resultVO.setStatus("failed");
+        resultVO.setModules(List.of(moduleResultVO));
         when(businessAcceptanceService.getRunResult("product-device", "20260404153000")).thenReturn(resultVO);
 
         mockMvc.perform(get("/api/report/business-acceptance/results/20260404153000")
                         .param("packageCode", "product-device"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.status").value("failed"));
+                .andExpect(jsonPath("$.data.status").value("failed"))
+                .andExpect(jsonPath("$.data.modules[0].diagnosis.category").value("接口"));
 
         verify(businessAcceptanceService).getRunResult("product-device", "20260404153000");
     }

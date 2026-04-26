@@ -1,3 +1,5 @@
+import type { AutomationFailureDiagnosis } from './automation';
+
 export type BusinessAcceptanceStatus =
   | 'neverRun'
   | 'running'
@@ -82,6 +84,7 @@ export interface BusinessAcceptanceModuleResult {
   failedScenarioCount: number;
   failedScenarioTitles: string[];
   suggestedDirection?: string;
+  diagnosis?: AutomationFailureDiagnosis;
   failureDetails: BusinessAcceptanceFailureDetail[];
 }
 

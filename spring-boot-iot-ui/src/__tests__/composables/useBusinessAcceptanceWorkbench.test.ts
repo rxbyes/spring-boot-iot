@@ -259,6 +259,11 @@ describe('useBusinessAcceptanceWorkbench', () => {
             failedScenarioCount: 1,
             failedScenarioTitles: ['登录与产品设备浏览器冒烟'],
             suggestedDirection: 'needsReview',
+            diagnosis: {
+              category: '接口',
+              reason: '1 个失败场景中 1 个命中接口问题',
+              evidenceSummary: '接口响应异常 500'
+            },
             failureDetails: [
               {
                 scenarioId: 'auth.browser-smoke',
@@ -290,6 +295,7 @@ describe('useBusinessAcceptanceWorkbench', () => {
     expect(getBusinessAcceptanceResultMock).toHaveBeenCalledWith('20260404153000', 'product-device');
     expect(workbench.result.value?.status).toBe('failed');
     expect(workbench.activeModuleCode.value).toBe('product-create');
+    expect(workbench.result.value?.modules[0]?.diagnosis?.category).toBe('接口');
 
     await workbench.goToAutomationEvidence('20260404153000');
 

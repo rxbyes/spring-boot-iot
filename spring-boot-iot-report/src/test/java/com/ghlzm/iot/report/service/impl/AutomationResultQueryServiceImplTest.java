@@ -63,7 +63,14 @@ class AutomationResultQueryServiceImplTest {
                               "runnerType": "riskDrill",
                               "status": "failed",
                               "blocking": "blocker",
-                              "summary": "simulated failure",
+                              "summary": "simulated failure 500",
+                              "details": {
+                                "moduleCode": "risk",
+                                "moduleName": "风险闭环",
+                                "stepLabel": "触发全链路演练",
+                                "apiRef": "POST /api/risk/drill/start",
+                                "pageAction": "点击开始演练"
+                              },
                               "evidenceFiles": [
                                 "logs/acceptance/risk-drill-1775116282733.json"
                               ]
@@ -150,8 +157,14 @@ class AutomationResultQueryServiceImplTest {
         assertThat(detail.getOptions()).containsEntry("accountTemplate", "acceptance-default");
         assertThat(detail.getOptions()).containsEntry("selectedModules", "product-create,product-query");
         assertThat(detail.getSummary().getFailed()).isEqualTo(1);
+        assertThat(detail.getFailureSummary().getPrimaryCategory()).isEqualTo("接口");
+        assertThat(detail.getFailedModules()).hasSize(1);
+        assertThat(detail.getFailedModules().get(0).getDiagnosis().getCategory()).isEqualTo("接口");
+        assertThat(detail.getFailedScenarios()).hasSize(1);
+        assertThat(detail.getFailedScenarios().get(0).getDiagnosis().getEvidenceSummary()).contains("simulated failure 500");
         assertThat(detail.getResults()).hasSize(1);
         assertThat(detail.getResults().get(0).getScenarioId()).isEqualTo("risk.full-drill.red-chain");
+        assertThat(detail.getResults().get(0).getDiagnosis().getCategory()).isEqualTo("接口");
     }
 
     @Test
@@ -281,7 +294,7 @@ class AutomationResultQueryServiceImplTest {
                 JsonMapper.builder().findAndAddModules().build()
         );
 
-        var page = service.pageRuns(1, 1, "red-chain", "failed", "riskDrill", "2026-04-02", "2026-04-03");
+        var page = service.pageRuns(1, 1, "red-chain", "failed", "riskDrill", null, null, "2026-04-02", "2026-04-03");
 
         assertThat(page.getTotal()).isEqualTo(1L);
         assertThat(page.getPageNum()).isEqualTo(1L);
@@ -313,7 +326,7 @@ class AutomationResultQueryServiceImplTest {
                 JsonMapper.builder().findAndAddModules().build()
         );
 
-        var page = service.pageRuns(1, 10, null, null, null, null, null);
+        var page = service.pageRuns(1, 10, null, null, null, null, null, null, null);
 
         assertThat(page.getTotal()).isEqualTo(1L);
         assertThat(page.getRecords()).hasSize(1);
@@ -329,12 +342,55 @@ class AutomationResultQueryServiceImplTest {
                 JsonMapper.builder().findAndAddModules().build()
         );
 
-        var page = service.pageRuns(2, 20, null, null, null, null, null);
+        var page = service.pageRuns(2, 20, null, null, null, null, null, null, null);
 
         assertThat(page.getTotal()).isEqualTo(0L);
         assertThat(page.getPageNum()).isEqualTo(2L);
         assertThat(page.getPageSize()).isEqualTo(20L);
         assertThat(page.getRecords()).isEmpty();
+    }
+
+    @Test
+    void shouldPageRegistryRunsWithPackageAndEnvironmentFilters() throws Exception {
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+        writeRegistryRun(
+                logsDir,
+                "20260402120000",
+                "2026-04-02T12:00:00Z",
+                "browserPlan",
+                "passed",
+                "quality-factory.login",
+                "quality factory passed",
+                "quality-factory-p0",
+                "dev"
+        );
+        writeRegistryRun(
+                logsDir,
+                "20260403130000",
+                "2026-04-03T13:00:00Z",
+                "riskDrill",
+                "failed",
+                "product.publish",
+                "product publish failed",
+                "product-governance-p1",
+                "sit"
+        );
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var page = service.pageRuns(1, 10, null, null, null, "product-governance-p1", "sit", null, null);
+        var facets = service.listFacets();
+
+        assertThat(page.getTotal()).isEqualTo(1L);
+        assertThat(page.getRecords()).hasSize(1);
+        assertThat(page.getRecords().get(0).getRunId()).isEqualTo("20260403130000");
+        assertThat(page.getRecords().get(0).getPackageCode()).isEqualTo("product-governance-p1");
+        assertThat(page.getRecords().get(0).getEnvironmentCode()).isEqualTo("sit");
+        assertThat(facets.getPackageCodes()).containsExactly("product-governance-p1", "quality-factory-p0");
+        assertThat(facets.getEnvironmentCodes()).containsExactly("dev", "sit");
     }
 
     private void writeRegistryRun(
@@ -346,12 +402,30 @@ class AutomationResultQueryServiceImplTest {
             String scenarioId,
             String summary
     ) throws Exception {
+        writeRegistryRun(logsDir, runId, updatedAt, runnerType, status, scenarioId, summary, "", "");
+    }
+
+    private void writeRegistryRun(
+            Path logsDir,
+            String runId,
+            String updatedAt,
+            String runnerType,
+            String status,
+            String scenarioId,
+            String summary,
+            String packageCode,
+            String environmentCode
+    ) throws Exception {
         Path file = logsDir.resolve("registry-run-" + runId + ".json");
         Files.writeString(
                 file,
                 """
                         {
                           "runId": "%s",
+                          "options": {
+                            "packageCode": "%s",
+                            "environmentCode": "%s"
+                          },
                           "summary": {
                             "total": 1,
                             "passed": %s,
@@ -372,6 +446,8 @@ class AutomationResultQueryServiceImplTest {
                         }
                         """.formatted(
                         runId,
+                        packageCode,
+                        environmentCode,
                         "passed".equals(status) ? "1" : "0",
                         "failed".equals(status) ? "1" : "0",
                         scenarioId,

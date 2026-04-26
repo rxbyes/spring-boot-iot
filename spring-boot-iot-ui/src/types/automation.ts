@@ -202,6 +202,36 @@ export interface AcceptanceRegistrySummary {
   byRunner: Record<string, number>;
 }
 
+export interface AutomationFailureDiagnosis {
+  category: string;
+  reason: string;
+  evidenceSummary: string;
+}
+
+export interface AutomationResultFailureSummary {
+  primaryCategory: string;
+  countsByCategory: Record<string, number>;
+}
+
+export interface AutomationResultFailedModule {
+  moduleCode: string;
+  moduleName: string;
+  failedScenarioCount: number;
+  diagnosis?: AutomationFailureDiagnosis;
+}
+
+export interface AutomationResultFailedScenario {
+  scenarioId: string;
+  scenarioTitle?: string;
+  moduleCode?: string;
+  moduleName?: string;
+  runnerType?: AcceptanceRegistryRunnerType;
+  stepLabel?: string;
+  apiRef?: string;
+  pageAction?: string;
+  diagnosis?: AutomationFailureDiagnosis;
+}
+
 export interface AcceptanceRegistryRunResult {
   scenarioId: string;
   runnerType?: AcceptanceRegistryRunnerType;
@@ -210,6 +240,7 @@ export interface AcceptanceRegistryRunResult {
   summary?: string;
   evidenceFiles?: string[];
   details?: Record<string, unknown>;
+  diagnosis?: AutomationFailureDiagnosis;
 }
 
 export interface AcceptanceRegistryRunSummary {
@@ -226,6 +257,9 @@ export interface AcceptanceRegistryRunSummary {
   relatedEvidenceFiles?: string[];
   reportPath?: string;
   exitCode?: number;
+  failureSummary?: AutomationResultFailureSummary;
+  failedModules?: AutomationResultFailedModule[];
+  failedScenarios?: AutomationResultFailedScenario[];
 }
 
 export type AutomationEvidenceCategory =
@@ -273,9 +307,25 @@ export interface AutomationResultRunSummary {
   relatedEvidenceFiles: string[];
   status: AutomationResultRunStatus;
   runnerTypes: AcceptanceRegistryRunnerType[];
+  packageCode?: string;
+  environmentCode?: string;
 }
 
 export type AutomationResultRecentRun = AutomationResultRunSummary;
+
+export interface AutomationResultArchiveFacets {
+  statuses: string[];
+  runnerTypes: string[];
+  packageCodes: string[];
+  environmentCodes: string[];
+}
+
+export interface AutomationResultArchiveRefreshResult {
+  generatedAt?: string;
+  latestIndexPath?: string;
+  indexedRuns?: number;
+  skippedFiles?: number;
+}
 
 export interface AutomationResultRunPageQuery {
   pageNum: number;
@@ -283,6 +333,8 @@ export interface AutomationResultRunPageQuery {
   keyword?: string;
   status?: string;
   runnerType?: string;
+  packageCode?: string;
+  environmentCode?: string;
   dateFrom?: string;
   dateTo?: string;
 }
@@ -291,5 +343,7 @@ export interface AutomationResultLedgerFilters {
   keyword: string;
   status: string;
   runnerType: string;
+  packageCode: string;
+  environmentCode: string;
   dateRange: string[];
 }

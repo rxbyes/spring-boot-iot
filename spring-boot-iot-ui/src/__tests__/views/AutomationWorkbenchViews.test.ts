@@ -65,6 +65,14 @@ describe('automation rd workbench route splits', () => {
     expect(source).not.toContain('<AutomationScenarioEditor');
   });
 
+  it('keeps the business acceptance module panel showing lightweight failure diagnosis', () => {
+    const source = readComponent('BusinessAcceptanceModuleResultPanel.vue');
+
+    expect(source).toContain('主分类');
+    expect(source).toContain('判断理由');
+    expect(source).toContain('证据摘要');
+  });
+
   it('keeps the automation governance view focused on assets, execution, and evidence tabs', () => {
     const source = readView('AutomationGovernanceWorkbenchView.vue');
 
@@ -101,24 +109,32 @@ describe('automation rd workbench route splits', () => {
 
     expect(source).toContain('<AutomationRecentRunsPanel');
     expect(source).toContain('<AutomationResultEvidencePanel');
+    expect(source).toContain('失败分类分布');
+    expect(source).toContain('主分类');
+    expect(source).toContain('判断理由');
+    expect(source).toContain('证据摘要');
     expect(source).toContain('失败场景明细');
   });
 
-  it('registers automation-governance route and retires the old rd/execution/result routes', () => {
+  it('keeps the recent runs panel aligned with archive index filters', () => {
+    const source = readComponent('AutomationRecentRunsPanel.vue');
+
+    expect(source).toContain('placeholder="验收包"');
+    expect(source).toContain('placeholder="环境"');
+    expect(source).toContain('刷新索引');
+  });
+
+  it('registers automation-governance route and keeps legacy quality entries as redirects only', () => {
     const source = readRouter();
 
     expect(source).toContain("path: '/quality-workbench'");
     expect(source).toContain("path: '/business-acceptance'");
     expect(source).toContain("path: '/business-acceptance/results/:runId'");
     expect(source).toContain("path: '/automation-governance'");
-    expect(source).not.toContain("path: '/rd-workbench'");
-    expect(source).not.toContain("path: '/rd-automation-inventory'");
-    expect(source).not.toContain("path: '/rd-automation-templates'");
-    expect(source).not.toContain("path: '/rd-automation-plans'");
-    expect(source).not.toContain("path: '/rd-automation-handoff'");
-    expect(source).not.toContain("path: '/automation-assets'");
-    expect(source).not.toContain("path: '/automation-execution'");
-    expect(source).not.toContain("path: '/automation-results'");
-    expect(source).not.toContain("path: '/automation-test'");
+    expect(source).toContain('legacyQualityWorkbenchRedirects');
+    expect(source).toContain("path: route.sourcePath");
+    expect(source).not.toContain("component: () => import('../views/RdWorkbenchLandingView.vue')");
+    expect(source).not.toContain("component: () => import('../views/AutomationExecutionView.vue')");
+    expect(source).not.toContain("component: () => import('../views/AutomationResultsView.vue')");
   });
 });
