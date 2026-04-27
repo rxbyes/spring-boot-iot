@@ -998,8 +998,8 @@ describe('AuditLogView', () => {
 
     await triggerSystemLogTab(wrapper, 'hotspots');
 
-    expect(wrapper.get('[data-testid="system-log-summary-hotspots"]').text()).toContain('5');
-    expect(wrapper.get('[data-testid="system-log-summary-tasks"]').text()).toContain('11810');
+    expect(wrapper.get('[data-testid="system-log-summary-hotspots"]').text()).toContain('1');
+    expect(wrapper.get('[data-testid="system-log-summary-tasks"]').text()).toContain('2');
 
     await triggerSystemLogTab(wrapper, 'archives');
 
@@ -1077,12 +1077,12 @@ describe('AuditLogView', () => {
     ]);
     await nextTick();
 
-    expect(wrapper.find('.audit-log-toolbar-stub__meta').text()).toContain('已选 1 项');
+    expect(wrapper.get('[data-testid="system-log-summary-selected"]').text()).toContain('1');
 
     await triggerSystemLogTab(wrapper, 'hotspots');
     await triggerSystemLogTab(wrapper, 'errors');
 
-    expect(wrapper.find('.audit-log-toolbar-stub__meta').text()).toContain('已选 0 项');
+    expect(wrapper.get('[data-testid="system-log-summary-selected"]').text()).toContain('0');
   });
 
   it('keeps /audit-log in the existing single-workbench layout without system tabs', async () => {
@@ -1119,7 +1119,7 @@ describe('AuditLogView', () => {
     expect(hotspotTable.text()).toContain('system.error.archive');
     expect(hotspotTable.text()).toContain('iot_message_log');
     expect(hotspotTable.text()).toContain('trace-slow-1');
-    expect(hotspotTable.text()).toContain('P峰 2400 ms');
+    expect(hotspotTable.text()).toContain('峰值 2400 ms');
     expect(hotspotTable.text()).toContain('均值 1280 ms');
     expect(hotspotTable.text()).toContain('3 次');
 
@@ -1149,10 +1149,10 @@ describe('AuditLogView', () => {
 
     const ledger = wrapper.find('.audit-log-scheduled-task-ledger');
     expect(ledger.exists()).toBe(true);
-    expect(ledger.text()).toContain('调度任务台账');
+    expect(ledger.text()).toContain('相关任务');
     expect(ledger.text()).toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
     expect(ledger.text()).toContain('FIXED_DELAY');
-    expect(ledger.text()).toContain('SUCCESS');
+    expect(ledger.text()).toContain('成功');
     expect(ledger.text()).toContain('420 ms');
 
     vi.mocked(getTraceEvidence).mockClear();
@@ -1196,11 +1196,11 @@ describe('AuditLogView', () => {
     expect(archiveTable.text()).toContain('风险信号');
     expect(archiveTable.text()).toContain('最近时间');
     expect(archiveTable.text()).toContain('iot_message_log-20260426000119');
-    expect(archiveTable.text()).toContain('SUCCEEDED');
+    expect(archiveTable.text()).toContain('成功');
     expect(archiveTable.text()).toContain('已对齐');
     expect(archiveTable.text()).toContain('偏差 0');
     expect(archiveTable.text()).toContain('剩余 0');
-    expect(archiveTable.text()).toContain('报告 可预览');
+    expect(archiveTable.text()).toContain('预览 可预览');
     expect(archiveTable.text()).toContain('iot_message_log / 30 天');
     expect(archiveTable.text()).toContain('截止 2026-03-27 00:00:00');
 
@@ -1749,13 +1749,14 @@ describe('AuditLogView', () => {
     await triggerSystemLogTab(wrapper, 'hotspots');
 
     expect(wrapper.find('[data-testid="hotspot-detail-section"]').text()).toContain('最近样本');
-    expect(wrapper.text()).not.toContain('调度任务台账');
+    expect(wrapper.text()).not.toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
 
     await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('调度任务台账');
+    expect(wrapper.text()).toContain('相关任务');
+    expect(wrapper.text()).toContain('DeviceSessionTimeoutScheduler#closeTimedOutSessions');
     expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
   });
 
@@ -1788,7 +1789,7 @@ describe('AuditLogView', () => {
     expect(drilldown.text()).toContain('Slow SQL iot_message_log');
     expect(drilldown.text()).toContain('trace-slow-1');
     expect(drilldown.text()).toContain('2400 ms');
-    expect(drilldown.text()).toContain('SUCCESS');
+    expect(drilldown.text()).toContain('成功');
   });
 
   it('drills slow hotspot into trend buckets and allows switching trend windows', async () => {
@@ -1854,7 +1855,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    const toolbarText = wrapper.find('.audit-log-toolbar-stub').text();
+    const toolbarText = wrapper.find('.audit-log-system-header__actions').text();
 
     expect(toolbarText).toContain('刷新列表');
     expect(toolbarText).toContain('更多操作');

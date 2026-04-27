@@ -27,7 +27,7 @@
           </div>
           <div class="audit-log-hotspot-workbench__focus-meta">
             <span>Trace {{ formatValue(activeHotspot.latestTraceId) }}</span>
-            <span>最近 {{ formatValue(activeHotspot.latestStartedAt) }}</span>
+            <span>最近 {{ formatDateTime(activeHotspot.latestStartedAt) }}</span>
             <span>窗口 {{ slowTrendWindowLabel }}</span>
           </div>
         </header>
@@ -62,12 +62,12 @@
               <small>{{ resolveHotspotRiskMeta(row) }}</small>
             </div>
             <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--signals">
-              <strong>P峰 {{ formatDuration(row.maxDurationMs) }}</strong>
+              <strong>峰值 {{ formatDuration(row.maxDurationMs) }}</strong>
               <span>均值 {{ formatDuration(row.avgDurationMs) }}</span>
               <small>{{ formatCount(row.totalCount) }} 次</small>
             </div>
             <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--recent">
-              <strong>{{ formatValue(row.latestStartedAt) }}</strong>
+              <strong>{{ formatDateTime(row.latestStartedAt) }}</strong>
               <small>{{ formatValue(row.latestTraceId) }}</small>
             </div>
             <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--actions">
@@ -134,47 +134,47 @@
             v-loading="slowSpanLoading"
             class="audit-log-slow-span-drilldown"
           >
-              <header class="audit-log-slow-span-drilldown__header">
-                <div>
-                  <h3>最近样本</h3>
-                  <p>{{ formatSlowSummaryTitle(activeHotspot) }} / {{ formatSlowSummaryTarget(activeHotspot) }}</p>
+            <header class="audit-log-slow-span-drilldown__header">
+              <div>
+                <h3>最近样本</h3>
+                <p>{{ formatSlowSummaryTitle(activeHotspot) }} / {{ formatSlowSummaryTarget(activeHotspot) }}</p>
+              </div>
+              <span>{{ slowSpanTotal }} 条</span>
+            </header>
+            <div v-if="slowSpanErrorMessage" class="audit-log-slow-summary__empty">
+              {{ slowSpanErrorMessage }}
+            </div>
+            <div v-else-if="slowSpanRows.length === 0" class="audit-log-slow-summary__empty">
+              暂无慢点明细
+            </div>
+            <div v-else class="audit-log-slow-span-drilldown__list">
+              <article
+                v-for="span in slowSpanRows"
+                :key="`slow-span-${span.id || span.traceId || span.startedAt}`"
+                class="audit-log-slow-span-drilldown__item"
+              >
+                <div class="audit-log-slow-span-drilldown__title">
+                  <strong>{{ formatValue(span.spanName || span.spanType) }}</strong>
+                  <span>{{ formatDuration(span.durationMs) }}</span>
                 </div>
-                <span>{{ slowSpanTotal }} 条</span>
-              </header>
-              <div v-if="slowSpanErrorMessage" class="audit-log-slow-summary__empty">
-                {{ slowSpanErrorMessage }}
-              </div>
-              <div v-else-if="slowSpanRows.length === 0" class="audit-log-slow-summary__empty">
-                暂无慢点明细
-              </div>
-              <div v-else class="audit-log-slow-span-drilldown__list">
-                <article
-                  v-for="span in slowSpanRows"
-                  :key="`slow-span-${span.id || span.traceId || span.startedAt}`"
-                  class="audit-log-slow-span-drilldown__item"
-                >
-                  <div class="audit-log-slow-span-drilldown__title">
-                    <strong>{{ formatValue(span.spanName || span.spanType) }}</strong>
-                    <span>{{ formatDuration(span.durationMs) }}</span>
-                  </div>
-                  <div class="audit-log-slow-span-drilldown__meta">
-                    <span>Trace {{ formatValue(span.traceId) }}</span>
-                    <span>状态 {{ formatValue(span.status) }}</span>
-                    <span>开始 {{ formatValue(span.startedAt) }}</span>
-                  </div>
-                  <div class="audit-log-slow-span-drilldown__footer">
-                    <span>{{ formatValue(span.eventCode) }} / {{ formatValue(span.objectId) }}</span>
-                    <StandardButton
-                      action="view"
-                      link
-                      :disabled="!span.traceId"
-                      @click="span.traceId && emit('open-trace-evidence', span.traceId)"
-                    >
-                      证据
-                    </StandardButton>
-                  </div>
-                </article>
-              </div>
+                <div class="audit-log-slow-span-drilldown__meta">
+                  <span>Trace {{ formatValue(span.traceId) }}</span>
+                  <span>状态 {{ formatHotspotRunStatus(span.status) }}</span>
+                  <span>开始 {{ formatDateTime(span.startedAt) }}</span>
+                </div>
+                <div class="audit-log-slow-span-drilldown__footer">
+                  <span>{{ formatValue(span.eventCode) }} · {{ formatValue(span.objectId) }}</span>
+                  <StandardButton
+                    action="view"
+                    link
+                    :disabled="!span.traceId"
+                    @click="span.traceId && emit('open-trace-evidence', span.traceId)"
+                  >
+                    证据
+                  </StandardButton>
+                </div>
+              </article>
+            </div>
           </section>
 
           <section
@@ -182,53 +182,53 @@
             v-loading="slowTrendLoading"
             class="audit-log-slow-trend-drilldown"
           >
-              <header class="audit-log-slow-trend-drilldown__header">
-                <div>
-                  <h3>趋势</h3>
-                  <p>{{ formatSlowSummaryTitle(activeTrendHotspot) }} / {{ formatSlowSummaryTarget(activeTrendHotspot) }}</p>
-                </div>
-                <div class="audit-log-slow-trend-drilldown__actions">
-                  <span>{{ slowTrendRows.length }} 桶</span>
-                  <StandardChoiceGroup
-                    :model-value="slowTrendWindow"
-                    :options="slowTrendWindowOptions"
-                    @update:model-value="emit('change-slow-trend-window', $event)"
-                  />
-                </div>
-              </header>
-              <div v-if="slowTrendErrorMessage" class="audit-log-slow-summary__empty">
-                {{ slowTrendErrorMessage }}
+            <header class="audit-log-slow-trend-drilldown__header">
+              <div>
+                <h3>趋势</h3>
+                <p>{{ formatSlowSummaryTitle(activeTrendHotspot) }} / {{ formatSlowSummaryTarget(activeTrendHotspot) }}</p>
               </div>
-              <div v-else-if="slowTrendRows.length === 0" class="audit-log-slow-summary__empty">
-                暂无慢点趋势
+              <div class="audit-log-slow-trend-drilldown__actions">
+                <span>{{ slowTrendRows.length }} 桶</span>
+                <StandardChoiceGroup
+                  :model-value="slowTrendWindow"
+                  :options="slowTrendWindowOptions"
+                  @update:model-value="emit('change-slow-trend-window', $event)"
+                />
               </div>
-              <div v-else class="audit-log-slow-trend-drilldown__list">
-                <article
-                  v-for="item in slowTrendRows"
-                  :key="`slow-trend-${item.bucket || 'bucket'}-${item.bucketStart || item.bucketEnd}`"
-                  class="audit-log-slow-trend-drilldown__item"
+            </header>
+            <div v-if="slowTrendErrorMessage" class="audit-log-slow-summary__empty">
+              {{ slowTrendErrorMessage }}
+            </div>
+            <div v-else-if="slowTrendRows.length === 0" class="audit-log-slow-summary__empty">
+              暂无慢点趋势
+            </div>
+            <div v-else class="audit-log-slow-trend-drilldown__list">
+              <article
+                v-for="item in slowTrendRows"
+                :key="`slow-trend-${item.bucket || 'bucket'}-${item.bucketStart || item.bucketEnd}`"
+                class="audit-log-slow-trend-drilldown__item"
+              >
+                <div class="audit-log-slow-trend-drilldown__title">
+                  <strong>{{ formatSlowTrendBucketLabel(item) }}</strong>
+                  <span>{{ formatCount(item.totalCount) }} 次</span>
+                </div>
+                <div
+                  v-if="hasSlowTrendSamples(item)"
+                  class="audit-log-slow-trend-drilldown__metrics"
                 >
-                  <div class="audit-log-slow-trend-drilldown__title">
-                    <strong>{{ formatSlowTrendBucketLabel(item) }}</strong>
-                    <span>{{ formatCount(item.totalCount) }} 次</span>
-                  </div>
-                  <div
-                    v-if="hasSlowTrendSamples(item)"
-                    class="audit-log-slow-trend-drilldown__metrics"
-                  >
-                    <span class="is-primary">P95 {{ formatDuration(item.p95DurationMs) }}</span>
-                    <span>错误率 {{ formatPercentage(item.errorRate) }}</span>
-                    <span>最大 {{ formatDuration(item.maxDurationMs) }}</span>
-                  </div>
-                  <p
-                    v-if="hasSlowTrendSamples(item)"
-                    class="audit-log-slow-trend-drilldown__summary"
-                  >
-                    {{ formatSlowTrendSummary(item) }}
-                  </p>
-                  <p v-else class="audit-log-slow-trend-drilldown__summary is-empty">本桶暂无请求样本</p>
-                </article>
-              </div>
+                  <span class="is-primary">P95 {{ formatDuration(item.p95DurationMs) }}</span>
+                  <span>错误率 {{ formatPercentage(item.errorRate) }}</span>
+                  <span>最大值 {{ formatDuration(item.maxDurationMs) }}</span>
+                </div>
+                <p
+                  v-if="hasSlowTrendSamples(item)"
+                  class="audit-log-slow-trend-drilldown__summary"
+                >
+                  {{ formatSlowTrendSummary(item) }}
+                </p>
+                <p v-else class="audit-log-slow-trend-drilldown__summary is-empty">本桶暂无请求样本</p>
+              </article>
+            </div>
           </section>
 
           <section
@@ -238,7 +238,7 @@
           >
             <header class="audit-log-scheduled-task-ledger__header">
               <div>
-                <h3>调度任务台账</h3>
+                <h3>相关任务</h3>
               </div>
               <span>{{ scheduledTaskRows.length }} / {{ scheduledTaskTotal }}</span>
             </header>
@@ -246,29 +246,29 @@
               {{ scheduledTaskErrorMessage }}
             </div>
             <div v-else-if="scheduledTaskRows.length === 0" class="audit-log-slow-summary__empty">
-              暂无调度任务记录
+              暂无相关任务记录
             </div>
             <div v-else class="audit-log-scheduled-task-ledger__list">
               <article
                 v-for="row in scheduledTaskRows"
                 :key="`scheduled-task-${row.id || row.traceId || row.taskCode}`"
                 class="audit-log-scheduled-task-ledger__item"
-                >
-                  <div class="audit-log-scheduled-task-ledger__title">
-                    <strong>{{ formatScheduledTaskName(row) }}</strong>
-                    <span>{{ formatDuration(row.durationMs) }}</span>
-                  </div>
-                  <div class="audit-log-scheduled-task-ledger__meta">
-                    <span>触发 {{ formatValue(row.triggerType) }}</span>
-                    <span>{{ formatScheduledTaskTrigger(row) }}</span>
-                    <span>状态 {{ formatValue(row.status) }}</span>
-                    <span>开始 {{ formatValue(row.startedAt) }}</span>
-                  </div>
-                  <div class="audit-log-scheduled-task-ledger__footer">
-                    <span>Trace {{ formatValue(row.traceId) }}</span>
-                    <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
-                    <StandardButton
-                      action="view"
+              >
+                <div class="audit-log-scheduled-task-ledger__title">
+                  <strong>{{ formatScheduledTaskName(row) }}</strong>
+                  <span>{{ formatDuration(row.durationMs) }}</span>
+                </div>
+                <div class="audit-log-scheduled-task-ledger__meta">
+                  <span>触发 {{ formatValue(row.triggerType) }}</span>
+                  <span>{{ formatScheduledTaskTrigger(row) }}</span>
+                  <span>状态 {{ formatHotspotRunStatus(row.status) }}</span>
+                  <span>开始 {{ formatDateTime(row.startedAt) }}</span>
+                </div>
+                <div class="audit-log-scheduled-task-ledger__footer">
+                  <span>Trace {{ formatValue(row.traceId) }}</span>
+                  <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
+                  <StandardButton
+                    action="view"
                     link
                     :disabled="!row.traceId"
                     @click="row.traceId && emit('open-trace-evidence', row.traceId)"
@@ -425,6 +425,31 @@ const slowTrendWindowLabel = computed(() => {
   return matched?.label || props.slowTrendWindow
 })
 
+const formatDateTime = (value: string | number | null | undefined) => {
+  const text = props.formatValue(value)
+  if (text === '--') {
+    return text
+  }
+  return text.replace('T', ' ').replace(/\.\d{3,}Z?$/, '').replace(/Z$/, '')
+}
+
+const formatHotspotRunStatus = (status?: string | null) => {
+  switch (String(status || '').trim().toUpperCase()) {
+    case 'SUCCESS':
+    case 'SUCCEEDED':
+      return '成功'
+    case 'FAILED':
+    case 'FAILURE':
+      return '失败'
+    case 'RUNNING':
+      return '进行中'
+    case 'PARTIAL':
+      return '部分完成'
+    default:
+      return props.formatValue(status)
+  }
+}
+
 const resolveHotspotRiskLabel = (row: SlowSummaryRow) => {
   const maxDuration = Number(row.maxDurationMs || 0)
   const avgDuration = Number(row.avgDurationMs || 0)
@@ -462,7 +487,7 @@ const resolveHotspotRiskMeta = (row: SlowSummaryRow) =>
 const hasSlowTrendSamples = (row: SlowTrendRow) => Number(row.totalCount || 0) > 0
 
 const formatSlowTrendSummary = (row: SlowTrendRow) =>
-  `P99 ${props.formatDuration(row.p99DurationMs)} · 平均 ${props.formatDuration(row.avgDurationMs)}`
+  `P99 ${props.formatDuration(row.p99DurationMs)} · 均值 ${props.formatDuration(row.avgDurationMs)}`
 </script>
 
 <style scoped>
@@ -538,11 +563,11 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-master-table__row {
   display: grid;
   grid-template-columns:
-    minmax(15rem, 1.65fr)
-    minmax(8rem, 0.8fr)
-    minmax(10rem, 0.92fr)
-    minmax(9rem, 0.88fr)
-    minmax(7.5rem, 0.74fr);
+    minmax(16rem, 1.72fr)
+    minmax(8.25rem, 0.84fr)
+    minmax(9.75rem, 0.95fr)
+    minmax(9.5rem, 0.9fr)
+    minmax(7rem, 0.62fr);
   gap: 0.62rem;
   align-items: center;
 }
@@ -550,11 +575,11 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-master-table__header {
   padding: 0 0.9rem;
   color: var(--text-caption);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .audit-log-hotspot-master-table__row {
-  min-height: 74px;
+  min-height: 80px;
   padding: 0.86rem 0.9rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
   border-radius: 8px;
@@ -575,7 +600,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-master-table__cell {
   min-width: 0;
   display: grid;
-  gap: 0.22rem;
+  gap: 0.26rem;
 }
 
 .audit-log-hotspot-master-table__cell strong,
@@ -608,7 +633,17 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   font-size: 0.88rem;
 }
 
-.audit-log-hotspot-master-table__cell--status {
+.audit-log-hotspot-master-table__cell--identity span {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
+}
+
+.audit-log-hotspot-master-table__cell--status,
+.audit-log-hotspot-master-table__cell--signals,
+.audit-log-hotspot-master-table__cell--recent {
   align-content: start;
 }
 
@@ -643,6 +678,11 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   border-color: color-mix(in srgb, var(--panel-border) 78%, transparent);
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-secondary);
+}
+
+.audit-log-hotspot-master-table__cell--recent small {
+  font-family: Consolas, 'Courier New', monospace;
+  letter-spacing: 0;
 }
 
 .audit-log-hotspot-master-table__cell--actions {
@@ -775,9 +815,9 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 }
 
 .audit-log-slow-span-drilldown__title strong,
-.audit-log-slow-span-drilldown__footer > span,
 .audit-log-slow-trend-drilldown__title strong,
 .audit-log-scheduled-task-ledger__title strong,
+.audit-log-slow-span-drilldown__footer > span,
 .audit-log-scheduled-task-ledger__footer > span {
   overflow: hidden;
   color: var(--text-heading);
@@ -785,8 +825,15 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   white-space: nowrap;
 }
 
+.audit-log-slow-span-drilldown__footer > span,
+.audit-log-scheduled-task-ledger__footer > span {
+  color: var(--text-secondary);
+  font-size: 0.79rem;
+}
+
 .audit-log-slow-span-drilldown__title span,
-.audit-log-scheduled-task-ledger__title span {
+.audit-log-scheduled-task-ledger__title span,
+.audit-log-slow-trend-drilldown__title span {
   display: inline-flex;
   align-items: center;
   min-height: 1.9rem;
@@ -825,17 +872,6 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   align-items: flex-end;
 }
 
-.audit-log-slow-trend-drilldown__title span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.9rem;
-  padding: 0 0.62rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-
 .audit-log-slow-trend-drilldown__metrics span.is-primary {
   border-color: color-mix(in srgb, var(--el-color-primary) 32%, white);
   background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
@@ -865,11 +901,11 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   .audit-log-hotspot-master-table__header,
   .audit-log-hotspot-master-table__row {
     grid-template-columns:
-      minmax(13.5rem, 1.5fr)
-      minmax(7rem, 0.74fr)
-      minmax(9rem, 0.85fr)
+      minmax(14rem, 1.56fr)
+      minmax(7rem, 0.76fr)
+      minmax(8.5rem, 0.84fr)
       minmax(8rem, 0.82fr)
-      minmax(6.5rem, 0.64fr);
+      minmax(6.25rem, 0.58fr);
     gap: 0.56rem;
   }
 }
@@ -884,10 +920,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
     justify-content: flex-start;
   }
 
-  .audit-log-hotspot-detail__header {
-    flex-direction: column;
-  }
-
+  .audit-log-hotspot-detail__header,
   .audit-log-slow-span-drilldown__header,
   .audit-log-slow-span-drilldown__title,
   .audit-log-slow-span-drilldown__footer,
@@ -919,10 +952,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
     grid-column: 1 / -1;
   }
 
-  .audit-log-hotspot-master-table__cell--actions {
-    justify-content: flex-start;
-  }
-
+  .audit-log-hotspot-master-table__cell--actions,
   .audit-log-hotspot-master-table__action-rail {
     justify-content: flex-start;
   }

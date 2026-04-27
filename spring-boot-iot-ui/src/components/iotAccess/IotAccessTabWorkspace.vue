@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section
     class="iot-access-tab-workspace"
     :class="{ 'iot-access-tab-workspace--workbench': variant === 'workbench' }"

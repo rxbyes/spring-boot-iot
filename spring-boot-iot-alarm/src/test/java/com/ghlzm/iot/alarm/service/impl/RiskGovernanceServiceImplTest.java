@@ -887,6 +887,49 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void listMissingPoliciesShouldTreatProductDefaultRuleAsCovered() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice coveredByProductDefault = binding(8001L, 5001L, 9101L, "value", "裂缝值");
+        coveredByProductDefault.setId(7001L);
+        RiskPointDevice missing = binding(8002L, 5002L, 9101L, "value", "裂缝值");
+        missing.setId(7002L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(coveredByProductDefault, missing));
+
+        Device productDevice = new Device();
+        productDevice.setId(8001L);
+        productDevice.setProductId(1001L);
+        Device otherProductDevice = new Device();
+        otherProductDevice.setId(8002L);
+        otherProductDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(productDevice, otherProductDevice));
+
+        RuleDefinition productDefault = rule(6001L, 9101L, "value");
+        productDefault.setRuleScope("PRODUCT");
+        productDefault.setProductId(1001L);
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(productDefault));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(null);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(8002L, result.getRecords().get(0).getDeviceId());
+    }
+
+    @Test
     void getDashboardOverviewShouldTriggerOneShotBackfillBeforeCountingBindings() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,

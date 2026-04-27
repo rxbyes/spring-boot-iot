@@ -30,7 +30,7 @@
               />
             </el-form-item>
             <el-form-item v-if="isBusinessMode">
-              <el-select v-model="searchForm.operationType" placeholder="鎿嶄綔绫诲瀷" clearable>
+              <el-select v-model="searchForm.operationType" placeholder="操作类型" clearable>
                 <el-option
                   v-for="item in businessOperationTypeOptions"
                   :key="item.value"
@@ -42,19 +42,23 @@
             <el-form-item>
               <el-input
                 v-model="searchForm.operationModule"
-                :placeholder="isSystemMode ? '寮傚父妯″潡' : '鎿嶄綔妯″潡'"
+                :placeholder="isSystemMode ? '异常模块' : '操作模块'"
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.operationResult" placeholder="鎿嶄綔缁撴灉" clearable>
-                <el-option label="鎴愬姛" :value="1" />
-                <el-option label="澶辫触" :value="0" />
+              <el-select v-model="searchForm.operationResult" placeholder="操作结果" clearable>
+                <el-option label="成功" :value="1" />
+                <el-option label="失败" :value="0" />
               </el-select>
             </el-form-item>
             <el-form-item v-if="isSystemMode">
-              <el-select v-model="searchForm.requestMethod" :placeholder="isSystemMode ? '璇锋眰閫氶亾' : '璇锋眰鏂规硶'" clearable>
+              <el-select
+                v-model="searchForm.requestMethod"
+                :placeholder="isSystemMode ? '请求通道' : '请求方法'"
+                clearable
+              >
                 <el-option
                   v-for="item in systemRequestMethodOptions"
                   :key="item.value"
@@ -76,7 +80,7 @@
             <el-form-item v-if="isSystemMode">
               <el-input
                 v-model="searchForm.requestUrl"
-                placeholder="鐩爣 / URL"
+                placeholder="目标 / URL"
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -85,7 +89,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.deviceCode"
-                  placeholder="璁惧缂栫爜"
+                  placeholder="设备编码"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -93,7 +97,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.productKey"
-                  placeholder="浜у搧鏍囪瘑"
+                  placeholder="产品标识"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -101,7 +105,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.errorCode"
-                  placeholder="寮傚父缂栫爜"
+                  placeholder="异常编码"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -109,7 +113,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.exceptionClass"
-                  placeholder="寮傚父绫诲瀷"
+                  placeholder="异常类型"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -117,13 +121,13 @@
             </template>
           </template>
           <template #actions>
-            <StandardButton action="query" @click="handleSearch">鏌ヨ</StandardButton>
-            <StandardButton action="reset" @click="handleReset">閲嶇疆</StandardButton>
+            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
+            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
           </template>
         </StandardListFilterHeader>
         <div v-if="appliedQuickSearchValue" class="audit-log-quick-search-tag">
           <el-tag closable class="audit-log-quick-search-tag__chip" @close="handleClearQuickSearch">
-            蹇€熸悳绱細{{ appliedQuickSearchValue }}
+            快速搜索：{{ appliedQuickSearchValue }}
           </el-tag>
         </div>
       </template>
@@ -142,9 +146,9 @@
           :meta-items="businessToolbarMetaItems"
         >
           <template #right>
-            <StandardButton action="refresh" link @click="handleRefresh">鍒锋柊鍒楄〃</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
             <StandardActionMenu
-              label="鏇村鎿嶄綔"
+              label="更多操作"
               :items="auditToolbarActions"
               @command="handleToolbarAction"
             />
@@ -170,10 +174,10 @@
             </article>
           </div>
           <div class="audit-log-system-header__actions">
-            <StandardButton action="refresh" link @click="handleSystemTabRefresh">鍒锋柊鍒楄〃</StandardButton>
+            <StandardButton action="refresh" link @click="handleSystemTabRefresh">刷新列表</StandardButton>
             <StandardActionMenu
               v-if="activeSystemLogTab === 'errors'"
-              label="鏇村鎿嶄綔"
+              label="更多操作"
               :items="auditToolbarActions"
               @command="handleToolbarAction"
             />
@@ -196,7 +200,7 @@
 
 
 
-          >
+
             <template #default="{ activeKey }">
               <AuditLogErrorTabPanel
                 v-if="activeKey === 'errors'"
@@ -545,9 +549,9 @@
         <section class="observability-evidence-split">
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>涓氬姟浜嬩欢</h3>
+              <h3>业务事件</h3>
             </header>
-            <div v-if="evidenceBusinessEvents.length === 0" class="observability-evidence-empty">鏆傛棤涓氬姟浜嬩欢</div>
+            <div v-if="evidenceBusinessEvents.length === 0" class="observability-evidence-empty">暂无业务事件</div>
             <div
               v-for="event in evidenceBusinessEvents"
               :key="`event-${event.id || event.eventCode}`"
@@ -561,9 +565,9 @@
 
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>璋冪敤鐗囨</h3>
+              <h3>调用片段</h3>
             </header>
-            <div v-if="evidenceSpans.length === 0" class="observability-evidence-empty">鏆傛棤璋冪敤鐗囨</div>
+            <div v-if="evidenceSpans.length === 0" class="observability-evidence-empty">暂无调用片段</div>
             <div
               v-for="span in evidenceSpans"
               :key="`span-${span.id || span.spanType}`"
@@ -580,16 +584,16 @@
 
     <StandardDetailDrawer
       v-model="messageArchiveBatchDrawerVisible"
-      title="褰掓。鎵规璇︽儏"
+      title="归档批次详情"
       :subtitle="messageArchiveBatchDrawerSubtitle"
       :empty="!activeMessageArchiveBatch"
-      empty-text="褰撳墠鏈€夋嫨褰掓。鎵规"
+      empty-text="当前未选择归档批次"
       size="56rem"
       tag-layout="title-inline"
       :tags="messageArchiveBatchDrawerTags"
     >
       <div class="observability-archive-batch-drawer">
-        <section class="observability-evidence-summary" aria-label="褰掓。鎵规鎽樿">
+        <section class="observability-evidence-summary" aria-label="归档批次摘要">
           <div
             v-for="item in messageArchiveBatchSummaryCards"
             :key="item.label"
@@ -603,7 +607,7 @@
         <section class="observability-evidence-split">
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>鎵规缁撴灉</h3>
+              <h3>批次结果</h3>
             </header>
             <dl class="observability-archive-batch-kv">
               <div
@@ -619,7 +623,7 @@
 
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>纭鎶ュ憡</h3>
+              <h3>确认报告</h3>
             </header>
             <dl class="observability-archive-batch-kv">
               <div
@@ -636,10 +640,10 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
-            <h3>闄勫姞浜х墿</h3>
+            <h3>附加产物</h3>
           </header>
           <div v-if="messageArchiveBatchArtifacts.length === 0" class="observability-evidence-empty">
-            鏆傛棤闄勫姞浜х墿
+            暂无附加产物
           </div>
           <dl v-else class="observability-archive-batch-kv">
             <div
@@ -655,16 +659,16 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
-            <h3>鎵规瀵规瘮</h3>
+            <h3>批次对比</h3>
           </header>
           <div v-if="messageArchiveBatchCompareLoading" class="observability-evidence-empty">
-            姝ｅ湪鍔犺浇鎵规瀵规瘮
+            正在加载批次对比
           </div>
           <div v-else-if="messageArchiveBatchCompareErrorMessage" class="observability-evidence-empty">
             {{ messageArchiveBatchCompareErrorMessage }}
           </div>
           <div v-else-if="!activeMessageArchiveBatchCompare" class="observability-evidence-empty">
-            鏆傛棤鎵规瀵规瘮
+            暂无批次对比
           </div>
           <div v-else class="observability-archive-batch-compare">
             <article
@@ -704,7 +708,7 @@
             </div>
 
             <div v-if="messageArchiveBatchCompareTableComparisons.length === 0" class="observability-evidence-empty">
-              鏆傛棤鍒嗚〃瀵规瘮
+              暂无分表对比
             </div>
             <div v-else class="observability-archive-batch-compare__tables">
               <article
@@ -721,14 +725,14 @@
                   <span>{{ formatArchiveBatchCompareRowStatus(item.matched) }}</span>
                 </div>
                 <div class="observability-archive-batch-compare__table-metrics">
-                  <span>dry-run 杩囨湡 {{ formatOptionalCount(item.dryRunExpiredRows) }}</span>
-                  <span>apply 褰掓。 {{ formatOptionalCount(item.applyArchivedRows) }}</span>
-                  <span>apply 鍒犻櫎 {{ formatOptionalCount(item.applyDeletedRows) }}</span>
-                  <span>鍓╀綑 {{ formatOptionalCount(item.applyRemainingExpiredRows) }}</span>
+                  <span>dry-run 过期 {{ formatOptionalCount(item.dryRunExpiredRows) }}</span>
+                  <span>apply 归档 {{ formatOptionalCount(item.applyArchivedRows) }}</span>
+                  <span>apply 删除 {{ formatOptionalCount(item.applyDeletedRows) }}</span>
+                  <span>剩余 {{ formatOptionalCount(item.applyRemainingExpiredRows) }}</span>
                 </div>
                 <div class="observability-archive-batch-compare__table-meta">
                   <span>{{ formatValue(item.tableName) }}</span>
-                  <span>宸€?{{ formatOptionalCount(item.deltaDryRunVsDeleted) }}</span>
+                  <span>差值 {{ formatOptionalCount(item.deltaDryRunVsDeleted) }}</span>
                   <span v-if="item.reason">{{ item.reason }}</span>
                 </div>
               </article>
@@ -738,16 +742,16 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
-            <h3>纭鎶ュ憡棰勮</h3>
+            <h3>确认报告预览</h3>
           </header>
           <div v-if="messageArchiveBatchReportPreviewLoading" class="observability-evidence-empty">
-            姝ｅ湪鍔犺浇纭鎶ュ憡棰勮
+            正在加载确认报告预览
           </div>
           <div v-else-if="messageArchiveBatchReportPreviewErrorMessage" class="observability-evidence-empty">
             {{ messageArchiveBatchReportPreviewErrorMessage }}
           </div>
           <div v-else-if="!activeMessageArchiveBatchReportPreview" class="observability-evidence-empty">
-            鏆傛棤纭鎶ュ憡棰勮
+            暂无确认报告预览
           </div>
           <div
             v-else-if="activeMessageArchiveBatchReportPreview.available === false"
@@ -782,7 +786,7 @@
             </div>
 
             <div v-if="messageArchiveBatchReportPreviewTableSummaries.length === 0" class="observability-evidence-empty">
-              鏆傛棤琛ㄧ骇鎽樿
+              暂无表级摘要
             </div>
             <div v-else class="observability-archive-batch-preview__tables">
               <article
@@ -795,30 +799,30 @@
                   <span>{{ formatValue(item.tableName) }}</span>
                 </div>
                 <div class="observability-archive-batch-preview__table-metrics">
-                  <span>杩囨湡 {{ formatCount(item.expiredRows) }}</span>
-                  <span>鍒犻櫎 {{ formatCount(item.deletedRows) }}</span>
-                  <span>鍓╀綑 {{ formatCount(item.remainingExpiredRows) }}</span>
+                  <span>过期 {{ formatCount(item.expiredRows) }}</span>
+                  <span>删除 {{ formatCount(item.deletedRows) }}</span>
+                  <span>剩余 {{ formatCount(item.remainingExpiredRows) }}</span>
                 </div>
                 <div class="observability-archive-batch-preview__table-meta">
-                  <span>淇濈暀 {{ formatRetentionDays(item.retentionDays) }}</span>
-                  <span>鎴 {{ formatValue(item.cutoffAt) }}</span>
-                  <span>绐楀彛 {{ formatValue(item.earliestRecordAt) }} - {{ formatValue(item.latestRecordAt) }}</span>
+                  <span>保留 {{ formatRetentionDays(item.retentionDays) }}</span>
+                  <span>截止 {{ formatValue(item.cutoffAt) }}</span>
+                  <span>窗口 {{ formatValue(item.earliestRecordAt) }} - {{ formatValue(item.latestRecordAt) }}</span>
                 </div>
               </article>
             </div>
 
             <article class="observability-archive-batch-preview__markdown">
               <header class="observability-evidence-section__header">
-                <h3>Markdown 鎽樿</h3>
+                <h3>Markdown 摘要</h3>
                 <small v-if="activeMessageArchiveBatchReportPreview.markdownTruncated">
-                  浠呭睍绀哄墠 80 琛?/ 6000 瀛楃
+                  仅展示前 80 行 / 6000 字符
                 </small>
               </header>
               <div
                 v-if="!activeMessageArchiveBatchReportPreview.markdownAvailable || !activeMessageArchiveBatchReportPreview.markdownPreview"
                 class="observability-evidence-empty"
               >
-                褰撳墠浠呬繚鐣?JSON 鎽樿锛屾湭鐢熸垚 Markdown 棰勮
+                当前仅保留 JSON 摘要，未生成 Markdown 预览
               </div>
               <pre v-else class="observability-archive-batch-preview__markdown-body">{{ activeMessageArchiveBatchReportPreview.markdownPreview }}</pre>
             </article>
@@ -973,45 +977,38 @@ const activeSystemLogTab = ref<SystemLogTabKey>('errors')
 const systemLogTabItems = computed<SystemLogTabItem[]>(() => [
   {
     key: 'errors',
-    label: '寮傚父鎺掓煡',
+    label: '异常排查',
     testId: 'system-log-tab-errors',
-    meta: '閺勫海绮忔稉搴ょ槈閹?',
+    meta: '聚焦异常明细与排查动作',
     buttonAttrs: { 'data-testid': 'system-log-tab-errors', 'data-active': 'false' },
     activeButtonAttrs: { 'data-active': 'true' }
   },
   {
     key: 'hotspots',
-    label: '瑙傛祴鐑偣',
+    label: '观测热点',
     testId: 'system-log-tab-hotspots',
-    meta: '閻戭厾鍋ｆ稉搴ょЪ閸?',
+    meta: '查看慢点样本、趋势与相关任务',
     buttonAttrs: { 'data-testid': 'system-log-tab-hotspots', 'data-active': 'false' },
     activeButtonAttrs: { 'data-active': 'true' }
   },
   {
     key: 'archives',
-    label: '褰掓。娌荤悊',
+    label: '归档治理',
     testId: 'system-log-tab-archives',
-    meta: '閹佃顐兼稉搴☆嚠濮?',
+    meta: '围绕异常批次完成比对与治理复核',
     buttonAttrs: { 'data-testid': 'system-log-tab-archives', 'data-active': 'false' },
     activeButtonAttrs: { 'data-active': 'true' }
   }
 ])
 const auditActionColumnWidth = computed(() =>
-  resolveWorkbenchActionColumnWidth({
-    directItems: isSystemMode.value
-      ? [
-          { command: 'detail', label: '璇︽儏' },
-          { command: 'evidence', label: '璇佹嵁' },
-          { command: 'trace', label: '杩借釜' },
-          { command: 'copy-trace-id', label: '澶嶅埗 TraceId' },
-          { command: 'copy-target', label: '澶嶅埗鐩爣' },
-          { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
+  isSystemMode.value
+    ? 200
+    : resolveWorkbenchActionColumnWidth({
+        directItems: [
+          { command: 'detail', label: '详情' },
+          { command: 'delete', label: '删除', permission: 'system:audit:delete' }
         ]
-      : [
-          { command: 'detail', label: '璇︽儏' },
-          { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
-        ]
-  })
+      })
 )
 const pageTitle = computed(() => (isSystemMode.value ? '异常观测台' : '审计中心'))
 const panelTitle = computed(() => pageTitle.value)
@@ -1020,14 +1017,14 @@ const pageDescription = computed(() =>
     ? '后台异常核对：按异常模块、TraceId、设备编码与请求通道筛查 system_error，并判断下一步回链路追踪还是治理修正。'
     : '按用户、模块与结果查看审计留痕。'
 )
-const detailDialogTitle = computed(() => (isSystemMode.value ? '寮傚父璇︽儏' : `${pageTitle.value}璇︽儏`))
+const detailDialogTitle = computed(() => (isSystemMode.value ? '异常详情' : `${pageTitle.value}详情`))
 const exportDialogTitle = computed(() => (isSystemMode.value ? '异常观测台导出列设置' : pageTitle.value + '导出列设置'))
-const recordLabel = computed(() => (isSystemMode.value ? '寮傚父璁板綍' : '瀹¤璁板綍'))
+const recordLabel = computed(() => (isSystemMode.value ? '异常记录' : '审计记录'))
 const businessOperationTypeOptions = [
-  { label: '鏂板', value: 'insert' },
-  { label: '淇敼', value: 'update' },
-  { label: '鍒犻櫎', value: 'delete' },
-  { label: '鏌ヨ', value: 'select' }
+  { label: '新增', value: 'insert' },
+  { label: '修改', value: 'update' },
+  { label: '删除', value: 'delete' },
+  { label: '查询', value: 'select' }
 ]
 const systemRequestMethodOptions = [
   { label: 'MQTT', value: 'MQTT' },
@@ -1096,35 +1093,35 @@ const canReturnToClusterResults = computed(
   () => errorViewMode.value === 'detail' && Boolean(clusterQuerySignature.value) && clusterRows.value.length > 0
 )
 const exportColumns: CsvColumn<any>[] = [
-  { key: 'operationType', label: '鎿嶄綔绫诲瀷', formatter: (value) => getOperationTypeName(String(value || '')) },
-  { key: 'operationModule', label: '鎿嶄綔妯″潡' },
-  { key: 'operationMethod', label: '鎿嶄綔鏂规硶' },
-  { key: 'requestUrl', label: '璇锋眰URL' },
-  { key: 'requestMethod', label: '璇锋眰鏂规硶' },
+  { key: 'operationType', label: '操作类型', formatter: (value) => getOperationTypeName(String(value || '')) },
+  { key: 'operationModule', label: '操作模块' },
+  { key: 'operationMethod', label: '操作方法' },
+  { key: 'requestUrl', label: '请求URL' },
+  { key: 'requestMethod', label: '请求方法' },
   { key: 'traceId', label: 'TraceId' },
-  { key: 'deviceCode', label: '璁惧缂栫爜' },
-  { key: 'productKey', label: '浜у搧鏍囪瘑' },
-  { key: 'errorCode', label: '寮傚父缂栫爜' },
-  { key: 'exceptionClass', label: '寮傚父绫诲瀷' },
-  { key: 'userName', label: '鎿嶄綔鐢ㄦ埛' },
-  { key: 'ipAddress', label: '鎿嶄綔IP' },
-  { key: 'resultMessage', label: '缁撴灉娑堟伅' },
-  { key: 'operationTime', label: '鎿嶄綔鏃堕棿' },
-  { key: 'operationResult', label: '鎿嶄綔缁撴灉', formatter: (value) => (Number(value) === 1 ? '鎴愬姛' : '澶辫触') }
+  { key: 'deviceCode', label: '设备编码' },
+  { key: 'productKey', label: '产品标识' },
+  { key: 'errorCode', label: '异常编码' },
+  { key: 'exceptionClass', label: '异常类型' },
+  { key: 'userName', label: '操作用户' },
+  { key: 'ipAddress', label: '操作IP' },
+  { key: 'resultMessage', label: '结果消息' },
+  { key: 'operationTime', label: '操作时间' },
+  { key: 'operationResult', label: '操作结果', formatter: (value) => (Number(value) === 1 ? '成功' : '失败') }
 ]
 const exportColumnStorageKey = computed(() => (isSystemMode.value ? 'system-log-view' : 'business-log-view'))
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
 const exportPresets = computed(() =>
   isSystemMode.value
     ? [
-        { label: '榛樿妯℃澘', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'resultMessage', 'operationTime', 'operationResult'] },
-        { label: '杩愮淮妯℃澘', keys: ['operationModule', 'requestUrl', 'requestMethod', 'deviceCode', 'productKey', 'resultMessage', 'operationTime'] },
-        { label: '鐮斿彂妯℃澘', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass', 'resultMessage', 'operationResult', 'operationTime'] }
+        { label: '默认模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'resultMessage', 'operationTime', 'operationResult'] },
+        { label: '运维模板', keys: ['operationModule', 'requestUrl', 'requestMethod', 'deviceCode', 'productKey', 'resultMessage', 'operationTime'] },
+        { label: '研发模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass', 'resultMessage', 'operationResult', 'operationTime'] }
       ]
     : [
-        { label: '榛樿妯℃澘', keys: ['operationType', 'operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
-        { label: '杩愮淮妯℃澘', keys: ['operationType', 'operationModule', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
-        { label: '绠＄悊妯℃澘', keys: ['operationType', 'operationModule', 'operationMethod', 'userName', 'operationTime', 'operationResult'] }
+        { label: '默认模板', keys: ['operationType', 'operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
+        { label: '运维模板', keys: ['operationType', 'operationModule', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
+        { label: '管理模板', keys: ['operationType', 'operationModule', 'operationMethod', 'userName', 'operationTime', 'operationResult'] }
       ]
 )
 const selectedExportColumnKeys = ref<string[]>([])
@@ -1185,14 +1182,14 @@ const messageArchiveBatchFilters = reactive({
   dateTo: ''
 })
 const messageArchiveBatchStatusOptions = [
-  { label: '鎴愬姛', value: 'SUCCEEDED' },
-  { label: '澶辫触', value: 'FAILED' },
+  { label: '成功', value: 'SUCCEEDED' },
+  { label: '失败', value: 'FAILED' },
   { label: '运行中', value: 'RUNNING' }
 ]
 const messageArchiveBatchCompareStatusOptions = [
   { label: '已对齐', value: 'MATCHED' },
   { label: '有偏差', value: 'DRIFTED' },
-  { label: '閮ㄥ垎鍙瘮', value: 'PARTIAL' },
+  { label: '部分可比', value: 'PARTIAL' },
   { label: '不可用', value: 'UNAVAILABLE' }
 ]
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
@@ -1207,12 +1204,12 @@ const slowSpanTotal = ref(0)
 const hotspotDrilldownView = ref<HotspotDrilldownView>('samples')
 const hotspotDrilldownOptions = [
   { label: '最近样本', value: 'samples' },
-  { label: '瓒嬪娍', value: 'trends' },
-  { label: '鐩稿叧浠诲姟', value: 'tasks' }
+  { label: '趋势', value: 'trends' },
+  { label: '相关任务', value: 'tasks' }
 ] as const
 const defaultSlowTrendWindow: SlowTrendWindowKey = 'LAST_24_HOURS'
 const slowTrendWindowOptions = [
-  { label: '24灏忔椂', value: 'LAST_24_HOURS' },
+  { label: '24小时', value: 'LAST_24_HOURS' },
   { label: '7天', value: 'LAST_7_DAYS' }
 ] as const
 const slowTrendWindow = ref<SlowTrendWindowKey>(defaultSlowTrendWindow)
@@ -1264,17 +1261,17 @@ const {
   form: searchForm,
   applied: appliedFilters,
   fields: [
-    { key: 'userName', label: '鎿嶄綔鐢ㄦ埛', isActive: (value) => isBusinessMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'operationType', label: (value) => `鎿嶄綔绫诲瀷锛?{getOperationTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => isBusinessMode.value && value !== undefined },
+    { key: 'userName', label: '操作用户', isActive: (value) => isBusinessMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'operationType', label: (value) => `操作类型：${getOperationTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => isBusinessMode.value && value !== undefined },
     { key: 'traceId', label: 'TraceId', advanced: true },
-    { key: 'operationModule', label: (value) => `${isSystemMode.value ? '寮傚父妯″潡' : '鎿嶄綔妯″潡'}锛?{String(value || '').trim()}` },
-    { key: 'requestMethod', label: (value) => `璇锋眰閫氶亾锛?{String(value || '')}`, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'requestUrl', label: '鐩爣 / URL', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'deviceCode', label: '璁惧缂栫爜', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'productKey', label: '浜у搧鏍囪瘑', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'errorCode', label: '寮傚父缂栫爜', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'exceptionClass', label: '寮傚父绫诲瀷', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'operationResult', label: (value) => `鎿嶄綔缁撴灉锛?{getOperationResultName(Number(value))}`, clearValue: undefined, isActive: (value) => value !== undefined }
+    { key: 'operationModule', label: (value) => `${isSystemMode.value ? '异常模块' : '操作模块'}：${String(value || '').trim()}` },
+    { key: 'requestMethod', label: (value) => `请求通道：${String(value || '')}`, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'requestUrl', label: '目标 / URL', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'deviceCode', label: '设备编码', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'productKey', label: '产品标识', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'errorCode', label: '异常编码', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'exceptionClass', label: '异常类型', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'operationResult', label: (value) => `操作结果：${getOperationResultName(Number(value))}`, clearValue: undefined, isActive: (value) => value !== undefined }
   ],
   defaults: {
     userName: '',
@@ -1300,19 +1297,19 @@ const auditToolbarActions = computed(() => [
   {
     key: 'export-selected',
     command: 'export-selected',
-    label: '瀵煎嚭閫変腑',
+    label: '导出选中',
     disabled: selectedRows.value.length === 0
   },
   {
     key: 'export-current',
     command: 'export-current',
-    label: '瀵煎嚭褰撳墠缁撴灉',
+    label: '导出当前结果',
     disabled: tableData.value.length === 0
   },
   {
     key: 'clear-selection',
     command: 'clear-selection',
-    label: '娓呯┖閫変腑',
+    label: '清空选中',
     disabled: selectedRows.value.length === 0
   }
 ])
@@ -1342,10 +1339,10 @@ const restoredDiagnosticContext = computed(() => {
 const systemInlineMessage = computed(() =>
   restoredDiagnosticContext.value
     ? [
-        `鏉ヨ嚜${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`,
+        `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`,
         '当前节点：后台异常核对',
-        '下一步可回链路追踪台或治理页继续排查。'
-      ].join(' 路 ')
+        '下一步回链路追踪台或治理页继续排查。'
+      ].join(' · ')
     : ''
 )
 const showSystemInlineState = computed(() => isSystemMode.value && Boolean(systemInlineMessage.value))
@@ -1377,25 +1374,25 @@ const evidenceDrawerSubtitle = computed(() =>
   evidenceTraceId.value ? `TraceId：${evidenceTraceId.value}` : '按 TraceId 汇总业务事件与调用片段'
 )
 const evidenceDrawerTags = computed(() => [
-  { label: `浜嬩欢 ${evidenceBusinessEvents.value.length}`, type: 'primary' as const },
-  { label: `鐗囨 ${evidenceSpans.value.length}`, type: 'info' as const }
+  { label: `事件 ${evidenceBusinessEvents.value.length}`, type: 'primary' as const },
+  { label: `片段 ${evidenceSpans.value.length}`, type: 'info' as const }
 ])
 const evidenceSummaryCards = computed(() => [
   { label: 'TraceId', value: formatValue(evidenceTrace.value?.traceId || evidenceTraceId.value) },
-  { label: '涓氬姟浜嬩欢', value: String(evidenceBusinessEvents.value.length) },
-  { label: '璋冪敤鐗囨', value: String(evidenceSpans.value.length) },
+  { label: '业务事件', value: String(evidenceBusinessEvents.value.length) },
+  { label: '调用片段', value: String(evidenceSpans.value.length) },
   { label: '时间线节点', value: String(evidenceTimeline.value.length) }
 ])
 const messageArchiveBatchDrawerSubtitle = computed(() =>
   activeMessageArchiveBatch.value?.batchNo
-    ? `鎵规鍙凤細${activeMessageArchiveBatch.value.batchNo}`
-    : '鏌ョ湅娑堟伅鐑〃褰掓。鎵规鐨勭‘璁ゃ€佸綊妗ｄ笌鍒犻櫎缁撴灉'
+    ? `批次号：${activeMessageArchiveBatch.value.batchNo}`
+    : '查看消息热表归档批次的确认、归档与删除结果'
 )
 const messageArchiveBatchDrawerTags = computed(() => {
   const row = activeMessageArchiveBatch.value
   return [
-    { label: `鐘舵€?${formatValue(row?.status)}`, type: 'primary' as const },
-    { label: `鏉ユ簮 ${formatValue(row?.sourceTable)}`, type: 'info' as const }
+    { label: `状态 ${formatValue(row?.status)}`, type: 'primary' as const },
+    { label: `来源 ${formatValue(row?.sourceTable)}`, type: 'info' as const }
   ]
 })
 const messageArchiveBatchSummaryCards = computed(() => {
@@ -1403,28 +1400,28 @@ const messageArchiveBatchSummaryCards = computed(() => {
   return [
     { label: '批次号', value: formatArchiveBatchName(row) },
     { label: '状态', value: formatValue(row?.status) },
-    { label: '纭琛屾暟', value: formatCount(row?.confirmedExpiredRows) },
-    { label: '鍒犻櫎琛屾暟', value: formatCount(row?.deletedRows) }
+    { label: '确认行数', value: formatCount(row?.confirmedExpiredRows) },
+    { label: '删除行数', value: formatCount(row?.deletedRows) }
   ]
 })
 const messageArchiveBatchResultItems = computed<ArchiveBatchDetailItem[]>(() => {
   const row = activeMessageArchiveBatch.value
   return [
     { label: '来源表', value: formatValue(row?.sourceTable) },
-    { label: '娌荤悊妯″紡', value: formatValue(row?.governanceMode) },
+    { label: '治理模式', value: formatValue(row?.governanceMode) },
     { label: '保留期', value: formatRetentionDays(row?.retentionDays) },
     { label: '候选行数', value: formatCount(row?.candidateRows) },
-    { label: '褰掓。琛屾暟', value: formatCount(row?.archivedRows) },
-    { label: '鍒犻櫎琛屾暟', value: formatCount(row?.deletedRows) }
+    { label: '归档行数', value: formatCount(row?.archivedRows) },
+    { label: '删除行数', value: formatCount(row?.deletedRows) }
   ]
 })
 const messageArchiveBatchReportItems = computed<ArchiveBatchDetailItem[]>(() => {
   const row = activeMessageArchiveBatch.value
   return [
-    { label: '纭鎶ュ憡', value: formatValue(row?.confirmReportPath) },
-    { label: '鎶ュ憡鐢熸垚鏃堕棿', value: formatValue(row?.confirmReportGeneratedAt) },
-    { label: '鎴鏃堕棿', value: formatValue(row?.cutoffAt) },
-    { label: '澶辫触鍘熷洜', value: formatValue(row?.failedReason) }
+    { label: '确认报告', value: formatValue(row?.confirmReportPath) },
+    { label: '报告生成时间', value: formatValue(row?.confirmReportGeneratedAt) },
+    { label: '截止时间', value: formatValue(row?.cutoffAt) },
+    { label: '失败原因', value: formatValue(row?.failedReason) }
   ]
 })
 const messageArchiveBatchArtifacts = computed<ArchiveBatchDetailItem[]>(() =>
@@ -1443,13 +1440,13 @@ const messageArchiveBatchCompareStatusName = computed(() =>
 const messageArchiveBatchCompareHeadline = computed(() => {
   switch (messageArchiveBatchCompareStatus.value) {
     case 'MATCHED':
-      return '宸叉寜纭缁撴灉钀藉湴'
+      return '已按确认结果落地'
     case 'DRIFTED':
       return '执行结果与确认结果存在偏差'
     case 'PARTIAL':
       return '仅完成部分比对'
     default:
-      return '褰撳墠缂哄皯鍙俊瀵规瘮璇佹嵁'
+      return '当前缺少可信对比证据'
   }
 })
 const messageArchiveBatchCompareStatusClass = computed(
@@ -1462,7 +1459,7 @@ const messageArchiveBatchCompareSourceItems = computed<ArchiveBatchDetailItem[]>
     return []
   }
   return [
-    { label: '纭鎶ュ憡', value: formatValue(sources.confirmReportPath) },
+    { label: '确认报告', value: formatValue(sources.confirmReportPath) },
     {
       label: 'dry-run JSON',
       value: formatValue(sources.resolvedDryRunJsonPath || sources.confirmReportPath)
@@ -1478,11 +1475,11 @@ const messageArchiveBatchCompareSummaryItems = computed<ArchiveBatchDetailItem[]
     return []
   }
   return [
-    { label: '纭杩囨湡', value: formatOptionalCount(summary.confirmedExpiredRows) },
-    { label: 'dry-run 杩囨湡', value: formatOptionalCount(summary.dryRunExpiredRows) },
-    { label: 'apply 褰掓。', value: formatOptionalCount(summary.applyArchivedRows) },
-    { label: 'apply 鍒犻櫎', value: formatOptionalCount(summary.applyDeletedRows) },
-    { label: '鍓╀綑杩囨湡', value: formatOptionalCount(summary.remainingExpiredRows) },
+    { label: '确认过期', value: formatOptionalCount(summary.confirmedExpiredRows) },
+    { label: 'dry-run 过期', value: formatOptionalCount(summary.dryRunExpiredRows) },
+    { label: 'apply 归档', value: formatOptionalCount(summary.applyArchivedRows) },
+    { label: 'apply 删除', value: formatOptionalCount(summary.applyDeletedRows) },
+    { label: '剩余过期', value: formatOptionalCount(summary.remainingExpiredRows) },
     { label: '确认差值', value: formatOptionalCount(summary.deltaConfirmedVsDeleted) },
     { label: 'dry-run 差值', value: formatOptionalCount(summary.deltaDryRunVsDeleted) }
   ]
@@ -1524,27 +1521,27 @@ const messageArchiveBatchOverviewCards = computed<ArchiveBatchOverviewCard[]>(()
   return [
     {
       key: 'abnormal',
-      label: '寮傚父鎵规',
+      label: '异常批次',
       value: formatOptionalCount(overview?.abnormalBatches),
-      meta: `鎬绘壒娆?${formatOptionalCount(overview?.totalBatches)}`,
+      meta: `总批次 ${formatOptionalCount(overview?.totalBatches)}`,
       testId: 'archive-batch-overview-abnormal',
       clickable: true,
       active: activeMessageArchiveBatchOverviewSelection.value === 'abnormal'
     },
     {
       key: 'drifted',
-      label: '鎵ц鍋忓樊鎬婚噺',
+      label: '执行偏差总量',
       value: formatSignedCount(overview?.totalDeltaConfirmedVsDeleted),
-      meta: `宸插榻?${formatOptionalCount(overview?.matchedBatches)}`,
+      meta: `已对齐 ${formatOptionalCount(overview?.matchedBatches)}`,
       testId: 'archive-batch-overview-drifted',
       clickable: true,
       active: activeMessageArchiveBatchOverviewSelection.value === 'drifted'
     },
     {
       key: 'remaining',
-      label: '鍓╀綑杩囨湡鎬婚噺',
+      label: '剩余过期总量',
       value: formatOptionalCount(overview?.totalRemainingExpiredRows),
-      meta: `閮ㄥ垎鍙瘮 ${formatOptionalCount(overview?.partialBatches)}`,
+      meta: `部分可比 ${formatOptionalCount(overview?.partialBatches)}`,
       testId: 'archive-batch-overview-remaining',
       clickable: true,
       active: activeMessageArchiveBatchOverviewSelection.value === 'remaining'
@@ -1565,25 +1562,25 @@ const messageArchiveBatchLatestFocus = computed(() => {
 const systemOverviewItems = computed(() => [
   {
     key: 'errors',
-    label: '寮傚父',
+    label: '异常',
     value: formatCount(systemStats.value.total),
     targetTab: 'errors' as SystemLogTabKey
   },
   {
     key: 'hotspots',
-    label: '鎱㈢偣',
+    label: '慢点',
     value: formatCount(slowSummaryRows.value.length),
     targetTab: 'hotspots' as SystemLogTabKey
   },
   {
     key: 'tasks',
-    label: '璋冨害',
+    label: '调度',
     value: formatCount(scheduledTaskTotal.value),
     targetTab: 'hotspots' as SystemLogTabKey
   },
   {
     key: 'archives',
-    label: '寮傚父鎵规',
+    label: '异常批次',
     value: formatOptionalCount(messageArchiveBatchOverview.value?.abnormalBatches),
     targetTab: 'archives' as SystemLogTabKey
   }
@@ -3030,18 +3027,18 @@ const handlePageChange = (page: number) => {
 const getAuditDirectActions = (row: AuditLogRecord) => {
   if (isSystemMode.value) {
     return [
-      { command: 'detail', label: '璇︽儏' },
-      { command: 'evidence', label: '璇佹嵁', disabled: !canOpenTraceEvidence(row) },
-      { command: 'trace', label: '杩借釜', disabled: !canJumpToMessageTrace(row) },
-      { command: 'copy-trace-id', label: '澶嶅埗 TraceId', disabled: !resolveEvidenceTraceId(row) },
-      { command: 'copy-target', label: '澶嶅埗鐩爣', disabled: !resolveAuditTarget(row) },
-      { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
+      { command: 'detail', label: '详情' },
+      { command: 'evidence', label: '证据', disabled: !canOpenTraceEvidence(row) },
+      { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) },
+      { command: 'copy-trace-id', label: '复制 TraceId', disabled: !resolveEvidenceTraceId(row) },
+      { command: 'copy-target', label: '复制目标', disabled: !resolveAuditTarget(row) },
+      { command: 'delete', label: '删除', permission: 'system:audit:delete' }
     ]
   }
 
   return [
-    { command: 'detail', label: '璇︽儏' },
-    { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
+    { command: 'detail', label: '详情' },
+    { command: 'delete', label: '删除', permission: 'system:audit:delete' }
   ]
 }
 
@@ -3106,34 +3103,33 @@ const handleDetail = async (row: AuditLogRecord) => {
   try {
     const res = await getAuditLogById(String(row.id))
     if (!res.data || Array.isArray(res.data)) {
-      ElMessage.warning(${recordLabel.value}不存在或已删除)
+      ElMessage.warning(recordLabel.value + '不存在或已删除')
       detailVisible.value = false
       return
     }
     detailData.value = { ...row, ...res.data }
   } catch (error) {
     if (!isHandledRequestError(error)) {
-      ElMessage.error(`鑾峰彇${detailDialogTitle.value}澶辫触`)
+      ElMessage.error(`获取${detailDialogTitle.value}失败`)
     }
-    detailErrorMessage.value = error instanceof Error ? error.message : `鑾峰彇${detailDialogTitle.value}澶辫触`
-    logPageError('鑾峰彇鏃ュ織璇︽儏澶辫触', error)
+    detailErrorMessage.value = error instanceof Error ? error.message : `获取${detailDialogTitle.value}失败`
+    logPageError('获取日志详情失败', error)
   } finally {
     detailLoading.value = false
   }
 }
 
-// 鍒犻櫎
 const handleDelete = async (row: AuditLogRecord) => {
   try {
     await confirmAction({
-      title: `鍒犻櫎${recordLabel.value}`,
-      message: 确认删除当前吗？删除后不可恢复。,
+      title: `删除${recordLabel.value}`,
+      message: '确认删除当前' + recordLabel.value + '吗？删除后不可恢复。',
       type: 'warning',
-      confirmButtonText: '纭鍒犻櫎'
+      confirmButtonText: '确认删除'
     })
     const res = await deleteAuditLog(String(row.id))
     if (res.code === 200) {
-      ElMessage.success('鍒犻櫎鎴愬姛')
+      ElMessage.success('删除成功')
       getAuditLogList()
       getAuditLogStats()
     }
@@ -3141,18 +3137,17 @@ const handleDelete = async (row: AuditLogRecord) => {
     if (isConfirmCancelled(error)) {
       return
     }
-    logPageError('鍒犻櫎澶辫触', error)
+    logPageError('删除失败', error)
   }
 }
 
-// 鑾峰彇鎿嶄綔绫诲瀷鍚嶇О
 const getOperationTypeName = (type: string) => {
   const map: Record<string, string> = {
-    insert: '鏂板',
-    update: '淇敼',
-    delete: '鍒犻櫎',
-    select: '鏌ヨ',
-    system_error: '绯荤粺寮傚父'
+    insert: '新增',
+    update: '修改',
+    delete: '删除',
+    select: '查询',
+    system_error: '系统异常'
   }
   return map[type] || type
 }
@@ -3170,8 +3165,8 @@ const getOperationTypeTag = (type: string) => {
 }
 
 const getOperationResultName = (result?: number | null) => {
-  if (result === 1) return '鎴愬姛'
-  if (result === 0) return '澶辫触'
+  if (result === 1) return '成功'
+  if (result === 0) return '失败'
   return '-'
 }
 
@@ -3238,7 +3233,7 @@ const formatArchiveBatchName = (row?: Partial<ObservabilityMessageArchiveBatch> 
 const formatArchiveBatchFooter = (row: ObservabilityMessageArchiveBatch) => {
   const failedReason = String(row.failedReason || '').trim()
   if (failedReason) {
-    return `澶辫触鍘熷洜锛?{failedReason}`
+    return `失败原因：${failedReason}`
   }
   const confirmReportPath = String(row.confirmReportPath || '').trim()
   return confirmReportPath ? `确认报告：${confirmReportPath}` : '确认报告：-'
@@ -3246,10 +3241,10 @@ const formatArchiveBatchFooter = (row: ObservabilityMessageArchiveBatch) => {
 
 const formatArchiveBatchReportSummaryLabel = (key: string) => {
   const map: Record<string, string> = {
-    generatedAt: '鎶ュ憡鐢熸垚鏃堕棿',
-    mode: '娌荤悊妯″紡',
-    expiredRows: '杩囨湡琛屾暟',
-    deletedRows: '鍒犻櫎琛屾暟',
+    generatedAt: '报告生成时间',
+    mode: '治理模式',
+    expiredRows: '过期行数',
+    deletedRows: '删除行数',
     tablesWithExpiredRows: '命中过期表'
   }
   return map[key] || key
@@ -3265,9 +3260,9 @@ const formatArchiveBatchCompareStatus = (status?: ArchiveBatchCompareStatus | st
     case 'DRIFTED':
       return '有偏差'
     case 'PARTIAL':
-      return '閮ㄥ垎鍙瘮'
+      return '部分可比'
     default:
-      return '涓嶅彲姣斿'
+      return '不可比对'
   }
 }
 
@@ -3281,7 +3276,7 @@ const formatArchiveBatchCompareRowStatus = (matched?: boolean | null) => {
   if (matched === false) {
     return '有偏差'
   }
-  return '閮ㄥ垎鍙瘮'
+  return '部分可比'
 }
 
 const isArchiveBatchAbnormalStatus = (status?: string | null) => {
@@ -3301,7 +3296,7 @@ const formatArchiveBatchPreviewAvailability = (row?: Partial<ObservabilityMessag
   if (row?.previewAvailable) {
     return '可预览'
   }
-  return formatValue(row?.previewReasonCode || '涓嶅彲棰勮')
+  return formatValue(row?.previewReasonCode || '不可预览')
 }
 
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>

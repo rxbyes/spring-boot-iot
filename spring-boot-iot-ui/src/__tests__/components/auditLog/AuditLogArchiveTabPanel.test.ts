@@ -23,7 +23,7 @@ function archivePropsFactory() {
         compareStatus: 'MATCHED',
         compareStatusLabel: '已对齐',
         retentionDays: 30,
-        cutoffAt: '2026-03-27 00:00:00',
+        cutoffAt: '2026-03-27T00:00:00',
         confirmedExpiredRows: 16098,
         candidateRows: 16098,
         archivedRows: 16098,
@@ -31,8 +31,9 @@ function archivePropsFactory() {
         deltaConfirmedVsDeleted: 0,
         deltaDryRunVsDeleted: 0,
         remainingExpiredRows: 0,
-        createTime: '2026-04-26 00:01:19',
-        updateTime: '2026-04-26 00:02:00'
+        createTime: '2026-04-26T00:01:19',
+        updateTime: '2026-04-26T00:02:00',
+        previewAvailable: true
       },
       {
         id: 2,
@@ -42,7 +43,7 @@ function archivePropsFactory() {
         compareStatus: 'DRIFTED',
         compareStatusLabel: '有偏差',
         retentionDays: 30,
-        cutoffAt: '2026-03-27 09:00:00',
+        cutoffAt: '2026-03-27T09:00:00',
         confirmedExpiredRows: 320,
         candidateRows: 320,
         archivedRows: 0,
@@ -50,8 +51,10 @@ function archivePropsFactory() {
         deltaConfirmedVsDeleted: 308,
         deltaDryRunVsDeleted: 308,
         remainingExpiredRows: 308,
-        createTime: '2026-04-26 09:01:00',
-        updateTime: '2026-04-26 09:03:00'
+        createTime: '2026-04-26T09:01:00',
+        updateTime: '2026-04-26T09:03:00',
+        previewAvailable: false,
+        previewReasonCode: 'REPORT_PATH_REJECTED'
       }
     ],
     errorMessage: '',
@@ -99,7 +102,7 @@ function archivePropsFactory() {
     ],
     latestAbnormalFocus: {
       batchNo: 'iot_message_log-20260426090100',
-      occurredAt: '2026-04-26 09:01:00',
+      occurredAt: '2026-04-26T09:01:00',
       active: true
     },
     activeRow: {
@@ -110,7 +113,7 @@ function archivePropsFactory() {
       compareStatus: 'DRIFTED',
       compareStatusLabel: '有偏差',
       retentionDays: 30,
-      cutoffAt: '2026-03-27 09:00:00',
+      cutoffAt: '2026-03-27T09:00:00',
       confirmedExpiredRows: 320,
       candidateRows: 320,
       archivedRows: 0,
@@ -118,8 +121,10 @@ function archivePropsFactory() {
       deltaConfirmedVsDeleted: 308,
       deltaDryRunVsDeleted: 308,
       remainingExpiredRows: 308,
-      createTime: '2026-04-26 09:01:00',
-      updateTime: '2026-04-26 09:03:00'
+      createTime: '2026-04-26T09:01:00',
+      updateTime: '2026-04-26T09:03:00',
+      previewAvailable: false,
+      previewReasonCode: 'REPORT_PATH_REJECTED'
     },
     selectedBatchKey: 'iot_message_log-20260426090100',
     formatValue: (value: string | number | null | undefined) => String(value ?? '--'),
@@ -129,7 +134,7 @@ function archivePropsFactory() {
     formatRetentionDays: (value: number | null | undefined) => `${value ?? 0} 天`,
     formatArchiveBatchName: (row: { batchNo?: string | null }) => String(row.batchNo ?? '--'),
     formatArchiveBatchCompareStatus: (value: string | number | null | undefined) => String(value ?? '--'),
-    formatArchiveBatchPreviewAvailability: () => '可预览',
+    formatArchiveBatchPreviewAvailability: () => '不可预览',
     formatArchiveBatchFooter: () => 'apply 已完成',
     resolveArchiveBatchCompareStatusClass: (row: { compareStatus?: string | null }) =>
       `is-${String(row.compareStatus || '').toLowerCase()}`,
@@ -153,6 +158,7 @@ describe('AuditLogArchiveTabPanel', () => {
     expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').text()).toContain(
       'iot_message_log-20260426090100'
     );
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').text()).toContain('2026-04-26 09:01:00');
     expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="archive-batch-master-table"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('归档批次');
@@ -166,6 +172,7 @@ describe('AuditLogArchiveTabPanel', () => {
     expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('30 天');
     expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('偏差 308');
     expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('剩余 308');
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('预览 仅 JSON 摘要');
     expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('截止 2026-03-27 09:00:00');
   });
 

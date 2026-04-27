@@ -39,7 +39,7 @@ function hotspotPropsFactory() {
         eventCode: 'query',
         objectType: 'API',
         objectId: 'GET:/api/system',
-        latestStartedAt: '2026-04-26 10:00:00',
+        latestStartedAt: '2026-04-26T10:00:00',
         latestTraceId: 'trace-hotspot-001',
         maxDurationMs: 1632,
         avgDurationMs: 982,
@@ -51,7 +51,7 @@ function hotspotPropsFactory() {
         eventCode: 'archive',
         objectType: 'sql',
         objectId: 'iot_message_log',
-        latestStartedAt: '2026-04-26 09:40:00',
+        latestStartedAt: '2026-04-26T09:40:00',
         latestTraceId: 'trace-hotspot-002',
         maxDurationMs: 2400,
         avgDurationMs: 1560,
@@ -61,7 +61,7 @@ function hotspotPropsFactory() {
     slowSummaryErrorMessage: '',
     formatSlowSummaryTitle: () => '设备接入查询',
     formatSlowSummaryTarget: () => 'GET /api/system/observability/spans/page',
-    formatValue: (value: string | null | undefined) => value ?? '--',
+    formatValue: (value: string | number | null | undefined) => String(value ?? '--'),
     formatDuration: (value: number | null | undefined) => `${value ?? 0} ms`,
     formatCount: (value: number | null | undefined) => `${value ?? 0}`,
     activeSlowSummary: {
@@ -70,7 +70,7 @@ function hotspotPropsFactory() {
       eventCode: 'query',
       objectType: 'API',
       objectId: 'GET:/api/system',
-      latestStartedAt: '2026-04-26 10:00:00',
+      latestStartedAt: '2026-04-26T10:00:00',
       latestTraceId: 'trace-hotspot-001',
       maxDurationMs: 1632,
       avgDurationMs: 982,
@@ -86,8 +86,10 @@ function hotspotPropsFactory() {
         spanName: 'queryObservability',
         spanType: 'HTTP',
         status: 'SUCCESS',
-        startedAt: '2026-04-26 10:01:00',
-        durationMs: 1200
+        startedAt: '2026-04-26T10:01:00',
+        durationMs: 1200,
+        eventCode: 'platform.http.request',
+        objectId: '/api/system/observability/spans/page'
       }
     ],
     slowSpanErrorMessage: '',
@@ -97,7 +99,7 @@ function hotspotPropsFactory() {
       eventCode: 'query',
       objectType: 'API',
       objectId: 'GET:/api/system',
-      latestStartedAt: '2026-04-26 10:00:00',
+      latestStartedAt: '2026-04-26T10:00:00',
       latestTraceId: 'trace-hotspot-001',
       maxDurationMs: 1632,
       avgDurationMs: 982,
@@ -141,7 +143,7 @@ function hotspotPropsFactory() {
         triggerType: 'SCHEDULED',
         triggerExpression: '0 0 * * * ?',
         status: 'SUCCESS',
-        startedAt: '2026-04-26 10:05:00',
+        startedAt: '2026-04-26T10:05:00',
         durationMs: 321,
         errorMessage: ''
       }
@@ -167,6 +169,7 @@ describe('AuditLogHotspotTabPanel', () => {
 
     expect(wrapper.find('[data-testid="hotspot-focus-strip"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="hotspot-focus-strip"]').text()).toContain('trace-hotspot-001');
+    expect(wrapper.find('[data-testid="hotspot-focus-strip"]').text()).toContain('2026-04-26 10:00:00');
     expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('热点对象');
     expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('风险状态');
@@ -176,7 +179,7 @@ describe('AuditLogHotspotTabPanel', () => {
     expect(wrapper.find('[data-testid="hotspot-master-row"]').classes()).toContain('is-selected');
     expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('GET /api/system/observability/spans/page');
     expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('trace-hotspot-001');
-    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('P峰 1632 ms');
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('峰值 1632 ms');
     expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('均值 982 ms');
     expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('5 次');
   });
@@ -200,7 +203,7 @@ describe('AuditLogHotspotTabPanel', () => {
     });
   });
 
-  it('shows the hotspot workbench shell without rendering scheduled tasks or the system error list by default', () => {
+  it('shows the hotspot workbench shell without rendering related tasks by default', () => {
     const wrapper = mount(AuditLogHotspotTabPanel, {
       props: hotspotPropsFactory(),
       global: {
@@ -214,11 +217,11 @@ describe('AuditLogHotspotTabPanel', () => {
     expect(wrapper.find('[data-testid="system-log-hotspot-panel"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('性能慢点 Top');
     expect(wrapper.find('[data-testid="hotspot-drilldown-switch"]').exists()).toBe(true);
-    expect(wrapper.text()).not.toContain('调度任务台账');
+    expect(wrapper.text()).not.toContain('日志归档巡检');
     expect(wrapper.text()).not.toContain('异常摘要');
   });
 
-  it('defaults to recent samples and only shows scheduled tasks after switching to the related-task segment', async () => {
+  it('defaults to recent samples and only shows related tasks after switching segments', async () => {
     const wrapper = mount(AuditLogHotspotTabPanel, {
       props: hotspotPropsFactory(),
       global: {
@@ -231,7 +234,7 @@ describe('AuditLogHotspotTabPanel', () => {
 
     expect(wrapper.find('[data-testid="hotspot-drilldown-switch"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('最近样本');
-    expect(wrapper.text()).not.toContain('调度任务台账');
+    expect(wrapper.text()).not.toContain('日志归档巡检');
 
     await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
 
