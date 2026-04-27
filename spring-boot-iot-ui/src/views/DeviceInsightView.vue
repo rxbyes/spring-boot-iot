@@ -145,8 +145,12 @@
               stripe
               table-layout="fixed"
             >
-              <StandardTableTextColumn prop="identifier" label="标识符" :min-width="180" />
-              <StandardTableTextColumn prop="displayName" label="属性名称" :min-width="160" />
+              <StandardTableTextColumn
+                prop="displayName"
+                label="属性名称"
+                secondary-prop="identifier"
+                :min-width="220"
+              />
               <StandardTableTextColumn prop="propertyValue" label="当前值" :min-width="140" />
               <StandardTableTextColumn prop="displayUnit" label="单位" :min-width="100" />
               <StandardTableTextColumn prop="valueType" label="类型" :min-width="120" />

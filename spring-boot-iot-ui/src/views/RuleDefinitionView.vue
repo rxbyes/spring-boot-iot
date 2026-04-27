@@ -296,8 +296,16 @@
                 {{ row.productType ? getProductTypeText(row.productType) : '--' }}
               </template>
             </el-table-column>
-            <StandardTableTextColumn prop="metricIdentifier" label="测点标识符" :width="160" />
-            <StandardTableTextColumn prop="metricName" label="测点名称" :width="140" />
+            <StandardTableTextColumn prop="metricName" label="测点" :min-width="180">
+              <template #default="{ row }">
+                {{ row.metricName || row.metricIdentifier || '--' }}
+              </template>
+              <template #secondary="{ row }">
+                <template v-if="row.metricName && row.metricIdentifier && row.metricName !== row.metricIdentifier">
+                  {{ row.metricIdentifier }}
+                </template>
+              </template>
+            </StandardTableTextColumn>
             <StandardTableTextColumn prop="expression" label="表达式" :min-width="220" />
             <StandardTableTextColumn prop="duration" label="持续时间(秒)" :width="120" />
             <el-table-column prop="alarmLevel" label="告警等级" width="100">

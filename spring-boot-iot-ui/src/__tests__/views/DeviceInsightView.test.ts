@@ -419,7 +419,7 @@ const ElTableStub = defineComponent({
 
 const StandardTableTextColumnStub = defineComponent({
   name: 'StandardTableTextColumn',
-  props: ['label', 'prop'],
+  props: ['label', 'prop', 'secondaryProp'],
   setup() {
     const rows = inject<any[]>('deviceInsightTableRows', []);
     return { rows };
@@ -427,12 +427,13 @@ const StandardTableTextColumnStub = defineComponent({
   template: `
     <div class="standard-table-text-column-stub" :data-label="label">
       <span class="standard-table-text-column-stub__label">{{ label }}</span>
-      <div
-        v-for="(row, index) in rows"
-        :key="index"
-        class="standard-table-text-column-stub__value"
-      >
-        {{ row?.[prop] }}
+      <div v-for="(row, index) in rows" :key="index" class="standard-table-text-column-stub__cell">
+        <div class="standard-table-text-column-stub__value">
+          {{ row?.[prop] }}
+        </div>
+        <span v-if="secondaryProp && row?.[secondaryProp]" class="standard-table-text-column-stub__secondary">
+          {{ row?.[secondaryProp] }}
+        </span>
       </div>
     </div>
   `
@@ -2966,7 +2967,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
 
     const identifierValues = wrapper
-      .findAll('.standard-table-text-column-stub[data-label="标识符"] .standard-table-text-column-stub__value')
+      .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__secondary')
       .map((node) => node.text().trim())
       .filter(Boolean);
     const displayNameValues = wrapper
@@ -3065,7 +3066,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
 
     const identifierValues = wrapper
-      .findAll('.standard-table-text-column-stub[data-label="标识符"] .standard-table-text-column-stub__value')
+      .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__secondary')
       .map((node) => node.text().trim())
       .filter(Boolean);
 

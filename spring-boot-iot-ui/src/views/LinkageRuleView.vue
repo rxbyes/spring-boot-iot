@@ -96,8 +96,11 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
-            <StandardTableTextColumn prop="description" label="描述" :min-width="220" />
+            <StandardTableTextColumn prop="ruleName" label="规则" :min-width="220">
+              <template #secondary="{ row }">
+                {{ row.description || '--' }}
+              </template>
+            </StandardTableTextColumn>
             <StandardTableTextColumn label="触发条件" :min-width="180">
               <template #default="{ row }">
                 {{ row.triggerCondition || '--' }}

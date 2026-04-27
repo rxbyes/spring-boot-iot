@@ -61,4 +61,23 @@ describe('risk strategy list contract', () => {
     expect(source).not.toContain('<StandardTableTextColumn prop="riskPointCode" label="风险点编号"')
     expect(source).not.toContain('<StandardTableTextColumn prop="riskPointName" label="风险点名称"')
   })
+
+  it('keeps rule, linkage, and emergency identities on the shared stacked first-column grammar', () => {
+    const ruleDefinitionSource = readViewSource('RuleDefinitionView.vue')
+    const linkageRuleSource = readViewSource('LinkageRuleView.vue')
+    const emergencyPlanSource = readViewSource('EmergencyPlanView.vue')
+
+    expect(ruleDefinitionSource).toContain('secondary="{ row }"')
+    expect(ruleDefinitionSource).toContain('row.metricIdentifier')
+    expect(ruleDefinitionSource).not.toContain('<StandardTableTextColumn prop="metricIdentifier"')
+    expect(ruleDefinitionSource).not.toContain('<StandardTableTextColumn prop="metricName" label="测点名称"')
+
+    expect(linkageRuleSource).toContain('<template #secondary="{ row }">')
+    expect(linkageRuleSource).toContain("{{ row.description || '--' }}")
+    expect(linkageRuleSource).not.toContain('<StandardTableTextColumn prop="description"')
+
+    expect(emergencyPlanSource).toContain('<template #secondary="{ row }">')
+    expect(emergencyPlanSource).toContain("{{ row.description || '--' }}")
+    expect(emergencyPlanSource).not.toContain('<StandardTableTextColumn prop="description"')
+  })
 })
