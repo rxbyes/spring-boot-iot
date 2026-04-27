@@ -200,7 +200,9 @@
   --el-table-header-text-color: var(--text-tertiary);
 }
 
-.el-table__body tr:hover > td.el-table__cell {
+.ops-workbench .el-table__body tr:hover > td.el-table__cell,
+.standard-list-view .el-table__body tr:hover > td.el-table__cell,
+.sys-mgmt-view .el-table__body tr:hover > td.el-table__cell {
   background: var(--workbench-table-row-hover-bg);
 }
 
