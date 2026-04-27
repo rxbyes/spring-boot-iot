@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
 import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
@@ -13,6 +14,7 @@ import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricEmergencyPlanBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricLinkageBindingMapper;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
@@ -20,6 +22,7 @@ import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
@@ -79,6 +82,9 @@ class RiskGovernanceServiceImplTest {
     private RiskPointDeviceMapper riskPointDeviceMapper;
 
     @Mock
+    private RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
+
+    @Mock
     private RuleDefinitionMapper ruleDefinitionMapper;
 
     @Mock
@@ -113,6 +119,55 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private RiskMetricActionBindingBackfillService backfillService;
+
+    @Test
+    void listMissingBindingsShouldExcludeDeviceLevelCapabilityBindings() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setRiskPointDeviceCapabilityBindingMapper(capabilityBindingMapper);
+        RiskPointDevice metricBinding = new RiskPointDevice();
+        metricBinding.setDeviceId(8001L);
+        metricBinding.setDeleted(0);
+        RiskPointDeviceCapabilityBinding capabilityBinding = new RiskPointDeviceCapabilityBinding();
+        capabilityBinding.setDeviceId(8002L);
+        capabilityBinding.setDeleted(0);
+        Device metricBound = new Device();
+        metricBound.setId(8001L);
+        metricBound.setDeviceCode("metric-bound");
+        metricBound.setDeviceName("metric-bound");
+        metricBound.setLastReportTime(LocalDateTime.of(2026, 4, 27, 10, 0));
+        Device capabilityBound = new Device();
+        capabilityBound.setId(8002L);
+        capabilityBound.setDeviceCode("capability-bound");
+        capabilityBound.setDeviceName("capability-bound");
+        capabilityBound.setLastReportTime(LocalDateTime.of(2026, 4, 27, 11, 0));
+        Device unbound = new Device();
+        unbound.setId(8003L);
+        unbound.setDeviceCode("unbound");
+        unbound.setDeviceName("unbound");
+        unbound.setLastReportTime(LocalDateTime.of(2026, 4, 27, 12, 0));
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(metricBinding));
+        when(capabilityBindingMapper.selectList(any())).thenReturn(List.of(capabilityBinding));
+        when(deviceMapper.selectList(any())).thenReturn(List.of(metricBound, capabilityBound, unbound));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingBindings(null);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("unbound", result.getRecords().get(0).getDeviceCode());
+    }
 
     @Test
     void pageMetricCatalogsShouldReturnProductScopedRows() {

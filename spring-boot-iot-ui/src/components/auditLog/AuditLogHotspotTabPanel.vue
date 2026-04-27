@@ -26,20 +26,18 @@
             <p>{{ formatSlowSummaryTarget(activeHotspot) }}</p>
           </div>
           <div class="audit-log-hotspot-workbench__focus-meta">
-            <span>{{ formatValue(activeHotspot.latestTraceId) }}</span>
-            <span>{{ formatValue(activeHotspot.latestStartedAt) }}</span>
-            <span>{{ slowTrendWindowLabel }}</span>
+            <span>Trace {{ formatValue(activeHotspot.latestTraceId) }}</span>
+            <span>最近 {{ formatValue(activeHotspot.latestStartedAt) }}</span>
+            <span>窗口 {{ slowTrendWindowLabel }}</span>
           </div>
         </header>
 
         <section data-testid="hotspot-master-table" class="audit-log-hotspot-master-table">
-          <header class="audit-log-hotspot-master-table__header">
-            <span>热点</span>
-            <span>目标</span>
-            <span>最近时间</span>
-            <span>最大耗时</span>
-            <span>平均耗时</span>
-            <span>总次数</span>
+          <header data-testid="hotspot-master-header" class="audit-log-hotspot-master-table__header">
+            <span>热点对象</span>
+            <span>风险状态</span>
+            <span>性能信号</span>
+            <span>最近情况</span>
             <span>操作</span>
           </header>
 
@@ -53,56 +51,61 @@
             ]"
             @click="emit('select-slow-summary', row)"
           >
-            <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--title">
+            <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--identity">
               <strong>{{ formatSlowSummaryTitle(row) }}</strong>
-            </div>
-            <div class="audit-log-hotspot-master-table__cell">
               <span>{{ formatSlowSummaryTarget(row) }}</span>
             </div>
-            <div class="audit-log-hotspot-master-table__cell">
-              <span>{{ formatValue(row.latestStartedAt) }}</span>
+            <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--status">
+              <span :class="['audit-log-hotspot-master-table__risk-chip', resolveHotspotRiskTone(row)]">
+                {{ resolveHotspotRiskLabel(row) }}
+              </span>
+              <small>{{ resolveHotspotRiskMeta(row) }}</small>
             </div>
-            <div class="audit-log-hotspot-master-table__cell">
-              <span>{{ formatDuration(row.maxDurationMs) }}</span>
+            <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--signals">
+              <strong>P峰 {{ formatDuration(row.maxDurationMs) }}</strong>
+              <span>均值 {{ formatDuration(row.avgDurationMs) }}</span>
+              <small>{{ formatCount(row.totalCount) }} 次</small>
             </div>
-            <div class="audit-log-hotspot-master-table__cell">
-              <span>{{ formatDuration(row.avgDurationMs) }}</span>
-            </div>
-            <div class="audit-log-hotspot-master-table__cell">
-              <span>{{ formatCount(row.totalCount) }}</span>
+            <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--recent">
+              <strong>{{ formatValue(row.latestStartedAt) }}</strong>
+              <small>{{ formatValue(row.latestTraceId) }}</small>
             </div>
             <div class="audit-log-hotspot-master-table__cell audit-log-hotspot-master-table__cell--actions">
-              <StandardButton
-                action="view"
-                link
-                :disabled="!row.latestTraceId"
-                @click="
-                  emit('select-slow-summary', row);
-                  row.latestTraceId && emit('open-trace-evidence', row.latestTraceId)
-                "
-              >
-                证据
-              </StandardButton>
-              <StandardButton
-                action="view"
-                link
-                @click="
-                  emit('select-slow-summary', row);
-                  emit('open-slow-span-detail', row)
-                "
-              >
-                明细
-              </StandardButton>
-              <StandardButton
-                action="view"
-                link
-                @click="
-                  emit('select-slow-summary', row);
-                  emit('open-slow-trend', row, defaultSlowTrendWindow)
-                "
-              >
-                趋势
-              </StandardButton>
+              <div class="audit-log-hotspot-master-table__action-rail">
+                <StandardButton
+                  action="view"
+                  link
+                  :disabled="!row.latestTraceId"
+                  @click="
+                    emit('select-slow-summary', row);
+                    row.latestTraceId && emit('open-trace-evidence', row.latestTraceId)
+                  "
+                >
+                  证据
+                </StandardButton>
+                <StandardButton
+                  action="view"
+                  link
+                  @click="
+                    emit('select-slow-summary', row);
+                    emit('change-hotspot-drilldown-view', 'samples');
+                    emit('open-slow-span-detail', row)
+                  "
+                >
+                  明细
+                </StandardButton>
+                <StandardButton
+                  action="view"
+                  link
+                  @click="
+                    emit('select-slow-summary', row);
+                    emit('change-hotspot-drilldown-view', 'trends');
+                    emit('open-slow-trend', row, defaultSlowTrendWindow)
+                  "
+                >
+                  趋势
+                </StandardButton>
+              </div>
             </div>
           </article>
         </section>
@@ -112,8 +115,25 @@
           data-testid="hotspot-detail-section"
           class="audit-log-hotspot-detail standard-list-surface"
         >
-          <div class="audit-log-hotspot-detail__grid">
-            <section v-loading="slowSpanLoading" class="audit-log-slow-span-drilldown">
+          <header class="audit-log-hotspot-detail__header">
+            <div>
+              <h3>热点下钻</h3>
+              <p>{{ formatSlowSummaryTitle(activeHotspot) }} / {{ formatSlowSummaryTarget(activeHotspot) }}</p>
+            </div>
+            <div data-testid="hotspot-drilldown-switch" class="audit-log-hotspot-detail__switch">
+              <StandardChoiceGroup
+                :model-value="hotspotDrilldownView"
+                :options="hotspotDrilldownOptions"
+                @update:model-value="emit('change-hotspot-drilldown-view', $event)"
+              />
+            </div>
+          </header>
+
+          <section
+            v-if="hotspotDrilldownView === 'samples'"
+            v-loading="slowSpanLoading"
+            class="audit-log-slow-span-drilldown"
+          >
               <header class="audit-log-slow-span-drilldown__header">
                 <div>
                   <h3>最近样本</h3>
@@ -138,9 +158,9 @@
                     <span>{{ formatDuration(span.durationMs) }}</span>
                   </div>
                   <div class="audit-log-slow-span-drilldown__meta">
-                    <span>{{ formatValue(span.traceId) }}</span>
-                    <span>{{ formatValue(span.status) }}</span>
-                    <span>{{ formatValue(span.startedAt) }}</span>
+                    <span>Trace {{ formatValue(span.traceId) }}</span>
+                    <span>状态 {{ formatValue(span.status) }}</span>
+                    <span>开始 {{ formatValue(span.startedAt) }}</span>
                   </div>
                   <div class="audit-log-slow-span-drilldown__footer">
                     <span>{{ formatValue(span.eventCode) }} / {{ formatValue(span.objectId) }}</span>
@@ -155,12 +175,16 @@
                   </div>
                 </article>
               </div>
-            </section>
+          </section>
 
-            <section v-loading="slowTrendLoading" class="audit-log-slow-trend-drilldown">
+          <section
+            v-else-if="hotspotDrilldownView === 'trends'"
+            v-loading="slowTrendLoading"
+            class="audit-log-slow-trend-drilldown"
+          >
               <header class="audit-log-slow-trend-drilldown__header">
                 <div>
-                  <h3>趋势观察</h3>
+                  <h3>趋势</h3>
                   <p>{{ formatSlowSummaryTitle(activeTrendHotspot) }} / {{ formatSlowSummaryTarget(activeTrendHotspot) }}</p>
                 </div>
                 <div class="audit-log-slow-trend-drilldown__actions">
@@ -188,67 +212,75 @@
                     <strong>{{ formatSlowTrendBucketLabel(item) }}</strong>
                     <span>{{ formatCount(item.totalCount) }} 次</span>
                   </div>
-                  <div class="audit-log-slow-trend-drilldown__metrics">
-                    <span>P95 {{ formatDuration(item.p95DurationMs) }}</span>
-                    <span>P99 {{ formatDuration(item.p99DurationMs) }}</span>
-                    <span>平均 {{ formatDuration(item.avgDurationMs) }}</span>
-                    <span>最大 {{ formatDuration(item.maxDurationMs) }}</span>
+                  <div
+                    v-if="hasSlowTrendSamples(item)"
+                    class="audit-log-slow-trend-drilldown__metrics"
+                  >
+                    <span class="is-primary">P95 {{ formatDuration(item.p95DurationMs) }}</span>
                     <span>错误率 {{ formatPercentage(item.errorRate) }}</span>
+                    <span>最大 {{ formatDuration(item.maxDurationMs) }}</span>
                   </div>
+                  <p
+                    v-if="hasSlowTrendSamples(item)"
+                    class="audit-log-slow-trend-drilldown__summary"
+                  >
+                    {{ formatSlowTrendSummary(item) }}
+                  </p>
+                  <p v-else class="audit-log-slow-trend-drilldown__summary is-empty">本桶暂无请求样本</p>
                 </article>
               </div>
-            </section>
-          </div>
+          </section>
+
+          <section
+            v-else
+            v-loading="scheduledTaskLoading"
+            class="audit-log-scheduled-task-ledger audit-log-scheduled-task-ledger--embedded"
+          >
+            <header class="audit-log-scheduled-task-ledger__header">
+              <div>
+                <h3>调度任务台账</h3>
+              </div>
+              <span>{{ scheduledTaskRows.length }} / {{ scheduledTaskTotal }}</span>
+            </header>
+            <div v-if="scheduledTaskErrorMessage" class="audit-log-slow-summary__empty">
+              {{ scheduledTaskErrorMessage }}
+            </div>
+            <div v-else-if="scheduledTaskRows.length === 0" class="audit-log-slow-summary__empty">
+              暂无调度任务记录
+            </div>
+            <div v-else class="audit-log-scheduled-task-ledger__list">
+              <article
+                v-for="row in scheduledTaskRows"
+                :key="`scheduled-task-${row.id || row.traceId || row.taskCode}`"
+                class="audit-log-scheduled-task-ledger__item"
+                >
+                  <div class="audit-log-scheduled-task-ledger__title">
+                    <strong>{{ formatScheduledTaskName(row) }}</strong>
+                    <span>{{ formatDuration(row.durationMs) }}</span>
+                  </div>
+                  <div class="audit-log-scheduled-task-ledger__meta">
+                    <span>触发 {{ formatValue(row.triggerType) }}</span>
+                    <span>{{ formatScheduledTaskTrigger(row) }}</span>
+                    <span>状态 {{ formatValue(row.status) }}</span>
+                    <span>开始 {{ formatValue(row.startedAt) }}</span>
+                  </div>
+                  <div class="audit-log-scheduled-task-ledger__footer">
+                    <span>Trace {{ formatValue(row.traceId) }}</span>
+                    <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
+                    <StandardButton
+                      action="view"
+                    link
+                    :disabled="!row.traceId"
+                    @click="row.traceId && emit('open-trace-evidence', row.traceId)"
+                  >
+                    证据
+                  </StandardButton>
+                </div>
+              </article>
+            </div>
+          </section>
         </section>
       </template>
-    </section>
-
-    <section
-      v-loading="scheduledTaskLoading"
-      class="audit-log-scheduled-task-ledger audit-log-scheduled-task-ledger--subdued standard-list-surface"
-    >
-      <header class="audit-log-scheduled-task-ledger__header">
-        <div>
-          <h3>调度任务台账</h3>
-        </div>
-        <span>{{ scheduledTaskRows.length }} / {{ scheduledTaskTotal }}</span>
-      </header>
-      <div v-if="scheduledTaskErrorMessage" class="audit-log-slow-summary__empty">
-        {{ scheduledTaskErrorMessage }}
-      </div>
-      <div v-else-if="scheduledTaskRows.length === 0" class="audit-log-slow-summary__empty">
-        暂无调度任务记录
-      </div>
-      <div v-else class="audit-log-scheduled-task-ledger__list">
-        <article
-          v-for="row in scheduledTaskRows"
-          :key="`scheduled-task-${row.id || row.traceId || row.taskCode}`"
-          class="audit-log-scheduled-task-ledger__item"
-        >
-          <div class="audit-log-scheduled-task-ledger__title">
-            <strong>{{ formatScheduledTaskName(row) }}</strong>
-            <span>{{ formatDuration(row.durationMs) }}</span>
-          </div>
-          <div class="audit-log-scheduled-task-ledger__meta">
-            <span>{{ formatValue(row.triggerType) }}</span>
-            <span>{{ formatScheduledTaskTrigger(row) }}</span>
-            <span>{{ formatValue(row.status) }}</span>
-            <span>{{ formatValue(row.startedAt) }}</span>
-          </div>
-          <div class="audit-log-scheduled-task-ledger__footer">
-            <span>{{ formatValue(row.traceId) }}</span>
-            <span v-if="row.errorMessage">{{ formatValue(row.errorMessage) }}</span>
-            <StandardButton
-              action="view"
-              link
-              :disabled="!row.traceId"
-              @click="row.traceId && emit('open-trace-evidence', row.traceId)"
-            >
-              证据
-            </StandardButton>
-          </div>
-        </article>
-      </div>
     </section>
   </div>
 </template>
@@ -312,6 +344,13 @@ interface SlowTrendWindowOption {
   value: string;
 }
 
+type HotspotDrilldownView = 'samples' | 'trends' | 'tasks';
+
+interface HotspotDrilldownOption {
+  label: string;
+  value: HotspotDrilldownView;
+}
+
 type ValueFormatter = (value: string | number | null | undefined) => string;
 type CountFormatter = (value: number | null | undefined) => string;
 type SlowSummaryFormatter = (row: SlowSummaryRow) => string;
@@ -334,6 +373,8 @@ const props = defineProps<{
   slowSpanErrorMessage: string;
   activeSlowTrendSummary: SlowSummaryRow | null;
   selectedSlowSummaryKey: string;
+  hotspotDrilldownView: HotspotDrilldownView;
+  hotspotDrilldownOptions: HotspotDrilldownOption[];
   slowTrendLoading: boolean;
   slowTrendRows: SlowTrendRow[];
   slowTrendErrorMessage: string;
@@ -355,6 +396,7 @@ const emit = defineEmits<{
   (event: 'open-trace-evidence', traceId: string): void;
   (event: 'open-slow-span-detail', row: SlowSummaryRow): void;
   (event: 'open-slow-trend', row: SlowSummaryRow, window: string): void;
+  (event: 'change-hotspot-drilldown-view', view: HotspotDrilldownView): void;
   (event: 'change-slow-trend-window', value: string): void;
 }>()
 
@@ -382,6 +424,45 @@ const slowTrendWindowLabel = computed(() => {
   const matched = props.slowTrendWindowOptions.find((item) => item.value === props.slowTrendWindow)
   return matched?.label || props.slowTrendWindow
 })
+
+const resolveHotspotRiskLabel = (row: SlowSummaryRow) => {
+  const maxDuration = Number(row.maxDurationMs || 0)
+  const avgDuration = Number(row.avgDurationMs || 0)
+  const totalCount = Number(row.totalCount || 0)
+
+  if (maxDuration >= 2000) {
+    return '高耗时'
+  }
+  if (totalCount >= 8) {
+    return '高频次'
+  }
+  if (avgDuration >= 1200) {
+    return '持续偏慢'
+  }
+  return '持续关注'
+}
+
+const resolveHotspotRiskTone = (row: SlowSummaryRow) => {
+  const maxDuration = Number(row.maxDurationMs || 0)
+  const avgDuration = Number(row.avgDurationMs || 0)
+  const totalCount = Number(row.totalCount || 0)
+
+  if (maxDuration >= 2000) {
+    return 'is-danger'
+  }
+  if (totalCount >= 8 || avgDuration >= 1200) {
+    return 'is-warning'
+  }
+  return 'is-neutral'
+}
+
+const resolveHotspotRiskMeta = (row: SlowSummaryRow) =>
+  `峰值 ${props.formatDuration(row.maxDurationMs)} / 共 ${props.formatCount(row.totalCount)} 次`
+
+const hasSlowTrendSamples = (row: SlowTrendRow) => Number(row.totalCount || 0) > 0
+
+const formatSlowTrendSummary = (row: SlowTrendRow) =>
+  `P99 ${props.formatDuration(row.p99DurationMs)} · 平均 ${props.formatDuration(row.avgDurationMs)}`
 </script>
 
 <style scoped>
@@ -392,10 +473,10 @@ const slowTrendWindowLabel = computed(() => {
 
 .audit-log-hotspot-workbench__focus {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.95rem 1rem;
+  padding: 0.82rem 0.96rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 74%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 94%, white);
@@ -432,10 +513,20 @@ const slowTrendWindowLabel = computed(() => {
 }
 
 .audit-log-hotspot-workbench__focus-meta {
-  display: grid;
-  gap: 0.35rem;
-  justify-items: end;
-  text-align: right;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.audit-log-hotspot-workbench__focus-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
 }
 
 .audit-log-hotspot-master-table {
@@ -446,8 +537,13 @@ const slowTrendWindowLabel = computed(() => {
 .audit-log-hotspot-master-table__header,
 .audit-log-hotspot-master-table__row {
   display: grid;
-  grid-template-columns: minmax(11rem, 1.3fr) minmax(12rem, 1.4fr) minmax(8rem, 0.9fr) repeat(3, minmax(5.5rem, 0.6fr)) minmax(9rem, 0.9fr);
-  gap: 0.75rem;
+  grid-template-columns:
+    minmax(15rem, 1.65fr)
+    minmax(8rem, 0.8fr)
+    minmax(10rem, 0.92fr)
+    minmax(9rem, 0.88fr)
+    minmax(7.5rem, 0.74fr);
+  gap: 0.62rem;
   align-items: center;
 }
 
@@ -458,7 +554,8 @@ const slowTrendWindowLabel = computed(() => {
 }
 
 .audit-log-hotspot-master-table__row {
-  padding: 0.82rem 0.9rem;
+  min-height: 74px;
+  padding: 0.86rem 0.9rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
@@ -477,10 +574,13 @@ const slowTrendWindowLabel = computed(() => {
 
 .audit-log-hotspot-master-table__cell {
   min-width: 0;
+  display: grid;
+  gap: 0.22rem;
 }
 
 .audit-log-hotspot-master-table__cell strong,
-.audit-log-hotspot-master-table__cell span {
+.audit-log-hotspot-master-table__cell span,
+.audit-log-hotspot-master-table__cell small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -497,40 +597,313 @@ const slowTrendWindowLabel = computed(() => {
   font-size: 0.82rem;
 }
 
+.audit-log-hotspot-master-table__cell small {
+  color: var(--text-caption);
+  font-size: 0.77rem;
+}
+
+.audit-log-hotspot-master-table__cell--identity strong,
+.audit-log-hotspot-master-table__cell--signals strong,
+.audit-log-hotspot-master-table__cell--recent strong {
+  font-size: 0.88rem;
+}
+
+.audit-log-hotspot-master-table__cell--status {
+  align-content: start;
+}
+
+.audit-log-hotspot-master-table__risk-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.audit-log-hotspot-master-table__risk-chip.is-danger {
+  border-color: color-mix(in srgb, var(--el-color-danger) 40%, white);
+  background: color-mix(in srgb, var(--el-color-danger-light-9) 88%, white);
+  color: var(--el-color-danger-dark-2);
+}
+
+.audit-log-hotspot-master-table__risk-chip.is-warning {
+  border-color: color-mix(in srgb, var(--el-color-warning) 44%, white);
+  background: color-mix(in srgb, var(--el-color-warning-light-9) 88%, white);
+  color: color-mix(in srgb, var(--el-color-warning-dark-2) 82%, black);
+}
+
+.audit-log-hotspot-master-table__risk-chip.is-neutral {
+  border-color: color-mix(in srgb, var(--panel-border) 78%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
+  color: var(--text-secondary);
+}
+
 .audit-log-hotspot-master-table__cell--actions {
   display: flex;
+  justify-content: flex-end;
+}
+
+.audit-log-hotspot-master-table__action-rail {
+  display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.25rem 0.45rem;
   justify-content: flex-end;
 }
 
 .audit-log-hotspot-detail {
+  display: grid;
+  gap: 0.82rem;
   padding: 1rem;
 }
 
-.audit-log-hotspot-detail__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.82rem;
+.audit-log-hotspot-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.audit-log-scheduled-task-ledger--subdued {
-  opacity: 0.96;
+.audit-log-hotspot-detail__header h3,
+.audit-log-hotspot-detail__header p {
+  margin: 0;
+}
+
+.audit-log-hotspot-detail__header h3 {
+  color: var(--text-heading);
+  font-size: 0.92rem;
+}
+
+.audit-log-hotspot-detail__header p {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.audit-log-hotspot-detail__switch {
+  flex-shrink: 0;
+}
+
+.audit-log-slow-span-drilldown,
+.audit-log-slow-trend-drilldown,
+.audit-log-scheduled-task-ledger {
+  display: grid;
+  gap: 0.78rem;
+  min-width: 0;
+  padding-top: 0.82rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+}
+
+.audit-log-slow-span-drilldown__header,
+.audit-log-slow-span-drilldown__title,
+.audit-log-slow-span-drilldown__footer,
+.audit-log-slow-trend-drilldown__header,
+.audit-log-slow-trend-drilldown__title,
+.audit-log-slow-trend-drilldown__actions,
+.audit-log-scheduled-task-ledger__header,
+.audit-log-scheduled-task-ledger__title,
+.audit-log-scheduled-task-ledger__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.audit-log-slow-span-drilldown__header,
+.audit-log-slow-trend-drilldown__header,
+.audit-log-scheduled-task-ledger__header {
+  align-items: flex-start;
+}
+
+.audit-log-slow-span-drilldown__header h3,
+.audit-log-slow-trend-drilldown__header h3,
+.audit-log-scheduled-task-ledger__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.94rem;
+  line-height: 1.3;
+}
+
+.audit-log-slow-span-drilldown__header p,
+.audit-log-slow-trend-drilldown__header p {
+  margin: 0.25rem 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-span-drilldown__header > span,
+.audit-log-slow-trend-drilldown__actions > span,
+.audit-log-scheduled-task-ledger__header > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-slow-span-drilldown__list,
+.audit-log-slow-trend-drilldown__list,
+.audit-log-scheduled-task-ledger__list {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.audit-log-slow-span-drilldown__item,
+.audit-log-slow-trend-drilldown__item,
+.audit-log-scheduled-task-ledger__item {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.78rem 0.84rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+}
+
+.audit-log-slow-span-drilldown__title strong,
+.audit-log-slow-span-drilldown__footer > span,
+.audit-log-slow-trend-drilldown__title strong,
+.audit-log-scheduled-task-ledger__title strong,
+.audit-log-scheduled-task-ledger__footer > span {
+  overflow: hidden;
+  color: var(--text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-slow-span-drilldown__title span,
+.audit-log-scheduled-task-ledger__title span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.62rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.audit-log-slow-span-drilldown__meta,
+.audit-log-slow-trend-drilldown__metrics,
+.audit-log-scheduled-task-ledger__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-log-slow-span-drilldown__meta span,
+.audit-log-slow-trend-drilldown__metrics span,
+.audit-log-scheduled-task-ledger__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0 0.56rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-slow-trend-drilldown__actions {
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.audit-log-slow-trend-drilldown__title span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.62rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.audit-log-slow-trend-drilldown__metrics span.is-primary {
+  border-color: color-mix(in srgb, var(--el-color-primary) 32%, white);
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
+  color: var(--text-secondary);
+}
+
+.audit-log-slow-trend-drilldown__summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.audit-log-slow-trend-drilldown__summary.is-empty {
+  color: var(--text-caption);
+}
+
+.audit-log-scheduled-task-ledger--embedded {
+  margin-top: 0;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  padding: 0.9rem;
+}
+
+@media (max-width: 1120px) {
+  .audit-log-hotspot-master-table__header,
+  .audit-log-hotspot-master-table__row {
+    grid-template-columns:
+      minmax(13.5rem, 1.5fr)
+      minmax(7rem, 0.74fr)
+      minmax(9rem, 0.85fr)
+      minmax(8rem, 0.82fr)
+      minmax(6.5rem, 0.64fr);
+    gap: 0.56rem;
+  }
 }
 
 @media (max-width: 960px) {
-  .audit-log-hotspot-workbench__focus,
-  .audit-log-hotspot-detail__grid {
-    grid-template-columns: 1fr;
-  }
-
   .audit-log-hotspot-workbench__focus {
     flex-direction: column;
+    align-items: flex-start;
   }
 
   .audit-log-hotspot-workbench__focus-meta {
-    justify-items: start;
-    text-align: left;
+    justify-content: flex-start;
+  }
+
+  .audit-log-hotspot-detail__header {
+    flex-direction: column;
+  }
+
+  .audit-log-slow-span-drilldown__header,
+  .audit-log-slow-span-drilldown__title,
+  .audit-log-slow-span-drilldown__footer,
+  .audit-log-slow-trend-drilldown__header,
+  .audit-log-slow-trend-drilldown__title,
+  .audit-log-scheduled-task-ledger__header,
+  .audit-log-scheduled-task-ledger__title,
+  .audit-log-scheduled-task-ledger__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .audit-log-slow-trend-drilldown__actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .audit-log-hotspot-master-table__header {
@@ -541,12 +914,16 @@ const slowTrendWindowLabel = computed(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .audit-log-hotspot-master-table__cell--title,
+  .audit-log-hotspot-master-table__cell--identity,
   .audit-log-hotspot-master-table__cell--actions {
     grid-column: 1 / -1;
   }
 
   .audit-log-hotspot-master-table__cell--actions {
+    justify-content: flex-start;
+  }
+
+  .audit-log-hotspot-master-table__action-rail {
     justify-content: flex-start;
   }
 }

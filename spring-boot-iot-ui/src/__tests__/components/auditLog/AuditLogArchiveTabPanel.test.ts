@@ -70,15 +70,38 @@ function archivePropsFactory() {
     compareStatusOptions: [{ label: '已对齐', value: 'MATCHED' }],
     overviewCards: [
       {
-        key: 'latest',
-        label: '最近异常批次',
-        value: 'iot_message_log-20260426090100',
-        meta: '2026-04-26 09:01:00',
+        key: 'abnormal',
+        label: '异常批次',
+        value: '2',
+        meta: '总批次 4',
         clickable: true,
-        active: true,
-        testId: 'archive-batch-overview-latest'
+        active: false,
+        testId: 'archive-batch-overview-abnormal'
+      },
+      {
+        key: 'drifted',
+        label: '执行偏差总量',
+        value: '308',
+        meta: '已对齐 1',
+        clickable: true,
+        active: false,
+        testId: 'archive-batch-overview-drifted'
+      },
+      {
+        key: 'remaining',
+        label: '剩余过期总量',
+        value: '308',
+        meta: '部分可比 1',
+        clickable: true,
+        active: false,
+        testId: 'archive-batch-overview-remaining'
       }
     ],
+    latestAbnormalFocus: {
+      batchNo: 'iot_message_log-20260426090100',
+      occurredAt: '2026-04-26 09:01:00',
+      active: true
+    },
     activeRow: {
       id: 2,
       batchNo: 'iot_message_log-20260426090100',
@@ -115,7 +138,7 @@ function archivePropsFactory() {
 }
 
 describe('AuditLogArchiveTabPanel', () => {
-  it('renders an archive focus strip and highlights the selected batch row', () => {
+  it('renders three summary metrics and a scan-first archive master table', () => {
     const wrapper = mount(AuditLogArchiveTabPanel, {
       props: archivePropsFactory(),
       global: {
@@ -125,12 +148,40 @@ describe('AuditLogArchiveTabPanel', () => {
       }
     });
 
-    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').text()).toContain(
+    expect(wrapper.findAll('.audit-log-archive-batch-ledger__overview-card')).toHaveLength(3);
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').text()).toContain(
       'iot_message_log-20260426090100'
     );
+    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="archive-batch-master-table"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('归档批次');
+    expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('执行状态');
+    expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('对比结论');
+    expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('风险信号');
+    expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('最近时间');
+    expect(wrapper.find('[data-testid="archive-batch-master-header"]').text()).toContain('操作');
     expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.classes()).toContain('is-selected');
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('iot_message_log');
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('30 天');
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('偏差 308');
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('剩余 308');
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.text()).toContain('截止 2026-03-27 09:00:00');
+  });
+
+  it('emits select-latest-abnormal when choosing the lightweight latest focus entry', async () => {
+    const wrapper = mount(AuditLogArchiveTabPanel, {
+      props: archivePropsFactory(),
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub
+        }
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
+
+    expect(wrapper.emitted('select-latest-abnormal')?.[0]).toEqual([]);
   });
 
   it('emits select-row when choosing a batch from the master table', async () => {

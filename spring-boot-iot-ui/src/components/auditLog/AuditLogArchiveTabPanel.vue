@@ -93,18 +93,6 @@
         <span>{{ rows.length }} / {{ total }}</span>
       </header>
 
-      <section data-testid="archive-governance-focus-strip" class="audit-log-archive-focus-strip">
-        <div class="audit-log-archive-focus-strip__copy">
-          <span>{{ focusEyebrow }}</span>
-          <strong>{{ focusTitle }}</strong>
-          <p>{{ focusSubtitle }}</p>
-        </div>
-        <div class="audit-log-archive-focus-strip__meta">
-          <span>{{ focusMetaPrimary }}</span>
-          <span>{{ focusMetaSecondary }}</span>
-        </div>
-      </section>
-
       <div class="audit-log-archive-batch-ledger__overview">
         <article
           v-for="item in overviewCards"
@@ -126,9 +114,20 @@
         </article>
       </div>
 
-      <div v-if="focusHint" class="audit-log-archive-batch-ledger__focus-hint">
-        {{ focusHint }}
-      </div>
+      <button
+        v-if="latestAbnormalFocus"
+        data-testid="archive-batch-latest-focus"
+        type="button"
+        :class="[
+          'audit-log-archive-batch-ledger__latest-focus',
+          { 'is-active': latestAbnormalFocus.active }
+        ]"
+        @click="emit('select-latest-abnormal')"
+      >
+        <span>最近异常批次</span>
+        <strong>{{ latestAbnormalFocus.batchNo }}</strong>
+        <small>{{ latestAbnormalFocus.occurredAt }}</small>
+      </button>
       <div v-if="overviewLoading" class="audit-log-slow-summary__empty">
         正在汇总异常摘要
       </div>
@@ -142,11 +141,12 @@
         暂无归档批次记录
       </div>
       <section v-else data-testid="archive-batch-master-table" class="audit-log-archive-master-table">
-        <header class="audit-log-archive-master-table__header">
-          <span>批次</span>
+        <header data-testid="archive-batch-master-header" class="audit-log-archive-master-table__header">
+          <span>归档批次</span>
           <span>执行状态</span>
-          <span>确认与执行</span>
-          <span>治理信号</span>
+          <span>对比结论</span>
+          <span>风险信号</span>
+          <span>最近时间</span>
           <span>操作</span>
         </header>
         <article
@@ -160,31 +160,41 @@
           ]"
           @click="emit('select-row', row)"
         >
-          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--title">
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--identity">
             <strong>{{ formatArchiveBatchName(row) }}</strong>
-            <span>{{ formatValue(row.createTime || row.updateTime) }}</span>
+            <span>{{ formatValue(row.sourceTable) }} / {{ formatRetentionDays(row.retentionDays) }}</span>
+            <small>
+              确认 {{ formatCount(row.confirmedExpiredRows) }} / 归档 {{ formatCount(row.archivedRows) }} / 删除
+              {{ formatCount(row.deletedRows) }}
+            </small>
           </div>
-          <div class="audit-log-archive-master-table__cell">
-            <span>{{ formatValue(row.status) }}</span>
-            <span>{{ formatValue(row.compareStatusLabel || formatArchiveBatchCompareStatus(row.compareStatus)) }}</span>
-            <span>{{ formatValue(row.sourceTable) }}</span>
-            <span>{{ formatRetentionDays(row.retentionDays) }}</span>
-            <span>截止 {{ formatValue(row.cutoffAt) }}</span>
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--status">
+            <span :class="['audit-log-archive-master-table__state-chip', resolveArchiveStatusTone(row.status)]">
+              {{ formatValue(row.status) }}
+            </span>
+            <small>{{ resolveArchiveStatusMeta(row) }}</small>
           </div>
-          <div class="audit-log-archive-master-table__cell">
-            <span>确认 {{ formatCount(row.confirmedExpiredRows) }}</span>
-            <span>候选 {{ formatCount(row.candidateRows) }}</span>
-            <span>归档 {{ formatCount(row.archivedRows) }}</span>
-            <span>删除 {{ formatCount(row.deletedRows) }}</span>
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--status">
+            <span
+              :class="[
+                'audit-log-archive-master-table__state-chip',
+                resolveArchiveCompareTone(row.compareStatus)
+              ]"
+            >
+              {{ formatValue(row.compareStatusLabel || formatArchiveBatchCompareStatus(row.compareStatus)) }}
+            </span>
+            <small>{{ resolveArchiveCompareMeta(row.compareStatus) }}</small>
           </div>
-          <div class="audit-log-archive-master-table__cell">
-            <span>确认差值 {{ formatSignedCount(row.deltaConfirmedVsDeleted) }}</span>
-            <span>dry-run 差值 {{ formatSignedCount(row.deltaDryRunVsDeleted) }}</span>
-            <span>剩余过期 {{ formatOptionalCount(row.remainingExpiredRows) }}</span>
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--risk">
+            <strong>偏差 {{ formatSignedCount(row.deltaDryRunVsDeleted) }}</strong>
+            <span>剩余 {{ formatOptionalCount(row.remainingExpiredRows) }}</span>
             <span>报告 {{ formatArchiveBatchPreviewAvailability(row) }}</span>
           </div>
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--recent">
+            <strong>{{ formatValue(row.createTime || row.updateTime) }}</strong>
+            <small>截止 {{ formatValue(row.cutoffAt) }}</small>
+          </div>
           <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--actions">
-            <span>{{ formatArchiveBatchFooter(row) }}</span>
             <StandardButton
               data-testid="archive-batch-open-detail"
               action="view"
@@ -201,7 +211,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 
 interface ArchiveBatchFilters {
   batchNo: string;
@@ -233,6 +242,12 @@ interface ArchiveOverviewCard {
   clickable: boolean;
   active: boolean;
   testId: string;
+}
+
+interface ArchiveLatestAbnormalFocus {
+  batchNo: string;
+  occurredAt: string;
+  active: boolean;
 }
 
 interface ArchiveBatchRow {
@@ -268,11 +283,12 @@ const props = defineProps<{
   errorMessage: string;
   overviewLoading: boolean;
   overviewErrorMessage: string;
-  focusHint: string;
+  focusHint?: string;
   filters: ArchiveBatchFilters;
   statusOptions: ArchiveBatchOption[];
   compareStatusOptions: ArchiveBatchOption[];
   overviewCards: ArchiveOverviewCard[];
+  latestAbnormalFocus?: ArchiveLatestAbnormalFocus | null;
   activeRow: ArchiveBatchRow | null;
   selectedBatchKey: string;
   formatValue: ValueFormatter;
@@ -293,64 +309,58 @@ const emit = defineEmits<{
   (event: 'search'): void;
   (event: 'reset'): void;
   (event: 'select-overview-card', key: string): void;
+  (event: 'select-latest-abnormal'): void;
   (event: 'select-row', row: ArchiveBatchRow): void;
   (event: 'open-detail', row: ArchiveBatchRow): void;
 }>();
 
-const activeOverviewCard = computed(() => props.overviewCards.find((item) => item.active) ?? null);
-
-const focusEyebrow = computed(() => {
-  if (props.activeRow) {
-    return '当前治理对象';
-  }
-  if (activeOverviewCard.value) {
-    return '当前治理焦点';
-  }
-  return '归档治理';
-});
-
-const focusTitle = computed(() => {
-  if (props.activeRow) {
-    return props.formatArchiveBatchName(props.activeRow);
-  }
-  if (activeOverviewCard.value) {
-    return activeOverviewCard.value.label;
-  }
-  return '归档批次台账';
-});
-
-const focusSubtitle = computed(() => {
-  if (props.activeRow) {
-    return [
-      props.formatValue(props.activeRow.status),
-      props.formatValue(
-        props.activeRow.compareStatusLabel || props.formatArchiveBatchCompareStatus(props.activeRow.compareStatus)
-      ),
-      props.formatValue(props.activeRow.sourceTable)
-    ].join(' · ');
-  }
-  if (activeOverviewCard.value) {
-    return `${activeOverviewCard.value.value} · ${activeOverviewCard.value.meta}`;
-  }
-  return '按批次、状态和对比结论排查归档治理执行情况';
-});
-
-const focusMetaPrimary = computed(() => {
-  if (props.activeRow) {
-    return `确认 ${props.formatCount(props.activeRow.confirmedExpiredRows)}`;
-  }
-  return `当前结果 ${props.rows.length} / ${props.total}`;
-});
-
-const focusMetaSecondary = computed(() => {
-  if (props.activeRow) {
-    return `剩余过期 ${props.formatOptionalCount(props.activeRow.remainingExpiredRows)}`;
-  }
-  return props.focusHint || '详情抽屉继续承接批次对比和确认报告';
-});
-
 const buildArchiveBatchKey = (row?: Partial<ArchiveBatchRow> | null) =>
   String(row?.batchNo || row?.id || row?.createTime || '');
+
+const resolveArchiveStatusTone = (status?: string | null) => {
+  if (status === 'FAILED' || status === 'FAILURE') {
+    return 'is-danger';
+  }
+  if (status === 'PARTIAL' || status === 'RUNNING') {
+    return 'is-warning';
+  }
+  if (status === 'SUCCEEDED' || status === 'SUCCESS') {
+    return 'is-success';
+  }
+  return 'is-neutral';
+};
+
+const resolveArchiveCompareTone = (status?: string | null) => {
+  if (status === 'DRIFTED') {
+    return 'is-danger';
+  }
+  if (status === 'PARTIAL' || status === 'UNAVAILABLE') {
+    return 'is-warning';
+  }
+  if (status === 'MATCHED') {
+    return 'is-success';
+  }
+  return 'is-neutral';
+};
+
+const resolveArchiveStatusMeta = (row: ArchiveBatchRow) =>
+  row.failedReason ? props.formatValue(row.failedReason) : `更新 ${props.formatValue(row.updateTime)}`;
+
+const resolveArchiveCompareMeta = (status?: string | null) => {
+  if (status === 'DRIFTED') {
+    return '需要复核';
+  }
+  if (status === 'PARTIAL') {
+    return '部分可比';
+  }
+  if (status === 'UNAVAILABLE') {
+    return '报告缺口';
+  }
+  if (status === 'MATCHED') {
+    return '结果稳定';
+  }
+  return '待判断';
+};
 
 function handleFilterInput(field: Extract<ArchiveFilterField, 'batchNo' | 'dateFrom' | 'dateTo'>, event: Event) {
   emit('update-filter', {
@@ -375,59 +385,177 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 </script>
 
 <style scoped>
-.audit-log-archive-focus-strip {
+.audit-log-archive-batch-ledger {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.audit-log-archive-batch-ledger__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(255, 248, 240, 0.9), rgba(255, 255, 255, 0.98));
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.audit-log-archive-focus-strip__copy {
+.audit-log-archive-batch-ledger__header-main {
+  flex: 1;
+  min-width: 18rem;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+  gap: 0.9rem;
 }
 
-.audit-log-archive-focus-strip__copy > span,
-.audit-log-archive-focus-strip__meta > span,
+.audit-log-archive-batch-ledger__header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.audit-log-archive-batch-ledger__header > span {
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-archive-batch-ledger__filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.audit-log-archive-batch-ledger__filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.audit-log-archive-batch-ledger__filter-field span {
+  color: var(--el-text-color-secondary);
+  font-size: 0.82rem;
+}
+
+.audit-log-archive-batch-ledger__filter-field input,
+.audit-log-archive-batch-ledger__filter-field select {
+  width: 100%;
+  min-height: 2.35rem;
+  border: 1px solid var(--el-border-color);
+  border-radius: 0.56rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+.audit-log-archive-batch-ledger__filter-field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.35rem;
+}
+
+.audit-log-archive-batch-ledger__filter-field--checkbox input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.audit-log-archive-batch-ledger__filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.audit-log-archive-batch-ledger__overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.audit-log-archive-batch-ledger__overview-card {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-clickable {
+  cursor: pointer;
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-clickable:hover,
+.audit-log-archive-batch-ledger__overview-card.is-clickable:focus-visible {
+  border-color: color-mix(in srgb, var(--el-color-primary) 42%, var(--panel-border));
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 80%, var(--panel-bg));
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-clickable:focus-visible {
+  outline: none;
+}
+
+.audit-log-archive-batch-ledger__overview-card.is-active {
+  border-color: color-mix(in srgb, var(--el-color-primary) 52%, var(--panel-border));
+  background: color-mix(in srgb, var(--el-color-primary-light-9) 88%, var(--panel-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 18%, transparent);
+}
+
+.audit-log-archive-batch-ledger__overview-card span,
+.audit-log-archive-batch-ledger__overview-card p {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 0.78rem;
+}
+
+.audit-log-archive-batch-ledger__overview-card strong {
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-archive-batch-ledger__latest-focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--el-bg-color) 92%, white);
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+}
+
+.audit-log-archive-batch-ledger__latest-focus.is-active {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+.audit-log-archive-batch-ledger__latest-focus strong {
+  color: inherit;
+  font-size: 13px;
+}
+
+.audit-log-archive-batch-ledger__latest-focus small,
 .audit-log-archive-master-table__cell span,
+.audit-log-archive-master-table__cell small,
 .audit-log-archive-master-table__header span {
   color: var(--el-text-color-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.audit-log-archive-focus-strip__copy strong,
 .audit-log-archive-master-table__cell strong {
   color: var(--el-text-color-primary);
   font-size: 15px;
   line-height: 1.5;
-}
-
-.audit-log-archive-focus-strip__copy p {
-  margin: 0;
-  color: var(--el-text-color-regular);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.audit-log-archive-focus-strip__meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  max-width: 40%;
-}
-
-.audit-log-archive-focus-strip__meta > span {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
 }
 
 .audit-log-archive-master-table {
@@ -439,7 +567,13 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-master-table__header,
 .audit-log-archive-master-table__row {
   display: grid;
-  grid-template-columns: minmax(210px, 1.4fr) minmax(220px, 1.15fr) minmax(220px, 1fr) minmax(220px, 1fr) minmax(140px, 0.85fr);
+  grid-template-columns:
+    minmax(220px, 1.7fr)
+    minmax(96px, 0.78fr)
+    minmax(96px, 0.8fr)
+    minmax(148px, 0.95fr)
+    minmax(132px, 0.88fr)
+    minmax(74px, 0.58fr);
   gap: 14px;
   align-items: start;
 }
@@ -449,6 +583,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 }
 
 .audit-log-archive-master-table__row {
+  min-height: 76px;
   padding: 14px 16px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 10px;
@@ -474,22 +609,106 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   min-width: 0;
 }
 
-.audit-log-archive-master-table__cell--actions {
-  align-items: flex-start;
+.audit-log-archive-master-table__cell--identity strong,
+.audit-log-archive-master-table__cell--risk strong,
+.audit-log-archive-master-table__cell--recent strong {
+  font-size: 14px;
 }
 
-@media (max-width: 1200px) {
-  .audit-log-archive-focus-strip {
-    flex-direction: column;
+.audit-log-archive-master-table__state-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--el-bg-color) 92%, white);
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.audit-log-archive-master-table__state-chip.is-danger {
+  border-color: color-mix(in srgb, var(--el-color-danger) 40%, white);
+  background: color-mix(in srgb, var(--el-color-danger-light-9) 88%, white);
+  color: var(--el-color-danger-dark-2);
+}
+
+.audit-log-archive-master-table__state-chip.is-warning {
+  border-color: color-mix(in srgb, var(--el-color-warning) 44%, white);
+  background: color-mix(in srgb, var(--el-color-warning-light-9) 88%, white);
+  color: color-mix(in srgb, var(--el-color-warning-dark-2) 82%, black);
+}
+
+.audit-log-archive-master-table__state-chip.is-success {
+  border-color: color-mix(in srgb, var(--el-color-success) 40%, white);
+  background: color-mix(in srgb, var(--el-color-success-light-9) 88%, white);
+  color: var(--el-color-success-dark-2);
+}
+
+.audit-log-archive-master-table__state-chip.is-neutral {
+  border-color: var(--el-border-color-lighter);
+  background: color-mix(in srgb, var(--el-bg-color) 92%, white);
+  color: var(--el-text-color-secondary);
+}
+
+.audit-log-archive-master-table__cell--actions {
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (max-width: 1280px) {
+  .audit-log-archive-batch-ledger__filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .audit-log-archive-focus-strip__meta {
-    max-width: none;
-    justify-content: flex-start;
+  .audit-log-archive-batch-ledger__overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .audit-log-archive-batch-ledger__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .audit-log-archive-batch-ledger__header > span {
+    align-self: flex-start;
+  }
+
+  .audit-log-archive-batch-ledger__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audit-log-archive-batch-ledger__overview {
+    grid-template-columns: 1fr;
   }
 
   .audit-log-archive-master-table__header {
     display: none;
+  }
+
+  .audit-log-archive-master-table__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audit-log-archive-master-table__cell--identity,
+  .audit-log-archive-master-table__cell--risk,
+  .audit-log-archive-master-table__cell--actions {
+    grid-column: 1 / -1;
+  }
+
+  .audit-log-archive-master-table__cell--actions {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .audit-log-archive-batch-ledger__filters {
+    grid-template-columns: 1fr;
   }
 
   .audit-log-archive-master-table__row {

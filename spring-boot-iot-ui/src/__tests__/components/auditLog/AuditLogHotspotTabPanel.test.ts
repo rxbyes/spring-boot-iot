@@ -20,7 +20,7 @@ const StandardChoiceGroupStub = defineComponent({
         v-for="option in options"
         :key="option.value"
         type="button"
-        :data-testid="\`slow-trend-window-\${option.value}\`"
+        :data-testid="['24h', '7d'].includes(option.value) ? \`slow-trend-window-\${option.value}\` : \`hotspot-drilldown-\${option.value}\`"
         @click="$emit('update:modelValue', option.value)"
       >
         {{ option.label }}
@@ -118,6 +118,12 @@ function hotspotPropsFactory() {
       }
     ],
     slowTrendErrorMessage: '',
+    hotspotDrilldownView: 'samples',
+    hotspotDrilldownOptions: [
+      { label: '最近样本', value: 'samples' },
+      { label: '趋势', value: 'trends' },
+      { label: '相关任务', value: 'tasks' }
+    ],
     slowTrendWindow: '24h',
     slowTrendWindowOptions: [
       { label: '最近 24 小时', value: '24h' },
@@ -148,7 +154,7 @@ function hotspotPropsFactory() {
 }
 
 describe('AuditLogHotspotTabPanel', () => {
-  it('renders a hotspot focus strip and highlights the selected hotspot row', () => {
+  it('renders a hotspot focus strip and a five-column scan-first master table', () => {
     const wrapper = mount(AuditLogHotspotTabPanel, {
       props: hotspotPropsFactory(),
       global: {
@@ -162,7 +168,17 @@ describe('AuditLogHotspotTabPanel', () => {
     expect(wrapper.find('[data-testid="hotspot-focus-strip"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="hotspot-focus-strip"]').text()).toContain('trace-hotspot-001');
     expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('热点对象');
+    expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('风险状态');
+    expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('性能信号');
+    expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('最近情况');
+    expect(wrapper.find('[data-testid="hotspot-master-header"]').text()).toContain('操作');
     expect(wrapper.find('[data-testid="hotspot-master-row"]').classes()).toContain('is-selected');
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('GET /api/system/observability/spans/page');
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('trace-hotspot-001');
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('P峰 1632 ms');
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('均值 982 ms');
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').text()).toContain('5 次');
   });
 
   it('emits select-slow-summary when choosing a hotspot row from the master table', async () => {
@@ -184,7 +200,7 @@ describe('AuditLogHotspotTabPanel', () => {
     });
   });
 
-  it('shows slow-summary and scheduled-task sections, but not the system error list', () => {
+  it('shows the hotspot workbench shell without rendering scheduled tasks or the system error list by default', () => {
     const wrapper = mount(AuditLogHotspotTabPanel, {
       props: hotspotPropsFactory(),
       global: {
@@ -197,8 +213,29 @@ describe('AuditLogHotspotTabPanel', () => {
 
     expect(wrapper.find('[data-testid="system-log-hotspot-panel"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('性能慢点 Top');
-    expect(wrapper.text()).toContain('调度任务台账');
+    expect(wrapper.find('[data-testid="hotspot-drilldown-switch"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('调度任务台账');
     expect(wrapper.text()).not.toContain('异常摘要');
+  });
+
+  it('defaults to recent samples and only shows scheduled tasks after switching to the related-task segment', async () => {
+    const wrapper = mount(AuditLogHotspotTabPanel, {
+      props: hotspotPropsFactory(),
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          StandardChoiceGroup: StandardChoiceGroupStub
+        }
+      }
+    });
+
+    expect(wrapper.find('[data-testid="hotspot-drilldown-switch"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('最近样本');
+    expect(wrapper.text()).not.toContain('调度任务台账');
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+
+    expect(wrapper.emitted('change-hotspot-drilldown-view')?.[0]).toEqual(['tasks']);
   });
 
   it('emits hotspot interactions for evidence, drilldown, trend, and trend window changes', async () => {
@@ -220,9 +257,13 @@ describe('AuditLogHotspotTabPanel', () => {
     const spanEvidenceButton = wrapper.find('.audit-log-slow-span-drilldown__item').find('button');
     await spanEvidenceButton.trigger('click');
 
+    await wrapper.setProps({ hotspotDrilldownView: 'trends' });
+    await wrapper.get('[data-testid="slow-trend-window-7d"]').trigger('click');
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await wrapper.setProps({ hotspotDrilldownView: 'tasks' });
     const taskEvidenceButton = wrapper.find('.audit-log-scheduled-task-ledger__item').find('button');
     await taskEvidenceButton.trigger('click');
-    await wrapper.get('[data-testid="slow-trend-window-7d"]').trigger('click');
 
     expect(wrapper.emitted('open-trace-evidence')?.[0]).toEqual(['trace-hotspot-001']);
     expect(wrapper.emitted('open-slow-span-detail')?.[0]?.[0]).toMatchObject({ latestTraceId: 'trace-hotspot-001' });
@@ -232,6 +273,11 @@ describe('AuditLogHotspotTabPanel', () => {
     ]);
     expect(wrapper.emitted('open-trace-evidence')?.[1]).toEqual(['trace-span-001']);
     expect(wrapper.emitted('open-trace-evidence')?.[2]).toEqual(['trace-task-001']);
+    expect(wrapper.emitted('change-hotspot-drilldown-view')).toEqual([
+      ['samples'],
+      ['trends'],
+      ['tasks']
+    ]);
     expect(wrapper.emitted('change-slow-trend-window')?.[0]).toEqual(['7d']);
   });
 

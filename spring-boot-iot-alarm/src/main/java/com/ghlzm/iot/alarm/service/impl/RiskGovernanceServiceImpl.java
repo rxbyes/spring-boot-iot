@@ -8,6 +8,7 @@ import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
 import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
 import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
+import com.ghlzm.iot.alarm.entity.RiskPointDeviceCapabilityBinding;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.EmergencyPlanMapper;
@@ -15,6 +16,7 @@ import com.ghlzm.iot.alarm.mapper.LinkageRuleMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricEmergencyPlanBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricCatalogMapper;
 import com.ghlzm.iot.alarm.mapper.RiskMetricLinkageBindingMapper;
+import com.ghlzm.iot.alarm.mapper.RiskPointDeviceCapabilityBindingMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointDeviceMapper;
 import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
@@ -86,6 +88,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
+    private RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
 
     RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                               RiskPointMapper riskPointMapper,
@@ -152,6 +155,11 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.productContractReleaseSnapshotMapper = productContractReleaseSnapshotMapper;
     }
 
+    @Autowired(required = false)
+    void setRiskPointDeviceCapabilityBindingMapper(RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper) {
+        this.capabilityBindingMapper = capabilityBindingMapper;
+    }
+
     @Override
     public PageResult<RiskGovernanceGapItemVO> listMissingBindings(RiskGovernanceGapQuery query) {
         long pageNum = normalizePageNum(query);
@@ -161,6 +169,14 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .stream()
                 .map(RiskPointDevice::getDeviceId)
                 .collect(Collectors.toSet());
+        if (capabilityBindingMapper != null) {
+            capabilityBindingMapper.selectList(new LambdaQueryWrapper<RiskPointDeviceCapabilityBinding>()
+                            .eq(RiskPointDeviceCapabilityBinding::getDeleted, 0))
+                    .stream()
+                    .map(RiskPointDeviceCapabilityBinding::getDeviceId)
+                    .filter(Objects::nonNull)
+                    .forEach(boundDeviceIds::add);
+        }
 
         List<RiskGovernanceGapItemVO> items = deviceMapper.selectList(new LambdaQueryWrapper<Device>()
                         .eq(Device::getDeleted, 0)

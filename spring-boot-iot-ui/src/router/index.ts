@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { usePermissionStore } from '../stores/permission';
 import { getRouteMetaPreset } from '../utils/sectionWorkspaces';
+import { handleDynamicImportRouteError } from './dynamicImportRecovery';
 import { appScrollBehavior } from './scrollBehavior';
 
 function routeMeta(path: string, overrides: Record<string, unknown> = {}) {
@@ -415,6 +416,10 @@ router.beforeEach(async (to) => {
 router.afterEach((to) => {
   const title = String(to.meta.title || '平台首页');
   document.title = `${title} | 监测预警平台`;
+});
+
+router.onError((error) => {
+  handleDynamicImportRouteError(error);
 });
 
 export default router;

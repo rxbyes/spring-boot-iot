@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <StandardPageShell class="page-stack audit-log-view" :show-title="false">
     <StandardWorkbenchPanel
       :title="panelTitle"
@@ -30,7 +30,7 @@
               />
             </el-form-item>
             <el-form-item v-if="isBusinessMode">
-              <el-select v-model="searchForm.operationType" placeholder="操作类型" clearable>
+              <el-select v-model="searchForm.operationType" placeholder="鎿嶄綔绫诲瀷" clearable>
                 <el-option
                   v-for="item in businessOperationTypeOptions"
                   :key="item.value"
@@ -42,19 +42,19 @@
             <el-form-item>
               <el-input
                 v-model="searchForm.operationModule"
-                :placeholder="isSystemMode ? '异常模块' : '操作模块'"
+                :placeholder="isSystemMode ? '寮傚父妯″潡' : '鎿嶄綔妯″潡'"
                 clearable
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.operationResult" placeholder="操作结果" clearable>
-                <el-option label="成功" :value="1" />
-                <el-option label="失败" :value="0" />
+              <el-select v-model="searchForm.operationResult" placeholder="鎿嶄綔缁撴灉" clearable>
+                <el-option label="鎴愬姛" :value="1" />
+                <el-option label="澶辫触" :value="0" />
               </el-select>
             </el-form-item>
             <el-form-item v-if="isSystemMode">
-              <el-select v-model="searchForm.requestMethod" :placeholder="isSystemMode ? '请求通道' : '请求方法'" clearable>
+              <el-select v-model="searchForm.requestMethod" :placeholder="isSystemMode ? '璇锋眰閫氶亾' : '璇锋眰鏂规硶'" clearable>
                 <el-option
                   v-for="item in systemRequestMethodOptions"
                   :key="item.value"
@@ -76,7 +76,7 @@
             <el-form-item v-if="isSystemMode">
               <el-input
                 v-model="searchForm.requestUrl"
-                placeholder="目标 / URL"
+                placeholder="鐩爣 / URL"
                 clearable
                 @keyup.enter="handleSearch"
               />
@@ -85,7 +85,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.deviceCode"
-                  placeholder="设备编码"
+                  placeholder="璁惧缂栫爜"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -93,7 +93,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.productKey"
-                  placeholder="产品标识"
+                  placeholder="浜у搧鏍囪瘑"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -101,7 +101,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.errorCode"
-                  placeholder="异常编码"
+                  placeholder="寮傚父缂栫爜"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -109,7 +109,7 @@
               <el-form-item>
                 <el-input
                   v-model="searchForm.exceptionClass"
-                  placeholder="异常类型"
+                  placeholder="寮傚父绫诲瀷"
                   clearable
                   @keyup.enter="handleSearch"
                 />
@@ -117,13 +117,13 @@
             </template>
           </template>
           <template #actions>
-            <StandardButton action="query" @click="handleSearch">查询</StandardButton>
-            <StandardButton action="reset" @click="handleReset">重置</StandardButton>
+            <StandardButton action="query" @click="handleSearch">鏌ヨ</StandardButton>
+            <StandardButton action="reset" @click="handleReset">閲嶇疆</StandardButton>
           </template>
         </StandardListFilterHeader>
         <div v-if="appliedQuickSearchValue" class="audit-log-quick-search-tag">
           <el-tag closable class="audit-log-quick-search-tag__chip" @close="handleClearQuickSearch">
-            快速搜索：{{ appliedQuickSearchValue }}
+            蹇€熸悳绱細{{ appliedQuickSearchValue }}
           </el-tag>
         </div>
       </template>
@@ -139,40 +139,46 @@
       <template v-if="isBusinessMode" #toolbar>
         <StandardTableToolbar
           compact
-          :meta-items="[
-            `已选 ${selectedRows.length} 项`,
-            isSystemMode ? `异常 ${systemStats.total}` : `审计 ${businessStats.total}`,
-            isSystemMode
-              ? `今日 ${systemStats.todayCount}`
-              : `成功 ${businessStats.successCount}`,
-            isSystemMode
-              ? `链路 ${systemStats.distinctTraceCount}`
-              : `失败 ${businessStats.failureCount}`
-          ]"
+          :meta-items="businessToolbarMetaItems"
         >
           <template #right>
-            <StandardButton action="refresh" link @click="handleRefresh">刷新列表</StandardButton>
+            <StandardButton action="refresh" link @click="handleRefresh">鍒锋柊鍒楄〃</StandardButton>
             <StandardActionMenu
-              label="更多操作"
+              label="鏇村鎿嶄綔"
               :items="auditToolbarActions"
               @command="handleToolbarAction"
             />
           </template>
         </StandardTableToolbar>
       </template>
-
       <div v-if="isSystemMode" class="audit-log-system-workbench">
-        <StandardTableToolbar compact :meta-items="systemToolbarMetaItems">
-          <template #right>
-            <StandardButton action="refresh" link @click="handleSystemTabRefresh">刷新列表</StandardButton>
+        <section class="audit-log-system-header standard-list-surface">
+          <div class="audit-log-system-header__summary">
+            <article
+              v-for="item in systemWorkbenchSummaryCards"
+              :key="item.key"
+              class="audit-log-system-header__summary-card"
+              :class="[
+                `audit-log-system-header__summary-card--${item.tone}`,
+                { 'audit-log-system-header__summary-card--emphasis': item.emphasis }
+              ]"
+              :data-testid="`system-log-summary-${item.key}`"
+            >
+              <span class="audit-log-system-header__summary-label">{{ item.label }}</span>
+              <strong class="audit-log-system-header__summary-value">{{ item.value }}</strong>
+              <span class="audit-log-system-header__summary-meta">{{ item.meta }}</span>
+            </article>
+          </div>
+          <div class="audit-log-system-header__actions">
+            <StandardButton action="refresh" link @click="handleSystemTabRefresh">鍒锋柊鍒楄〃</StandardButton>
             <StandardActionMenu
               v-if="activeSystemLogTab === 'errors'"
-              label="更多操作"
+              label="鏇村鎿嶄綔"
               :items="auditToolbarActions"
               @command="handleToolbarAction"
             />
-          </template>
-        </StandardTableToolbar>
+          </div>
+        </section>
 
         <div>
           <IotAccessTabWorkspace
@@ -181,7 +187,15 @@
             default-key="errors"
             query-key="systemLogTab"
             :sync-query="false"
+            variant="workbench"
             @update:model-value="handleSystemLogTabChange"
+          >
+
+
+
+
+
+
           >
             <template #default="{ activeKey }">
               <AuditLogErrorTabPanel
@@ -199,9 +213,9 @@
                 :cluster-loading="clusterLoading"
                 :cluster-error-message="clusterErrorMessage"
                 :cluster-rows="clusterRows"
-                :selected-cluster-key="selectedClusterKey"
-                :selected-cluster="selectedCluster"
-                :detail-cluster-mode="detailClusterMode"
+                :error-view-mode="errorViewMode"
+                :cluster-context-summary="clusterContextSummary"
+                :can-return-to-cluster-results="canReturnToClusterResults"
                 :loading="loading"
                 :table-data="tableData"
                 :pagination="pagination"
@@ -219,8 +233,12 @@
                 @toggle-advanced="toggleAdvancedFilters"
                 @clear-applied-filters="handleClearAppliedFilters"
                 @remove-applied-filter="handleRemoveAppliedFilter"
-                @select-cluster="handleSystemErrorClusterSelect"
-                @collapse-cluster="handleSystemErrorClusterCollapse"
+                @open-clusters="handleOpenSystemErrorClusters"
+                @return-to-details="handleReturnToSystemErrorDetails"
+                @retry-clusters="handleRetrySystemErrorClusters"
+                @apply-cluster="handleSystemErrorClusterApply"
+                @clear-cluster-refiner="handleClearSystemErrorClusterRefiner"
+                @return-to-clusters="handleReturnToSystemErrorClusters"
                 @selection-change="handleSelectionChange"
                 @audit-row-action="handleAuditPanelRowAction"
                 @size-change="handleSizeChange"
@@ -244,6 +262,8 @@
                 :slow-span-error-message="slowSpanErrorMessage"
                 :active-slow-trend-summary="resolvedActiveSlowTrendSummary"
                 :selected-slow-summary-key="selectedSlowSummaryKey"
+                :hotspot-drilldown-view="hotspotDrilldownView"
+                :hotspot-drilldown-options="hotspotDrilldownOptions"
                 :slow-trend-loading="slowTrendLoading"
                 :slow-trend-rows="slowTrendRows"
                 :slow-trend-error-message="slowTrendErrorMessage"
@@ -259,6 +279,7 @@
                 :format-scheduled-task-name="formatScheduledTaskName"
                 :format-scheduled-task-trigger="formatScheduledTaskTrigger"
                 @select-slow-summary="handleSlowSummarySelect"
+                @change-hotspot-drilldown-view="handleHotspotDrilldownViewChange"
                 @open-trace-evidence="openTraceEvidenceByTraceId"
                 @open-slow-span-detail="loadSlowSpanDrilldown"
                 @open-slow-trend="loadSlowTrendDrilldown"
@@ -273,11 +294,11 @@
                 :error-message="messageArchiveBatchErrorMessage"
                 :overview-loading="messageArchiveBatchOverviewLoading"
                 :overview-error-message="messageArchiveBatchOverviewErrorMessage"
-                :focus-hint="messageArchiveBatchFocusHint"
                 :filters="messageArchiveBatchFilters"
                 :status-options="messageArchiveBatchStatusOptions"
                 :compare-status-options="messageArchiveBatchCompareStatusOptions"
                 :overview-cards="messageArchiveBatchOverviewCards"
+                :latest-abnormal-focus="messageArchiveBatchLatestFocus"
                 :active-row="selectedMessageArchiveBatchRow"
                 :selected-batch-key="selectedMessageArchiveBatchKey"
                 :format-value="formatValue"
@@ -295,6 +316,7 @@
                 @search="handleMessageArchiveBatchSearch"
                 @reset="resetMessageArchiveBatchFilters"
                 @select-overview-card="handleMessageArchiveBatchOverviewClick"
+                @select-latest-abnormal="handleMessageArchiveBatchLatestFocus"
                 @select-row="handleMessageArchiveBatchRowSelect"
                 @open-detail="openMessageArchiveBatchDetail"
               />
@@ -307,7 +329,7 @@
         <div
           v-loading="loading"
           class="audit-log-table-wrap standard-list-surface"
-          element-loading-text="正在刷新审计列表"
+          element-loading-text="姝ｅ湪鍒锋柊瀹¤鍒楄〃"
           element-loading-background="var(--loading-mask-bg)"
         >
           <div v-if="tableData.length > 0" class="audit-log-mobile-list standard-mobile-record-list">
@@ -345,31 +367,31 @@
 
                 <div class="audit-log-mobile-card__info">
                   <div class="audit-log-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">操作模块</span>
+                    <span class="standard-mobile-record-card__field-label">鎿嶄綔妯″潡</span>
                     <strong class="standard-mobile-record-card__field-value">
                       {{ formatValue(row.operationModule) }}
                     </strong>
                   </div>
                   <div class="audit-log-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">操作方法</span>
+                    <span class="standard-mobile-record-card__field-label">鎿嶄綔鏂规硶</span>
                     <strong class="standard-mobile-record-card__field-value">
                       {{ formatValue(row.operationMethod) }}
                     </strong>
                   </div>
                   <div class="audit-log-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">操作时间</span>
+                    <span class="standard-mobile-record-card__field-label">鎿嶄綔鏃堕棿</span>
                     <strong class="standard-mobile-record-card__field-value">
                       {{ formatValue(row.operationTime) }}
                     </strong>
                   </div>
                   <div class="audit-log-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">操作结果</span>
+                    <span class="standard-mobile-record-card__field-label">鎿嶄綔缁撴灉</span>
                     <strong class="standard-mobile-record-card__field-value">
                       {{ getOperationResultName(row.operationResult) }}
                     </strong>
                   </div>
                   <div class="audit-log-mobile-card__field audit-log-mobile-card__field--full">
-                    <span class="standard-mobile-record-card__field-label">请求目标</span>
+                    <span class="standard-mobile-record-card__field-label">璇锋眰鐩爣</span>
                     <strong class="standard-mobile-record-card__field-value">
                       {{ formatValue(row.requestUrl) }}
                     </strong>
@@ -395,21 +417,21 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <el-table-column prop="operationType" label="操作类型" width="100">
+            <el-table-column prop="operationType" label="鎿嶄綔绫诲瀷" width="100">
               <template #default="{ row }">
                 <el-tag :type="getOperationTypeTag(row.operationType)">
                   {{ getOperationTypeName(row.operationType) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <StandardTableTextColumn prop="operationModule" label="操作模块" :width="150" />
-            <StandardTableTextColumn prop="operationMethod" label="操作方法" :min-width="180" />
-            <StandardTableTextColumn prop="requestUrl" label="请求URL/目标" :min-width="220" />
-            <el-table-column prop="requestMethod" label="请求方法/通道" width="120" />
-            <StandardTableTextColumn prop="userName" label="操作用户" :width="120" />
-            <StandardTableTextColumn prop="ipAddress" label="操作IP" :width="150" />
-            <StandardTableTextColumn prop="operationTime" label="操作时间" :width="180" />
-            <el-table-column prop="operationResult" label="操作结果" width="100">
+            <StandardTableTextColumn prop="operationModule" label="鎿嶄綔妯″潡" :width="150" />
+            <StandardTableTextColumn prop="operationMethod" label="鎿嶄綔鏂规硶" :min-width="180" />
+            <StandardTableTextColumn prop="requestUrl" label="璇锋眰URL/鐩爣" :min-width="220" />
+            <el-table-column prop="requestMethod" label="璇锋眰鏂规硶/閫氶亾" width="120" />
+            <StandardTableTextColumn prop="userName" label="鎿嶄綔鐢ㄦ埛" :width="120" />
+            <StandardTableTextColumn prop="ipAddress" label="鎿嶄綔IP" :width="150" />
+            <StandardTableTextColumn prop="operationTime" label="鎿嶄綔鏃堕棿" :width="180" />
+            <el-table-column prop="operationResult" label="鎿嶄綔缁撴灉" width="100">
               <template #default="{ row }">
                 <el-tag :type="getOperationResultTag(row.operationResult)" round>
                   {{ getOperationResultName(row.operationResult) }}
@@ -417,7 +439,7 @@
               </template>
             </el-table-column>
             <el-table-column
-              label="操作"
+              label="鎿嶄綔"
               :width="auditActionColumnWidth"
               fixed="right"
               class-name="standard-row-actions-column"
@@ -523,9 +545,9 @@
         <section class="observability-evidence-split">
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>业务事件</h3>
+              <h3>涓氬姟浜嬩欢</h3>
             </header>
-            <div v-if="evidenceBusinessEvents.length === 0" class="observability-evidence-empty">暂无业务事件</div>
+            <div v-if="evidenceBusinessEvents.length === 0" class="observability-evidence-empty">鏆傛棤涓氬姟浜嬩欢</div>
             <div
               v-for="event in evidenceBusinessEvents"
               :key="`event-${event.id || event.eventCode}`"
@@ -533,15 +555,15 @@
             >
               <strong>{{ formatValue(event.eventCode) }}</strong>
               <span>{{ formatValue(event.eventName) }}</span>
-              <small>{{ formatValue(event.domainCode) }} · {{ formatValue(event.resultStatus) }}</small>
+              <small>{{ formatValue(event.domainCode) }} 路 {{ formatValue(event.resultStatus) }}</small>
             </div>
           </article>
 
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>调用片段</h3>
+              <h3>璋冪敤鐗囨</h3>
             </header>
-            <div v-if="evidenceSpans.length === 0" class="observability-evidence-empty">暂无调用片段</div>
+            <div v-if="evidenceSpans.length === 0" class="observability-evidence-empty">鏆傛棤璋冪敤鐗囨</div>
             <div
               v-for="span in evidenceSpans"
               :key="`span-${span.id || span.spanType}`"
@@ -549,7 +571,7 @@
             >
               <strong>{{ formatValue(span.spanType) }}</strong>
               <span>{{ formatValue(span.spanName) }}</span>
-              <small>{{ formatDuration(span.durationMs) }} · {{ formatValue(span.status) }}</small>
+              <small>{{ formatDuration(span.durationMs) }} 路 {{ formatValue(span.status) }}</small>
             </div>
           </article>
         </section>
@@ -558,16 +580,16 @@
 
     <StandardDetailDrawer
       v-model="messageArchiveBatchDrawerVisible"
-      title="归档批次详情"
+      title="褰掓。鎵规璇︽儏"
       :subtitle="messageArchiveBatchDrawerSubtitle"
       :empty="!activeMessageArchiveBatch"
-      empty-text="当前未选择归档批次"
+      empty-text="褰撳墠鏈€夋嫨褰掓。鎵规"
       size="56rem"
       tag-layout="title-inline"
       :tags="messageArchiveBatchDrawerTags"
     >
       <div class="observability-archive-batch-drawer">
-        <section class="observability-evidence-summary" aria-label="归档批次摘要">
+        <section class="observability-evidence-summary" aria-label="褰掓。鎵规鎽樿">
           <div
             v-for="item in messageArchiveBatchSummaryCards"
             :key="item.label"
@@ -581,7 +603,7 @@
         <section class="observability-evidence-split">
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>批次结果</h3>
+              <h3>鎵规缁撴灉</h3>
             </header>
             <dl class="observability-archive-batch-kv">
               <div
@@ -597,7 +619,7 @@
 
           <article class="observability-evidence-section">
             <header class="observability-evidence-section__header">
-              <h3>确认报告</h3>
+              <h3>纭鎶ュ憡</h3>
             </header>
             <dl class="observability-archive-batch-kv">
               <div
@@ -614,10 +636,10 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
-            <h3>附加产物</h3>
+            <h3>闄勫姞浜х墿</h3>
           </header>
           <div v-if="messageArchiveBatchArtifacts.length === 0" class="observability-evidence-empty">
-            暂无附加产物
+            鏆傛棤闄勫姞浜х墿
           </div>
           <dl v-else class="observability-archive-batch-kv">
             <div
@@ -633,16 +655,16 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
-            <h3>批次对比</h3>
+            <h3>鎵规瀵规瘮</h3>
           </header>
           <div v-if="messageArchiveBatchCompareLoading" class="observability-evidence-empty">
-            正在加载批次对比
+            姝ｅ湪鍔犺浇鎵规瀵规瘮
           </div>
           <div v-else-if="messageArchiveBatchCompareErrorMessage" class="observability-evidence-empty">
             {{ messageArchiveBatchCompareErrorMessage }}
           </div>
           <div v-else-if="!activeMessageArchiveBatchCompare" class="observability-evidence-empty">
-            暂无批次对比
+            鏆傛棤鎵规瀵规瘮
           </div>
           <div v-else class="observability-archive-batch-compare">
             <article
@@ -682,7 +704,7 @@
             </div>
 
             <div v-if="messageArchiveBatchCompareTableComparisons.length === 0" class="observability-evidence-empty">
-              暂无分表对比
+              鏆傛棤鍒嗚〃瀵规瘮
             </div>
             <div v-else class="observability-archive-batch-compare__tables">
               <article
@@ -699,14 +721,14 @@
                   <span>{{ formatArchiveBatchCompareRowStatus(item.matched) }}</span>
                 </div>
                 <div class="observability-archive-batch-compare__table-metrics">
-                  <span>dry-run 过期 {{ formatOptionalCount(item.dryRunExpiredRows) }}</span>
-                  <span>apply 归档 {{ formatOptionalCount(item.applyArchivedRows) }}</span>
-                  <span>apply 删除 {{ formatOptionalCount(item.applyDeletedRows) }}</span>
-                  <span>剩余 {{ formatOptionalCount(item.applyRemainingExpiredRows) }}</span>
+                  <span>dry-run 杩囨湡 {{ formatOptionalCount(item.dryRunExpiredRows) }}</span>
+                  <span>apply 褰掓。 {{ formatOptionalCount(item.applyArchivedRows) }}</span>
+                  <span>apply 鍒犻櫎 {{ formatOptionalCount(item.applyDeletedRows) }}</span>
+                  <span>鍓╀綑 {{ formatOptionalCount(item.applyRemainingExpiredRows) }}</span>
                 </div>
                 <div class="observability-archive-batch-compare__table-meta">
                   <span>{{ formatValue(item.tableName) }}</span>
-                  <span>差值 {{ formatOptionalCount(item.deltaDryRunVsDeleted) }}</span>
+                  <span>宸€?{{ formatOptionalCount(item.deltaDryRunVsDeleted) }}</span>
                   <span v-if="item.reason">{{ item.reason }}</span>
                 </div>
               </article>
@@ -716,16 +738,16 @@
 
         <section class="observability-evidence-section">
           <header class="observability-evidence-section__header">
-            <h3>确认报告预览</h3>
+            <h3>纭鎶ュ憡棰勮</h3>
           </header>
           <div v-if="messageArchiveBatchReportPreviewLoading" class="observability-evidence-empty">
-            正在加载确认报告预览
+            姝ｅ湪鍔犺浇纭鎶ュ憡棰勮
           </div>
           <div v-else-if="messageArchiveBatchReportPreviewErrorMessage" class="observability-evidence-empty">
             {{ messageArchiveBatchReportPreviewErrorMessage }}
           </div>
           <div v-else-if="!activeMessageArchiveBatchReportPreview" class="observability-evidence-empty">
-            暂无确认报告预览
+            鏆傛棤纭鎶ュ憡棰勮
           </div>
           <div
             v-else-if="activeMessageArchiveBatchReportPreview.available === false"
@@ -760,7 +782,7 @@
             </div>
 
             <div v-if="messageArchiveBatchReportPreviewTableSummaries.length === 0" class="observability-evidence-empty">
-              暂无表级摘要
+              鏆傛棤琛ㄧ骇鎽樿
             </div>
             <div v-else class="observability-archive-batch-preview__tables">
               <article
@@ -773,30 +795,30 @@
                   <span>{{ formatValue(item.tableName) }}</span>
                 </div>
                 <div class="observability-archive-batch-preview__table-metrics">
-                  <span>过期 {{ formatCount(item.expiredRows) }}</span>
-                  <span>删除 {{ formatCount(item.deletedRows) }}</span>
-                  <span>剩余 {{ formatCount(item.remainingExpiredRows) }}</span>
+                  <span>杩囨湡 {{ formatCount(item.expiredRows) }}</span>
+                  <span>鍒犻櫎 {{ formatCount(item.deletedRows) }}</span>
+                  <span>鍓╀綑 {{ formatCount(item.remainingExpiredRows) }}</span>
                 </div>
                 <div class="observability-archive-batch-preview__table-meta">
-                  <span>保留 {{ formatRetentionDays(item.retentionDays) }}</span>
-                  <span>截止 {{ formatValue(item.cutoffAt) }}</span>
-                  <span>窗口 {{ formatValue(item.earliestRecordAt) }} - {{ formatValue(item.latestRecordAt) }}</span>
+                  <span>淇濈暀 {{ formatRetentionDays(item.retentionDays) }}</span>
+                  <span>鎴 {{ formatValue(item.cutoffAt) }}</span>
+                  <span>绐楀彛 {{ formatValue(item.earliestRecordAt) }} - {{ formatValue(item.latestRecordAt) }}</span>
                 </div>
               </article>
             </div>
 
             <article class="observability-archive-batch-preview__markdown">
               <header class="observability-evidence-section__header">
-                <h3>Markdown 摘要</h3>
+                <h3>Markdown 鎽樿</h3>
                 <small v-if="activeMessageArchiveBatchReportPreview.markdownTruncated">
-                  仅展示前 80 行 / 6000 字符
+                  浠呭睍绀哄墠 80 琛?/ 6000 瀛楃
                 </small>
               </header>
               <div
                 v-if="!activeMessageArchiveBatchReportPreview.markdownAvailable || !activeMessageArchiveBatchReportPreview.markdownPreview"
                 class="observability-evidence-empty"
               >
-                当前仅保留 JSON 摘要，未生成 Markdown 预览
+                褰撳墠浠呬繚鐣?JSON 鎽樿锛屾湭鐢熸垚 Markdown 棰勮
               </div>
               <pre v-else class="observability-archive-batch-preview__markdown-body">{{ activeMessageArchiveBatchReportPreview.markdownPreview }}</pre>
             </article>
@@ -898,17 +920,39 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 
 type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
+type HotspotDrilldownView = 'samples' | 'trends' | 'tasks'
 type SystemLogTabKey = 'errors' | 'hotspots' | 'archives'
-type DetailClusterMode = 'clustered' | 'all'
+type ErrorViewMode = 'detail' | 'clusters'
+type SystemErrorSearchSnapshot = {
+  traceId: string
+  deviceCode: string
+  productKey: string
+  operationModule: string
+  requestMethod: string
+  requestUrl: string
+  errorCode: string
+  exceptionClass: string
+  operationResult: number | undefined
+}
 type ArchiveBatchDetailItem = { label: string; value: string }
 type ArchiveBatchCompareStatus = 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE'
 type ArchiveBatchOverviewSelectionKey = 'abnormal' | 'drifted' | 'remaining' | 'latest'
+type SystemWorkbenchSummaryTone = 'neutral' | 'warning' | 'danger'
 type SystemLogTabItem = {
   key: SystemLogTabKey
   label: string
+  meta?: string
   testId: string
   buttonAttrs: Record<string, string>
   activeButtonAttrs: Record<string, string>
+}
+type SystemWorkbenchSummaryCard = {
+  key: string
+  label: string
+  value: string
+  meta: string
+  tone: SystemWorkbenchSummaryTone
+  emphasis?: boolean
 }
 type ArchiveBatchOverviewCard = {
   key: ArchiveBatchOverviewSelectionKey
@@ -929,22 +973,25 @@ const activeSystemLogTab = ref<SystemLogTabKey>('errors')
 const systemLogTabItems = computed<SystemLogTabItem[]>(() => [
   {
     key: 'errors',
-    label: '异常排查',
+    label: '寮傚父鎺掓煡',
     testId: 'system-log-tab-errors',
+    meta: '閺勫海绮忔稉搴ょ槈閹?',
     buttonAttrs: { 'data-testid': 'system-log-tab-errors', 'data-active': 'false' },
     activeButtonAttrs: { 'data-active': 'true' }
   },
   {
     key: 'hotspots',
-    label: '观测热点',
+    label: '瑙傛祴鐑偣',
     testId: 'system-log-tab-hotspots',
+    meta: '閻戭厾鍋ｆ稉搴ょЪ閸?',
     buttonAttrs: { 'data-testid': 'system-log-tab-hotspots', 'data-active': 'false' },
     activeButtonAttrs: { 'data-active': 'true' }
   },
   {
     key: 'archives',
-    label: '归档治理',
+    label: '褰掓。娌荤悊',
     testId: 'system-log-tab-archives',
+    meta: '閹佃顐兼稉搴☆嚠濮?',
     buttonAttrs: { 'data-testid': 'system-log-tab-archives', 'data-active': 'false' },
     activeButtonAttrs: { 'data-active': 'true' }
   }
@@ -953,16 +1000,16 @@ const auditActionColumnWidth = computed(() =>
   resolveWorkbenchActionColumnWidth({
     directItems: isSystemMode.value
       ? [
-          { command: 'detail', label: '详情' },
-          { command: 'evidence', label: '证据' },
-          { command: 'trace', label: '追踪' },
-          { command: 'copy-trace-id', label: '复制 TraceId' },
-          { command: 'copy-target', label: '复制目标' },
-          { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+          { command: 'detail', label: '璇︽儏' },
+          { command: 'evidence', label: '璇佹嵁' },
+          { command: 'trace', label: '杩借釜' },
+          { command: 'copy-trace-id', label: '澶嶅埗 TraceId' },
+          { command: 'copy-target', label: '澶嶅埗鐩爣' },
+          { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
         ]
       : [
-          { command: 'detail', label: '详情' },
-          { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+          { command: 'detail', label: '璇︽儏' },
+          { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
         ]
   })
 )
@@ -973,14 +1020,14 @@ const pageDescription = computed(() =>
     ? '后台异常核对：按异常模块、TraceId、设备编码与请求通道筛查 system_error，并判断下一步回链路追踪还是治理修正。'
     : '按用户、模块与结果查看审计留痕。'
 )
-const detailDialogTitle = computed(() => (isSystemMode.value ? '异常详情' : `${pageTitle.value}详情`))
-const exportDialogTitle = computed(() => (isSystemMode.value ? '异常观测台导出列设置' : `${pageTitle.value}导出列设置`))
-const recordLabel = computed(() => (isSystemMode.value ? '异常记录' : '审计记录'))
+const detailDialogTitle = computed(() => (isSystemMode.value ? '寮傚父璇︽儏' : `${pageTitle.value}璇︽儏`))
+const exportDialogTitle = computed(() => (isSystemMode.value ? '异常观测台导出列设置' : pageTitle.value + '导出列设置'))
+const recordLabel = computed(() => (isSystemMode.value ? '寮傚父璁板綍' : '瀹¤璁板綍'))
 const businessOperationTypeOptions = [
-  { label: '新增', value: 'insert' },
-  { label: '修改', value: 'update' },
-  { label: '删除', value: 'delete' },
-  { label: '查询', value: 'select' }
+  { label: '鏂板', value: 'insert' },
+  { label: '淇敼', value: 'update' },
+  { label: '鍒犻櫎', value: 'delete' },
+  { label: '鏌ヨ', value: 'select' }
 ]
 const systemRequestMethodOptions = [
   { label: 'MQTT', value: 'MQTT' },
@@ -991,7 +1038,7 @@ const systemRequestMethodOptions = [
   { label: 'DELETE', value: 'DELETE' }
 ]
 
-// 搜索表单
+// 鎼滅储琛ㄥ崟
 const searchForm = reactive({
   userName: '',
   operationType: undefined as string | undefined,
@@ -1021,9 +1068,9 @@ const appliedFilters = reactive({
 const quickSearchKeyword = ref('')
 const showAdvancedFilters = ref(false)
 
-// 分页
+// 鍒嗛〉
 
-// 表格数据
+// 琛ㄦ牸鏁版嵁
 const tableData = ref<AuditLogRecord[]>([])
 const tableRef = ref()
 const selectedRows = ref<AuditLogRecord[]>([])
@@ -1031,47 +1078,59 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTo
 const clusterRows = ref<SystemErrorClusterRow[]>([])
 const clusterLoading = ref(false)
 const clusterErrorMessage = ref('')
-const selectedClusterKey = ref('')
-const detailClusterMode = ref<DetailClusterMode>('clustered')
-const selectedCluster = computed<SystemErrorClusterRow | null>(() =>
-  clusterRows.value.find((item) => item.clusterKey === selectedClusterKey.value) || null
+const errorViewMode = ref<ErrorViewMode>('detail')
+const clusterQuerySignature = ref('')
+const clusterQueryFormSnapshot = ref<SystemErrorSearchSnapshot | null>(null)
+const clusterRefinerBaseSnapshot = ref<SystemErrorSearchSnapshot | null>(null)
+const selectedClusterRefiner = ref<SystemErrorClusterRow | null>(null)
+const clusterContextSummary = computed(() => {
+  const cluster = selectedClusterRefiner.value
+  if (!cluster) {
+    return ''
+  }
+  return [cluster.operationModule, cluster.exceptionClass, cluster.errorCode]
+    .map((value) => formatValue(value))
+    .join(' / ')
+})
+const canReturnToClusterResults = computed(
+  () => errorViewMode.value === 'detail' && Boolean(clusterQuerySignature.value) && clusterRows.value.length > 0
 )
 const exportColumns: CsvColumn<any>[] = [
-  { key: 'operationType', label: '操作类型', formatter: (value) => getOperationTypeName(String(value || '')) },
-  { key: 'operationModule', label: '操作模块' },
-  { key: 'operationMethod', label: '操作方法' },
-  { key: 'requestUrl', label: '请求URL' },
-  { key: 'requestMethod', label: '请求方法' },
+  { key: 'operationType', label: '鎿嶄綔绫诲瀷', formatter: (value) => getOperationTypeName(String(value || '')) },
+  { key: 'operationModule', label: '鎿嶄綔妯″潡' },
+  { key: 'operationMethod', label: '鎿嶄綔鏂规硶' },
+  { key: 'requestUrl', label: '璇锋眰URL' },
+  { key: 'requestMethod', label: '璇锋眰鏂规硶' },
   { key: 'traceId', label: 'TraceId' },
-  { key: 'deviceCode', label: '设备编码' },
-  { key: 'productKey', label: '产品标识' },
-  { key: 'errorCode', label: '异常编码' },
-  { key: 'exceptionClass', label: '异常类型' },
-  { key: 'userName', label: '操作用户' },
-  { key: 'ipAddress', label: '操作IP' },
-  { key: 'resultMessage', label: '结果消息' },
-  { key: 'operationTime', label: '操作时间' },
-  { key: 'operationResult', label: '操作结果', formatter: (value) => (Number(value) === 1 ? '成功' : '失败') }
+  { key: 'deviceCode', label: '璁惧缂栫爜' },
+  { key: 'productKey', label: '浜у搧鏍囪瘑' },
+  { key: 'errorCode', label: '寮傚父缂栫爜' },
+  { key: 'exceptionClass', label: '寮傚父绫诲瀷' },
+  { key: 'userName', label: '鎿嶄綔鐢ㄦ埛' },
+  { key: 'ipAddress', label: '鎿嶄綔IP' },
+  { key: 'resultMessage', label: '缁撴灉娑堟伅' },
+  { key: 'operationTime', label: '鎿嶄綔鏃堕棿' },
+  { key: 'operationResult', label: '鎿嶄綔缁撴灉', formatter: (value) => (Number(value) === 1 ? '鎴愬姛' : '澶辫触') }
 ]
 const exportColumnStorageKey = computed(() => (isSystemMode.value ? 'system-log-view' : 'business-log-view'))
 const exportColumnOptions = toCsvColumnOptions(exportColumns)
 const exportPresets = computed(() =>
   isSystemMode.value
     ? [
-        { label: '默认模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'resultMessage', 'operationTime', 'operationResult'] },
-        { label: '运维模板', keys: ['operationModule', 'requestUrl', 'requestMethod', 'deviceCode', 'productKey', 'resultMessage', 'operationTime'] },
-        { label: '研发模板', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass', 'resultMessage', 'operationResult', 'operationTime'] }
+        { label: '榛樿妯℃澘', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'resultMessage', 'operationTime', 'operationResult'] },
+        { label: '杩愮淮妯℃澘', keys: ['operationModule', 'requestUrl', 'requestMethod', 'deviceCode', 'productKey', 'resultMessage', 'operationTime'] },
+        { label: '鐮斿彂妯℃澘', keys: ['operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'traceId', 'deviceCode', 'productKey', 'errorCode', 'exceptionClass', 'resultMessage', 'operationResult', 'operationTime'] }
       ]
     : [
-        { label: '默认模板', keys: ['operationType', 'operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
-        { label: '运维模板', keys: ['operationType', 'operationModule', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
-        { label: '管理模板', keys: ['operationType', 'operationModule', 'operationMethod', 'userName', 'operationTime', 'operationResult'] }
+        { label: '榛樿妯℃澘', keys: ['operationType', 'operationModule', 'operationMethod', 'requestUrl', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
+        { label: '杩愮淮妯℃澘', keys: ['operationType', 'operationModule', 'requestMethod', 'userName', 'ipAddress', 'operationTime', 'operationResult'] },
+        { label: '绠＄悊妯℃澘', keys: ['operationType', 'operationModule', 'operationMethod', 'userName', 'operationTime', 'operationResult'] }
       ]
 )
 const selectedExportColumnKeys = ref<string[]>([])
 const exportColumnDialogVisible = ref(false)
 
-// 加载状态
+// 鍔犺浇鐘舵€?
 const loading = ref(false)
 const statsLoading = ref(false)
 let systemErrorClusterRequestToken = 0
@@ -1126,14 +1185,14 @@ const messageArchiveBatchFilters = reactive({
   dateTo: ''
 })
 const messageArchiveBatchStatusOptions = [
-  { label: '成功', value: 'SUCCEEDED' },
-  { label: '失败', value: 'FAILED' },
+  { label: '鎴愬姛', value: 'SUCCEEDED' },
+  { label: '澶辫触', value: 'FAILED' },
   { label: '运行中', value: 'RUNNING' }
 ]
 const messageArchiveBatchCompareStatusOptions = [
   { label: '已对齐', value: 'MATCHED' },
   { label: '有偏差', value: 'DRIFTED' },
-  { label: '部分可比', value: 'PARTIAL' },
+  { label: '閮ㄥ垎鍙瘮', value: 'PARTIAL' },
   { label: '不可用', value: 'UNAVAILABLE' }
 ]
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
@@ -1145,9 +1204,15 @@ const slowSpanRows = ref<ObservabilitySpan[]>([])
 const slowSpanLoading = ref(false)
 const slowSpanErrorMessage = ref('')
 const slowSpanTotal = ref(0)
+const hotspotDrilldownView = ref<HotspotDrilldownView>('samples')
+const hotspotDrilldownOptions = [
+  { label: '最近样本', value: 'samples' },
+  { label: '瓒嬪娍', value: 'trends' },
+  { label: '鐩稿叧浠诲姟', value: 'tasks' }
+] as const
 const defaultSlowTrendWindow: SlowTrendWindowKey = 'LAST_24_HOURS'
 const slowTrendWindowOptions = [
-  { label: '24小时', value: 'LAST_24_HOURS' },
+  { label: '24灏忔椂', value: 'LAST_24_HOURS' },
   { label: '7天', value: 'LAST_7_DAYS' }
 ] as const
 const slowTrendWindow = ref<SlowTrendWindowKey>(defaultSlowTrendWindow)
@@ -1199,17 +1264,17 @@ const {
   form: searchForm,
   applied: appliedFilters,
   fields: [
-    { key: 'userName', label: '操作用户', isActive: (value) => isBusinessMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'operationType', label: (value) => `操作类型：${getOperationTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => isBusinessMode.value && value !== undefined },
+    { key: 'userName', label: '鎿嶄綔鐢ㄦ埛', isActive: (value) => isBusinessMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'operationType', label: (value) => `鎿嶄綔绫诲瀷锛?{getOperationTypeName(String(value || ''))}`, clearValue: undefined, isActive: (value) => isBusinessMode.value && value !== undefined },
     { key: 'traceId', label: 'TraceId', advanced: true },
-    { key: 'operationModule', label: (value) => `${isSystemMode.value ? '异常模块' : '操作模块'}：${String(value || '').trim()}` },
-    { key: 'requestMethod', label: (value) => `请求通道：${String(value || '')}`, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'requestUrl', label: '目标 / URL', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'deviceCode', label: '设备编码', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'productKey', label: '产品标识', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'errorCode', label: '异常编码', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'exceptionClass', label: '异常类型', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
-    { key: 'operationResult', label: (value) => `操作结果：${getOperationResultName(Number(value))}`, clearValue: undefined, isActive: (value) => value !== undefined }
+    { key: 'operationModule', label: (value) => `${isSystemMode.value ? '寮傚父妯″潡' : '鎿嶄綔妯″潡'}锛?{String(value || '').trim()}` },
+    { key: 'requestMethod', label: (value) => `璇锋眰閫氶亾锛?{String(value || '')}`, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'requestUrl', label: '鐩爣 / URL', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'deviceCode', label: '璁惧缂栫爜', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'productKey', label: '浜у搧鏍囪瘑', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'errorCode', label: '寮傚父缂栫爜', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'exceptionClass', label: '寮傚父绫诲瀷', advanced: true, isActive: (value) => isSystemMode.value && hasFilledFilter(value as string | number | undefined) },
+    { key: 'operationResult', label: (value) => `鎿嶄綔缁撴灉锛?{getOperationResultName(Number(value))}`, clearValue: undefined, isActive: (value) => value !== undefined }
   ],
   defaults: {
     userName: '',
@@ -1235,21 +1300,27 @@ const auditToolbarActions = computed(() => [
   {
     key: 'export-selected',
     command: 'export-selected',
-    label: '导出选中',
+    label: '瀵煎嚭閫変腑',
     disabled: selectedRows.value.length === 0
   },
   {
     key: 'export-current',
     command: 'export-current',
-    label: '导出当前结果',
+    label: '瀵煎嚭褰撳墠缁撴灉',
     disabled: tableData.value.length === 0
   },
   {
     key: 'clear-selection',
     command: 'clear-selection',
-    label: '清空选中',
+    label: '娓呯┖閫変腑',
     disabled: selectedRows.value.length === 0
   }
+])
+const businessToolbarMetaItems = computed(() => [
+  '已选 ' + selectedRows.value.length + ' 项',
+  '审计 ' + businessStats.value.total,
+  '成功 ' + businessStats.value.successCount,
+  '失败 ' + businessStats.value.failureCount
 ])
 const advancedFilterHint = computed(() => {
   if (showAdvancedFilters.value || advancedAppliedCount.value === 0) {
@@ -1271,15 +1342,15 @@ const restoredDiagnosticContext = computed(() => {
 const systemInlineMessage = computed(() =>
   restoredDiagnosticContext.value
     ? [
-        `来自${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`,
+        `鏉ヨ嚜${describeDiagnosticSource(restoredDiagnosticContext.value.sourcePage)}`,
         '当前节点：后台异常核对',
-        '下一步回链路追踪台或治理页继续排查。'
-      ].join(' · ')
+        '下一步可回链路追踪台或治理页继续排查。'
+      ].join(' 路 ')
     : ''
 )
 const showSystemInlineState = computed(() => isSystemMode.value && Boolean(systemInlineMessage.value))
 
-// 详情对话框
+// 璇︽儏瀵硅瘽妗?
 const detailVisible = ref(false)
 const detailData = ref<Partial<AuditLogRecord>>({})
 const detailLoading = ref(false)
@@ -1306,25 +1377,25 @@ const evidenceDrawerSubtitle = computed(() =>
   evidenceTraceId.value ? `TraceId：${evidenceTraceId.value}` : '按 TraceId 汇总业务事件与调用片段'
 )
 const evidenceDrawerTags = computed(() => [
-  { label: `事件 ${evidenceBusinessEvents.value.length}`, type: 'primary' as const },
-  { label: `片段 ${evidenceSpans.value.length}`, type: 'info' as const }
+  { label: `浜嬩欢 ${evidenceBusinessEvents.value.length}`, type: 'primary' as const },
+  { label: `鐗囨 ${evidenceSpans.value.length}`, type: 'info' as const }
 ])
 const evidenceSummaryCards = computed(() => [
   { label: 'TraceId', value: formatValue(evidenceTrace.value?.traceId || evidenceTraceId.value) },
-  { label: '业务事件', value: String(evidenceBusinessEvents.value.length) },
-  { label: '调用片段', value: String(evidenceSpans.value.length) },
+  { label: '涓氬姟浜嬩欢', value: String(evidenceBusinessEvents.value.length) },
+  { label: '璋冪敤鐗囨', value: String(evidenceSpans.value.length) },
   { label: '时间线节点', value: String(evidenceTimeline.value.length) }
 ])
 const messageArchiveBatchDrawerSubtitle = computed(() =>
   activeMessageArchiveBatch.value?.batchNo
-    ? `批次号：${activeMessageArchiveBatch.value.batchNo}`
-    : '查看消息热表归档批次的确认、归档与删除结果'
+    ? `鎵规鍙凤細${activeMessageArchiveBatch.value.batchNo}`
+    : '鏌ョ湅娑堟伅鐑〃褰掓。鎵规鐨勭‘璁ゃ€佸綊妗ｄ笌鍒犻櫎缁撴灉'
 )
 const messageArchiveBatchDrawerTags = computed(() => {
   const row = activeMessageArchiveBatch.value
   return [
-    { label: `状态 ${formatValue(row?.status)}`, type: 'primary' as const },
-    { label: `来源 ${formatValue(row?.sourceTable)}`, type: 'info' as const }
+    { label: `鐘舵€?${formatValue(row?.status)}`, type: 'primary' as const },
+    { label: `鏉ユ簮 ${formatValue(row?.sourceTable)}`, type: 'info' as const }
   ]
 })
 const messageArchiveBatchSummaryCards = computed(() => {
@@ -1332,28 +1403,28 @@ const messageArchiveBatchSummaryCards = computed(() => {
   return [
     { label: '批次号', value: formatArchiveBatchName(row) },
     { label: '状态', value: formatValue(row?.status) },
-    { label: '确认行数', value: formatCount(row?.confirmedExpiredRows) },
-    { label: '删除行数', value: formatCount(row?.deletedRows) }
+    { label: '纭琛屾暟', value: formatCount(row?.confirmedExpiredRows) },
+    { label: '鍒犻櫎琛屾暟', value: formatCount(row?.deletedRows) }
   ]
 })
 const messageArchiveBatchResultItems = computed<ArchiveBatchDetailItem[]>(() => {
   const row = activeMessageArchiveBatch.value
   return [
     { label: '来源表', value: formatValue(row?.sourceTable) },
-    { label: '治理模式', value: formatValue(row?.governanceMode) },
+    { label: '娌荤悊妯″紡', value: formatValue(row?.governanceMode) },
     { label: '保留期', value: formatRetentionDays(row?.retentionDays) },
     { label: '候选行数', value: formatCount(row?.candidateRows) },
-    { label: '归档行数', value: formatCount(row?.archivedRows) },
-    { label: '删除行数', value: formatCount(row?.deletedRows) }
+    { label: '褰掓。琛屾暟', value: formatCount(row?.archivedRows) },
+    { label: '鍒犻櫎琛屾暟', value: formatCount(row?.deletedRows) }
   ]
 })
 const messageArchiveBatchReportItems = computed<ArchiveBatchDetailItem[]>(() => {
   const row = activeMessageArchiveBatch.value
   return [
-    { label: '确认报告', value: formatValue(row?.confirmReportPath) },
-    { label: '报告生成时间', value: formatValue(row?.confirmReportGeneratedAt) },
-    { label: '截止时间', value: formatValue(row?.cutoffAt) },
-    { label: '失败原因', value: formatValue(row?.failedReason) }
+    { label: '纭鎶ュ憡', value: formatValue(row?.confirmReportPath) },
+    { label: '鎶ュ憡鐢熸垚鏃堕棿', value: formatValue(row?.confirmReportGeneratedAt) },
+    { label: '鎴鏃堕棿', value: formatValue(row?.cutoffAt) },
+    { label: '澶辫触鍘熷洜', value: formatValue(row?.failedReason) }
   ]
 })
 const messageArchiveBatchArtifacts = computed<ArchiveBatchDetailItem[]>(() =>
@@ -1372,13 +1443,13 @@ const messageArchiveBatchCompareStatusName = computed(() =>
 const messageArchiveBatchCompareHeadline = computed(() => {
   switch (messageArchiveBatchCompareStatus.value) {
     case 'MATCHED':
-      return '已按确认结果落地'
+      return '宸叉寜纭缁撴灉钀藉湴'
     case 'DRIFTED':
       return '执行结果与确认结果存在偏差'
     case 'PARTIAL':
       return '仅完成部分比对'
     default:
-      return '当前缺少可信对比证据'
+      return '褰撳墠缂哄皯鍙俊瀵规瘮璇佹嵁'
   }
 })
 const messageArchiveBatchCompareStatusClass = computed(
@@ -1391,7 +1462,7 @@ const messageArchiveBatchCompareSourceItems = computed<ArchiveBatchDetailItem[]>
     return []
   }
   return [
-    { label: '确认报告', value: formatValue(sources.confirmReportPath) },
+    { label: '纭鎶ュ憡', value: formatValue(sources.confirmReportPath) },
     {
       label: 'dry-run JSON',
       value: formatValue(sources.resolvedDryRunJsonPath || sources.confirmReportPath)
@@ -1407,11 +1478,11 @@ const messageArchiveBatchCompareSummaryItems = computed<ArchiveBatchDetailItem[]
     return []
   }
   return [
-    { label: '确认过期', value: formatOptionalCount(summary.confirmedExpiredRows) },
-    { label: 'dry-run 过期', value: formatOptionalCount(summary.dryRunExpiredRows) },
-    { label: 'apply 归档', value: formatOptionalCount(summary.applyArchivedRows) },
-    { label: 'apply 删除', value: formatOptionalCount(summary.applyDeletedRows) },
-    { label: '剩余过期', value: formatOptionalCount(summary.remainingExpiredRows) },
+    { label: '纭杩囨湡', value: formatOptionalCount(summary.confirmedExpiredRows) },
+    { label: 'dry-run 杩囨湡', value: formatOptionalCount(summary.dryRunExpiredRows) },
+    { label: 'apply 褰掓。', value: formatOptionalCount(summary.applyArchivedRows) },
+    { label: 'apply 鍒犻櫎', value: formatOptionalCount(summary.applyDeletedRows) },
+    { label: '鍓╀綑杩囨湡', value: formatOptionalCount(summary.remainingExpiredRows) },
     { label: '确认差值', value: formatOptionalCount(summary.deltaConfirmedVsDeleted) },
     { label: 'dry-run 差值', value: formatOptionalCount(summary.deltaDryRunVsDeleted) }
   ]
@@ -1425,13 +1496,13 @@ const messageArchiveBatchReportPreviewMetaItems = computed<ArchiveBatchDetailIte
     return []
   }
   return [
-    { label: 'JSON 路径', value: formatValue(preview.resolvedJsonPath || preview.confirmReportPath) },
+    { label: 'JSON 璺緞', value: formatValue(preview.resolvedJsonPath || preview.confirmReportPath) },
     {
-      label: 'Markdown 路径',
+      label: 'Markdown 璺緞',
       value: preview.markdownAvailable ? formatValue(preview.resolvedMarkdownPath) : '未生成'
     },
-    { label: '文件更新时间', value: formatValue(preview.fileLastModifiedAt) },
-    { label: '报告生成时间', value: formatValue(preview.confirmReportGeneratedAt) }
+    { label: '鏂囦欢鏇存柊鏃堕棿', value: formatValue(preview.fileLastModifiedAt) },
+    { label: '鎶ュ憡鐢熸垚鏃堕棿', value: formatValue(preview.confirmReportGeneratedAt) }
   ]
 })
 const messageArchiveBatchReportPreviewSummaryItems = computed<ArchiveBatchDetailItem[]>(() => {
@@ -1453,64 +1524,66 @@ const messageArchiveBatchOverviewCards = computed<ArchiveBatchOverviewCard[]>(()
   return [
     {
       key: 'abnormal',
-      label: '异常批次',
+      label: '寮傚父鎵规',
       value: formatOptionalCount(overview?.abnormalBatches),
-      meta: `总批次 ${formatOptionalCount(overview?.totalBatches)}`,
+      meta: `鎬绘壒娆?${formatOptionalCount(overview?.totalBatches)}`,
       testId: 'archive-batch-overview-abnormal',
       clickable: true,
       active: activeMessageArchiveBatchOverviewSelection.value === 'abnormal'
     },
     {
       key: 'drifted',
-      label: '执行偏差总量',
+      label: '鎵ц鍋忓樊鎬婚噺',
       value: formatSignedCount(overview?.totalDeltaConfirmedVsDeleted),
-      meta: `已对齐 ${formatOptionalCount(overview?.matchedBatches)}`,
+      meta: `宸插榻?${formatOptionalCount(overview?.matchedBatches)}`,
       testId: 'archive-batch-overview-drifted',
       clickable: true,
       active: activeMessageArchiveBatchOverviewSelection.value === 'drifted'
     },
     {
       key: 'remaining',
-      label: '剩余过期总量',
+      label: '鍓╀綑杩囨湡鎬婚噺',
       value: formatOptionalCount(overview?.totalRemainingExpiredRows),
-      meta: `部分可比 ${formatOptionalCount(overview?.partialBatches)}`,
+      meta: `閮ㄥ垎鍙瘮 ${formatOptionalCount(overview?.partialBatches)}`,
       testId: 'archive-batch-overview-remaining',
       clickable: true,
       active: activeMessageArchiveBatchOverviewSelection.value === 'remaining'
-    },
-    {
-      key: 'latest',
-      label: '最近异常批次',
-      value: formatValue(overview?.latestAbnormalBatch),
-      meta: formatValue(overview?.latestAbnormalOccurredAt),
-      testId: 'archive-batch-overview-latest',
-      clickable: true,
-      active: activeMessageArchiveBatchOverviewSelection.value === 'latest'
     }
   ]
+})
+const messageArchiveBatchLatestFocus = computed(() => {
+  const latestBatch = String(messageArchiveBatchOverview.value?.latestAbnormalBatch || '').trim()
+  if (!latestBatch) {
+    return null
+  }
+  return {
+    batchNo: latestBatch,
+    occurredAt: formatValue(messageArchiveBatchOverview.value?.latestAbnormalOccurredAt),
+    active: activeMessageArchiveBatchOverviewSelection.value === 'latest'
+  }
 })
 const systemOverviewItems = computed(() => [
   {
     key: 'errors',
-    label: '异常',
+    label: '寮傚父',
     value: formatCount(systemStats.value.total),
     targetTab: 'errors' as SystemLogTabKey
   },
   {
     key: 'hotspots',
-    label: '慢点',
+    label: '鎱㈢偣',
     value: formatCount(slowSummaryRows.value.length),
     targetTab: 'hotspots' as SystemLogTabKey
   },
   {
     key: 'tasks',
-    label: '调度',
+    label: '璋冨害',
     value: formatCount(scheduledTaskTotal.value),
     targetTab: 'hotspots' as SystemLogTabKey
   },
   {
     key: 'archives',
-    label: '异常批次',
+    label: '寮傚父鎵规',
     value: formatOptionalCount(messageArchiveBatchOverview.value?.abnormalBatches),
     targetTab: 'archives' as SystemLogTabKey
   }
@@ -1521,31 +1594,107 @@ const activeSystemOverviewItemKey = computed(() => {
   }
   return activeSystemLogTab.value
 })
-const systemToolbarMetaItems = computed(() => {
+const systemToolbarMetaItems = computed<string[]>(() => [])
+
+const systemWorkbenchSummaryCards = computed<SystemWorkbenchSummaryCard[]>(() => {
   if (activeSystemLogTab.value === 'hotspots') {
     return [
-      `慢点 ${slowSummaryRows.value.length}`,
-      `调度 ${scheduledTaskTotal.value}`,
-      activeSlowSummary.value ? `明细 ${slowSpanTotal.value}` : '明细 0',
-      activeSlowTrendSummary.value ? `趋势 ${slowTrendRows.value.length}` : '趋势 0'
+      {
+        key: 'hotspots',
+        label: '\u70ed\u70b9\u5bf9\u8c61',
+        value: formatCount(slowSummaryRows.value.length),
+        meta: '\u5f53\u524d\u5de5\u4f5c\u53f0\u5185\u7684\u70ed\u70b9\u4e3b\u5bf9\u8c61',
+        tone: 'warning',
+        emphasis: true
+      },
+      {
+        key: 'tasks',
+        label: '\u8c03\u5ea6\u53f0\u8d26',
+        value: formatCount(scheduledTaskTotal.value),
+        meta: '\u76f8\u5173\u4efb\u52a1\u53f0\u8d26',
+        tone: 'neutral'
+      },
+      {
+        key: 'samples',
+        label: '\u6700\u8fd1\u6837\u672c',
+        value: activeSlowSummary.value ? formatCount(slowSpanTotal.value) : '0',
+        meta: activeSlowSummary.value ? '\u5f53\u524d\u70ed\u70b9\u7684\u6700\u65b0\u7247\u6bb5' : '\u5c1a\u672a\u9009\u4e2d\u70ed\u70b9',
+        tone: 'neutral'
+      },
+      {
+        key: 'trends',
+        label: '\u8d8b\u52bf\u6876',
+        value: activeSlowTrendSummary.value ? formatCount(slowTrendRows.value.length) : '0',
+        meta: slowTrendWindow.value === 'LAST_7_DAYS' ? '7 \u5929\u89c2\u6d4b\u7a97\u53e3' : '24 \u5c0f\u65f6\u89c2\u6d4b\u7a97\u53e3',
+        tone: 'neutral'
+      }
     ]
   }
   if (activeSystemLogTab.value === 'archives') {
     return [
-      `批次 ${messageArchiveBatchTotal.value}`,
-      `异常 ${formatOptionalCount(messageArchiveBatchOverview.value?.abnormalBatches)}`,
-      `偏差 ${formatSignedCount(messageArchiveBatchOverview.value?.totalDeltaConfirmedVsDeleted)}`,
-      `剩余 ${formatOptionalCount(messageArchiveBatchOverview.value?.totalRemainingExpiredRows)}`
+      {
+        key: 'abnormal',
+        label: '\u5f02\u5e38\u6279\u6b21',
+        value: formatOptionalCount(messageArchiveBatchOverview.value?.abnormalBatches),
+        meta: '\u9700\u4f18\u5148\u5904\u7406\u7684\u6279\u6b21\u6570',
+        tone: 'danger',
+        emphasis: true
+      },
+      {
+        key: 'batches',
+        label: '\u6279\u6b21\u603b\u6570',
+        value: formatCount(messageArchiveBatchTotal.value),
+        meta: '\u5f52\u6863\u53f0\u7684\u5f53\u524d\u7ed3\u679c',
+        tone: 'neutral'
+      },
+      {
+        key: 'drifted',
+        label: '\u6267\u884c\u504f\u5dee',
+        value: formatSignedCount(messageArchiveBatchOverview.value?.totalDeltaConfirmedVsDeleted),
+        meta: 'dry-run \u4e0e apply \u7684\u5bf9\u6bd4\u7ed3\u679c',
+        tone: 'warning'
+      },
+      {
+        key: 'remaining',
+        label: '\u5269\u4f59\u8fc7\u671f',
+        value: formatOptionalCount(messageArchiveBatchOverview.value?.totalRemainingExpiredRows),
+        meta: '\u4ecd\u5f85\u7ee7\u7eed\u6cbb\u7406\u7684\u70ed\u884c\u91cf',
+        tone: 'neutral'
+      }
     ]
   }
   return [
-    `已选 ${selectedRows.value.length} 项`,
-    `异常 ${systemStats.value.total}`,
-    `今日 ${systemStats.value.todayCount}`,
-    `链路 ${systemStats.value.distinctTraceCount}`
+    {
+      key: 'errors',
+      label: '\u5f02\u5e38\u8bb0\u5f55',
+      value: formatCount(systemStats.value.total),
+      meta: '\u5f53\u524d\u7b5b\u67e5\u6761\u4ef6\u4e0b\u7684\u5f02\u5e38\u603b\u6570',
+      tone: 'danger',
+      emphasis: true
+    },
+    {
+      key: 'today',
+      label: '\u4eca\u65e5\u65b0\u589e',
+      value: formatCount(systemStats.value.todayCount),
+      meta: '\u5f53\u524d\u81ea\u7136\u65e5\u7684\u589e\u91cf\u53d8\u5316',
+      tone: 'neutral'
+    },
+    {
+      key: 'trace',
+      label: 'Trace \u94fe\u8def',
+      value: formatCount(systemStats.value.distinctTraceCount),
+      meta: '\u53ef\u56de\u94fe\u7684\u6709\u6548\u94fe\u8def\u6570\u91cf',
+      tone: 'neutral'
+    },
+    {
+      key: 'selected',
+      label: '\u5df2\u9009\u4e2d',
+      value: formatCount(selectedRows.value.length),
+      meta: '\u53ef\u7528\u4e8e\u5bfc\u51fa\u6216\u6279\u91cf\u64cd\u4f5c',
+      tone: 'neutral'
+    }
   ]
 })
-
 const reloadExportSelection = () => {
   selectedExportColumnKeys.value = loadCsvColumnSelection(exportColumnStorageKey.value, defaultExportKeys)
 }
@@ -1621,31 +1770,82 @@ const applySystemRouteQuery = () => {
   syncAdvancedFilterState()
 }
 
-const syncSystemErrorClusterSelection = (preferredKey = selectedClusterKey.value) => {
-  const nextCluster =
-    clusterRows.value.find((item) => item.clusterKey === preferredKey) || clusterRows.value[0] || null
-  selectedClusterKey.value = nextCluster?.clusterKey || ''
-  detailClusterMode.value = 'clustered'
-  return nextCluster
+const captureSystemErrorSearchSnapshot = (): SystemErrorSearchSnapshot => ({
+  traceId: searchForm.traceId.trim(),
+  deviceCode: searchForm.deviceCode.trim(),
+  productKey: searchForm.productKey.trim(),
+  operationModule: searchForm.operationModule.trim(),
+  requestMethod: searchForm.requestMethod.trim(),
+  requestUrl: searchForm.requestUrl.trim(),
+  errorCode: searchForm.errorCode.trim(),
+  exceptionClass: searchForm.exceptionClass.trim(),
+  operationResult: searchForm.operationResult
+})
+
+const applySystemErrorSearchSnapshot = (snapshot: SystemErrorSearchSnapshot) => {
+  searchForm.traceId = snapshot.traceId
+  searchForm.deviceCode = snapshot.deviceCode
+  searchForm.productKey = snapshot.productKey
+  searchForm.operationModule = snapshot.operationModule
+  searchForm.requestMethod = snapshot.requestMethod
+  searchForm.requestUrl = snapshot.requestUrl
+  searchForm.errorCode = snapshot.errorCode
+  searchForm.exceptionClass = snapshot.exceptionClass
+  searchForm.operationResult = snapshot.operationResult
+  syncQuickSearchKeywordFromFilters()
+  syncAdvancedFilterState()
+  syncAppliedFilters()
 }
 
-const buildSystemErrorClusterQueryParams = () => ({
-  traceId: appliedFilters.traceId,
+const resetSystemErrorClusterNavigation = () => {
+  systemErrorClusterRequestToken += 1
+  clusterRows.value = []
+  clusterLoading.value = false
+  clusterErrorMessage.value = ''
+  errorViewMode.value = 'detail'
+  clusterQuerySignature.value = ''
+  clusterQueryFormSnapshot.value = null
+  clusterRefinerBaseSnapshot.value = null
+  selectedClusterRefiner.value = null
+}
+
+const buildSystemErrorQueryParams = (
+  source: Pick<
+    SystemErrorSearchSnapshot,
+    | 'traceId'
+    | 'deviceCode'
+    | 'productKey'
+    | 'operationModule'
+    | 'requestMethod'
+    | 'requestUrl'
+    | 'errorCode'
+    | 'exceptionClass'
+    | 'operationResult'
+  >,
+  refiner: SystemErrorClusterRow | null = null
+) => ({
+  traceId: source.traceId,
   operationType: 'system_error',
-  operationModule: appliedFilters.operationModule,
-  operationResult: appliedFilters.operationResult,
-  deviceCode: appliedFilters.deviceCode,
-  productKey: appliedFilters.productKey,
-  requestMethod: appliedFilters.requestMethod,
-  requestUrl: appliedFilters.requestUrl,
-  errorCode: appliedFilters.errorCode,
-  exceptionClass: appliedFilters.exceptionClass
+  operationModule: refiner ? refiner.operationModule ?? '' : source.operationModule,
+  operationResult: source.operationResult,
+  deviceCode: source.deviceCode,
+  productKey: source.productKey,
+  requestMethod: source.requestMethod,
+  requestUrl: source.requestUrl,
+  errorCode: refiner ? refiner.errorCode ?? '' : source.errorCode,
+  exceptionClass: refiner ? refiner.exceptionClass ?? '' : source.exceptionClass
 })
+
+const buildSystemErrorQuerySignature = (snapshot: SystemErrorSearchSnapshot) =>
+  JSON.stringify(buildSystemErrorQueryParams(snapshot))
+
+const buildSystemErrorClusterQueryParams = (snapshot = captureSystemErrorSearchSnapshot()) =>
+  buildSystemErrorQueryParams(snapshot)
 
 const loadAuditWorkbenchData = () => {
   if (isSystemMode.value) {
     void getAuditLogStats()
-    void loadSystemErrorClusters()
+    void getAuditLogList()
     return
   }
   void getAuditLogList()
@@ -1665,7 +1865,7 @@ const loadCurrentViewData = () => {
   }
 }
 
-// 获取审计日志查询条件
+// 鑾峰彇瀹¤鏃ュ織鏌ヨ鏉′欢
 const buildAuditLogQueryParams = () => {
   if (isBusinessMode.value) {
     return {
@@ -1678,19 +1878,20 @@ const buildAuditLogQueryParams = () => {
     }
   }
 
-  const cluster = detailClusterMode.value === 'clustered' ? selectedCluster.value : null
-  return {
-    traceId: appliedFilters.traceId,
-    operationType: 'system_error',
-    operationModule: cluster ? cluster.operationModule ?? '' : appliedFilters.operationModule,
-    operationResult: appliedFilters.operationResult,
-    deviceCode: appliedFilters.deviceCode,
-    productKey: appliedFilters.productKey,
-    requestMethod: appliedFilters.requestMethod,
-    requestUrl: appliedFilters.requestUrl,
-    errorCode: cluster ? cluster.errorCode ?? '' : appliedFilters.errorCode,
-    exceptionClass: cluster ? cluster.exceptionClass ?? '' : appliedFilters.exceptionClass
-  }
+  return buildSystemErrorQueryParams(
+    {
+      traceId: appliedFilters.traceId,
+      deviceCode: appliedFilters.deviceCode,
+      productKey: appliedFilters.productKey,
+      operationModule: appliedFilters.operationModule,
+      requestMethod: appliedFilters.requestMethod,
+      requestUrl: appliedFilters.requestUrl,
+      errorCode: appliedFilters.errorCode,
+      exceptionClass: appliedFilters.exceptionClass,
+      operationResult: appliedFilters.operationResult
+    },
+    selectedClusterRefiner.value
+  )
 }
 
 const logPageError = (context: string, error: unknown) => {
@@ -1699,13 +1900,19 @@ const logPageError = (context: string, error: unknown) => {
   }
 }
 
-const loadSystemErrorClusters = async () => {
+const loadSystemErrorClusters = async (snapshot = clusterQueryFormSnapshot.value) => {
+  if (!snapshot) {
+    clusterRows.value = []
+    clusterErrorMessage.value = ''
+    return
+  }
+
   const requestToken = ++systemErrorClusterRequestToken
   clusterLoading.value = true
   clusterErrorMessage.value = ''
   try {
     const res = await pageSystemErrorClusters({
-      ...buildSystemErrorClusterQueryParams(),
+      ...buildSystemErrorClusterQueryParams(snapshot),
       pageNum: 1,
       pageSize: 10
     })
@@ -1713,24 +1920,13 @@ const loadSystemErrorClusters = async () => {
       return
     }
     clusterRows.value = res.code === 200 ? res.data?.records || [] : []
-    syncSystemErrorClusterSelection()
-    if (!selectedCluster.value) {
-      tableData.value = []
-      resetTotal()
-      clearSelection()
-      return
-    }
-    await getAuditLogList()
   } catch (error) {
     if (requestToken !== systemErrorClusterRequestToken) {
       return
     }
     clusterRows.value = []
-    selectedClusterKey.value = ''
-    detailClusterMode.value = 'all'
-    clusterErrorMessage.value = '异常概览加载失败，已回退为全部异常明细'
-    logPageError('加载异常概览失败', error)
-    await getAuditLogList()
+    clusterErrorMessage.value = '寮傚父鍒嗙粍鍔犺浇澶辫触锛岃閲嶈瘯'
+    logPageError('鍔犺浇寮傚父鍒嗙粍澶辫触', error)
   } finally {
     if (requestToken === systemErrorClusterRequestToken) {
       clusterLoading.value = false
@@ -1738,16 +1934,10 @@ const loadSystemErrorClusters = async () => {
   }
 }
 
-// 获取审计日志列表
+// 鑾峰彇瀹¤鏃ュ織鍒楄〃
 const getAuditLogList = async () => {
   loading.value = true
   try {
-    if (isSystemMode.value && detailClusterMode.value === 'clustered' && !selectedCluster.value) {
-      tableData.value = []
-      resetTotal()
-      clearSelection()
-      return
-    }
     const res = await pageLogs({
       ...buildAuditLogQueryParams(),
       pageNum: pagination.pageNum,
@@ -1757,19 +1947,34 @@ const getAuditLogList = async () => {
       tableData.value = applyPageResult(res.data)
     }
   } catch (error) {
-    logPageError('获取审计日志列表失败', error)
+    logPageError('鑾峰彇瀹¤鏃ュ織鍒楄〃澶辫触', error)
   } finally {
     loading.value = false
   }
 }
 
-// 获取日志统计
+// 鑾峰彇鏃ュ織缁熻
 const getAuditLogStats = async () => {
   statsLoading.value = true
   try {
     if (isSystemMode.value) {
       systemStats.value = createEmptySystemStats()
-      const res = await getSystemErrorStats(buildSystemErrorClusterQueryParams())
+      const res = await getSystemErrorStats(
+        buildSystemErrorQueryParams(
+          {
+            traceId: appliedFilters.traceId,
+            deviceCode: appliedFilters.deviceCode,
+            productKey: appliedFilters.productKey,
+            operationModule: appliedFilters.operationModule,
+            requestMethod: appliedFilters.requestMethod,
+            requestUrl: appliedFilters.requestUrl,
+            errorCode: appliedFilters.errorCode,
+            exceptionClass: appliedFilters.exceptionClass,
+            operationResult: appliedFilters.operationResult
+          },
+          errorViewMode.value === 'detail' ? selectedClusterRefiner.value : null
+        )
+      )
       if (res.code === 200 && res.data) {
         systemStats.value = { ...createEmptySystemStats(), ...res.data }
       }
@@ -1782,7 +1987,7 @@ const getAuditLogStats = async () => {
       businessStats.value = { ...createEmptyBusinessStats(), ...res.data }
     }
   } catch (error) {
-    logPageError('获取日志统计失败', error)
+    logPageError('鑾峰彇鏃ュ織缁熻澶辫触', error)
   } finally {
     statsLoading.value = false
   }
@@ -1905,8 +2110,8 @@ const getScheduledTaskLedger = async () => {
     }
   } catch (error) {
     clearScheduledTaskLedger()
-    scheduledTaskErrorMessage.value = error instanceof Error ? error.message : '获取调度任务台账失败'
-    logPageError('获取调度任务台账失败', error)
+    scheduledTaskErrorMessage.value = error instanceof Error ? error.message : '鑾峰彇璋冨害浠诲姟鍙拌处澶辫触'
+    logPageError('鑾峰彇璋冨害浠诲姟鍙拌处澶辫触', error)
   } finally {
     scheduledTaskLoading.value = false
   }
@@ -1941,8 +2146,8 @@ const getMessageArchiveBatchLedger = async (refreshSequence?: number) => {
       return
     }
     clearMessageArchiveBatchLedger()
-    messageArchiveBatchErrorMessage.value = error instanceof Error ? error.message : '获取归档批次台账失败'
-    logPageError('获取归档批次台账失败', error)
+    messageArchiveBatchErrorMessage.value = error instanceof Error ? error.message : '鑾峰彇褰掓。鎵规鍙拌处澶辫触'
+    logPageError('鑾峰彇褰掓。鎵规鍙拌处澶辫触', error)
   } finally {
     if (
       refreshSequence !== undefined &&
@@ -1984,8 +2189,8 @@ const getMessageArchiveBatchOverview = async (refreshSequence?: number) => {
     }
     clearMessageArchiveBatchOverview()
     messageArchiveBatchOverviewErrorMessage.value =
-      error instanceof Error ? error.message : '获取归档批次异常摘要失败'
-    logPageError('获取归档批次异常摘要失败', error)
+      error instanceof Error ? error.message : '鑾峰彇褰掓。鎵规寮傚父鎽樿澶辫触'
+    logPageError('鑾峰彇褰掓。鎵规寮傚父鎽樿澶辫触', error)
   } finally {
     if (
       refreshSequence !== undefined &&
@@ -2102,6 +2307,11 @@ const handleMessageArchiveBatchOverviewClick = (selection: ArchiveBatchOverviewS
   void refreshMessageArchiveBatchLedger()
 }
 
+const handleMessageArchiveBatchLatestFocus = () => {
+  applyMessageArchiveBatchOverviewSelection('latest')
+  void refreshMessageArchiveBatchLedger()
+}
+
 const resetMessageArchiveBatchFilters = () => {
   messageArchiveBatchFilters.batchNo = ''
   messageArchiveBatchFilters.status = ''
@@ -2117,7 +2327,7 @@ const loadMessageArchiveBatchReportPreview = async (row: ObservabilityMessageArc
   const batchNo = String(row.batchNo || '').trim()
   if (!batchNo) {
     clearMessageArchiveBatchReportPreview()
-    messageArchiveBatchReportPreviewErrorMessage.value = '当前批次缺少批次号，无法加载确认报告预览'
+    messageArchiveBatchReportPreviewErrorMessage.value = '褰撳墠鎵规缂哄皯鎵规鍙凤紝鏃犳硶鍔犺浇纭鎶ュ憡棰勮'
     return
   }
 
@@ -2134,8 +2344,8 @@ const loadMessageArchiveBatchReportPreview = async (row: ObservabilityMessageArc
   } catch (error) {
     clearMessageArchiveBatchReportPreview()
     messageArchiveBatchReportPreviewErrorMessage.value =
-      error instanceof Error ? error.message : '加载确认报告预览失败'
-    logPageError('加载确认报告预览失败', error)
+      error instanceof Error ? error.message : '鍔犺浇纭鎶ュ憡棰勮澶辫触'
+    logPageError('鍔犺浇纭鎶ュ憡棰勮澶辫触', error)
   } finally {
     messageArchiveBatchReportPreviewLoading.value = false
   }
@@ -2145,7 +2355,7 @@ const loadMessageArchiveBatchCompare = async (row: ObservabilityMessageArchiveBa
   const batchNo = String(row.batchNo || '').trim()
   if (!batchNo) {
     clearMessageArchiveBatchCompare()
-    messageArchiveBatchCompareErrorMessage.value = '当前批次缺少批次号，无法加载批次对比'
+    messageArchiveBatchCompareErrorMessage.value = '褰撳墠鎵规缂哄皯鎵规鍙凤紝鏃犳硶鍔犺浇鎵规瀵规瘮'
     return
   }
 
@@ -2162,8 +2372,8 @@ const loadMessageArchiveBatchCompare = async (row: ObservabilityMessageArchiveBa
   } catch (error) {
     clearMessageArchiveBatchCompare()
     messageArchiveBatchCompareErrorMessage.value =
-      error instanceof Error ? error.message : '加载批次对比失败'
-    logPageError('加载批次对比失败', error)
+      error instanceof Error ? error.message : '鍔犺浇鎵规瀵规瘮澶辫触'
+    logPageError('鍔犺浇鎵规瀵规瘮澶辫触', error)
   } finally {
     messageArchiveBatchCompareLoading.value = false
   }
@@ -2324,8 +2534,8 @@ const loadSlowSpanDrilldown = async (row: ObservabilitySlowSpanSummary) => {
     }
   } catch (error) {
     slowSpanRows.value = []
-    slowSpanErrorMessage.value = error instanceof Error ? error.message : '获取慢点明细失败'
-    logPageError('获取慢点明细失败', error)
+    slowSpanErrorMessage.value = error instanceof Error ? error.message : '鑾峰彇鎱㈢偣鏄庣粏澶辫触'
+    logPageError('鑾峰彇鎱㈢偣鏄庣粏澶辫触', error)
   } finally {
     slowSpanLoading.value = false
   }
@@ -2350,8 +2560,8 @@ const loadSlowTrendDrilldown = async (
     }
   } catch (error) {
     slowTrendRows.value = []
-    slowTrendErrorMessage.value = error instanceof Error ? error.message : '获取慢点趋势失败'
-    logPageError('获取慢点趋势失败', error)
+    slowTrendErrorMessage.value = error instanceof Error ? error.message : '鑾峰彇鎱㈢偣瓒嬪娍澶辫触'
+    logPageError('鑾峰彇鎱㈢偣瓒嬪娍澶辫触', error)
   } finally {
     slowTrendLoading.value = false
   }
@@ -2367,7 +2577,7 @@ const handleSlowTrendWindowChange = (value: string | number | boolean) => {
   void loadSlowTrendDrilldown(targetRow, nextWindow)
 }
 
-// 初始化
+// 鍒濆鍖?
 onMounted(() => {
   reloadExportSelection()
   applySystemRouteQuery()
@@ -2436,6 +2646,7 @@ watch(
       return
     }
     applySystemRouteQuery()
+    resetSystemErrorClusterNavigation()
     resetPage()
     clearSelection()
     syncAppliedFilters()
@@ -2447,6 +2658,9 @@ const triggerSearch = (resetPageFirst = false) => {
   applyQuickSearchKeywordToFilters()
   syncAdvancedFilterState()
   syncAppliedFilters()
+  if (isSystemMode.value) {
+    resetSystemErrorClusterNavigation()
+  }
   if (resetPageFirst) {
     resetPage()
   }
@@ -2454,12 +2668,12 @@ const triggerSearch = (resetPageFirst = false) => {
   loadAuditWorkbenchData()
 }
 
-// 处理搜索
+// 澶勭悊鎼滅储
 const handleSearch = () => {
   triggerSearch(true)
 }
 
-// 重置搜索
+// 閲嶇疆鎼滅储
 const handleReset = () => {
   resetSearchForm()
   resetMessageArchiveBatchSummarySelection()
@@ -2512,29 +2726,91 @@ const handleSlowSummarySelect = (row: ObservabilitySlowSpanSummary) => {
   void loadSlowTrendDrilldown(row, slowTrendWindow.value)
 }
 
-const handleSystemErrorClusterSelect = (clusterKey: string) => {
-  if (!clusterKey) {
+const handleHotspotDrilldownViewChange = (view: HotspotDrilldownView) => {
+  hotspotDrilldownView.value = view
+}
+
+const handleOpenSystemErrorClusters = async () => {
+  if (!isSystemMode.value) {
     return
   }
-  if (detailClusterMode.value === 'clustered' && selectedClusterKey.value === clusterKey) {
+
+  applyQuickSearchKeywordToFilters()
+  syncAdvancedFilterState()
+  const snapshot = captureSystemErrorSearchSnapshot()
+  const nextSignature = buildSystemErrorQuerySignature(snapshot)
+  const canReuse =
+    clusterQuerySignature.value === nextSignature && clusterRows.value.length > 0 && !clusterErrorMessage.value
+
+  clusterQuerySignature.value = nextSignature
+  clusterQueryFormSnapshot.value = { ...snapshot }
+  errorViewMode.value = 'clusters'
+
+  if (canReuse) {
     return
   }
-  selectedClusterKey.value = clusterKey
-  detailClusterMode.value = 'clustered'
+  await loadSystemErrorClusters(snapshot)
+}
+
+const handleReturnToSystemErrorDetails = () => {
+  if (!isSystemMode.value) {
+    return
+  }
+  errorViewMode.value = 'detail'
+}
+
+const handleRetrySystemErrorClusters = () => {
+  if (!isSystemMode.value || !clusterQueryFormSnapshot.value) {
+    return
+  }
+  void loadSystemErrorClusters(clusterQueryFormSnapshot.value)
+}
+
+const handleSystemErrorClusterApply = (clusterKey: string) => {
+  if (!isSystemMode.value || !clusterKey || !clusterQueryFormSnapshot.value) {
+    return
+  }
+
+  const cluster = clusterRows.value.find((item) => item.clusterKey === clusterKey)
+  if (!cluster) {
+    return
+  }
+
+  clusterRefinerBaseSnapshot.value = { ...clusterQueryFormSnapshot.value }
+  selectedClusterRefiner.value = cluster
+  applySystemErrorSearchSnapshot({
+    ...clusterQueryFormSnapshot.value,
+    operationModule: cluster.operationModule ?? '',
+    errorCode: cluster.errorCode ?? '',
+    exceptionClass: cluster.exceptionClass ?? ''
+  })
+  errorViewMode.value = 'detail'
   resetPage()
   clearSelection()
+  void getAuditLogStats()
   void getAuditLogList()
 }
 
-const handleSystemErrorClusterCollapse = () => {
-  if (!isSystemMode.value || detailClusterMode.value === 'all' || !selectedClusterKey.value) {
+const handleClearSystemErrorClusterRefiner = () => {
+  if (!isSystemMode.value || !clusterRefinerBaseSnapshot.value) {
     return
   }
-  selectedClusterKey.value = ''
-  detailClusterMode.value = 'clustered'
+
+  selectedClusterRefiner.value = null
+  applySystemErrorSearchSnapshot(clusterRefinerBaseSnapshot.value)
+  clusterRefinerBaseSnapshot.value = null
+  errorViewMode.value = 'detail'
   resetPage()
   clearSelection()
+  void getAuditLogStats()
   void getAuditLogList()
+}
+
+const handleReturnToSystemErrorClusters = () => {
+  if (!isSystemMode.value || !canReturnToClusterResults.value) {
+    return
+  }
+  errorViewMode.value = 'clusters'
 }
 
 const handleSystemErrorSearchFieldUpdate = ({
@@ -2584,7 +2860,13 @@ const handleSystemTabRefresh = () => {
     void refreshMessageArchiveBatchLedger()
     return
   }
-  triggerSearch(false)
+  if (errorViewMode.value === 'clusters') {
+    void loadSystemErrorClusters()
+    return
+  }
+  clearSelection()
+  void getAuditLogStats()
+  void getAuditLogList()
 }
 
 const handleAuditPanelRowAction = ({
@@ -2639,7 +2921,7 @@ const canOpenTraceEvidence = (row?: Partial<AuditLogRecord>) => Boolean(resolveE
 const openTraceEvidence = async (row?: Partial<AuditLogRecord>) => {
   const traceId = resolveEvidenceTraceId(row)
   if (!traceId) {
-    ElMessage.warning('当前记录缺少 TraceId，无法查看证据包')
+    ElMessage.warning('褰撳墠璁板綍缂哄皯 TraceId锛屾棤娉曟煡鐪嬭瘉鎹寘')
     return
   }
   evidenceDrawerVisible.value = true
@@ -2666,7 +2948,7 @@ const openTraceEvidence = async (row?: Partial<AuditLogRecord>) => {
 const openTraceEvidenceByTraceId = async (traceId?: string | null) => {
   const normalizedTraceId = (traceId || '').trim()
   if (!normalizedTraceId) {
-    ElMessage.warning('当前慢点缺少 TraceId，无法查看证据包')
+    ElMessage.warning('褰撳墠鎱㈢偣缂哄皯 TraceId锛屾棤娉曟煡鐪嬭瘉鎹寘')
     return
   }
   await openTraceEvidence({ traceId: normalizedTraceId })
@@ -2707,11 +2989,11 @@ const handleExportColumnConfirm = (selectedKeys: string[]) => {
 const getResolvedExportColumns = () => resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 
 const handleExportSelected = () => {
-  downloadRowsAsCsv(`${pageTitle.value}-选中项.csv`, selectedRows.value, getResolvedExportColumns())
+  downloadRowsAsCsv(`${pageTitle.value}-閫変腑椤?csv`, selectedRows.value, getResolvedExportColumns())
 }
 
 const handleExportCurrent = () => {
-  downloadRowsAsCsv(`${pageTitle.value}-当前结果.csv`, tableData.value, getResolvedExportColumns())
+  downloadRowsAsCsv(`${pageTitle.value}-褰撳墠缁撴灉.csv`, tableData.value, getResolvedExportColumns())
 }
 
 const handleToolbarAction = (command: string | number | object) => {
@@ -2733,13 +3015,13 @@ const handleToolbarAction = (command: string | number | object) => {
   }
 }
 
-// 分页大小变化
+// 鍒嗛〉澶у皬鍙樺寲
 const handleSizeChange = (size: number) => {
   setPageSize(size)
   getAuditLogList()
 }
 
-// 当前页变化
+// 褰撳墠椤靛彉鍖?
 const handlePageChange = (page: number) => {
   setPageNum(page)
   getAuditLogList()
@@ -2748,18 +3030,18 @@ const handlePageChange = (page: number) => {
 const getAuditDirectActions = (row: AuditLogRecord) => {
   if (isSystemMode.value) {
     return [
-      { command: 'detail', label: '详情' },
-      { command: 'evidence', label: '证据', disabled: !canOpenTraceEvidence(row) },
-      { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) },
-      { command: 'copy-trace-id', label: '复制 TraceId', disabled: !resolveEvidenceTraceId(row) },
-      { command: 'copy-target', label: '复制目标', disabled: !resolveAuditTarget(row) },
-      { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+      { command: 'detail', label: '璇︽儏' },
+      { command: 'evidence', label: '璇佹嵁', disabled: !canOpenTraceEvidence(row) },
+      { command: 'trace', label: '杩借釜', disabled: !canJumpToMessageTrace(row) },
+      { command: 'copy-trace-id', label: '澶嶅埗 TraceId', disabled: !resolveEvidenceTraceId(row) },
+      { command: 'copy-target', label: '澶嶅埗鐩爣', disabled: !resolveAuditTarget(row) },
+      { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
     ]
   }
 
   return [
-    { command: 'detail', label: '详情' },
-    { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+    { command: 'detail', label: '璇︽儏' },
+    { command: 'delete', label: '鍒犻櫎', permission: 'system:audit:delete' }
   ]
 }
 
@@ -2810,7 +3092,7 @@ const handleAuditRowAction = (command: string | number | object, row: AuditLogRe
   }
 }
 
-// 查看详情
+// 鏌ョ湅璇︽儏
 const handleDetail = async (row: AuditLogRecord) => {
   if (row.id === undefined || row.id === null || row.id === '') {
     ElMessage.warning('当前日志缺少主键，无法查看详情')
@@ -2824,34 +3106,34 @@ const handleDetail = async (row: AuditLogRecord) => {
   try {
     const res = await getAuditLogById(String(row.id))
     if (!res.data || Array.isArray(res.data)) {
-      ElMessage.warning(`${recordLabel.value}不存在或已删除`)
+      ElMessage.warning(${recordLabel.value}不存在或已删除)
       detailVisible.value = false
       return
     }
     detailData.value = { ...row, ...res.data }
   } catch (error) {
     if (!isHandledRequestError(error)) {
-      ElMessage.error(`获取${detailDialogTitle.value}失败`)
+      ElMessage.error(`鑾峰彇${detailDialogTitle.value}澶辫触`)
     }
-    detailErrorMessage.value = error instanceof Error ? error.message : `获取${detailDialogTitle.value}失败`
-    logPageError('获取日志详情失败', error)
+    detailErrorMessage.value = error instanceof Error ? error.message : `鑾峰彇${detailDialogTitle.value}澶辫触`
+    logPageError('鑾峰彇鏃ュ織璇︽儏澶辫触', error)
   } finally {
     detailLoading.value = false
   }
 }
 
-// 删除
+// 鍒犻櫎
 const handleDelete = async (row: AuditLogRecord) => {
   try {
     await confirmAction({
-      title: `删除${recordLabel.value}`,
-      message: `确认删除当前${recordLabel.value}吗？删除后不可恢复。`,
+      title: `鍒犻櫎${recordLabel.value}`,
+      message: 确认删除当前吗？删除后不可恢复。,
       type: 'warning',
-      confirmButtonText: '确认删除'
+      confirmButtonText: '纭鍒犻櫎'
     })
     const res = await deleteAuditLog(String(row.id))
     if (res.code === 200) {
-      ElMessage.success('删除成功')
+      ElMessage.success('鍒犻櫎鎴愬姛')
       getAuditLogList()
       getAuditLogStats()
     }
@@ -2859,23 +3141,23 @@ const handleDelete = async (row: AuditLogRecord) => {
     if (isConfirmCancelled(error)) {
       return
     }
-    logPageError('删除失败', error)
+    logPageError('鍒犻櫎澶辫触', error)
   }
 }
 
-// 获取操作类型名称
+// 鑾峰彇鎿嶄綔绫诲瀷鍚嶇О
 const getOperationTypeName = (type: string) => {
   const map: Record<string, string> = {
-    insert: '新增',
-    update: '修改',
-    delete: '删除',
-    select: '查询',
-    system_error: '系统异常'
+    insert: '鏂板',
+    update: '淇敼',
+    delete: '鍒犻櫎',
+    select: '鏌ヨ',
+    system_error: '绯荤粺寮傚父'
   }
   return map[type] || type
 }
 
-// 获取操作类型标签
+// 鑾峰彇鎿嶄綔绫诲瀷鏍囩
 const getOperationTypeTag = (type: string) => {
   const map: Record<string, string> = {
     insert: 'primary',
@@ -2888,8 +3170,8 @@ const getOperationTypeTag = (type: string) => {
 }
 
 const getOperationResultName = (result?: number | null) => {
-  if (result === 1) return '成功'
-  if (result === 0) return '失败'
+  if (result === 1) return '鎴愬姛'
+  if (result === 0) return '澶辫触'
   return '-'
 }
 
@@ -2956,18 +3238,18 @@ const formatArchiveBatchName = (row?: Partial<ObservabilityMessageArchiveBatch> 
 const formatArchiveBatchFooter = (row: ObservabilityMessageArchiveBatch) => {
   const failedReason = String(row.failedReason || '').trim()
   if (failedReason) {
-    return `失败原因：${failedReason}`
+    return `澶辫触鍘熷洜锛?{failedReason}`
   }
   const confirmReportPath = String(row.confirmReportPath || '').trim()
-  return confirmReportPath ? `确认报告：${confirmReportPath}` : '确认报告：--'
+  return confirmReportPath ? `确认报告：${confirmReportPath}` : '确认报告：-'
 }
 
 const formatArchiveBatchReportSummaryLabel = (key: string) => {
   const map: Record<string, string> = {
-    generatedAt: '报告生成时间',
-    mode: '治理模式',
-    expiredRows: '过期行数',
-    deletedRows: '删除行数',
+    generatedAt: '鎶ュ憡鐢熸垚鏃堕棿',
+    mode: '娌荤悊妯″紡',
+    expiredRows: '杩囨湡琛屾暟',
+    deletedRows: '鍒犻櫎琛屾暟',
     tablesWithExpiredRows: '命中过期表'
   }
   return map[key] || key
@@ -2983,9 +3265,9 @@ const formatArchiveBatchCompareStatus = (status?: ArchiveBatchCompareStatus | st
     case 'DRIFTED':
       return '有偏差'
     case 'PARTIAL':
-      return '部分可比'
+      return '閮ㄥ垎鍙瘮'
     default:
-      return '不可比对'
+      return '涓嶅彲姣斿'
   }
 }
 
@@ -2999,7 +3281,7 @@ const formatArchiveBatchCompareRowStatus = (matched?: boolean | null) => {
   if (matched === false) {
     return '有偏差'
   }
-  return '部分可比'
+  return '閮ㄥ垎鍙瘮'
 }
 
 const isArchiveBatchAbnormalStatus = (status?: string | null) => {
@@ -3019,7 +3301,7 @@ const formatArchiveBatchPreviewAvailability = (row?: Partial<ObservabilityMessag
   if (row?.previewAvailable) {
     return '可预览'
   }
-  return formatValue(row?.previewReasonCode || '不可预览')
+  return formatValue(row?.previewReasonCode || '涓嶅彲棰勮')
 }
 
 const formatSlowSummaryTitle = (row: ObservabilitySlowSpanSummary) =>
@@ -3037,10 +3319,10 @@ const formatSlowTrendBucketLabel = (row: ObservabilitySlowSpanTrend) => {
 
 const getEvidenceItemTypeName = (type?: string | null) => {
   if (type === 'BUSINESS_EVENT') {
-    return '业务事件'
+    return '涓氬姟浜嬩欢'
   }
   if (type === 'SPAN') {
-    return '调用片段'
+    return '璋冪敤鐗囨'
   }
   return formatValue(type)
 }
@@ -3436,6 +3718,82 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   word-break: break-word;
 }
 
+.audit-log-system-workbench {
+  display: grid;
+  gap: 0.96rem;
+}
+
+.audit-log-system-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.96rem;
+  align-items: start;
+  padding: 0.96rem 1rem;
+}
+
+.audit-log-system-header__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.audit-log-system-header__summary-card {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  padding: 0.78rem 0.88rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg) 94%, white 6%);
+}
+
+.audit-log-system-header__summary-card--emphasis {
+  box-shadow: 0 18px 34px -28px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
+.audit-log-system-header__summary-card--danger.audit-log-system-header__summary-card--emphasis {
+  border-color: color-mix(in srgb, var(--el-color-danger) 38%, var(--panel-border) 62%);
+  background: color-mix(in srgb, var(--el-color-danger-light-9) 78%, white 22%);
+}
+
+.audit-log-system-header__summary-card--warning.audit-log-system-header__summary-card--emphasis {
+  border-color: color-mix(in srgb, var(--el-color-warning) 38%, var(--panel-border) 62%);
+  background: color-mix(in srgb, var(--el-color-warning-light-9) 74%, white 26%);
+}
+
+.audit-log-system-header__summary-label,
+.audit-log-system-header__summary-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-system-header__summary-label {
+  color: var(--text-caption);
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.audit-log-system-header__summary-value {
+  color: var(--text-heading);
+  font-size: 1.04rem;
+  line-height: 1.2;
+}
+
+.audit-log-system-header__summary-meta {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.audit-log-system-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
 .audit-log-quick-search-tag {
   margin-top: 0.72rem;
 }
@@ -3446,6 +3804,32 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 
 .audit-log-table-wrap {
   min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .audit-log-system-header {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-log-system-header__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 960px) {
+  .audit-log-system-header__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .audit-log-system-header {
+    padding-inline: 0.86rem;
+  }
+
+  .audit-log-system-header__summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 .audit-log-mobile-list {
@@ -4120,3 +4504,6 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 }
 
 </style>
+
+
+

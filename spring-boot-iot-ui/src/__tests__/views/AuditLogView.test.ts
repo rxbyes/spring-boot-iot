@@ -196,7 +196,7 @@ const StandardPageShellStub = defineComponent({
 
 const IotAccessTabWorkspaceStub = defineComponent({
   name: 'IotAccessTabWorkspace',
-  props: ['items', 'modelValue', 'defaultKey'],
+  props: ['items', 'modelValue', 'defaultKey', 'variant'],
   emits: ['update:modelValue', 'change'],
   computed: {
     activeKey(): string {
@@ -268,6 +268,7 @@ const StandardChoiceGroupStub = defineComponent({
         v-for="option in options"
         :key="option.value"
         type="button"
+        :data-testid="['LAST_24_HOURS', 'LAST_7_DAYS'].includes(option.value) ? \`slow-trend-window-\${option.value}\` : \`hotspot-drilldown-\${option.value}\`"
         @click="$emit('update:modelValue', option.value)"
       >
         {{ option.label }}
@@ -987,6 +988,25 @@ describe('AuditLogView', () => {
     expect(wrapper.find('[data-testid="system-log-archive-panel"]').exists()).toBe(false);
   });
 
+  it('updates the shared workbench summary strip as the active system tab changes', async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="system-log-summary-errors"]').text()).toContain('4');
+    expect(wrapper.get('[data-testid="system-log-summary-trace"]').text()).toContain('2');
+
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.get('[data-testid="system-log-summary-hotspots"]').text()).toContain('5');
+    expect(wrapper.get('[data-testid="system-log-summary-tasks"]').text()).toContain('11810');
+
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    expect(wrapper.get('[data-testid="system-log-summary-abnormal"]').text()).toContain('3');
+    expect(wrapper.get('[data-testid="system-log-summary-batches"]').text()).toContain('1');
+  });
+
   it('keeps the anomaly list surface only inside the 异常排查 panel', async () => {
     const wrapper = mountView();
 
@@ -1090,11 +1110,18 @@ describe('AuditLogView', () => {
     const panel = wrapper.find('.audit-log-slow-summary');
     expect(panel.exists()).toBe(true);
     expect(panel.text()).toContain('性能慢点 Top');
-    expect(panel.text()).toContain('SLOW_SQL');
-    expect(panel.text()).toContain('system.error.archive');
-    expect(panel.text()).toContain('iot_message_log');
-    expect(panel.text()).toContain('2400 ms');
-    expect(panel.text()).toContain('3 次');
+    const hotspotTable = wrapper.find('[data-testid="hotspot-master-table"]');
+    expect(hotspotTable.text()).toContain('热点对象');
+    expect(hotspotTable.text()).toContain('风险状态');
+    expect(hotspotTable.text()).toContain('性能信号');
+    expect(hotspotTable.text()).toContain('最近情况');
+    expect(hotspotTable.text()).toContain('SLOW_SQL');
+    expect(hotspotTable.text()).toContain('system.error.archive');
+    expect(hotspotTable.text()).toContain('iot_message_log');
+    expect(hotspotTable.text()).toContain('trace-slow-1');
+    expect(hotspotTable.text()).toContain('P峰 2400 ms');
+    expect(hotspotTable.text()).toContain('均值 1280 ms');
+    expect(hotspotTable.text()).toContain('3 次');
 
     vi.mocked(getTraceEvidence).mockClear();
     await panel.find('button').trigger('click');
@@ -1105,7 +1132,7 @@ describe('AuditLogView', () => {
     expect(wrapper.find('.observability-evidence-drawer-stub').exists()).toBe(true);
   });
 
-  it('renders scheduled task ledger and opens evidence from a task run', async () => {
+  it('reveals the scheduled task ledger from the related-task drilldown and opens evidence from a task run', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
@@ -1115,6 +1142,10 @@ describe('AuditLogView', () => {
       pageNum: 1,
       pageSize: 5
     });
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await flushPromises();
+    await nextTick();
 
     const ledger = wrapper.find('.audit-log-scheduled-task-ledger');
     expect(ledger.exists()).toBe(true);
@@ -1158,17 +1189,20 @@ describe('AuditLogView', () => {
     expect(ledger.text()).toContain('剩余过期总量');
     expect(ledger.text()).toContain('最近异常批次');
     expect(ledger.text()).toContain('iot_message_log-20260426090100');
-    expect(ledger.text()).toContain('iot_message_log-20260426000119');
-    expect(ledger.text()).toContain('SUCCEEDED');
-    expect(ledger.text()).toContain('已对齐');
-    expect(ledger.text()).toContain('确认 16098');
-    expect(ledger.text()).toContain('归档 16098');
-    expect(ledger.text()).toContain('删除 16098');
-    expect(ledger.text()).toContain('确认差值 0');
-    expect(ledger.text()).toContain('dry-run 差值 0');
-    expect(ledger.text()).toContain('剩余过期 0');
-    expect(ledger.text()).toContain('报告 可预览');
-    expect(ledger.text()).toContain('logs/observability/observability-log-governance-20260425-235900.json');
+    const archiveTable = wrapper.find('[data-testid="archive-batch-master-table"]');
+    expect(archiveTable.text()).toContain('归档批次');
+    expect(archiveTable.text()).toContain('执行状态');
+    expect(archiveTable.text()).toContain('对比结论');
+    expect(archiveTable.text()).toContain('风险信号');
+    expect(archiveTable.text()).toContain('最近时间');
+    expect(archiveTable.text()).toContain('iot_message_log-20260426000119');
+    expect(archiveTable.text()).toContain('SUCCEEDED');
+    expect(archiveTable.text()).toContain('已对齐');
+    expect(archiveTable.text()).toContain('偏差 0');
+    expect(archiveTable.text()).toContain('剩余 0');
+    expect(archiveTable.text()).toContain('报告 可预览');
+    expect(archiveTable.text()).toContain('iot_message_log / 30 天');
+    expect(archiveTable.text()).toContain('截止 2026-03-27 00:00:00');
 
     const detailButton = ledger.findAll('button').find((button) => button.text().includes('详情'));
     await detailButton!.trigger('click');
@@ -1264,10 +1298,6 @@ describe('AuditLogView', () => {
     await rows[1]!.trigger('click');
     await flushPromises();
     await nextTick();
-
-    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').text()).toContain(
-      'iot_message_log-20260426090100'
-    );
 
     await triggerSystemLogTab(wrapper, 'errors');
     await triggerSystemLogTab(wrapper, 'archives');
@@ -1391,7 +1421,7 @@ describe('AuditLogView', () => {
       }
     });
 
-    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
     await flushPromises();
     await nextTick();
 
@@ -1416,7 +1446,7 @@ describe('AuditLogView', () => {
       .find((item) => item.text().includes('归档批次详情'));
     expect(drawer?.exists()).toBe(true);
     expect(drawer?.text()).toContain('iot_message_log-20260426090100');
-    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').text()).toContain(
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').text()).toContain(
       'iot_message_log-20260426090100'
     );
     const selectedRow = wrapper.findAll('[data-testid="archive-batch-master-row"]').find((row) =>
@@ -1445,7 +1475,7 @@ describe('AuditLogView', () => {
       }
     });
 
-    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
     await flushPromises();
     await nextTick();
 
@@ -1458,10 +1488,9 @@ describe('AuditLogView', () => {
     });
     expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
     expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
   });
 
-  it('clears summary selection and focus hint after manual archive filter edits', async () => {
+  it('clears latest focus selection after manual archive filter edits', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
@@ -1479,20 +1508,17 @@ describe('AuditLogView', () => {
       }
     });
 
-    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.text()).toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).toContain('is-active');
 
     await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('manual-batch');
     await flushPromises();
     await nextTick();
 
-    expect(
-      wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
-    ).toBe(0);
-    expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).not.toContain('is-active');
   });
 
   it('clears latest summary selection after manual archive batch filter edits', async () => {
@@ -1501,13 +1527,11 @@ describe('AuditLogView', () => {
     await nextTick();
     await triggerSystemLogTab(wrapper, 'archives');
 
-    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
     await flushPromises();
     await nextTick();
 
-    expect(
-      wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
-    ).toBe(1);
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).toContain('is-active');
 
     vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
     vi.mocked(getObservabilityMessageArchiveBatchCompare).mockClear();
@@ -1517,10 +1541,7 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(
-      wrapper.findAll('.audit-log-archive-batch-ledger__overview-card.is-active').length
-    ).toBe(0);
-    expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
+    expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).not.toContain('is-active');
 
     await clickButtonByText(wrapper, '刷新列表');
     await flushPromises();
@@ -1536,7 +1557,6 @@ describe('AuditLogView', () => {
     });
     expect(getObservabilityMessageArchiveBatchCompare).not.toHaveBeenCalled();
     expect(getObservabilityMessageArchiveBatchReportPreview).not.toHaveBeenCalled();
-    expect(wrapper.text()).not.toContain('最近异常批次不在当前结果中，请调整时间范围后重试');
   });
 
   it('keeps the latest archive batch refresh result when summary refreshes resolve out of order', async () => {
@@ -1562,7 +1582,7 @@ describe('AuditLogView', () => {
       .mockImplementationOnce(() => staleOverview.promise)
       .mockImplementationOnce(() => currentOverview.promise);
 
-    await wrapper.get('[data-testid="archive-batch-overview-latest"]').trigger('click');
+    await wrapper.get('[data-testid="archive-batch-latest-focus"]').trigger('click');
     await wrapper.get('[data-testid="archive-batch-overview-drifted"]').trigger('click');
 
     currentPage.resolve({
@@ -1714,7 +1734,29 @@ describe('AuditLogView', () => {
 
     expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="hotspot-detail-section"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
     expect(wrapper.text()).toContain('task failed');
+  });
+
+  it('uses one hotspot drilldown surface and reveals scheduled tasks only in the related-task view', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.find('[data-testid="hotspot-detail-section"]').text()).toContain('最近样本');
+    expect(wrapper.text()).not.toContain('调度任务台账');
+
+    await wrapper.get('[data-testid="hotspot-drilldown-tasks"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('调度任务台账');
+    expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
   });
 
   it('drills slow hotspot into recent span records', async () => {
@@ -1773,7 +1815,7 @@ describe('AuditLogView', () => {
 
     const drilldown = wrapper.find('.audit-log-slow-trend-drilldown');
     expect(drilldown.exists()).toBe(true);
-    expect(drilldown.text()).toContain('趋势观察');
+    expect(drilldown.text()).toContain('趋势');
     expect(drilldown.text()).toContain('P95');
     expect(drilldown.text()).toContain('P99');
     expect(drilldown.text()).toContain('错误率');
@@ -1989,29 +2031,12 @@ describe('AuditLogView', () => {
     expect(persisted.context.reportStatus).toBe('failed');
   });
 
-  it('loads system error clusters and filters detail rows by the selected cluster', async () => {
+  it('does not load system error clusters on the default error view', async () => {
     mountView();
     await flushPromises();
     await nextTick();
 
-    expect(pageSystemErrorClusters).toHaveBeenCalledTimes(1);
-    expect(pageLogs).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        operationType: 'system_error',
-        operationModule: 'mqtt-consumer',
-        exceptionClass: 'java.lang.IllegalStateException',
-        errorCode: 'MQTT_TIMEOUT'
-      })
-    );
-  });
-
-  it('falls back to all error details when cluster loading fails', async () => {
-    vi.mocked(pageSystemErrorClusters).mockRejectedValueOnce(new Error('cluster failed'));
-
-    const wrapper = mountView();
-    await flushPromises();
-    await nextTick();
-
+    expect(pageSystemErrorClusters).not.toHaveBeenCalled();
     expect(pageLogs).toHaveBeenLastCalledWith(
       expect.objectContaining({
         operationType: 'system_error',
@@ -2020,8 +2045,85 @@ describe('AuditLogView', () => {
         errorCode: ''
       })
     );
+  });
+
+  it('opens the cluster stage with the current form values instead of only applied filters', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    getErrorPanel(wrapper).vm.$emit('update-search-field', {
+      field: 'operationModule',
+      value: 'message.mqtt'
+    });
+    await openClusterStage(wrapper);
+
+    expect(pageSystemErrorClusters).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: 'message.mqtt'
+      })
+    );
     expect(wrapper.text()).not.toContain('异常概览加载失败');
     expect(wrapper.text()).not.toContain('全部异常明细');
+  });
+
+  it('returns to detail with cluster refiner fields after a cluster is selected', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await openClusterStage(wrapper);
+    await applyCluster(wrapper, 'mqtt-consumer|java.lang.IllegalStateException|MQTT_TIMEOUT');
+
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: 'mqtt-consumer',
+        exceptionClass: 'java.lang.IllegalStateException',
+        errorCode: 'MQTT_TIMEOUT'
+      })
+    );
+    expect(wrapper.text()).toContain('当前按分组定位');
+  });
+
+  it('clears the cluster return context after the user searches with changed filters', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await openClusterStage(wrapper);
+    await applyCluster(wrapper, 'mqtt-consumer|java.lang.IllegalStateException|MQTT_TIMEOUT');
+
+    getErrorPanel(wrapper).vm.$emit('update-search-field', {
+      field: 'deviceCode',
+      value: 'demo-device-02'
+    });
+    getErrorPanel(wrapper).vm.$emit('search');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain('返回异常分组结果');
+    expect(wrapper.text()).not.toContain('当前按分组定位');
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        deviceCode: 'demo-device-02'
+      })
+    );
+  });
+
+  it('stays in the cluster stage and offers retry when the cluster request fails', async () => {
+    vi.mocked(pageSystemErrorClusters).mockRejectedValueOnce(new Error('cluster failed'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await openClusterStage(wrapper);
+
+    expect(wrapper.text()).toContain('返回异常明细');
+    expect(wrapper.text()).toContain('重试');
+    expect(wrapper.text()).not.toContain('已回退为全部异常明细');
   });
 
   it('uses shared workbench row actions and mobile list grammar in system mode', () => {
