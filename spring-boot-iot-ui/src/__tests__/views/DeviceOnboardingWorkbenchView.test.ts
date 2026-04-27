@@ -85,7 +85,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['title', 'description'],
   template: `
-    <section class="device-onboarding-panel">
+    <section class="device-onboarding-panel standard-workbench-panel--workbench-foundation">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <slot name="filters" />
@@ -114,6 +114,17 @@ const StandardButtonStub = defineComponent({
   template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
 })
 
+const StandardListFilterHeaderStub = defineComponent({
+  name: 'StandardListFilterHeader',
+  template: `
+    <section class="device-onboarding-filter-header standard-list-filter-header--workbench-foundation">
+      <slot name="primary" />
+      <slot name="advanced" />
+      <slot name="actions" />
+    </section>
+  `
+})
+
 function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -126,7 +137,7 @@ function mountView() {
         StandardWorkbenchPanel: StandardWorkbenchPanelStub,
         PanelCard: PanelCardStub,
         StandardButton: StandardButtonStub,
-        StandardListFilterHeader: true,
+        StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardTableToolbar: true,
         StandardPagination: true
       }
@@ -416,6 +427,8 @@ describe('DeviceOnboardingWorkbenchView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true)
     expect(wrapper.text()).toContain('无代码接入台')
     expect(wrapper.text()).toContain('产品相关执行统一跳到产品工作台处理')
     expect(wrapper.text()).toContain('裂缝传感器接入')

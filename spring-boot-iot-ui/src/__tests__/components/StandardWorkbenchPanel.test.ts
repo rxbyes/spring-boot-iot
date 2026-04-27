@@ -32,15 +32,19 @@ describe('StandardWorkbenchPanel', () => {
     expect(wrapper.find('.standard-workbench-panel__caption').text()).toContain('统一维护产品台账')
   })
 
-  it('uses shared workbench spacing tokens instead of page-private gaps', () => {
+  it('routes shared workbench spacing through a local alias chain', () => {
     const source = readFileSync(
       resolve(import.meta.dirname, '../../components/StandardWorkbenchPanel.vue'),
       'utf8'
     )
 
-    expect(source).toContain('--ops-workbench-gap')
-    expect(source).toContain('var(--ops-workbench-gap')
-    expect(source).toContain('standard-workbench-panel__body')
+    expect(source).toContain('--standard-workbench-panel-gap:')
+    expect(source).toContain(
+      '--standard-workbench-panel-gap: var(--standard-workbench-gap, var(--ops-workbench-gap, 0.72rem));'
+    )
+    expect(source).not.toContain('--ops-workbench-gap: var(--ops-workbench-gap);')
+    expect(source).toContain('margin-bottom: var(--standard-workbench-panel-gap);')
+    expect(source).toContain('margin-top: var(--standard-workbench-panel-gap);')
   })
 
   it('binds heading typography to the shared song-style hierarchy tokens', () => {

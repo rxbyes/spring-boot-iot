@@ -29,6 +29,7 @@ import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceMissingPolicyProductMetricSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.device.entity.Device;
@@ -702,7 +703,8 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
     private boolean matchesPolicy(RiskPointDevice binding,
                                   Map<String, List<RuleDefinition>> enabledRulesByMetric,
                                   Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId,
-                                  Map<Long, Long> deviceProductIds) {
+                                  Map<Long, Long> deviceProductIds,
+                                  Map<Long, Product> productMap) {
         if (binding == null) {
             return false;
         }
@@ -714,10 +716,11 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             candidates.addAll(enabledRulesByMetric.getOrDefault(binding.getMetricIdentifier().trim(), List.of()));
         }
         Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
-        return candidates.stream().anyMatch(rule -> matchesPolicyScope(rule, binding, productId));
+        Product product = productId == null || productMap == null ? null : productMap.get(productId);
+        return candidates.stream().anyMatch(rule -> matchesPolicyScope(rule, binding, productId, product));
     }
 
-    private boolean matchesPolicyScope(RuleDefinition rule, RiskPointDevice binding, Long productId) {
+    private boolean matchesPolicyScope(RuleDefinition rule, RiskPointDevice binding, Long productId, Product product) {
         String scope = normalizeRuleScope(rule == null ? null : rule.getRuleScope());
         return switch (scope) {
             case "BINDING" -> binding != null
@@ -727,6 +730,11 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                     && binding.getDeviceId() != null
                     && binding.getDeviceId().equals(rule.getDeviceId());
             case "PRODUCT" -> productId != null && productId.equals(rule.getProductId());
+            case "PRODUCT_TYPE" -> product != null
+                    && StringUtils.hasText(rule.getProductType())
+                    && DeviceBindingCapabilitySupport.resolve(product.getProductKey(), product.getProductName())
+                    .name()
+                    .equalsIgnoreCase(rule.getProductType().trim());
             default -> true;
         };
     }
@@ -1258,8 +1266,13 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
         Long productId = query == null ? null : query.getProductId();
         Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Product> productMap = enabledRules.stream()
+                .anyMatch(rule -> "PRODUCT_TYPE".equals(normalizeRuleScope(rule.getRuleScope())))
+                ? loadProductsById(new LinkedHashSet<>(deviceProductIds.values()))
+                : Map.of();
         return bindings.stream()
-                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId, deviceProductIds))
+                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId,
+                        deviceProductIds, productMap))
                 .filter(binding -> matchesProduct(binding, productId, deviceProductIds))
                 .filter(binding -> matchesDeviceCode(binding, query))
                 .toList();

@@ -62,7 +62,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="message-trace-workbench-stub">
+    <section class="message-trace-workbench-stub standard-workbench-panel--workbench-foundation">
       <header>
         <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
@@ -84,7 +84,7 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -95,14 +95,16 @@ const IotAccessTabWorkspaceStub = defineComponent({
   name: 'IotAccessTabWorkspace',
   props: ['items'],
   template: `
-    <section class="iot-access-tab-workspace-stub">
-      <button
-        v-for="item in items || []"
-        :key="item.key"
-        type="button"
-      >
-        {{ item.label }}
-      </button>
+    <section class="iot-access-tab-workspace-stub iot-access-tab-workspace--workbench">
+      <nav class="iot-access-tab-workspace__tabs iot-access-tab-workspace__tabs--segmented">
+        <button
+          v-for="item in items || []"
+          :key="item.key"
+          type="button"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
       <slot :active-key="items?.[0]?.key" />
     </section>
   `
@@ -111,7 +113,7 @@ const IotAccessTabWorkspaceStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="message-trace-filter-stub">
+    <section class="message-trace-filter-stub standard-list-filter-header--workbench-foundation">
       <div><slot name="primary" /></div>
       <div><slot name="advanced" /></div>
       <div><slot name="actions" /></div>
@@ -192,7 +194,7 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
   emits: ['command'],
   template: `
-    <div class="message-trace-row-actions-stub" :data-variant="variant" :data-menu-label="menuLabel">
+    <div class="message-trace-row-actions-stub standard-workbench-row-actions--quiet" :data-variant="variant" :data-menu-label="menuLabel">
       <button
         v-for="item in directItems || []"
         :key="item.key || item.command"
@@ -1044,8 +1046,11 @@ describe('MessageTraceView', () => {
 
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub);
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true);
     expect(wrapper.find('.iot-access-tab-workspace-stub').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace__tabs--segmented').exists()).toBe(true);
     expect(detailDrawer.props('eyebrow')).toBeUndefined();
     expect(messageApi.getMessageFlowOpsOverview).not.toHaveBeenCalled();
     expect(messageApi.getMessageFlowRecentSessions).not.toHaveBeenCalled();
@@ -1410,6 +1415,18 @@ describe('MessageTraceView', () => {
     expect(source).toContain('standard-mobile-record-grid');
     expect(source).not.toContain('gap="compact"');
     expect(source).not.toContain("gap: 'compact'");
+  });
+
+  it('marks trace row-action stubs with the quiet shared workbench modifier', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const rowActions = wrapper.findAll('.message-trace-row-actions-stub');
+    expect(rowActions.length).toBeGreaterThan(0);
+    rowActions.forEach((item) => {
+      expect(item.classes()).toContain('standard-workbench-row-actions--quiet');
+    });
   });
 
 });

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
@@ -24,7 +26,7 @@ const StandardActionLinkStub = defineComponent({
   emits: ['click'],
   template: `
     <button
-      class="standard-action-link-stub"
+      class="standard-action-link standard-action-link-stub"
       type="button"
       :data-testid="$attrs['data-testid']"
       :title="$attrs.title"
@@ -40,7 +42,7 @@ const StandardActionMenuStub = defineComponent({
   props: ['items', 'label'],
   emits: ['command'],
   template: `
-    <button class="standard-action-menu-stub" type="button" @click="$emit('command', items?.[0]?.command)">
+    <button class="standard-action-menu standard-action-menu-stub" type="button" @click="$emit('command', items?.[0]?.command)">
       {{ label }}
     </button>
   `
@@ -60,6 +62,13 @@ function mountComponent(props: Record<string, unknown>) {
 }
 
 describe('StandardWorkbenchRowActions', () => {
+  it('only adds the quiet menu separator when the menu follows a visible sibling action', () => {
+    const globalCss = readFileSync(resolve(import.meta.dirname, '../../styles/global.css'), 'utf8')
+
+    expect(globalCss).toContain('.standard-workbench-row-actions--quiet > .standard-action-menu:not(:first-child)::before')
+    expect(globalCss).not.toContain('.standard-workbench-row-actions--quiet .standard-action-menu::before')
+  })
+
   it('uses the shared desktop table spacing baseline and forwards commands', async () => {
     const wrapper = mountComponent({
       variant: 'table',
@@ -73,6 +82,7 @@ describe('StandardWorkbenchRowActions', () => {
     const rowActions = wrapper.get('.standard-row-actions-stub')
     const directButtons = wrapper.findAll('.standard-action-link-stub')
 
+    expect(wrapper.classes()).toContain('standard-workbench-row-actions--quiet')
     expect(rowActions.attributes('data-variant')).toBe('table')
     expect(rowActions.attributes('data-gap')).toBe('wide')
     expect(rowActions.attributes('data-distribution')).toBe('start')

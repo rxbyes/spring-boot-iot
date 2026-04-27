@@ -96,7 +96,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="device-workbench-panel-stub">
+    <section class="device-workbench-panel-stub standard-workbench-panel--workbench-foundation">
       <p class="device-workbench-panel-stub__eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
@@ -114,7 +114,7 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -124,7 +124,7 @@ const StandardPageShellStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="device-list-filter-header-stub">
+    <section class="device-list-filter-header-stub standard-list-filter-header--workbench-foundation">
       <div class="device-list-filter-header-stub__primary"><slot name="primary" /></div>
       <div class="device-list-filter-header-stub__advanced"><slot name="advanced" /></div>
       <div class="device-list-filter-header-stub__actions"><slot name="actions" /></div>
@@ -147,7 +147,7 @@ const StandardWorkbenchRowActionsStub = defineComponent({
   props: ['variant', 'gap', 'distribution', 'directItems', 'menuItems'],
   template: `
     <div
-      class="device-workbench-row-actions-stub"
+      class="device-workbench-row-actions-stub standard-workbench-row-actions--quiet"
       :data-variant="variant"
       :data-distribution="distribution"
     >
@@ -426,7 +426,9 @@ describe('DeviceWorkbenchView', () => {
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
     const formDrawer = wrapper.findComponent(StandardFormDrawerStub)
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true)
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true)
     expect(detailDrawer.props('eyebrow')).toBeUndefined()
     expect(formDrawer.props('eyebrow')).toBeUndefined()
     expect(wrapper.text()).toContain('设备资产中心')
@@ -938,6 +940,8 @@ describe('DeviceWorkbenchView', () => {
 
     expect(cardRowActions?.exists()).toBe(true)
     expect(tableRowActions?.exists()).toBe(true)
+    expect(cardRowActions?.classes()).toContain('standard-workbench-row-actions--quiet')
+    expect(tableRowActions?.classes()).toContain('standard-workbench-row-actions--quiet')
     expect(cardRowActions?.props('gap')).toBeUndefined()
     expect(tableRowActions?.props('gap')).toBeUndefined()
     expect(tableRowActions?.props('distribution')).toBeUndefined()

@@ -181,7 +181,7 @@ textarea {
   color: var(--button-action-hover-text);
 }
 
-.standard-action-link {
+.standard-row-actions > .standard-action-link {
   min-height: auto;
   margin-left: 0;
   padding-inline: 0.08rem;
@@ -219,6 +219,29 @@ textarea {
 .standard-row-actions--foundation > .standard-action-menu .standard-action-menu__trigger:hover {
   color: var(--workbench-action-hover-text);
   background: color-mix(in srgb, var(--brand) 8%, white);
+}
+
+.standard-workbench-row-actions--quiet {
+  gap: 0.42rem;
+}
+
+.standard-workbench-row-actions--quiet > .standard-action-link {
+  color: var(--workbench-action-text);
+  font-weight: 600;
+}
+
+.standard-workbench-row-actions--quiet > .standard-action-link:hover {
+  color: var(--workbench-action-hover-text);
+}
+
+.standard-workbench-row-actions--quiet > .standard-action-link + .standard-action-link::before,
+.standard-workbench-row-actions--quiet > .standard-action-menu:not(:first-child)::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 0.72rem;
+  margin-right: 0.42rem;
+  background: color-mix(in srgb, var(--line-panel) 74%, transparent);
 }
 
 .standard-row-actions > .standard-button + .standard-button {

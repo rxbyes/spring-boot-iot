@@ -95,14 +95,14 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
-  template: '<section class="standard-page-shell-stub"><slot /></section>'
+  template: '<section class="standard-page-shell-stub standard-page-shell--workbench-foundation"><slot /></section>'
 })
 
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['title', 'description'],
   template: `
-    <section class="governance-control-plane-workbench-stub">
+    <section class="governance-control-plane-workbench-stub standard-workbench-panel--workbench-foundation">
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
       <div><slot name="filters" /></div>
@@ -139,7 +139,7 @@ const StandardButtonStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="governance-control-plane-filter-header-stub">
+    <section class="governance-control-plane-filter-header-stub standard-list-filter-header--workbench-foundation">
       <slot name="primary" />
       <slot name="actions" />
     </section>
@@ -1325,5 +1325,40 @@ describe('governance control plane views', () => {
     expect(mockSuppressOpsAlert).toHaveBeenCalledWith(201, { comment: '治理告警暂时抑制，等待下一轮检测。' })
     expect(mockCloseOpsAlert).toHaveBeenCalledWith(201, { comment: '治理告警已人工关闭。' })
     expect(mockMessageSuccess).toHaveBeenCalled()
+  })
+
+  it('mounts governance control-plane views inside the shared workbench foundation wrappers', async () => {
+    mockPageWorkItems.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+    mockPageOpsAlerts.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    })
+
+    const taskWrapper = mountWithStubs(GovernanceTaskView)
+    await flushPromises()
+    const opsWrapper = mountWithStubs(GovernanceOpsWorkbenchView)
+    await flushPromises()
+
+    expect(taskWrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true)
+    expect(taskWrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
+    expect(taskWrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true)
+
+    expect(opsWrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true)
+    expect(opsWrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true)
   })
 })

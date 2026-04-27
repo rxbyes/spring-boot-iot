@@ -3,7 +3,7 @@
     :variant="variant"
     :gap="resolvedGap"
     :distribution="resolvedDistribution"
-    class="standard-workbench-row-actions"
+    class="standard-workbench-row-actions standard-workbench-row-actions--quiet"
   >
     <StandardActionLink
       v-for="(item, index) in resolvedDirectItems"

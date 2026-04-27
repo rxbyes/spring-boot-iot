@@ -82,12 +82,12 @@ withDefaults(defineProps<{
 
 <style scoped>
 .standard-workbench-panel {
-  --ops-workbench-gap: var(--ops-workbench-gap);
+  --standard-workbench-panel-gap: var(--standard-workbench-gap, var(--ops-workbench-gap, 0.72rem));
   min-width: 0;
 }
 
 .standard-workbench-panel--workbench-foundation {
-  --ops-workbench-gap: 0.64rem;
+  --standard-workbench-gap: var(--standard-workbench-gap, 0.64rem);
 }
 
 .standard-workbench-panel__card {
@@ -154,7 +154,7 @@ withDefaults(defineProps<{
 .standard-workbench-panel__notices,
 .standard-workbench-panel__toolbar,
 .standard-workbench-panel__inline-state {
-  margin-bottom: var(--ops-workbench-gap, 0.72rem);
+  margin-bottom: var(--standard-workbench-panel-gap);
 }
 
 .standard-workbench-panel__filters-extra {
@@ -173,7 +173,7 @@ withDefaults(defineProps<{
 }
 
 .standard-workbench-panel__pagination {
-  margin-top: var(--ops-workbench-gap, 0.72rem);
+  margin-top: var(--standard-workbench-panel-gap);
 }
 
 @media (max-width: 720px) {

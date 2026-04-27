@@ -109,6 +109,27 @@ test('canonical registry includes threshold policy real-env readiness scenario',
   assert.deepEqual(scenario.runner.args, ['--fail-on-breaches']);
 });
 
+test('canonical registry includes threshold policy backfill dry-run scenario', async () => {
+  const canonicalRegistryPath = path.resolve(
+    process.cwd(),
+    'config/automation/acceptance-registry.json'
+  );
+  const source = JSON.parse(await fs.readFile(canonicalRegistryPath, 'utf8'));
+  const registry = await loadAcceptanceRegistry({ source });
+
+  const scenario = registry.scenarios.find(
+    (item) => item.id === 'threshold-policy.backfill-dry-run'
+  );
+
+  assert.ok(scenario, 'missing scenario: threshold-policy.backfill-dry-run');
+  assert.equal(scenario.module, 'alarm');
+  assert.equal(scenario.runnerType, 'pythonScript');
+  assert.equal(scenario.scope, 'baseline');
+  assert.deepEqual(scenario.dependsOn, ['threshold-policy.real-env-readiness']);
+  assert.equal(scenario.runner.entryScript, 'scripts/backfill-threshold-policy-defaults.py');
+  assert.deepEqual(scenario.runner.args, []);
+});
+
 test('loads the canonical registry and rejects duplicate ids', async () => {
   await assert.rejects(
     () =>

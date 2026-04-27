@@ -457,6 +457,36 @@
         "strategy": "evidence-only",
         "retainedEvidence": "logs/acceptance/threshold-policy-real-env-*.json/.md"
       }
+    },
+    {
+      "id": "threshold-policy.backfill-dry-run",
+      "title": "阈值策略默认回填 dry-run",
+      "module": "alarm",
+      "docRef": "logs/acceptance/threshold-policy-backfill-latest.md",
+      "runnerType": "pythonScript",
+      "scope": "baseline",
+      "blocking": "warning",
+      "dependsOn": ["threshold-policy.real-env-readiness"],
+      "inputs": {},
+      "evidence": ["json", "md"],
+      "timeouts": {
+        "maxMinutes": 3
+      },
+      "runner": {
+        "entryScript": "scripts/backfill-threshold-policy-defaults.py",
+        "args": []
+      },
+      "ownerDomain": "risk-governance",
+      "priority": "P1",
+      "failureCategory": "environment-readiness",
+      "dataSetup": {
+        "strategy": "shared-real-env-dry-run",
+        "required": "只读生成阈值策略默认回填计划；只有人工确认模板并显式 --apply 才允许写入。"
+      },
+      "cleanupPolicy": {
+        "strategy": "evidence-only",
+        "retainedEvidence": "logs/acceptance/threshold-policy-backfill-*.json/.md"
+      }
     }
   ]
 }

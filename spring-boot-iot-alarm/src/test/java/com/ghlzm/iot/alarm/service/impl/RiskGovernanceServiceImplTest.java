@@ -964,6 +964,61 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void listMissingPoliciesShouldTreatProductTypeDefaultRuleAsCoveredOnlyForMatchingType() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice monitoringBinding = binding(8001L, 5001L, 9101L, "value", "monitoring value");
+        monitoringBinding.setId(7001L);
+        RiskPointDevice videoBinding = binding(8002L, 5002L, 9101L, "value", "monitoring value");
+        videoBinding.setId(7002L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(monitoringBinding, videoBinding));
+
+        Device monitoringDevice = new Device();
+        monitoringDevice.setId(8001L);
+        monitoringDevice.setProductId(1001L);
+        Device videoDevice = new Device();
+        videoDevice.setId(8002L);
+        videoDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(monitoringDevice, videoDevice));
+
+        Product monitoringProduct = new Product();
+        monitoringProduct.setId(1001L);
+        monitoringProduct.setProductKey("monitoring-crack-v1");
+        monitoringProduct.setProductName("Monitoring Crack");
+        Product videoProduct = new Product();
+        videoProduct.setId(1002L);
+        videoProduct.setProductKey("camera-v1");
+        videoProduct.setProductName("Video Camera");
+        when(productMapper.selectList(any())).thenReturn(List.of(monitoringProduct, videoProduct), List.of(videoProduct));
+
+        RuleDefinition monitoringDefault = rule(6001L, 9101L, "value");
+        monitoringDefault.setRuleScope("PRODUCT_TYPE");
+        monitoringDefault.setProductType("MONITORING");
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(monitoringDefault));
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(null);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(8002L, result.getRecords().get(0).getDeviceId());
+        assertEquals(1002L, result.getRecords().get(0).getProductId());
+        assertEquals("camera-v1", result.getRecords().get(0).getProductKey());
+    }
+
+    @Test
     void listMissingPoliciesShouldFilterByProductId() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,

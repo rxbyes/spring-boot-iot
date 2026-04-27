@@ -26,6 +26,13 @@ afterAll(() => {
 })
 
 describe('StandardRowActions', () => {
+  it('scopes row-action link typography to the row-action container instead of the global link class', () => {
+    const globalCss = readFileSync(resolve(import.meta.dirname, '../../styles/global.css'), 'utf8')
+
+    expect(globalCss).toMatch(/^\s*\.standard-row-actions > \.standard-action-link \{/m)
+    expect(globalCss).not.toMatch(/^\s*\.standard-action-link \{/m)
+  })
+
   it('left-aligns shared table action cells to keep the leading gutter consistent', () => {
     const host = document.createElement('div')
     host.innerHTML = `
@@ -59,6 +66,7 @@ describe('StandardRowActions', () => {
     })
 
     expect(wrapper.classes()).toContain('standard-row-actions')
+    expect(wrapper.classes()).toContain('standard-row-actions--foundation')
     expect(wrapper.classes()).toContain('standard-row-actions--variant-table')
     expect(wrapper.classes()).toContain('standard-row-actions--wide')
   })

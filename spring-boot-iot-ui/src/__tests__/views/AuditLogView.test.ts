@@ -165,7 +165,7 @@ const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
   template: `
-    <section class="audit-log-workbench-stub">
+    <section class="audit-log-workbench-stub standard-workbench-panel--workbench-foundation">
       <header>
         <p>{{ eyebrow }}</p>
         <h2>{{ title }}</h2>
@@ -187,7 +187,7 @@ const StandardPageShellStub = defineComponent({
   name: 'StandardPageShell',
   props: ['breadcrumbs', 'title', 'showTitle'],
   template: `
-    <section class="standard-page-shell-stub">
+    <section class="standard-page-shell-stub standard-page-shell--workbench-foundation">
       <h1 v-if="showTitle !== false">{{ title }}</h1>
       <slot />
     </section>
@@ -213,8 +213,8 @@ const IotAccessTabWorkspaceStub = defineComponent({
     }
   },
   template: `
-    <section class="iot-access-tab-workspace-stub">
-      <nav class="iot-access-tab-workspace-stub__tabs">
+    <section class="iot-access-tab-workspace-stub iot-access-tab-workspace--workbench">
+      <nav class="iot-access-tab-workspace-stub__tabs iot-access-tab-workspace__tabs iot-access-tab-workspace__tabs--segmented">
         <button
           v-for="item in items || []"
           :key="item.key"
@@ -233,7 +233,7 @@ const IotAccessTabWorkspaceStub = defineComponent({
 const StandardListFilterHeaderStub = defineComponent({
   name: 'StandardListFilterHeader',
   template: `
-    <section class="audit-log-filter-stub">
+    <section class="audit-log-filter-stub standard-list-filter-header--workbench-foundation">
       <div><slot name="primary" /></div>
       <div><slot name="advanced" /></div>
       <div><slot name="actions" /></div>
@@ -326,7 +326,7 @@ const StandardWorkbenchRowActionsStub = defineComponent({
     };
   },
   template: `
-    <div class="audit-log-row-actions-stub" :data-variant="variant" :data-menu-label="resolvedMenuLabel">
+    <div class="audit-log-row-actions-stub standard-workbench-row-actions--quiet" :data-variant="variant" :data-menu-label="resolvedMenuLabel">
       <button
         v-for="item in resolvedDirectItems"
         :key="item.key || item.command"
@@ -911,7 +911,10 @@ describe('AuditLogView', () => {
     await flushPromises();
     await nextTick();
 
-    expect(wrapper.find('.standard-page-shell-stub').exists()).toBe(true);
+    expect(wrapper.find('.standard-page-shell--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-workbench-panel--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.standard-list-filter-header--workbench-foundation').exists()).toBe(true);
+    expect(wrapper.find('.iot-access-tab-workspace__tabs--segmented').exists()).toBe(true);
     expect(wrapper.text()).toContain('异常观测台');
     expect(wrapper.text()).toContain('后台异常核对');
     expect(wrapper.text()).toContain('追踪');
@@ -924,6 +927,7 @@ describe('AuditLogView', () => {
 
     expect(rowActions.length).toBeGreaterThan(0);
     rowActions.forEach((item) => {
+      expect(item.classes()).toContain('standard-workbench-row-actions--quiet');
       const actionTexts = item.findAll('button').map((button) => button.text().trim());
       expect(actionTexts.slice(0, 5)).toEqual(['详情', '证据', '追踪', '删除', '更多']);
       expect(actionTexts).toContain('复制 TraceId');
