@@ -34,7 +34,7 @@ describe('global workbench foundation styles', () => {
     const overridesCss = readUiFile('styles/element-overrides.css')
 
     expect(overridesCss).toContain('--el-table-header-bg-color: var(--workbench-table-header-bg);')
-    expect(overridesCss).not.toContain('.el-table__body tr:hover > td.el-table__cell {')
+    expect(overridesCss).not.toMatch(/(?:^|\r?\n)\.el-table__body tr:hover > td\.el-table__cell \{/)
     expect(overridesCss).toContain(
       '.ops-workbench .el-table__body tr:hover > td.el-table__cell'
     )

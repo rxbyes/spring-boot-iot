@@ -427,6 +427,36 @@
           { "name": "red", "value": 21.6 }
         ]
       }
+    },
+    {
+      "id": "threshold-policy.real-env-readiness",
+      "title": "阈值策略真实环境只读验收",
+      "module": "alarm",
+      "docRef": "logs/acceptance/threshold-policy-real-env-latest.md",
+      "runnerType": "pythonScript",
+      "scope": "baseline",
+      "blocking": "warning",
+      "dependsOn": [],
+      "inputs": {},
+      "evidence": ["json", "md"],
+      "timeouts": {
+        "maxMinutes": 3
+      },
+      "runner": {
+        "entryScript": "scripts/verify-threshold-policy-real-env.py",
+        "args": ["--fail-on-breaches"]
+      },
+      "ownerDomain": "risk-governance",
+      "priority": "P1",
+      "failureCategory": "environment-readiness",
+      "dataSetup": {
+        "strategy": "shared-real-env-read-only",
+        "required": "只读检查 rule_definition 分层阈值字段、索引、策略分布与重复组，不写业务数据。"
+      },
+      "cleanupPolicy": {
+        "strategy": "evidence-only",
+        "retainedEvidence": "logs/acceptance/threshold-policy-real-env-*.json/.md"
+      }
     }
   ]
 }

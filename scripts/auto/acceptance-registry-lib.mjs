@@ -6,7 +6,8 @@ export const VALID_RUNNER_TYPES = new Set([
   'browserPlan',
   'apiSmoke',
   'messageFlow',
-  'riskDrill'
+  'riskDrill',
+  'pythonScript'
 ]);
 
 function normalizeScenario(source = {}) {

@@ -296,6 +296,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     json_path, md_path = write_reports(report, args.output_dir)
     print(f"[report] {json_path}")
     print(f"[report] {md_path}")
+    print(f"JSON_PATH={json_path}")
+    print(f"MD_PATH={md_path}")
+    print(f"STATUS={report['evaluation']['status']}")
+    print(
+        "SUMMARY="
+        f"threshold policy real env {report['evaluation']['status'].lower()}, "
+        f"duplicates={len(report['duplicates'])}"
+    )
     print(f"[status] {report['evaluation']['status']}")
     if args.fail_on_breaches and report["evaluation"]["status"] != "PASSED":
         return 1

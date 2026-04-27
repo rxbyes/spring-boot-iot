@@ -8,7 +8,8 @@ import {
   createRunnerAdapters,
   resolveApiSmokeCommandForTest,
   resolvePythonExecutableForTest,
-  buildMessageFlowCommandForTest
+  buildMessageFlowCommandForTest,
+  buildPythonScriptCommandForTest
 } from './acceptance-runner-adapters.mjs';
 
 test('apiSmoke adapter maps first failing summary row to business failure details', async () => {
@@ -207,5 +208,20 @@ test('messageFlow adapter forwards backend base url to the python acceptance scr
     '--base-url=http://127.0.0.1:10099',
     '--expired-trace-id',
     'trace-1'
+  ]);
+});
+
+test('pythonScript adapter builds a generic python command with configured args', () => {
+  const command = buildPythonScriptCommandForTest({
+    entryScript: 'scripts/verify-threshold-policy-real-env.py',
+    args: ['--fail-on-breaches'],
+    platform: 'darwin',
+    availableCommands: ['python3']
+  });
+
+  assert.equal(command.executable, 'python3');
+  assert.deepEqual(command.args, [
+    'scripts/verify-threshold-policy-real-env.py',
+    '--fail-on-breaches'
   ]);
 });

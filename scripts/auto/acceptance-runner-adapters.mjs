@@ -130,6 +130,24 @@ function buildMessageFlowCommand({
   };
 }
 
+function buildPythonScriptCommand({
+  entryScript,
+  args = [],
+  platform = process.platform,
+  availableCommands
+} = {}) {
+  if (!entryScript) {
+    throw new Error('pythonScript runner requires runner.entryScript.');
+  }
+  return {
+    executable: resolvePythonExecutable({ platform, availableCommands }),
+    args: [
+      entryScript,
+      ...args.map((item) => String(item))
+    ]
+  };
+}
+
 function buildKeyValueMap(stdout = '') {
   return stdout
     .split(/\r?\n/)
@@ -315,6 +333,7 @@ export const __runCommandForTest = runCommandRunner;
 export const resolveApiSmokeCommandForTest = resolveApiSmokeCommand;
 export const resolvePythonExecutableForTest = resolvePythonExecutable;
 export const buildMessageFlowCommandForTest = buildMessageFlowCommand;
+export const buildPythonScriptCommandForTest = buildPythonScriptCommand;
 
 export function createRunnerAdapters({ workspaceRoot, overrides = {} }) {
   return {
@@ -390,6 +409,19 @@ export function createRunnerAdapters({ workspaceRoot, overrides = {} }) {
               : [])
           ],
           context
-        }))
+        })),
+    pythonScript:
+      overrides.pythonScript ||
+      ((context) => {
+        const command = buildPythonScriptCommand({
+          entryScript: context.scenario.runner.entryScript,
+          args: context.scenario.runner.args || []
+        });
+        return runCommandRunner({
+          executable: command.executable,
+          args: command.args,
+          context
+        });
+      })
   };
 }
