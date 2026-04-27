@@ -1,0 +1,9 @@
+{
+  "description": "Default threshold policy templates for monitored device backfill. Add manualSemanticTemplates for new sensor metric naming, then add confirmed productTypeTemplates with expressions before apply.",
+  "defaultDuration": 0,
+  "defaultAlarmLevel": "orange",
+  "defaultNotificationMethods": "",
+  "defaultConvertToEvent": true,
+  "manualSemanticTemplates": [],
+  "productTypeTemplates": []
+}
