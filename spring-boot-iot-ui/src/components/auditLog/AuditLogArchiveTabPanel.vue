@@ -61,7 +61,9 @@
                 @input="handleFilterInput('dateTo', $event)"
               >
             </label>
-            <label class="audit-log-archive-batch-ledger__filter-field audit-log-archive-batch-ledger__filter-field--checkbox">
+            <label
+              class="audit-log-archive-batch-ledger__filter-field audit-log-archive-batch-ledger__filter-field--checkbox"
+            >
               <span>仅看异常</span>
               <input
                 :checked="filters.onlyAbnormal"
@@ -77,7 +79,7 @@
               action="query"
               @click="emit('search')"
             >
-              筛选
+              查询
             </StandardButton>
             <StandardButton
               data-testid="archive-batch-reset-button"
@@ -90,6 +92,19 @@
         </div>
         <span>{{ rows.length }} / {{ total }}</span>
       </header>
+
+      <section data-testid="archive-governance-focus-strip" class="audit-log-archive-focus-strip">
+        <div class="audit-log-archive-focus-strip__copy">
+          <span>{{ focusEyebrow }}</span>
+          <strong>{{ focusTitle }}</strong>
+          <p>{{ focusSubtitle }}</p>
+        </div>
+        <div class="audit-log-archive-focus-strip__meta">
+          <span>{{ focusMetaPrimary }}</span>
+          <span>{{ focusMetaSecondary }}</span>
+        </div>
+      </section>
+
       <div class="audit-log-archive-batch-ledger__overview">
         <article
           v-for="item in overviewCards"
@@ -110,6 +125,7 @@
           <p>{{ item.meta }}</p>
         </article>
       </div>
+
       <div v-if="focusHint" class="audit-log-archive-batch-ledger__focus-hint">
         {{ focusHint }}
       </div>
@@ -125,40 +141,49 @@
       <div v-else-if="rows.length === 0" class="audit-log-slow-summary__empty">
         暂无归档批次记录
       </div>
-      <div v-else class="audit-log-archive-batch-ledger__list">
+      <section v-else data-testid="archive-batch-master-table" class="audit-log-archive-master-table">
+        <header class="audit-log-archive-master-table__header">
+          <span>批次</span>
+          <span>执行状态</span>
+          <span>确认与执行</span>
+          <span>治理信号</span>
+          <span>操作</span>
+        </header>
         <article
           v-for="row in rows"
-          :key="`message-archive-batch-${row.id || row.batchNo || row.createTime}`"
+          :key="buildArchiveBatchKey(row)"
+          data-testid="archive-batch-master-row"
           :class="[
-            'audit-log-archive-batch-ledger__item',
+            'audit-log-archive-master-table__row',
             resolveArchiveBatchCompareStatusClass(row),
-            { 'is-abnormal': isArchiveBatchAbnormalStatus(row.compareStatus) }
+            { 'is-selected': buildArchiveBatchKey(row) === selectedBatchKey }
           ]"
+          @click="emit('select-row', row)"
         >
-          <div class="audit-log-archive-batch-ledger__title">
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--title">
             <strong>{{ formatArchiveBatchName(row) }}</strong>
             <span>{{ formatValue(row.createTime || row.updateTime) }}</span>
           </div>
-          <div class="audit-log-archive-batch-ledger__meta">
+          <div class="audit-log-archive-master-table__cell">
             <span>{{ formatValue(row.status) }}</span>
             <span>{{ formatValue(row.compareStatusLabel || formatArchiveBatchCompareStatus(row.compareStatus)) }}</span>
             <span>{{ formatValue(row.sourceTable) }}</span>
             <span>{{ formatRetentionDays(row.retentionDays) }}</span>
             <span>截止 {{ formatValue(row.cutoffAt) }}</span>
           </div>
-          <div class="audit-log-archive-batch-ledger__metrics">
+          <div class="audit-log-archive-master-table__cell">
             <span>确认 {{ formatCount(row.confirmedExpiredRows) }}</span>
             <span>候选 {{ formatCount(row.candidateRows) }}</span>
             <span>归档 {{ formatCount(row.archivedRows) }}</span>
             <span>删除 {{ formatCount(row.deletedRows) }}</span>
           </div>
-          <div class="audit-log-archive-batch-ledger__insights">
+          <div class="audit-log-archive-master-table__cell">
             <span>确认差值 {{ formatSignedCount(row.deltaConfirmedVsDeleted) }}</span>
             <span>dry-run 差值 {{ formatSignedCount(row.deltaDryRunVsDeleted) }}</span>
             <span>剩余过期 {{ formatOptionalCount(row.remainingExpiredRows) }}</span>
             <span>报告 {{ formatArchiveBatchPreviewAvailability(row) }}</span>
           </div>
-          <div class="audit-log-archive-batch-ledger__footer">
+          <div class="audit-log-archive-master-table__cell audit-log-archive-master-table__cell--actions">
             <span>{{ formatArchiveBatchFooter(row) }}</span>
             <StandardButton
               data-testid="archive-batch-open-detail"
@@ -170,12 +195,14 @@
             </StandardButton>
           </div>
         </article>
-      </div>
+      </section>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 interface ArchiveBatchFilters {
   batchNo: string;
   status: string;
@@ -234,7 +261,7 @@ type ArchiveBatchFormatter = (row: ArchiveBatchRow) => string;
 type CompareStatusResolver = (row: ArchiveBatchRow) => string;
 type AbnormalStatusResolver = (status: string | null | undefined) => boolean;
 
-defineProps<{
+const props = defineProps<{
   loading: boolean;
   total: number;
   rows: ArchiveBatchRow[];
@@ -246,6 +273,8 @@ defineProps<{
   statusOptions: ArchiveBatchOption[];
   compareStatusOptions: ArchiveBatchOption[];
   overviewCards: ArchiveOverviewCard[];
+  activeRow: ArchiveBatchRow | null;
+  selectedBatchKey: string;
   formatValue: ValueFormatter;
   formatCount: CountFormatter;
   formatOptionalCount: CountFormatter;
@@ -264,8 +293,64 @@ const emit = defineEmits<{
   (event: 'search'): void;
   (event: 'reset'): void;
   (event: 'select-overview-card', key: string): void;
+  (event: 'select-row', row: ArchiveBatchRow): void;
   (event: 'open-detail', row: ArchiveBatchRow): void;
 }>();
+
+const activeOverviewCard = computed(() => props.overviewCards.find((item) => item.active) ?? null);
+
+const focusEyebrow = computed(() => {
+  if (props.activeRow) {
+    return '当前治理对象';
+  }
+  if (activeOverviewCard.value) {
+    return '当前治理焦点';
+  }
+  return '归档治理';
+});
+
+const focusTitle = computed(() => {
+  if (props.activeRow) {
+    return props.formatArchiveBatchName(props.activeRow);
+  }
+  if (activeOverviewCard.value) {
+    return activeOverviewCard.value.label;
+  }
+  return '归档批次台账';
+});
+
+const focusSubtitle = computed(() => {
+  if (props.activeRow) {
+    return [
+      props.formatValue(props.activeRow.status),
+      props.formatValue(
+        props.activeRow.compareStatusLabel || props.formatArchiveBatchCompareStatus(props.activeRow.compareStatus)
+      ),
+      props.formatValue(props.activeRow.sourceTable)
+    ].join(' · ');
+  }
+  if (activeOverviewCard.value) {
+    return `${activeOverviewCard.value.value} · ${activeOverviewCard.value.meta}`;
+  }
+  return '按批次、状态和对比结论排查归档治理执行情况';
+});
+
+const focusMetaPrimary = computed(() => {
+  if (props.activeRow) {
+    return `确认 ${props.formatCount(props.activeRow.confirmedExpiredRows)}`;
+  }
+  return `当前结果 ${props.rows.length} / ${props.total}`;
+});
+
+const focusMetaSecondary = computed(() => {
+  if (props.activeRow) {
+    return `剩余过期 ${props.formatOptionalCount(props.activeRow.remainingExpiredRows)}`;
+  }
+  return props.focusHint || '详情抽屉继续承接批次对比和确认报告';
+});
+
+const buildArchiveBatchKey = (row?: Partial<ArchiveBatchRow> | null) =>
+  String(row?.batchNo || row?.id || row?.createTime || '');
 
 function handleFilterInput(field: Extract<ArchiveFilterField, 'batchNo' | 'dateFrom' | 'dateTo'>, event: Event) {
   emit('update-filter', {
@@ -288,3 +373,127 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   });
 }
 </script>
+
+<style scoped>
+.audit-log-archive-focus-strip {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 248, 240, 0.9), rgba(255, 255, 255, 0.98));
+}
+
+.audit-log-archive-focus-strip__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audit-log-archive-focus-strip__copy > span,
+.audit-log-archive-focus-strip__meta > span,
+.audit-log-archive-master-table__cell span,
+.audit-log-archive-master-table__header span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.audit-log-archive-focus-strip__copy strong,
+.audit-log-archive-master-table__cell strong {
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.audit-log-archive-focus-strip__copy p {
+  margin: 0;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.audit-log-archive-focus-strip__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 40%;
+}
+
+.audit-log-archive-focus-strip__meta > span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.audit-log-archive-master-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audit-log-archive-master-table__header,
+.audit-log-archive-master-table__row {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.4fr) minmax(220px, 1.15fr) minmax(220px, 1fr) minmax(220px, 1fr) minmax(140px, 0.85fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.audit-log-archive-master-table__header {
+  padding: 0 10px;
+}
+
+.audit-log-archive-master-table__row {
+  padding: 14px 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: var(--el-bg-color);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.audit-log-archive-master-table__row:hover {
+  border-color: var(--el-color-primary-light-5);
+}
+
+.audit-log-archive-master-table__row.is-selected {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.12);
+  background: rgba(236, 245, 255, 0.55);
+}
+
+.audit-log-archive-master-table__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.audit-log-archive-master-table__cell--actions {
+  align-items: flex-start;
+}
+
+@media (max-width: 1200px) {
+  .audit-log-archive-focus-strip {
+    flex-direction: column;
+  }
+
+  .audit-log-archive-focus-strip__meta {
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .audit-log-archive-master-table__header {
+    display: none;
+  }
+
+  .audit-log-archive-master-table__row {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

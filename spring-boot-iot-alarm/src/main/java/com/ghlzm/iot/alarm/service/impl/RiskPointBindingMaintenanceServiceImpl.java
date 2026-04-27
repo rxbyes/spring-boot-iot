@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointBindMetricDTO;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindingRenameRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
@@ -51,6 +52,7 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -694,6 +696,27 @@ public class RiskPointBindingMaintenanceServiceImpl implements RiskPointBindingM
         if (deletedRows <= 0) {
             throw new BizException("删除绑定失败");
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RiskPointBindingMetricVO renameBindingMetric(Long bindingId,
+                                                        RiskPointBindingRenameRequest request,
+                                                        Long currentUserId) {
+        String metricName = normalizeMetricName(request == null ? null : request.getMetricName());
+        if (metricName == null) {
+            throw new BizException("测点名称不能为空");
+        }
+        RiskPointDevice binding = requireBinding(bindingId);
+        riskPointService.getById(binding.getRiskPointId(), currentUserId);
+        binding.setMetricName(metricName);
+        binding.setUpdateTime(new Date());
+        binding.setUpdateBy(currentUserId);
+        int updatedRows = riskPointDeviceMapper.updateById(binding);
+        if (updatedRows <= 0) {
+            throw new BizException("测点名称更新失败");
+        }
+        return toMetric(binding, SOURCE_MANUAL);
     }
 
     @Override

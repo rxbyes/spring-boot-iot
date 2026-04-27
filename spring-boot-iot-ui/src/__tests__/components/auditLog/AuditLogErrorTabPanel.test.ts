@@ -106,6 +106,20 @@ const ElTableColumnStub = defineComponent({
   `
 })
 
+const createClusterRow = () => ({
+  clusterKey: 'message.mqtt|com.ghlzm.iot.common.exception.BizException|500',
+  operationModule: 'message.mqtt',
+  exceptionClass: 'com.ghlzm.iot.common.exception.BizException',
+  errorCode: '500',
+  count: 12,
+  distinctTraceCount: 4,
+  distinctDeviceCount: 3,
+  latestOperationTime: '2026-04-27 09:00:00',
+  latestRequestUrl: '$dp',
+  latestRequestMethod: 'MQTT',
+  latestResultMessage: 'BizException: mqtt-json-decrypted MQTT 负载不能为空'
+})
+
 function mountPanel(propOverrides: Record<string, unknown> = {}) {
   return mount(AuditLogErrorTabPanel, {
     props: {
@@ -131,36 +145,10 @@ function mountPanel(propOverrides: Record<string, unknown> = {}) {
       inlineMessage: '',
       clusterLoading: false,
       clusterErrorMessage: '',
-      clusterRows: [
-        {
-          clusterKey: 'PROTOCOL_DECODE|DecodeException|payload_invalid',
-          operationModule: 'PROTOCOL_DECODE',
-          exceptionClass: 'DecodeException',
-          errorCode: 'payload_invalid',
-          count: 12,
-          distinctTraceCount: 4,
-          distinctDeviceCount: 3,
-          latestOperationTime: '2026-04-27 09:00:00',
-          latestRequestUrl: '/mqtt/up',
-          latestRequestMethod: 'MQTT',
-          latestResultMessage: 'payload schema mismatch'
-        }
-      ],
-      selectedClusterKey: 'PROTOCOL_DECODE|DecodeException|payload_invalid',
-      selectedCluster: {
-        clusterKey: 'PROTOCOL_DECODE|DecodeException|payload_invalid',
-        operationModule: 'PROTOCOL_DECODE',
-        exceptionClass: 'DecodeException',
-        errorCode: 'payload_invalid',
-        count: 12,
-        distinctTraceCount: 4,
-        distinctDeviceCount: 3,
-        latestOperationTime: '2026-04-27 09:00:00',
-        latestRequestUrl: '/mqtt/up',
-        latestRequestMethod: 'MQTT',
-        latestResultMessage: 'payload schema mismatch'
-      },
-      detailClusterMode: 'clustered',
+      clusterRows: [createClusterRow()],
+      errorViewMode: 'detail',
+      clusterContextSummary: '',
+      canReturnToClusterResults: false,
       loading: false,
       tableData: [],
       pagination: { pageNum: 1, pageSize: 10, total: 0 },
@@ -196,23 +184,65 @@ function mountPanel(propOverrides: Record<string, unknown> = {}) {
 }
 
 describe('AuditLogErrorTabPanel', () => {
-  it('shows a grouped main table with inline detail expansion', () => {
-    const wrapper = mountPanel()
+  it('shows the detail table first and exposes the cluster entry action', async () => {
+    const wrapper = mountPanel({
+      tableData: [
+        {
+          id: 1,
+          operationModule: 'message.mqtt',
+          requestMethod: 'MQTT',
+          errorCode: '500',
+          resultMessage: 'BizException: mqtt-json-decrypted MQTT 负载不能为空',
+          operationTime: '2026-04-27 12:00:00',
+          operationResult: 0
+        }
+      ],
+      pagination: { pageNum: 1, pageSize: 10, total: 1 }
+    })
 
-    expect(wrapper.text()).toContain('异常分组主表')
-    expect(wrapper.text()).toContain('异常簇明细')
-    expect(wrapper.text()).toContain('收起明细')
-    expect(wrapper.text()).toContain('PROTOCOL_DECODE')
-    expect(wrapper.text()).toContain('payload_invalid')
-  })
+    expect(wrapper.text()).toContain('按异常分组查看')
+    expect(wrapper.text()).not.toContain('异常分组主表')
 
-  it('emits collapse-cluster from the inline detail action', async () => {
-    const wrapper = mountPanel()
-
-    const button = wrapper.findAll('button').find((item) => item.text().includes('收起明细'))
+    const button = wrapper.findAll('button').find((item) => item.text().includes('按异常分组查看'))
     await button?.trigger('click')
 
-    expect(wrapper.emitted('collapse-cluster')).toHaveLength(1)
+    expect(wrapper.emitted('open-clusters')).toHaveLength(1)
+  })
+
+  it('shows the cluster stage with return controls and applies a cluster row', async () => {
+    const wrapper = mountPanel({
+      errorViewMode: 'clusters'
+    })
+
+    expect(wrapper.text()).toContain('返回异常明细')
+    expect(wrapper.text()).toContain('当前筛选条件下的异常分组')
+    expect(wrapper.text()).toContain('message.mqtt')
+
+    const clusterButton = wrapper.findAll('button').find((item) => item.text().includes('message.mqtt'))
+    await clusterButton?.trigger('click')
+
+    expect(wrapper.emitted('apply-cluster')).toEqual([
+      ['message.mqtt|com.ghlzm.iot.common.exception.BizException|500']
+    ])
+  })
+
+  it('shows the detail refiner context and its recovery actions after cluster selection', async () => {
+    const wrapper = mountPanel({
+      clusterContextSummary: 'message.mqtt / BizException / 500',
+      canReturnToClusterResults: true
+    })
+
+    expect(wrapper.text()).toContain('当前按分组定位')
+    expect(wrapper.text()).toContain('清除分组定位')
+    expect(wrapper.text()).toContain('返回异常分组结果')
+
+    const clearButton = wrapper.findAll('button').find((item) => item.text().includes('清除分组定位'))
+    const backButton = wrapper.findAll('button').find((item) => item.text().includes('返回异常分组结果'))
+    await clearButton?.trigger('click')
+    await backButton?.trigger('click')
+
+    expect(wrapper.emitted('clear-cluster-refiner')).toHaveLength(1)
+    expect(wrapper.emitted('return-to-clusters')).toHaveLength(1)
   })
 
   it('keeps the detail list compact instead of exposing low-signal identity fields inline', () => {
@@ -245,32 +275,5 @@ describe('AuditLogErrorTabPanel', () => {
     expect(wrapper.text()).not.toContain('产品标识')
     expect(wrapper.text()).not.toContain('异常类型')
     expect(wrapper.text()).toContain('异常摘要')
-  })
-
-  it('does not render duplicate fallback cards when all-detail fallback is active', () => {
-    const wrapper = mountPanel({
-      detailClusterMode: 'all',
-      clusterErrorMessage: '异常概览加载失败，已回退为全部异常明细',
-      selectedClusterKey: '',
-      selectedCluster: null,
-      tableData: [
-        {
-          id: 2,
-          operationModule: 'message.mqtt',
-          requestMethod: 'MQTT',
-          errorCode: '500',
-          resultMessage: 'BizException: mqtt-json-decrypted MQTT 负载不能为空',
-          operationTime: '2026-04-27 12:00:00',
-          operationResult: 0
-        }
-      ],
-      pagination: { pageNum: 1, pageSize: 10, total: 1 }
-    })
-
-    expect(wrapper.find('.audit-log-mobile-list').exists()).toBe(false)
-    expect(wrapper.find('.el-table-stub').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('全部异常明细')
-    expect(wrapper.text()).not.toContain('异常分组暂时不可用，已回退为全部异常明细排查。')
-    expect(wrapper.text()).not.toContain('异常概览加载失败，已回退为全部异常明细')
   })
 })

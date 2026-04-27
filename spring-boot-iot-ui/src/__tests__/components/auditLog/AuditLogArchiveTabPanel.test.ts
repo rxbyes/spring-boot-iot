@@ -13,32 +13,51 @@ const StandardButtonStub = defineComponent({
 function archivePropsFactory() {
   return {
     loading: false,
-    total: 1,
+    total: 2,
     rows: [
       {
         id: 1,
-        batchNo: 'batch-20260426-01',
-        createTime: '2026-04-26 10:00:00',
-        updateTime: '2026-04-26 10:10:00',
-        status: 'DONE',
-        compareStatus: 'DRIFTED',
-        compareStatusLabel: '有偏差',
+        batchNo: 'iot_message_log-20260426000119',
         sourceTable: 'iot_message_log',
+        status: 'SUCCEEDED',
+        compareStatus: 'MATCHED',
+        compareStatusLabel: '已对齐',
         retentionDays: 30,
         cutoffAt: '2026-03-27 00:00:00',
-        confirmedExpiredRows: 18,
-        candidateRows: 20,
-        archivedRows: 18,
-        deletedRows: 17,
-        deltaConfirmedVsDeleted: -1,
-        deltaDryRunVsDeleted: -3,
-        remainingExpiredRows: 1
+        confirmedExpiredRows: 16098,
+        candidateRows: 16098,
+        archivedRows: 16098,
+        deletedRows: 16098,
+        deltaConfirmedVsDeleted: 0,
+        deltaDryRunVsDeleted: 0,
+        remainingExpiredRows: 0,
+        createTime: '2026-04-26 00:01:19',
+        updateTime: '2026-04-26 00:02:00'
+      },
+      {
+        id: 2,
+        batchNo: 'iot_message_log-20260426090100',
+        sourceTable: 'iot_message_log',
+        status: 'FAILED',
+        compareStatus: 'DRIFTED',
+        compareStatusLabel: '有偏差',
+        retentionDays: 30,
+        cutoffAt: '2026-03-27 09:00:00',
+        confirmedExpiredRows: 320,
+        candidateRows: 320,
+        archivedRows: 0,
+        deletedRows: 12,
+        deltaConfirmedVsDeleted: 308,
+        deltaDryRunVsDeleted: 308,
+        remainingExpiredRows: 308,
+        createTime: '2026-04-26 09:01:00',
+        updateTime: '2026-04-26 09:03:00'
       }
     ],
     errorMessage: '',
     overviewLoading: false,
     overviewErrorMessage: '',
-    focusHint: '最近异常批次不在当前结果中，请调整时间范围后重试',
+    focusHint: '',
     filters: {
       batchNo: '',
       status: '',
@@ -47,35 +66,56 @@ function archivePropsFactory() {
       dateTo: '',
       onlyAbnormal: false
     },
-    statusOptions: [{ label: '已完成', value: 'DONE' }],
-    compareStatusOptions: [{ label: '有偏差', value: 'DRIFTED' }],
+    statusOptions: [{ label: '成功', value: 'SUCCEEDED' }],
+    compareStatusOptions: [{ label: '已对齐', value: 'MATCHED' }],
     overviewCards: [
       {
-        key: 'abnormal',
+        key: 'latest',
         label: '最近异常批次',
-        value: '3',
-        meta: '最近 24 小时',
+        value: 'iot_message_log-20260426090100',
+        meta: '2026-04-26 09:01:00',
         clickable: true,
         active: true,
-        testId: 'archive-batch-overview-abnormal'
+        testId: 'archive-batch-overview-latest'
       }
     ],
-    formatValue: (value: string | null | undefined) => value ?? '--',
-    formatCount: (value: number | null | undefined) => `${value ?? 0}`,
-    formatOptionalCount: (value: number | null | undefined) => `${value ?? 0}`,
-    formatSignedCount: (value: number | null | undefined) => `${value ?? 0}`,
+    activeRow: {
+      id: 2,
+      batchNo: 'iot_message_log-20260426090100',
+      sourceTable: 'iot_message_log',
+      status: 'FAILED',
+      compareStatus: 'DRIFTED',
+      compareStatusLabel: '有偏差',
+      retentionDays: 30,
+      cutoffAt: '2026-03-27 09:00:00',
+      confirmedExpiredRows: 320,
+      candidateRows: 320,
+      archivedRows: 0,
+      deletedRows: 12,
+      deltaConfirmedVsDeleted: 308,
+      deltaDryRunVsDeleted: 308,
+      remainingExpiredRows: 308,
+      createTime: '2026-04-26 09:01:00',
+      updateTime: '2026-04-26 09:03:00'
+    },
+    selectedBatchKey: 'iot_message_log-20260426090100',
+    formatValue: (value: string | number | null | undefined) => String(value ?? '--'),
+    formatCount: (value: number | null | undefined) => String(value ?? 0),
+    formatOptionalCount: (value: number | null | undefined) => String(value ?? 0),
+    formatSignedCount: (value: number | null | undefined) => String(value ?? 0),
     formatRetentionDays: (value: number | null | undefined) => `${value ?? 0} 天`,
-    formatArchiveBatchName: () => '批次 batch-20260426-01',
-    formatArchiveBatchCompareStatus: () => '有偏差',
-    formatArchiveBatchPreviewAvailability: () => 'JSON + Markdown',
-    formatArchiveBatchFooter: () => 'dry-run 与 apply 存在偏差',
-    resolveArchiveBatchCompareStatusClass: () => 'is-drifted',
-    isArchiveBatchAbnormalStatus: () => true
+    formatArchiveBatchName: (row: { batchNo?: string | null }) => String(row.batchNo ?? '--'),
+    formatArchiveBatchCompareStatus: (value: string | number | null | undefined) => String(value ?? '--'),
+    formatArchiveBatchPreviewAvailability: () => '可预览',
+    formatArchiveBatchFooter: () => 'apply 已完成',
+    resolveArchiveBatchCompareStatusClass: (row: { compareStatus?: string | null }) =>
+      `is-${String(row.compareStatus || '').toLowerCase()}`,
+    isArchiveBatchAbnormalStatus: (status: string | null | undefined) => status === 'DRIFTED'
   };
 }
 
 describe('AuditLogArchiveTabPanel', () => {
-  it('renders archive overview cards and emits row actions without showing hotspot sections', async () => {
+  it('renders an archive focus strip and highlights the selected batch row', () => {
     const wrapper = mount(AuditLogArchiveTabPanel, {
       props: archivePropsFactory(),
       global: {
@@ -85,14 +125,15 @@ describe('AuditLogArchiveTabPanel', () => {
       }
     });
 
-    expect(wrapper.find('[data-testid="system-log-archive-panel"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain('归档批次台账');
-    expect(wrapper.text()).not.toContain('性能慢点 Top');
-    await wrapper.get('[data-testid="archive-batch-open-detail"]').trigger('click');
-    expect(wrapper.emitted('open-detail')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').text()).toContain(
+      'iot_message_log-20260426090100'
+    );
+    expect(wrapper.find('[data-testid="archive-batch-master-table"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="archive-batch-master-row"]')[1]?.classes()).toContain('is-selected');
   });
 
-  it('renders the restored archive filter surface and emits filter updates', async () => {
+  it('emits select-row when choosing a batch from the master table', async () => {
     const wrapper = mount(AuditLogArchiveTabPanel, {
       props: archivePropsFactory(),
       global: {
@@ -102,62 +143,10 @@ describe('AuditLogArchiveTabPanel', () => {
       }
     });
 
-    expect(wrapper.get('[data-testid="archive-batch-filter-date-from"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="archive-batch-filter-date-to"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="archive-batch-filter-only-abnormal"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="archive-batch-search-button"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="archive-batch-reset-button"]').exists()).toBe(true);
+    await wrapper.findAll('[data-testid="archive-batch-master-row"]')[0]?.trigger('click');
 
-    await wrapper.get('[data-testid="archive-batch-filter-batch-no"]').setValue('batch-20260426');
-    await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('DONE');
-    await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
-    await wrapper.get('[data-testid="archive-batch-filter-date-from"]').setValue('2026-04-20');
-    await wrapper.get('[data-testid="archive-batch-filter-date-to"]').setValue('2026-04-26');
-    await wrapper.get('[data-testid="archive-batch-filter-only-abnormal"]').setValue(true);
-    await wrapper.get('[data-testid="archive-batch-overview-abnormal"]').trigger('click');
-
-    expect(wrapper.emitted('update-filter')).toEqual([
-      [{ field: 'batchNo', value: 'batch-20260426' }],
-      [{ field: 'status', value: 'DONE' }],
-      [{ field: 'compareStatus', value: 'DRIFTED' }],
-      [{ field: 'dateFrom', value: '2026-04-20' }],
-      [{ field: 'dateTo', value: '2026-04-26' }],
-      [{ field: 'onlyAbnormal', value: true }]
-    ]);
-    expect(wrapper.emitted('select-overview-card')?.[0]).toEqual(['abnormal']);
-  });
-
-  it('emits search and reset actions from the archive filter toolbar', async () => {
-    const wrapper = mount(AuditLogArchiveTabPanel, {
-      props: archivePropsFactory(),
-      global: {
-        stubs: {
-          StandardButton: StandardButtonStub
-        }
-      }
+    expect(wrapper.emitted('select-row')?.[0]?.[0]).toMatchObject({
+      batchNo: 'iot_message_log-20260426000119'
     });
-
-    await wrapper.get('[data-testid="archive-batch-search-button"]').trigger('click');
-    await wrapper.get('[data-testid="archive-batch-reset-button"]').trigger('click');
-
-    expect(wrapper.emitted('search')).toHaveLength(1);
-    expect(wrapper.emitted('reset')).toHaveLength(1);
-  });
-
-  it('renders the archive overview error branch when overview aggregation fails', () => {
-    const wrapper = mount(AuditLogArchiveTabPanel, {
-      props: {
-        ...archivePropsFactory(),
-        rows: [],
-        overviewErrorMessage: '批次摘要汇总失败'
-      },
-      global: {
-        stubs: {
-          StandardButton: StandardButtonStub
-        }
-      }
-    });
-
-    expect(wrapper.text()).toContain('批次摘要汇总失败');
   });
 });

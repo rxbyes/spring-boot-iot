@@ -13,6 +13,7 @@ const {
   mockListBindingGroups,
   mockListFormalBindingMetricOptions,
   mockRemoveBinding,
+  mockRenameBinding,
   mockReplaceBinding,
   mockUnbindDevice,
   mockConfirmAction,
@@ -24,6 +25,7 @@ const {
   mockListBindingGroups: vi.fn(),
   mockListFormalBindingMetricOptions: vi.fn(),
   mockRemoveBinding: vi.fn(),
+  mockRenameBinding: vi.fn(),
   mockReplaceBinding: vi.fn(),
   mockUnbindDevice: vi.fn(),
   mockConfirmAction: vi.fn(),
@@ -37,6 +39,7 @@ vi.mock('@/api/riskPoint', () => ({
   listBindingGroups: mockListBindingGroups,
   listFormalBindingMetricOptions: mockListFormalBindingMetricOptions,
   removeBinding: mockRemoveBinding,
+  renameBinding: mockRenameBinding,
   replaceBinding: mockReplaceBinding,
   unbindDevice: mockUnbindDevice
 }))
@@ -338,6 +341,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     mockListBindingGroups.mockReset()
     mockListFormalBindingMetricOptions.mockReset()
     mockRemoveBinding.mockReset()
+    mockRenameBinding.mockReset()
     mockReplaceBinding.mockReset()
     mockUnbindDevice.mockReset()
     mockConfirmAction.mockReset()
@@ -362,6 +366,7 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
     mockBindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockBindDeviceCapability.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockRemoveBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
+    mockRenameBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockReplaceBinding.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockUnbindDevice.mockResolvedValue({ code: 200, msg: 'success', data: null })
     mockConfirmAction.mockResolvedValue('confirm')
@@ -676,6 +681,22 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
 
     expect(mockRemoveBinding).toHaveBeenCalledWith(9001)
     expect(mockUnbindDevice).not.toHaveBeenCalled()
+    expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('renames a metric binding without replacing the metric', async () => {
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-rename-open-9001"]').trigger('click')
+    await wrapper.get('[data-testid="binding-rename-name-9001"]').setValue('北坡 X 轴加速度')
+    await wrapper.get('[data-testid="binding-rename-submit-9001"]').trigger('click')
+    await flushPromises()
+
+    expect(mockRenameBinding).toHaveBeenCalledWith(9001, {
+      metricName: '北坡 X 轴加速度'
+    })
+    expect(mockReplaceBinding).not.toHaveBeenCalled()
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
 

@@ -843,6 +843,7 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             }
             wrapper.eq(RiskPoint::getDeleted, 0);
             wrapper.orderByDesc(RiskPoint::getCreateTime);
+            wrapper.orderByDesc(RiskPoint::getId);
             return wrapper;
       }
 

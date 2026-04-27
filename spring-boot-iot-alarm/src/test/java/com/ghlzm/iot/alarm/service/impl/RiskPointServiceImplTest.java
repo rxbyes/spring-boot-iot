@@ -1597,6 +1597,38 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void pageRiskPointsShouldUseStableUniqueOrdering() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService
+        ));
+
+        Page<RiskPoint> page = new Page<>(1L, 10L);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRiskPoints(null, null, null, null, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<LambdaQueryWrapper<RiskPoint>> wrapperCaptor = org.mockito.ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment().toLowerCase(Locale.ROOT);
+        int createTimeOrderIndex = sqlSegment.indexOf("create_time");
+        int idOrderIndex = sqlSegment.indexOf("id", createTimeOrderIndex + 1);
+        assertTrue(createTimeOrderIndex >= 0, "风险点分页应先按创建时间倒序");
+        assertTrue(idOrderIndex > createTimeOrderIndex, "创建时间相同时应继续按唯一 id 倒序，避免跨页重复");
+    }
+
+    @Test
     void pageRiskPointsShouldPreferExactKeywordMatchBeforeFuzzyFallback() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);

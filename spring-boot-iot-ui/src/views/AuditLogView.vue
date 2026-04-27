@@ -237,12 +237,13 @@
                 :format-value="formatValue"
                 :format-duration="formatDuration"
                 :format-count="formatCount"
-                :active-slow-summary="activeSlowSummary"
+                :active-slow-summary="resolvedActiveSlowSummary"
                 :slow-span-loading="slowSpanLoading"
                 :slow-span-total="slowSpanTotal"
                 :slow-span-rows="slowSpanRows"
                 :slow-span-error-message="slowSpanErrorMessage"
-                :active-slow-trend-summary="activeSlowTrendSummary"
+                :active-slow-trend-summary="resolvedActiveSlowTrendSummary"
+                :selected-slow-summary-key="selectedSlowSummaryKey"
                 :slow-trend-loading="slowTrendLoading"
                 :slow-trend-rows="slowTrendRows"
                 :slow-trend-error-message="slowTrendErrorMessage"
@@ -257,6 +258,7 @@
                 :scheduled-task-error-message="scheduledTaskErrorMessage"
                 :format-scheduled-task-name="formatScheduledTaskName"
                 :format-scheduled-task-trigger="formatScheduledTaskTrigger"
+                @select-slow-summary="handleSlowSummarySelect"
                 @open-trace-evidence="openTraceEvidenceByTraceId"
                 @open-slow-span-detail="loadSlowSpanDrilldown"
                 @open-slow-trend="loadSlowTrendDrilldown"
@@ -276,6 +278,8 @@
                 :status-options="messageArchiveBatchStatusOptions"
                 :compare-status-options="messageArchiveBatchCompareStatusOptions"
                 :overview-cards="messageArchiveBatchOverviewCards"
+                :active-row="selectedMessageArchiveBatchRow"
+                :selected-batch-key="selectedMessageArchiveBatchKey"
                 :format-value="formatValue"
                 :format-count="formatCount"
                 :format-optional-count="formatOptionalCount"
@@ -291,6 +295,7 @@
                 @search="handleMessageArchiveBatchSearch"
                 @reset="resetMessageArchiveBatchFilters"
                 @select-overview-card="handleMessageArchiveBatchOverviewClick"
+                @select-row="handleMessageArchiveBatchRowSelect"
                 @open-detail="openMessageArchiveBatchDetail"
               />
             </template>
@@ -1111,6 +1116,7 @@ const activeMessageArchiveBatchOverviewSelection = ref<ArchiveBatchOverviewSelec
 const messageArchiveBatchSummarySelectionFilterContext = ref('')
 const messageArchiveBatchFocusedBatchNo = ref('')
 const messageArchiveBatchFocusHint = ref('')
+const selectedMessageArchiveBatchKey = ref('')
 const messageArchiveBatchFilters = reactive({
   batchNo: '',
   status: '',
@@ -1133,6 +1139,7 @@ const messageArchiveBatchCompareStatusOptions = [
 const slowSummaryRows = ref<ObservabilitySlowSpanSummary[]>([])
 const slowSummaryLoading = ref(false)
 const slowSummaryErrorMessage = ref('')
+const selectedSlowSummaryKey = ref('')
 const activeSlowSummary = ref<ObservabilitySlowSpanSummary | null>(null)
 const slowSpanRows = ref<ObservabilitySpan[]>([])
 const slowSpanLoading = ref(false)
@@ -1148,6 +1155,32 @@ const activeSlowTrendSummary = ref<ObservabilitySlowSpanSummary | null>(null)
 const slowTrendRows = ref<ObservabilitySlowSpanTrend[]>([])
 const slowTrendLoading = ref(false)
 const slowTrendErrorMessage = ref('')
+const buildSlowSummaryKey = (row?: Partial<ObservabilitySlowSpanSummary> | null) =>
+  [
+    row?.spanType || 'span',
+    row?.domainCode || 'domain',
+    row?.eventCode || 'event',
+    row?.objectType || 'object',
+    row?.objectId || 'id'
+  ].join('-')
+const buildArchiveBatchKey = (row?: Partial<ObservabilityMessageArchiveBatch> | null) =>
+  String(row?.batchNo || row?.id || row?.createTime || '')
+const selectedMessageArchiveBatchRow = computed<ObservabilityMessageArchiveBatch | null>(() => {
+  const matched = messageArchiveBatchRows.value.find(
+    (row) => buildArchiveBatchKey(row) === selectedMessageArchiveBatchKey.value
+  )
+  return matched || messageArchiveBatchRows.value[0] || null
+})
+const resolvedActiveSlowSummary = computed<ObservabilitySlowSpanSummary | null>(() => {
+  const matched = slowSummaryRows.value.find((row) => buildSlowSummaryKey(row) === selectedSlowSummaryKey.value)
+  return matched || slowSummaryRows.value[0] || null
+})
+const resolvedActiveSlowTrendSummary = computed<ObservabilitySlowSpanSummary | null>(() => {
+  const matched = slowSummaryRows.value.find(
+    (row) => buildSlowSummaryKey(row) === buildSlowSummaryKey(activeSlowTrendSummary.value)
+  )
+  return matched || resolvedActiveSlowSummary.value
+})
 const quickSearchPlaceholder = computed(() => (isSystemMode.value ? '快速搜索（TraceId）' : '快速搜索（操作用户）'))
 const advancedFilterKeys = computed<
   Array<'traceId' | 'deviceCode' | 'productKey' | 'requestUrl' | 'errorCode' | 'exceptionClass'>
@@ -1813,6 +1846,7 @@ const clearMessageArchiveBatchLedger = () => {
   messageArchiveBatchLoading.value = false
   messageArchiveBatchErrorMessage.value = ''
   messageArchiveBatchTotal.value = 0
+  selectedMessageArchiveBatchKey.value = ''
 }
 
 const clearMessageArchiveBatchOverview = () => {
@@ -1830,6 +1864,17 @@ const resetMessageArchiveBatchSummarySelection = () => {
   activeMessageArchiveBatchOverviewSelection.value = ''
   messageArchiveBatchSummarySelectionFilterContext.value = ''
   clearMessageArchiveBatchOverviewFocus()
+}
+
+const syncSelectedMessageArchiveBatch = () => {
+  const preferredRow =
+    messageArchiveBatchRows.value.find((row) => buildArchiveBatchKey(row) === selectedMessageArchiveBatchKey.value) ||
+    messageArchiveBatchRows.value.find(
+      (row) => String(row.batchNo || '').trim() === messageArchiveBatchFocusedBatchNo.value
+    ) ||
+    messageArchiveBatchRows.value[0] ||
+    null
+  selectedMessageArchiveBatchKey.value = preferredRow ? buildArchiveBatchKey(preferredRow) : ''
 }
 
 const clearMessageArchiveBatchReportPreview = () => {
@@ -1886,6 +1931,7 @@ const getMessageArchiveBatchLedger = async (refreshSequence?: number) => {
     if (res.code === 200 && res.data) {
       messageArchiveBatchRows.value = Array.isArray(res.data.records) ? res.data.records : []
       messageArchiveBatchTotal.value = Number(res.data.total || messageArchiveBatchRows.value.length)
+      syncSelectedMessageArchiveBatch()
     }
   } catch (error) {
     if (
@@ -2142,6 +2188,7 @@ const clearSlowTrendDrilldown = () => {
 const getSlowSpanSummaries = async () => {
   if (!isSystemMode.value) {
     slowSummaryRows.value = []
+    selectedSlowSummaryKey.value = ''
     slowSummaryErrorMessage.value = ''
     slowSummaryLoading.value = false
     clearSlowSpanDrilldown()
@@ -2157,9 +2204,11 @@ const getSlowSpanSummaries = async () => {
     const res = await listObservabilitySlowSpanSummaries(buildSlowSummaryQueryParams())
     if (res.code === 200) {
       slowSummaryRows.value = Array.isArray(res.data) ? res.data : []
+      await syncSelectedSlowSummary()
     }
   } catch (error) {
     slowSummaryRows.value = []
+    selectedSlowSummaryKey.value = ''
     slowSummaryErrorMessage.value = error instanceof Error ? error.message : '获取性能慢点汇总失败'
     logPageError('获取性能慢点汇总失败', error)
   } finally {
@@ -2238,6 +2287,26 @@ const buildSlowTrendQueryParams = (
   return params
 }
 
+const syncSelectedSlowSummary = async () => {
+  const nextRow =
+    slowSummaryRows.value.find((row) => buildSlowSummaryKey(row) === selectedSlowSummaryKey.value) ||
+    slowSummaryRows.value[0] ||
+    null
+
+  if (!nextRow) {
+    selectedSlowSummaryKey.value = ''
+    clearSlowSpanDrilldown()
+    clearSlowTrendDrilldown()
+    return
+  }
+
+  selectedSlowSummaryKey.value = buildSlowSummaryKey(nextRow)
+  await Promise.all([
+    loadSlowSpanDrilldown(nextRow),
+    loadSlowTrendDrilldown(nextRow, slowTrendWindow.value)
+  ])
+}
+
 const loadSlowSpanDrilldown = async (row: ObservabilitySlowSpanSummary) => {
   if (!isSystemMode.value) {
     return
@@ -2289,12 +2358,13 @@ const loadSlowTrendDrilldown = async (
 }
 
 const handleSlowTrendWindowChange = (value: string | number | boolean) => {
-  if (!activeSlowTrendSummary.value) {
+  const targetRow = resolvedActiveSlowTrendSummary.value
+  if (!targetRow) {
     return
   }
   const nextWindow: SlowTrendWindowKey =
     String(value) === 'LAST_7_DAYS' ? 'LAST_7_DAYS' : defaultSlowTrendWindow
-  void loadSlowTrendDrilldown(activeSlowTrendSummary.value, nextWindow)
+  void loadSlowTrendDrilldown(targetRow, nextWindow)
 }
 
 // 初始化
@@ -2329,6 +2399,7 @@ watch(viewMode, (newMode, oldMode) => {
   clearMessageArchiveBatchOverview()
   resetMessageArchiveBatchSummarySelection()
   slowSummaryRows.value = []
+  selectedSlowSummaryKey.value = ''
   slowSummaryLoading.value = false
   slowSummaryErrorMessage.value = ''
   clearSlowSpanDrilldown()
@@ -2426,6 +2497,19 @@ const handleSelectionChange = (rows: AuditLogRecord[]) => {
 const clearSelection = () => {
   tableRef.value?.clearSelection()
   selectedRows.value = []
+}
+
+const handleSlowSummarySelect = (row: ObservabilitySlowSpanSummary) => {
+  if (!isSystemMode.value) {
+    return
+  }
+  const nextKey = buildSlowSummaryKey(row)
+  if (selectedSlowSummaryKey.value === nextKey) {
+    return
+  }
+  selectedSlowSummaryKey.value = nextKey
+  void loadSlowSpanDrilldown(row)
+  void loadSlowTrendDrilldown(row, slowTrendWindow.value)
 }
 
 const handleSystemErrorClusterSelect = (clusterKey: string) => {
@@ -3005,12 +3089,17 @@ const parseArchiveBatchArtifacts = (artifactsJson?: string | null): ArchiveBatch
 }
 
 const openMessageArchiveBatchDetail = async (row: ObservabilityMessageArchiveBatch) => {
+  selectedMessageArchiveBatchKey.value = buildArchiveBatchKey(row)
   activeMessageArchiveBatch.value = row
   messageArchiveBatchDrawerVisible.value = true
   await Promise.all([
     loadMessageArchiveBatchCompare(row),
     loadMessageArchiveBatchReportPreview(row)
   ])
+}
+
+const handleMessageArchiveBatchRowSelect = (row: ObservabilityMessageArchiveBatch) => {
+  selectedMessageArchiveBatchKey.value = buildArchiveBatchKey(row)
 }
 
 watch(detailVisible, (visible) => {

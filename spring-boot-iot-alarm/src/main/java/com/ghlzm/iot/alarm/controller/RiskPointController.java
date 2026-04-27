@@ -5,6 +5,7 @@ import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
+import com.ghlzm.iot.alarm.dto.RiskPointBindingRenameRequest;
 import com.ghlzm.iot.alarm.service.RiskPointBindingMaintenanceService;
 import com.ghlzm.iot.alarm.service.RiskPointService;
 import com.ghlzm.iot.alarm.vo.RiskPointBindingDeviceGroupVO;
@@ -253,6 +254,20 @@ public class RiskPointController {
       /**
        * 替换单条风险点绑定测点。
        */
+      @PostMapping("/bindings/{bindingId}/rename")
+      public R<RiskPointBindingMetricVO> renameBindingMetric(@PathVariable Long bindingId,
+                                                             @RequestBody RiskPointBindingRenameRequest request,
+                                                             Authentication authentication) {
+            Long currentUserId = requireCurrentUserId(authentication);
+            requirePermission(currentUserId, "修改风险点正式测点名称", GovernancePermissionCodes.RISK_POINT_BIND_EXECUTE);
+            RiskPointBindingMetricVO renamed = bindingMaintenanceService.renameBindingMetric(
+                    bindingId,
+                    request,
+                    currentUserId
+            );
+            return R.ok(renamed);
+      }
+
       @PostMapping("/bindings/{bindingId}/replace")
       public R<RiskPointBindingMetricVO> replaceBindingMetric(@PathVariable Long bindingId,
                                                               @RequestBody RiskPointBindingReplaceRequest request,

@@ -44,6 +44,18 @@ function hotspotPropsFactory() {
         maxDurationMs: 1632,
         avgDurationMs: 982,
         totalCount: 5
+      },
+      {
+        spanType: 'SLOW_SQL',
+        domainCode: 'message',
+        eventCode: 'archive',
+        objectType: 'sql',
+        objectId: 'iot_message_log',
+        latestStartedAt: '2026-04-26 09:40:00',
+        latestTraceId: 'trace-hotspot-002',
+        maxDurationMs: 2400,
+        avgDurationMs: 1560,
+        totalCount: 9
       }
     ],
     slowSummaryErrorMessage: '',
@@ -64,6 +76,7 @@ function hotspotPropsFactory() {
       avgDurationMs: 982,
       totalCount: 5
     },
+    selectedSlowSummaryKey: 'HTTP-system-query-API-GET:/api/system',
     slowSpanLoading: false,
     slowSpanTotal: 1,
     slowSpanRows: [
@@ -135,6 +148,42 @@ function hotspotPropsFactory() {
 }
 
 describe('AuditLogHotspotTabPanel', () => {
+  it('renders a hotspot focus strip and highlights the selected hotspot row', () => {
+    const wrapper = mount(AuditLogHotspotTabPanel, {
+      props: hotspotPropsFactory(),
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          StandardChoiceGroup: StandardChoiceGroupStub
+        }
+      }
+    });
+
+    expect(wrapper.find('[data-testid="hotspot-focus-strip"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="hotspot-focus-strip"]').text()).toContain('trace-hotspot-001');
+    expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="hotspot-master-row"]').classes()).toContain('is-selected');
+  });
+
+  it('emits select-slow-summary when choosing a hotspot row from the master table', async () => {
+    const wrapper = mount(AuditLogHotspotTabPanel, {
+      props: hotspotPropsFactory(),
+      global: {
+        stubs: {
+          StandardButton: StandardButtonStub,
+          StandardChoiceGroup: StandardChoiceGroupStub
+        }
+      }
+    });
+
+    const rows = wrapper.findAll('[data-testid="hotspot-master-row"]');
+    await rows[1]?.trigger('click');
+
+    expect(wrapper.emitted('select-slow-summary')?.[0]?.[0]).toMatchObject({
+      latestTraceId: 'trace-hotspot-002'
+    });
+  });
+
   it('shows slow-summary and scheduled-task sections, but not the system error list', () => {
     const wrapper = mount(AuditLogHotspotTabPanel, {
       props: hotspotPropsFactory(),
@@ -163,12 +212,16 @@ describe('AuditLogHotspotTabPanel', () => {
       }
     });
 
-    const buttons = wrapper.findAll('button');
-    await buttons[0]!.trigger('click');
-    await buttons[1]!.trigger('click');
-    await buttons[2]!.trigger('click');
-    await buttons[3]!.trigger('click');
-    await buttons[6]!.trigger('click');
+    const summaryButtons = wrapper.find('[data-testid="hotspot-master-row"]').findAll('button');
+    await summaryButtons[0]!.trigger('click');
+    await summaryButtons[1]!.trigger('click');
+    await summaryButtons[2]!.trigger('click');
+
+    const spanEvidenceButton = wrapper.find('.audit-log-slow-span-drilldown__item').find('button');
+    await spanEvidenceButton.trigger('click');
+
+    const taskEvidenceButton = wrapper.find('.audit-log-scheduled-task-ledger__item').find('button');
+    await taskEvidenceButton.trigger('click');
     await wrapper.get('[data-testid="slow-trend-window-7d"]').trigger('click');
 
     expect(wrapper.emitted('open-trace-evidence')?.[0]).toEqual(['trace-hotspot-001']);

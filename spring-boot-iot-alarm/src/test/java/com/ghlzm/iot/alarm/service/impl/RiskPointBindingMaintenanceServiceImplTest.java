@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.service.impl;
 
 import com.ghlzm.iot.alarm.dto.RiskPointBatchBindDeviceRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointBindMetricDTO;
+import com.ghlzm.iot.alarm.dto.RiskPointBindingRenameRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointBindingReplaceRequest;
 import com.ghlzm.iot.alarm.dto.RiskPointDeviceCapabilityBindingRequest;
 import com.ghlzm.iot.alarm.entity.RiskPoint;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -968,6 +970,81 @@ class RiskPointBindingMaintenanceServiceImplTest {
 
         verify(riskPointDeviceMapper).deleteById(2001L);
         verify(riskPointService, never()).unbindDevice(11L, 201L, 1001L);
+    }
+
+    @Test
+    void renameBindingMetricShouldOnlyUpdateMetricNameAndAuditFields() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                null
+        );
+        RiskPointDevice oldBinding = binding(
+                2001L,
+                11L,
+                201L,
+                "DEV-201",
+                "北坡一体机",
+                "gX",
+                "X轴加速度",
+                new Date(1000L)
+        );
+        oldBinding.setRiskMetricId(6101L);
+        when(riskPointDeviceMapper.selectById(2001L)).thenReturn(oldBinding);
+        when(riskPointDeviceMapper.updateById(any(RiskPointDevice.class))).thenReturn(1);
+        RiskPointBindingRenameRequest request = new RiskPointBindingRenameRequest();
+        request.setMetricName("北坡 X 轴加速度");
+
+        RiskPointBindingMetricVO result = service.renameBindingMetric(2001L, request, 1001L);
+
+        assertEquals(2001L, result.getBindingId());
+        assertEquals(6101L, result.getRiskMetricId());
+        assertEquals("gX", result.getMetricIdentifier());
+        assertEquals("北坡 X 轴加速度", result.getMetricName());
+        verify(riskPointService).getById(11L, 1001L);
+        ArgumentCaptor<RiskPointDevice> bindingCaptor = ArgumentCaptor.forClass(RiskPointDevice.class);
+        verify(riskPointDeviceMapper).updateById(bindingCaptor.capture());
+        assertEquals(2001L, bindingCaptor.getValue().getId());
+        assertEquals("北坡 X 轴加速度", bindingCaptor.getValue().getMetricName());
+        assertEquals(1001L, bindingCaptor.getValue().getUpdateBy());
+        assertNotNull(bindingCaptor.getValue().getUpdateTime());
+        assertEquals("gX", oldBinding.getMetricIdentifier());
+        verify(riskPointService, never()).bindDeviceAndReturn(any(RiskPointDevice.class), any());
+        verify(riskPointDeviceMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void renameBindingMetricShouldRejectBlankMetricName() {
+        RiskPointService riskPointService = mock(RiskPointService.class);
+        RiskPointDeviceMapper riskPointDeviceMapper = mock(RiskPointDeviceMapper.class);
+        RiskPointDevicePendingBindingMapper pendingBindingMapper = mock(RiskPointDevicePendingBindingMapper.class);
+        RiskPointDevicePendingPromotionMapper pendingPromotionMapper = mock(RiskPointDevicePendingPromotionMapper.class);
+        RiskPointBindingMaintenanceServiceImpl service = new RiskPointBindingMaintenanceServiceImpl(
+                riskPointService,
+                riskPointDeviceMapper,
+                pendingBindingMapper,
+                pendingPromotionMapper,
+                null,
+                null,
+                null,
+                null
+        );
+        RiskPointBindingRenameRequest request = new RiskPointBindingRenameRequest();
+        request.setMetricName("   ");
+
+        assertThrows(BizException.class, () -> service.renameBindingMetric(2001L, request, 1001L));
+
+        verify(riskPointDeviceMapper, never()).selectById(any());
+        verify(riskPointDeviceMapper, never()).updateById(any(RiskPointDevice.class));
     }
 
     @Test

@@ -174,6 +174,16 @@
                       v-permission="'risk:risk-point-binding:execute'"
                       type="button"
                       class="risk-point-binding-maintenance-drawer__button"
+                      :data-testid="`binding-rename-open-${metric.bindingId}`"
+                      :disabled="actionLoadingKey === `rename:${metric.bindingId}`"
+                      @click="handleOpenRename(metric)"
+                    >
+                      修改名称
+                    </button>
+                    <button
+                      v-permission="'risk:risk-point-binding:execute'"
+                      type="button"
+                      class="risk-point-binding-maintenance-drawer__button"
                       :data-testid="`binding-replace-open-${metric.bindingId}`"
                       :disabled="actionLoadingKey === `replace-open:${metric.bindingId}`"
                       @click="handleOpenReplace(group.deviceId, metric.bindingId)"
@@ -189,6 +199,38 @@
                       @click="handleRemoveBinding(metric.bindingId, group.deviceName, metric.metricName || metric.metricIdentifier)"
                     >
                       删除测点
+                    </button>
+                  </div>
+
+                  <div
+                    v-if="activeRenameBindingId === getIdKey(metric.bindingId)"
+                    class="risk-point-binding-maintenance-drawer__rename-row"
+                  >
+                    <input
+                      v-model="renameFormMap[getIdKey(metric.bindingId)]"
+                      class="risk-point-binding-maintenance-drawer__rename-input"
+                      :data-testid="`binding-rename-name-${metric.bindingId}`"
+                      maxlength="100"
+                      placeholder="请输入测点名称"
+                    />
+                    <button
+                      v-permission="'risk:risk-point-binding:execute'"
+                      type="button"
+                      class="risk-point-binding-maintenance-drawer__button risk-point-binding-maintenance-drawer__button--primary"
+                      :data-testid="`binding-rename-submit-${metric.bindingId}`"
+                      :disabled="actionLoadingKey === `rename:${metric.bindingId}`"
+                      @click="handleRenameBinding(metric.bindingId)"
+                    >
+                      保存名称
+                    </button>
+                    <button
+                      type="button"
+                      class="risk-point-binding-maintenance-drawer__button"
+                      :data-testid="`binding-rename-cancel-${metric.bindingId}`"
+                      :disabled="actionLoadingKey === `rename:${metric.bindingId}`"
+                      @click="handleCancelRename(metric.bindingId)"
+                    >
+                      取消
                     </button>
                   </div>
 
@@ -242,6 +284,7 @@ import {
   listBindingGroups,
   listFormalBindingMetricOptions,
   removeBinding,
+  renameBinding,
   replaceBinding,
   unbindDevice,
   type RiskPointBindingDeviceGroup,
@@ -293,8 +336,10 @@ const bindingGroups = ref<RiskPointBindingDeviceGroup[]>([])
 const bindableDevices = ref<DeviceOption[]>([])
 const selectedAddDevice = ref<DeviceOption | null>(null)
 const addMetricOptions = ref<DeviceMetricOption[]>([])
+const activeRenameBindingId = ref<string | null>(null)
 const activeReplaceBindingId = ref<string | null>(null)
 const metricOptionCache = reactive<Record<string, DeviceMetricOption[]>>({})
+const renameFormMap = reactive<Record<string, string>>({})
 const replaceSelectionMap = reactive<Record<string, string>>({})
 let latestDrawerLoadRequestId = 0
 let latestAddMetricRequestId = 0
@@ -444,6 +489,7 @@ const resetDrawerState = () => {
   addForm.deviceId = ''
   addForm.metricIdentifiers = []
   selectedAddDevice.value = null
+  activeRenameBindingId.value = null
   activeReplaceBindingId.value = null
   actionLoadingKey.value = ''
   Object.keys(metricOptionCache).forEach((key) => {
@@ -451,6 +497,9 @@ const resetDrawerState = () => {
   })
   Object.keys(replaceSelectionMap).forEach((key) => {
     delete replaceSelectionMap[key]
+  })
+  Object.keys(renameFormMap).forEach((key) => {
+    delete renameFormMap[key]
   })
 }
 
@@ -688,6 +737,46 @@ const handleRemoveBinding = async (bindingId: IdType, deviceName: string, metric
   }
 }
 
+const handleOpenRename = (metric: RiskPointBindingMetric) => {
+  const bindingIdKey = getIdKey(metric.bindingId)
+  activeRenameBindingId.value = bindingIdKey
+  activeReplaceBindingId.value = null
+  renameFormMap[bindingIdKey] = metric.metricName || metric.metricIdentifier
+}
+
+const handleCancelRename = (bindingId: IdType) => {
+  const bindingIdKey = getIdKey(bindingId)
+  activeRenameBindingId.value = null
+  delete renameFormMap[bindingIdKey]
+}
+
+const handleRenameBinding = async (bindingId: IdType) => {
+  const bindingIdKey = getIdKey(bindingId)
+  const metricName = (renameFormMap[bindingIdKey] || '').trim()
+  if (!metricName) {
+    ElMessage.warning('请输入测点名称')
+    return
+  }
+
+  try {
+    actionLoadingKey.value = `rename:${bindingId}`
+    const res = await renameBinding(bindingId, { metricName })
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || '修改测点名称失败')
+      return
+    }
+    await handleMutationSuccess('修改测点名称成功', () => {
+      activeRenameBindingId.value = null
+      delete renameFormMap[bindingIdKey]
+    })
+  } catch (error) {
+    console.error('修改测点名称失败', error)
+    showRequestErrorMessage(error, '修改测点名称失败')
+  } finally {
+    actionLoadingKey.value = ''
+  }
+}
+
 const handleOpenReplace = async (deviceId: IdType, bindingId: IdType) => {
   const requestId = ++latestReplaceMetricRequestId
   const riskPointId = props.riskPointId
@@ -702,6 +791,7 @@ const handleOpenReplace = async (deviceId: IdType, bindingId: IdType) => {
       return
     }
     const bindingIdKey = getIdKey(bindingId)
+    activeRenameBindingId.value = null
     activeReplaceBindingId.value = bindingIdKey
     replaceSelectionMap[bindingIdKey] = options[0]?.identifier || ''
   } catch (error) {
@@ -875,6 +965,7 @@ watch(
 .risk-point-binding-maintenance-drawer__group-header,
 .risk-point-binding-maintenance-drawer__metric-main,
 .risk-point-binding-maintenance-drawer__metric-actions,
+.risk-point-binding-maintenance-drawer__rename-row,
 .risk-point-binding-maintenance-drawer__replace-row {
   display: flex;
   align-items: center;
@@ -920,8 +1011,19 @@ watch(
   justify-content: flex-end;
 }
 
+.risk-point-binding-maintenance-drawer__rename-row,
 .risk-point-binding-maintenance-drawer__replace-row {
   justify-content: stretch;
+}
+
+.risk-point-binding-maintenance-drawer__rename-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 .risk-point-binding-maintenance-drawer__replace-row :deep(.el-select) {
@@ -932,6 +1034,7 @@ watch(
   .risk-point-binding-maintenance-drawer__group-header,
   .risk-point-binding-maintenance-drawer__metric-main,
   .risk-point-binding-maintenance-drawer__metric-actions,
+  .risk-point-binding-maintenance-drawer__rename-row,
   .risk-point-binding-maintenance-drawer__replace-row {
     align-items: stretch;
     flex-direction: column;
@@ -942,6 +1045,7 @@ watch(
   }
 
   .risk-point-binding-maintenance-drawer__actions .risk-point-binding-maintenance-drawer__button,
+  .risk-point-binding-maintenance-drawer__rename-row .risk-point-binding-maintenance-drawer__button,
   .risk-point-binding-maintenance-drawer__replace-row .risk-point-binding-maintenance-drawer__button,
   .risk-point-binding-maintenance-drawer__group-header .risk-point-binding-maintenance-drawer__button {
     width: 100%;

@@ -145,6 +145,22 @@ async function clickButtonByText(
   await nextTick();
 }
 
+function getErrorPanel(wrapper: ReturnType<typeof mountView>) {
+  return wrapper.findComponent({ name: 'AuditLogErrorTabPanel' });
+}
+
+async function openClusterStage(wrapper: ReturnType<typeof mountView>) {
+  getErrorPanel(wrapper).vm.$emit('open-clusters');
+  await flushPromises();
+  await nextTick();
+}
+
+async function applyCluster(wrapper: ReturnType<typeof mountView>, clusterKey: string) {
+  getErrorPanel(wrapper).vm.$emit('apply-cluster', clusterKey);
+  await flushPromises();
+  await nextTick();
+}
+
 const StandardWorkbenchPanelStub = defineComponent({
   name: 'StandardWorkbenchPanel',
   props: ['eyebrow', 'title', 'description'],
@@ -1186,6 +1202,82 @@ describe('AuditLogView', () => {
     expect(drawer?.text()).toContain('# 归档报告');
   });
 
+  it('keeps the selected archive batch active when switching away and back to archives', async () => {
+    vi.mocked(pageObservabilityMessageArchiveBatches).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 2,
+        pageNum: 1,
+        pageSize: 5,
+        records: [
+          {
+            id: 51,
+            batchNo: 'iot_message_log-20260426000119',
+            sourceTable: 'iot_message_log',
+            governanceMode: 'APPLY',
+            status: 'SUCCEEDED',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 00:00:00',
+            confirmedExpiredRows: 16098,
+            candidateRows: 16098,
+            archivedRows: 16098,
+            deletedRows: 16098,
+            compareStatus: 'MATCHED',
+            compareStatusLabel: '宸插榻?',
+            deltaConfirmedVsDeleted: 0,
+            deltaDryRunVsDeleted: 0,
+            remainingExpiredRows: 0,
+            createTime: '2026-04-26 00:01:19',
+            updateTime: '2026-04-26 00:02:00'
+          },
+          {
+            id: 99,
+            batchNo: 'iot_message_log-20260426090100',
+            sourceTable: 'iot_message_log',
+            governanceMode: 'APPLY',
+            status: 'FAILED',
+            retentionDays: 30,
+            cutoffAt: '2026-03-27 09:00:00',
+            confirmedExpiredRows: 320,
+            candidateRows: 320,
+            archivedRows: 0,
+            deletedRows: 12,
+            compareStatus: 'DRIFTED',
+            compareStatusLabel: '鏈夊亸宸?',
+            deltaConfirmedVsDeleted: 308,
+            deltaDryRunVsDeleted: 308,
+            remainingExpiredRows: 308,
+            createTime: '2026-04-26 09:01:00',
+            updateTime: '2026-04-26 09:03:00'
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    const rows = wrapper.findAll('[data-testid="archive-batch-master-row"]');
+    await rows[1]!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').text()).toContain(
+      'iot_message_log-20260426090100'
+    );
+
+    await triggerSystemLogTab(wrapper, 'errors');
+    await triggerSystemLogTab(wrapper, 'archives');
+
+    const selectedRow = wrapper.findAll('[data-testid="archive-batch-master-row"]').find((row) =>
+      row.classes().includes('is-selected')
+    );
+    expect(selectedRow?.text()).toContain('iot_message_log-20260426090100');
+  });
+
   it('filters archive batch ledger by batch number and compare status on archive refresh', async () => {
     const wrapper = mountView();
     await flushPromises();
@@ -1324,6 +1416,13 @@ describe('AuditLogView', () => {
       .find((item) => item.text().includes('归档批次详情'));
     expect(drawer?.exists()).toBe(true);
     expect(drawer?.text()).toContain('iot_message_log-20260426090100');
+    expect(wrapper.find('[data-testid="archive-governance-focus-strip"]').text()).toContain(
+      'iot_message_log-20260426090100'
+    );
+    const selectedRow = wrapper.findAll('[data-testid="archive-batch-master-row"]').find((row) =>
+      row.classes().includes('is-selected')
+    );
+    expect(selectedRow?.text()).toContain('iot_message_log-20260426090100');
   });
 
   it('shows a focus hint when latest abnormal batch is not in current page', async () => {
@@ -1552,6 +1651,72 @@ describe('AuditLogView', () => {
     expect(wrapper.text()).not.toContain('stale-old-latest');
   });
 
+  it('keeps the selected hotspot active when switching away and back to the hotspots tab', async () => {
+    vi.mocked(listObservabilitySlowSpanSummaries).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          spanType: 'SLOW_SQL',
+          domainCode: 'system',
+          eventCode: 'system.error.archive',
+          objectType: 'sql',
+          objectId: 'iot_message_log',
+          totalCount: 3,
+          avgDurationMs: 1280,
+          maxDurationMs: 2400,
+          latestTraceId: 'trace-slow-1',
+          latestStartedAt: '2026-04-25 10:08:00'
+        },
+        {
+          spanType: 'HTTP',
+          domainCode: 'device',
+          eventCode: 'device.contract.publish',
+          objectType: 'api',
+          objectId: '/api/device/product/release',
+          totalCount: 2,
+          avgDurationMs: 620,
+          maxDurationMs: 900,
+          latestTraceId: 'trace-slow-2',
+          latestStartedAt: '2026-04-25 10:06:00'
+        }
+      ]
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    const rows = wrapper.findAll('[data-testid="hotspot-master-row"]');
+    await rows[1]!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="hotspot-focus-strip"]').text()).toContain('trace-slow-2');
+
+    await triggerSystemLogTab(wrapper, 'errors');
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    const selectedRow = wrapper
+      .findAll('[data-testid="hotspot-master-row"]')
+      .find((row) => row.classes().includes('is-selected'));
+    expect(selectedRow?.text()).toContain('/api/device/product/release');
+  });
+
+  it('keeps hotspot detail visible when scheduled task loading fails', async () => {
+    vi.mocked(pageObservabilityScheduledTasks).mockRejectedValueOnce(new Error('task failed'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+    await triggerSystemLogTab(wrapper, 'hotspots');
+
+    expect(wrapper.find('[data-testid="hotspot-master-table"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="hotspot-detail-section"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('task failed');
+  });
+
   it('drills slow hotspot into recent span records', async () => {
     const wrapper = mountView();
     await flushPromises();
@@ -1577,7 +1742,7 @@ describe('AuditLogView', () => {
 
     const drilldown = wrapper.find('.audit-log-slow-span-drilldown');
     expect(drilldown.exists()).toBe(true);
-    expect(drilldown.text()).toContain('慢点明细');
+    expect(drilldown.text()).toContain('最近样本');
     expect(drilldown.text()).toContain('Slow SQL iot_message_log');
     expect(drilldown.text()).toContain('trace-slow-1');
     expect(drilldown.text()).toContain('2400 ms');
@@ -1608,7 +1773,7 @@ describe('AuditLogView', () => {
 
     const drilldown = wrapper.find('.audit-log-slow-trend-drilldown');
     expect(drilldown.exists()).toBe(true);
-    expect(drilldown.text()).toContain('慢点趋势');
+    expect(drilldown.text()).toContain('趋势观察');
     expect(drilldown.text()).toContain('P95');
     expect(drilldown.text()).toContain('P99');
     expect(drilldown.text()).toContain('错误率');
