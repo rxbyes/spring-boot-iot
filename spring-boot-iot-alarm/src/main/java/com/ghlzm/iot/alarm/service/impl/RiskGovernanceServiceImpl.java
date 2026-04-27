@@ -661,15 +661,38 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
     private boolean matchesPolicy(RiskPointDevice binding,
                                   Map<String, List<RuleDefinition>> enabledRulesByMetric,
-                                  Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId) {
+                                  Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId,
+                                  Map<Long, Long> deviceProductIds) {
         if (binding == null) {
             return false;
         }
-        if (binding.getRiskMetricId() != null && enabledRulesByRiskMetricId.containsKey(binding.getRiskMetricId())) {
-            return true;
+        List<RuleDefinition> candidates = new ArrayList<>();
+        if (binding.getRiskMetricId() != null) {
+            candidates.addAll(enabledRulesByRiskMetricId.getOrDefault(binding.getRiskMetricId(), List.of()));
         }
-        return StringUtils.hasText(binding.getMetricIdentifier())
-                && enabledRulesByMetric.containsKey(binding.getMetricIdentifier().trim());
+        if (StringUtils.hasText(binding.getMetricIdentifier())) {
+            candidates.addAll(enabledRulesByMetric.getOrDefault(binding.getMetricIdentifier().trim(), List.of()));
+        }
+        Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
+        return candidates.stream().anyMatch(rule -> matchesPolicyScope(rule, binding, productId));
+    }
+
+    private boolean matchesPolicyScope(RuleDefinition rule, RiskPointDevice binding, Long productId) {
+        String scope = normalizeRuleScope(rule == null ? null : rule.getRuleScope());
+        return switch (scope) {
+            case "BINDING" -> binding != null
+                    && binding.getId() != null
+                    && binding.getId().equals(rule.getRiskPointDeviceId());
+            case "DEVICE" -> binding != null
+                    && binding.getDeviceId() != null
+                    && binding.getDeviceId().equals(rule.getDeviceId());
+            case "PRODUCT" -> productId != null && productId.equals(rule.getProductId());
+            default -> true;
+        };
+    }
+
+    private String normalizeRuleScope(String scope) {
+        return StringUtils.hasText(scope) ? scope.trim().toUpperCase(Locale.ROOT) : "METRIC";
     }
 
     private RiskGovernanceGapItemVO toMissingBindingItem(Device device) {
@@ -1183,10 +1206,29 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
                 .filter(rule -> rule.getRiskMetricId() != null)
                 .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
+        Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
         return bindings.stream()
-                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId))
+                .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId, deviceProductIds))
                 .filter(binding -> matchesDeviceCode(binding, query))
                 .toList();
+    }
+
+    private Map<Long, Long> loadDeviceProductIds(List<RiskPointDevice> bindings) {
+        Set<Long> deviceIds = bindings == null
+                ? Set.of()
+                : bindings.stream()
+                .map(RiskPointDevice::getDeviceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (deviceIds.isEmpty()) {
+            return Map.of();
+        }
+        return deviceMapper.selectList(new LambdaQueryWrapper<Device>()
+                        .in(Device::getId, deviceIds))
+                .stream()
+                .filter(device -> device.getId() != null)
+                .filter(device -> device.getProductId() != null)
+                .collect(Collectors.toMap(Device::getId, Device::getProductId, (left, right) -> left));
     }
 
     private String toMissingPolicyDimensionKey(RiskPointDevice binding) {

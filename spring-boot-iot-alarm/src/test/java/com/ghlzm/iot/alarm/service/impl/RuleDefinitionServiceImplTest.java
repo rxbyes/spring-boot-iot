@@ -92,6 +92,40 @@ class RuleDefinitionServiceImplTest {
     }
 
     @Test
+    void addRuleShouldRejectProductScopeWithoutProductId() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRuleName("产品默认阈值");
+        rule.setRuleScope("PRODUCT");
+        rule.setMetricIdentifier("value");
+        rule.setAlarmLevel("orange");
+        rule.setExpression("value >= 8");
+        rule.setStatus(0);
+
+        BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
+
+        assertTrue(error.getMessage().contains("productId"));
+        verify(service, never()).save(ArgumentMatchers.any(RuleDefinition.class));
+    }
+
+    @Test
+    void addRuleShouldRejectDeviceScopeWithoutDeviceOrBindingId() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRuleName("设备个性阈值");
+        rule.setRuleScope("DEVICE");
+        rule.setMetricIdentifier("value");
+        rule.setAlarmLevel("red");
+        rule.setExpression("value >= 10");
+        rule.setStatus(0);
+
+        BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
+
+        assertTrue(error.getMessage().contains("deviceId"));
+        verify(service, never()).save(ArgumentMatchers.any(RuleDefinition.class));
+    }
+
+    @Test
     void addRuleShouldResolveMetricIdentifierFromRiskMetricCatalogWhenRiskMetricIdPresent() {
         RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
         RuleDefinition rule = new RuleDefinition();

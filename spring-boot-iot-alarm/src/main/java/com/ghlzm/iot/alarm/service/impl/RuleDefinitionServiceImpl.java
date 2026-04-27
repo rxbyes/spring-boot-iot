@@ -112,6 +112,7 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             if (rule == null) {
                   throw new BizException("阈值策略不能为空");
             }
+            normalizeAndValidateScope(rule);
             RiskMetricCatalog catalog = resolveRiskMetricCatalog(rule);
             if (catalog != null) {
                   bindCatalogIdentity(rule, catalog);
@@ -125,6 +126,33 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             }
             if (StringUtils.hasText(rule.getExpression()) && !RiskPolicyResolver.isExecutableExpression(rule.getExpression())) {
                   throw new BizException("阈值策略表达式格式无效，仅支持 value >= 12 这类写法");
+            }
+      }
+
+      private void normalizeAndValidateScope(RuleDefinition rule) {
+            String scope = StringUtils.hasText(rule.getRuleScope())
+                    ? rule.getRuleScope().trim().toUpperCase(Locale.ROOT)
+                    : "METRIC";
+            rule.setRuleScope(scope);
+            switch (scope) {
+                  case "METRIC" -> {
+                  }
+                  case "PRODUCT" -> {
+                        if (rule.getProductId() == null) {
+                              throw new BizException("PRODUCT threshold policy must provide productId");
+                        }
+                  }
+                  case "DEVICE" -> {
+                        if (rule.getDeviceId() == null) {
+                              throw new BizException("DEVICE threshold policy must provide deviceId");
+                        }
+                  }
+                  case "BINDING" -> {
+                        if (rule.getRiskPointDeviceId() == null) {
+                              throw new BizException("BINDING threshold policy must provide riskPointDeviceId");
+                        }
+                  }
+                  default -> throw new BizException("Unsupported threshold policy scope: " + scope);
             }
       }
 

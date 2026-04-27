@@ -108,6 +108,13 @@
       <template #actions>
         <StandardButton action="query" @click="emit('search')">查询</StandardButton>
         <StandardButton action="reset" @click="emit('reset')">重置</StandardButton>
+        <StandardButton action="refresh" link @click="emit('refresh')">刷新列表</StandardButton>
+        <StandardActionMenu
+          v-if="toolbarActions.length > 0"
+          label="更多操作"
+          :items="toolbarActions"
+          @command="emit('toolbar-action', $event)"
+        />
         <StandardButton
           v-if="errorViewMode === 'detail'"
           action="search"
@@ -294,6 +301,7 @@
 <script setup lang="ts">
 import type { AuditLogRecord, SystemErrorClusterRow } from '@/api/auditLog'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
+import StandardActionMenu from '@/components/StandardActionMenu.vue'
 import StandardButton from '@/components/StandardButton.vue'
 import StandardInlineState from '@/components/StandardInlineState.vue'
 import StandardListFilterHeader from '@/components/StandardListFilterHeader.vue'
@@ -348,6 +356,7 @@ const props = defineProps<{
   showAdvancedFilters: boolean
   advancedFilterHint: string
   requestMethodOptions: SystemRequestMethodOption[]
+  toolbarActions: WorkbenchActionItem[]
   appliedQuickSearchValue: string
   activeFilterTags: Array<Record<string, unknown>>
   hasAppliedFilters: boolean
@@ -373,6 +382,8 @@ const emit = defineEmits<{
   (event: 'update:quickSearchKeyword', value: string): void
   (event: 'search'): void
   (event: 'reset'): void
+  (event: 'refresh'): void
+  (event: 'toolbar-action', command: string | number | object): void
   (event: 'quick-search'): void
   (event: 'clear-quick-search'): void
   (event: 'toggle-advanced'): void

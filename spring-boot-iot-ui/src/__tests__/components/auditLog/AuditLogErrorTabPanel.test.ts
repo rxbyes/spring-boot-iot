@@ -33,6 +33,13 @@ const StandardButtonStub = defineComponent({
   template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
 })
 
+const StandardActionMenuStub = defineComponent({
+  name: 'StandardActionMenu',
+  props: ['label', 'items'],
+  emits: ['command'],
+  template: '<button type="button">{{ label }}</button>'
+})
+
 const StandardPaginationStub = defineComponent({
   name: 'StandardPagination',
   template: '<div class="pagination-stub" />'
@@ -46,7 +53,7 @@ const StandardTableTextColumnStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['directItems', 'menuItems', 'menuLabel'],
+  props: ['directItems', 'menuItems'],
   emits: ['command'],
   setup(props) {
     const resolvedActions = computed(() =>
@@ -82,7 +89,6 @@ const ElInputStub = defineComponent({
 const ElTableStub = defineComponent({
   name: 'ElTable',
   props: ['data'],
-  emits: ['row-click'],
   setup(props) {
     provide('tableRows', computed(() => props.data ?? []))
     return {}
@@ -138,6 +144,7 @@ function mountPanel(propOverrides: Record<string, unknown> = {}) {
       showAdvancedFilters: false,
       advancedFilterHint: '',
       requestMethodOptions: [],
+      toolbarActions: [{ command: 'export-config', label: '导出列设置' }],
       appliedQuickSearchValue: '',
       activeFilterTags: [],
       hasAppliedFilters: false,
@@ -166,6 +173,7 @@ function mountPanel(propOverrides: Record<string, unknown> = {}) {
       stubs: {
         StandardListFilterHeader: StandardListFilterHeaderStub,
         StandardAppliedFiltersBar: StandardAppliedFiltersBarStub,
+        StandardActionMenu: StandardActionMenuStub,
         StandardInlineState: StandardInlineStateStub,
         StandardButton: StandardButtonStub,
         StandardPagination: StandardPaginationStub,
@@ -184,7 +192,7 @@ function mountPanel(propOverrides: Record<string, unknown> = {}) {
 }
 
 describe('AuditLogErrorTabPanel', () => {
-  it('shows the detail table first and exposes the cluster entry action', async () => {
+  it('shows the detail table first and keeps refresh utilities after reset', async () => {
     const wrapper = mountPanel({
       tableData: [
         {
@@ -200,8 +208,12 @@ describe('AuditLogErrorTabPanel', () => {
       pagination: { pageNum: 1, pageSize: 10, total: 1 }
     })
 
-    expect(wrapper.text()).toContain('按异常分组查看')
-    expect(wrapper.text()).not.toContain('异常分组主表')
+    const panelText = wrapper.text()
+    expect(panelText).toContain('按异常分组查看')
+    expect(panelText).toContain('刷新列表')
+    expect(panelText).toContain('更多操作')
+    expect(panelText.indexOf('重置')).toBeLessThan(panelText.indexOf('刷新列表'))
+    expect(panelText.indexOf('刷新列表')).toBeLessThan(panelText.indexOf('更多操作'))
 
     const button = wrapper.findAll('button').find((item) => item.text().includes('按异常分组查看'))
     await button?.trigger('click')

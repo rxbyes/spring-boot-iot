@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
+import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.framework.config.IotProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -31,17 +34,27 @@ public class RiskPolicyResolver {
 
     private final RuleDefinitionMapper ruleDefinitionMapper;
     private final IotProperties iotProperties;
+    private final DeviceMapper deviceMapper;
 
     public RiskPolicyResolver(RuleDefinitionMapper ruleDefinitionMapper, IotProperties iotProperties) {
+        this(ruleDefinitionMapper, iotProperties, null);
+    }
+
+    @Autowired
+    public RiskPolicyResolver(RuleDefinitionMapper ruleDefinitionMapper, IotProperties iotProperties, DeviceMapper deviceMapper) {
         this.ruleDefinitionMapper = ruleDefinitionMapper;
         this.iotProperties = iotProperties;
+        this.deviceMapper = deviceMapper;
     }
 
     public RiskPolicyDecision resolve(Long tenantId, RiskPointDevice binding, BigDecimal absoluteValue) {
         if (binding != null && (StringUtils.hasText(binding.getMetricIdentifier()) || binding.getRiskMetricId() != null)) {
+            Long productId = resolveProductId(binding);
             RuleDefinition matchedRule = listEnabledRules(tenantId, binding.getRiskMetricId(), binding.getMetricIdentifier()).stream()
+                    .filter(rule -> matchesMetric(rule, binding))
+                    .filter(rule -> matchesScope(rule, binding, productId))
                     .filter(rule -> matches(rule == null ? null : rule.getExpression(), absoluteValue))
-                    .max(rulePriorityComparator())
+                    .max(rulePriorityComparator(binding, productId))
                     .orElse(null);
             if (matchedRule != null) {
                 return RiskPolicyDecision.fromRule(matchedRule);
@@ -53,9 +66,10 @@ public class RiskPolicyResolver {
         return RiskPolicyDecision.fromAutoClosure(absoluteValue, config);
     }
 
-    private Comparator<RuleDefinition> rulePriorityComparator() {
+    private Comparator<RuleDefinition> rulePriorityComparator(RiskPointDevice binding, Long productId) {
         return Comparator
-                .comparingInt((RuleDefinition rule) -> RiskPolicyDecision.fromRule(rule).getPriority())
+                .comparingInt((RuleDefinition rule) -> scopePriority(rule, binding, productId))
+                .thenComparingInt(rule -> RiskPolicyDecision.fromRule(rule).getPriority())
                 .thenComparing(RuleDefinition::getId, Comparator.nullsLast(Long::compareTo));
     }
 
@@ -91,6 +105,58 @@ public class RiskPolicyResolver {
                         .orderByDesc(RuleDefinition::getCreateTime)
         );
         return rules == null ? Collections.emptyList() : rules;
+    }
+
+    private Long resolveProductId(RiskPointDevice binding) {
+        if (binding == null || binding.getDeviceId() == null || deviceMapper == null) {
+            return null;
+        }
+        Device device = deviceMapper.selectById(binding.getDeviceId());
+        return device == null ? null : device.getProductId();
+    }
+
+    private boolean matchesMetric(RuleDefinition rule, RiskPointDevice binding) {
+        if (rule == null || binding == null) {
+            return false;
+        }
+        if (rule.getRiskMetricId() != null && binding.getRiskMetricId() != null
+                && rule.getRiskMetricId().equals(binding.getRiskMetricId())) {
+            return true;
+        }
+        return StringUtils.hasText(rule.getMetricIdentifier())
+                && StringUtils.hasText(binding.getMetricIdentifier())
+                && rule.getMetricIdentifier().trim().equals(binding.getMetricIdentifier().trim());
+    }
+
+    private boolean matchesScope(RuleDefinition rule, RiskPointDevice binding, Long productId) {
+        String scope = normalizeScope(rule == null ? null : rule.getRuleScope());
+        return switch (scope) {
+            case "BINDING" -> binding != null
+                    && binding.getId() != null
+                    && binding.getId().equals(rule.getRiskPointDeviceId());
+            case "DEVICE" -> binding != null
+                    && binding.getDeviceId() != null
+                    && binding.getDeviceId().equals(rule.getDeviceId());
+            case "PRODUCT" -> productId != null && productId.equals(rule.getProductId());
+            default -> true;
+        };
+    }
+
+    private int scopePriority(RuleDefinition rule, RiskPointDevice binding, Long productId) {
+        String scope = normalizeScope(rule == null ? null : rule.getRuleScope());
+        return switch (scope) {
+            case "BINDING" -> 4;
+            case "DEVICE" -> 3;
+            case "PRODUCT" -> 2;
+            default -> 1;
+        };
+    }
+
+    private String normalizeScope(String scope) {
+        if (!StringUtils.hasText(scope)) {
+            return "METRIC";
+        }
+        return scope.trim().toUpperCase();
     }
 
     private boolean matches(String expression, BigDecimal absoluteValue) {

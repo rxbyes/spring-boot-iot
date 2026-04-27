@@ -47,6 +47,14 @@ public class RuleDefinition implements Serializable {
       /**
        * 表达式（如：value > 100）
        */
+      private String ruleScope;
+
+      private Long productId;
+
+      private Long deviceId;
+
+      private Long riskPointDeviceId;
+
       private String expression;
 
       /**

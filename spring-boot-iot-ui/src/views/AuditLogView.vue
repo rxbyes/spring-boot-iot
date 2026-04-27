@@ -173,14 +173,8 @@
               <span class="audit-log-system-header__summary-meta">{{ item.meta }}</span>
             </article>
           </div>
-          <div class="audit-log-system-header__actions">
+          <div v-if="activeSystemLogTab !== 'errors'" class="audit-log-system-header__actions">
             <StandardButton action="refresh" link @click="handleSystemTabRefresh">刷新列表</StandardButton>
-            <StandardActionMenu
-              v-if="activeSystemLogTab === 'errors'"
-              label="更多操作"
-              :items="auditToolbarActions"
-              @command="handleToolbarAction"
-            />
           </div>
         </section>
 
@@ -209,6 +203,7 @@
                 :show-advanced-filters="showAdvancedFilters"
                 :advanced-filter-hint="advancedFilterHint"
                 :request-method-options="systemRequestMethodOptions"
+                :toolbar-actions="auditToolbarActions"
                 :applied-quick-search-value="appliedQuickSearchValue"
                 :active-filter-tags="activeFilterTags"
                 :has-applied-filters="hasAppliedFilters"
@@ -232,6 +227,8 @@
                 @update-search-field="handleSystemErrorSearchFieldUpdate"
                 @search="handleSearch"
                 @reset="handleReset"
+                @refresh="handleSystemTabRefresh"
+                @toolbar-action="handleToolbarAction"
                 @quick-search="handleQuickSearch"
                 @clear-quick-search="handleClearQuickSearch"
                 @toggle-advanced="toggleAdvancedFilters"
@@ -3724,6 +3721,7 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   gap: 0.96rem;
   align-items: start;
   padding: 0.96rem 1rem;
+  min-height: 0;
 }
 
 .audit-log-system-header__summary {

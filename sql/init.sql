@@ -457,6 +457,10 @@ CREATE TABLE rule_definition (
   risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',
   metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
   metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
+  rule_scope VARCHAR(32) NOT NULL DEFAULT 'METRIC' COMMENT '策略作用域',
+  product_id BIGINT DEFAULT NULL COMMENT '产品ID',
+  device_id BIGINT DEFAULT NULL COMMENT '设备ID',
+  risk_point_device_id BIGINT DEFAULT NULL COMMENT '风险点设备绑定ID',
   expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',
   duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',
   alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',
@@ -476,6 +480,7 @@ CREATE TABLE rule_definition (
 
 -- 表：iot_command_record
 -- 说明：设备命令记录表
+
 CREATE TABLE iot_command_record (
   id BIGINT NOT NULL COMMENT '主键',
   tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',

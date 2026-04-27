@@ -402,9 +402,24 @@ class RiskGovernanceServiceImplTest {
         Product product = new Product();
         product.setId(1001L);
         product.setProductKey("phase1-crack-p1");
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
         product.setProductName("裂缝产品");
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
         when(productMapper.selectById(any())).thenReturn(product);
 
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
         RiskMetricCatalog metricValue = new RiskMetricCatalog();
         metricValue.setId(9101L);
         metricValue.setProductId(1001L);
@@ -521,6 +536,11 @@ class RiskGovernanceServiceImplTest {
         product.setId(1001L);
         product.setProductKey("phase1-crack-p1");
         product.setProductName("裂缝产品");
+        product.setMetadataJson("""
+                {"objectInsight":{"customMetrics":[
+                  {"identifier":"value","group":"measure","enabled":true,"includeInTrend":true}
+                ]}}
+                """);
         when(productMapper.selectById(any())).thenReturn(product);
 
         RiskMetricCatalog metricValue = new RiskMetricCatalog();

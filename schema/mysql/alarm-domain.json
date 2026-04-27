@@ -2101,6 +2101,26 @@
           "commentZh": "测点名称"
         },
         {
+          "name": "rule_scope",
+          "type": "VARCHAR(32) NOT NULL DEFAULT 'METRIC'",
+          "commentZh": "策略作用域"
+        },
+        {
+          "name": "product_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "产品ID"
+        },
+        {
+          "name": "device_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "设备ID"
+        },
+        {
+          "name": "risk_point_device_id",
+          "type": "BIGINT DEFAULT NULL",
+          "commentZh": "风险点设备绑定ID"
+        },
+        {
           "name": "expression",
           "type": "VARCHAR(256) DEFAULT NULL",
           "commentZh": "表达式"
@@ -2181,6 +2201,33 @@
           "kind": "INDEX",
           "columns": [
             "risk_metric_id"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_product_metric",
+          "kind": "INDEX",
+          "columns": [
+            "product_id",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_device_metric",
+          "kind": "INDEX",
+          "columns": [
+            "device_id",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_binding_metric",
+          "kind": "INDEX",
+          "columns": [
+            "risk_point_device_id",
+            "risk_metric_id",
+            "metric_identifier"
           ]
         }
       ],

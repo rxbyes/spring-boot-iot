@@ -1850,29 +1850,44 @@ describe('AuditLogView', () => {
     expect(wrapper.findComponent(CsvColumnSettingDialogStub).props('title')).toBe('异常观测台导出列设置');
   });
 
-  it('keeps refresh as the only direct toolbar action and moves export utilities into more actions', async () => {
+  it('moves refresh and more actions into the error filter toolbar after reset', async () => {
     const wrapper = mountView();
     await flushPromises();
     await nextTick();
 
-    const toolbarText = wrapper.find('.audit-log-system-header__actions').text();
+    expect(wrapper.find('.audit-log-system-header__actions').exists()).toBe(false);
 
-    expect(toolbarText).toContain('刷新列表');
-    expect(toolbarText).toContain('更多操作');
-    expect(toolbarText).not.toContain('导出列设置');
-    expect(toolbarText).not.toContain('导出选中');
-    expect(toolbarText).not.toContain('导出当前结果');
-    expect(toolbarText).not.toContain('清空选中');
+    const errorPanelText = wrapper.get('[data-testid="system-log-error-panel"]').text();
+    expect(errorPanelText).toContain('\u5237\u65b0\u5217\u8868');
+    expect(errorPanelText).toContain('\u66f4\u591a\u64cd\u4f5c');
+    expect(errorPanelText.indexOf('\u91cd\u7f6e')).toBeLessThan(
+      errorPanelText.indexOf('\u5237\u65b0\u5217\u8868')
+    );
+    expect(errorPanelText.indexOf('\u5237\u65b0\u5217\u8868')).toBeLessThan(
+      errorPanelText.indexOf('\u66f4\u591a\u64cd\u4f5c')
+    );
 
     const actionMenu = wrapper.findComponent(StandardActionMenuStub);
     expect(actionMenu.exists()).toBe(true);
-    expect(actionMenu.props('label')).toBe('更多操作');
+    expect(actionMenu.props('label')).toBe('\u66f4\u591a\u64cd\u4f5c');
     expect(actionMenu.props('items')).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ command: 'export-config', label: '导出列设置' }),
-        expect.objectContaining({ command: 'export-selected', label: '导出选中' }),
-        expect.objectContaining({ command: 'export-current', label: '导出当前结果' }),
-        expect.objectContaining({ command: 'clear-selection', label: '清空选中' })
+        expect.objectContaining({
+          command: 'export-config',
+          label: '\u5bfc\u51fa\u5217\u8bbe\u7f6e'
+        }),
+        expect.objectContaining({
+          command: 'export-selected',
+          label: '\u5bfc\u51fa\u9009\u4e2d'
+        }),
+        expect.objectContaining({
+          command: 'export-current',
+          label: '\u5bfc\u51fa\u5f53\u524d\u7ed3\u679c'
+        }),
+        expect.objectContaining({
+          command: 'clear-selection',
+          label: '\u6e05\u7a7a\u9009\u4e2d'
+        })
       ])
     );
   });
