@@ -1393,7 +1393,7 @@ def collector_child_device_seeds() -> List[Tuple[int, int, str, str, str, str]]:
     )
     for mappings in LASER_RELATION_MAPPINGS.values():
         for child_code in mappings.values():
-            seeds.append((int(child_code), 202603192100560258, child_code, f"NF-LASER-{child_code}", "shared-dev-laser-child", "laser-child"))
+            seeds.append((int(child_code), 202603192100560258, child_code, f"激光测距-{child_code}", "shared-dev-laser-child", "laser-child"))
     for mappings in DEEP_RELATION_MAPPINGS.values():
         for child_code in mappings.values():
             seeds.append((int(child_code), 202603192100560250, child_code, f"NF-DEEP-{child_code}", "shared-dev-deep-child", "deep-child"))
@@ -3279,6 +3279,37 @@ def ensure_collector_child_dev_baseline(cur: pymysql.cursors.Cursor, db: str) ->
                 json.dumps({"seedFamily": seed_family}, ensure_ascii=False),
             ),
         )
+
+    cur.execute(
+        """
+        UPDATE iot_device d
+        JOIN iot_product p ON p.id = d.product_id
+        SET d.device_name = CONCAT('激光测距-', d.device_code),
+            d.update_by = 1,
+            d.update_time = NOW()
+        WHERE d.deleted = 0
+          AND p.deleted = 0
+          AND p.product_key = 'nf-monitor-laser-rangefinder-v1'
+          AND (
+            d.device_name LIKE 'NF-LASER-%'
+            OR d.device_name = '拉杆裂缝计'
+          )
+        """
+    )
+
+    cur.execute(
+        """
+        UPDATE iot_device d
+        JOIN iot_product p ON p.id = d.product_id
+        SET d.device_name = CONCAT('裂缝计-', d.device_code),
+            d.update_by = 1,
+            d.update_time = NOW()
+        WHERE d.deleted = 0
+          AND p.deleted = 0
+          AND p.product_key = 'nf-monitor-crack-meter-v1'
+          AND (d.device_name LIKE 'NF-CRACK-%' OR d.device_name = d.device_code)
+        """
+    )
 
     for (
         relation_id,

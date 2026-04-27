@@ -1042,6 +1042,73 @@ class RiskPointServiceImplTest {
     }
 
     @Test
+    void bindDeviceAndReturnShouldRestoreSoftDeletedBindingWhenUniqueKeyStillOccupied() {
+        RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
+        OrganizationService organizationService = mock(OrganizationService.class);
+        RegionService regionService = mock(RegionService.class);
+        UserService userService = mock(UserService.class);
+        DictService dictService = mock(DictService.class);
+        DeviceService deviceService = mock(DeviceService.class);
+        RiskPointServiceImpl service = spy(new RiskPointServiceImpl(
+                deviceMapper,
+                organizationService,
+                regionService,
+                userService,
+                dictService,
+                null,
+                deviceService
+        ));
+
+        RiskPointDevice request = new RiskPointDevice();
+        request.setRiskPointId(60L);
+        request.setDeviceId(1987748663115309057L);
+        request.setDeviceCode("SJ11F4148737700A");
+        request.setDeviceName("SJ11F4148737700A");
+        request.setRiskMetricId(6101L);
+        request.setMetricIdentifier("gX");
+        request.setMetricName("gX");
+
+        RiskPoint riskPoint = existingRiskPoint("RP-OLD-001");
+        riskPoint.setId(60L);
+        riskPoint.setOrgId(7101L);
+        riskPoint.setTenantId(1L);
+        Device device = activeDevice(1987748663115309057L, 7101L, "SJ11F4148737700A");
+
+        RiskPointDevice softDeleted = new RiskPointDevice();
+        softDeleted.setId(9003L);
+        softDeleted.setRiskPointId(60L);
+        softDeleted.setDeviceId(1987748663115309057L);
+        softDeleted.setMetricIdentifier("gX");
+        softDeleted.setDeleted(1);
+        softDeleted.setCreateBy(1000L);
+
+        doReturn(riskPoint).when(service).getById(60L);
+        doReturn(riskPoint).when(service).getById(60L, 1001L);
+        when(deviceService.getRequiredById(1001L, 1987748663115309057L)).thenReturn(device);
+        doReturn(null).when(deviceMapper).selectOne(any());
+        doReturn(softDeleted).when(deviceMapper).findSoftDeletedBinding(60L, 1987748663115309057L, "gX");
+        doReturn(List.of()).when(deviceMapper).selectList(any());
+        doAnswer(invocation -> 1).when(deviceMapper).restoreSoftDeletedBinding(any(RiskPointDevice.class));
+
+        RiskPointDevice saved = service.bindDeviceAndReturn(request, 1001L);
+
+        assertEquals(9003L, saved.getId());
+        assertEquals(0, saved.getDeleted());
+        assertEquals(1000L, saved.getCreateBy());
+        assertEquals(1001L, saved.getUpdateBy());
+        assertNotNull(saved.getUpdateTime());
+        verify(deviceMapper, never()).insert(any(RiskPointDevice.class));
+        verify(deviceMapper).restoreSoftDeletedBinding(argThat((RiskPointDevice binding) ->
+                Long.valueOf(9003L).equals(binding.getId())
+                        && Long.valueOf(60L).equals(binding.getRiskPointId())
+                        && Long.valueOf(1987748663115309057L).equals(binding.getDeviceId())
+                        && "SJ11F4148737700A".equals(binding.getDeviceCode())
+                        && "gX".equals(binding.getMetricIdentifier())
+                        && Integer.valueOf(0).equals(binding.getDeleted())
+        ));
+    }
+
+    @Test
     void bindDeviceAndReturnShouldRejectMismatchedCatalogIdentifier() {
         RiskPointDeviceMapper deviceMapper = mock(RiskPointDeviceMapper.class);
         OrganizationService organizationService = mock(OrganizationService.class);

@@ -9,6 +9,7 @@ import com.ghlzm.iot.system.mapper.AuditLogMapper;
 import com.ghlzm.iot.system.service.AuditLogService;
 import com.ghlzm.iot.system.service.PermissionService;
 import com.ghlzm.iot.system.vo.AuditLogStatsBucketVO;
+import com.ghlzm.iot.system.vo.SystemErrorClusterRowVO;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,9 @@ import org.springframework.util.StringUtils;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -35,6 +39,7 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
     private static final String LEGACY_REQUEST_URL_COLUMN = "operation_uri";
     private static final int RESULT_MESSAGE_MAX_LENGTH = 500;
     private static final String TRUNCATED_SUFFIX = "...(truncated)";
+    private static final DateTimeFormatter SPACE_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditLogSchemaSupport auditLogSchemaSupport;
@@ -127,6 +132,34 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
         long offset = (safePageNum - 1) * safePageSize;
         List<AuditLog> records = queryLogs(scopedLog, excludeSystemError, safePageSize, offset);
         return PageResult.of(total, safePageNum, safePageSize, records);
+    }
+
+    @Override
+    public PageResult<SystemErrorClusterRowVO> pageSystemErrorClusters(AuditLog log, Integer pageNum, Integer pageSize) {
+        return pageSystemErrorClusters(null, log, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<SystemErrorClusterRowVO> pageSystemErrorClusters(Long currentUserId,
+                                                                       AuditLog log,
+                                                                       Integer pageNum,
+                                                                       Integer pageSize) {
+        long safePageNum = pageNum == null || pageNum < 1 ? 1L : pageNum;
+        long safePageSize = pageSize == null || pageSize < 1 ? 10L : Math.min(pageSize.longValue(), 50L);
+        Set<String> columns = auditLogSchemaSupport.getColumns();
+        QuerySpec querySpec = buildQuerySpec(normalizeSystemErrorFilter(scopedLog(currentUserId, log)), false, columns);
+        if (querySpec.emptyResult()) {
+            return PageResult.empty(safePageNum, safePageSize);
+        }
+
+        Long total = querySystemErrorClusterCount(querySpec, columns);
+        if (total == null || total < 1) {
+            return PageResult.empty(safePageNum, safePageSize);
+        }
+
+        long offset = (safePageNum - 1) * safePageSize;
+        List<SystemErrorClusterRowVO> rows = querySystemErrorClusters(querySpec, columns, safePageSize, offset);
+        return PageResult.of(total, safePageNum, safePageSize, rows);
     }
 
     @Override
@@ -378,6 +411,193 @@ public class AuditLogServiceImpl extends ServiceImpl<AuditLogMapper, AuditLog>
                 ),
                 querySpec.params().toArray()
         );
+    }
+
+    private Long querySystemErrorClusterCount(QuerySpec querySpec, Set<String> columns) {
+        String sql = "SELECT COUNT(1) FROM (SELECT 1 FROM "
+                + TABLE_NAME
+                + querySpec.whereClause()
+                + " GROUP BY "
+                + buildSystemErrorClusterGroupByClause(columns)
+                + ") system_error_clusters";
+        Long value = jdbcTemplate.queryForObject(sql, Long.class, querySpec.params().toArray());
+        return value == null ? 0L : value;
+    }
+
+    private List<SystemErrorClusterRowVO> querySystemErrorClusters(QuerySpec querySpec,
+                                                                   Set<String> columns,
+                                                                   long limit,
+                                                                   long offset) {
+        String moduleExpression = buildNormalizedClusterExpression(resolveColumn(columns, "operation_module"));
+        String exceptionExpression = buildNormalizedClusterExpression(resolveColumn(columns, "exception_class"));
+        String errorCodeExpression = buildNormalizedClusterExpression(resolveColumn(columns, "error_code"));
+        String traceDistinctExpression = buildDistinctCountExpression(resolveColumn(columns, "trace_id"));
+        String deviceDistinctExpression = buildDistinctCountExpression(resolveColumn(columns, "device_code"));
+        String latestTimeExpression = buildLatestTimeExpression(resolveColumn(columns, "operation_time", "create_time"));
+        String groupByClause = String.join(", ", moduleExpression, exceptionExpression, errorCodeExpression);
+
+        String sql = "SELECT "
+                + moduleExpression + " AS operation_module, "
+                + exceptionExpression + " AS exception_class, "
+                + errorCodeExpression + " AS error_code, "
+                + "COUNT(1) AS cluster_count, "
+                + traceDistinctExpression + " AS distinct_trace_count, "
+                + deviceDistinctExpression + " AS distinct_device_count, "
+                + latestTimeExpression + " AS latest_operation_time"
+                + " FROM " + TABLE_NAME
+                + querySpec.whereClause()
+                + " GROUP BY " + groupByClause
+                + " ORDER BY cluster_count DESC, latest_operation_time DESC, operation_module ASC, exception_class ASC, error_code ASC"
+                + " LIMIT ? OFFSET ?";
+
+        List<Object> params = new ArrayList<>(querySpec.params());
+        params.add(limit);
+        params.add(offset);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, params.toArray());
+        List<SystemErrorClusterRowVO> records = new ArrayList<>(rows.size());
+        for (Map<String, Object> rowMap : rows) {
+            SystemErrorClusterRowVO row = new SystemErrorClusterRowVO();
+            row.setOperationModule(normalizeClusterValue(rowMap.get("operation_module")));
+            row.setExceptionClass(normalizeClusterValue(rowMap.get("exception_class")));
+            row.setErrorCode(normalizeClusterValue(rowMap.get("error_code")));
+            row.setCount(toLongValue(rowMap.get("cluster_count")));
+            row.setDistinctTraceCount(toLongValue(rowMap.get("distinct_trace_count")));
+            row.setDistinctDeviceCount(toLongValue(rowMap.get("distinct_device_count")));
+            row.setLatestOperationTime(formatDateTimeValue(rowMap.get("latest_operation_time")));
+            row.setClusterKey(buildSystemErrorClusterKey(row));
+            fillClusterLatestPayload(querySpec, columns, row);
+            records.add(row);
+        }
+        return records;
+    }
+
+    private void fillClusterLatestPayload(QuerySpec querySpec, Set<String> columns, SystemErrorClusterRowVO row) {
+        String requestUrlColumn = resolveColumn(columns, "request_url", LEGACY_REQUEST_URL_COLUMN);
+        String requestMethodColumn = resolveColumn(columns, "request_method");
+        String resultMessageColumn = resolveColumn(columns, "result_message");
+        if (requestUrlColumn == null && requestMethodColumn == null && resultMessageColumn == null) {
+            return;
+        }
+
+        List<String> selectColumns = new ArrayList<>();
+        addSelect(selectColumns, columns, "request_url", "request_url", LEGACY_REQUEST_URL_COLUMN);
+        addSelect(selectColumns, columns, "request_method", "request_method");
+        addSelect(selectColumns, columns, "result_message", "result_message");
+        if (selectColumns.isEmpty()) {
+            return;
+        }
+
+        StringBuilder sql = new StringBuilder("SELECT ")
+                .append(String.join(", ", selectColumns))
+                .append(" FROM ")
+                .append(TABLE_NAME)
+                .append(querySpec.whereClause());
+        List<Object> params = new ArrayList<>(querySpec.params());
+        appendNormalizedTextMatch(sql, params, resolveColumn(columns, "operation_module"), row.getOperationModule());
+        appendNormalizedTextMatch(sql, params, resolveColumn(columns, "exception_class"), row.getExceptionClass());
+        appendNormalizedTextMatch(sql, params, resolveColumn(columns, "error_code"), row.getErrorCode());
+        sql.append(buildOrderByClause(columns)).append(" LIMIT 1");
+
+        List<Map<String, Object>> payloadRows = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        if (payloadRows.isEmpty()) {
+            return;
+        }
+        Map<String, Object> latest = payloadRows.get(0);
+        row.setLatestRequestUrl(normalizeOptionalText(latest.get("request_url")));
+        row.setLatestRequestMethod(normalizeOptionalText(latest.get("request_method")));
+        row.setLatestResultMessage(normalizeOptionalText(latest.get("result_message")));
+    }
+
+    private String buildSystemErrorClusterGroupByClause(Set<String> columns) {
+        return String.join(
+                ", ",
+                buildNormalizedClusterExpression(resolveColumn(columns, "operation_module")),
+                buildNormalizedClusterExpression(resolveColumn(columns, "exception_class")),
+                buildNormalizedClusterExpression(resolveColumn(columns, "error_code"))
+        );
+    }
+
+    private String buildNormalizedClusterExpression(String column) {
+        if (column == null) {
+            return "''";
+        }
+        return "COALESCE(NULLIF(TRIM(" + column + "), ''), '')";
+    }
+
+    private String buildDistinctCountExpression(String column) {
+        if (column == null) {
+            return "0";
+        }
+        return "COUNT(DISTINCT CASE WHEN " + column + " IS NULL OR TRIM(" + column + ") = '' THEN NULL ELSE TRIM(" + column + ") END)";
+    }
+
+    private String buildLatestTimeExpression(String column) {
+        if (column == null) {
+            return "NULL";
+        }
+        return "MAX(" + column + ")";
+    }
+
+    private void appendNormalizedTextMatch(StringBuilder sql, List<Object> params, String column, String value) {
+        if (column == null) {
+            return;
+        }
+        String normalized = normalizeClusterValue(value);
+        if (!StringUtils.hasText(normalized)) {
+            sql.append(" AND (").append(column).append(" IS NULL OR TRIM(").append(column).append(") = '')");
+            return;
+        }
+        sql.append(" AND TRIM(").append(column).append(") = ?");
+        params.add(normalized);
+    }
+
+    private String buildSystemErrorClusterKey(SystemErrorClusterRowVO row) {
+        return String.join(
+                "|",
+                normalizeClusterValue(row.getOperationModule()),
+                normalizeClusterValue(row.getExceptionClass()),
+                normalizeClusterValue(row.getErrorCode())
+        );
+    }
+
+    private String normalizeClusterValue(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).trim();
+    }
+
+    private String normalizeOptionalText(Object value) {
+        String normalized = normalizeClusterValue(value);
+        return StringUtils.hasText(normalized) ? normalized : "";
+    }
+
+    private Long toLongValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(String.valueOf(value).trim());
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
+    }
+
+    private String formatDateTimeValue(Object value) {
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toLocalDateTime().format(SPACE_DATE_TIME);
+        }
+        if (value instanceof Date date) {
+            return SPACE_DATE_TIME.format(Instant.ofEpochMilli(date.getTime()).atZone(ZoneId.systemDefault()).toLocalDateTime());
+        }
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value).trim();
+        return StringUtils.hasText(text) ? text : null;
     }
 
     private void appendExtraCondition(StringBuilder sql, List<Object> params, String extraCondition, Object... extraParams) {

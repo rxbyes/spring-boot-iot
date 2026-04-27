@@ -320,6 +320,10 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             validateRiskPointDeviceBinding(riskPoint, device, riskPointDevice.getRiskPointId(), currentUserId);
             riskPointDevice.setDeviceCode(device.getDeviceCode());
             riskPointDevice.setDeviceName(device.getDeviceName());
+            RiskPointDevice softDeletedBinding = findSoftDeletedMetricBinding(riskPointDevice);
+            if (softDeletedBinding != null) {
+                  return restoreSoftDeletedMetricBinding(riskPointDevice, softDeletedBinding, currentUserId);
+            }
 
             riskPointDevice.setCreateTime(new Date());
             riskPointDevice.setUpdateTime(new Date());
@@ -328,6 +332,40 @@ public class RiskPointServiceImpl extends ServiceImpl<RiskPointMapper, RiskPoint
             riskPointDevice.setDeleted(0);
             riskPointDeviceMapper.insert(riskPointDevice);
             return riskPointDevice;
+      }
+
+      private RiskPointDevice findSoftDeletedMetricBinding(RiskPointDevice riskPointDevice) {
+            if (riskPointDevice == null
+                    || riskPointDevice.getRiskPointId() == null
+                    || riskPointDevice.getDeviceId() == null
+                    || !StringUtils.hasText(riskPointDevice.getMetricIdentifier())) {
+                  return null;
+            }
+            return riskPointDeviceMapper.findSoftDeletedBinding(
+                    riskPointDevice.getRiskPointId(),
+                    riskPointDevice.getDeviceId(),
+                    riskPointDevice.getMetricIdentifier()
+            );
+      }
+
+      private RiskPointDevice restoreSoftDeletedMetricBinding(RiskPointDevice request,
+                                                             RiskPointDevice softDeletedBinding,
+                                                             Long currentUserId) {
+            softDeletedBinding.setDeviceCode(request.getDeviceCode());
+            softDeletedBinding.setDeviceName(request.getDeviceName());
+            softDeletedBinding.setRiskMetricId(request.getRiskMetricId());
+            softDeletedBinding.setMetricIdentifier(request.getMetricIdentifier());
+            softDeletedBinding.setMetricName(request.getMetricName());
+            softDeletedBinding.setDefaultThreshold(request.getDefaultThreshold());
+            softDeletedBinding.setThresholdUnit(request.getThresholdUnit());
+            softDeletedBinding.setUpdateTime(new Date());
+            softDeletedBinding.setUpdateBy(currentUserId);
+            softDeletedBinding.setDeleted(0);
+            int restoredRows = riskPointDeviceMapper.restoreSoftDeletedBinding(softDeletedBinding);
+            if (restoredRows <= 0) {
+                  throw new BizException("risk point binding restore failed");
+            }
+            return softDeletedBinding;
       }
 
       @Override

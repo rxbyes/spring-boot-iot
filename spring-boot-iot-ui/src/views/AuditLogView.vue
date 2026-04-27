@@ -162,13 +162,6 @@
       </template>
 
       <div v-if="isSystemMode" class="audit-log-system-workbench">
-        <AuditLogSystemOverviewStrip
-          :active-tab="activeSystemLogTab"
-          :active-item-key="activeSystemOverviewItemKey"
-          :items="systemOverviewItems"
-          @change-tab="handleSystemOverviewTabChange"
-        />
-
         <StandardTableToolbar compact :meta-items="systemToolbarMetaItems">
           <template #right>
             <StandardButton action="refresh" link @click="handleSystemTabRefresh">刷新列表</StandardButton>
@@ -203,6 +196,12 @@
                 :has-applied-filters="hasAppliedFilters"
                 :show-inline-state="showSystemInlineState"
                 :inline-message="systemInlineMessage"
+                :cluster-loading="clusterLoading"
+                :cluster-error-message="clusterErrorMessage"
+                :cluster-rows="clusterRows"
+                :selected-cluster-key="selectedClusterKey"
+                :selected-cluster="selectedCluster"
+                :detail-cluster-mode="detailClusterMode"
                 :loading="loading"
                 :table-data="tableData"
                 :pagination="pagination"
@@ -220,6 +219,8 @@
                 @toggle-advanced="toggleAdvancedFilters"
                 @clear-applied-filters="handleClearAppliedFilters"
                 @remove-applied-filter="handleRemoveAppliedFilter"
+                @select-cluster="handleSystemErrorClusterSelect"
+                @collapse-cluster="handleSystemErrorClusterCollapse"
                 @selection-change="handleSelectionChange"
                 @audit-row-action="handleAuditPanelRowAction"
                 @size-change="handleSizeChange"
@@ -815,7 +816,16 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { pageLogs, getAuditLogById, deleteAuditLog, getSystemErrorStats, getBusinessAuditStats, type AuditLogRecord } from '@/api/auditLog'
+import {
+  deleteAuditLog,
+  getAuditLogById,
+  getBusinessAuditStats,
+  getSystemErrorStats,
+  pageLogs,
+  pageSystemErrorClusters,
+  type AuditLogRecord,
+  type SystemErrorClusterRow
+} from '@/api/auditLog'
 import {
   getObservabilityMessageArchiveBatchCompare,
   getObservabilityMessageArchiveBatchOverview,
@@ -850,7 +860,6 @@ import AuditLogDetailDrawer from '@/components/AuditLogDetailDrawer.vue'
 import AuditLogArchiveTabPanel from '@/components/auditLog/AuditLogArchiveTabPanel.vue'
 import AuditLogErrorTabPanel from '@/components/auditLog/AuditLogErrorTabPanel.vue'
 import AuditLogHotspotTabPanel from '@/components/auditLog/AuditLogHotspotTabPanel.vue'
-import AuditLogSystemOverviewStrip from '@/components/auditLog/AuditLogSystemOverviewStrip.vue'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import IotAccessTabWorkspace from '@/components/iotAccess/IotAccessTabWorkspace.vue'
 import StandardAppliedFiltersBar from '@/components/StandardAppliedFiltersBar.vue'
@@ -885,6 +894,7 @@ import { resolveWorkbenchActionColumnWidth } from '@/utils/adaptiveActionColumn'
 type AuditLogViewMode = 'business' | 'system'
 type SlowTrendWindowKey = 'LAST_24_HOURS' | 'LAST_7_DAYS'
 type SystemLogTabKey = 'errors' | 'hotspots' | 'archives'
+type DetailClusterMode = 'clustered' | 'all'
 type ArchiveBatchDetailItem = { label: string; value: string }
 type ArchiveBatchCompareStatus = 'MATCHED' | 'DRIFTED' | 'PARTIAL' | 'UNAVAILABLE'
 type ArchiveBatchOverviewSelectionKey = 'abnormal' | 'drifted' | 'remaining' | 'latest'
@@ -941,6 +951,8 @@ const auditActionColumnWidth = computed(() =>
           { command: 'detail', label: '详情' },
           { command: 'evidence', label: '证据' },
           { command: 'trace', label: '追踪' },
+          { command: 'copy-trace-id', label: '复制 TraceId' },
+          { command: 'copy-target', label: '复制目标' },
           { command: 'delete', label: '删除', permission: 'system:audit:delete' }
         ]
       : [
@@ -1011,6 +1023,14 @@ const tableData = ref<AuditLogRecord[]>([])
 const tableRef = ref()
 const selectedRows = ref<AuditLogRecord[]>([])
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination()
+const clusterRows = ref<SystemErrorClusterRow[]>([])
+const clusterLoading = ref(false)
+const clusterErrorMessage = ref('')
+const selectedClusterKey = ref('')
+const detailClusterMode = ref<DetailClusterMode>('clustered')
+const selectedCluster = computed<SystemErrorClusterRow | null>(() =>
+  clusterRows.value.find((item) => item.clusterKey === selectedClusterKey.value) || null
+)
 const exportColumns: CsvColumn<any>[] = [
   { key: 'operationType', label: '操作类型', formatter: (value) => getOperationTypeName(String(value || '')) },
   { key: 'operationModule', label: '操作模块' },
@@ -1049,6 +1069,7 @@ const exportColumnDialogVisible = ref(false)
 // 加载状态
 const loading = ref(false)
 const statsLoading = ref(false)
+let systemErrorClusterRequestToken = 0
 
 const createEmptySystemStats = (): SystemErrorStats => ({
   total: 0,
@@ -1567,9 +1588,35 @@ const applySystemRouteQuery = () => {
   syncAdvancedFilterState()
 }
 
+const syncSystemErrorClusterSelection = (preferredKey = selectedClusterKey.value) => {
+  const nextCluster =
+    clusterRows.value.find((item) => item.clusterKey === preferredKey) || clusterRows.value[0] || null
+  selectedClusterKey.value = nextCluster?.clusterKey || ''
+  detailClusterMode.value = 'clustered'
+  return nextCluster
+}
+
+const buildSystemErrorClusterQueryParams = () => ({
+  traceId: appliedFilters.traceId,
+  operationType: 'system_error',
+  operationModule: appliedFilters.operationModule,
+  operationResult: appliedFilters.operationResult,
+  deviceCode: appliedFilters.deviceCode,
+  productKey: appliedFilters.productKey,
+  requestMethod: appliedFilters.requestMethod,
+  requestUrl: appliedFilters.requestUrl,
+  errorCode: appliedFilters.errorCode,
+  exceptionClass: appliedFilters.exceptionClass
+})
+
 const loadAuditWorkbenchData = () => {
-  getAuditLogList()
-  getAuditLogStats()
+  if (isSystemMode.value) {
+    void getAuditLogStats()
+    void loadSystemErrorClusters()
+    return
+  }
+  void getAuditLogList()
+  void getAuditLogStats()
 }
 
 const loadSystemTabWorkbenchData = () => {
@@ -1586,26 +1633,32 @@ const loadCurrentViewData = () => {
 }
 
 // 获取审计日志查询条件
-const buildAuditLogQueryParams = () => ({
-  traceId: appliedFilters.traceId,
-  operationModule: appliedFilters.operationModule,
-  operationResult: appliedFilters.operationResult,
-  ...(isBusinessMode.value
-    ? {
-        userName: appliedFilters.userName,
-        operationType: appliedFilters.operationType,
-        excludeSystemError: true
-      }
-    : {
-        operationType: 'system_error',
-        deviceCode: appliedFilters.deviceCode,
-        productKey: appliedFilters.productKey,
-        requestMethod: appliedFilters.requestMethod,
-        requestUrl: appliedFilters.requestUrl,
-        errorCode: appliedFilters.errorCode,
-        exceptionClass: appliedFilters.exceptionClass
-      })
-})
+const buildAuditLogQueryParams = () => {
+  if (isBusinessMode.value) {
+    return {
+      traceId: appliedFilters.traceId,
+      operationModule: appliedFilters.operationModule,
+      operationResult: appliedFilters.operationResult,
+      userName: appliedFilters.userName,
+      operationType: appliedFilters.operationType,
+      excludeSystemError: true
+    }
+  }
+
+  const cluster = detailClusterMode.value === 'clustered' ? selectedCluster.value : null
+  return {
+    traceId: appliedFilters.traceId,
+    operationType: 'system_error',
+    operationModule: cluster ? cluster.operationModule ?? '' : appliedFilters.operationModule,
+    operationResult: appliedFilters.operationResult,
+    deviceCode: appliedFilters.deviceCode,
+    productKey: appliedFilters.productKey,
+    requestMethod: appliedFilters.requestMethod,
+    requestUrl: appliedFilters.requestUrl,
+    errorCode: cluster ? cluster.errorCode ?? '' : appliedFilters.errorCode,
+    exceptionClass: cluster ? cluster.exceptionClass ?? '' : appliedFilters.exceptionClass
+  }
+}
 
 const logPageError = (context: string, error: unknown) => {
   if (!isHandledRequestError(error)) {
@@ -1613,10 +1666,55 @@ const logPageError = (context: string, error: unknown) => {
   }
 }
 
+const loadSystemErrorClusters = async () => {
+  const requestToken = ++systemErrorClusterRequestToken
+  clusterLoading.value = true
+  clusterErrorMessage.value = ''
+  try {
+    const res = await pageSystemErrorClusters({
+      ...buildSystemErrorClusterQueryParams(),
+      pageNum: 1,
+      pageSize: 10
+    })
+    if (requestToken !== systemErrorClusterRequestToken) {
+      return
+    }
+    clusterRows.value = res.code === 200 ? res.data?.records || [] : []
+    syncSystemErrorClusterSelection()
+    if (!selectedCluster.value) {
+      tableData.value = []
+      resetTotal()
+      clearSelection()
+      return
+    }
+    await getAuditLogList()
+  } catch (error) {
+    if (requestToken !== systemErrorClusterRequestToken) {
+      return
+    }
+    clusterRows.value = []
+    selectedClusterKey.value = ''
+    detailClusterMode.value = 'all'
+    clusterErrorMessage.value = '异常概览加载失败，已回退为全部异常明细'
+    logPageError('加载异常概览失败', error)
+    await getAuditLogList()
+  } finally {
+    if (requestToken === systemErrorClusterRequestToken) {
+      clusterLoading.value = false
+    }
+  }
+}
+
 // 获取审计日志列表
 const getAuditLogList = async () => {
   loading.value = true
   try {
+    if (isSystemMode.value && detailClusterMode.value === 'clustered' && !selectedCluster.value) {
+      tableData.value = []
+      resetTotal()
+      clearSelection()
+      return
+    }
     const res = await pageLogs({
       ...buildAuditLogQueryParams(),
       pageNum: pagination.pageNum,
@@ -1638,7 +1736,7 @@ const getAuditLogStats = async () => {
   try {
     if (isSystemMode.value) {
       systemStats.value = createEmptySystemStats()
-      const res = await getSystemErrorStats(buildAuditLogQueryParams())
+      const res = await getSystemErrorStats(buildSystemErrorClusterQueryParams())
       if (res.code === 200 && res.data) {
         systemStats.value = { ...createEmptySystemStats(), ...res.data }
       }
@@ -2330,6 +2428,31 @@ const clearSelection = () => {
   selectedRows.value = []
 }
 
+const handleSystemErrorClusterSelect = (clusterKey: string) => {
+  if (!clusterKey) {
+    return
+  }
+  if (detailClusterMode.value === 'clustered' && selectedClusterKey.value === clusterKey) {
+    return
+  }
+  selectedClusterKey.value = clusterKey
+  detailClusterMode.value = 'clustered'
+  resetPage()
+  clearSelection()
+  void getAuditLogList()
+}
+
+const handleSystemErrorClusterCollapse = () => {
+  if (!isSystemMode.value || detailClusterMode.value === 'all' || !selectedClusterKey.value) {
+    return
+  }
+  selectedClusterKey.value = ''
+  detailClusterMode.value = 'clustered'
+  resetPage()
+  clearSelection()
+  void getAuditLogList()
+}
+
 const handleSystemErrorSearchFieldUpdate = ({
   field,
   value
@@ -2354,10 +2477,6 @@ const handleSystemErrorSearchFieldUpdate = ({
 
 const handleRefresh = () => {
   triggerSearch(false)
-}
-
-const handleSystemOverviewTabChange = (tabKey: string) => {
-  handleSystemLogTabChange(tabKey)
 }
 
 const handleSystemLogTabChange = (tabKey: string) => {
@@ -2548,6 +2667,8 @@ const getAuditDirectActions = (row: AuditLogRecord) => {
       { command: 'detail', label: '详情' },
       { command: 'evidence', label: '证据', disabled: !canOpenTraceEvidence(row) },
       { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) },
+      { command: 'copy-trace-id', label: '复制 TraceId', disabled: !resolveEvidenceTraceId(row) },
+      { command: 'copy-target', label: '复制目标', disabled: !resolveAuditTarget(row) },
       { command: 'delete', label: '删除', permission: 'system:audit:delete' }
     ]
   }
@@ -2556,6 +2677,24 @@ const getAuditDirectActions = (row: AuditLogRecord) => {
     { command: 'detail', label: '详情' },
     { command: 'delete', label: '删除', permission: 'system:audit:delete' }
   ]
+}
+
+const resolveAuditTarget = (row: AuditLogRecord) => {
+  return String(row.requestUrl || row.operationMethod || row.requestMethod || '').trim()
+}
+
+const copyAuditText = async (value: string, missingMessage: string, successMessage: string) => {
+  const normalizedValue = value.trim()
+  if (!normalizedValue) {
+    ElMessage.warning(missingMessage)
+    return
+  }
+  if (!navigator.clipboard?.writeText) {
+    ElMessage.warning('当前浏览器环境不支持剪贴板复制。')
+    return
+  }
+  await navigator.clipboard.writeText(normalizedValue)
+  ElMessage.success(successMessage)
 }
 
 const handleAuditRowAction = (command: string | number | object, row: AuditLogRecord) => {
@@ -2572,6 +2711,14 @@ const handleAuditRowAction = (command: string | number | object, row: AuditLogRe
   }
   if (command === 'evidence') {
     void openTraceEvidence(row)
+    return
+  }
+  if (command === 'copy-trace-id') {
+    void copyAuditText(resolveEvidenceTraceId(row), '当前记录缺少 TraceId，无法复制', 'TraceId 已复制')
+    return
+  }
+  if (command === 'copy-target') {
+    void copyAuditText(resolveAuditTarget(row), '当前记录缺少请求目标，无法复制', '请求目标已复制')
     return
   }
   if (command === 'delete') {

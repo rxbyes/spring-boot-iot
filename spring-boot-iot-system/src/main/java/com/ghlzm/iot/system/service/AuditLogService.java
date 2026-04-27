@@ -3,6 +3,7 @@ package com.ghlzm.iot.system.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.system.entity.AuditLog;
+import com.ghlzm.iot.system.vo.SystemErrorClusterRowVO;
 import com.ghlzm.iot.system.vo.SystemErrorStatsVO;
 
 import java.util.Date;
@@ -34,6 +35,15 @@ public interface AuditLogService extends IService<AuditLog> {
                                     Boolean excludeSystemError,
                                     Integer pageNum,
                                     Integer pageSize);
+
+      /**
+       * 分页查询 system_error 聚合簇。
+       */
+      PageResult<SystemErrorClusterRowVO> pageSystemErrorClusters(AuditLog log, Integer pageNum, Integer pageSize);
+      PageResult<SystemErrorClusterRowVO> pageSystemErrorClusters(Long currentUserId,
+                                                                  AuditLog log,
+                                                                  Integer pageNum,
+                                                                  Integer pageSize);
 
       /**
        * 查询 system_error 统计概览。

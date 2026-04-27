@@ -2,7 +2,9 @@ import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createRequestError } from '@/api/request'
 import RiskPointBindingMaintenanceDrawer from '@/components/riskPoint/RiskPointBindingMaintenanceDrawer.vue'
+import { ElMessage } from '@/utils/message'
 
 const {
   mockBindDevice,
@@ -428,6 +430,21 @@ describe('RiskPointBindingMaintenanceDrawer', () => {
       ]
     })
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('does not show a second error toast when add binding failure was already handled globally', async () => {
+    mockBindDevice.mockRejectedValueOnce(createRequestError('系统繁忙，请稍后重试！', true, 500))
+    const wrapper = mountDrawer()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="binding-add-device"]').setValue('2002')
+    await flushPromises()
+    ;(wrapper.vm as any).addForm.metricIdentifiers = ['tiltY']
+    await wrapper.get('[data-testid="binding-add-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(mockBindDevice).toHaveBeenCalled()
+    expect(vi.mocked(ElMessage.error)).not.toHaveBeenCalled()
   })
 
   it('switches warning devices to device-only binding and skips the metric picker', async () => {

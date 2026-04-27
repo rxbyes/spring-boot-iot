@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { computed, defineComponent, inject, nextTick, provide, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ElMessage } from 'element-plus';
 
 import AuditLogView from '@/views/AuditLogView.vue';
 import {
@@ -10,7 +11,8 @@ import {
   getAuditLogById,
   getBusinessAuditStats,
   getSystemErrorStats,
-  pageLogs
+  pageLogs,
+  pageSystemErrorClusters
 } from '@/api/auditLog';
 import {
   getObservabilityMessageArchiveBatchCompare,
@@ -43,6 +45,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/auditLog', () => ({
   pageLogs: vi.fn(),
+  pageSystemErrorClusters: vi.fn(),
   getAuditLogById: vi.fn(),
   deleteAuditLog: vi.fn(),
   getSystemErrorStats: vi.fn(),
@@ -453,6 +456,42 @@ function createPageResponse() {
   };
 }
 
+function installClipboardMock() {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText }
+  });
+  return { writeText };
+}
+
+function createClusterPageResponse() {
+  return {
+    code: 200,
+    msg: 'success',
+    data: {
+      total: 1,
+      pageNum: 1,
+      pageSize: 10,
+      records: [
+        {
+          clusterKey: 'mqtt-consumer|java.lang.IllegalStateException|MQTT_TIMEOUT',
+          operationModule: 'mqtt-consumer',
+          exceptionClass: 'java.lang.IllegalStateException',
+          errorCode: 'MQTT_TIMEOUT',
+          count: 12,
+          distinctTraceCount: 4,
+          distinctDeviceCount: 3,
+          latestOperationTime: '2026-03-28 10:00:00',
+          latestRequestUrl: '$dp',
+          latestRequestMethod: 'MQTT',
+          latestResultMessage: 'timeout'
+        }
+      ]
+    }
+  };
+}
+
 function mountView() {
   return mount(AuditLogView, {
     global: {
@@ -496,6 +535,7 @@ describe('AuditLogView', () => {
     mockRouter.push.mockReset();
     mockRouter.replace.mockReset();
     vi.mocked(pageLogs).mockReset();
+    vi.mocked(pageSystemErrorClusters).mockReset();
     vi.mocked(getAuditLogById).mockReset();
     vi.mocked(deleteAuditLog).mockReset();
     vi.mocked(getSystemErrorStats).mockReset();
@@ -510,6 +550,7 @@ describe('AuditLogView', () => {
     vi.mocked(pageObservabilitySpans).mockReset();
     vi.mocked(getTraceEvidence).mockReset();
     vi.mocked(pageLogs).mockResolvedValue(createPageResponse());
+    vi.mocked(pageSystemErrorClusters).mockResolvedValue(createClusterPageResponse());
     vi.mocked(getSystemErrorStats).mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -869,10 +910,29 @@ describe('AuditLogView', () => {
       expect(item.text()).toContain('证据');
       expect(item.text()).toContain('追踪');
       expect(item.text()).toContain('删除');
+      expect(item.text()).toContain('复制 TraceId');
+      expect(item.text()).toContain('复制目标');
       expect(item.text()).toContain('更多');
-      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('1');
+      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('3');
       expect(item.attributes('data-menu-label')).toBe('更多');
     });
+  });
+
+  it('copies traceId from system-log row actions', async () => {
+    const { writeText } = installClipboardMock();
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const rowActionCopyButton = wrapper
+      .find('.audit-log-row-actions-stub')
+      .findAll('button')
+      .find((button) => button.text().includes('复制 TraceId'));
+    await rowActionCopyButton!.trigger('click');
+    await flushPromises();
+
+    expect(writeText).toHaveBeenCalledWith('trace-001');
+    expect(ElMessage.success).toHaveBeenCalled();
   });
 
   it('opens trace evidence drawer from system-log row actions', async () => {
@@ -1762,6 +1822,41 @@ describe('AuditLogView', () => {
     expect(persisted.context.sourcePage).toBe('system-log');
     expect(persisted.context.topic).toBe('$dp');
     expect(persisted.context.reportStatus).toBe('failed');
+  });
+
+  it('loads system error clusters and filters detail rows by the selected cluster', async () => {
+    mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(pageSystemErrorClusters).toHaveBeenCalledTimes(1);
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: 'mqtt-consumer',
+        exceptionClass: 'java.lang.IllegalStateException',
+        errorCode: 'MQTT_TIMEOUT'
+      })
+    );
+  });
+
+  it('falls back to all error details when cluster loading fails', async () => {
+    vi.mocked(pageSystemErrorClusters).mockRejectedValueOnce(new Error('cluster failed'));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    expect(pageLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationType: 'system_error',
+        operationModule: '',
+        exceptionClass: '',
+        errorCode: ''
+      })
+    );
+    expect(wrapper.text()).not.toContain('异常概览加载失败');
+    expect(wrapper.text()).not.toContain('全部异常明细');
   });
 
   it('uses shared workbench row actions and mobile list grammar in system mode', () => {

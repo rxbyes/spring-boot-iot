@@ -234,6 +234,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import StandardFormDrawer from '@/components/StandardFormDrawer.vue'
 import type { DeviceMetricOption, DeviceOption, IdType } from '@/types/api'
+import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
 import {
   bindDevice,
   bindDeviceCapability,
@@ -358,6 +359,13 @@ const getBindingSourceLabel = (source: RiskPointBindingMetric['bindingSource']) 
 const isDeviceOnlyGroup = (group: RiskPointBindingDeviceGroup) => isDeviceOnlyBindingMode(group)
 const getGroupCapabilityLabel = (group: RiskPointBindingDeviceGroup) =>
   `${getDeviceCapabilityLabel(resolveBindingGroupCapabilityType(group))} · 设备级正式绑定`
+
+const showRequestErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (isHandledRequestError(error)) {
+    return
+  }
+  ElMessage.error(resolveRequestErrorMessage(error, fallbackMessage))
+}
 
 const getIdKey = (value?: IdType | null) => {
   if (value === undefined || value === null || value === '') {
@@ -493,7 +501,7 @@ const loadDrawerData = async () => {
   } catch (error) {
     if (isActiveDrawerRequest(requestId, riskPointId)) {
       console.error('加载风险点正式绑定维护数据失败', error)
-      ElMessage.error(error instanceof Error ? error.message : '加载正式绑定维护数据失败')
+      showRequestErrorMessage(error, '加载正式绑定维护数据失败')
     }
   } finally {
     if (isActiveDrawerRequest(requestId, riskPointId)) {
@@ -558,7 +566,7 @@ const handleAddDeviceChange = async (deviceId: string | number) => {
       return
     }
     console.error('加载新增测点选项失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '加载测点列表失败')
+    showRequestErrorMessage(error, '加载测点列表失败')
   } finally {
     if (
       requestId === latestAddMetricRequestId
@@ -621,7 +629,7 @@ const handleAddBinding = async () => {
     })
   } catch (error) {
     console.error('新增正式绑定失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '新增正式绑定失败')
+    showRequestErrorMessage(error, '新增正式绑定失败')
   } finally {
     addSubmitting.value = false
   }
@@ -649,7 +657,7 @@ const handleWholeDeviceUnbind = async (group: RiskPointBindingDeviceGroup) => {
       return
     }
     console.error('整机解绑失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '整机解绑失败')
+    showRequestErrorMessage(error, '整机解绑失败')
   } finally {
     actionLoadingKey.value = ''
   }
@@ -674,7 +682,7 @@ const handleRemoveBinding = async (bindingId: IdType, deviceName: string, metric
       return
     }
     console.error('删除测点绑定失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '删除测点绑定失败')
+    showRequestErrorMessage(error, '删除测点绑定失败')
   } finally {
     actionLoadingKey.value = ''
   }
@@ -705,7 +713,7 @@ const handleOpenReplace = async (deviceId: IdType, bindingId: IdType) => {
       return
     }
     console.error('加载替换测点选项失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '加载替换测点列表失败')
+    showRequestErrorMessage(error, '加载替换测点列表失败')
   } finally {
     if (requestId === latestReplaceMetricRequestId) {
       actionLoadingKey.value = ''
@@ -750,7 +758,7 @@ const handleReplaceBinding = async (deviceId: IdType, bindingId: IdType) => {
       return
     }
     console.error('替换测点失败', error)
-    ElMessage.error(error instanceof Error ? error.message : '替换测点失败')
+    showRequestErrorMessage(error, '替换测点失败')
   } finally {
     actionLoadingKey.value = ''
   }
