@@ -276,6 +276,8 @@
               <StandardWorkbenchRowActions
                 variant="table"
                 :direct-items="getAuditDirectActions(row)"
+                :menu-items="getAuditMenuActions(row)"
+                :max-direct-items="4"
                 @command="emit('audit-row-action', { command: $event, row })"
               />
             </template>
@@ -376,6 +378,7 @@ const props = defineProps<{
   getOperationResultName: (value?: number | null) => string
   getOperationResultTag: (value?: number | null) => string
   getAuditDirectActions: (row: AuditLogRecord) => WorkbenchActionItem[]
+  getAuditMenuActions: (row: AuditLogRecord) => WorkbenchActionItem[]
 }>()
 
 const emit = defineEmits<{

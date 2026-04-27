@@ -306,13 +306,14 @@ const StandardActionMenuStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel'],
+  props: ['variant', 'gap', 'directItems', 'menuItems', 'menuLabel', 'maxDirectItems'],
   emits: ['command'],
   setup(props) {
     const resolvedActions = computed(() =>
       splitWorkbenchRowActions({
         directItems: props.directItems || [],
-        menuItems: props.menuItems || []
+        menuItems: props.menuItems || [],
+        maxDirectItems: Number(props.maxDirectItems || 3)
       })
     );
     const resolvedDirectItems = computed(() => resolvedActions.value.directItems);
@@ -923,14 +924,11 @@ describe('AuditLogView', () => {
 
     expect(rowActions.length).toBeGreaterThan(0);
     rowActions.forEach((item) => {
-      expect(item.text()).toContain('详情');
-      expect(item.text()).toContain('证据');
-      expect(item.text()).toContain('追踪');
-      expect(item.text()).toContain('删除');
-      expect(item.text()).toContain('复制 TraceId');
-      expect(item.text()).toContain('复制目标');
-      expect(item.text()).toContain('更多');
-      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('3');
+      const actionTexts = item.findAll('button').map((button) => button.text().trim());
+      expect(actionTexts.slice(0, 5)).toEqual(['详情', '证据', '追踪', '删除', '更多']);
+      expect(actionTexts).toContain('复制 TraceId');
+      expect(actionTexts).toContain('复制目标');
+      expect(item.find('.audit-log-row-actions-stub__menu-count').text()).toBe('2');
       expect(item.attributes('data-menu-label')).toBe('更多');
     });
   });
@@ -1048,18 +1046,18 @@ describe('AuditLogView', () => {
     expect((wrapper.get('#quick-search').element as HTMLInputElement).value).toBe('trace-001');
   });
 
-  it('refreshes only the active system-log tab data source', async () => {
+  it('removes the global refresh shortcut from hotspots and archives', async () => {
     const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
 
     await triggerSystemLogTab(wrapper, 'hotspots');
-    vi.mocked(listObservabilitySlowSpanSummaries).mockClear();
-    vi.mocked(pageObservabilityScheduledTasks).mockClear();
-    vi.mocked(pageObservabilityMessageArchiveBatches).mockClear();
-    await clickButtonByText(wrapper, '刷新列表');
+    expect(wrapper.find('.audit-log-system-header__actions').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('刷新列表');
 
-    expect(listObservabilitySlowSpanSummaries).toHaveBeenCalledTimes(1);
-    expect(pageObservabilityScheduledTasks).toHaveBeenCalledTimes(1);
-    expect(pageObservabilityMessageArchiveBatches).not.toHaveBeenCalled();
+    await triggerSystemLogTab(wrapper, 'archives');
+    expect(wrapper.find('.audit-log-system-header__actions').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('刷新列表');
   });
 
   it('clears selected rows when switching away from the errors tab', async () => {
@@ -1322,7 +1320,7 @@ describe('AuditLogView', () => {
     );
     await wrapper.get('[data-testid="archive-batch-filter-status"]').setValue('SUCCEEDED');
     await wrapper.get('[data-testid="archive-batch-filter-compare-status"]').setValue('DRIFTED');
-    await clickButtonByText(wrapper, '刷新列表');
+    await clickButtonByText(wrapper, '查询');
     await flushPromises();
     await nextTick();
 
@@ -1543,7 +1541,7 @@ describe('AuditLogView', () => {
 
     expect(wrapper.find('[data-testid="archive-batch-latest-focus"]').classes()).not.toContain('is-active');
 
-    await clickButtonByText(wrapper, '刷新列表');
+    await clickButtonByText(wrapper, '查询');
     await flushPromises();
     await nextTick();
 

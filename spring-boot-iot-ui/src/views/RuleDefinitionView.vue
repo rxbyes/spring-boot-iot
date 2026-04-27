@@ -24,6 +24,16 @@
               <el-input v-model="filters.metricIdentifier" placeholder="测点标识符" clearable @keyup.enter="handleSearch" />
             </el-form-item>
             <el-form-item>
+              <el-select v-model="filters.ruleScope" placeholder="策略范围" clearable>
+                <el-option
+                  v-for="option in ruleScopeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
               <el-select v-model="filters.alarmLevel" placeholder="告警等级" clearable>
                 <el-option
                   v-for="option in alarmLevelOptions"
@@ -75,10 +85,17 @@
             <ul class="rule-definition-governance-list">
               <li v-for="item in missingPolicyItems" :key="`${item.riskPointId || 'rp'}-${item.metricIdentifier || item.deviceCode}`">
                 <strong>{{ item.metricName || item.metricIdentifier || '--' }}</strong>
+                <span>{{ item.productName || item.productKey || '未识别产品' }}</span>
                 <span>{{ item.riskPointName || '未命名风险点' }}</span>
                 <span>{{ item.deviceCode || '--' }} · {{ item.deviceName || '未命名设备' }}</span>
               </li>
             </ul>
+            <div class="rule-definition-governance-actions">
+              <StandardButton v-permission="'risk:rule-definition:edit'" action="add" link @click="handleProductDefaultAdd">
+                按产品默认策略配置
+              </StandardButton>
+              <StandardButton action="query" link @click="handleProductDefaultFilter">查看产品默认策略</StandardButton>
+            </div>
           </el-alert>
         </div>
       </template>
@@ -128,6 +145,11 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
+            <el-table-column prop="ruleScope" label="策略范围" width="120">
+              <template #default="{ row }">
+                <el-tag :type="getRuleScopeTagType(row.ruleScope)" round>{{ getRuleScopeText(row.ruleScope) }}</el-tag>
+              </template>
+            </el-table-column>
             <StandardTableTextColumn prop="metricIdentifier" label="测点标识符" :width="160" />
             <StandardTableTextColumn prop="metricName" label="测点名称" :width="140" />
             <StandardTableTextColumn prop="expression" label="表达式" :min-width="220" />
@@ -209,6 +231,44 @@
           <span>{{ governanceContextNote }}</span>
         </div>
         <el-form :model="form" :rules="rules" ref="formRef" label-position="top" class="ops-drawer-form">
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>策略适用范围</h3>
+                <p>默认按测点统一生效；产品默认策略会覆盖同产品设备，设备或绑定个性策略优先生效。</p>
+              </div>
+            </div>
+            <div class="ops-drawer-grid">
+              <el-form-item label="策略范围" prop="ruleScope" class="ops-drawer-grid__full">
+                <el-radio-group v-model="form.ruleScope">
+                  <el-radio
+                    v-for="option in ruleScopeOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="form.ruleScope === 'PRODUCT'" label="适用产品" prop="productId">
+                <el-select v-model="form.productId" placeholder="请选择产品" filterable clearable>
+                  <el-option
+                    v-for="product in productOptions"
+                    :key="product.id"
+                    :label="product.productName || product.productKey"
+                    :value="product.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item v-if="form.ruleScope === 'DEVICE'" label="设备ID" prop="deviceId">
+                <el-input v-model="form.deviceId" placeholder="请输入设备ID" />
+              </el-form-item>
+              <el-form-item v-if="form.ruleScope === 'BINDING'" label="风险绑定ID" prop="riskPointDeviceId">
+                <el-input v-model="form.riskPointDeviceId" placeholder="请输入风险绑定ID" />
+              </el-form-item>
+            </div>
+          </section>
+
           <section class="ops-drawer-section">
             <div class="ops-drawer-section__header">
               <div>
@@ -328,15 +388,19 @@ import {
 } from '@/utils/alarmLevel';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
 import { listMissingPolicies, type RiskGovernanceGapItem } from '@/api/riskGovernance';
+import { productApi } from '@/api/product';
+import type { Product } from '@/types/api';
 import { pageRuleList, addRule, updateRule, deleteRule } from '../api/ruleDefinition';
-import type { RuleDefinition } from '../api/ruleDefinition';
+import type { RuleDefinition, RuleDefinitionScope } from '../api/ruleDefinition';
 
 type RuleRowActionCommand = 'edit' | 'delete';
+type RuleScopeFilterValue = '' | RuleDefinitionScope;
 
 const loading = ref(false);
 const formVisible = ref(false);
 const ruleList = ref<RuleDefinition[]>([]);
 const alarmLevelOptions = ref<AlarmLevelOption[]>([]);
+const productOptions = ref<Product[]>([]);
 const missingPolicyItems = ref<RiskGovernanceGapItem[]>([]);
 const tableRef = ref();
 const selectedRows = ref<RuleDefinition[]>([]);
@@ -350,12 +414,14 @@ const ruleActionColumnWidth = resolveWorkbenchActionColumnWidth({
 const filters = reactive({
   ruleName: '',
   metricIdentifier: '',
+  ruleScope: '' as RuleScopeFilterValue,
   alarmLevel: '',
   status: '' as '' | number
 });
 const appliedFilters = reactive({
   ruleName: '',
   metricIdentifier: '',
+  ruleScope: '' as RuleScopeFilterValue,
   alarmLevel: '',
   status: '' as '' | number
 });
@@ -368,6 +434,10 @@ const formTitle = computed(() => (form.id ? '编辑规则' : '新增规则'));
 const form = reactive({
   id: undefined as number | undefined,
   riskMetricId: undefined as number | undefined,
+  ruleScope: 'METRIC' as RuleDefinitionScope,
+  productId: undefined as number | undefined,
+  deviceId: '',
+  riskPointDeviceId: '',
   ruleName: '',
   metricIdentifier: '',
   metricName: '',
@@ -382,6 +452,10 @@ const form = reactive({
 
 const rules = {
   ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
+  ruleScope: [{ required: true, message: '请选择策略范围', trigger: 'change' }],
+  productId: [{ required: true, message: '请选择产品', trigger: 'change' }],
+  deviceId: [{ required: true, message: '请输入设备ID', trigger: 'blur' }],
+  riskPointDeviceId: [{ required: true, message: '请输入风险绑定ID', trigger: 'blur' }],
   metricIdentifier: [{ required: true, message: '请输入测点标识符', trigger: 'blur' }],
   expression: [{ required: true, message: '请输入表达式', trigger: 'blur' }],
   alarmLevel: [{ required: true, message: '请选择告警等级', trigger: 'change' }]
@@ -415,6 +489,21 @@ const governanceContextNote = computed(() => {
   }
   return '当前规则针对子设备正式测点，采集器仅承担状态采集，不应作为阈值策略主体。';
 });
+
+const ruleScopeOptions: Array<{ label: string; value: RuleDefinitionScope; tagType: 'info' | 'success' | 'warning' | 'danger' }> = [
+  { label: '测点通用', value: 'METRIC', tagType: 'info' },
+  { label: '产品默认', value: 'PRODUCT', tagType: 'success' },
+  { label: '设备个性', value: 'DEVICE', tagType: 'warning' },
+  { label: '绑定个性', value: 'BINDING', tagType: 'danger' }
+];
+
+const getRuleScopeOption = (scope?: string | null) => {
+  const normalized = String(scope || 'METRIC').toUpperCase();
+  return ruleScopeOptions.find((option) => option.value === normalized) || ruleScopeOptions[0];
+};
+
+const getRuleScopeText = (scope?: string | null) => getRuleScopeOption(scope).label;
+const getRuleScopeTagType = (scope?: string | null) => getRuleScopeOption(scope).tagType;
 
 const getAlarmLevelType = (level: string) => getAlarmLevelTagType(level);
 
@@ -451,12 +540,14 @@ const {
   fields: [
     { key: 'ruleName', label: '规则名称' },
     { key: 'metricIdentifier', label: '测点标识符' },
+    { key: 'ruleScope', label: (value) => `策略范围：${getRuleScopeText(String(value || ''))}` },
     { key: 'alarmLevel', label: (value) => `告警等级：${getAlarmLevelText(String(value || ''))}` },
     { key: 'status', label: (value) => `状态：${getStatusText(Number(value))}`, clearValue: '' as '' | number }
   ],
   defaults: {
     ruleName: '',
     metricIdentifier: '',
+    ruleScope: '' as RuleScopeFilterValue,
     alarmLevel: '',
     status: '' as '' | number
   }
@@ -470,6 +561,7 @@ const loadRuleList = async () => {
       pageRuleList({
         ruleName: appliedFilters.ruleName || undefined,
         metricIdentifier: appliedFilters.metricIdentifier || undefined,
+        ruleScope: appliedFilters.ruleScope || undefined,
         alarmLevel: appliedFilters.alarmLevel || undefined,
         status: appliedFilters.status === '' ? undefined : Number(appliedFilters.status),
         pageNum: pagination.pageNum,
@@ -518,6 +610,7 @@ const handleSearch = () => {
 const handleReset = () => {
   filters.ruleName = '';
   filters.metricIdentifier = '';
+  filters.ruleScope = '';
   filters.alarmLevel = '';
   filters.status = '';
   syncAppliedFilters();
@@ -579,6 +672,7 @@ const handleClearAppliedFilters = () => {
 function applyRouteQueryToFilters() {
   filters.ruleName = parseRouteStringQuery(route.query.ruleName);
   filters.metricIdentifier = parseRouteStringQuery(route.query.metricIdentifier);
+  filters.ruleScope = parseRuleScopeQuery(route.query.ruleScope);
   filters.alarmLevel = parseRouteStringQuery(route.query.alarmLevel);
   filters.status = parseRouteNumberQuery(route.query.status) ?? '';
 }
@@ -595,6 +689,11 @@ function parseRouteNumberQuery(value: unknown) {
   }
   const parsed = Number(text);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseRuleScopeQuery(value: unknown): RuleScopeFilterValue {
+  const scope = parseRouteStringQuery(value).toUpperCase();
+  return ruleScopeOptions.some((option) => option.value === scope) ? scope as RuleDefinitionScope : '';
 }
 
 function parseGovernanceCreateContext() {
@@ -626,9 +725,23 @@ const loadAlarmLevelOptionList = async () => {
   }
 };
 
+const loadProductOptions = async () => {
+  try {
+    const res = await productApi.getAllProducts();
+    productOptions.value = res.code === 200 ? res.data || [] : [];
+  } catch (error) {
+    productOptions.value = [];
+    console.error('加载产品列表失败', error);
+  }
+};
+
 const resetRuleForm = () => {
   form.id = undefined;
   form.riskMetricId = undefined;
+  form.ruleScope = 'METRIC';
+  form.productId = undefined;
+  form.deviceId = '';
+  form.riskPointDeviceId = '';
   form.ruleName = '';
   form.metricIdentifier = '';
   form.metricName = '';
@@ -644,6 +757,28 @@ const resetRuleForm = () => {
 const handleAdd = () => {
   resetRuleForm();
   formVisible.value = true;
+};
+
+const handleProductDefaultAdd = () => {
+  resetRuleForm();
+  const firstMissingItem = missingPolicyItems.value[0];
+  form.ruleScope = 'PRODUCT';
+  form.productId = firstMissingItem?.productId == null ? undefined : Number(firstMissingItem.productId);
+  form.riskMetricId = firstMissingItem?.riskMetricId == null ? undefined : Number(firstMissingItem.riskMetricId);
+  form.metricIdentifier = firstMissingItem?.metricIdentifier || '';
+  form.metricName = firstMissingItem?.metricName || '';
+  form.ruleName = firstMissingItem?.metricName
+    ? `${firstMissingItem.metricName} 产品默认阈值`
+    : '产品默认阈值策略';
+  formVisible.value = true;
+};
+
+const handleProductDefaultFilter = () => {
+  filters.ruleScope = 'PRODUCT';
+  syncAppliedFilters();
+  resetPage();
+  clearSelection();
+  void loadRuleList();
 };
 
 function applyGovernanceCreateContext() {
@@ -664,6 +799,10 @@ function applyGovernanceCreateContext() {
 const handleEdit = (row: RuleDefinition) => {
   form.id = row.id;
   form.riskMetricId = row.riskMetricId == null ? undefined : Number(row.riskMetricId);
+  form.ruleScope = getRuleScopeOption(row.ruleScope).value;
+  form.productId = row.productId == null ? undefined : Number(row.productId);
+  form.deviceId = row.deviceId == null ? '' : String(row.deviceId);
+  form.riskPointDeviceId = row.riskPointDeviceId == null ? '' : String(row.riskPointDeviceId);
   form.ruleName = row.ruleName;
   form.metricIdentifier = row.metricIdentifier;
   form.metricName = row.metricName;
@@ -693,15 +832,41 @@ const handleDelete = async (row: RuleDefinition) => {
   }
 };
 
+function parseOptionalId(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function buildRuleSubmitData() {
+  const formData = {
+    ...form,
+    notificationMethods: form.notificationMethods.length > 0 ? form.notificationMethods.join(',') : undefined
+  };
+  if (formData.ruleScope !== 'PRODUCT') {
+    formData.productId = undefined;
+  }
+  if (formData.ruleScope !== 'DEVICE') {
+    formData.deviceId = undefined as unknown as string;
+  } else {
+    formData.deviceId = parseOptionalId(form.deviceId) as unknown as string;
+  }
+  if (formData.ruleScope !== 'BINDING') {
+    formData.riskPointDeviceId = undefined as unknown as string;
+  } else {
+    formData.riskPointDeviceId = parseOptionalId(form.riskPointDeviceId) as unknown as string;
+  }
+  return formData;
+}
+
 const handleSubmit = async () => {
   if (!formRef.value) return;
   try {
     await formRef.value.validate();
     submitLoading.value = true;
-    const formData = {
-      ...form,
-      notificationMethods: form.notificationMethods.length > 0 ? form.notificationMethods.join(',') : undefined
-    };
+    const formData = buildRuleSubmitData();
     const res = form.id ? await updateRule(formData) : await addRule(formData);
     if (res.code === 200) {
       ElMessage.success(form.id ? '更新成功' : '新增成功');
@@ -725,6 +890,7 @@ onMounted(() => {
   syncAppliedFilters();
   applyGovernanceCreateContext();
   void loadAlarmLevelOptionList();
+  void loadProductOptions();
   void loadRuleList();
 });
 </script>
@@ -753,5 +919,11 @@ onMounted(() => {
 
 .rule-definition-governance-list strong {
   color: var(--text-primary);
+}
+
+.rule-definition-governance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 </style>

@@ -31,15 +31,19 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       }
 
       @Override
-      public PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status, Long pageNum, Long pageSize) {
+      public PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                                     Integer status, String ruleScope, Long productId,
+                                                     Long pageNum, Long pageSize) {
             Page<RuleDefinition> page = new Page<>(pageNum, pageSize);
-            Page<RuleDefinition> result = page(page, buildWrapper(ruleName, metricIdentifier, alarmLevel, status));
+            Page<RuleDefinition> result = page(page, buildWrapper(ruleName, metricIdentifier, alarmLevel, status,
+                    ruleScope, productId));
             return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
       }
 
       @Override
-      public List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status) {
-            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status));
+      public List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                              Integer status, String ruleScope, Long productId) {
+            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status, ruleScope, productId));
       }
 
       @Override
@@ -62,7 +66,9 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             removeById(id);
       }
 
-      private LambdaQueryWrapper<RuleDefinition> buildWrapper(String ruleName, String metricIdentifier, String alarmLevel, Integer status) {
+      private LambdaQueryWrapper<RuleDefinition> buildWrapper(String ruleName, String metricIdentifier,
+                                                              String alarmLevel, Integer status,
+                                                              String ruleScope, Long productId) {
             LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<>();
             if (StringUtils.hasText(ruleName)) {
                   wrapper.like(RuleDefinition::getRuleName, ruleName.trim());
@@ -75,6 +81,12 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             }
             if (status != null) {
                   wrapper.eq(RuleDefinition::getStatus, status);
+            }
+            if (StringUtils.hasText(ruleScope)) {
+                  wrapper.eq(RuleDefinition::getRuleScope, ruleScope.trim().toUpperCase(Locale.ROOT));
+            }
+            if (productId != null) {
+                  wrapper.eq(RuleDefinition::getProductId, productId);
             }
             wrapper.eq(RuleDefinition::getDeleted, 0);
             wrapper.orderByDesc(RuleDefinition::getCreateTime);

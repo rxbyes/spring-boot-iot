@@ -16,6 +16,9 @@ export interface RiskGovernanceGapItem {
   deviceId?: IdType | null;
   deviceCode?: string | null;
   deviceName?: string | null;
+  productId?: IdType | null;
+  productKey?: string | null;
+  productName?: string | null;
   riskPointId?: IdType | null;
   riskPointName?: string | null;
   riskMetricId?: IdType | null;

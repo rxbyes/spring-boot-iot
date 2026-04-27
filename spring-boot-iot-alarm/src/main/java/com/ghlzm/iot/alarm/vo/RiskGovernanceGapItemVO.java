@@ -20,6 +20,12 @@ public class RiskGovernanceGapItemVO {
 
     private String deviceName;
 
+    private Long productId;
+
+    private String productKey;
+
+    private String productName;
+
     private Long riskPointId;
 
     private String riskPointName;

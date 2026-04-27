@@ -208,4 +208,25 @@ class RuleDefinitionServiceImplTest {
         assertTrue(wrapper.getParamNameValuePairs().values().contains("orange"));
         assertTrue(wrapper.getParamNameValuePairs().values().contains("warning"));
     }
+
+    @Test
+    void pageRuleListShouldFilterByProductDefaultScopeAndProduct() {
+        initLambdaCache();
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        Page<RuleDefinition> page = new Page<>(1L, 10L);
+        page.setRecords(java.util.List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRuleList(null, "value", null, null, "product", 1001L, 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<RuleDefinition>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        LambdaQueryWrapper<RuleDefinition> wrapper = wrapperCaptor.getValue();
+        wrapper.getSqlSegment();
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("value"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("PRODUCT"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains(1001L));
+    }
 }

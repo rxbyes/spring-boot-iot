@@ -10,6 +10,7 @@ const {
   mockUpdateRule,
   mockDeleteRule,
   mockListMissingPolicies,
+  mockGetAllProducts,
   mockFetchAlarmLevelOptions,
   mockRoute
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   mockUpdateRule: vi.fn(),
   mockDeleteRule: vi.fn(),
   mockListMissingPolicies: vi.fn(),
+  mockGetAllProducts: vi.fn(),
   mockFetchAlarmLevelOptions: vi.fn(),
   mockRoute: {
     query: {}
@@ -33,6 +35,12 @@ vi.mock('@/api/ruleDefinition', () => ({
 
 vi.mock('@/api/riskGovernance', () => ({
   listMissingPolicies: mockListMissingPolicies
+}));
+
+vi.mock('@/api/product', () => ({
+  productApi: {
+    getAllProducts: mockGetAllProducts
+  }
 }));
 
 vi.mock('@/utils/alarmLevel', async () => {
@@ -164,6 +172,10 @@ function createRuleRow() {
   return {
     id: 1,
     riskMetricId: 6102,
+    ruleScope: 'METRIC',
+    productId: null,
+    deviceId: null,
+    riskPointDeviceId: null,
     ruleName: '北坡位移红色阈值',
     metricIdentifier: 'displacementX',
     metricName: '位移 X',
@@ -222,6 +234,7 @@ describe('RuleDefinitionView', () => {
     mockUpdateRule.mockReset();
     mockDeleteRule.mockReset();
     mockListMissingPolicies.mockReset();
+    mockGetAllProducts.mockReset();
     mockFetchAlarmLevelOptions.mockReset();
     mockRoute.query = {};
     mockFetchAlarmLevelOptions.mockResolvedValue([
@@ -230,6 +243,19 @@ describe('RuleDefinitionView', () => {
       { label: '黄色', value: 'yellow', sortNo: 3 },
       { label: '蓝色', value: 'blue', sortNo: 4 }
     ]);
+    mockGetAllProducts.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: 1001,
+          productKey: 'nf-monitor-crack-v1',
+          productName: '裂缝监测仪',
+          protocolCode: 'mqtt-json',
+          nodeType: 1
+        }
+      ]
+    });
     mockListMissingPolicies.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -240,6 +266,9 @@ describe('RuleDefinitionView', () => {
         records: [
           {
             issueType: 'MISSING_POLICY',
+            productId: 1001,
+            productKey: 'nf-monitor-crack-v1',
+            productName: '裂缝监测仪',
             issueLabel: '待配置阈值策略',
             deviceCode: 'DEVICE-001',
             deviceName: '一号设备',
@@ -359,6 +388,7 @@ describe('RuleDefinitionView', () => {
     mockRoute.query = {
       ruleName: '裂缝值红色阈值',
       metricIdentifier: 'value',
+      ruleScope: 'PRODUCT',
       alarmLevel: 'red',
       status: '0'
     };
@@ -379,8 +409,93 @@ describe('RuleDefinitionView', () => {
     expect(mockPageRuleList).toHaveBeenCalledWith(expect.objectContaining({
       ruleName: '裂缝值红色阈值',
       metricIdentifier: 'value',
+      ruleScope: 'PRODUCT',
       alarmLevel: 'red',
       status: 0
+    }));
+  });
+
+  it('filters product default threshold strategies from the governance shortcut', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleProductDefaultFilter();
+    await flushPromises();
+
+    expect(mockPageRuleList).toHaveBeenLastCalledWith(expect.objectContaining({
+      ruleScope: 'PRODUCT'
+    }));
+  });
+
+  it('opens product default create drawer from missing policy backlog', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleProductDefaultAdd();
+    await nextTick();
+
+    expect((wrapper.vm as any).formVisible).toBe(true);
+    expect((wrapper.vm as any).form.ruleScope).toBe('PRODUCT');
+    expect((wrapper.vm as any).form.productId).toBe(1001);
+    expect((wrapper.vm as any).form.metricIdentifier).toBe('displacementX');
+    expect((wrapper.vm as any).form.metricName).toBe('位移 X');
+  });
+
+  it('submits product default threshold strategy with product scope identity', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    mockAddRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: createRuleRow()
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleAdd();
+    (wrapper.vm as any).form.ruleScope = 'PRODUCT';
+    (wrapper.vm as any).form.productId = 1001;
+    (wrapper.vm as any).form.ruleName = '裂缝产品默认阈值';
+    (wrapper.vm as any).form.metricIdentifier = 'value';
+    (wrapper.vm as any).form.metricName = '裂缝值';
+    (wrapper.vm as any).form.expression = 'value >= 10';
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockAddRule).toHaveBeenCalledWith(expect.objectContaining({
+      ruleScope: 'PRODUCT',
+      productId: 1001,
+      metricIdentifier: 'value'
     }));
   });
 

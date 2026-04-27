@@ -39,8 +39,11 @@ public class RuleDefinitionController {
     public R<List<RuleDefinition>> getRuleList(@RequestParam(required = false) String ruleName,
                                                @RequestParam(required = false) String metricIdentifier,
                                                @RequestParam(required = false) String alarmLevel,
-                                               @RequestParam(required = false) Integer status) {
-        List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status);
+                                               @RequestParam(required = false) Integer status,
+                                               @RequestParam(required = false) String ruleScope,
+                                               @RequestParam(required = false) Long productId) {
+        List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status,
+                ruleScope, productId);
         return R.ok(list);
     }
 
@@ -49,10 +52,13 @@ public class RuleDefinitionController {
                                                       @RequestParam(required = false) String metricIdentifier,
                                                       @RequestParam(required = false) String alarmLevel,
                                                       @RequestParam(required = false) Integer status,
+                                                      @RequestParam(required = false) String ruleScope,
+                                                      @RequestParam(required = false) Long productId,
                                                       @RequestParam(defaultValue = "1") Long pageNum,
                                                       @RequestParam(defaultValue = "10") Long pageSize) {
         PageResult<RuleDefinition> page =
-                ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, pageNum, pageSize);
+                ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, ruleScope,
+                        productId, pageNum, pageSize);
         return R.ok(page);
     }
 

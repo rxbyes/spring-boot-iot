@@ -156,15 +156,15 @@
         </StandardTableToolbar>
       </template>
       <div v-if="isSystemMode" class="audit-log-system-workbench">
-        <section class="audit-log-system-header standard-list-surface">
-          <div class="audit-log-system-header__summary">
+        <section class="audit-log-system-header">
+          <div class="audit-log-system-header__summary-band">
             <article
               v-for="item in systemWorkbenchSummaryCards"
               :key="item.key"
-              class="audit-log-system-header__summary-card"
+              class="audit-log-system-header__summary-metric"
               :class="[
-                `audit-log-system-header__summary-card--${item.tone}`,
-                { 'audit-log-system-header__summary-card--emphasis': item.emphasis }
+                `audit-log-system-header__summary-metric--${item.tone}`,
+                { 'audit-log-system-header__summary-metric--emphasis': item.emphasis }
               ]"
               :data-testid="`system-log-summary-${item.key}`"
             >
@@ -173,28 +173,17 @@
               <span class="audit-log-system-header__summary-meta">{{ item.meta }}</span>
             </article>
           </div>
-          <div v-if="activeSystemLogTab !== 'errors'" class="audit-log-system-header__actions">
-            <StandardButton action="refresh" link @click="handleSystemTabRefresh">刷新列表</StandardButton>
-          </div>
         </section>
 
-        <div>
-          <IotAccessTabWorkspace
-            :model-value="activeSystemLogTab"
-            :items="systemLogTabItems"
-            default-key="errors"
-            query-key="systemLogTab"
-            :sync-query="false"
-            variant="workbench"
-            @update:model-value="handleSystemLogTabChange"
-          >
-
-
-
-
-
-
-
+        <IotAccessTabWorkspace
+          :model-value="activeSystemLogTab"
+          :items="systemLogTabItems"
+          default-key="errors"
+          query-key="systemLogTab"
+          :sync-query="false"
+          variant="workbench"
+          @update:model-value="handleSystemLogTabChange"
+        >
             <template #default="{ activeKey }">
               <AuditLogErrorTabPanel
                 v-if="activeKey === 'errors'"
@@ -223,6 +212,7 @@
                 :get-operation-result-name="getOperationResultName"
                 :get-operation-result-tag="getOperationResultTag"
                 :get-audit-direct-actions="getAuditDirectActions"
+                :get-audit-menu-actions="getAuditMenuActions"
                 @update:quick-search-keyword="quickSearchKeyword = $event"
                 @update-search-field="handleSystemErrorSearchFieldUpdate"
                 @search="handleSearch"
@@ -322,8 +312,7 @@
                 @open-detail="openMessageArchiveBatchDetail"
               />
             </template>
-          </IotAccessTabWorkspace>
-        </div>
+        </IotAccessTabWorkspace>
       </div>
 
       <template v-else>
@@ -997,9 +986,23 @@ const systemLogTabItems = computed<SystemLogTabItem[]>(() => [
     activeButtonAttrs: { 'data-active': 'true' }
   }
 ])
+const systemAuditDirectActions = [
+  { command: 'detail', label: '详情' },
+  { command: 'evidence', label: '证据' },
+  { command: 'trace', label: '追踪' },
+  { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+]
+const systemAuditMenuActions = [
+  { command: 'copy-trace-id', label: '复制 TraceId' },
+  { command: 'copy-target', label: '复制目标' }
+]
 const auditActionColumnWidth = computed(() =>
   isSystemMode.value
-    ? 200
+    ? resolveWorkbenchActionColumnWidth({
+        directItems: systemAuditDirectActions,
+        menuItems: systemAuditMenuActions,
+        maxDirectItems: 4
+      })
     : resolveWorkbenchActionColumnWidth({
         directItems: [
           { command: 'detail', label: '详情' },
@@ -3027,8 +3030,6 @@ const getAuditDirectActions = (row: AuditLogRecord) => {
       { command: 'detail', label: '详情' },
       { command: 'evidence', label: '证据', disabled: !canOpenTraceEvidence(row) },
       { command: 'trace', label: '追踪', disabled: !canJumpToMessageTrace(row) },
-      { command: 'copy-trace-id', label: '复制 TraceId', disabled: !resolveEvidenceTraceId(row) },
-      { command: 'copy-target', label: '复制目标', disabled: !resolveAuditTarget(row) },
       { command: 'delete', label: '删除', permission: 'system:audit:delete' }
     ]
   }
@@ -3036,6 +3037,17 @@ const getAuditDirectActions = (row: AuditLogRecord) => {
   return [
     { command: 'detail', label: '详情' },
     { command: 'delete', label: '删除', permission: 'system:audit:delete' }
+  ]
+}
+
+const getAuditMenuActions = (row: AuditLogRecord) => {
+  if (!isSystemMode.value) {
+    return []
+  }
+
+  return [
+    { command: 'copy-trace-id', label: '复制 TraceId', disabled: !resolveEvidenceTraceId(row) },
+    { command: 'copy-target', label: '复制目标', disabled: !resolveAuditTarget(row) }
   ]
 }
 
@@ -3712,47 +3724,61 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 
 .audit-log-system-workbench {
   display: grid;
-  gap: 0.96rem;
+  gap: 0.78rem;
 }
 
 .audit-log-system-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.96rem;
-  align-items: start;
-  padding: 0.96rem 1rem;
-  min-height: 0;
+  min-width: 0;
 }
 
-.audit-log-system-header__summary {
+.audit-log-system-header__summary-band {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.72rem;
+  gap: 0;
   min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-bg) 92%, white 8%), color-mix(in srgb, var(--panel-bg) 98%, white 2%)),
+    var(--panel-bg);
 }
 
-.audit-log-system-header__summary-card {
+.audit-log-system-header__summary-metric {
+  position: relative;
   display: grid;
-  gap: 0.18rem;
+  gap: 0.2rem;
   min-width: 0;
-  padding: 0.78rem 0.88rem;
-  border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel-bg) 94%, white 6%);
+  padding: 0.88rem 1rem 0.92rem;
+  background: transparent;
 }
 
-.audit-log-system-header__summary-card--emphasis {
-  box-shadow: 0 18px 34px -28px color-mix(in srgb, var(--brand) 45%, transparent);
+.audit-log-system-header__summary-metric + .audit-log-system-header__summary-metric {
+  border-left: 1px solid color-mix(in srgb, var(--panel-border) 76%, transparent);
 }
 
-.audit-log-system-header__summary-card--danger.audit-log-system-header__summary-card--emphasis {
-  border-color: color-mix(in srgb, var(--el-color-danger) 38%, var(--panel-border) 62%);
-  background: color-mix(in srgb, var(--el-color-danger-light-9) 78%, white 22%);
+.audit-log-system-header__summary-metric--emphasis::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: color-mix(in srgb, var(--brand) 74%, white 26%);
 }
 
-.audit-log-system-header__summary-card--warning.audit-log-system-header__summary-card--emphasis {
-  border-color: color-mix(in srgb, var(--el-color-warning) 38%, var(--panel-border) 62%);
-  background: color-mix(in srgb, var(--el-color-warning-light-9) 74%, white 26%);
+.audit-log-system-header__summary-metric--danger.audit-log-system-header__summary-metric--emphasis {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--el-color-danger-light-9) 64%, white 36%), transparent 52%);
+}
+
+.audit-log-system-header__summary-metric--danger.audit-log-system-header__summary-metric--emphasis::before {
+  background: color-mix(in srgb, var(--el-color-danger) 76%, white 24%);
+}
+
+.audit-log-system-header__summary-metric--warning.audit-log-system-header__summary-metric--emphasis {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--el-color-warning-light-9) 68%, white 32%), transparent 52%);
+}
+
+.audit-log-system-header__summary-metric--warning.audit-log-system-header__summary-metric--emphasis::before {
+  background: color-mix(in srgb, var(--el-color-warning) 74%, white 26%);
 }
 
 .audit-log-system-header__summary-label,
@@ -3764,27 +3790,69 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 
 .audit-log-system-header__summary-label {
   color: var(--text-caption);
-  font-size: 0.74rem;
+  font-size: 0.73rem;
   line-height: 1.3;
 }
 
 .audit-log-system-header__summary-value {
   color: var(--text-heading);
-  font-size: 1.04rem;
-  line-height: 1.2;
+  font-size: 1.48rem;
+  line-height: 1.08;
 }
 
 .audit-log-system-header__summary-meta {
   color: var(--text-secondary);
-  font-size: 0.78rem;
-  line-height: 1.3;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
-.audit-log-system-header__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.4rem;
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench) {
+  gap: 0.68rem;
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tabs) {
+  gap: 1rem;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab) {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0.18rem 0.1rem 0.78rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab:hover) {
+  background: transparent;
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab--active) {
+  border-color: transparent;
+  border-bottom-color: var(--brand);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-heading);
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab-copy) {
+  gap: 0.18rem;
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab-meta) {
+  color: var(--text-caption);
+  font-size: 0.75rem;
+}
+
+.audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab--active .iot-access-tab-workspace__tab-meta) {
+  color: color-mix(in srgb, var(--brand) 58%, var(--text-secondary) 42%);
 }
 
 .audit-log-quick-search-tag {
@@ -3800,28 +3868,32 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 }
 
 @media (max-width: 1180px) {
-  .audit-log-system-header {
-    grid-template-columns: 1fr;
-  }
-
-  .audit-log-system-header__actions {
-    justify-content: flex-start;
-  }
-}
-
 @media (max-width: 960px) {
-  .audit-log-system-header__summary {
+  .audit-log-system-header__summary-band {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audit-log-system-header__summary-metric:nth-child(2n + 1) {
+    border-left: none;
+  }
+
+  .audit-log-system-header__summary-metric:nth-child(n + 3) {
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 76%, transparent);
   }
 }
 
 @media (max-width: 640px) {
-  .audit-log-system-header {
-    padding-inline: 0.86rem;
+  .audit-log-system-header__summary-band {
+    grid-template-columns: 1fr;
   }
 
-  .audit-log-system-header__summary {
-    grid-template-columns: 1fr;
+  .audit-log-system-header__summary-metric + .audit-log-system-header__summary-metric {
+    border-left: none;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 76%, transparent);
+  }
+
+  .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tabs) {
+    gap: 0.75rem;
   }
 }
 

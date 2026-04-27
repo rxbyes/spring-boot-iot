@@ -453,7 +453,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   min-width: 18rem;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.82rem;
 }
 
 .audit-log-archive-batch-ledger__header h3 {
@@ -512,24 +512,24 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-batch-ledger__filter-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
 .audit-log-archive-batch-ledger__overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.72rem;
+  gap: 0.64rem;
 }
 
 .audit-log-archive-batch-ledger__overview-card {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.3rem;
   min-width: 0;
-  padding: 0.85rem 0.95rem;
+  padding: 0.78rem 0.9rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
   transition:
     border-color 0.2s ease,
     background-color 0.2s ease,
@@ -574,10 +574,10 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-batch-ledger__latest-focus {
   display: inline-flex;
   align-items: center;
-  gap: 0.62rem;
+  gap: 0.56rem;
   width: fit-content;
-  min-height: 2.1rem;
-  padding: 0.58rem 0.8rem;
+  min-height: 1.95rem;
+  padding: 0.5rem 0.76rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
@@ -625,26 +625,26 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-master-table__row {
   display: grid;
   grid-template-columns:
-    minmax(15rem, 1.68fr)
-    minmax(8rem, 0.8fr)
-    minmax(8rem, 0.82fr)
-    minmax(10rem, 0.98fr)
-    minmax(9rem, 0.92fr)
-    minmax(6.5rem, 0.56fr);
-  gap: 0.62rem;
+    minmax(14.75rem, 1.6fr)
+    minmax(7.4rem, 0.78fr)
+    minmax(7.5rem, 0.8fr)
+    minmax(9.25rem, 0.94fr)
+    minmax(8.5rem, 0.86fr)
+    minmax(5.8rem, 0.52fr);
+  gap: 0.58rem;
   align-items: center;
 }
 
 .audit-log-archive-master-table__header {
-  padding: 0 0.9rem;
+  padding: 0 0.82rem;
 }
 
 .audit-log-archive-master-table__row {
-  min-height: 80px;
-  padding: 0.86rem 0.9rem;
+  min-height: 74px;
+  padding: 0.78rem 0.82rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
@@ -661,7 +661,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 
 .audit-log-archive-master-table__cell {
   display: grid;
-  gap: 0.24rem;
+  gap: 0.22rem;
   min-width: 0;
 }
 
@@ -691,13 +691,13 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-height: 28px;
-  padding: 0 0.72rem;
+  min-height: 26px;
+  padding: 0 0.68rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
 }
 
@@ -726,8 +726,8 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 }
 
 .audit-log-archive-master-table__cell--actions {
-  align-items: flex-end;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 @media (max-width: 1280px) {
@@ -742,12 +742,12 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   .audit-log-archive-master-table__header,
   .audit-log-archive-master-table__row {
     grid-template-columns:
-      minmax(13.5rem, 1.5fr)
-      minmax(7rem, 0.78fr)
-      minmax(7rem, 0.8fr)
-      minmax(9rem, 0.92fr)
-      minmax(8rem, 0.82fr)
-      minmax(6rem, 0.54fr);
+      minmax(13.25rem, 1.44fr)
+      minmax(6.6rem, 0.72fr)
+      minmax(6.8rem, 0.76fr)
+      minmax(8.5rem, 0.88fr)
+      minmax(7.6rem, 0.78fr)
+      minmax(5.6rem, 0.5fr);
   }
 }
 

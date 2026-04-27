@@ -53,13 +53,14 @@ const StandardTableTextColumnStub = defineComponent({
 
 const StandardWorkbenchRowActionsStub = defineComponent({
   name: 'StandardWorkbenchRowActions',
-  props: ['directItems', 'menuItems'],
+  props: ['directItems', 'menuItems', 'maxDirectItems'],
   emits: ['command'],
   setup(props) {
     const resolvedActions = computed(() =>
       splitWorkbenchRowActions({
         directItems: props.directItems || [],
-        menuItems: props.menuItems || []
+        menuItems: props.menuItems || [],
+        maxDirectItems: Number(props.maxDirectItems || 3)
       })
     )
     return {
@@ -164,6 +165,7 @@ function mountPanel(propOverrides: Record<string, unknown> = {}) {
       getOperationResultName: () => '失败',
       getOperationResultTag: () => 'danger',
       getAuditDirectActions: () => [],
+      getAuditMenuActions: () => [],
       ...propOverrides
     },
     global: {

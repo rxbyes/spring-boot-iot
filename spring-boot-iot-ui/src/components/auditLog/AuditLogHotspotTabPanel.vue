@@ -547,11 +547,13 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-workbench__focus-meta span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.9rem;
-  padding: 0 0.62rem;
+  min-height: 1.78rem;
+  padding: 0 0.58rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
+  color: var(--text-caption);
+  font-size: 0.76rem;
 }
 
 .audit-log-hotspot-master-table {
@@ -563,29 +565,29 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-master-table__row {
   display: grid;
   grid-template-columns:
-    minmax(16rem, 1.72fr)
-    minmax(8.25rem, 0.84fr)
-    minmax(9.75rem, 0.95fr)
-    minmax(9.5rem, 0.9fr)
-    minmax(7rem, 0.62fr);
-  gap: 0.62rem;
+    minmax(15rem, 1.66fr)
+    minmax(7.4rem, 0.8fr)
+    minmax(9rem, 0.92fr)
+    minmax(8.75rem, 0.88fr)
+    minmax(6.2rem, 0.56fr);
+  gap: 0.58rem;
   align-items: center;
 }
 
 .audit-log-hotspot-master-table__header {
-  padding: 0 0.9rem;
+  padding: 0 0.82rem;
   color: var(--text-caption);
   font-size: 0.76rem;
 }
 
 .audit-log-hotspot-master-table__row {
-  min-height: 80px;
-  padding: 0.86rem 0.9rem;
+  min-height: 74px;
+  padding: 0.78rem 0.82rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .audit-log-hotspot-master-table__row:hover {
@@ -594,13 +596,14 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 
 .audit-log-hotspot-master-table__row.is-selected {
   border-color: color-mix(in srgb, var(--el-color-primary) 42%, var(--panel-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 12%, transparent);
   background: color-mix(in srgb, var(--el-color-primary-light-9) 76%, white);
 }
 
 .audit-log-hotspot-master-table__cell {
   min-width: 0;
   display: grid;
-  gap: 0.26rem;
+  gap: 0.22rem;
 }
 
 .audit-log-hotspot-master-table__cell strong,
@@ -614,23 +617,26 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 
 .audit-log-hotspot-master-table__cell strong {
   color: var(--text-heading);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
 .audit-log-hotspot-master-table__cell span {
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .audit-log-hotspot-master-table__cell small {
   color: var(--text-caption);
-  font-size: 0.77rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .audit-log-hotspot-master-table__cell--identity strong,
 .audit-log-hotspot-master-table__cell--signals strong,
 .audit-log-hotspot-master-table__cell--recent strong {
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 
 .audit-log-hotspot-master-table__cell--identity span {
@@ -652,13 +658,13 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-height: 28px;
-  padding: 0 0.72rem;
+  min-height: 26px;
+  padding: 0 0.68rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
 }
 
@@ -693,7 +699,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-master-table__action-rail {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 0.45rem;
+  gap: 0.18rem 0.38rem;
   justify-content: flex-end;
 }
 
@@ -786,13 +792,13 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-scheduled-task-ledger__header > span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.9rem;
-  padding: 0 0.62rem;
+  min-height: 1.78rem;
+  padding: 0 0.58rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-caption);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .audit-log-slow-span-drilldown__list,
@@ -808,10 +814,10 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   display: grid;
   gap: 0.5rem;
   min-width: 0;
-  padding: 0.78rem 0.84rem;
+  padding: 0.72rem 0.78rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel-bg) 86%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
 }
 
 .audit-log-slow-span-drilldown__title strong,
@@ -836,12 +842,12 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-slow-trend-drilldown__title span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.9rem;
-  padding: 0 0.62rem;
+  min-height: 1.78rem;
+  padding: 0 0.58rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 .audit-log-slow-span-drilldown__meta,
@@ -857,13 +863,13 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-scheduled-task-ledger__meta span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.8rem;
-  padding: 0 0.56rem;
+  min-height: 1.72rem;
+  padding: 0 0.54rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-caption);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .audit-log-slow-trend-drilldown__actions {
@@ -901,11 +907,11 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   .audit-log-hotspot-master-table__header,
   .audit-log-hotspot-master-table__row {
     grid-template-columns:
-      minmax(14rem, 1.56fr)
-      minmax(7rem, 0.76fr)
-      minmax(8.5rem, 0.84fr)
+      minmax(13.5rem, 1.48fr)
+      minmax(6.75rem, 0.74fr)
       minmax(8rem, 0.82fr)
-      minmax(6.25rem, 0.58fr);
+      minmax(7.75rem, 0.8fr)
+      minmax(5.9rem, 0.54fr);
     gap: 0.56rem;
   }
 }

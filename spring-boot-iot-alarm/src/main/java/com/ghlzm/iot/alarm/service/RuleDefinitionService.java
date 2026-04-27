@@ -13,12 +13,25 @@ public interface RuleDefinitionService extends IService<RuleDefinition> {
       /**
        * 获取规则列表
        */
-      List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status);
+      List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status,
+                                       String ruleScope, Long productId);
+
+      default List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                               Integer status) {
+            return getRuleList(ruleName, metricIdentifier, alarmLevel, status, null, null);
+      }
 
       /**
        * 分页获取规则列表
        */
-      PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel, Integer status, Long pageNum, Long pageSize);
+      PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                              Integer status, String ruleScope, Long productId,
+                                              Long pageNum, Long pageSize);
+
+      default PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                                      Integer status, Long pageNum, Long pageSize) {
+            return pageRuleList(ruleName, metricIdentifier, alarmLevel, status, null, null, pageNum, pageSize);
+      }
 
       /**
        * 新增规则

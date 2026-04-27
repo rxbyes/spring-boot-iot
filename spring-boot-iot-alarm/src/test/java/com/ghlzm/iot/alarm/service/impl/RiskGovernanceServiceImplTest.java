@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.service.impl;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ghlzm.iot.alarm.dto.RiskGovernanceGapQuery;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RiskMetricEmergencyPlanBinding;
 import com.ghlzm.iot.alarm.entity.RiskMetricLinkageBinding;
@@ -937,6 +938,15 @@ class RiskGovernanceServiceImplTest {
         otherProductDevice.setId(8002L);
         otherProductDevice.setProductId(1002L);
         when(deviceMapper.selectList(any())).thenReturn(List.of(productDevice, otherProductDevice));
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("crack-v1");
+        product.setProductName("裂缝监测仪");
+        Product otherProduct = new Product();
+        otherProduct.setId(1002L);
+        otherProduct.setProductKey("gnss-v1");
+        otherProduct.setProductName("GNSS监测仪");
+        when(productMapper.selectList(any())).thenReturn(List.of(product, otherProduct));
 
         RuleDefinition productDefault = rule(6001L, 9101L, "value");
         productDefault.setRuleScope("PRODUCT");
@@ -947,6 +957,59 @@ class RiskGovernanceServiceImplTest {
 
         assertEquals(1L, result.getTotal());
         assertEquals(8002L, result.getRecords().get(0).getDeviceId());
+        assertEquals(1002L, result.getRecords().get(0).getProductId());
+        assertEquals("gnss-v1", result.getRecords().get(0).getProductKey());
+        assertEquals("GNSS监测仪", result.getRecords().get(0).getProductName());
+    }
+
+    @Test
+    void listMissingPoliciesShouldFilterByProductId() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice crackBinding = binding(8001L, 5001L, 9101L, "value", "裂缝值");
+        crackBinding.setId(7001L);
+        RiskPointDevice gnssBinding = binding(8002L, 5002L, 9102L, "gpsTotalX", "X轴累计位移");
+        gnssBinding.setId(7002L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(crackBinding, gnssBinding));
+
+        Device crackDevice = new Device();
+        crackDevice.setId(8001L);
+        crackDevice.setProductId(1001L);
+        Device gnssDevice = new Device();
+        gnssDevice.setId(8002L);
+        gnssDevice.setProductId(1002L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(crackDevice, gnssDevice));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("crack-v1");
+        product.setProductName("裂缝监测仪");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        RiskGovernanceGapQuery query = new RiskGovernanceGapQuery();
+        query.setProductId(1001L);
+
+        PageResult<RiskGovernanceGapItemVO> result = service.listMissingPolicies(query);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(8001L, result.getRecords().get(0).getDeviceId());
+        assertEquals(1001L, result.getRecords().get(0).getProductId());
+        assertEquals("裂缝监测仪", result.getRecords().get(0).getProductName());
     }
 
     @Test

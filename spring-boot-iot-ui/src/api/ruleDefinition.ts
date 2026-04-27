@@ -2,6 +2,8 @@ import { request } from './request';
 import { buildQueryString } from './query';
 import type { ApiEnvelope, IdType } from '../types/api';
 
+export type RuleDefinitionScope = 'METRIC' | 'PRODUCT' | 'DEVICE' | 'BINDING';
+
 /**
  * 阈值规则配置 API
  */
@@ -10,6 +12,10 @@ import type { ApiEnvelope, IdType } from '../types/api';
 export interface RuleDefinition {
       id: IdType;
       riskMetricId?: IdType | null;
+      ruleScope?: RuleDefinitionScope | string | null;
+      productId?: IdType | null;
+      deviceId?: IdType | null;
+      riskPointDeviceId?: IdType | null;
       ruleName: string;
       metricIdentifier: string;
       metricName: string;
@@ -42,6 +48,8 @@ export const getRuleList = (params?: {
       metricIdentifier?: string;
       alarmLevel?: string;
       status?: number;
+      ruleScope?: RuleDefinitionScope | string;
+      productId?: IdType;
 }): Promise<ApiEnvelope<RuleDefinition[]>> => {
       const queryString = buildQueryString(params);
       const path = queryString ? `/api/rule-definition/list?${queryString}` : '/api/rule-definition/list';
@@ -55,6 +63,8 @@ export const pageRuleList = (params?: {
       metricIdentifier?: string;
       alarmLevel?: string;
       status?: number;
+      ruleScope?: RuleDefinitionScope | string;
+      productId?: IdType;
       pageNum?: number;
       pageSize?: number;
 }): Promise<ApiEnvelope<RuleDefinitionPageResult>> => {

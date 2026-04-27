@@ -205,8 +205,11 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                         .in(!riskPointIds.isEmpty(), RiskPoint::getId, riskPointIds))
                 .stream()
                 .collect(Collectors.toMap(RiskPoint::getId, Function.identity(), (left, right) -> left));
+        Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Product> productMap = loadProductsById(new LinkedHashSet<>(deviceProductIds.values()));
         List<RiskGovernanceGapItemVO> items = bindings.stream()
-                .map(binding -> toMissingPolicyItem(binding, riskPointMap.get(binding.getRiskPointId())))
+                .map(binding -> toMissingPolicyItem(binding, riskPointMap.get(binding.getRiskPointId()),
+                        deviceProductIds, productMap))
                 .toList();
         return toPage(items, pageNum, pageSize);
     }
@@ -706,13 +709,23 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return item;
     }
 
-    private RiskGovernanceGapItemVO toMissingPolicyItem(RiskPointDevice binding, RiskPoint riskPoint) {
+    private RiskGovernanceGapItemVO toMissingPolicyItem(RiskPointDevice binding,
+                                                        RiskPoint riskPoint,
+                                                        Map<Long, Long> deviceProductIds,
+                                                        Map<Long, Product> productMap) {
         RiskGovernanceGapItemVO item = new RiskGovernanceGapItemVO();
         item.setIssueType("MISSING_POLICY");
         item.setIssueLabel("待配置阈值策略");
         item.setDeviceId(binding.getDeviceId());
         item.setDeviceCode(binding.getDeviceCode());
         item.setDeviceName(binding.getDeviceName());
+        Long productId = binding.getDeviceId() == null || deviceProductIds == null
+                ? null
+                : deviceProductIds.get(binding.getDeviceId());
+        Product product = productId == null || productMap == null ? null : productMap.get(productId);
+        item.setProductId(productId);
+        item.setProductKey(product == null ? null : product.getProductKey());
+        item.setProductName(product == null ? null : product.getProductName());
         item.setRiskPointId(binding.getRiskPointId());
         item.setRiskPointName(riskPoint == null ? null : riskPoint.getRiskPointName());
         item.setRiskMetricId(binding.getRiskMetricId());
@@ -1206,9 +1219,11 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
                 .filter(rule -> rule.getRiskMetricId() != null)
                 .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
+        Long productId = query == null ? null : query.getProductId();
         Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
         return bindings.stream()
                 .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId, deviceProductIds))
+                .filter(binding -> matchesProduct(binding, productId, deviceProductIds))
                 .filter(binding -> matchesDeviceCode(binding, query))
                 .toList();
     }
@@ -1229,6 +1244,31 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .filter(device -> device.getId() != null)
                 .filter(device -> device.getProductId() != null)
                 .collect(Collectors.toMap(Device::getId, Device::getProductId, (left, right) -> left));
+    }
+
+    private Map<Long, Product> loadProductsById(Set<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .eq(Product::getDeleted, 0)
+                .in(Product::getId, productIds));
+        if (products == null || products.isEmpty()) {
+            return Map.of();
+        }
+        return products.stream()
+                .filter(product -> product.getId() != null)
+                .collect(Collectors.toMap(Product::getId, Function.identity(), (left, right) -> left));
+    }
+
+    private boolean matchesProduct(RiskPointDevice binding, Long productId, Map<Long, Long> deviceProductIds) {
+        if (productId == null) {
+            return true;
+        }
+        if (binding == null || binding.getDeviceId() == null || deviceProductIds == null) {
+            return false;
+        }
+        return productId.equals(deviceProductIds.get(binding.getDeviceId()));
     }
 
     private String toMissingPolicyDimensionKey(RiskPointDevice binding) {
