@@ -102,6 +102,8 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('<AutomationExecutionConfigPanel');
     expect(source).toContain('<AutomationRegistryPanel');
     expect(source).toContain('执行概况');
+    expect(source).toContain('secondary-prop="scope"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="scope" label="范围"');
   });
 
   it('keeps evidence workspace content in a reusable governance section', () => {
@@ -114,6 +116,21 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('判断理由');
     expect(source).toContain('证据摘要');
     expect(source).toContain('失败场景明细');
+    expect(source).toContain('secondary-prop="scenarioId"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="scenarioId" label="编码"');
+  });
+
+  it('keeps template and handoff tables on the shared stacked first-column grammar', () => {
+    const templateSource = readComponent('automationGovernance/AutomationTemplatesWorkspaceSection.vue');
+    const plansSource = readComponent('automationGovernance/AutomationPlansWorkspaceSection.vue');
+    const handoffSource = readComponent('automationGovernance/AutomationHandoffWorkspaceSection.vue');
+
+    expect(templateSource).toContain('secondary-prop="route"');
+    expect(templateSource).not.toContain('<StandardTableTextColumn prop="route" label="页面路由"');
+    expect(plansSource).toContain('secondary-prop="scope"');
+    expect(plansSource).not.toContain('<StandardTableTextColumn prop="scope" label="范围"');
+    expect(handoffSource).toContain('secondary-prop="scope"');
+    expect(handoffSource).not.toContain('<StandardTableTextColumn prop="scope" label="范围"');
   });
 
   it('keeps the recent runs panel aligned with archive index filters', () => {
@@ -122,6 +139,15 @@ describe('automation rd workbench route splits', () => {
     expect(source).toContain('placeholder="验收包"');
     expect(source).toContain('placeholder="环境"');
     expect(source).toContain('刷新索引');
+    expect(source).toContain('secondary-prop="updatedAt"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="updatedAt" label="更新时间"');
+  });
+
+  it('keeps the page discovery table on the shared stacked first-column grammar', () => {
+    const source = readComponent('AutomationPageDiscoveryPanel.vue');
+
+    expect(source).toContain('secondary-prop="route"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="route" label="路由"');
   });
 
   it('registers automation-governance route and retires the old rd/execution/result routes', () => {

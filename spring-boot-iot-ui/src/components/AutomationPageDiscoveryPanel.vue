@@ -46,8 +46,12 @@
       @selection-change="$emit('selection-change', $event)"
     >
       <el-table-column type="selection" width="52" reserve-selection />
-      <StandardTableTextColumn prop="title" label="页面" :min-width="170" />
-      <StandardTableTextColumn prop="route" label="路由" :min-width="170" />
+      <StandardTableTextColumn
+        prop="title"
+        label="页面"
+        secondary-prop="route"
+        :min-width="220"
+      />
       <el-table-column label="来源" width="100">
         <template #default="{ row }">
           <el-tag :type="row.source === 'manual' ? 'warning' : row.source === 'menu' ? 'success' : 'info'">

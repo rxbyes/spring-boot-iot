@@ -32,4 +32,19 @@ describe('StandardTableToolbar', () => {
     expect(source).toContain('var(--type-label-size)')
     expect(source).toContain('var(--font-letter-spacing-wide)')
   })
+
+  it('uses the lighter workbench toolbar band instead of a secondary floating card', () => {
+    const globalCss = readFileSync(
+      resolve(import.meta.dirname, '../../styles/global.css'),
+      'utf8'
+    )
+
+    expect(globalCss).toContain('.table-action-bar {')
+    expect(globalCss).toContain('background: transparent;')
+    expect(globalCss).toContain('border: 0;')
+    expect(globalCss).toContain('.standard-table-toolbar--compact .table-action-bar__right {')
+    expect(globalCss).toContain('margin-inline-start: auto;')
+    expect(globalCss).toContain('@media (max-width: 960px)')
+    expect(globalCss).toContain('justify-content: flex-start;')
+  })
 })

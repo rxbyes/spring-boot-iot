@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <StandardPageShell class="risk-point-view">
     <StandardWorkbenchPanel
       title="风险对象中心"
@@ -129,8 +129,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="riskPointCode" label="风险点编号" :width="150" />
-            <StandardTableTextColumn prop="riskPointName" label="风险点名称" :min-width="180">
+            <StandardTableTextColumn
+              prop="riskPointName"
+              label="风险点"
+              secondary-prop="riskPointCode"
+              :min-width="220"
+            >
               <template #default="{ row }">
                 <StandardActionLink
                   :data-testid="`risk-point-name-link-${row.id}`"

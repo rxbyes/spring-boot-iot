@@ -291,9 +291,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="id" label="产品编号" :width="160" />
-            <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="170" />
-            <StandardTableTextColumn prop="productName" label="产品名称" :min-width="180" />
+            <StandardTableTextColumn
+              prop="productName"
+              label="产品"
+              :min-width="220"
+              secondary-prop="productKey"
+            />
             <StandardTableTextColumn prop="protocolCode" label="协议编码" :width="140" />
             <el-table-column prop="nodeType" label="节点类型" width="120">
               <template #default="{ row }">

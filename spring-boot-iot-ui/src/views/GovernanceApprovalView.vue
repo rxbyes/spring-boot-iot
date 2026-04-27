@@ -108,8 +108,12 @@
           </div>
 
           <el-table :data="orderList" border stripe style="width: 100%">
-            <StandardTableTextColumn prop="actionName" label="动作名称" :min-width="160" />
-            <StandardTableTextColumn prop="actionCode" label="动作编码" :min-width="220" />
+            <StandardTableTextColumn
+              prop="actionName"
+              label="治理动作"
+              secondary-prop="actionCode"
+              :min-width="240"
+            />
             <StandardTableTextColumn prop="subjectType" label="主题类型" :width="120" />
             <StandardTableTextColumn prop="subjectId" label="主题 ID" :min-width="120" />
             <StandardTableTextColumn prop="operatorUserId" label="执行人" :width="110" />

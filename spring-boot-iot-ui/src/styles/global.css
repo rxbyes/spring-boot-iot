@@ -544,14 +544,14 @@ tbody tr:hover {
 
 .table-action-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.62rem;
-  margin: 0 0 0.6rem;
-  padding: 0.56rem 0.62rem;
-  border: 1px solid var(--panel-border);
-  border-radius: 13px;
-  background: var(--surface-soft);
+  gap: 0.46rem 0.62rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .table-action-bar__left,
@@ -560,19 +560,20 @@ tbody tr:hover {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .table-action-bar__meta {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 9px;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--line-panel-2);
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--line-panel-2) 78%, white 22%);
+  background: color-mix(in srgb, white 92%, var(--brand) 8%);
   font-size: var(--type-toolbar-meta-size);
   font-weight: 600;
-  color: var(--text-caption);
+  color: var(--text-secondary);
   line-height: 1;
   letter-spacing: calc(var(--font-letter-spacing-wide) * 0.62);
 }
@@ -591,7 +592,7 @@ tbody tr:hover {
 }
 
 .standard-table-toolbar {
-  min-height: 3.2rem;
+  min-height: 0;
 }
 
 .standard-table-toolbar .table-action-bar__left:empty,
@@ -614,10 +615,11 @@ tbody tr:hover {
 }
 
 .standard-table-toolbar--compact .table-action-bar__right {
-  flex: 1 1 34rem;
+  flex: 0 1 auto;
   min-width: 0;
+  margin-inline-start: auto;
   justify-content: flex-end;
-  gap: 0.12rem 0.26rem;
+  gap: 0.16rem 0.3rem;
   flex-wrap: nowrap;
 }
 
@@ -643,6 +645,51 @@ tbody tr:hover {
   .standard-table-toolbar--compact .table-action-bar__right {
     flex-wrap: wrap;
   }
+}
+
+@media (max-width: 960px) {
+  .standard-table-toolbar--compact .table-action-bar__right {
+    flex: 1 1 100%;
+    margin-inline-start: 0;
+    justify-content: flex-start;
+  }
+}
+
+.standard-table-text {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.standard-table-text--single {
+  gap: 0;
+}
+
+.standard-table-text__primary,
+.standard-table-text__secondary {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standard-table-text__primary {
+  color: var(--text-heading);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.42;
+}
+
+.standard-table-text__primary--solo {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.standard-table-text__secondary {
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 1.38;
 }
 
 .timeline {

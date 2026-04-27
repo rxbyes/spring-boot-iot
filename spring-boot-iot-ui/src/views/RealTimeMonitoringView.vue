@@ -95,8 +95,12 @@
 
         <template v-else-if="hasRecords">
           <el-table :data="rows" border stripe>
-            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="150" />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              secondary-prop="deviceCode"
+              :min-width="180"
+            />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="150" />
             <StandardTableTextColumn prop="riskPointName" label="风险点" :min-width="140" />
             <StandardTableTextColumn label="测点" :min-width="150">

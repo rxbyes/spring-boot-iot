@@ -177,7 +177,11 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
-        <StandardTableTextColumn prop="title" label="消息标题" :min-width="220" />
+        <StandardTableTextColumn prop="title" label="消息标题" :min-width="260">
+          <template #secondary="{ row }">
+            {{ getPathLabel(row.relatedPath) }}
+          </template>
+        </StandardTableTextColumn>
         <el-table-column prop="messageType" label="消息分类" width="110">
           <template #default="{ row }">
             <el-tag :type="messageTypeTagType(row.messageType)">
@@ -202,11 +206,6 @@
             </div>
           </template>
         </el-table-column>
-        <StandardTableTextColumn prop="relatedPath" label="关联页面" :min-width="180">
-          <template #default="{ row }">
-            {{ getPathLabel(row.relatedPath) }}
-          </template>
-        </StandardTableTextColumn>
         <el-table-column prop="sourceType" label="来源类型" width="130">
           <template #default="{ row }">
             <el-tag size="small" effect="plain" :type="sourceTypeTagType(row.sourceType)">
@@ -457,12 +456,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <StandardTableTextColumn prop="channelName" label="渠道名称" :min-width="140">
+        <StandardTableTextColumn prop="channelName" label="渠道" secondary-prop="channelCode" :min-width="180">
           <template #default="{ row }">
             {{ getBridgeChannelName(row) }}
           </template>
         </StandardTableTextColumn>
-        <StandardTableTextColumn prop="channelCode" label="渠道编码" :min-width="140" />
         <el-table-column prop="channelType" label="渠道类型" width="120">
           <template #default="{ row }">
             <el-tag size="small" type="info" effect="plain">

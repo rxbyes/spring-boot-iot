@@ -100,8 +100,12 @@
           ]"
         />
         <el-table :data="scenarioPreviews" size="small" border>
-          <StandardTableTextColumn prop="name" label="场景" :min-width="180" />
-          <StandardTableTextColumn prop="scope" label="范围" :width="110" />
+          <StandardTableTextColumn
+            prop="name"
+            label="场景"
+            :min-width="200"
+            secondary-prop="scope"
+          />
           <StandardTableTextColumn prop="stepCount" label="步骤" :width="90" />
           <StandardTableTextColumn prop="apiCount" label="接口" :width="90" />
           <el-table-column label="断言" width="90">

@@ -99,8 +99,12 @@
           highlight-current-row
           @row-click="handleRowSelect"
         >
-          <StandardTableTextColumn prop="runId" label="运行编号" :min-width="170" />
-          <StandardTableTextColumn prop="updatedAt" label="更新时间" :min-width="170" />
+          <StandardTableTextColumn
+            prop="runId"
+            label="运行"
+            secondary-prop="updatedAt"
+            :min-width="220"
+          />
           <StandardTableTextColumn prop="statusText" label="状态" :width="110" />
           <StandardTableTextColumn prop="packageCodeText" label="验收包" :min-width="180" />
           <StandardTableTextColumn prop="environmentCodeText" label="环境" :width="110" />

@@ -156,14 +156,10 @@
           >
             <el-table-column type="selection" width="48" />
             <StandardTableTextColumn
-              prop="regionCode"
-              label="区域编码"
-              :width="150"
-            />
-            <StandardTableTextColumn
               prop="regionName"
-              label="区域名称"
-              :width="200"
+              label="区域"
+              secondary-prop="regionCode"
+              :min-width="220"
             />
             <el-table-column prop="regionType" label="区域类型" width="120">
               <template #default="{ row }">

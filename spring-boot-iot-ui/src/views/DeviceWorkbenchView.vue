@@ -266,8 +266,12 @@
 
           <el-table ref="tableRef" class="device-desktop-table" :data="tableData" border stripe @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="48" :selectable="isSelectableDeviceRow" />
-            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="170" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="160" />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              :min-width="200"
+              secondary-prop="deviceCode"
+            />
             <StandardTableTextColumn prop="registrationStatus" label="登记状态" :width="110">
               <template #default="{ row }">
                 <el-tag :type="row.registrationStatus === 1 ? 'success' : 'warning'" round>{{ getRegistrationStatusText(row.registrationStatus) }}</el-tag>

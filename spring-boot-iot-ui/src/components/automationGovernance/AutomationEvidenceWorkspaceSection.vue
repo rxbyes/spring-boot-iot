@@ -106,8 +106,12 @@
           </div>
 
           <el-table :data="failedScenarioDetails" size="small" border>
-            <StandardTableTextColumn prop="title" label="场景" :min-width="180" />
-            <StandardTableTextColumn prop="scenarioId" label="编码" :min-width="180" />
+            <StandardTableTextColumn
+              prop="title"
+              label="场景"
+              :min-width="220"
+              secondary-prop="scenarioId"
+            />
             <StandardTableTextColumn prop="runnerType" label="执行器" :width="110" />
             <StandardTableTextColumn prop="blocking" label="阻断级别" :width="110" />
             <StandardTableTextColumn prop="diagnosisCategory" label="主分类" :width="100" />

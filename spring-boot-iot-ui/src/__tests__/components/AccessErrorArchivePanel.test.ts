@@ -402,6 +402,9 @@ describe('AccessErrorArchivePanel', () => {
 
     expect(source).toContain('class="access-error-table-wrap standard-list-surface"');
     expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('secondary-prop="deviceCode"');
+    expect(source).toContain('label="Trace / 设备"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="deviceCode" label="设备编码"');
     expect(source).toContain('standard-mobile-record-grid');
     expect(source).not.toContain('menu-label="更多"');
     expect(source).not.toContain('accessErrorMenuItems');

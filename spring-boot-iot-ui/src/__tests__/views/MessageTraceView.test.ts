@@ -1412,6 +1412,9 @@ describe('MessageTraceView', () => {
 
     expect(source).toContain('class="message-trace-table-wrap standard-list-surface"');
     expect(source).toContain('<StandardWorkbenchRowActions');
+    expect(source).toContain('secondary-prop="deviceCode"');
+    expect(source).toContain('label="Trace / 设备"');
+    expect(source).not.toContain('<StandardTableTextColumn prop="deviceCode" label="设备编码"');
     expect(source).toContain('standard-mobile-record-grid');
     expect(source).not.toContain('gap="compact"');
     expect(source).not.toContain("gap: 'compact'");

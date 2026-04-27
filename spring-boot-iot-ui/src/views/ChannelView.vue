@@ -88,8 +88,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="channelCode" label="渠道编码" :width="150" />
-            <StandardTableTextColumn prop="channelName" label="渠道名称" :width="200" />
+            <StandardTableTextColumn
+              prop="channelName"
+              label="渠道"
+              secondary-prop="channelCode"
+              :min-width="220"
+            />
             <el-table-column prop="channelType" label="渠道类型" width="120">
               <template #default="{ row }">
                 <el-tag>{{ getChannelTypeName(row.channelType) }}</el-tag>

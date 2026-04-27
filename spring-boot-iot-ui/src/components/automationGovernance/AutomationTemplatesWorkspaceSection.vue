@@ -89,8 +89,12 @@
           ]"
         />
         <el-table :data="latestScenarioPreviews" size="small" border>
-          <StandardTableTextColumn prop="name" label="场景" :min-width="180" />
-          <StandardTableTextColumn prop="route" label="页面路由" :min-width="180" />
+          <StandardTableTextColumn
+            prop="name"
+            label="场景"
+            :min-width="220"
+            secondary-prop="route"
+          />
           <StandardTableTextColumn prop="scope" label="范围" :width="110" />
           <StandardTableTextColumn prop="stepCount" label="步骤" :width="90" />
         </el-table>

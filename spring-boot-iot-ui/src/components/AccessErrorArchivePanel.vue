@@ -205,13 +205,17 @@
         stripe
         style="width: 100%"
       >
-        <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
+        <StandardTableTextColumn
+          prop="traceId"
+          label="Trace / 设备"
+          :min-width="220"
+          secondary-prop="deviceCode"
+        />
         <StandardTableTextColumn label="失败阶段" :width="150">
           <template #default="{ row }">
             {{ getFailureStageLabel(row.failureStage) }}
           </template>
         </StandardTableTextColumn>
-        <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
         <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
         <StandardTableTextColumn prop="protocolCode" label="协议编码" :min-width="130" />
         <StandardTableTextColumn prop="errorCode" label="异常编码" :min-width="120" />

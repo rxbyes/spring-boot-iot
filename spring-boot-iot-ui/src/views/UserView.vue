@@ -139,8 +139,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="username" label="用户名" :width="150" />
-            <StandardTableTextColumn prop="nickname" label="昵称" :width="140" />
+            <StandardTableTextColumn
+              prop="username"
+              label="账号"
+              secondary-prop="nickname"
+              :min-width="180"
+            />
             <StandardTableTextColumn
               prop="realName"
               label="真实姓名"

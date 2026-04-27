@@ -91,8 +91,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="dictCode" label="字典编码" :width="150" />
-            <StandardTableTextColumn prop="dictName" label="字典名称" :width="200" />
+            <StandardTableTextColumn
+              prop="dictName"
+              label="字典"
+              secondary-prop="dictCode"
+              :min-width="220"
+            />
             <el-table-column prop="dictType" label="字典类型" width="120">
               <template #default="{ row }">
                 <el-tag :type="getDictTypeTag(row.dictType)">
@@ -222,8 +226,12 @@
           @selection-change="handleItemSelectionChange"
         >
           <el-table-column type="selection" width="48" />
-          <StandardTableTextColumn prop="itemName" label="项名称" :width="150" />
-          <StandardTableTextColumn prop="itemValue" label="项值" :width="150" />
+          <StandardTableTextColumn
+            prop="itemName"
+            label="字典项"
+            secondary-prop="itemValue"
+            :min-width="200"
+          />
           <el-table-column prop="itemType" label="项类型" width="120">
             <template #default="{ row }">
               <el-tag>{{ row.itemType || 'string' }}</el-tag>

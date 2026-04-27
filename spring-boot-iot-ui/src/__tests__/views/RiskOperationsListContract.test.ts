@@ -23,6 +23,19 @@ describe('risk operations list contract', () => {
     expect(source).toContain('v-loading="loading && hasRecords"')
   })
 
+  it('keeps risk operations first columns on the shared stacked identity grammar', () => {
+    const realtimeSource = readViewSource('RealTimeMonitoringView.vue')
+    const alarmSource = readViewSource('AlarmCenterView.vue')
+    const eventSource = readViewSource('EventDisposalView.vue')
+
+    expect(realtimeSource).toContain('secondary-prop="deviceCode"')
+    expect(realtimeSource).not.toContain('<StandardTableTextColumn prop="deviceCode" label="设备编码"')
+    expect(alarmSource).toContain('secondary-prop="alarmCode"')
+    expect(alarmSource).not.toContain('<StandardTableTextColumn prop="alarmCode" label="告警编号"')
+    expect(eventSource).toContain('secondary-prop="eventCode"')
+    expect(eventSource).not.toContain('<StandardTableTextColumn prop="eventCode" label="事件编号"')
+  })
+
   it('keeps GIS monitoring on the same standard result-surface and pagination contract', () => {
     const source = readViewSource('RiskGisView.vue')
 

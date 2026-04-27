@@ -52,4 +52,13 @@ describe('risk strategy list contract', () => {
     expect(riskPointSource).not.toContain('<el-table-column prop="riskPointLevel" label="风险点等级" width="120">')
     expect(riskPointSource).not.toContain('<el-table-column prop="currentRiskLevel" label="当前风险态势" width="120">')
   })
+
+  it('keeps the risk point identity on the shared stacked first-column grammar', () => {
+    const source = readViewSource('RiskPointView.vue')
+
+    expect(source).toContain('secondary-prop="riskPointCode"')
+    expect(source).toContain('label="风险点"')
+    expect(source).not.toContain('<StandardTableTextColumn prop="riskPointCode" label="风险点编号"')
+    expect(source).not.toContain('<StandardTableTextColumn prop="riskPointName" label="风险点名称"')
+  })
 })

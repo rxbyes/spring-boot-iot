@@ -153,8 +153,12 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="orgCode" label="组织编码" :width="150" />
-            <StandardTableTextColumn prop="orgName" label="组织名称" :width="200" />
+            <StandardTableTextColumn
+              prop="orgName"
+              label="组织"
+              secondary-prop="orgCode"
+              :min-width="220"
+            />
             <el-table-column prop="orgType" label="组织类型" width="120">
               <template #default="{ row }">
                 <el-tag :type="getOrgTypeTag(row.orgType)">

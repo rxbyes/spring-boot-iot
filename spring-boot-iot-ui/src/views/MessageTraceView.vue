@@ -171,8 +171,12 @@
             stripe
             style="width: 100%"
           >
-            <StandardTableTextColumn prop="traceId" label="TraceId" :min-width="200" />
-            <StandardTableTextColumn prop="deviceCode" label="设备编码" :min-width="140" />
+            <StandardTableTextColumn
+              prop="traceId"
+              label="Trace / 设备"
+              :min-width="220"
+              secondary-prop="deviceCode"
+            />
             <StandardTableTextColumn prop="productKey" label="产品标识" :min-width="140" />
             <StandardTableTextColumn label="消息类型" :width="120">
               <template #default="{ row }">
