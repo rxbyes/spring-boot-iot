@@ -3,7 +3,11 @@
     class="iot-access-tab-workspace"
     :class="{ 'iot-access-tab-workspace--workbench': variant === 'workbench' }"
   >
-    <nav class="iot-access-tab-workspace__tabs" aria-label="业务视图切换">
+    <nav
+      class="iot-access-tab-workspace__tabs"
+      :class="{ 'iot-access-tab-workspace__tabs--segmented': variant === 'workbench' }"
+      aria-label="业务视图切换"
+    >
       <button
         v-for="item in items"
         :key="item.key"
@@ -142,6 +146,15 @@ async function handleTabChange(nextKey: string) {
   flex-wrap: wrap;
   gap: 0;
   border-bottom: 1px solid var(--line-panel);
+}
+
+.iot-access-tab-workspace__tabs--segmented {
+  gap: 0.34rem;
+  padding: 0.24rem;
+  border: 1px solid var(--workbench-surface-border, var(--line-panel));
+  border-radius: 8px;
+  background: var(--workbench-surface-bg, var(--panel-bg));
+  box-shadow: none;
 }
 
 .iot-access-tab-workspace__tab {

@@ -1,6 +1,7 @@
 import importlib.util
+import json
 import pathlib
-import types
+import tempfile
 import unittest
 
 
@@ -88,6 +89,20 @@ class ThresholdPolicyRealEnvVerificationTest(unittest.TestCase):
         report = make_passing_report()
         report["evaluation"] = verify_threshold_policy.evaluate_report(report)
         self.assertNotIn("password", report["database"])
+
+    def test_write_reports_also_updates_latest_aliases(self):
+        report = make_passing_report()
+        report["evaluation"] = verify_threshold_policy.evaluate_report(report)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            json_path, md_path = verify_threshold_policy.write_reports(report, temp_dir)
+            latest_json_path = pathlib.Path(temp_dir) / "threshold-policy-real-env-latest.json"
+            latest_md_path = pathlib.Path(temp_dir) / "threshold-policy-real-env-latest.md"
+
+            self.assertTrue(json_path.exists())
+            self.assertTrue(md_path.exists())
+            self.assertEqual(json.loads(json_path.read_text(encoding="utf-8")), json.loads(latest_json_path.read_text(encoding="utf-8")))
+            self.assertEqual(md_path.read_text(encoding="utf-8"), latest_md_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

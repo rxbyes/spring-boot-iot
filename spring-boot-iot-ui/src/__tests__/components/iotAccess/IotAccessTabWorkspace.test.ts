@@ -75,6 +75,9 @@ describe('IotAccessTabWorkspace', () => {
     })
 
     expect(wrapper.classes()).toContain('iot-access-tab-workspace--workbench')
+    expect(wrapper.find('.iot-access-tab-workspace__tabs').classes()).toContain(
+      'iot-access-tab-workspace__tabs--segmented'
+    )
     expect(wrapper.text()).toContain('鏄庣粏涓庤瘉鎹?')
     expect(wrapper.text()).toContain('鐑偣涓庤秼鍔?')
   })

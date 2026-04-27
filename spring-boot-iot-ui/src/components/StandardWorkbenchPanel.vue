@@ -1,5 +1,7 @@
 <template>
-  <div class="standard-workbench-panel ops-workbench standard-list-view">
+  <div
+    class="standard-workbench-panel ops-workbench standard-list-view standard-workbench-panel--workbench-foundation"
+  >
     <PanelCard class="ops-hero-card ops-table-card standard-workbench-panel__card">
       <template #header>
         <div class="standard-workbench-panel__header">
@@ -14,7 +16,10 @@
         </div>
       </template>
 
-      <section v-if="showFilters || showFiltersExtra" class="standard-workbench-panel__filters">
+      <section
+        v-if="showFilters || showFiltersExtra"
+        class="standard-workbench-panel__filters standard-workbench-panel__filters--compact"
+      >
         <slot name="filters" />
         <div v-if="showFiltersExtra" class="standard-workbench-panel__filters-extra">
           <slot name="filters-extra" />
@@ -79,6 +84,10 @@ withDefaults(defineProps<{
 .standard-workbench-panel {
   --ops-workbench-gap: var(--ops-workbench-gap);
   min-width: 0;
+}
+
+.standard-workbench-panel--workbench-foundation {
+  --ops-workbench-gap: 0.64rem;
 }
 
 .standard-workbench-panel__card {
@@ -150,6 +159,13 @@ withDefaults(defineProps<{
 
 .standard-workbench-panel__filters-extra {
   margin-top: 0.5rem;
+}
+
+.standard-workbench-panel__filters--compact {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .standard-workbench-panel__body {

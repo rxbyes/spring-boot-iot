@@ -285,8 +285,12 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     json_path = target_dir / f"threshold-policy-real-env-{timestamp}.json"
     md_path = target_dir / f"threshold-policy-real-env-{timestamp}.md"
-    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    md_path.write_text(render_markdown(report), encoding="utf-8")
+    json_content = json.dumps(report, ensure_ascii=False, indent=2)
+    markdown_content = render_markdown(report)
+    json_path.write_text(json_content, encoding="utf-8")
+    md_path.write_text(markdown_content, encoding="utf-8")
+    (target_dir / "threshold-policy-real-env-latest.json").write_text(json_content, encoding="utf-8")
+    (target_dir / "threshold-policy-real-env-latest.md").write_text(markdown_content, encoding="utf-8")
     return json_path, md_path
 
 

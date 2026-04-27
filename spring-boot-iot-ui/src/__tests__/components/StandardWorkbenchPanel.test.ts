@@ -26,6 +26,7 @@ describe('StandardWorkbenchPanel', () => {
       }
     })
 
+    expect(wrapper.classes()).toContain('standard-workbench-panel--workbench-foundation')
     expect(wrapper.find('.standard-workbench-panel__eyebrow').text()).toBe('PRODUCT CENTER')
     expect(wrapper.find('.standard-workbench-panel__title').text()).toBe('产品定义中心')
     expect(wrapper.find('.standard-workbench-panel__caption').text()).toContain('统一维护产品台账')
@@ -53,5 +54,26 @@ describe('StandardWorkbenchPanel', () => {
     expect(source).toContain('var(--type-caption-size)')
     expect(source).toContain('var(--font-letter-spacing-wide)')
     expect(source).toContain('var(--font-letter-spacing-tight)')
+  })
+
+  it('marks the filter band as compact when filters are rendered', () => {
+    const wrapper = mount(StandardWorkbenchPanel, {
+      props: {
+        title: 'Workbench',
+        showFilters: true
+      },
+      slots: {
+        filters: '<div class="filter-stub">Filter</div>'
+      },
+      global: {
+        stubs: {
+          PanelCard: PanelCardStub
+        }
+      }
+    })
+
+    expect(wrapper.find('.standard-workbench-panel__filters').classes()).toContain(
+      'standard-workbench-panel__filters--compact'
+    )
   })
 })

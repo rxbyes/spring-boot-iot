@@ -125,6 +125,18 @@
             "pageAction": "进入事件详情并执行派发或反馈",
             "summary": "事件处置链路需要结合工单与告警状态复核。"
           }
+        },
+        {
+          "moduleCode": "threshold-policy-readiness",
+          "moduleName": "阈值策略真实环境验收",
+          "scenarioRefs": ["threshold-policy.real-env-readiness"],
+          "suggestedDirection": "needsReview",
+          "fallbackFailure": {
+            "stepLabel": "执行阈值策略真实环境只读验收",
+            "apiRef": "rule_definition schema / index / duplicate policy groups",
+            "pageAction": "查看 logs/acceptance/threshold-policy-real-env-*.md 证据报告",
+            "summary": "阈值策略真实环境验收未通过，请优先检查 rule_definition 字段、索引或历史重复策略组。"
+          }
         }
       ]
     },

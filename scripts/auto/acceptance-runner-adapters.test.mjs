@@ -69,8 +69,8 @@ test('apiSmoke adapter maps first failing summary row to business failure detail
   await fs.writeFile(
     stubPath,
     [
-      `console.log('REPORT_JSON=${reportPath}');`,
-      `console.log('REPORT_SUMMARY=${summaryPath}');`,
+      `console.log('REPORT_JSON=' + ${JSON.stringify(reportPath)});`,
+      `console.log('REPORT_SUMMARY=' + ${JSON.stringify(summaryPath)});`,
       "console.log('SUMMARY=telemetry failed');",
       'process.exit(1);'
     ].join('\n'),
