@@ -1736,6 +1736,12 @@
           "isTag": false
         },
         {
+          "name": "product_type",
+          "definition": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "产品类型模板",
+          "isTag": false
+        },
+        {
           "name": "product_id",
           "definition": "BIGINT DEFAULT NULL",
           "commentZh": "产品ID",
@@ -7703,7 +7709,7 @@
     },
     {
       "name": "rule_definition",
-      "sql": "-- 表：rule_definition\n-- 说明：阈值规则表\nCREATE TABLE rule_definition (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',\n  metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',\n  rule_scope VARCHAR(32) NOT NULL DEFAULT 'METRIC' COMMENT '策略作用域',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  device_id BIGINT DEFAULT NULL COMMENT '设备ID',\n  risk_point_device_id BIGINT DEFAULT NULL COMMENT '风险点设备绑定ID',\n  expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',\n  duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',\n  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',\n  convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_metric_identifier (metric_identifier),\n  KEY idx_rule_definition_metric_catalog (risk_metric_id),\n  KEY idx_rule_definition_product_metric (product_id, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_device_metric (device_id, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_binding_metric (risk_point_device_id, risk_metric_id, metric_identifier)\n) COMMENT='阈值规则表';"
+      "sql": "-- 表：rule_definition\n-- 说明：阈值规则表\nCREATE TABLE rule_definition (\n  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',\n  rule_name VARCHAR(128) NOT NULL COMMENT '规则名称',\n  risk_metric_id BIGINT DEFAULT NULL COMMENT '风险指标ID',\n  metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',\n  metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',\n  rule_scope VARCHAR(32) NOT NULL DEFAULT 'METRIC' COMMENT '策略作用域',\n  product_type VARCHAR(32) DEFAULT NULL COMMENT '产品类型模板',\n  product_id BIGINT DEFAULT NULL COMMENT '产品ID',\n  device_id BIGINT DEFAULT NULL COMMENT '设备ID',\n  risk_point_device_id BIGINT DEFAULT NULL COMMENT '风险点设备绑定ID',\n  expression VARCHAR(256) DEFAULT NULL COMMENT '表达式',\n  duration INT NOT NULL DEFAULT 0 COMMENT '持续时间(秒)',\n  alarm_level VARCHAR(20) DEFAULT NULL COMMENT '适用告警等级（红/橙/黄/蓝）',\n  notification_methods VARCHAR(64) DEFAULT NULL COMMENT '通知方式',\n  convert_to_event TINYINT NOT NULL DEFAULT 0 COMMENT '是否转事件',\n  status TINYINT NOT NULL DEFAULT 0 COMMENT '状态 0启用 1停用',\n  tenant_id BIGINT NOT NULL DEFAULT 1 COMMENT '租户ID',\n  create_by BIGINT DEFAULT NULL COMMENT '创建人用户ID',\n  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  update_by BIGINT DEFAULT NULL COMMENT '更新人用户ID',\n  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',\n  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',\n  PRIMARY KEY (id),\n  KEY idx_metric_identifier (metric_identifier),\n  KEY idx_rule_definition_metric_catalog (risk_metric_id),\n  KEY idx_rule_definition_product_type_metric (product_type, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_product_metric (product_id, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_device_metric (device_id, risk_metric_id, metric_identifier),\n  KEY idx_rule_definition_binding_metric (risk_point_device_id, risk_metric_id, metric_identifier)\n) COMMENT='阈值规则表';"
     },
     {
       "name": "iot_command_record",
@@ -8387,6 +8393,15 @@
           ],
           "kind": "INDEX",
           "name": "idx_rule_definition_metric_catalog"
+        },
+        {
+          "name": "idx_rule_definition_product_type_metric",
+          "kind": "INDEX",
+          "columns": [
+            "product_type",
+            "risk_metric_id",
+            "metric_identifier"
+          ]
         },
         {
           "name": "idx_rule_definition_product_metric",

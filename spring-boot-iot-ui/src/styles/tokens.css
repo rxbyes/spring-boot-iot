@@ -133,6 +133,26 @@
   --ops-list-surface-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.76));
   --ops-list-surface-bg-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
   --ops-list-surface-mask: rgba(248, 250, 255, 0.78);
+  --workbench-surface-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 94%, var(--brand) 6%) 0%,
+    color-mix(in srgb, white 98%, var(--accent) 2%) 100%
+  );
+  --workbench-surface-bg-strong: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 98%, var(--brand) 2%) 0%,
+    color-mix(in srgb, white 96%, var(--accent) 4%) 100%
+  );
+  --workbench-surface-border: color-mix(in srgb, var(--panel-border) 84%, white 16%);
+  --workbench-table-header-bg: color-mix(in srgb, var(--surface-muted) 78%, white 22%);
+  --workbench-table-row-hover-bg: color-mix(in srgb, var(--brand) 5%, white 95%);
+  --workbench-pagination-active-bg: color-mix(in srgb, white 92%, var(--brand) 8%);
+  --workbench-action-text: color-mix(in srgb, var(--text-secondary) 78%, var(--brand) 22%);
+  --workbench-action-hover-text: var(--brand);
+  --workbench-status-danger-bg: color-mix(in srgb, var(--danger) 10%, white 90%);
+  --workbench-status-warning-bg: color-mix(in srgb, var(--warning) 12%, white 88%);
+  --workbench-status-success-bg: color-mix(in srgb, var(--success) 10%, white 90%);
+  --workbench-status-neutral-bg: color-mix(in srgb, var(--text-secondary) 8%, white 92%);
   --ops-mobile-card-padding: 0.92rem 0.96rem;
   --ops-mobile-card-gap: 0.8rem;
   --ops-meta-chip-font-size: 11.5px;

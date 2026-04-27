@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ghlzm.iot.alarm.entity.RiskMetricCatalog;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionBatchAddResultVO;
 import com.ghlzm.iot.common.exception.BizException;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,7 @@ class RuleDefinitionServiceImplTest {
         rule.setExpression("value >= 12");
         rule.setStatus(0);
 
+        doReturn(0L).when(service).count(any(LambdaQueryWrapper.class));
         doReturn(true).when(service).save(ArgumentMatchers.any(RuleDefinition.class));
 
         service.addRule(rule);
@@ -89,6 +91,37 @@ class RuleDefinitionServiceImplTest {
         assertEquals("red", rule.getAlarmLevel());
         assertEquals(0, rule.getDeleted());
         verify(service).save(rule);
+    }
+
+    @Test
+    void batchAddRulesShouldPersistValidRulesAndReportInvalidOnes() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition validRule = new RuleDefinition();
+        validRule.setRuleName("product default threshold");
+        validRule.setRuleScope("PRODUCT");
+        validRule.setProductId(1001L);
+        validRule.setMetricIdentifier("value");
+        validRule.setAlarmLevel("warning");
+        validRule.setExpression("value >= 8");
+        validRule.setStatus(0);
+        RuleDefinition invalidRule = new RuleDefinition();
+        invalidRule.setRuleName("invalid empty expression threshold");
+        invalidRule.setRuleScope("PRODUCT");
+        invalidRule.setProductId(1001L);
+        invalidRule.setMetricIdentifier("value");
+        invalidRule.setStatus(0);
+        doReturn(0L).when(service).count(any(LambdaQueryWrapper.class));
+        doReturn(true).when(service).save(ArgumentMatchers.any(RuleDefinition.class));
+
+        RuleDefinitionBatchAddResultVO result = service.batchAddRules(java.util.List.of(validRule, invalidRule));
+
+        assertEquals(2, result.getTotalCount());
+        assertEquals(1, result.getSuccessCount());
+        assertEquals(1, result.getFailedCount());
+        assertEquals(Boolean.TRUE, result.getItems().get(0).getSuccess());
+        assertEquals(Boolean.FALSE, result.getItems().get(1).getSuccess());
+        assertEquals("orange", validRule.getAlarmLevel());
+        verify(service).save(validRule);
     }
 
     @Test
@@ -105,6 +138,23 @@ class RuleDefinitionServiceImplTest {
         BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
 
         assertTrue(error.getMessage().contains("productId"));
+        verify(service, never()).save(ArgumentMatchers.any(RuleDefinition.class));
+    }
+
+    @Test
+    void addRuleShouldRejectProductTypeScopeWithoutProductType() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRuleName("monitoring product type threshold");
+        rule.setRuleScope("PRODUCT_TYPE");
+        rule.setMetricIdentifier("value");
+        rule.setAlarmLevel("orange");
+        rule.setExpression("value >= 8");
+        rule.setStatus(0);
+
+        BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
+
+        assertTrue(error.getMessage().contains("productType"));
         verify(service, never()).save(ArgumentMatchers.any(RuleDefinition.class));
     }
 
@@ -140,6 +190,7 @@ class RuleDefinitionServiceImplTest {
         catalog.setContractIdentifier("gpsTotalX");
         catalog.setRiskMetricName("GNSS 累计位移 X");
         when(riskMetricCatalogService.getById(6102L)).thenReturn(catalog);
+        doReturn(0L).when(service).count(any(LambdaQueryWrapper.class));
         doReturn(true).when(service).save(ArgumentMatchers.any(RuleDefinition.class));
 
         service.addRule(rule);
@@ -167,6 +218,28 @@ class RuleDefinitionServiceImplTest {
         BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
 
         assertEquals("风险指标目录当前不可绑定: 6103", error.getMessage());
+        verify(service, never()).save(any(RuleDefinition.class));
+    }
+
+    @Test
+    void addRuleShouldRejectDuplicateRuleInSameScopeAndMetric() {
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        RuleDefinition rule = new RuleDefinition();
+        rule.setRuleName("monitoring template threshold");
+        rule.setRuleScope("PRODUCT_TYPE");
+        rule.setProductType("monitoring");
+        rule.setMetricIdentifier("value");
+        rule.setAlarmLevel("orange");
+        rule.setExpression("value >= 8");
+        rule.setStatus(0);
+
+        doReturn(1L).when(service).count(any(LambdaQueryWrapper.class));
+
+        BizException error = assertThrows(BizException.class, () -> service.addRule(rule));
+
+        assertTrue(error.getMessage().contains("Duplicate threshold policy"));
+        assertEquals("PRODUCT_TYPE", rule.getRuleScope());
+        assertEquals("MONITORING", rule.getProductType());
         verify(service, never()).save(any(RuleDefinition.class));
     }
 
@@ -218,7 +291,7 @@ class RuleDefinitionServiceImplTest {
         page.setTotal(0L);
         doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
 
-        service.pageRuleList(null, "value", null, null, "product", 1001L, 1L, 10L);
+        service.pageRuleList(null, "value", null, null, "product", 1001L, null, 1L, 10L);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<LambdaQueryWrapper<RuleDefinition>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
@@ -228,5 +301,26 @@ class RuleDefinitionServiceImplTest {
         assertTrue(wrapper.getParamNameValuePairs().values().contains("value"));
         assertTrue(wrapper.getParamNameValuePairs().values().contains("PRODUCT"));
         assertTrue(wrapper.getParamNameValuePairs().values().contains(1001L));
+    }
+
+    @Test
+    void pageRuleListShouldFilterByProductTypeTemplate() {
+        initLambdaCache();
+        RuleDefinitionServiceImpl service = spy(new RuleDefinitionServiceImpl(riskMetricCatalogService));
+        Page<RuleDefinition> page = new Page<>(1L, 10L);
+        page.setRecords(java.util.List.of());
+        page.setTotal(0L);
+        doReturn(page).when(service).page(any(Page.class), any(LambdaQueryWrapper.class));
+
+        service.pageRuleList(null, "value", null, null, "product_type", null, "monitoring", 1L, 10L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<RuleDefinition>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(service).page(any(Page.class), wrapperCaptor.capture());
+        LambdaQueryWrapper<RuleDefinition> wrapper = wrapperCaptor.getValue();
+        wrapper.getSqlSegment();
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("value"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("PRODUCT_TYPE"));
+        assertTrue(wrapper.getParamNameValuePairs().values().contains("MONITORING"));
     }
 }

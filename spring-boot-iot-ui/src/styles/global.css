@@ -209,6 +209,18 @@ textarea {
   letter-spacing: 0.01em;
 }
 
+.standard-row-actions--foundation > .standard-button,
+.standard-row-actions--foundation > .standard-action-menu .standard-action-menu__trigger {
+  color: var(--workbench-action-text);
+  font-weight: 600;
+}
+
+.standard-row-actions--foundation > .standard-button:hover,
+.standard-row-actions--foundation > .standard-action-menu .standard-action-menu__trigger:hover {
+  color: var(--workbench-action-hover-text);
+  background: color-mix(in srgb, var(--brand) 8%, white);
+}
+
 .standard-row-actions > .standard-button + .standard-button {
   margin-left: 0;
 }

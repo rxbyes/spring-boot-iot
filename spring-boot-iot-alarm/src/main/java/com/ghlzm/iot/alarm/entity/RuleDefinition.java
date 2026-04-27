@@ -49,6 +49,8 @@ public class RuleDefinition implements Serializable {
        */
       private String ruleScope;
 
+      private String productType;
+
       private Long productId;
 
       private Long deviceId;

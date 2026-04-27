@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionBatchAddResultVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
@@ -41,9 +42,10 @@ public class RuleDefinitionController {
                                                @RequestParam(required = false) String alarmLevel,
                                                @RequestParam(required = false) Integer status,
                                                @RequestParam(required = false) String ruleScope,
-                                               @RequestParam(required = false) Long productId) {
+                                               @RequestParam(required = false) Long productId,
+                                               @RequestParam(required = false) String productType) {
         List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status,
-                ruleScope, productId);
+                ruleScope, productId, productType);
         return R.ok(list);
     }
 
@@ -54,11 +56,12 @@ public class RuleDefinitionController {
                                                       @RequestParam(required = false) Integer status,
                                                       @RequestParam(required = false) String ruleScope,
                                                       @RequestParam(required = false) Long productId,
+                                                      @RequestParam(required = false) String productType,
                                                       @RequestParam(defaultValue = "1") Long pageNum,
                                                       @RequestParam(defaultValue = "10") Long pageSize) {
         PageResult<RuleDefinition> page =
                 ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, ruleScope,
-                        productId, pageNum, pageSize);
+                        productId, productType, pageNum, pageSize);
         return R.ok(page);
     }
 
@@ -81,6 +84,21 @@ public class RuleDefinitionController {
         );
         ruleDefinitionService.addRule(rule);
         return R.ok(rule);
+    }
+
+    @PostMapping("/batch-add")
+    public R<RuleDefinitionBatchAddResultVO> batchAddRules(@RequestBody List<RuleDefinition> rules,
+                                                           @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                           Authentication authentication) {
+        Long currentUserId = requireCurrentUserId(authentication);
+        permissionGuard.requireDualControl(
+                currentUserId,
+                approverUserId,
+                "rule-definition-batch-create",
+                GovernancePermissionCodes.RULE_DEFINITION_EDIT,
+                GovernancePermissionCodes.RULE_DEFINITION_APPROVE
+        );
+        return R.ok(ruleDefinitionService.batchAddRules(rules));
     }
 
     @PostMapping("/update")

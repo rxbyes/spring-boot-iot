@@ -2106,6 +2106,11 @@
           "commentZh": "策略作用域"
         },
         {
+          "name": "product_type",
+          "type": "VARCHAR(32) DEFAULT NULL",
+          "commentZh": "产品类型模板"
+        },
+        {
           "name": "product_id",
           "type": "BIGINT DEFAULT NULL",
           "commentZh": "产品ID"
@@ -2201,6 +2206,15 @@
           "kind": "INDEX",
           "columns": [
             "risk_metric_id"
+          ]
+        },
+        {
+          "name": "idx_rule_definition_product_type_metric",
+          "kind": "INDEX",
+          "columns": [
+            "product_type",
+            "risk_metric_id",
+            "metric_identifier"
           ]
         },
         {

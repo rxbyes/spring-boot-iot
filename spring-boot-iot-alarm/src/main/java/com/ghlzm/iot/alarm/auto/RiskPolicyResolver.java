@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ghlzm.iot.alarm.entity.RiskPointDevice;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
+import com.ghlzm.iot.common.device.DeviceBindingCapabilitySupport;
 import com.ghlzm.iot.device.entity.Device;
+import com.ghlzm.iot.device.entity.Product;
 import com.ghlzm.iot.device.mapper.DeviceMapper;
+import com.ghlzm.iot.device.mapper.ProductMapper;
 import com.ghlzm.iot.framework.config.IotProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
@@ -35,26 +38,35 @@ public class RiskPolicyResolver {
     private final RuleDefinitionMapper ruleDefinitionMapper;
     private final IotProperties iotProperties;
     private final DeviceMapper deviceMapper;
+    private final ProductMapper productMapper;
 
     public RiskPolicyResolver(RuleDefinitionMapper ruleDefinitionMapper, IotProperties iotProperties) {
-        this(ruleDefinitionMapper, iotProperties, null);
+        this(ruleDefinitionMapper, iotProperties, null, null);
+    }
+
+    public RiskPolicyResolver(RuleDefinitionMapper ruleDefinitionMapper, IotProperties iotProperties, DeviceMapper deviceMapper) {
+        this(ruleDefinitionMapper, iotProperties, deviceMapper, null);
     }
 
     @Autowired
-    public RiskPolicyResolver(RuleDefinitionMapper ruleDefinitionMapper, IotProperties iotProperties, DeviceMapper deviceMapper) {
+    public RiskPolicyResolver(RuleDefinitionMapper ruleDefinitionMapper,
+                              IotProperties iotProperties,
+                              DeviceMapper deviceMapper,
+                              ProductMapper productMapper) {
         this.ruleDefinitionMapper = ruleDefinitionMapper;
         this.iotProperties = iotProperties;
         this.deviceMapper = deviceMapper;
+        this.productMapper = productMapper;
     }
 
     public RiskPolicyDecision resolve(Long tenantId, RiskPointDevice binding, BigDecimal absoluteValue) {
         if (binding != null && (StringUtils.hasText(binding.getMetricIdentifier()) || binding.getRiskMetricId() != null)) {
-            Long productId = resolveProductId(binding);
+            ProductRuntimeContext productContext = resolveProductContext(binding);
             RuleDefinition matchedRule = listEnabledRules(tenantId, binding.getRiskMetricId(), binding.getMetricIdentifier()).stream()
                     .filter(rule -> matchesMetric(rule, binding))
-                    .filter(rule -> matchesScope(rule, binding, productId))
+                    .filter(rule -> matchesScope(rule, binding, productContext))
                     .filter(rule -> matches(rule == null ? null : rule.getExpression(), absoluteValue))
-                    .max(rulePriorityComparator(binding, productId))
+                    .max(rulePriorityComparator(binding, productContext))
                     .orElse(null);
             if (matchedRule != null) {
                 return RiskPolicyDecision.fromRule(matchedRule);
@@ -66,9 +78,9 @@ public class RiskPolicyResolver {
         return RiskPolicyDecision.fromAutoClosure(absoluteValue, config);
     }
 
-    private Comparator<RuleDefinition> rulePriorityComparator(RiskPointDevice binding, Long productId) {
+    private Comparator<RuleDefinition> rulePriorityComparator(RiskPointDevice binding, ProductRuntimeContext productContext) {
         return Comparator
-                .comparingInt((RuleDefinition rule) -> scopePriority(rule, binding, productId))
+                .comparingInt((RuleDefinition rule) -> scopePriority(rule, binding, productContext))
                 .thenComparingInt(rule -> RiskPolicyDecision.fromRule(rule).getPriority())
                 .thenComparing(RuleDefinition::getId, Comparator.nullsLast(Long::compareTo));
     }
@@ -107,12 +119,24 @@ public class RiskPolicyResolver {
         return rules == null ? Collections.emptyList() : rules;
     }
 
-    private Long resolveProductId(RiskPointDevice binding) {
+    private ProductRuntimeContext resolveProductContext(RiskPointDevice binding) {
         if (binding == null || binding.getDeviceId() == null || deviceMapper == null) {
-            return null;
+            return ProductRuntimeContext.EMPTY;
         }
         Device device = deviceMapper.selectById(binding.getDeviceId());
-        return device == null ? null : device.getProductId();
+        if (device == null || device.getProductId() == null) {
+            return ProductRuntimeContext.EMPTY;
+        }
+        String productType = null;
+        if (productMapper != null) {
+            Product product = productMapper.selectById(device.getProductId());
+            if (product != null) {
+                productType = DeviceBindingCapabilitySupport
+                        .resolve(product.getProductKey(), product.getProductName())
+                        .name();
+            }
+        }
+        return new ProductRuntimeContext(device.getProductId(), productType);
     }
 
     private boolean matchesMetric(RuleDefinition rule, RiskPointDevice binding) {
@@ -128,7 +152,7 @@ public class RiskPolicyResolver {
                 && rule.getMetricIdentifier().trim().equals(binding.getMetricIdentifier().trim());
     }
 
-    private boolean matchesScope(RuleDefinition rule, RiskPointDevice binding, Long productId) {
+    private boolean matchesScope(RuleDefinition rule, RiskPointDevice binding, ProductRuntimeContext productContext) {
         String scope = normalizeScope(rule == null ? null : rule.getRuleScope());
         return switch (scope) {
             case "BINDING" -> binding != null
@@ -137,17 +161,21 @@ public class RiskPolicyResolver {
             case "DEVICE" -> binding != null
                     && binding.getDeviceId() != null
                     && binding.getDeviceId().equals(rule.getDeviceId());
-            case "PRODUCT" -> productId != null && productId.equals(rule.getProductId());
+            case "PRODUCT" -> productContext.productId() != null && productContext.productId().equals(rule.getProductId());
+            case "PRODUCT_TYPE" -> StringUtils.hasText(productContext.productType())
+                    && StringUtils.hasText(rule.getProductType())
+                    && productContext.productType().equalsIgnoreCase(rule.getProductType().trim());
             default -> true;
         };
     }
 
-    private int scopePriority(RuleDefinition rule, RiskPointDevice binding, Long productId) {
+    private int scopePriority(RuleDefinition rule, RiskPointDevice binding, ProductRuntimeContext productContext) {
         String scope = normalizeScope(rule == null ? null : rule.getRuleScope());
         return switch (scope) {
-            case "BINDING" -> 4;
-            case "DEVICE" -> 3;
-            case "PRODUCT" -> 2;
+            case "BINDING" -> 5;
+            case "DEVICE" -> 4;
+            case "PRODUCT" -> 3;
+            case "PRODUCT_TYPE" -> 2;
             default -> 1;
         };
     }
@@ -185,5 +213,9 @@ public class RiskPolicyResolver {
                 yield false;
             }
         };
+    }
+
+    private record ProductRuntimeContext(Long productId, String productType) {
+        private static final ProductRuntimeContext EMPTY = new ProductRuntimeContext(null, null);
     }
 }

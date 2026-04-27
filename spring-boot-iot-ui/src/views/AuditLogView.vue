@@ -3724,7 +3724,7 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 
 .audit-log-system-workbench {
   display: grid;
-  gap: 0.78rem;
+  gap: 0.62rem;
 }
 
 .audit-log-system-header {
@@ -3738,18 +3738,17 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   min-width: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--panel-bg) 92%, white 8%), color-mix(in srgb, var(--panel-bg) 98%, white 2%)),
-    var(--panel-bg);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-bg) 96%, white 4%);
 }
 
 .audit-log-system-header__summary-metric {
   position: relative;
   display: grid;
-  gap: 0.2rem;
+  align-content: start;
+  gap: 0.12rem;
   min-width: 0;
-  padding: 0.88rem 1rem 0.92rem;
+  padding: 0.68rem 0.86rem 0.72rem;
   background: transparent;
 }
 
@@ -3760,13 +3759,13 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 .audit-log-system-header__summary-metric--emphasis::before {
   content: '';
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
+  inset: 0 0 auto 0;
+  height: 2px;
   background: color-mix(in srgb, var(--brand) 74%, white 26%);
 }
 
 .audit-log-system-header__summary-metric--danger.audit-log-system-header__summary-metric--emphasis {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--el-color-danger-light-9) 64%, white 36%), transparent 52%);
+  background: color-mix(in srgb, var(--el-color-danger-light-9) 28%, transparent);
 }
 
 .audit-log-system-header__summary-metric--danger.audit-log-system-header__summary-metric--emphasis::before {
@@ -3774,7 +3773,7 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 }
 
 .audit-log-system-header__summary-metric--warning.audit-log-system-header__summary-metric--emphasis {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--el-color-warning-light-9) 68%, white 32%), transparent 52%);
+  background: color-mix(in srgb, var(--el-color-warning-light-9) 26%, transparent);
 }
 
 .audit-log-system-header__summary-metric--warning.audit-log-system-header__summary-metric--emphasis::before {
@@ -3790,28 +3789,29 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 
 .audit-log-system-header__summary-label {
   color: var(--text-caption);
-  font-size: 0.73rem;
-  line-height: 1.3;
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 
 .audit-log-system-header__summary-value {
   color: var(--text-heading);
-  font-size: 1.48rem;
-  line-height: 1.08;
+  font-size: 1.34rem;
+  font-weight: 600;
+  line-height: 1.04;
 }
 
 .audit-log-system-header__summary-meta {
   color: var(--text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.35;
+  font-size: 0.76rem;
+  line-height: 1.28;
 }
 
 .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench) {
-  gap: 0.68rem;
+  gap: 0.42rem;
 }
 
 .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tabs) {
-  gap: 1rem;
+  gap: 0.68rem;
   padding: 0;
   border: none;
   border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
@@ -3822,7 +3822,7 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab) {
   flex: 1 1 0;
   min-height: 0;
-  padding: 0.18rem 0.1rem 0.78rem;
+  padding: 0.08rem 0.08rem 0.54rem;
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;
@@ -3843,7 +3843,7 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
 }
 
 .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab-copy) {
-  gap: 0.18rem;
+  gap: 0.14rem;
 }
 
 .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tab-meta) {
@@ -3867,7 +3867,6 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   min-width: 0;
 }
 
-@media (max-width: 1180px) {
 @media (max-width: 960px) {
   .audit-log-system-header__summary-band {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3893,7 +3892,7 @@ watch(messageArchiveBatchDrawerVisible, (visible) => {
   }
 
   .audit-log-system-workbench :deep(.iot-access-tab-workspace--workbench .iot-access-tab-workspace__tabs) {
-    gap: 0.75rem;
+    gap: 0.62rem;
   }
 }
 

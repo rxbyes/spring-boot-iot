@@ -27,6 +27,18 @@ export interface RiskGovernanceGapItem {
   lastReportTime?: string | null;
 }
 
+export interface RiskGovernanceMissingPolicyProductMetricSummary {
+  productId?: IdType | null;
+  productKey?: string | null;
+  productName?: string | null;
+  riskMetricId?: IdType | null;
+  metricIdentifier?: string | null;
+  metricName?: string | null;
+  bindingCount?: number | null;
+  riskPointCount?: number | null;
+  deviceCount?: number | null;
+}
+
 export interface RiskMetricCatalogItem {
   id?: IdType | null;
   productId?: IdType | null;
@@ -229,6 +241,16 @@ export function listMissingPolicies(
     ? `/api/risk-governance/missing-policies?${queryString}`
     : '/api/risk-governance/missing-policies';
   return request<PageResult<RiskGovernanceGapItem>>(path, { method: 'GET' });
+}
+
+export function pageMissingPolicyProductMetricSummaries(
+  params: RiskGovernanceGapQuery = {}
+): Promise<ApiEnvelope<PageResult<RiskGovernanceMissingPolicyProductMetricSummary>>> {
+  const queryString = buildQueryString(params);
+  const path = queryString
+    ? `/api/risk-governance/missing-policies/product-metric-summaries?${queryString}`
+    : '/api/risk-governance/missing-policies/product-metric-summaries';
+  return request<PageResult<RiskGovernanceMissingPolicyProductMetricSummary>>(path, { method: 'GET' });
 }
 
 export function pageRiskMetricCatalogs(

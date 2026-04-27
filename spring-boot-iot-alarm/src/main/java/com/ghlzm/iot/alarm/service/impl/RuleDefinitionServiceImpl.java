@@ -9,6 +9,7 @@ import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionBatchAddResultVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
@@ -33,31 +34,68 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       @Override
       public PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel,
                                                      Integer status, String ruleScope, Long productId,
+                                                     String productType,
                                                      Long pageNum, Long pageSize) {
             Page<RuleDefinition> page = new Page<>(pageNum, pageSize);
             Page<RuleDefinition> result = page(page, buildWrapper(ruleName, metricIdentifier, alarmLevel, status,
-                    ruleScope, productId));
+                    ruleScope, productId, productType));
             return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
       }
 
       @Override
       public List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel,
-                                              Integer status, String ruleScope, Long productId) {
-            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status, ruleScope, productId));
+                                              Integer status, String ruleScope, Long productId, String productType) {
+            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status, ruleScope, productId, productType));
       }
 
       @Override
       public void addRule(RuleDefinition rule) {
             validateExecutableRule(rule);
             rule.setAlarmLevel(normalizeAlarmLevel(rule.getAlarmLevel()));
+            ensureNoDuplicateActiveRule(rule);
             rule.setDeleted(0);
             save(rule);
+      }
+
+      @Override
+      public RuleDefinitionBatchAddResultVO batchAddRules(List<RuleDefinition> rules) {
+            RuleDefinitionBatchAddResultVO result = new RuleDefinitionBatchAddResultVO();
+            if (rules == null || rules.isEmpty()) {
+                  return result;
+            }
+            if (rules.size() > 100) {
+                  throw new BizException("Batch add rule definitions cannot exceed 100 items");
+            }
+            result.setTotalCount(rules.size());
+            for (int index = 0; index < rules.size(); index += 1) {
+                  RuleDefinition rule = rules.get(index);
+                  RuleDefinitionBatchAddResultVO.Item item = new RuleDefinitionBatchAddResultVO.Item();
+                  item.setIndex(index);
+                  item.setRuleName(rule == null ? null : rule.getRuleName());
+                  item.setMetricIdentifier(rule == null ? null : rule.getMetricIdentifier());
+                  try {
+                        addRule(rule);
+                        item.setRuleId(rule.getId());
+                        item.setRuleName(rule.getRuleName());
+                        item.setMetricIdentifier(rule.getMetricIdentifier());
+                        item.setSuccess(true);
+                        item.setMessage("OK");
+                        result.setSuccessCount(result.getSuccessCount() + 1);
+                  } catch (RuntimeException error) {
+                        item.setSuccess(false);
+                        item.setMessage(error.getMessage());
+                        result.setFailedCount(result.getFailedCount() + 1);
+                  }
+                  result.getItems().add(item);
+            }
+            return result;
       }
 
       @Override
       public void updateRule(RuleDefinition rule) {
             validateExecutableRule(rule);
             rule.setAlarmLevel(normalizeAlarmLevel(rule.getAlarmLevel()));
+            ensureNoDuplicateActiveRule(rule);
             updateById(rule);
       }
 
@@ -68,7 +106,7 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
 
       private LambdaQueryWrapper<RuleDefinition> buildWrapper(String ruleName, String metricIdentifier,
                                                               String alarmLevel, Integer status,
-                                                              String ruleScope, Long productId) {
+                                                              String ruleScope, Long productId, String productType) {
             LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<>();
             if (StringUtils.hasText(ruleName)) {
                   wrapper.like(RuleDefinition::getRuleName, ruleName.trim());
@@ -87,6 +125,9 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             }
             if (productId != null) {
                   wrapper.eq(RuleDefinition::getProductId, productId);
+            }
+            if (StringUtils.hasText(productType)) {
+                  wrapper.eq(RuleDefinition::getProductType, productType.trim().toUpperCase(Locale.ROOT));
             }
             wrapper.eq(RuleDefinition::getDeleted, 0);
             wrapper.orderByDesc(RuleDefinition::getCreateTime);
@@ -153,18 +194,50 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
                         if (rule.getProductId() == null) {
                               throw new BizException("PRODUCT threshold policy must provide productId");
                         }
+                        rule.setProductType(null);
+                  }
+                  case "PRODUCT_TYPE" -> {
+                        if (!StringUtils.hasText(rule.getProductType())) {
+                              throw new BizException("PRODUCT_TYPE threshold policy must provide productType");
+                        }
+                        rule.setProductType(rule.getProductType().trim().toUpperCase(Locale.ROOT));
+                        rule.setProductId(null);
                   }
                   case "DEVICE" -> {
                         if (rule.getDeviceId() == null) {
                               throw new BizException("DEVICE threshold policy must provide deviceId");
                         }
+                        rule.setProductType(null);
                   }
                   case "BINDING" -> {
                         if (rule.getRiskPointDeviceId() == null) {
                               throw new BizException("BINDING threshold policy must provide riskPointDeviceId");
                         }
+                        rule.setProductType(null);
                   }
                   default -> throw new BizException("Unsupported threshold policy scope: " + scope);
+            }
+      }
+
+      private void ensureNoDuplicateActiveRule(RuleDefinition rule) {
+            LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<RuleDefinition>()
+                    .eq(RuleDefinition::getDeleted, 0)
+                    .eq(StringUtils.hasText(rule.getRuleScope()), RuleDefinition::getRuleScope, rule.getRuleScope())
+                    .eq(rule.getTenantId() != null, RuleDefinition::getTenantId, rule.getTenantId())
+                    .eq(StringUtils.hasText(rule.getMetricIdentifier()), RuleDefinition::getMetricIdentifier,
+                            rule.getMetricIdentifier())
+                    .ne(rule.getId() != null, RuleDefinition::getId, rule.getId());
+            switch (rule.getRuleScope()) {
+                  case "PRODUCT_TYPE" -> wrapper.eq(RuleDefinition::getProductType, rule.getProductType());
+                  case "PRODUCT" -> wrapper.eq(RuleDefinition::getProductId, rule.getProductId());
+                  case "DEVICE" -> wrapper.eq(RuleDefinition::getDeviceId, rule.getDeviceId());
+                  case "BINDING" -> wrapper.eq(RuleDefinition::getRiskPointDeviceId, rule.getRiskPointDeviceId());
+                  default -> {
+                  }
+            }
+            if (count(wrapper) > 0) {
+                  throw new BizException("Duplicate threshold policy exists for scope "
+                          + rule.getRuleScope() + " and metric " + rule.getMetricIdentifier());
             }
       }
 

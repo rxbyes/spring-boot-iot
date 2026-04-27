@@ -26,6 +26,7 @@ import com.ghlzm.iot.alarm.service.RiskGovernanceService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
+import com.ghlzm.iot.alarm.vo.RiskGovernanceMissingPolicyProductMetricSummaryVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceReleaseBatchDiffVO;
 import com.ghlzm.iot.alarm.vo.RiskMetricCatalogItemVO;
 import com.ghlzm.iot.common.exception.BizException;
@@ -212,6 +213,42 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                         deviceProductIds, productMap))
                 .toList();
         return toPage(items, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> pageMissingPolicyProductMetricSummaries(
+            RiskGovernanceGapQuery query) {
+        long pageNum = normalizePageNum(query);
+        long pageSize = normalizePageSize(query);
+        List<RiskPointDevice> bindings = listMissingPolicyBindings(query);
+        if (bindings.isEmpty()) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Product> productMap = loadProductsById(new LinkedHashSet<>(deviceProductIds.values()));
+        Map<String, MissingPolicyProductMetricAccumulator> accumulators = new LinkedHashMap<>();
+        for (RiskPointDevice binding : bindings) {
+            String metricKey = toMissingPolicyDimensionKey(binding);
+            if (!StringUtils.hasText(metricKey)) {
+                continue;
+            }
+            Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
+            String groupKey = (productId == null ? "unknown" : productId.toString()) + "#" + metricKey;
+            Product product = productId == null ? null : productMap.get(productId);
+            MissingPolicyProductMetricAccumulator accumulator = accumulators.computeIfAbsent(
+                    groupKey,
+                    key -> new MissingPolicyProductMetricAccumulator(productId, product, binding)
+            );
+            accumulator.add(binding);
+        }
+        List<RiskGovernanceMissingPolicyProductMetricSummaryVO> summaries = accumulators.values().stream()
+                .map(MissingPolicyProductMetricAccumulator::toVO)
+                .sorted(Comparator.comparingLong(RiskGovernanceMissingPolicyProductMetricSummaryVO::getBindingCount)
+                        .reversed()
+                        .thenComparing(item -> normalizeText(item.getProductName()), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(item -> normalizeText(item.getMetricIdentifier()), Comparator.nullsLast(String::compareTo)))
+                .toList();
+        return toPage(summaries, pageNum, pageSize);
     }
 
     @Override
@@ -1305,6 +1342,54 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return StringUtils.hasText(metricName) ? metricName.trim() : null;
     }
 
+    private static class MissingPolicyProductMetricAccumulator {
+        private final Long productId;
+        private final String productKey;
+        private final String productName;
+        private final Long riskMetricId;
+        private final String metricIdentifier;
+        private final String metricName;
+        private long bindingCount;
+        private final Set<Long> riskPointIds = new LinkedHashSet<>();
+        private final Set<Long> deviceIds = new LinkedHashSet<>();
+
+        MissingPolicyProductMetricAccumulator(Long productId, Product product, RiskPointDevice firstBinding) {
+            this.productId = productId;
+            this.productKey = product == null ? null : product.getProductKey();
+            this.productName = product == null ? null : product.getProductName();
+            this.riskMetricId = firstBinding == null ? null : firstBinding.getRiskMetricId();
+            this.metricIdentifier = firstBinding == null ? null : firstBinding.getMetricIdentifier();
+            this.metricName = firstBinding == null ? null : firstBinding.getMetricName();
+        }
+
+        void add(RiskPointDevice binding) {
+            if (binding == null) {
+                return;
+            }
+            bindingCount++;
+            if (binding.getRiskPointId() != null) {
+                riskPointIds.add(binding.getRiskPointId());
+            }
+            if (binding.getDeviceId() != null) {
+                deviceIds.add(binding.getDeviceId());
+            }
+        }
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO toVO() {
+            RiskGovernanceMissingPolicyProductMetricSummaryVO item = new RiskGovernanceMissingPolicyProductMetricSummaryVO();
+            item.setProductId(productId);
+            item.setProductKey(productKey);
+            item.setProductName(productName);
+            item.setRiskMetricId(riskMetricId);
+            item.setMetricIdentifier(metricIdentifier);
+            item.setMetricName(metricName);
+            item.setBindingCount(bindingCount);
+            item.setRiskPointCount((long) riskPointIds.size());
+            item.setDeviceCount((long) deviceIds.size());
+            return item;
+        }
+    }
+
     record ReleaseModelSnapshotItem(
             String modelType,
             String identifier,
@@ -1328,7 +1413,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         return query == null || query.getPageSize() == null || query.getPageSize() < 1 ? 10L : Math.min(query.getPageSize(), 100L);
     }
 
-    private PageResult<RiskGovernanceGapItemVO> toPage(List<RiskGovernanceGapItemVO> items, long pageNum, long pageSize) {
+    private <T> PageResult<T> toPage(List<T> items, long pageNum, long pageSize) {
         if (items == null || items.isEmpty()) {
             return PageResult.empty(pageNum, pageSize);
         }

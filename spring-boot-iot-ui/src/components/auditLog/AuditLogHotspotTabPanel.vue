@@ -493,15 +493,43 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 <style scoped>
 .audit-log-hotspot-workbench {
   display: grid;
-  gap: 0.82rem;
+  gap: 0.72rem;
+}
+
+.audit-log-slow-summary__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 4.5rem;
+  padding: 0.95rem 1rem;
+  border: 1px dashed color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-bg) 94%, white);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.audit-log-slow-summary__header > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.72rem;
+  padding: 0 0.56rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
+  color: var(--text-caption);
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .audit-log-hotspot-workbench__focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.82rem 0.96rem;
+  gap: 0.82rem;
+  padding: 0.72rem 0.86rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 74%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 94%, white);
@@ -509,7 +537,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 
 .audit-log-hotspot-workbench__focus-copy {
   display: grid;
-  gap: 0.28rem;
+  gap: 0.22rem;
   min-width: 0;
 }
 
@@ -540,15 +568,15 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-hotspot-workbench__focus-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.38rem;
   justify-content: flex-end;
 }
 
 .audit-log-hotspot-workbench__focus-meta span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.78rem;
-  padding: 0 0.58rem;
+  min-height: 1.68rem;
+  padding: 0 0.54rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
@@ -558,7 +586,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 
 .audit-log-hotspot-master-table {
   display: grid;
-  gap: 0.62rem;
+  gap: 0.56rem;
 }
 
 .audit-log-hotspot-master-table__header,
@@ -575,14 +603,14 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 }
 
 .audit-log-hotspot-master-table__header {
-  padding: 0 0.82rem;
+  padding: 0 0.78rem;
   color: var(--text-caption);
   font-size: 0.76rem;
 }
 
 .audit-log-hotspot-master-table__row {
   min-height: 74px;
-  padding: 0.78rem 0.82rem;
+  padding: 0.72rem 0.78rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
@@ -658,8 +686,8 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-height: 26px;
-  padding: 0 0.68rem;
+  min-height: 1.66rem;
+  padding: 0 0.62rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
@@ -705,15 +733,17 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 
 .audit-log-hotspot-detail {
   display: grid;
-  gap: 0.82rem;
-  padding: 1rem;
+  gap: 0.72rem;
+  padding: 0.92rem;
 }
 
 .audit-log-hotspot-detail__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.9rem;
+  padding-bottom: 0.72rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 82%, transparent);
 }
 
 .audit-log-hotspot-detail__header h3,
@@ -740,10 +770,10 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-slow-trend-drilldown,
 .audit-log-scheduled-task-ledger {
   display: grid;
-  gap: 0.78rem;
+  gap: 0.72rem;
   min-width: 0;
-  padding-top: 0.82rem;
-  border-top: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  padding-top: 0;
+  border-top: 0;
 }
 
 .audit-log-slow-span-drilldown__header,
@@ -792,20 +822,21 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-scheduled-task-ledger__header > span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.78rem;
-  padding: 0 0.58rem;
+  min-height: 1.72rem;
+  padding: 0 0.56rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-caption);
   font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .audit-log-slow-span-drilldown__list,
 .audit-log-slow-trend-drilldown__list,
 .audit-log-scheduled-task-ledger__list {
   display: grid;
-  gap: 0.62rem;
+  gap: 0.56rem;
 }
 
 .audit-log-slow-span-drilldown__item,
@@ -814,7 +845,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   display: grid;
   gap: 0.5rem;
   min-width: 0;
-  padding: 0.72rem 0.78rem;
+  padding: 0.68rem 0.74rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 66%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
@@ -842,12 +873,13 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-slow-trend-drilldown__title span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.78rem;
-  padding: 0 0.58rem;
+  min-height: 1.72rem;
+  padding: 0 0.56rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--el-color-primary-light-9) 78%, white);
   color: var(--text-secondary);
   font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .audit-log-slow-span-drilldown__meta,
@@ -863,8 +895,8 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
 .audit-log-scheduled-task-ledger__meta span {
   display: inline-flex;
   align-items: center;
-  min-height: 1.72rem;
-  padding: 0 0.54rem;
+  min-height: 1.66rem;
+  padding: 0 0.52rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
@@ -900,7 +932,7 @@ const formatSlowTrendSummary = (row: SlowTrendRow) =>
   border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
-  padding: 0.9rem;
+  padding: 0.84rem;
 }
 
 @media (max-width: 1120px) {

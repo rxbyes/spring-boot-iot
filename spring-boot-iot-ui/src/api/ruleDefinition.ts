@@ -2,7 +2,7 @@ import { request } from './request';
 import { buildQueryString } from './query';
 import type { ApiEnvelope, IdType } from '../types/api';
 
-export type RuleDefinitionScope = 'METRIC' | 'PRODUCT' | 'DEVICE' | 'BINDING';
+export type RuleDefinitionScope = 'METRIC' | 'PRODUCT_TYPE' | 'PRODUCT' | 'DEVICE' | 'BINDING';
 
 /**
  * 阈值规则配置 API
@@ -13,6 +13,7 @@ export interface RuleDefinition {
       id: IdType;
       riskMetricId?: IdType | null;
       ruleScope?: RuleDefinitionScope | string | null;
+      productType?: string | null;
       productId?: IdType | null;
       deviceId?: IdType | null;
       riskPointDeviceId?: IdType | null;
@@ -41,6 +42,22 @@ export interface RuleDefinitionPageResult {
       records: RuleDefinition[];
 }
 
+export interface RuleDefinitionBatchAddItem {
+      index: number;
+      ruleId?: IdType | null;
+      ruleName?: string | null;
+      metricIdentifier?: string | null;
+      success?: boolean | null;
+      message?: string | null;
+}
+
+export interface RuleDefinitionBatchAddResult {
+      totalCount: number;
+      successCount: number;
+      failedCount: number;
+      items: RuleDefinitionBatchAddItem[];
+}
+
 // 获取规则列表
 export const getRuleList = (params?: {
       riskMetricId?: IdType;
@@ -49,6 +66,7 @@ export const getRuleList = (params?: {
       alarmLevel?: string;
       status?: number;
       ruleScope?: RuleDefinitionScope | string;
+      productType?: string;
       productId?: IdType;
 }): Promise<ApiEnvelope<RuleDefinition[]>> => {
       const queryString = buildQueryString(params);
@@ -64,6 +82,7 @@ export const pageRuleList = (params?: {
       alarmLevel?: string;
       status?: number;
       ruleScope?: RuleDefinitionScope | string;
+      productType?: string;
       productId?: IdType;
       pageNum?: number;
       pageSize?: number;
@@ -84,6 +103,10 @@ export const addRule = (data: Partial<RuleDefinition>): Promise<ApiEnvelope<Rule
 };
 
 // 更新规则
+export const addRuleBatch = (data: Array<Partial<RuleDefinition>>): Promise<ApiEnvelope<RuleDefinitionBatchAddResult>> => {
+      return request<RuleDefinitionBatchAddResult>('/api/rule-definition/batch-add', { method: 'POST', body: data });
+};
+
 export const updateRule = (data: Partial<RuleDefinition>): Promise<ApiEnvelope<RuleDefinition>> => {
       return request<RuleDefinition>('/api/rule-definition/update', { method: 'POST', body: data });
 };

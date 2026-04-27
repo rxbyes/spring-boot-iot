@@ -6,7 +6,8 @@
           <div>
             <h3>归档批次台账</h3>
           </div>
-          <div class="audit-log-archive-batch-ledger__filters">
+          <div class="audit-log-archive-batch-ledger__query-band">
+            <div class="audit-log-archive-batch-ledger__filters">
             <label class="audit-log-archive-batch-ledger__filter-field">
               <span>批次号</span>
               <input
@@ -88,6 +89,7 @@
             >
               重置
             </StandardButton>
+            </div>
           </div>
         </div>
         <span>{{ rows.length }} / {{ total }}</span>
@@ -453,7 +455,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   min-width: 18rem;
   display: flex;
   flex-direction: column;
-  gap: 0.82rem;
+  gap: 0.7rem;
 }
 
 .audit-log-archive-batch-ledger__header h3 {
@@ -464,14 +466,49 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 }
 
 .audit-log-archive-batch-ledger__header > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.72rem;
+  padding: 0 0.56rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, white);
   color: var(--text-caption);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.audit-log-slow-summary__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 4.5rem;
+  padding: 0.95rem 1rem;
+  border: 1px dashed color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-bg) 94%, white);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.audit-log-archive-batch-ledger__query-band {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.88rem 0.92rem 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-bg) 97%, white 3%), color-mix(in srgb, var(--panel-bg) 100%, transparent)),
+    var(--panel-bg);
+  box-shadow: 0 14px 24px -28px color-mix(in srgb, var(--brand) 24%, transparent);
 }
 
 .audit-log-archive-batch-ledger__filters {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.72rem;
   align-items: end;
 }
 
@@ -489,7 +526,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-batch-ledger__filter-field input,
 .audit-log-archive-batch-ledger__filter-field select {
   width: 100%;
-  min-height: 2.35rem;
+  min-height: 2.5rem;
   border: 1px solid var(--el-border-color);
   border-radius: 0.56rem;
   padding: 0.5rem 0.75rem;
@@ -501,7 +538,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   flex-direction: row;
   align-items: center;
   gap: 0.6rem;
-  min-height: 2.35rem;
+  min-height: 2.5rem;
 }
 
 .audit-log-archive-batch-ledger__filter-field--checkbox input {
@@ -512,8 +549,10 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-batch-ledger__filter-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.56rem;
   align-items: center;
+  padding-top: 0.72rem;
+  border-top: 1px solid color-mix(in srgb, var(--line-soft) 82%, transparent);
 }
 
 .audit-log-archive-batch-ledger__overview {
@@ -576,8 +615,8 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   align-items: center;
   gap: 0.56rem;
   width: fit-content;
-  min-height: 1.95rem;
-  padding: 0.5rem 0.76rem;
+  min-height: 1.78rem;
+  padding: 0.42rem 0.7rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
@@ -598,6 +637,7 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 .audit-log-archive-batch-ledger__latest-focus strong {
   color: inherit;
   font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .audit-log-archive-batch-ledger__latest-focus small,
@@ -691,8 +731,8 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-height: 26px;
-  padding: 0 0.68rem;
+  min-height: 1.66rem;
+  padding: 0 0.62rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-bg) 92%, white);
@@ -759,6 +799,10 @@ function handleFilterToggle(field: Extract<ArchiveFilterField, 'onlyAbnormal'>, 
 
   .audit-log-archive-batch-ledger__header > span {
     align-self: flex-start;
+  }
+
+  .audit-log-archive-batch-ledger__query-band {
+    padding-inline: 0.84rem;
   }
 
   .audit-log-archive-batch-ledger__filters {

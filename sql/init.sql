@@ -458,6 +458,7 @@ CREATE TABLE rule_definition (
   metric_identifier VARCHAR(64) NOT NULL COMMENT '测点标识符',
   metric_name VARCHAR(64) DEFAULT NULL COMMENT '测点名称',
   rule_scope VARCHAR(32) NOT NULL DEFAULT 'METRIC' COMMENT '策略作用域',
+  product_type VARCHAR(32) DEFAULT NULL COMMENT '产品类型模板',
   product_id BIGINT DEFAULT NULL COMMENT '产品ID',
   device_id BIGINT DEFAULT NULL COMMENT '设备ID',
   risk_point_device_id BIGINT DEFAULT NULL COMMENT '风险点设备绑定ID',
@@ -475,7 +476,11 @@ CREATE TABLE rule_definition (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
   PRIMARY KEY (id),
   KEY idx_metric_identifier (metric_identifier),
-  KEY idx_rule_definition_metric_catalog (risk_metric_id)
+  KEY idx_rule_definition_metric_catalog (risk_metric_id),
+  KEY idx_rule_definition_product_type_metric (product_type, risk_metric_id, metric_identifier),
+  KEY idx_rule_definition_product_metric (product_id, risk_metric_id, metric_identifier),
+  KEY idx_rule_definition_device_metric (device_id, risk_metric_id, metric_identifier),
+  KEY idx_rule_definition_binding_metric (risk_point_device_id, risk_metric_id, metric_identifier)
 ) COMMENT='阈值规则表';
 
 -- 表：iot_command_record

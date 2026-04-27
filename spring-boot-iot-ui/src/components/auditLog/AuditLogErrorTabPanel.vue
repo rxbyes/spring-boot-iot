@@ -1,6 +1,7 @@
 <template>
   <div data-testid="system-log-error-panel" class="audit-log-system-panel audit-log-system-panel--errors">
     <StandardListFilterHeader
+      class="audit-log-system-panel__filters"
       :model="searchForm"
       :show-advanced="showAdvancedFilters"
       show-advanced-toggle
@@ -239,7 +240,7 @@
     <section v-else class="audit-log-system-panel__detail-stage standard-list-surface">
       <div
         v-loading="loading"
-        class="audit-log-table-wrap"
+        class="audit-log-table-wrap audit-log-system-panel__detail-table-wrap"
         element-loading-text="正在刷新异常明细"
         element-loading-background="var(--loading-mask-bg)"
       >
@@ -285,7 +286,7 @@
         </el-table>
       </div>
 
-      <div v-if="pagination.total > 0" class="ops-pagination">
+      <div v-if="pagination.total > 0" class="ops-pagination audit-log-system-panel__pagination">
         <StandardPagination
           :current-page="pagination.pageNum"
           :page-size="pagination.pageSize"
@@ -426,15 +427,58 @@ function handleClusterRowClick(row: SystemErrorClusterRow) {
 </script>
 
 <style scoped>
+.audit-log-system-panel--errors {
+  --ops-filter-grid-gap: 0.72rem;
+  --ops-filter-actions-gap: 0.92rem;
+}
+
+.audit-log-system-panel__filters {
+  padding: 0.8rem 0.92rem 0.76rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-bg) 97%, white 3%), color-mix(in srgb, var(--panel-bg) 100%, transparent)),
+    var(--panel-bg);
+  box-shadow: 0 12px 22px -28px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+.audit-log-system-panel__filters :deep(.standard-list-filter-header__form) {
+  gap: 0;
+}
+
+.audit-log-system-panel__filters :deep(.standard-list-filter-header__advanced) {
+  margin-top: 0.7rem;
+  padding-top: 0.76rem;
+}
+
+.audit-log-system-panel__filters :deep(.standard-list-filter-header__actions-row--minimal) {
+  margin-top: 0.76rem;
+  padding-top: 0.72rem;
+  border-top: 1px solid color-mix(in srgb, var(--line-soft) 82%, transparent);
+}
+
+.audit-log-system-panel__filters :deep(.standard-list-filter-header__hint) {
+  margin-left: auto;
+}
+
+.audit-log-system-panel__filters :deep(.el-input__wrapper),
+.audit-log-system-panel__filters :deep(.el-select__wrapper) {
+  min-height: 2.5rem;
+}
+
+.audit-log-system-panel__filters + .audit-log-quick-search-tag {
+  margin-top: 0.52rem;
+}
+
 .audit-log-system-panel__cluster-context,
 .audit-log-system-panel__cluster-stage,
 .audit-log-system-panel__detail-stage {
-  margin-top: 0.88rem;
-  padding: 1rem;
+  margin-top: 0.6rem;
+  padding: 0.84rem 0.94rem;
 }
 
 .audit-log-system-panel__cluster-context {
-  padding-block: 0.82rem;
+  padding-block: 0.74rem;
 }
 
 .audit-log-system-panel__cluster-context-bar,
@@ -468,6 +512,38 @@ function handleClusterRowClick(row: SystemErrorClusterRow) {
   line-height: 1.5;
 }
 
+.audit-log-system-panel__cluster-stage :deep(.el-tag),
+.audit-log-system-panel__detail-stage :deep(.el-tag),
+.audit-log-quick-search-tag__chip {
+  min-height: 1.58rem;
+  padding-inline: 0.54rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-tag) {
+  border-width: 1px;
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-tag--danger) {
+  color: color-mix(in srgb, var(--el-color-danger) 74%, var(--text-heading) 26%);
+  border-color: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+  background: color-mix(in srgb, var(--el-color-danger-light-9) 54%, white 46%);
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-tag--success) {
+  color: color-mix(in srgb, var(--el-color-success) 74%, var(--text-heading) 26%);
+  border-color: color-mix(in srgb, var(--el-color-success) 12%, transparent);
+  background: color-mix(in srgb, var(--el-color-success-light-9) 54%, white 46%);
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-tag--info) {
+  color: color-mix(in srgb, var(--text-secondary) 86%, var(--text-heading) 14%);
+  border-color: color-mix(in srgb, var(--line-soft) 72%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 94%, white 6%);
+}
+
 .audit-log-system-panel__cluster-context-actions,
 .audit-log-system-panel__cluster-actions {
   display: flex;
@@ -484,6 +560,110 @@ function handleClusterRowClick(row: SystemErrorClusterRow) {
 .audit-log-system-panel__cluster-table-wrap,
 .audit-log-table-wrap {
   min-height: 160px;
+}
+
+.audit-log-system-panel__detail-stage {
+  padding-bottom: 0.72rem;
+}
+
+.audit-log-system-panel__detail-table-wrap {
+  min-height: 0;
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-table th.el-table__cell) {
+  padding-block: 0.58rem;
+  background: color-mix(in srgb, var(--panel-bg) 95%, white 5%);
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-table th.el-table__cell .cell) {
+  color: var(--text-caption);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-table td.el-table__cell) {
+  padding-block: 0.54rem;
+  border-bottom-color: color-mix(in srgb, var(--line-soft) 72%, transparent);
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-table td.el-table__cell .cell) {
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-table td.el-table__cell .cell .cell-emphasis),
+.audit-log-system-panel__detail-stage :deep(.el-table td.el-table__cell .cell strong) {
+  color: var(--text-heading);
+}
+
+.audit-log-system-panel__detail-stage :deep(.el-table__row:hover > td.el-table__cell) {
+  background: color-mix(in srgb, var(--brand) 2.5%, white 97.5%);
+}
+
+.audit-log-system-panel__detail-stage :deep(.standard-workbench-row-actions) {
+  --button-action-text: var(--text-secondary);
+  --button-action-hover-text: var(--brand);
+}
+
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table) {
+  gap: 0.42rem;
+}
+
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table > .standard-button),
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table > .standard-action-menu .standard-action-menu__trigger) {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table > .standard-button + .standard-button),
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table > .standard-button + .standard-action-menu),
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table > .standard-action-menu + .standard-button),
+.audit-log-system-panel__detail-stage :deep(.standard-row-actions--variant-table > .standard-action-menu + .standard-action-menu) {
+  margin-left: 0.08rem;
+  padding-left: 0.46rem;
+  border-left: 1px solid color-mix(in srgb, var(--line-soft) 72%, transparent);
+}
+
+.audit-log-system-panel__pagination {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.72rem;
+  margin-top: 0.6rem;
+  padding-top: 0.56rem;
+  border-top: 1px solid color-mix(in srgb, var(--line-soft) 68%, transparent);
+}
+
+.audit-log-system-panel__pagination :deep(.standard-pagination) {
+  --el-pagination-button-bg-color: transparent;
+  --el-pagination-button-color: var(--text-secondary);
+  --el-pagination-hover-color: var(--brand);
+  font-size: 0.82rem;
+}
+
+.audit-log-system-panel__pagination :deep(.standard-pagination .btn-prev),
+.audit-log-system-panel__pagination :deep(.standard-pagination .btn-next),
+.audit-log-system-panel__pagination :deep(.standard-pagination .el-pager li) {
+  min-width: 1.95rem;
+  height: 1.95rem;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.audit-log-system-panel__pagination :deep(.standard-pagination .el-pager li) {
+  color: var(--text-secondary);
+}
+
+.audit-log-system-panel__pagination :deep(.standard-pagination .el-pager li.is-active) {
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, white 90%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.audit-log-system-panel__pagination :deep(.standard-pagination .el-pagination__total),
+.audit-log-system-panel__pagination :deep(.standard-pagination .el-pagination__jump),
+.audit-log-system-panel__pagination :deep(.standard-pagination .el-pagination__sizes) {
+  color: var(--text-tertiary);
 }
 
 .audit-log-cluster-cell {
@@ -521,6 +701,11 @@ function handleClusterRowClick(row: SystemErrorClusterRow) {
 }
 
 @media (max-width: 960px) {
+  .audit-log-system-panel__filters :deep(.standard-list-filter-header__hint) {
+    margin-left: 0;
+    width: 100%;
+  }
+
   .audit-log-system-panel__cluster-context-bar,
   .audit-log-system-panel__stage-header {
     flex-direction: column;
@@ -529,6 +714,10 @@ function handleClusterRowClick(row: SystemErrorClusterRow) {
   .audit-log-system-panel__cluster-context-actions,
   .audit-log-system-panel__cluster-actions {
     width: 100%;
+  }
+
+  .audit-log-system-panel__pagination {
+    justify-content: flex-start;
   }
 }
 </style>

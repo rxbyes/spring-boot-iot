@@ -1900,7 +1900,7 @@ describe('AuditLogView', () => {
       .find((column) => column.attributes('data-label') === '操作');
 
     expect(actionColumn?.attributes('data-class-name')).toBe('standard-row-actions-column');
-    expect(actionColumn?.attributes('data-width')).toBe('200');
+    expect(actionColumn?.attributes('data-width')).toBe('240');
   });
 
   it('keeps business mode list-first without the anomaly strip', async () => {
