@@ -201,7 +201,8 @@ function createRuleRow() {
     notificationMethods: 'email,sms',
     convertToEvent: 1,
     status: 0,
-    remark: 'desc'
+    remark: 'desc',
+    createTime: '2026-04-28T00:10:00Z'
   };
 }
 
@@ -709,7 +710,38 @@ describe('RuleDefinitionView', () => {
 
     expect(source).toContain('rule-definition-table-ellipsis');
     expect(source).toContain(':title="getRuleScopeTargetText(row)"');
+    expect(source).toContain(':title="getMetricDisplayText(row)"');
+    expect(source).toContain(':title="formatDateTime(row.createTime)"');
     expect(source).toContain('text-overflow: ellipsis;');
+  });
+
+  it('builds clearer chinese threshold names, one-line metrics and a wider action column', async () => {
+    const rule = {
+      ...createRuleRow(),
+      ruleScope: 'PRODUCT',
+      metricName: '褰撳墠闆ㄩ噺',
+      metricIdentifier: 'value',
+      alarmLevel: 'red'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [rule]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).getMetricDisplayText(rule)).toBe('褰撳墠闆ㄩ噺（value）');
+    expect((wrapper.vm as any).getRuleDisplayName(rule)).toContain('产品默认');
+    expect((wrapper.vm as any).getRuleDisplayName(rule)).toContain('褰撳墠闆ㄩ噺');
+    expect((wrapper.vm as any).getRuleDisplayName(rule)).toContain('阈值');
+    expect((wrapper.vm as any).ruleActionColumnWidth).toBeGreaterThanOrEqual(200);
   });
 
   it('clears incompatible scope when switching to system template view', async () => {

@@ -311,7 +311,13 @@
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="48" />
-            <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="180" />
+            <StandardTableTextColumn prop="ruleName" label="规则名称" :min-width="200">
+              <template #default="{ row }">
+                <span class="rule-definition-table-ellipsis" :title="getRuleNameTitle(row)">
+                  {{ getRuleDisplayName(row) }}
+                </span>
+              </template>
+            </StandardTableTextColumn>
             <el-table-column prop="ruleScope" label="策略范围" width="120">
               <template #default="{ row }">
                 <el-tag :type="getRuleScopeTagType(row.ruleScope)" round>{{ getRuleScopeText(row.ruleScope) }}</el-tag>
@@ -324,14 +330,11 @@
                 </span>
               </template>
             </el-table-column>
-            <StandardTableTextColumn prop="metricName" label="测点" :min-width="180">
+            <StandardTableTextColumn prop="metricName" label="测点" :min-width="220">
               <template #default="{ row }">
-                {{ row.metricName || row.metricIdentifier || '--' }}
-              </template>
-              <template #secondary="{ row }">
-                <template v-if="row.metricName && row.metricIdentifier && row.metricName !== row.metricIdentifier">
-                  {{ row.metricIdentifier }}
-                </template>
+                <span class="rule-definition-table-ellipsis" :title="getMetricDisplayText(row)">
+                  {{ getMetricDisplayText(row) }}
+                </span>
               </template>
             </StandardTableTextColumn>
             <StandardTableTextColumn prop="expression" label="表达式" :min-width="220" />
@@ -353,7 +356,13 @@
                 <el-tag :type="getStatusType(row.status)" round>{{ getStatusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <StandardTableTextColumn prop="createTime" label="创建时间" :width="180" />
+            <StandardTableTextColumn prop="createTime" label="创建时间" :width="180">
+              <template #default="{ row }">
+                <span class="rule-definition-table-ellipsis" :title="formatDateTime(row.createTime)">
+                  {{ formatDateTime(row.createTime) }}
+                </span>
+              </template>
+            </StandardTableTextColumn>
             <el-table-column
               label="操作"
               :width="ruleActionColumnWidth"
@@ -640,6 +649,7 @@ import {
   type AlarmLevelOption
 } from '@/utils/alarmLevel';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { formatDateTime } from '@/utils/format';
 import { normalizeOptionalId, sameId } from '@/utils/id';
 import {
   listMissingPolicies,
@@ -702,6 +712,7 @@ const ruleActionColumnWidth = resolveWorkbenchActionColumnWidth({
     { command: 'edit', label: '编辑' },
     { command: 'delete', label: '删除' }
   ],
+  minWidth: 200
 });
 
 const filters = reactive({
@@ -851,6 +862,36 @@ const getScopeViewText = (scopeView?: string | null) => {
 
 const getRuleScopeText = (scope?: string | null) => getRuleScopeOption(scope).label;
 const getRuleScopeTagType = (scope?: string | null) => getRuleScopeOption(scope).tagType;
+
+const getCompactRuleScopeText = (scope?: string | null) =>
+  getRuleScopeText(scope).replace(/（.*?）/g, '');
+
+const getMetricNameText = (row: RuleDefinition) =>
+  String(row.metricName || row.metricIdentifier || '未命名测点').trim();
+
+const getMetricDisplayText = (row: RuleDefinition) => {
+  const metricName = String(row.metricName || '').trim();
+  const metricIdentifier = String(row.metricIdentifier || '').trim();
+  if (metricName && metricIdentifier && metricName !== metricIdentifier) {
+    return `${metricName}（${metricIdentifier}）`;
+  }
+  return metricName || metricIdentifier || '--';
+};
+
+const getRuleDisplayName = (row: RuleDefinition) => {
+  const metricName = getMetricNameText(row);
+  const alarmLevelText = getAlarmLevelText(row.alarmLevel, alarmLevelOptions.value);
+  const normalizedAlarmLevelText = alarmLevelText && alarmLevelText !== '未标注' ? ` ${alarmLevelText}` : '';
+  return `${getCompactRuleScopeText(row.ruleScope)}：${metricName}${normalizedAlarmLevelText}阈值`;
+};
+
+const getRuleNameTitle = (row: RuleDefinition) => {
+  const displayName = getRuleDisplayName(row);
+  const originalName = String(row.ruleName || '').trim();
+  return originalName && originalName !== displayName
+    ? `${displayName}（原名称：${originalName}）`
+    : displayName;
+};
 
 const getProductTypeText = (type?: string | null) => {
   const normalized = String(type || '').toUpperCase();

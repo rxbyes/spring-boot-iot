@@ -654,6 +654,35 @@ describe('MessageTraceView', () => {
     expect(continuity.text()).toContain('来自对象洞察台');
     expect(continuity.text()).toContain('当前正在补 latest 链路');
     expect(continuity.text()).toContain('主链路证据已接住');
+    const priorityGuide = wrapper.find('[data-testid="message-trace-detail-priority-guide"]');
+    expect(priorityGuide.exists()).toBe(true);
+    expect(priorityGuide.text()).toContain('先看');
+    expect(priorityGuide.text()).toContain('时间线状态');
+    expect(priorityGuide.text()).toContain('再看');
+    expect(priorityGuide.text()).toContain('Payload 对照');
+    expect(wrapper.find('[data-testid="message-trace-detail-summary-stage"]').classes()).toContain(
+      'message-trace-detail-workbench__stage--contextual'
+    );
+    expect(wrapper.find('[data-testid="message-trace-detail-timeline-stage"]').classes()).toContain(
+      'message-trace-detail-workbench__stage--evidence-primary'
+    );
+    expect(wrapper.find('[data-testid="message-trace-detail-payload-stage"]').classes()).toContain(
+      'message-trace-detail-workbench__stage--evidence-secondary'
+    );
+    expect(wrapper.find('[data-testid="message-trace-detail-timeline-stage"]').text()).toContain('先看时间线状态和处理节点，确认 latest 写入落在哪一段。');
+    expect(wrapper.find('[data-testid="message-trace-detail-payload-stage"]').text()).toContain('再核对 latest 写入前后的原始、解密和解析差异。');
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-status"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--spotlight'
+    );
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-steps"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--spotlight'
+    );
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-owner"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--context'
+    );
+    expect(wrapper.find('[data-testid="message-trace-timeline-card-storage"]').classes()).toContain(
+      'message-trace-detail-workbench__timeline-card--context'
+    );
 
     await findButtonByText(wrapper, '回对象洞察继续排查')!.trigger('click');
     await flushPromises();
