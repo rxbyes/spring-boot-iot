@@ -19,31 +19,40 @@
             <p>先确认当前要替换的是哪台设备，避免误把同产品下的其他库存设备停用。</p>
           </div>
         </div>
+
         <div class="device-replace-summary-grid">
-          <div class="device-replace-summary-card">
-            <span>设备编码</span>
-            <strong>{{ device.deviceCode || '--' }}</strong>
-          </div>
-          <div class="device-replace-summary-card">
-            <span>设备名称</span>
-            <strong>{{ device.deviceName || '--' }}</strong>
-          </div>
-          <div class="device-replace-summary-card">
+          <article class="device-replace-summary-card device-replace-summary-card--identity">
+            <span>设备</span>
+            <strong>{{ device.deviceName || device.deviceCode || '--' }}</strong>
+            <small>{{ device.deviceCode || '--' }}</small>
+          </article>
+
+          <article class="device-replace-summary-card">
             <span>产品归属</span>
             <strong>{{ device.productKey || '--' }}</strong>
-          </div>
-          <div class="device-replace-summary-card">
+          </article>
+
+          <article class="device-replace-summary-card">
             <span>当前状态</span>
-            <strong>{{ device.deviceStatus === 0 ? '禁用' : '启用' }} / {{ device.onlineStatus === 1 ? '在线' : '离线' }}</strong>
-          </div>
-          <div class="device-replace-summary-card">
-            <span>当前父设备</span>
+            <div class="device-replace-summary-card__status-pills">
+              <el-tag :type="device.deviceStatus === 0 ? 'danger' : 'success'" effect="plain" round>
+                {{ device.deviceStatus === 0 ? '禁用' : '启用' }}
+              </el-tag>
+              <el-tag :type="device.onlineStatus === 1 ? 'success' : 'info'" effect="plain" round>
+                {{ device.onlineStatus === 1 ? '在线' : '离线' }}
+              </el-tag>
+            </div>
+          </article>
+
+          <article class="device-replace-summary-card">
+            <span>当前上级设备</span>
             <strong>{{ formatRelationValue(device.parentDeviceName, device.parentDeviceCode) }}</strong>
-          </div>
-          <div class="device-replace-summary-card">
+          </article>
+
+          <article class="device-replace-summary-card">
             <span>当前网关</span>
             <strong>{{ formatRelationValue(device.gatewayDeviceName, device.gatewayDeviceCode) }}</strong>
-          </div>
+          </article>
         </div>
       </section>
 
@@ -52,12 +61,19 @@
           <div class="device-replace-section__header">
             <div>
               <h3>新设备基础档案</h3>
-              <p>请填写新设备编码，并确认产品归属和设备名称。产品为空时会沿用原设备所属产品。</p>
+              <p>请填写新设备编码，并确认产品归属和设备名称。产品留空时会沿用原设备所属产品。</p>
             </div>
           </div>
+
           <div class="device-replace-grid">
             <el-form-item label="产品" prop="productKey">
-              <el-select v-model="formData.productKey" filterable clearable placeholder="留空沿用原设备产品" :loading="productLoading">
+              <el-select
+                v-model="formData.productKey"
+                filterable
+                clearable
+                placeholder="留空沿用原设备产品"
+                :loading="productLoading"
+              >
                 <el-option
                   v-for="product in productOptions"
                   :key="String(product.id)"
@@ -85,6 +101,7 @@
               <p>{{ relationHint }}</p>
             </div>
           </div>
+
           <div class="device-replace-grid">
             <el-form-item label="父设备" prop="parentDeviceId" class="device-replace-grid__full">
               <el-select
@@ -103,15 +120,16 @@
               </el-select>
             </el-form-item>
           </div>
+
           <div class="device-replace-summary-grid">
-            <div class="device-replace-summary-card">
+            <article class="device-replace-summary-card">
               <span>新设备父设备</span>
               <strong>{{ formatRelationValue(selectedParentOption?.deviceName, selectedParentOption?.deviceCode) }}</strong>
-            </div>
-            <div class="device-replace-summary-card">
+            </article>
+            <article class="device-replace-summary-card">
               <span>预计关联网关</span>
               <strong>{{ gatewayPreview }}</strong>
-            </div>
+            </article>
           </div>
         </section>
 
@@ -122,6 +140,7 @@
               <p>默认沿用原设备的认证字段，并把新设备设置为可用状态。若现场未完成安装，可先切换为未激活或禁用。</p>
             </div>
           </div>
+
           <div class="device-replace-grid">
             <el-form-item label="激活状态" prop="activateStatus">
               <el-radio-group v-model="formData.activateStatus">
@@ -163,6 +182,7 @@
               <p>metadataJson 可继续补充站点、批次、责任人等信息。系统会自动补入替换来源和替换时间。</p>
             </div>
           </div>
+
           <div class="device-replace-grid">
             <el-form-item label="metadataJson" prop="metadataJson" class="device-replace-grid__full">
               <el-input
@@ -276,9 +296,7 @@ const resolvedProduct = computed(
   () => props.productOptions.find((product) => product.productKey === resolvedProductKey.value) ?? null
 )
 const selectedNodeType = computed(() => resolvedProduct.value?.nodeType ?? props.device?.nodeType ?? null)
-const deviceOptionMap = computed(
-  () => new Map(props.deviceOptions.map((option) => [normalizeId(option.id), option]))
-)
+const deviceOptionMap = computed(() => new Map(props.deviceOptions.map((option) => [normalizeId(option.id), option])))
 const parentDeviceOptions = computed(() =>
   props.deviceOptions.filter((option) => normalizeId(option.id) !== normalizedDeviceId.value)
 )
@@ -522,10 +540,14 @@ function resolveGatewayPreview() {
   gap: 14px 16px;
 }
 
+.device-replace-grid__full {
+  grid-column: 1 / -1;
+}
+
 .device-replace-summary-card {
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: 0.34rem;
+  padding: 0.9rem 1rem;
   border-radius: calc(var(--radius-md) + 2px);
   border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
   background: rgba(248, 251, 255, 0.92);
@@ -538,16 +560,25 @@ function resolveGatewayPreview() {
 
 .device-replace-summary-card strong {
   color: var(--text-heading);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
-.device-replace-grid :deep(.el-form-item) {
-  margin-bottom: 0;
+.device-replace-summary-card small {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
-.device-replace-grid__full {
-  grid-column: 1 / -1;
+.device-replace-summary-card--identity {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.94)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 42%);
+}
+
+.device-replace-summary-card__status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 @media (max-width: 900px) {

@@ -9,9 +9,12 @@
   >
     <div class="device-capability-execute-drawer">
       <section class="device-capability-execute-drawer__summary">
-        <article class="device-capability-execute-drawer__summary-card">
+        <article class="device-capability-execute-drawer__summary-card device-capability-execute-drawer__summary-card--identity">
           <span>设备编码</span>
           <strong>{{ deviceCode || '--' }}</strong>
+          <div class="device-capability-execute-drawer__summary-meta">
+            <small>{{ capability?.name || '--' }}</small>
+          </div>
         </article>
         <article class="device-capability-execute-drawer__summary-card">
           <span>能力分组</span>
@@ -928,7 +931,7 @@ function normalizeDraftValue(entry: CapabilitySchemaEntry, value: unknown) {
 
 .device-capability-execute-drawer__summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -940,6 +943,12 @@ function normalizeDraftValue(entry: CapabilitySchemaEntry, value: unknown) {
   border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
   border-radius: calc(var(--radius-md) + 2px);
   background: rgba(248, 251, 255, 0.94);
+}
+
+.device-capability-execute-drawer__summary-card--identity {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.95)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 9%, transparent), transparent 38%);
 }
 
 .device-capability-execute-drawer__summary-card span,
@@ -954,6 +963,18 @@ function normalizeDraftValue(entry: CapabilitySchemaEntry, value: unknown) {
   font-size: 14px;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.device-capability-execute-drawer__summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+}
+
+.device-capability-execute-drawer__summary-meta small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .device-capability-execute-drawer__templates {

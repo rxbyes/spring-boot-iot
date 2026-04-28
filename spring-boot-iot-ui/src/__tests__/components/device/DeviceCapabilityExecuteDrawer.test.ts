@@ -131,7 +131,7 @@ describe('DeviceCapabilityExecuteDrawer', () => {
     window.localStorage.clear()
   })
 
-  it('renders quick parameter templates for schema-driven capability execution', () => {
+  it('renders an identity-first summary for schema-driven capability execution', () => {
     const wrapper = mountDrawer({
       code: 'broadcast_play',
       name: '播放内容',
@@ -149,6 +149,8 @@ describe('DeviceCapabilityExecuteDrawer', () => {
     expect(wrapper.text()).toContain('演示模板')
     expect(wrapper.text()).toContain('设备编码')
     expect(wrapper.text()).toContain('6260370286')
+    expect(wrapper.html()).toContain('device-capability-execute-drawer__summary-card--identity')
+    expect(wrapper.html()).toContain('device-capability-execute-drawer__summary-meta')
     expect(wrapper.findAll('input.el-input-stub')).toHaveLength(2)
     expect(wrapper.find('input.el-input-number-stub').exists()).toBe(true)
   })

@@ -122,6 +122,8 @@ describe('DeviceCapabilityWorkbenchDrawer', () => {
     expect(wrapper.text()).toContain('在线 / 已激活 / 启用')
     expect(wrapper.text()).toContain('WARNING')
     expect(wrapper.text()).toContain('1')
+    expect(wrapper.html()).toContain('device-capability-workbench-drawer__summary-card--identity')
+    expect(wrapper.html()).toContain('device-capability-workbench-drawer__summary-meta')
   })
 
   it('emits execute and refresh commands from the inner capability panel and closes from the footer', async () => {

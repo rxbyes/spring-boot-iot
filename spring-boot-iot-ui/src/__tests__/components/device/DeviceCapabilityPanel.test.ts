@@ -134,6 +134,12 @@ describe('DeviceCapabilityPanel', () => {
     expect(wrapper.text()).toContain('CMD-001')
     expect(wrapper.text()).toContain('执行成功')
 
+    expect(wrapper.html()).toContain('device-capability-panel__summary-card--primary')
+    expect(wrapper.html()).toContain('device-capability-panel__summary-meta')
+    expect(wrapper.html()).toContain('device-capability-panel__group-count-pill')
+    expect(wrapper.html()).toContain('device-capability-panel__command-stage-header')
+    expect(wrapper.html()).toContain('device-capability-panel__command-status-pill')
+
     const playButton = wrapper
       .findAll('button.standard-button-stub')
       .find((button) => button.text() === '播放内容')

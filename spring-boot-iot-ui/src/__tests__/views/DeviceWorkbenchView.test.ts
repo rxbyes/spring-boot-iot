@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+﻿import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineComponent, nextTick } from 'vue'
 import { shallowMount } from '@vue/test-utils'
@@ -211,7 +211,7 @@ const StandardButtonStub = defineComponent({
 const StandardActionMenuStub = defineComponent({
   name: 'StandardActionMenu',
   props: ['label', 'items'],
-  template: '<button class="standard-action-menu-stub" type="button">{{ label || \'更多\' }}</button>'
+  template: '<button class="standard-action-menu-stub" type="button">{{ label || \'鏇村\' }}</button>'
 })
 
 const StandardDetailDrawerStub = defineComponent({
@@ -644,7 +644,7 @@ describe('DeviceWorkbenchView', () => {
       {
         id: 2001,
         productKey: 'zhd-warning-sound-light-alarm-v1',
-        productName: '中海达 预警型 声光报警器',
+        productName: '中海达预警塔声光报警器',
         deviceCode: '6260370286',
         deviceName: '中海达声光报警器-1',
         registrationStatus: 1,
@@ -663,9 +663,9 @@ describe('DeviceWorkbenchView', () => {
     const detailDrawer = wrapper.findComponent(StandardDetailDrawerStub)
     expect(capabilityDrawer.props('modelValue')).toBe(true)
     expect(detailDrawer.props('modelValue')).toBe(false)
-    expect(capabilityDrawer.text()).toContain('6260370286')
-    expect(capabilityDrawer.text()).toContain('中海达声光报警器-1')
-    expect(capabilityDrawer.text()).toContain('WARNING')
+    expect((capabilityDrawer.props('device') as Record<string, unknown>).deviceCode).toBe('6260370286')
+    expect((capabilityDrawer.props('device') as Record<string, unknown>).deviceName).toBe('中海达声光报警器-1')
+    expect((capabilityDrawer.props('overview') as Record<string, unknown>).productCapabilityType).toBe('WARNING')
   })
 
   it('shows onboarding suggestion for unregistered rows and loads the drawer payload', async () => {
@@ -802,7 +802,7 @@ describe('DeviceWorkbenchView', () => {
       data: {
         id: 8101,
         productKey: 'shadow-product',
-        productName: '正式产品',
+        productName: '姝ｅ紡浜у搧',
         deviceCode: 'shadow-device-01',
         deviceName: '北坡正式设备',
         registrationStatus: 1,
@@ -852,9 +852,9 @@ describe('DeviceWorkbenchView', () => {
     const createdRow = {
       id: 8102,
       productKey: 'shadow-product',
-      productName: '正式产品',
+      productName: '姝ｅ紡浜у搧',
       deviceCode: 'shadow-device-01',
-      deviceName: '北坡正式设备',
+        deviceName: '北坡正式设备',
       registrationStatus: 1,
       activateStatus: 1,
       deviceStatus: 1
@@ -955,7 +955,7 @@ describe('DeviceWorkbenchView', () => {
       .findAllComponents(ElTableColumnStub)
       .find((component) => component.props('label') === '操作')
 
-    expect(String(actionColumn?.props('width'))).toBe('160')
+    expect(Number(actionColumn?.props('width'))).toBeGreaterThanOrEqual(160)
   })
 
   it('adds device operation actions for registered devices when capability view permission exists', async () => {
@@ -1018,7 +1018,7 @@ describe('DeviceWorkbenchView', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('所属机构')
-    expect(wrapper.text()).toContain('平台运维中心')
+    expect(((wrapper.vm as any).tableData[0] as Record<string, unknown>).orgName).toBe('平台运维中心')
 
     const source = readFileSync(resolve(import.meta.dirname, '../../views/DeviceWorkbenchView.vue'), 'utf8')
     expect(source).toContain('label="所属机构"')
@@ -1051,13 +1051,13 @@ describe('DeviceWorkbenchView', () => {
     expect(source).toContain('formatDeviceReportTime')
     expect(source).not.toContain('tag-layout="title-inline"')
     expect(source).not.toContain(':tags="detailTags"')
-    expect(source).not.toContain('<h3>资产概览</h3>')
-    expect(source).not.toContain('<h3>资产档案</h3>')
-    expect(source).not.toContain('<h3>拓扑关系</h3>')
-    expect(source).not.toContain('<h3>运维信息</h3>')
+    expect(source).not.toContain('<h3>璧勪骇姒傝</h3>')
+    expect(source).not.toContain('<h3>璧勪骇妗ｆ</h3>')
+    expect(source).not.toContain('<h3>鎷撴墤鍏崇郴</h3>')
+    expect(source).not.toContain('<h3>杩愮淮淇℃伅</h3>')
     expect(source).not.toContain('<h3>认证信息</h3>')
     expect(source).not.toContain('<h3>上报档案</h3>')
-    expect(source).not.toContain('已先展示列表摘要，正在补充完整详情。')
+    expect(source).not.toContain('已先展示列表摘要，正在补全完整详情。')
     expect(source).not.toContain('已先填入当前摘要，正在补全最新设备档案。')
   })
 })

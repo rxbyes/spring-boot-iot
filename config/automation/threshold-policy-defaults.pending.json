@@ -1,7 +1,7 @@
 {
   "description": "Draft threshold policy templates generated from real-environment dry-run gaps. Fill expression values before using this as --config-path for apply.",
-  "generatedAt": "2026-04-27T23:51:57",
-  "sourceReport": "E:\\idea\\ghatg\\spring-boot-iot\\logs\\acceptance\\threshold-policy-backfill-20260427-235157.json",
+  "generatedAt": "2026-04-28T00:36:35",
+  "sourceReport": "E:\\idea\\ghatg\\spring-boot-iot\\logs\\acceptance\\threshold-policy-backfill-20260428-003635.json",
   "defaultDuration": 0,
   "defaultAlarmLevel": "orange",
   "defaultNotificationMethods": "",
@@ -39,10 +39,20 @@
           "zhd-monitor-tiltmeter-v1",
           "zhd-warning-sound-light-alarm-v1"
         ],
-        "latestAt": "2026-04-28 07:41:02",
+        "latestAt": "2026-04-28 08:20:38",
         "min": -4.65,
         "max": 41.98,
-        "avg": 1.246953
+        "avg": 1.246956,
+        "p95": 3.83,
+        "p99": 41.96
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -5.58",
+        "recommendedUpperExpression": "value >= 50.376",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -104,10 +114,20 @@
           "zhd-monitor-tiltmeter-v1",
           "zhd-warning-sound-light-alarm-v1"
         ],
-        "latestAt": "2026-04-28 07:41:02",
+        "latestAt": "2026-04-28 08:20:38",
         "min": -5.14,
         "max": 3.97,
-        "avg": -0.325157
+        "avg": -0.328862,
+        "p95": 1.86,
+        "p99": 3.92
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -6.168",
+        "recommendedUpperExpression": "value >= 4.764",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -169,10 +189,20 @@
           "zhd-monitor-tiltmeter-v1",
           "zhd-warning-sound-light-alarm-v1"
         ],
-        "latestAt": "2026-04-28 07:41:02",
-        "min": -1.6264,
+        "latestAt": "2026-04-28 08:20:38",
+        "min": -1.6562,
         "max": 89.85,
-        "avg": 43.349955
+        "avg": 43.343174,
+        "p95": 89.22,
+        "p99": 89.64
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -1.98744",
+        "recommendedUpperExpression": "value >= 107.82",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -234,10 +264,20 @@
           "zhd-monitor-tiltmeter-v1",
           "zhd-warning-sound-light-alarm-v1"
         ],
-        "latestAt": "2026-04-28 07:41:02",
+        "latestAt": "2026-04-28 08:20:38",
         "min": -79.83,
         "max": 60.25,
-        "avg": -1.440614
+        "avg": -1.471263,
+        "p95": 13.5,
+        "p99": 53.92
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -95.796",
+        "recommendedUpperExpression": "value >= 72.3",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -299,10 +339,20 @@
           "zhd-monitor-tiltmeter-v1",
           "zhd-warning-sound-light-alarm-v1"
         ],
-        "latestAt": "2026-04-28 07:41:02",
-        "min": -66.17,
+        "latestAt": "2026-04-28 08:20:38",
+        "min": -78.42,
         "max": 39.58,
-        "avg": -3.906506
+        "avg": -4.005827,
+        "p95": 19.33,
+        "p99": 34.67
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -94.104",
+        "recommendedUpperExpression": "value >= 47.496",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -364,10 +414,20 @@
           "zhd-monitor-tiltmeter-v1",
           "zhd-warning-sound-light-alarm-v1"
         ],
-        "latestAt": "2026-04-28 07:41:02",
+        "latestAt": "2026-04-28 08:20:38",
         "min": -999.0,
-        "max": 1.3438,
-        "avg": -9.018501
+        "max": 1.58,
+        "avg": -9.020178,
+        "p95": 0.3751,
+        "p99": 1.3438
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -1198.8",
+        "recommendedUpperExpression": "value >= 1.896",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -438,9 +498,19 @@
           "zhd-monitor-multi-displacement-v1"
         ],
         "latestAt": "2026-04-28 05:55:00",
-        "min": -3.04,
+        "min": -3.13,
         "max": 1527.01,
-        "avg": 45.652888
+        "avg": 45.651474,
+        "p95": 4.85,
+        "p99": 1299.85
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -3.756",
+        "recommendedUpperExpression": "value >= 1832.412",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -496,10 +566,20 @@
         "productKeys": [
           "nf-monitor-laser-rangefinder-v1"
         ],
-        "latestAt": "2026-04-28 07:22:31",
+        "latestAt": "2026-04-28 08:12:31",
         "min": -0.2249,
         "max": 2473.72,
-        "avg": 968.187875
+        "avg": 968.187705,
+        "p95": 2473.72,
+        "p99": 2473.72
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -0.26988",
+        "recommendedUpperExpression": "value >= 2968.464",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -542,10 +622,20 @@
           "nf-monitor-gnss-monitor-v1",
           "zhd-monitor-gnss-monitor-v1"
         ],
-        "latestAt": "2026-04-28 07:01:50",
-        "min": -7.4915,
-        "max": 2589.837702,
-        "avg": 71.035493
+        "latestAt": "2026-04-28 08:00:23",
+        "min": -8.3658,
+        "max": 2590.854317,
+        "avg": 71.071192,
+        "p95": 13.78005,
+        "p99": 2590.854317
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -10.03896",
+        "recommendedUpperExpression": "value >= 3109.02518",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -593,10 +683,20 @@
           "nf-monitor-gnss-monitor-v1",
           "zhd-monitor-gnss-monitor-v1"
         ],
-        "latestAt": "2026-04-28 07:01:50",
-        "min": -2505.90405,
-        "max": 33.352635,
-        "avg": -68.361578
+        "latestAt": "2026-04-28 08:00:23",
+        "min": -2505.836617,
+        "max": 30.186683,
+        "avg": -68.424687,
+        "p95": 14.850833,
+        "p99": 30.186683
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -3007.00394",
+        "recommendedUpperExpression": "value >= 36.22402",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -644,10 +744,20 @@
           "nf-monitor-gnss-monitor-v1",
           "zhd-monitor-gnss-monitor-v1"
         ],
-        "latestAt": "2026-04-28 07:01:50",
-        "min": -84.548858,
-        "max": 1118.09682,
-        "avg": 29.087694
+        "latestAt": "2026-04-28 08:00:23",
+        "min": -84.54885,
+        "max": 1117.452574,
+        "avg": 29.080683,
+        "p95": 17.4507,
+        "p99": 1117.452574
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -101.45862",
+        "recommendedUpperExpression": "value >= 1340.943089",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -695,10 +805,20 @@
         "productKeys": [
           "nf-monitor-deep-displacement-v1"
         ],
-        "latestAt": "2026-04-27 23:47:28",
+        "latestAt": "2026-04-28 00:32:28",
         "min": -0.045,
         "max": 0.0169,
-        "avg": -0.02458
+        "avg": -0.02459,
+        "p95": 0.0169,
+        "p99": 0.0169
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -0.054",
+        "recommendedUpperExpression": "value >= 0.02028",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -741,10 +861,20 @@
         "productKeys": [
           "nf-monitor-deep-displacement-v1"
         ],
-        "latestAt": "2026-04-27 23:47:28",
+        "latestAt": "2026-04-28 00:32:28",
         "min": -0.0459,
-        "max": 0.0426,
-        "avg": 0.009344
+        "max": 0.0424,
+        "avg": 0.009322,
+        "p95": 0.0424,
+        "p99": 0.0424
+      },
+      "thresholdRecommendation": {
+        "status": "REQUIRES_MANUAL_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": "value <= -0.05508",
+        "recommendedUpperExpression": "value >= 0.05088",
+        "direction": "BIDIRECTIONAL_REVIEW",
+        "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -790,10 +920,20 @@
         "productKeys": [
           "nf-monitor-tipping-bucket-rain-gauge-v1"
         ],
-        "latestAt": "2026-04-27 23:47:48",
+        "latestAt": "2026-04-28 00:35:27",
         "min": 0.0,
         "max": 0.0,
-        "avg": 0.0
+        "avg": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      },
+      "thresholdRecommendation": {
+        "status": "FLAT_ZERO_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": null,
+        "recommendedUpperExpression": null,
+        "direction": "FLAT_ZERO",
+        "reason": "recent values are all zero; baseline threshold requires business review"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {
@@ -841,10 +981,20 @@
         "productKeys": [
           "nf-monitor-mud-level-meter-v1"
         ],
-        "latestAt": "2026-04-27 23:34:20",
+        "latestAt": "2026-04-28 00:14:20",
         "min": 0.0,
         "max": 0.0,
-        "avg": 0.0
+        "avg": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      },
+      "thresholdRecommendation": {
+        "status": "FLAT_ZERO_REVIEW",
+        "recommendedExpression": null,
+        "recommendedLowerExpression": null,
+        "recommendedUpperExpression": null,
+        "direction": "FLAT_ZERO",
+        "reason": "recent values are all zero; baseline threshold requires business review"
       },
       "confirmationStatus": "NEEDS_CONFIRMATION",
       "evidence": {

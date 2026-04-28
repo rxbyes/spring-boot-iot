@@ -7,10 +7,11 @@ import argparse
 import csv
 import copy
 import json
+import math
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -34,9 +35,47 @@ TEMPLATE_CONFIRMATION_CSV_FIELDS = [
     "productKeys",
     "rawIdentifiers",
     "metricAliases",
+    "recommendedExpression",
+    "recommendedLowerExpression",
+    "recommendedUpperExpression",
+    "recommendationStatus",
+    "recommendationDirection",
+    "recommendationReason",
+    "recommendationDecision",
     "expression",
     "confirmationStatus",
     "requiredActions",
+]
+TEMPLATE_OBSERVATION_CSV_FIELDS = [
+    "index",
+    "semanticTemplateKey",
+    "productType",
+    "metricIdentifier",
+    "metricName",
+    "observedRange",
+    "bindingCount",
+    "productCount",
+    "recommendationStatus",
+    "recommendationDirection",
+    "observationAction",
+    "nextReviewDays",
+    "requiredDecision",
+]
+TEMPLATE_MANUAL_DECISION_CSV_FIELDS = [
+    "index",
+    "semanticTemplateKey",
+    "productType",
+    "metricIdentifier",
+    "metricName",
+    "observedRange",
+    "bindingCount",
+    "productCount",
+    "recommendationStatus",
+    "observationAction",
+    "businessExpression",
+    "decisionStatus",
+    "reviewer",
+    "reviewComment",
 ]
 REQUIRED_TEMPLATE_CONFIRMATION_CSV_FIELDS = [
     "semanticTemplateKey",
@@ -848,22 +887,93 @@ def build_observed_value_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "latestAt": max(latest_values) if latest_values else None,
     }
     if numeric_values:
+        sorted_values = sorted(numeric_values)
+        p95_index = min(len(sorted_values) - 1, math.ceil(len(sorted_values) * 0.95) - 1)
+        p99_index = min(len(sorted_values) - 1, math.ceil(len(sorted_values) * 0.99) - 1)
         stats.update({
             "min": round(min(numeric_values), 6),
             "max": round(max(numeric_values), 6),
             "avg": round(sum(numeric_values) / len(numeric_values), 6),
+            "p95": round(sorted_values[p95_index], 6),
+            "p99": round(sorted_values[p99_index], 6),
         })
     else:
-        stats.update({"min": None, "max": None, "avg": None})
+        stats.update({"min": None, "max": None, "avg": None, "p95": None, "p99": None})
     return stats
+
+
+def format_recommended_threshold_value(value: float) -> str:
+    rounded = round(value, 6)
+    if float(rounded).is_integer():
+        return str(int(rounded))
+    return f"{rounded:.6f}".rstrip("0").rstrip(".")
+
+
+def build_threshold_recommendation(stats: dict[str, Any]) -> dict[str, Any]:
+    numeric_count = int(stats.get("numericCount") or 0)
+    min_value = stats.get("min")
+    max_value = stats.get("max")
+    if min_value == 0 and max_value == 0:
+        return {
+            "status": "FLAT_ZERO_REVIEW",
+            "recommendedExpression": None,
+            "recommendedLowerExpression": None,
+            "recommendedUpperExpression": None,
+            "direction": "FLAT_ZERO",
+            "reason": "recent values are all zero; baseline threshold requires business review",
+        }
+    if numeric_count < 5:
+        return {
+            "status": "INSUFFICIENT_SAMPLE",
+            "recommendedExpression": None,
+            "recommendedLowerExpression": None,
+            "recommendedUpperExpression": None,
+            "direction": "INSUFFICIENT_SAMPLE",
+            "reason": f"numeric sample count {numeric_count} is below 5; manual review required",
+        }
+    if max_value is None:
+        return {
+            "status": "NO_NUMERIC_SAMPLE",
+            "recommendedExpression": None,
+            "recommendedLowerExpression": None,
+            "recommendedUpperExpression": None,
+            "direction": "NO_NUMERIC_SAMPLE",
+            "reason": "no numeric sample available; manual review required",
+        }
+    basis_value = max(abs(float(min_value or 0)), abs(float(max_value or 0)), abs(float(stats.get("p99") or 0)))
+    recommended_value = basis_value * 1.2 if basis_value > 0 else 0
+    expression = f"value >= {format_recommended_threshold_value(recommended_value)}"
+    if (min_value or 0) < 0 < (max_value or 0):
+        lower_value = float(min_value) * 1.2
+        upper_value = float(max_value) * 1.2
+        return {
+            "status": "REQUIRES_MANUAL_REVIEW",
+            "recommendedExpression": None,
+            "recommendedLowerExpression": f"value <= {format_recommended_threshold_value(lower_value)}",
+            "recommendedUpperExpression": f"value >= {format_recommended_threshold_value(upper_value)}",
+            "direction": "BIDIRECTIONAL_REVIEW",
+            "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only",
+        }
+    return {
+        "status": "SUGGESTED",
+        "recommendedExpression": expression,
+        "recommendedLowerExpression": None,
+        "recommendedUpperExpression": expression,
+        "direction": "UPPER_ONLY",
+        "reason": "suggested from recent observed max/absolute range with 20% review buffer",
+    }
 
 
 def attach_observed_value_stats(gaps: list[dict[str, Any]], rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for gap in gaps:
         matched_rows = [row for row in rows if observed_row_matches_gap(gap, row)]
         stats = build_observed_value_stats(matched_rows)
+        recommendation = build_threshold_recommendation(stats)
         gap["observedValueStats"] = stats
-        gap.setdefault("suggestedTemplate", {})["observedValueStats"] = stats
+        gap["thresholdRecommendation"] = recommendation
+        suggested_template = gap.setdefault("suggestedTemplate", {})
+        suggested_template["observedValueStats"] = stats
+        suggested_template["thresholdRecommendation"] = recommendation
     return gaps
 
 
@@ -1288,12 +1398,13 @@ def render_template_draft_markdown(template_draft: dict[str, Any]) -> str:
     for item in template_draft.get("productTypeTemplates") or []:
         evidence = item.get("evidence") or {}
         stats = item.get("observedValueStats") or {}
+        recommendation = item.get("thresholdRecommendation") if isinstance(item.get("thresholdRecommendation"), dict) else {}
         observed_range = "--"
         if stats:
             observed_range = f"{stats.get('min')}..{stats.get('max')} (n={stats.get('numericCount') or 0})"
         lines.append(
             f"| {item.get('productType') or '--'} | {item.get('metricIdentifier') or '--'} | "
-            f"{item.get('metricName') or '--'} | {item.get('expression') or 'NEEDS_CONFIRMATION'} | "
+            f"{item.get('metricName') or '--'} | {item.get('expression') or recommendation.get('recommendedExpression') or 'NEEDS_CONFIRMATION'} | "
             f"{observed_range} | {evidence.get('bindingCount') or 0} | {evidence.get('productCount') or 0} | "
             f"{item.get('confirmationStatus') or '--'} |"
         )
@@ -1307,8 +1418,29 @@ def render_template_confirmation_package_markdown(template_draft: dict[str, Any]
                                                   report: dict[str, Any],
                                                   output_dir: str | Path) -> str:
     target_dir = Path(output_dir)
-    template_count = len(template_draft.get("productTypeTemplates") or [])
+    templates = template_draft.get("productTypeTemplates") or []
+    template_count = len(templates)
     min_ready = template_count
+    adoptable_recommendations = 0
+    manual_expression_required = 0
+    flat_zero_review_required = 0
+    for template in templates:
+        recommendation = (
+            template.get("thresholdRecommendation")
+            if isinstance(template.get("thresholdRecommendation"), dict)
+            else {}
+        )
+        has_recommendation = bool(
+            recommendation.get("recommendedExpression")
+            or recommendation.get("recommendedLowerExpression")
+            or recommendation.get("recommendedUpperExpression")
+        )
+        if has_recommendation:
+            adoptable_recommendations += 1
+        if not has_recommendation and not is_executable_expression(template.get("expression")):
+            manual_expression_required += 1
+        if str(recommendation.get("status") or "").strip().upper() == "FLAT_ZERO_REVIEW":
+            flat_zero_review_required += 1
     lines = [
         "# Threshold Policy Template Confirmation Package",
         "",
@@ -1320,8 +1452,18 @@ def render_template_confirmation_package_markdown(template_draft: dict[str, Any]
         f"- Candidate Count Before Confirmation: `{report.get('candidateCount')}`",
         f"- Skipped Count Before Confirmation: `{report.get('skippedCount')}`",
         "",
+        "## Business Review Summary",
+        f"- Adoptable Recommendations: `{adoptable_recommendations}`",
+        f"- Manual Expression Required: `{manual_expression_required}`",
+        f"- Flat Zero Review Required: `{flat_zero_review_required}`",
+        "- Use `RECOMMENDED` to adopt the single recommended expression.",
+        "- Use `UPPER` to adopt the reviewed upper recommendation, or `LOWER` for the lower recommendation.",
+        "- Keep flat-zero rows blank until the business owner provides a fixed expression or asks to keep observing.",
+        "",
         "## Files",
         f"- Fillable CSV: `{target_dir / 'threshold-policy-template-confirmation-latest.csv'}`",
+        f"- Prefilled Review CSV: `{target_dir / 'threshold-policy-template-review-latest.csv'}`",
+        f"- Observation Queue CSV: `{target_dir / 'threshold-policy-template-observation-latest.csv'}`",
         f"- Merge Report: `{target_dir / 'threshold-policy-template-confirmation-merge-latest.md'}`",
         f"- Pending Config: `config/automation/threshold-policy-defaults.pending.json`",
         f"- Confirmed Config Target: `config/automation/threshold-policy-defaults.confirmed.json`",
@@ -1361,20 +1503,23 @@ def render_template_confirmation_package_markdown(template_draft: dict[str, Any]
         "7. Apply only with the latest dry-run report path and matching candidate/template counts.",
         "",
         "## Templates To Confirm",
-        "| Index | Semantic Key | Product Type | Metric | Metric Name | Observed Range | Bindings | Products | Required Actions |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Index | Semantic Key | Product Type | Metric | Metric Name | Observed Range | Recommended Expression | Lower Recommendation | Upper Recommendation | Recommendation Status | Direction | Bindings | Products | Required Actions |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for index, template in enumerate(template_draft.get("productTypeTemplates") or []):
+    for index, template in enumerate(templates):
         row = template_confirmation_row(index, template)
         actions = str(row.get("requiredActions") or "").replace(";", ",") or "--"
         lines.append(
             f"| {row.get('index')} | {row.get('semanticTemplateKey') or '--'} | "
             f"{row.get('productType') or '--'} | {row.get('metricIdentifier') or '--'} | "
             f"{row.get('metricName') or '--'} | {row.get('observedRange') or '--'} | "
+            f"{row.get('recommendedExpression') or '--'} | {row.get('recommendedLowerExpression') or '--'} | "
+            f"{row.get('recommendedUpperExpression') or '--'} | {row.get('recommendationStatus') or '--'} | "
+            f"{row.get('recommendationDirection') or '--'} | "
             f"{row.get('bindingCount') or 0} | {row.get('productCount') or 0} | {actions} |"
         )
     if not template_draft.get("productTypeTemplates"):
-        lines.append("| -- | -- | -- | -- | -- | -- | 0 | 0 | -- |")
+        lines.append("| -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | 0 | 0 | -- |")
     return "\n".join(lines) + "\n"
 
 
@@ -1385,6 +1530,7 @@ def join_csv_values(values: Iterable[Any]) -> str:
 def template_confirmation_row(index: int, template: dict[str, Any]) -> dict[str, Any]:
     match = template.get("match") if isinstance(template.get("match"), dict) else {}
     evidence = template.get("evidence") if isinstance(template.get("evidence"), dict) else {}
+    recommendation = template.get("thresholdRecommendation") if isinstance(template.get("thresholdRecommendation"), dict) else {}
     checklist_item = build_template_confirmation_item(index, template)
     return {
         "index": index,
@@ -1398,6 +1544,13 @@ def template_confirmation_row(index: int, template: dict[str, Any]) -> dict[str,
         "productKeys": join_csv_values(match.get("productKeys") or []),
         "rawIdentifiers": join_csv_values(match.get("rawIdentifiers") or []),
         "metricAliases": join_csv_values(template.get("metricAliases") or []),
+        "recommendedExpression": recommendation.get("recommendedExpression") or "",
+        "recommendedLowerExpression": recommendation.get("recommendedLowerExpression") or "",
+        "recommendedUpperExpression": recommendation.get("recommendedUpperExpression") or "",
+        "recommendationStatus": recommendation.get("status") or "",
+        "recommendationDirection": recommendation.get("direction") or "",
+        "recommendationReason": recommendation.get("reason") or "",
+        "recommendationDecision": "",
         "expression": template.get("expression") or "",
         "confirmationStatus": template.get("confirmationStatus") or normalize_confirmation_status(template),
         "requiredActions": join_csv_values(checklist_item.get("requiredActions") or []),
@@ -1415,6 +1568,410 @@ def write_template_confirmation_csv(template_draft: dict[str, Any], target_path:
     return output_path
 
 
+def template_review_row(index: int, template: dict[str, Any]) -> dict[str, Any]:
+    row = template_confirmation_row(index, template)
+    if is_executable_expression(row.get("expression")):
+        return row
+    recommendation = (
+        template.get("thresholdRecommendation")
+        if isinstance(template.get("thresholdRecommendation"), dict)
+        else {}
+    )
+    if recommendation.get("recommendedExpression"):
+        row["recommendationDecision"] = "RECOMMENDED"
+        row["confirmationStatus"] = "CONFIRMED"
+    elif recommendation.get("recommendedUpperExpression"):
+        row["recommendationDecision"] = "UPPER"
+        row["confirmationStatus"] = "CONFIRMED"
+    elif recommendation.get("recommendedLowerExpression"):
+        row["recommendationDecision"] = "LOWER"
+        row["confirmationStatus"] = "CONFIRMED"
+    return row
+
+
+def write_template_review_csv(template_draft: dict[str, Any], target_path: str | Path) -> Path:
+    output_path = Path(target_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=TEMPLATE_CONFIRMATION_CSV_FIELDS)
+        writer.writeheader()
+        for index, template in enumerate(template_draft.get("productTypeTemplates") or []):
+            writer.writerow(template_review_row(index, template))
+    return output_path
+
+
+def template_requires_observation(template: dict[str, Any]) -> bool:
+    recommendation = (
+        template.get("thresholdRecommendation")
+        if isinstance(template.get("thresholdRecommendation"), dict)
+        else {}
+    )
+    has_recommendation = bool(
+        recommendation.get("recommendedExpression")
+        or recommendation.get("recommendedLowerExpression")
+        or recommendation.get("recommendedUpperExpression")
+    )
+    status = str(recommendation.get("status") or "").strip().upper()
+    return not has_recommendation and status in {
+        "FLAT_ZERO_REVIEW",
+        "INSUFFICIENT_SAMPLE",
+        "NO_NUMERIC_SAMPLE",
+    }
+
+
+def template_observation_row(index: int, template: dict[str, Any]) -> dict[str, Any]:
+    row = template_confirmation_row(index, template)
+    return {
+        "index": row.get("index"),
+        "semanticTemplateKey": row.get("semanticTemplateKey") or "",
+        "productType": row.get("productType") or "",
+        "metricIdentifier": row.get("metricIdentifier") or "",
+        "metricName": row.get("metricName") or "",
+        "observedRange": row.get("observedRange") or "",
+        "bindingCount": row.get("bindingCount") or 0,
+        "productCount": row.get("productCount") or 0,
+        "recommendationStatus": row.get("recommendationStatus") or "",
+        "recommendationDirection": row.get("recommendationDirection") or "",
+        "observationAction": "KEEP_OBSERVING_OR_PROVIDE_FIXED_EXPRESSION",
+        "nextReviewDays": 14,
+        "requiredDecision": "Provide expression and CONFIRMED, or keep observing until enough non-flat data exists.",
+    }
+
+
+def write_template_observation_csv(template_draft: dict[str, Any], target_path: str | Path) -> Path:
+    output_path = Path(target_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=TEMPLATE_OBSERVATION_CSV_FIELDS)
+        writer.writeheader()
+        for index, template in enumerate(template_draft.get("productTypeTemplates") or []):
+            if template_requires_observation(template):
+                writer.writerow(template_observation_row(index, template))
+    return output_path
+
+
+def template_manual_decision_row(index: int, template: dict[str, Any]) -> dict[str, Any]:
+    row = template_observation_row(index, template)
+    return {
+        "index": row.get("index"),
+        "semanticTemplateKey": row.get("semanticTemplateKey") or "",
+        "productType": row.get("productType") or "",
+        "metricIdentifier": row.get("metricIdentifier") or "",
+        "metricName": row.get("metricName") or "",
+        "observedRange": row.get("observedRange") or "",
+        "bindingCount": row.get("bindingCount") or 0,
+        "productCount": row.get("productCount") or 0,
+        "recommendationStatus": row.get("recommendationStatus") or "",
+        "observationAction": row.get("observationAction") or "",
+        "businessExpression": "",
+        "decisionStatus": "",
+        "reviewer": "",
+        "reviewComment": "",
+    }
+
+
+def write_template_manual_decision_csv(template_draft: dict[str, Any], target_path: str | Path) -> Path:
+    output_path = Path(target_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=TEMPLATE_MANUAL_DECISION_CSV_FIELDS)
+        writer.writeheader()
+        for index, template in enumerate(template_draft.get("productTypeTemplates") or []):
+            if template_requires_observation(template):
+                writer.writerow(template_manual_decision_row(index, template))
+    return output_path
+
+
+def render_template_manual_decision_markdown(template_draft: dict[str, Any], output_dir: str | Path) -> str:
+    target_dir = Path(output_dir)
+    rows = [
+        template_manual_decision_row(index, template)
+        for index, template in enumerate(template_draft.get("productTypeTemplates") or [])
+        if template_requires_observation(template)
+    ]
+    lines = [
+        "# Threshold Policy Template Manual Decision Package",
+        "",
+        f"- Manual Decision CSV: `{target_dir / 'threshold-policy-template-manual-decision-latest.csv'}`",
+        f"- Observation CSV: `{target_dir / 'threshold-policy-template-observation-latest.csv'}`",
+        "- Provide a fixed threshold expression or keep observing.",
+        "- If a fixed expression is provided, copy it into the confirmation CSV expression column and mark the row CONFIRMED.",
+        "",
+        "## Items",
+        "| Semantic Key | Metric | Metric Name | Observed Range | Bindings | Decision Status | Business Expression |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row.get('semanticTemplateKey') or '--'} | {row.get('metricIdentifier') or '--'} | "
+            f"{row.get('metricName') or '--'} | {row.get('observedRange') or '--'} | "
+            f"{row.get('bindingCount') or 0} | {row.get('decisionStatus') or 'PENDING'} | "
+            f"{row.get('businessExpression') or '--'} |"
+        )
+    if not rows:
+        lines.append("| -- | -- | -- | -- | 0 | -- | -- |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def parse_report_time(value: Any) -> datetime:
+    if isinstance(value, str) and value.strip():
+        return datetime.fromisoformat(value.strip())
+    return datetime.now()
+
+
+def build_observation_followup_plan(template_draft: dict[str, Any],
+                                    output_dir: str | Path,
+                                    generated_at: str | None = None) -> dict[str, Any]:
+    target_dir = Path(output_dir)
+    base_time = parse_report_time(generated_at or template_draft.get("generatedAt"))
+    items: list[dict[str, Any]] = []
+    next_review_at: datetime | None = None
+    for index, template in enumerate(template_draft.get("productTypeTemplates") or []):
+        if not template_requires_observation(template):
+            continue
+        row = template_observation_row(index, template)
+        days = int(row.get("nextReviewDays") or 14)
+        item_next_review_at = base_time + timedelta(days=days)
+        if next_review_at is None or item_next_review_at < next_review_at:
+            next_review_at = item_next_review_at
+        items.append({
+            **row,
+            "nextReviewAt": item_next_review_at.isoformat(timespec="seconds"),
+            "recommendedCommand": (
+                "python scripts\\backfill-threshold-policy-defaults.py "
+                "--export-template-config-path=config\\automation\\threshold-policy-defaults.pending.json"
+            ),
+        })
+    return {
+        "generatedAt": base_time.isoformat(timespec="seconds"),
+        "status": "PENDING_REVIEW" if items else "EMPTY",
+        "observationCount": len(items),
+        "nextReviewAt": next_review_at.isoformat(timespec="seconds") if next_review_at else None,
+        "observationCsvPath": str(target_dir / "threshold-policy-template-observation-latest.csv"),
+        "reviewCsvPath": str(target_dir / "threshold-policy-template-review-latest.csv"),
+        "manualGate": "Recommendations must be reviewed in CSV and merged before any apply.",
+        "items": items,
+    }
+
+
+def render_observation_followup_markdown(plan: dict[str, Any]) -> str:
+    lines = [
+        "# Threshold Policy Template Observation Follow-up Plan",
+        "",
+        f"- Status: `{plan.get('status')}`",
+        f"- Generated At: `{plan.get('generatedAt')}`",
+        f"- Observation Count: `{plan.get('observationCount')}`",
+        f"- Next Review At: `{plan.get('nextReviewAt') or '--'}`",
+        f"- Observation CSV: `{plan.get('observationCsvPath')}`",
+        f"- Review CSV: `{plan.get('reviewCsvPath')}`",
+        f"- Manual Gate: `{plan.get('manualGate')}`",
+        "",
+        "## Items",
+        "| Semantic Key | Metric | Metric Name | Observed Range | Status | Action | Next Review At |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for item in plan.get("items") or []:
+        lines.append(
+            f"| {item.get('semanticTemplateKey') or '--'} | {item.get('metricIdentifier') or '--'} | "
+            f"{item.get('metricName') or '--'} | {item.get('observedRange') or '--'} | "
+            f"{item.get('recommendationStatus') or '--'} | {item.get('observationAction') or '--'} | "
+            f"{item.get('nextReviewAt') or '--'} |"
+        )
+    if not plan.get("items"):
+        lines.append("| -- | -- | -- | -- | -- | -- | -- |")
+    lines.extend([
+        "",
+        "## Recheck Command",
+        "```powershell",
+        "python scripts\\backfill-threshold-policy-defaults.py "
+        "--export-template-config-path=config\\automation\\threshold-policy-defaults.pending.json",
+        "```",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def write_observation_followup_plan(template_draft: dict[str, Any],
+                                    output_dir: str | Path,
+                                    generated_at: str | None = None) -> tuple[Path, Path]:
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    json_path = target_dir / f"threshold-policy-template-observation-followup-{timestamp}.json"
+    md_path = target_dir / f"threshold-policy-template-observation-followup-{timestamp}.md"
+    plan = build_observation_followup_plan(template_draft, target_dir, generated_at)
+    json_content = json.dumps(plan, ensure_ascii=False, indent=2)
+    markdown_content = render_observation_followup_markdown(plan)
+    json_path.write_text(json_content, encoding="utf-8")
+    md_path.write_text(markdown_content, encoding="utf-8")
+    (target_dir / "threshold-policy-template-observation-followup-latest.json").write_text(
+        json_content,
+        encoding="utf-8",
+    )
+    (target_dir / "threshold-policy-template-observation-followup-latest.md").write_text(
+        markdown_content,
+        encoding="utf-8",
+    )
+    return json_path, md_path
+
+
+def build_business_closure_report(report: dict[str, Any],
+                                  template_draft: dict[str, Any],
+                                  followup_plan: dict[str, Any]) -> dict[str, Any]:
+    templates = template_draft.get("productTypeTemplates") or []
+    unconfirmed_templates = [
+        template for template in templates
+        if not is_template_ready(template)
+    ]
+    adoptable_count = 0
+    for template in templates:
+        recommendation = (
+            template.get("thresholdRecommendation")
+            if isinstance(template.get("thresholdRecommendation"), dict)
+            else {}
+        )
+        if (
+            recommendation.get("recommendedExpression")
+            or recommendation.get("recommendedLowerExpression")
+            or recommendation.get("recommendedUpperExpression")
+        ):
+            adoptable_count += 1
+    observation_count = int(followup_plan.get("observationCount") or 0)
+    applied_count = int(report.get("appliedCount") or 0)
+    blockers: list[dict[str, Any]] = []
+    if observation_count > 0:
+        blockers.append({
+            "type": "OBSERVATION_QUEUE_NOT_EMPTY",
+            "count": observation_count,
+            "nextReviewAt": followup_plan.get("nextReviewAt"),
+        })
+    if unconfirmed_templates:
+        blockers.append({
+            "type": "TEMPLATES_NOT_CONFIRMED",
+            "count": len(unconfirmed_templates),
+        })
+    if applied_count <= 0:
+        blockers.append({
+            "type": "NO_APPLY_EXECUTED",
+            "count": 0,
+        })
+    status = "CLOSED" if not blockers else "NOT_CLOSED"
+    return {
+        "checkedAt": report.get("checkedAt"),
+        "status": status,
+        "templateCount": len(templates),
+        "readyTemplateCount": int((report.get("templateValidation") or {}).get("readyTemplateCount") or 0),
+        "unconfirmedTemplateCount": len(unconfirmed_templates),
+        "adoptableRecommendationCount": adoptable_count,
+        "observationCount": observation_count,
+        "nextReviewAt": followup_plan.get("nextReviewAt"),
+        "candidateCount": int(report.get("candidateCount") or 0),
+        "appliedCount": applied_count,
+        "skippedCount": int(report.get("skippedCount") or 0),
+        "blockerCount": len(blockers),
+        "blockers": blockers,
+        "nextActions": [
+            "Review threshold-policy-template-review-latest.csv.",
+            "Provide fixed expressions for observation items or wait for the next review cycle.",
+            "Merge only after every template is CONFIRMED and executable.",
+            "Run dry-run and apply only with matching confirmation report counts.",
+        ],
+    }
+
+
+def render_business_closure_markdown(closure: dict[str, Any]) -> str:
+    lines = [
+        "# Threshold Policy Business Closure",
+        "",
+        f"- Status: `{closure.get('status')}`",
+        f"- Checked At: `{closure.get('checkedAt')}`",
+        f"- Template Count: `{closure.get('templateCount')}`",
+        f"- Ready Templates: `{closure.get('readyTemplateCount')}`",
+        f"- Unconfirmed Templates: `{closure.get('unconfirmedTemplateCount')}`",
+        f"- Adoptable Recommendations: `{closure.get('adoptableRecommendationCount')}`",
+        f"- Observation Count: `{closure.get('observationCount')}`",
+        f"- Next Review At: `{closure.get('nextReviewAt') or '--'}`",
+        f"- Applied Count: `{closure.get('appliedCount')}`",
+        "",
+        "## Blockers",
+        "| Type | Count | Detail |",
+        "| --- | --- | --- |",
+    ]
+    for blocker in closure.get("blockers") or []:
+        detail = ", ".join(
+            f"{key}={value}"
+            for key, value in blocker.items()
+            if key not in {"type", "count"}
+        )
+        lines.append(f"| {blocker.get('type')} | {blocker.get('count')} | {detail or '--'} |")
+    if not closure.get("blockers"):
+        lines.append("| -- | 0 | -- |")
+    lines.extend([
+        "",
+        "## Next Actions",
+    ])
+    for index, action in enumerate(closure.get("nextActions") or [], start=1):
+        lines.append(f"{index}. {action}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_business_closure_report(report: dict[str, Any],
+                                  template_draft: dict[str, Any],
+                                  followup_plan: dict[str, Any],
+                                  output_dir: str | Path) -> tuple[Path, Path]:
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    json_path = target_dir / f"threshold-policy-business-closure-{timestamp}.json"
+    md_path = target_dir / f"threshold-policy-business-closure-{timestamp}.md"
+    closure = build_business_closure_report(report, template_draft, followup_plan)
+    json_content = json.dumps(closure, ensure_ascii=False, indent=2)
+    markdown_content = render_business_closure_markdown(closure)
+    json_path.write_text(json_content, encoding="utf-8")
+    md_path.write_text(markdown_content, encoding="utf-8")
+    (target_dir / "threshold-policy-business-closure-latest.json").write_text(
+        json_content,
+        encoding="utf-8",
+    )
+    (target_dir / "threshold-policy-business-closure-latest.md").write_text(
+        markdown_content,
+        encoding="utf-8",
+    )
+    return json_path, md_path
+
+
+def build_remaining_template_gaps(config: dict[str, Any], validation: dict[str, Any]) -> list[dict[str, Any]]:
+    templates = config.get("productTypeTemplates") or []
+    gaps: list[dict[str, Any]] = []
+    for item in validation.get("confirmationChecklist") or []:
+        if item.get("ready"):
+            continue
+        index = int(item.get("index") or 0)
+        template = templates[index] if 0 <= index < len(templates) else {}
+        recommendation = (
+            template.get("thresholdRecommendation")
+            if isinstance(template.get("thresholdRecommendation"), dict)
+            else {}
+        )
+        gaps.append({
+            "index": index,
+            "semanticTemplateKey": template.get("semanticTemplateKey") or item.get("semanticTemplateKey") or "",
+            "productType": item.get("productType") or template.get("productType") or "",
+            "metricIdentifier": item.get("metricIdentifier") or template.get("metricIdentifier") or "",
+            "metricName": item.get("metricName") or template.get("metricName") or "",
+            "bindingCount": item.get("bindingCount") or 0,
+            "requiredActions": item.get("requiredActions") or [],
+            "recommendationStatus": recommendation.get("status") or "",
+            "recommendationDirection": recommendation.get("direction") or "",
+            "recommendedExpression": recommendation.get("recommendedExpression") or "",
+            "recommendedLowerExpression": recommendation.get("recommendedLowerExpression") or "",
+            "recommendedUpperExpression": recommendation.get("recommendedUpperExpression") or "",
+        })
+    return gaps
+
+
 def template_confirmation_identity(template: dict[str, Any]) -> str:
     semantic_key = normalize_metric_identifier(template.get("semanticTemplateKey"))
     if semantic_key:
@@ -1425,6 +1982,25 @@ def template_confirmation_identity(template: dict[str, Any]) -> str:
         normalize_metric_identifier(template.get("metricIdentifier")),
         normalize_metric_name(template.get("metricName")),
     ])
+
+
+def resolve_recommendation_decision(row: dict[str, Any],
+                                    template: dict[str, Any],
+                                    decision: str) -> tuple[str | None, str | None]:
+    if not decision or decision == "NONE":
+        return None, None
+    recommendation = template.get("thresholdRecommendation") if isinstance(template.get("thresholdRecommendation"), dict) else {}
+    candidates = {
+        "RECOMMENDED": row.get("recommendedExpression") or recommendation.get("recommendedExpression"),
+        "UPPER": row.get("recommendedUpperExpression") or recommendation.get("recommendedUpperExpression"),
+        "LOWER": row.get("recommendedLowerExpression") or recommendation.get("recommendedLowerExpression"),
+    }
+    if decision not in candidates:
+        return None, "INVALID_DECISION"
+    expression = str(candidates.get(decision) or "").strip()
+    if not expression:
+        return None, "UNAVAILABLE_RECOMMENDATION"
+    return expression, None
 
 
 def merge_template_confirmation_csv(config: dict[str, Any], csv_path: str | Path) -> dict[str, Any]:
@@ -1447,13 +2023,16 @@ def merge_template_confirmation_csv_with_summary(config: dict[str, Any],
         "missingHeaderCount": 0,
         "missingHeaders": [],
         "duplicateRowCount": 0,
+        "adoptedRecommendationCount": 0,
         "invalidConfirmationStatusCount": 0,
+        "invalidRecommendationDecisionCount": 0,
         "invalidExpressionCount": 0,
         "updatedExpressionCount": 0,
         "updatedConfirmationStatusCount": 0,
         "unmatchedRows": [],
         "duplicateRows": [],
         "invalidConfirmationStatusRows": [],
+        "invalidRecommendationDecisionRows": [],
         "invalidExpressionRows": [],
         "matchedRows": [],
     }
@@ -1511,6 +2090,26 @@ def merge_template_confirmation_csv_with_summary(config: dict[str, Any],
                 continue
             summary["matchedRowCount"] += 1
             expression = str(row.get("expression") or "").strip()
+            recommendation_decision = str(row.get("recommendationDecision") or "").strip().upper()
+            if not expression and recommendation_decision:
+                adopted_expression, decision_error = resolve_recommendation_decision(
+                    row,
+                    template,
+                    recommendation_decision,
+                )
+                if decision_error:
+                    summary["invalidRecommendationDecisionCount"] += 1
+                    summary["invalidRecommendationDecisionRows"].append({
+                        "row": summary["csvRowCount"],
+                        "identity": identity,
+                        "decision": recommendation_decision,
+                        "reason": decision_error,
+                        "metricIdentifier": row.get("metricIdentifier") or "",
+                        "metricName": row.get("metricName") or "",
+                    })
+                    continue
+                expression = adopted_expression or ""
+                summary["adoptedRecommendationCount"] += 1
             if confirmation_status == "CONFIRMED" and not is_executable_expression(expression):
                 summary["invalidExpressionCount"] += 1
                 summary["invalidExpressionRows"].append({
@@ -1530,6 +2129,7 @@ def merge_template_confirmation_csv_with_summary(config: dict[str, Any],
                 "productType": row.get("productType") or template.get("productType") or "",
                 "metricIdentifier": row.get("metricIdentifier") or template.get("metricIdentifier") or "",
                 "metricName": row.get("metricName") or template.get("metricName") or "",
+                "recommendationDecision": recommendation_decision,
             }
             if expression and expression != (template.get("expression") or ""):
                 template["expression"] = expression
@@ -1563,12 +2163,15 @@ def render_template_confirmation_merge_markdown(report: dict[str, Any]) -> str:
         f"- Unmatched Rows: `{report['unmatchedRowCount']}`",
         f"- Missing Required Headers: `{report['missingHeaderCount']}`",
         f"- Duplicate Rows: `{report['duplicateRowCount']}`",
+        f"- Adopted Recommendations: `{report['adoptedRecommendationCount']}`",
         f"- Invalid Confirmation Status Rows: `{report['invalidConfirmationStatusCount']}`",
+        f"- Invalid Recommendation Decision Rows: `{report['invalidRecommendationDecisionCount']}`",
         f"- Invalid Expression Rows: `{report['invalidExpressionCount']}`",
         f"- Updated Expressions: `{report['updatedExpressionCount']}`",
         f"- Updated Confirmation Statuses: `{report['updatedConfirmationStatusCount']}`",
         f"- Ready Templates After Merge: `{report['templateValidation']['readyTemplateCount']}`",
         f"- Template Breaches After Merge: `{report['templateValidation']['breachCount']}`",
+        f"- Remaining Template Gaps: `{report.get('remainingTemplateGapCount', 0)}`",
         "",
         "## Unmatched Rows",
         "| Row | Identity | Metric | Name |",
@@ -1620,6 +2223,20 @@ def render_template_confirmation_merge_markdown(report: dict[str, Any]) -> str:
         lines.append("| -- | -- | -- | -- | -- |")
     lines.extend([
         "",
+        "## Invalid Recommendation Decision Rows",
+        "| Row | Identity | Decision | Reason | Metric | Name |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ])
+    for item in report.get("invalidRecommendationDecisionRows") or []:
+        lines.append(
+            f"| {item.get('row')} | {item.get('identity')} | {item.get('decision') or '--'} | "
+            f"{item.get('reason') or '--'} | {item.get('metricIdentifier') or '--'} | "
+            f"{item.get('metricName') or '--'} |"
+        )
+    if not report.get("invalidRecommendationDecisionRows"):
+        lines.append("| -- | -- | -- | -- | -- | -- |")
+    lines.extend([
+        "",
         "## Invalid Expression Rows",
         "| Row | Identity | Reason | Expression | Metric | Name |",
         "| --- | --- | --- | --- | --- | --- |",
@@ -1632,6 +2249,24 @@ def render_template_confirmation_merge_markdown(report: dict[str, Any]) -> str:
         )
     if not report.get("invalidExpressionRows"):
         lines.append("| -- | -- | -- | -- | -- | -- |")
+    lines.extend([
+        "",
+        "## Remaining Template Gaps",
+        "| Index | Semantic Key | Metric | Name | Required Actions | Recommendation | Lower | Upper | Bindings |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ])
+    for item in report.get("remainingTemplateGaps") or []:
+        actions = ",".join(item.get("requiredActions") or []) or "--"
+        lines.append(
+            f"| {item.get('index')} | {item.get('semanticTemplateKey') or '--'} | "
+            f"{item.get('metricIdentifier') or '--'} | {item.get('metricName') or '--'} | "
+            f"{actions} | {item.get('recommendationStatus') or '--'} | "
+            f"{item.get('recommendedLowerExpression') or '--'} | "
+            f"{item.get('recommendedUpperExpression') or item.get('recommendedExpression') or '--'} | "
+            f"{item.get('bindingCount') or 0} |"
+        )
+    if not report.get("remainingTemplateGaps"):
+        lines.append("| -- | -- | -- | -- | -- | -- | -- | -- | 0 |")
     lines.extend([
         "",
         "## Matched Rows",
@@ -1678,11 +2313,13 @@ def write_merged_template_confirmation_config(config_path: str | Path,
     merged, summary = merge_template_confirmation_csv_with_summary(config, csv_path)
     target = Path(output_path) if output_path else Path(config_path)
     validation = validate_template_config(merged)
+    remaining_template_gaps = build_remaining_template_gaps(merged, validation)
     if (
         validation["breachCount"] > 0
         or summary["duplicateRowCount"] > 0
         or summary["missingHeaderCount"] > 0
         or summary["invalidConfirmationStatusCount"] > 0
+        or summary["invalidRecommendationDecisionCount"] > 0
         or summary["invalidExpressionCount"] > 0
     ):
         status = "FAILED"
@@ -1702,6 +2339,8 @@ def write_merged_template_confirmation_config(config_path: str | Path,
         "outputPath": str(target),
         "targetWritten": target_written,
         "templateValidation": validation,
+        "remainingTemplateGapCount": len(remaining_template_gaps),
+        "remainingTemplateGaps": remaining_template_gaps,
         **summary,
     }
     write_template_confirmation_merge_report(report, output_dir or target.parent)
@@ -1804,6 +2443,14 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
     draft_json_path = target_dir / f"threshold-policy-template-draft-{timestamp}.json"
     draft_md_path = target_dir / f"threshold-policy-template-draft-{timestamp}.md"
     confirmation_csv_path = target_dir / f"threshold-policy-template-confirmation-{timestamp}.csv"
+    review_csv_path = target_dir / f"threshold-policy-template-review-{timestamp}.csv"
+    observation_csv_path = target_dir / f"threshold-policy-template-observation-{timestamp}.csv"
+    manual_decision_csv_path = target_dir / f"threshold-policy-template-manual-decision-{timestamp}.csv"
+    manual_decision_md_path = target_dir / f"threshold-policy-template-manual-decision-{timestamp}.md"
+    observation_followup_json_path = target_dir / f"threshold-policy-template-observation-followup-{timestamp}.json"
+    observation_followup_md_path = target_dir / f"threshold-policy-template-observation-followup-{timestamp}.md"
+    business_closure_json_path = target_dir / f"threshold-policy-business-closure-{timestamp}.json"
+    business_closure_md_path = target_dir / f"threshold-policy-business-closure-{timestamp}.md"
     confirmation_package_path = target_dir / f"threshold-policy-template-confirmation-package-{timestamp}.md"
     report["templateDraft"] = {
         "jsonPath": str(draft_json_path),
@@ -1812,6 +2459,26 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
         "latestMarkdownPath": str(target_dir / "threshold-policy-template-draft-latest.md"),
         "confirmationCsvPath": str(confirmation_csv_path),
         "latestConfirmationCsvPath": str(target_dir / "threshold-policy-template-confirmation-latest.csv"),
+        "reviewCsvPath": str(review_csv_path),
+        "latestReviewCsvPath": str(target_dir / "threshold-policy-template-review-latest.csv"),
+        "observationCsvPath": str(observation_csv_path),
+        "latestObservationCsvPath": str(target_dir / "threshold-policy-template-observation-latest.csv"),
+        "manualDecisionCsvPath": str(manual_decision_csv_path),
+        "manualDecisionMarkdownPath": str(manual_decision_md_path),
+        "latestManualDecisionCsvPath": str(target_dir / "threshold-policy-template-manual-decision-latest.csv"),
+        "latestManualDecisionMarkdownPath": str(target_dir / "threshold-policy-template-manual-decision-latest.md"),
+        "observationFollowupJsonPath": str(observation_followup_json_path),
+        "observationFollowupMarkdownPath": str(observation_followup_md_path),
+        "latestObservationFollowupJsonPath": str(
+            target_dir / "threshold-policy-template-observation-followup-latest.json"
+        ),
+        "latestObservationFollowupMarkdownPath": str(
+            target_dir / "threshold-policy-template-observation-followup-latest.md"
+        ),
+        "businessClosureJsonPath": str(business_closure_json_path),
+        "businessClosureMarkdownPath": str(business_closure_md_path),
+        "latestBusinessClosureJsonPath": str(target_dir / "threshold-policy-business-closure-latest.json"),
+        "latestBusinessClosureMarkdownPath": str(target_dir / "threshold-policy-business-closure-latest.md"),
         "confirmationPackagePath": str(confirmation_package_path),
         "latestConfirmationPackagePath": str(
             target_dir / "threshold-policy-template-confirmation-package-latest.md"
@@ -1832,6 +2499,44 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
     confirmation_package_path.write_text(confirmation_package_md, encoding="utf-8")
     write_template_confirmation_csv(template_draft, confirmation_csv_path)
     write_template_confirmation_csv(template_draft, target_dir / "threshold-policy-template-confirmation-latest.csv")
+    write_template_review_csv(template_draft, review_csv_path)
+    write_template_review_csv(template_draft, target_dir / "threshold-policy-template-review-latest.csv")
+    write_template_observation_csv(template_draft, observation_csv_path)
+    write_template_observation_csv(template_draft, target_dir / "threshold-policy-template-observation-latest.csv")
+    manual_decision_md = render_template_manual_decision_markdown(template_draft, target_dir)
+    write_template_manual_decision_csv(template_draft, manual_decision_csv_path)
+    write_template_manual_decision_csv(template_draft, target_dir / "threshold-policy-template-manual-decision-latest.csv")
+    manual_decision_md_path.write_text(manual_decision_md, encoding="utf-8")
+    (target_dir / "threshold-policy-template-manual-decision-latest.md").write_text(
+        manual_decision_md,
+        encoding="utf-8",
+    )
+    observation_followup_plan = build_observation_followup_plan(template_draft, target_dir, report.get("checkedAt"))
+    observation_followup_json = json.dumps(observation_followup_plan, ensure_ascii=False, indent=2)
+    observation_followup_md = render_observation_followup_markdown(observation_followup_plan)
+    observation_followup_json_path.write_text(observation_followup_json, encoding="utf-8")
+    observation_followup_md_path.write_text(observation_followup_md, encoding="utf-8")
+    (target_dir / "threshold-policy-template-observation-followup-latest.json").write_text(
+        observation_followup_json,
+        encoding="utf-8",
+    )
+    (target_dir / "threshold-policy-template-observation-followup-latest.md").write_text(
+        observation_followup_md,
+        encoding="utf-8",
+    )
+    business_closure = build_business_closure_report(report, template_draft, observation_followup_plan)
+    business_closure_json = json.dumps(business_closure, ensure_ascii=False, indent=2)
+    business_closure_md = render_business_closure_markdown(business_closure)
+    business_closure_json_path.write_text(business_closure_json, encoding="utf-8")
+    business_closure_md_path.write_text(business_closure_md, encoding="utf-8")
+    (target_dir / "threshold-policy-business-closure-latest.json").write_text(
+        business_closure_json,
+        encoding="utf-8",
+    )
+    (target_dir / "threshold-policy-business-closure-latest.md").write_text(
+        business_closure_md,
+        encoding="utf-8",
+    )
     (target_dir / "threshold-policy-template-draft-latest.json").write_text(template_draft_json, encoding="utf-8")
     (target_dir / "threshold-policy-template-draft-latest.md").write_text(template_draft_md, encoding="utf-8")
     (target_dir / "threshold-policy-template-confirmation-package-latest.md").write_text(

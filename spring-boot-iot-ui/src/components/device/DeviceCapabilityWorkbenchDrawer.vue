@@ -7,15 +7,24 @@
     size="52rem"
     destroy-on-close
   >
-      <div v-if="device" class="device-capability-workbench-drawer">
-        <section class="device-capability-workbench-drawer__summary">
-          <article
-            v-for="card in summaryCards"
-            :key="card.key"
-          class="device-capability-workbench-drawer__summary-card"
-        >
-          <span class="device-capability-workbench-drawer__summary-label">{{ card.label }}</span>
-          <strong class="device-capability-workbench-drawer__summary-value">{{ card.value }}</strong>
+    <div v-if="device" class="device-capability-workbench-drawer">
+      <section class="device-capability-workbench-drawer__summary">
+        <article class="device-capability-workbench-drawer__summary-card device-capability-workbench-drawer__summary-card--identity">
+          <span class="device-capability-workbench-drawer__summary-label">目标设备</span>
+          <strong class="device-capability-workbench-drawer__summary-value device-capability-workbench-drawer__summary-value--identity">
+            {{ identityTitle }}
+          </strong>
+          <div class="device-capability-workbench-drawer__summary-meta">
+            <small>{{ identityDeviceCode }}</small>
+            <small>{{ identityProduct }}</small>
+          </div>
+        </article>
+        <article class="device-capability-workbench-drawer__summary-card">
+          <span class="device-capability-workbench-drawer__summary-label">状态概览</span>
+          <strong class="device-capability-workbench-drawer__summary-value">{{ statusSummary }}</strong>
+          <div v-if="capabilityPerspective !== '--'" class="device-capability-workbench-drawer__summary-meta">
+            <small>{{ capabilityPerspective }}</small>
+          </div>
         </article>
       </section>
 
@@ -59,12 +68,6 @@ import StandardInlineState from '@/components/StandardInlineState.vue'
 import DeviceCapabilityPanel from '@/components/device/DeviceCapabilityPanel.vue'
 import type { CommandRecordPageItem, Device, DeviceCapability, DeviceCapabilityOverview } from '@/types/api'
 
-type SummaryCard = {
-  key: string
-  label: string
-  value: string
-}
-
 const props = withDefaults(
   defineProps<{
     modelValue: boolean
@@ -104,41 +107,35 @@ const drawerSubtitle = computed(() => {
   return `${name} · ${product}`
 })
 
-const summaryCards = computed<SummaryCard[]>(() => {
+const showLoadingState = computed(() => props.capabilityLoading === true && !props.overview)
+const identityTitle = computed(() =>
+  toDisplayText(props.device?.deviceName || props.device?.deviceCode)
+)
+const identityDeviceCode = computed(() => toDisplayText(props.device?.deviceCode))
+const identityProduct = computed(() =>
+  toDisplayText(props.device?.productName || props.device?.productKey)
+)
+const statusSummary = computed(() => {
   const device = props.device
   if (!device) {
-    return []
+    return '--'
   }
-  return [
-    {
-      key: 'device',
-      label: '设备信息',
-      value: formatDeviceSummary(device)
-    },
-    {
-      key: 'status',
-      label: '状态概览',
-      value: `${getOnlineStatusText(device.onlineStatus)} / ${getActivateStatusText(device.activateStatus)} / ${getDeviceStatusText(device.deviceStatus)}`
-    }
-  ]
+  return `${getOnlineStatusText(device.onlineStatus)} / ${getActivateStatusText(device.activateStatus)} / ${getDeviceStatusText(device.deviceStatus)}`
 })
-
-const showLoadingState = computed(() => props.capabilityLoading === true && !props.overview)
+const capabilityPerspective = computed(() => {
+  const type = props.overview?.productCapabilityType?.trim()
+  const subType = props.overview?.subType?.trim()
+  if (type && subType) {
+    return `${type} / ${subType}`
+  }
+  return type || subType || '--'
+})
 
 function toDisplayText(value?: string | number | null) {
   if (value === undefined || value === null || value === '') {
     return '--'
   }
   return String(value)
-}
-
-function formatDeviceSummary(device: Device) {
-  const parts = [
-    toDisplayText(device.deviceName),
-    toDisplayText(device.deviceCode),
-    toDisplayText(device.productName || device.productKey)
-  ]
-  return parts.join(' / ')
 }
 
 function getOnlineStatusText(value?: number | null) {
@@ -162,7 +159,7 @@ function getDeviceStatusText(value?: number | null) {
 
 .device-capability-workbench-drawer__summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 0.75rem;
 }
 
@@ -174,6 +171,12 @@ function getDeviceStatusText(value?: number | null) {
   border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--panel-border));
   border-radius: calc(var(--radius-md) + 2px);
   background: rgba(248, 251, 255, 0.94);
+}
+
+.device-capability-workbench-drawer__summary-card--identity {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.95)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 9%, transparent), transparent 38%);
 }
 
 .device-capability-workbench-drawer__summary-label {
@@ -188,6 +191,22 @@ function getDeviceStatusText(value?: number | null) {
   font-weight: 600;
   line-height: 1.55;
   overflow-wrap: anywhere;
+}
+
+.device-capability-workbench-drawer__summary-value--identity {
+  font-size: 15px;
+}
+
+.device-capability-workbench-drawer__summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+}
+
+.device-capability-workbench-drawer__summary-meta small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .device-capability-workbench-drawer__footer {

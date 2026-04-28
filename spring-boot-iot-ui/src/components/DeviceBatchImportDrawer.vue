@@ -2,21 +2,24 @@
   <StandardFormDrawer
     v-model="visible"
     title="批量导入设备"
-    subtitle="通过 CSV 一次性补录设备资产主档，适合库存初始化、批次上新和现场回收录入。"
+    subtitle="通过 CSV 一次性补录设备资产主档，适合库存初始化、批量上新和现场回收录入。"
     size="58rem"
     @close="handleClose"
   >
     <div class="device-import-stack">
       <div class="device-import-note">
         <strong>导入说明</strong>
-        <span>CSV 首行请使用模板字段名。必填字段是 <code>productKey</code>、<code>deviceName</code>、<code>deviceCode</code>；如需一次性建父子设备关系，可额外填写 <code>parentDeviceCode</code>。</span>
+        <span>
+          CSV 首行请使用模板字段名。必填字段是 <code>productKey</code>、<code>deviceName</code>、<code>deviceCode</code>；
+          如需一次性建立父子设备关系，可额外填写 <code>parentDeviceCode</code>。
+        </span>
       </div>
 
       <section class="device-import-section">
         <div class="device-import-section__header">
           <div>
             <h3>模板与原始内容</h3>
-            <p>支持直接粘贴 CSV，也支持读取本地 CSV 文件。建议先下载模板，再按批次整理设备信息。</p>
+            <p>支持直接粘贴 CSV，也支持读取本地文件。建议先下载模板，再按批次整理设备信息。</p>
           </div>
           <div class="device-import-actions">
             <StandardRowActions variant="editor" gap="comfortable">
@@ -32,6 +35,7 @@
             >
           </div>
         </div>
+
         <el-input
           v-model="csvText"
           type="textarea"
@@ -44,9 +48,14 @@
         <div class="device-import-section__header">
           <div>
             <h3>字段约定</h3>
-            <p><code>parentDeviceCode</code> 选填，填写已存在父设备编码即可建立父子关系；<code>activateStatus</code> 和 <code>deviceStatus</code> 仅支持 <code>1</code> 或 <code>0</code>；<code>metadataJson</code> 请输入合法 JSON。</p>
+            <p>
+              <code>parentDeviceCode</code> 选填，填写已存在父设备编码即可建立父子关系；
+              <code>activateStatus</code> 和 <code>deviceStatus</code> 仅支持 <code>1</code> 或 <code>0</code>；
+              <code>metadataJson</code> 请输入合法 JSON。
+            </p>
           </div>
         </div>
+
         <div class="device-import-rule-grid">
           <div class="device-import-rule-card">
             <span>必填</span>
@@ -91,22 +100,34 @@
         </el-alert>
 
         <div class="device-import-summary">
-          <span>已识别 {{ parseState.items.length }} 台设备</span>
-          <span>预览 {{ previewRows.length }} 台</span>
-          <span>模板字段 {{ templateColumnKeys.length }} 个</span>
+          <span class="device-import-summary__pill">已识别 {{ parseState.items.length }} 台设备</span>
+          <span class="device-import-summary__pill">预览 {{ previewRows.length }} 台</span>
+          <span class="device-import-summary__pill">模板字段 {{ templateColumnKeys.length }} 项</span>
         </div>
 
         <el-table v-if="previewRows.length" :data="previewRows" border stripe height="260">
           <el-table-column prop="rowNo" label="行号" width="72" />
           <el-table-column prop="productKey" label="产品 Key" min-width="160" />
-          <el-table-column prop="deviceName" label="设备名称" min-width="150" />
-          <el-table-column prop="deviceCode" label="设备编码" min-width="170" />
+          <StandardTableTextColumn
+            prop="deviceName"
+            label="设备"
+            :min-width="220"
+            secondary-prop="deviceCode"
+          />
           <el-table-column prop="parentDeviceCode" label="父设备编码" min-width="170" />
           <el-table-column prop="activateStatus" label="激活状态" width="96">
-            <template #default="{ row }">{{ row.activateStatus === 0 ? '未激活' : '已激活' }}</template>
+            <template #default="{ row }">
+              <el-tag :type="row.activateStatus === 0 ? 'warning' : 'success'" effect="plain" round>
+                {{ row.activateStatus === 0 ? '未激活' : '已激活' }}
+              </el-tag>
+            </template>
           </el-table-column>
           <el-table-column prop="deviceStatus" label="设备状态" width="96">
-            <template #default="{ row }">{{ row.deviceStatus === 0 ? '禁用' : '启用' }}</template>
+            <template #default="{ row }">
+              <el-tag :type="row.deviceStatus === 0 ? 'danger' : 'success'" effect="plain" round>
+                {{ row.deviceStatus === 0 ? '禁用' : '启用' }}
+              </el-tag>
+            </template>
           </el-table-column>
           <el-table-column prop="address" label="部署位置" min-width="180" />
         </el-table>
@@ -130,11 +151,11 @@
             <span>总计</span>
             <strong>{{ result.totalCount }}</strong>
           </div>
-          <div class="device-import-result-card">
+          <div class="device-import-result-card device-import-result-card--success">
             <span>成功</span>
             <strong>{{ result.successCount }}</strong>
           </div>
-          <div class="device-import-result-card">
+          <div class="device-import-result-card device-import-result-card--danger">
             <span>失败</span>
             <strong>{{ result.failureCount }}</strong>
           </div>
@@ -177,6 +198,7 @@ import { ElMessage } from 'element-plus'
 import type { DeviceBatchAddPayload, DeviceBatchAddResult } from '@/types/api'
 import StandardDrawerFooter from './StandardDrawerFooter.vue'
 import StandardFormDrawer from './StandardFormDrawer.vue'
+import StandardTableTextColumn from './StandardTableTextColumn.vue'
 import { downloadRowsAsCsv, type CsvColumn } from '@/utils/csv'
 
 interface DeviceImportPreviewRow {
@@ -244,8 +266,8 @@ const templateColumns: CsvColumn<Record<string, string>>[] = [
   { key: 'address', label: 'address' },
   { key: 'metadataJson', label: 'metadataJson' }
 ]
-const templateColumnKeys = templateColumns.map((column) => String(column.key))
 
+const templateColumnKeys = templateColumns.map((column) => String(column.key))
 const parseState = computed<ParseState>(() => parseCsvText(csvText.value))
 const previewRows = computed(() => parseState.value.previewRows.slice(0, 8))
 
@@ -370,6 +392,7 @@ function parseCsvText(text: string): ParseState {
     const rowNo = offset + 2
     const readCell = (header: string) => cells[headerIndex.get(header) ?? -1] ?? ''
     const metadataJson = normalizeCellValue(readCell('metadataJson'))
+
     if (metadataJson) {
       try {
         JSON.parse(metadataJson)
@@ -434,7 +457,7 @@ function downloadTemplate() {
     [
       {
         productKey: 'accept-http-product-01',
-        deviceName: '北坡监测点-01',
+        deviceName: '北坡监测点 01',
         deviceCode: 'accept-http-device-02',
         parentDeviceCode: 'accept-http-gateway-01',
         deviceSecret: 'device-secret-02',
@@ -523,8 +546,8 @@ function handleSubmit() {
 .device-import-section__header {
   display: flex;
   justify-content: space-between;
+  gap: 14px;
   align-items: flex-start;
-  gap: 16px;
 }
 
 .device-import-section__header h3 {
@@ -542,8 +565,9 @@ function handleSubmit() {
 
 .device-import-actions {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .device-import-file-input {
@@ -553,15 +577,15 @@ function handleSubmit() {
 .device-import-rule-grid,
 .device-import-result-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
 }
 
 .device-import-rule-card,
 .device-import-result-card {
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
   border-radius: calc(var(--radius-md) + 2px);
   border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
   background: rgba(248, 251, 255, 0.92);
@@ -576,37 +600,66 @@ function handleSubmit() {
 .device-import-rule-card strong,
 .device-import-result-card strong {
   color: var(--text-heading);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
+}
+
+.device-import-result-card--success {
+  border-color: color-mix(in srgb, var(--success) 16%, transparent);
+  background: color-mix(in srgb, var(--success) 5%, white);
+}
+
+.device-import-result-card--danger {
+  border-color: color-mix(in srgb, var(--danger) 16%, transparent);
+  background: color-mix(in srgb, var(--danger) 5%, white);
+}
+
+.device-import-alert {
+  margin-bottom: 0.1rem;
+}
+
+.device-import-error-list {
+  display: grid;
+  gap: 0.25rem;
 }
 
 .device-import-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 0.5rem;
+}
+
+.device-import-summary__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.68rem;
+  border-radius: 999px;
+  background: rgba(243, 247, 255, 0.96);
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
   color: var(--text-caption);
-  font-size: 13px;
-}
-
-.device-import-alert {
-  margin-bottom: 0;
-}
-
-.device-import-error-list {
-  display: grid;
-  gap: 4px;
-  margin-top: 6px;
+  font-size: 12px;
 }
 
 .device-import-hint {
   margin: 0;
   color: var(--text-caption);
   font-size: 12px;
+  line-height: 1.6;
 }
 
 @media (max-width: 900px) {
   .device-import-section__header {
     flex-direction: column;
+  }
+
+  .device-import-actions {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .device-import-rule-grid,
+  .device-import-result-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

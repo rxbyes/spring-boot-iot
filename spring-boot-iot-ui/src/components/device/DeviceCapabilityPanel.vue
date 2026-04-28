@@ -23,10 +23,16 @@
         <article
           v-for="card in summaryCards"
           :key="card.key"
-          class="device-capability-panel__summary-card"
+          :class="[
+            'device-capability-panel__summary-card',
+            { 'device-capability-panel__summary-card--primary': card.primary }
+          ]"
         >
           <span class="device-capability-panel__summary-label">{{ card.label }}</span>
           <strong class="device-capability-panel__summary-value">{{ card.value }}</strong>
+          <div v-if="card.meta?.length" class="device-capability-panel__summary-meta">
+            <small v-for="item in card.meta" :key="item">{{ item }}</small>
+          </div>
         </article>
       </section>
 
@@ -41,7 +47,7 @@
               <h4>{{ group.label }}</h4>
               <p>{{ group.description }}</p>
             </div>
-            <span class="device-capability-panel__group-count">{{ group.items.length }} 项</span>
+            <span class="device-capability-panel__group-count-pill">{{ group.items.length }} 项</span>
           </div>
 
           <div class="device-capability-panel__capabilities">
@@ -83,10 +89,14 @@
     </section>
 
     <section class="device-capability-panel__stage" data-testid="device-capability-command-stage">
-      <StandardTableToolbar
-        compact
-        :meta-items="commandMetaItems"
-      >
+      <div class="device-capability-panel__command-stage-header">
+        <div>
+          <h3>命令记录</h3>
+          <p>保留最近下发与反馈结果，便于回看执行链路。</p>
+        </div>
+      </div>
+
+      <StandardTableToolbar compact :meta-items="commandMetaItems">
         <template #right>
           <StandardButton action="refresh" link :loading="commandLoading" @click="emit('refreshCommands')">
             刷新命令
@@ -106,7 +116,14 @@
           <el-table-column prop="serviceIdentifier" label="能力" min-width="132" />
           <el-table-column prop="status" label="状态" width="108">
             <template #default="{ row }">
-              <el-tag :type="getStatusTagType(row.status)" round>{{ getStatusLabel(row.status) }}</el-tag>
+              <span
+                :class="[
+                  'device-capability-panel__command-status-pill',
+                  `device-capability-panel__command-status-pill--${getCommandStatusTone(row.status)}`
+                ]"
+              >
+                {{ getStatusLabel(row.status) }}
+              </span>
             </template>
           </el-table-column>
           <el-table-column prop="sendTime" label="下发时间" min-width="178">
@@ -150,6 +167,8 @@ type SummaryCard = {
   key: string
   label: string
   value: string
+  meta?: string[]
+  primary?: boolean
 }
 
 const props = withDefaults(
@@ -188,6 +207,12 @@ const subTypeLabelMap: Record<string, string> = {
   PTZ_CAMERA: '视频云台'
 }
 
+const defaultGroupMeta = {
+  label: '未分组',
+  description: '未归类能力。',
+  hint: ''
+}
+
 const groupMetaMap: Record<string, { label: string; description: string; hint: string }> = {
   基础维护: {
     label: '基础维护',
@@ -214,14 +239,12 @@ const groupMetaMap: Record<string, { label: string; description: string; hint: s
     description: '视频播放、停止与方位角转向。',
     hint: 'PTZ 设备会额外开放方位角转向能力。'
   },
-  未分组: {
-    label: '未分组',
-    description: '未归类能力。',
-    hint: ''
-  }
+  未分组: defaultGroupMeta
 }
 
-const capabilityTypeLabel = computed(() => capabilityTypeLabelMap[props.overview?.productCapabilityType || 'UNKNOWN'] || '未知能力')
+const capabilityTypeLabel = computed(
+  () => capabilityTypeLabelMap[props.overview?.productCapabilityType || 'UNKNOWN'] || '未知能力'
+)
 const subTypeLabel = computed(() => {
   const subType = props.overview?.subType
   if (!subType) {
@@ -240,7 +263,7 @@ const groupEntries = computed<CapabilityGroupEntry[]>(() => {
   }
 
   return Array.from(groups.entries()).map(([key, items]) => {
-    const meta = groupMetaMap[key] || groupMetaMap.未分组
+    const meta = groupMetaMap[key] || defaultGroupMeta
     return {
       key,
       label: meta.label,
@@ -255,11 +278,31 @@ const summaryCards = computed<SummaryCard[]>(() => {
   const capabilities = props.overview?.capabilities || []
   const executableCount = capabilities.filter((capability) => !isCapabilityDisabled(capability)).length
   const blockedCount = capabilities.length - executableCount
+  const groupCount = groupEntries.value.length
 
   return [
-    { key: 'total', label: '总能力', value: `${capabilities.length} 项` },
-    { key: 'executable', label: '可执行', value: `${executableCount} 项` },
-    { key: 'blocked', label: '受限', value: `${blockedCount} 项` }
+    {
+      key: 'total',
+      label: '总能力',
+      value: `${capabilities.length} 项`,
+      meta: [`可执行 ${executableCount} 项`, `受限 ${blockedCount} 项`],
+      primary: true
+    },
+    {
+      key: 'groups',
+      label: '能力分组',
+      value: `${groupCount} 组`,
+      meta: [capabilityTypeLabel.value, subTypeLabel.value || '未细分']
+    },
+    {
+      key: 'commands',
+      label: '最近命令',
+      value: `${props.commands?.length || 0} 条`,
+      meta: [
+        `已反馈 ${props.commands?.filter((item) => Boolean(item.ackTime)).length || 0} 条`,
+        `失败 ${props.commands?.filter((item) => item.status === 'FAILED').length || 0} 条`
+      ]
+    }
   ]
 })
 
@@ -343,6 +386,19 @@ function getStatusTagType(value?: string | null) {
   }
   return 'info'
 }
+
+function getCommandStatusTone(value?: string | null) {
+  if (value === 'SUCCESS') {
+    return 'success'
+  }
+  if (value === 'FAILED' || value === 'TIMEOUT') {
+    return 'danger'
+  }
+  if (value === 'SENT') {
+    return 'warning'
+  }
+  return 'info'
+}
 </script>
 
 <style scoped>
@@ -368,6 +424,20 @@ function getStatusTagType(value?: string | null) {
   align-items: flex-start;
 }
 
+.device-capability-panel__command-stage-header h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.device-capability-panel__command-stage-header p {
+  margin: 0.28rem 0 0;
+  color: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .device-capability-panel__stage-header h3,
 .device-capability-panel__group-header h4 {
   margin: 0;
@@ -390,7 +460,7 @@ function getStatusTagType(value?: string | null) {
 
 .device-capability-panel__summary-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
 }
 
@@ -404,6 +474,12 @@ function getStatusTagType(value?: string | null) {
   background: rgba(248, 251, 255, 0.92);
 }
 
+.device-capability-panel__summary-card--primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.95)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 9%, transparent), transparent 40%);
+}
+
 .device-capability-panel__summary-label {
   color: var(--text-caption);
   font-size: 12px;
@@ -414,6 +490,18 @@ function getStatusTagType(value?: string | null) {
   color: var(--text-heading);
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.45;
+}
+
+.device-capability-panel__summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+}
+
+.device-capability-panel__summary-meta small {
+  color: var(--text-secondary);
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -440,11 +528,16 @@ function getStatusTagType(value?: string | null) {
   align-items: flex-start;
 }
 
-.device-capability-panel__group-count {
+.device-capability-panel__group-count-pill {
   flex: none;
-  color: color-mix(in srgb, var(--brand) 72%, var(--text-caption));
+  align-self: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 9%, rgba(255, 255, 255, 0.96));
+  color: color-mix(in srgb, var(--brand) 74%, var(--text-caption));
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .device-capability-panel__capabilities {
@@ -495,6 +588,36 @@ function getStatusTagType(value?: string | null) {
 
 .device-capability-panel__command-table :deep(.el-table) {
   width: 100%;
+}
+
+.device-capability-panel__command-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.58rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.device-capability-panel__command-status-pill--success {
+  background: color-mix(in srgb, var(--success) 10%, rgba(255, 255, 255, 0.96));
+  color: color-mix(in srgb, var(--success) 72%, var(--text-secondary));
+}
+
+.device-capability-panel__command-status-pill--warning {
+  background: color-mix(in srgb, var(--warning) 12%, rgba(255, 255, 255, 0.96));
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-secondary));
+}
+
+.device-capability-panel__command-status-pill--danger {
+  background: color-mix(in srgb, var(--danger) 10%, rgba(255, 255, 255, 0.96));
+  color: color-mix(in srgb, var(--danger) 72%, var(--text-secondary));
+}
+
+.device-capability-panel__command-status-pill--info {
+  background: color-mix(in srgb, var(--brand) 8%, rgba(255, 255, 255, 0.96));
+  color: var(--text-secondary);
 }
 
 @media (max-width: 900px) {

@@ -120,7 +120,12 @@
             </el-table-column>
             <StandardTableTextColumn prop="regionName" label="区域" :width="120" />
             <StandardTableTextColumn prop="riskPointName" label="风险点" :width="150" />
-            <StandardTableTextColumn prop="deviceName" label="设备名称" :width="150" />
+            <StandardTableTextColumn
+              prop="deviceName"
+              label="设备"
+              secondary-prop="deviceCode"
+              :min-width="180"
+            />
             <StandardTableTextColumn prop="metricName" label="测点名称" :width="150" />
             <StandardTableTextColumn prop="currentValue" label="当前值" :width="120" />
             <StandardTableTextColumn prop="thresholdValue" label="阈值" :width="120" />

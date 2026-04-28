@@ -1,4 +1,5 @@
 import importlib.util
+import csv
 import io
 import json
 import pathlib
@@ -505,6 +506,44 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
         self.assertEqual("2026-04-27T13:00:00", crack_stats["latestAt"])
         self.assertEqual(laser_stats, enriched[0]["suggestedTemplate"]["observedValueStats"])
 
+    def test_attach_observed_value_stats_adds_review_only_threshold_recommendation(self):
+        gaps = [
+            {
+                "metricIdentifier": "gpsTotalX",
+                "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                "suggestedTemplate": {},
+            },
+            {
+                "metricIdentifier": "value",
+                "metricName": "\u5f53\u524d\u96e8\u91cf",
+                "suggestedTemplate": {},
+            },
+        ]
+        rows = [
+            {"identifier": "gpsTotalX", "propertyValue": "-1", "reportTime": "2026-04-27T10:00:00"},
+            {"identifier": "gpsTotalX", "propertyValue": "2", "reportTime": "2026-04-27T11:00:00"},
+            {"identifier": "gpsTotalX", "propertyValue": "4", "reportTime": "2026-04-27T12:00:00"},
+            {"identifier": "gpsTotalX", "propertyValue": "8", "reportTime": "2026-04-27T13:00:00"},
+            {"identifier": "gpsTotalX", "propertyValue": "10", "reportTime": "2026-04-27T14:00:00"},
+            {"identifier": "value", "propertyValue": "0", "reportTime": "2026-04-27T10:00:00"},
+            {"identifier": "value", "propertyValue": "0", "reportTime": "2026-04-27T11:00:00"},
+            {"identifier": "value", "propertyValue": "0", "reportTime": "2026-04-27T12:00:00"},
+        ]
+
+        enriched = backfill.attach_observed_value_stats(gaps, rows)
+
+        recommendation = enriched[0]["suggestedTemplate"]["thresholdRecommendation"]
+        self.assertEqual("REQUIRES_MANUAL_REVIEW", recommendation["status"])
+        self.assertEqual("BIDIRECTIONAL_REVIEW", recommendation["direction"])
+        self.assertIsNone(recommendation["recommendedExpression"])
+        self.assertEqual("value <= -1.2", recommendation["recommendedLowerExpression"])
+        self.assertEqual("value >= 12", recommendation["recommendedUpperExpression"])
+        self.assertIn("negative", recommendation["reason"])
+        self.assertIsNone(enriched[0]["suggestedTemplate"].get("expression"))
+        flat_recommendation = enriched[1]["suggestedTemplate"]["thresholdRecommendation"]
+        self.assertEqual("FLAT_ZERO_REVIEW", flat_recommendation["status"])
+        self.assertIsNone(flat_recommendation["recommendedExpression"])
+
     def test_product_type_template_match_conditions_prevent_value_cross_use(self):
         config = {
             "productTypeTemplates": [
@@ -605,6 +644,383 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
             self.assertEqual(1, len(draft["productTypeTemplates"]))
             self.assertEqual("NEEDS_CONFIRMATION", draft["productTypeTemplates"][0]["confirmationStatus"])
             self.assertEqual(2, draft["productTypeTemplates"][0]["evidence"]["bindingCount"])
+
+    def test_write_reports_exports_prefilled_business_review_csv(self):
+        report = {
+            "mode": "dry-run",
+            "status": "PASSED",
+            "checkedAt": "2026-04-28T00:40:00",
+            "bindingTotal": 7,
+            "riskBindingTotal": 7,
+            "activeDeviceProductBindingCount": 7,
+            "inactiveOrMissingDeviceProductCount": 0,
+            "coveredBindingCount": 0,
+            "candidateCount": 0,
+            "appliedCount": 0,
+            "skippedCount": 7,
+            "skippedReasonCounts": {"NO_CONFIRMED_THRESHOLD_TEMPLATE": 7},
+            "templateGapCount": 2,
+            "templateValidation": {"readyTemplateCount": 0, "breachCount": 0, "breaches": []},
+            "applyConfirmation": {"status": "NOT_APPLICABLE", "breachCount": 0, "breaches": []},
+            "templateGaps": [
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "gpsTotalX",
+                    "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                    "bindingCount": 5,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "gnss-total:gpsTotalX",
+                        "metricIdentifier": "gpsTotalX",
+                        "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "thresholdRecommendation": {
+                            "status": "REQUIRES_MANUAL_REVIEW",
+                            "direction": "BIDIRECTIONAL_REVIEW",
+                            "recommendedUpperExpression": "value >= 12",
+                        },
+                    },
+                },
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "bindingCount": 2,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "rain-gauge:value",
+                        "metricIdentifier": "value",
+                        "metricName": "\u5f53\u524d\u96e8\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "thresholdRecommendation": {
+                            "status": "FLAT_ZERO_REVIEW",
+                            "direction": "FLAT_ZERO",
+                        },
+                    },
+                },
+            ],
+            "candidates": [],
+            "skipped": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backfill.write_reports(report, temp_dir)
+            latest_review_csv_path = pathlib.Path(temp_dir) / "threshold-policy-template-review-latest.csv"
+            latest_package_path = pathlib.Path(temp_dir) / "threshold-policy-template-confirmation-package-latest.md"
+            with latest_review_csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            package_markdown = latest_package_path.read_text(encoding="utf-8")
+
+        self.assertEqual("UPPER", rows[0]["recommendationDecision"])
+        self.assertEqual("CONFIRMED", rows[0]["confirmationStatus"])
+        self.assertEqual("", rows[0]["expression"])
+        self.assertEqual("", rows[1]["recommendationDecision"])
+        self.assertEqual("NEEDS_CONFIRMATION", rows[1]["confirmationStatus"])
+        self.assertIn("Prefilled Review CSV", package_markdown)
+
+    def test_write_reports_exports_observation_queue_for_non_adoptable_templates(self):
+        report = {
+            "mode": "dry-run",
+            "status": "PASSED",
+            "checkedAt": "2026-04-28T00:50:00",
+            "bindingTotal": 7,
+            "riskBindingTotal": 7,
+            "activeDeviceProductBindingCount": 7,
+            "inactiveOrMissingDeviceProductCount": 0,
+            "coveredBindingCount": 0,
+            "candidateCount": 0,
+            "appliedCount": 0,
+            "skippedCount": 7,
+            "skippedReasonCounts": {"NO_CONFIRMED_THRESHOLD_TEMPLATE": 7},
+            "templateGapCount": 2,
+            "templateValidation": {"readyTemplateCount": 0, "breachCount": 0, "breaches": []},
+            "applyConfirmation": {"status": "NOT_APPLICABLE", "breachCount": 0, "breaches": []},
+            "templateGaps": [
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "gpsTotalX",
+                    "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                    "bindingCount": 5,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "gnss-total:gpsTotalX",
+                        "metricIdentifier": "gpsTotalX",
+                        "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "thresholdRecommendation": {
+                            "status": "REQUIRES_MANUAL_REVIEW",
+                            "direction": "BIDIRECTIONAL_REVIEW",
+                            "recommendedUpperExpression": "value >= 12",
+                        },
+                    },
+                },
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "bindingCount": 2,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "rain-gauge:value",
+                        "metricIdentifier": "value",
+                        "metricName": "\u5f53\u524d\u96e8\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "observedValueStats": {"min": 0, "max": 0, "numericCount": 10},
+                        "thresholdRecommendation": {
+                            "status": "FLAT_ZERO_REVIEW",
+                            "direction": "FLAT_ZERO",
+                        },
+                    },
+                },
+            ],
+            "candidates": [],
+            "skipped": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backfill.write_reports(report, temp_dir)
+            latest_observation_csv_path = pathlib.Path(temp_dir) / "threshold-policy-template-observation-latest.csv"
+            latest_package_path = pathlib.Path(temp_dir) / "threshold-policy-template-confirmation-package-latest.md"
+            with latest_observation_csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            package_markdown = latest_package_path.read_text(encoding="utf-8")
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("rain-gauge:value", rows[0]["semanticTemplateKey"])
+        self.assertEqual("KEEP_OBSERVING_OR_PROVIDE_FIXED_EXPRESSION", rows[0]["observationAction"])
+        self.assertEqual("14", rows[0]["nextReviewDays"])
+        self.assertIn("Observation Queue CSV", package_markdown)
+
+    def test_write_reports_exports_observation_followup_plan(self):
+        report = {
+            "mode": "dry-run",
+            "status": "PASSED",
+            "checkedAt": "2026-04-28T00:50:00",
+            "bindingTotal": 2,
+            "riskBindingTotal": 2,
+            "activeDeviceProductBindingCount": 2,
+            "inactiveOrMissingDeviceProductCount": 0,
+            "coveredBindingCount": 0,
+            "candidateCount": 0,
+            "appliedCount": 0,
+            "skippedCount": 2,
+            "skippedReasonCounts": {"NO_CONFIRMED_THRESHOLD_TEMPLATE": 2},
+            "templateGapCount": 1,
+            "templateValidation": {"readyTemplateCount": 0, "breachCount": 0, "breaches": []},
+            "applyConfirmation": {"status": "NOT_APPLICABLE", "breachCount": 0, "breaches": []},
+            "templateGaps": [
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "bindingCount": 2,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "rain-gauge:value",
+                        "metricIdentifier": "value",
+                        "metricName": "\u5f53\u524d\u96e8\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "observedValueStats": {"min": 0, "max": 0, "numericCount": 10},
+                        "thresholdRecommendation": {
+                            "status": "FLAT_ZERO_REVIEW",
+                            "direction": "FLAT_ZERO",
+                        },
+                    },
+                },
+            ],
+            "candidates": [],
+            "skipped": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backfill.write_reports(report, temp_dir)
+            latest_followup_json_path = pathlib.Path(temp_dir) / "threshold-policy-template-observation-followup-latest.json"
+            latest_followup_md_path = pathlib.Path(temp_dir) / "threshold-policy-template-observation-followup-latest.md"
+            followup = json.loads(latest_followup_json_path.read_text(encoding="utf-8"))
+            markdown = latest_followup_md_path.read_text(encoding="utf-8")
+
+        self.assertEqual("PENDING_REVIEW", followup["status"])
+        self.assertEqual(1, followup["observationCount"])
+        self.assertEqual("2026-05-12T00:50:00", followup["nextReviewAt"])
+        self.assertEqual("rain-gauge:value", followup["items"][0]["semanticTemplateKey"])
+        self.assertIn("Observation Follow-up Plan", markdown)
+        self.assertIn("threshold-policy-template-observation-latest.csv", markdown)
+
+    def test_write_reports_exports_business_closure_report(self):
+        report = {
+            "mode": "dry-run",
+            "status": "PASSED",
+            "checkedAt": "2026-04-28T01:10:00",
+            "bindingTotal": 2,
+            "riskBindingTotal": 2,
+            "activeDeviceProductBindingCount": 2,
+            "inactiveOrMissingDeviceProductCount": 0,
+            "coveredBindingCount": 0,
+            "candidateCount": 0,
+            "appliedCount": 0,
+            "skippedCount": 2,
+            "skippedReasonCounts": {"NO_CONFIRMED_THRESHOLD_TEMPLATE": 2},
+            "templateGapCount": 1,
+            "templateValidation": {"readyTemplateCount": 0, "breachCount": 2, "breaches": []},
+            "applyConfirmation": {"status": "NOT_APPLICABLE", "breachCount": 0, "breaches": []},
+            "templateGaps": [
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "bindingCount": 2,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "rain-gauge:value",
+                        "metricIdentifier": "value",
+                        "metricName": "\u5f53\u524d\u96e8\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "thresholdRecommendation": {
+                            "status": "FLAT_ZERO_REVIEW",
+                            "direction": "FLAT_ZERO",
+                        },
+                    },
+                },
+            ],
+            "candidates": [],
+            "skipped": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backfill.write_reports(report, temp_dir)
+            closure_json_path = pathlib.Path(temp_dir) / "threshold-policy-business-closure-latest.json"
+            closure_md_path = pathlib.Path(temp_dir) / "threshold-policy-business-closure-latest.md"
+            closure = json.loads(closure_json_path.read_text(encoding="utf-8"))
+            markdown = closure_md_path.read_text(encoding="utf-8")
+
+        self.assertEqual("NOT_CLOSED", closure["status"])
+        self.assertEqual(1, closure["observationCount"])
+        self.assertEqual(1, closure["unconfirmedTemplateCount"])
+        self.assertIn("OBSERVATION_QUEUE_NOT_EMPTY", [item["type"] for item in closure["blockers"]])
+        self.assertIn("NO_APPLY_EXECUTED", [item["type"] for item in closure["blockers"]])
+        self.assertIn("Threshold Policy Business Closure", markdown)
+        self.assertIn("Status: `NOT_CLOSED`", markdown)
+
+    def test_write_reports_exports_manual_decision_package_for_observation_items(self):
+        report = {
+            "mode": "dry-run",
+            "status": "PASSED",
+            "checkedAt": "2026-04-28T01:20:00",
+            "bindingTotal": 2,
+            "riskBindingTotal": 2,
+            "activeDeviceProductBindingCount": 2,
+            "inactiveOrMissingDeviceProductCount": 0,
+            "coveredBindingCount": 0,
+            "candidateCount": 0,
+            "appliedCount": 0,
+            "skippedCount": 2,
+            "skippedReasonCounts": {"NO_CONFIRMED_THRESHOLD_TEMPLATE": 2},
+            "templateGapCount": 1,
+            "templateValidation": {"readyTemplateCount": 0, "breachCount": 2, "breaches": []},
+            "applyConfirmation": {"status": "NOT_APPLICABLE", "breachCount": 0, "breaches": []},
+            "templateGaps": [
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "bindingCount": 2,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "rain-gauge:value",
+                        "metricIdentifier": "value",
+                        "metricName": "\u5f53\u524d\u96e8\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "observedValueStats": {"min": 0, "max": 0, "numericCount": 10},
+                        "thresholdRecommendation": {
+                            "status": "FLAT_ZERO_REVIEW",
+                            "direction": "FLAT_ZERO",
+                        },
+                    },
+                },
+            ],
+            "candidates": [],
+            "skipped": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backfill.write_reports(report, temp_dir)
+            decision_csv_path = pathlib.Path(temp_dir) / "threshold-policy-template-manual-decision-latest.csv"
+            decision_md_path = pathlib.Path(temp_dir) / "threshold-policy-template-manual-decision-latest.md"
+            with decision_csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            markdown = decision_md_path.read_text(encoding="utf-8")
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("rain-gauge:value", rows[0]["semanticTemplateKey"])
+        self.assertEqual("", rows[0]["businessExpression"])
+        self.assertEqual("", rows[0]["decisionStatus"])
+        self.assertEqual("", rows[0]["reviewer"])
+        self.assertIn("Manual Decision Package", markdown)
+        self.assertIn("Provide a fixed threshold expression or keep observing", markdown)
+
+    def test_confirmation_package_markdown_summarizes_business_review_queue(self):
+        template_draft = {
+            "generatedAt": "2026-04-28T00:30:00",
+            "sourceReport": "logs/acceptance/threshold-policy-backfill-latest.json",
+            "productTypeTemplates": [
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "gnss-total:gpsTotalX",
+                    "metricIdentifier": "gpsTotalX",
+                    "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "REQUIRES_MANUAL_REVIEW",
+                        "direction": "BIDIRECTIONAL_REVIEW",
+                        "recommendedUpperExpression": "value >= 12",
+                    },
+                    "evidence": {"bindingCount": 5, "productCount": 1},
+                },
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "rain-gauge:value",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "FLAT_ZERO_REVIEW",
+                        "direction": "FLAT_ZERO",
+                    },
+                    "evidence": {"bindingCount": 2, "productCount": 1},
+                },
+            ],
+        }
+        report = {
+            "bindingTotal": 7,
+            "riskBindingTotal": 7,
+            "candidateCount": 0,
+            "skippedCount": 7,
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            markdown = backfill.render_template_confirmation_package_markdown(template_draft, report, temp_dir)
+
+        self.assertIn("## Business Review Summary", markdown)
+        self.assertIn("- Adoptable Recommendations: `1`", markdown)
+        self.assertIn("- Manual Expression Required: `1`", markdown)
+        self.assertIn("- Flat Zero Review Required: `1`", markdown)
+        self.assertIn("Use `UPPER` to adopt the reviewed upper recommendation", markdown)
 
     def test_template_validation_requires_confirmation_and_expression(self):
         validation = backfill.validate_template_config({
@@ -884,6 +1300,11 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
 
         self.assertIn("expression", content)
         self.assertIn("confirmationStatus", content)
+        self.assertIn("recommendedExpression", content)
+        self.assertIn("recommendedLowerExpression", content)
+        self.assertIn("recommendedUpperExpression", content)
+        self.assertIn("recommendationStatus", content)
+        self.assertIn("recommendationDirection", content)
         self.assertIn("gnss-total:gpsTotalX", content)
         self.assertIn("-1.5..3.2 (n=10)", content)
 
@@ -1019,6 +1440,145 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
             self.assertEqual(1, report["updatedConfirmationStatusCount"])
             self.assertEqual(1, report["templateValidation"]["readyTemplateCount"])
             self.assertEqual("semantic:unknown-template", report["unmatchedRows"][0]["identity"])
+
+    def test_merge_confirmation_csv_can_adopt_reviewed_upper_recommendation(self):
+        config = {
+            "productTypeTemplates": [
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "gnss-total:gpsTotalX",
+                    "metricIdentifier": "gpsTotalX",
+                    "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "REQUIRES_MANUAL_REVIEW",
+                        "direction": "BIDIRECTIONAL_REVIEW",
+                        "recommendedExpression": None,
+                        "recommendedLowerExpression": "value <= -1.2",
+                        "recommendedUpperExpression": "value >= 12",
+                    },
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = pathlib.Path(temp_dir) / "confirmation.csv"
+            path.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "gnss-total:gpsTotalX,MONITORING,gpsTotalX,X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf,UPPER,,CONFIRMED\n",
+                encoding="utf-8",
+            )
+
+            merged, summary = backfill.merge_template_confirmation_csv_with_summary(config, path)
+
+        self.assertEqual(1, summary["adoptedRecommendationCount"])
+        self.assertEqual(0, summary["invalidRecommendationDecisionCount"])
+        template = merged["productTypeTemplates"][0]
+        self.assertEqual("value >= 12", template["expression"])
+        self.assertEqual("CONFIRMED", template["confirmationStatus"])
+
+    def test_merge_confirmation_csv_rejects_unavailable_recommendation_decision(self):
+        config = {
+            "productTypeTemplates": [
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "rain-gauge:value",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "FLAT_ZERO_REVIEW",
+                        "direction": "FLAT_ZERO",
+                        "recommendedExpression": None,
+                        "recommendedLowerExpression": None,
+                        "recommendedUpperExpression": None,
+                    },
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            config_path = root / "pending.json"
+            csv_path = root / "confirmation.csv"
+            output_path = root / "confirmed.json"
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+            csv_path.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,UPPER,,CONFIRMED\n",
+                encoding="utf-8",
+            )
+
+            backfill.write_merged_template_confirmation_config(config_path, csv_path, output_path, root)
+
+            report = json.loads(
+                (root / "threshold-policy-template-confirmation-merge-latest.json").read_text(encoding="utf-8")
+            )
+        self.assertEqual("FAILED", report["status"])
+        self.assertFalse(report["targetWritten"])
+        self.assertEqual(1, report["invalidRecommendationDecisionCount"])
+        self.assertEqual("UNAVAILABLE_RECOMMENDATION", report["invalidRecommendationDecisionRows"][0]["reason"])
+
+    def test_merge_report_lists_remaining_template_gaps_after_partial_recommendation_adoption(self):
+        config = {
+            "productTypeTemplates": [
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "gnss-total:gpsTotalX",
+                    "metricIdentifier": "gpsTotalX",
+                    "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "REQUIRES_MANUAL_REVIEW",
+                        "direction": "BIDIRECTIONAL_REVIEW",
+                        "recommendedUpperExpression": "value >= 12",
+                    },
+                    "evidence": {"bindingCount": 5},
+                },
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "rain-gauge:value",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "FLAT_ZERO_REVIEW",
+                        "direction": "FLAT_ZERO",
+                    },
+                    "evidence": {"bindingCount": 2},
+                },
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            config_path = root / "pending.json"
+            csv_path = root / "confirmation.csv"
+            output_path = root / "confirmed.json"
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+            csv_path.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "gnss-total:gpsTotalX,MONITORING,gpsTotalX,X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf,UPPER,,CONFIRMED\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+
+            backfill.write_merged_template_confirmation_config(config_path, csv_path, output_path, root)
+
+            report = json.loads(
+                (root / "threshold-policy-template-confirmation-merge-latest.json").read_text(encoding="utf-8")
+            )
+            markdown = (root / "threshold-policy-template-confirmation-merge-latest.md").read_text(encoding="utf-8")
+
+        self.assertEqual("FAILED", report["status"])
+        self.assertEqual(1, report["templateValidation"]["readyTemplateCount"])
+        self.assertEqual(1, report["remainingTemplateGapCount"])
+        self.assertEqual("rain-gauge:value", report["remainingTemplateGaps"][0]["semanticTemplateKey"])
+        self.assertEqual(["CONFIRM_TEMPLATE", "FILL_EXPRESSION"], report["remainingTemplateGaps"][0]["requiredActions"])
+        self.assertEqual("FLAT_ZERO_REVIEW", report["remainingTemplateGaps"][0]["recommendationStatus"])
+        self.assertIn("Remaining Template Gaps", markdown)
+        self.assertIn("rain-gauge:value", markdown)
 
     def test_merge_confirmation_report_fails_for_duplicate_and_invalid_csv_rows(self):
         with tempfile.TemporaryDirectory() as temp_dir:
