@@ -1012,7 +1012,7 @@ const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
       key: 'export-search',
       command: 'export-search',
       label: '导出搜索结果',
-      disabled: tableData.value.length === 0
+      disabled: pagination.total === 0
     })
   }
 

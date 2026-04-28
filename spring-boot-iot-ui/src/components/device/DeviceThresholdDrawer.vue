@@ -63,7 +63,12 @@
           >
             <div class="device-threshold-drawer__rule-main">
               <strong>{{ rule.ruleName || '--' }}</strong>
-              <span>{{ rule.expression || '--' }}</span>
+              <div class="device-threshold-drawer__rule-side">
+                <em v-if="formatAlarmLevel(rule.alarmLevel)" class="device-threshold-drawer__rule-level">
+                  {{ formatAlarmLevel(rule.alarmLevel) }}
+                </em>
+                <span>{{ rule.expression || '--' }}</span>
+              </div>
             </div>
             <small>{{ toDisplayText(rule.sourceLabel) }} / {{ toDisplayText(rule.targetLabel) }}</small>
           </article>
@@ -121,6 +126,24 @@ function toDisplayText(value?: string | number | null) {
     return '--'
   }
   return String(value)
+}
+
+function formatAlarmLevel(value?: string | null) {
+  if (!value) {
+    return ''
+  }
+  switch (value.trim().toLowerCase()) {
+    case 'red':
+      return '红色告警'
+    case 'orange':
+      return '橙色告警'
+    case 'yellow':
+      return '黄色告警'
+    case 'blue':
+      return '蓝色告警'
+    default:
+      return value
+  }
 }
 </script>
 
@@ -213,6 +236,21 @@ function toDisplayText(value?: string | number | null) {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.6rem;
+}
+
+.device-threshold-drawer__rule-side {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.device-threshold-drawer__rule-level {
+  color: var(--text-heading);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .device-threshold-drawer__rule-main span {

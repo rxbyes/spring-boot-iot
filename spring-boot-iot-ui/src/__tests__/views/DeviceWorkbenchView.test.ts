@@ -1089,6 +1089,8 @@ describe('DeviceWorkbenchView', () => {
     await flushPromises()
     await nextTick()
 
+    ;(wrapper.vm as any).pagination.total = 2
+    ;(wrapper.vm as any).tableData = []
     ;(wrapper.vm as any).appliedFilters.keyword = 'north-slope'
     ;(wrapper.vm as any).appliedFilters.registrationStatus = 1
     mockExportDevices.mockResolvedValue({
@@ -1103,6 +1105,11 @@ describe('DeviceWorkbenchView', () => {
     await (wrapper.vm as any).handleToolbarAction('export-search')
     await flushPromises()
 
+    const exportAction = ((wrapper.vm as any).deviceToolbarActions as Array<{ command: string; disabled?: boolean }>).find(
+      (item) => item.command === 'export-search'
+    )
+
+    expect(exportAction?.disabled).toBe(false)
     expect(mockExportDevices).toHaveBeenCalledWith({
       deviceId: undefined,
       keyword: 'north-slope',

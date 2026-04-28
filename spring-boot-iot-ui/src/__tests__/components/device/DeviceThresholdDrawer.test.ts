@@ -81,6 +81,8 @@ describe('DeviceThresholdDrawer', () => {
     expect(wrapper.text()).toContain('产品默认')
     expect(wrapper.text()).toContain('binding-red')
     expect(wrapper.text()).toContain('product-default')
+    expect(wrapper.text()).toContain('红色告警')
+    expect(wrapper.text()).toContain('橙色告警')
   })
 
   it('renders the empty state when no metrics are available', () => {
