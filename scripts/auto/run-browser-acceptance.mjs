@@ -106,6 +106,20 @@ function printHelp() {
   );
 }
 
+export function buildCliMetadataLines(result) {
+  const output = result?.artifacts?.relative || result?.summary?.output || {};
+  const counts = result?.summary?.counts || {};
+  const status = result?.exitCode === 0 ? 'PASSED' : 'FAILED';
+  return [
+    output.reportPath ? `REPORT_PATH=${output.reportPath}` : '',
+    output.summaryPath ? `REPORT_SUMMARY=${output.summaryPath}` : '',
+    output.detailPath ? `DETAIL_JSON=${output.detailPath}` : '',
+    output.screenshotsDir ? `SCREENSHOTS_DIR=${output.screenshotsDir}` : '',
+    `STATUS=${status}`,
+    `SUMMARY=browser acceptance ${status.toLowerCase()}, total=${counts.total ?? 0}, passed=${counts.passed ?? 0}, failed=${counts.failed ?? 0}`
+  ].filter(Boolean);
+}
+
 export async function runCli(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   if (args.help) {
@@ -176,6 +190,8 @@ export async function runCli(argv = process.argv.slice(2)) {
       workspaceRoot: result.options.workspaceRoot
     });
   }
+
+  process.stdout.write(`${buildCliMetadataLines(result).join('\n')}\n`);
 
   return result;
 }

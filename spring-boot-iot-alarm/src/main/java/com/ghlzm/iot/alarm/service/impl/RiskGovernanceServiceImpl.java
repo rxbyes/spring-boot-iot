@@ -726,6 +726,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                                   Map<String, List<RuleDefinition>> enabledRulesByMetric,
                                   Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId,
                                   Map<Long, Long> deviceProductIds,
+                                  Map<Long, Long> riskMetricProductIds,
                                   Map<Long, Product> productMap) {
         if (binding == null) {
             return false;
@@ -735,11 +736,20 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             candidates.addAll(enabledRulesByRiskMetricId.getOrDefault(binding.getRiskMetricId(), List.of()));
         }
         if (StringUtils.hasText(binding.getMetricIdentifier())) {
-            candidates.addAll(enabledRulesByMetric.getOrDefault(binding.getMetricIdentifier().trim(), List.of()));
+            String metricKey = metricIdentifierKey(binding.getMetricIdentifier());
+            candidates.addAll(enabledRulesByMetric.getOrDefault(metricKey, List.of()));
+            String leafKey = metricLeafIdentifier(metricKey);
+            if (StringUtils.hasText(leafKey) && !leafKey.equals(metricKey)) {
+                candidates.addAll(enabledRulesByMetric.getOrDefault(leafKey, List.of()));
+            }
         }
         Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
-        Product product = productId == null || productMap == null ? null : productMap.get(productId);
-        return candidates.stream().anyMatch(rule -> matchesPolicyScope(rule, binding, productId, product));
+        if (productId == null && binding.getRiskMetricId() != null && riskMetricProductIds != null) {
+            productId = riskMetricProductIds.get(binding.getRiskMetricId());
+        }
+        Long matchedProductId = productId;
+        Product product = matchedProductId == null || productMap == null ? null : productMap.get(matchedProductId);
+        return candidates.stream().anyMatch(rule -> matchesPolicyScope(rule, binding, matchedProductId, product));
     }
 
     private boolean matchesPolicyScope(RuleDefinition rule, RiskPointDevice binding, Long productId, Product product) {
@@ -763,6 +773,22 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
     private String normalizeRuleScope(String scope) {
         return StringUtils.hasText(scope) ? scope.trim().toUpperCase(Locale.ROOT) : "METRIC";
+    }
+
+    private String metricIdentifierKey(String value) {
+        return StringUtils.hasText(value) ? value.trim().toLowerCase(Locale.ROOT) : null;
+    }
+
+    private String metricLeafIdentifier(String value) {
+        String identifier = metricIdentifierKey(value);
+        if (!StringUtils.hasText(identifier)) {
+            return null;
+        }
+        if ("l1_lf_1".equals(identifier) || "l4_nw_1".equals(identifier)) {
+            return "value";
+        }
+        int dotIndex = identifier.lastIndexOf('.');
+        return dotIndex >= 0 ? identifier.substring(dotIndex + 1) : identifier;
     }
 
     private RiskGovernanceGapItemVO toMissingBindingItem(Device device) {
@@ -1280,21 +1306,34 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         List<RuleDefinition> enabledRules = ruleDefinitionMapper.selectList(new LambdaQueryWrapper<RuleDefinition>()
                 .eq(RuleDefinition::getDeleted, 0)
                 .eq(RuleDefinition::getStatus, 0));
-        Map<String, List<RuleDefinition>> enabledRulesByMetric = enabledRules.stream()
+        Map<String, List<RuleDefinition>> enabledRulesByMetric = new LinkedHashMap<>();
+        enabledRules.stream()
                 .filter(rule -> StringUtils.hasText(rule.getMetricIdentifier()))
-                .collect(Collectors.groupingBy(rule -> rule.getMetricIdentifier().trim()));
+                .forEach(rule -> {
+                    String metricKey = metricIdentifierKey(rule.getMetricIdentifier());
+                    if (StringUtils.hasText(metricKey)) {
+                        enabledRulesByMetric.computeIfAbsent(metricKey, key -> new ArrayList<>()).add(rule);
+                    }
+                    String leafKey = metricLeafIdentifier(metricKey);
+                    if (StringUtils.hasText(leafKey) && !leafKey.equals(metricKey)) {
+                        enabledRulesByMetric.computeIfAbsent(leafKey, key -> new ArrayList<>()).add(rule);
+                    }
+                });
         Map<Long, List<RuleDefinition>> enabledRulesByRiskMetricId = enabledRules.stream()
                 .filter(rule -> rule.getRiskMetricId() != null)
                 .collect(Collectors.groupingBy(RuleDefinition::getRiskMetricId));
         Long productId = query == null ? null : query.getProductId();
         Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
+        Map<Long, Long> riskMetricProductIds = loadRiskMetricProductIds(bindings);
+        Set<Long> scopeProductIds = new LinkedHashSet<>(deviceProductIds.values());
+        scopeProductIds.addAll(riskMetricProductIds.values());
         Map<Long, Product> productMap = enabledRules.stream()
                 .anyMatch(rule -> "PRODUCT_TYPE".equals(normalizeRuleScope(rule.getRuleScope())))
-                ? loadProductsById(new LinkedHashSet<>(deviceProductIds.values()))
+                ? loadProductsById(scopeProductIds)
                 : Map.of();
         return bindings.stream()
                 .filter(binding -> !matchesPolicy(binding, enabledRulesByMetric, enabledRulesByRiskMetricId,
-                        deviceProductIds, productMap))
+                        deviceProductIds, riskMetricProductIds, productMap))
                 .filter(binding -> matchesProduct(binding, productId, deviceProductIds))
                 .filter(binding -> matchesDeviceCode(binding, query))
                 .toList();

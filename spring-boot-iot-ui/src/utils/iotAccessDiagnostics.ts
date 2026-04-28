@@ -4,6 +4,7 @@ export type DiagnosticSourcePage =
   | 'system-log'
   | 'file-debug'
   | 'access-error'
+  | 'insight'
   | 'products'
   | 'devices';
 
@@ -58,6 +59,7 @@ function isDiagnosticSourcePage(value: unknown): value is DiagnosticSourcePage {
     || value === 'system-log'
     || value === 'file-debug'
     || value === 'access-error'
+    || value === 'insight'
     || value === 'products'
     || value === 'devices'
   );
@@ -253,6 +255,8 @@ export function describeDiagnosticSource(sourcePage: DiagnosticSourcePage): stri
       return '数据校验台';
     case 'access-error':
       return '失败归档';
+    case 'insight':
+      return '对象洞察台';
     case 'products':
       return '产品定义中心';
     case 'devices':

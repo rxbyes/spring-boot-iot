@@ -120,6 +120,15 @@ describe('automation rd workbench route splits', () => {
     expect(source).not.toContain('<StandardTableTextColumn prop="scenarioId" label="编码"');
   });
 
+  it('renders automation image evidence as a screenshot preview instead of raw text', () => {
+    const source = readComponent('AutomationResultEvidencePanel.vue');
+
+    expect(source).toContain("preview?.category === 'image'");
+    expect(source).toContain('class="preview-image-frame"');
+    expect(source).toContain('class="preview-image"');
+    expect(source).toContain("image: 'PNG/JPG'");
+  });
+
   it('keeps template and handoff tables on the shared stacked first-column grammar', () => {
     const templateSource = readComponent('automationGovernance/AutomationTemplatesWorkspaceSection.vue');
     const plansSource = readComponent('automationGovernance/AutomationPlansWorkspaceSection.vue');

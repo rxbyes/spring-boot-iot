@@ -11,7 +11,14 @@
       show-pagination
     >
       <template #header-actions>
-        <StandardButton v-permission="'risk:rule-definition:edit'" action="batch" @click="handleProductTypeTemplateAdd('MONITORING')">监测型模板</StandardButton>
+        <StandardButton
+          v-if="isAdvancedScopeView"
+          v-permission="'risk:rule-definition:edit'"
+          action="batch"
+          @click="handleProductTypeTemplateAdd('MONITORING')"
+        >
+          新增系统模板
+        </StandardButton>
         <StandardButton v-permission="'risk:rule-definition:edit'" action="add" @click="handleAdd">新增规则</StandardButton>
       </template>
 
@@ -25,9 +32,19 @@
               <el-input v-model="filters.metricIdentifier" placeholder="测点标识符" clearable @keyup.enter="handleSearch" />
             </el-form-item>
             <el-form-item>
+              <el-select v-model="filters.scopeView" placeholder="策略视图" @change="handleScopeViewChange">
+                <el-option
+                  v-for="option in scopeViewOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
               <el-select v-model="filters.ruleScope" placeholder="策略范围" clearable>
                 <el-option
-                  v-for="option in ruleScopeOptions"
+                  v-for="option in currentRuleScopeFilterOptions"
                   :key="option.value"
                   :label="option.label"
                   :value="option.value"
@@ -300,9 +317,9 @@
                 <el-tag :type="getRuleScopeTagType(row.ruleScope)" round>{{ getRuleScopeText(row.ruleScope) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="productType" label="产品类型" width="120">
+            <el-table-column label="适用对象" width="180">
               <template #default="{ row }">
-                {{ row.productType ? getProductTypeText(row.productType) : '--' }}
+                {{ getRuleScopeTargetText(row) }}
               </template>
             </el-table-column>
             <StandardTableTextColumn prop="metricName" label="测点" :min-width="180">
@@ -398,14 +415,14 @@
             <div class="ops-drawer-section__header">
               <div>
                 <h3>策略适用范围</h3>
-                <p>默认按测点统一生效；产品默认策略会覆盖同产品设备，设备或绑定个性策略优先生效。</p>
+                <p>默认按产品生效；设备个性和绑定个性用于少量覆盖，系统模板仅作为高级兜底。</p>
               </div>
             </div>
             <div class="ops-drawer-grid">
               <el-form-item label="策略范围" prop="ruleScope" class="ops-drawer-grid__full">
                 <el-radio-group v-model="form.ruleScope">
                   <el-radio
-                    v-for="option in ruleScopeOptions"
+                    v-for="option in formRuleScopeOptions"
                     :key="option.value"
                     :value="option.value"
                   >
@@ -531,6 +548,67 @@
         />
       </template>
     </StandardFormDrawer>
+
+    <StandardFormDrawer
+      v-model="effectivePreviewVisible"
+      title="生效策略预览"
+      subtitle="按绑定个性、设备个性、产品默认、产品类型模板、测点通用的顺序解释最终命中。"
+      size="42rem"
+    >
+      <div class="ops-drawer-stack">
+        <div v-if="effectivePreviewLoading" class="ops-drawer-note">
+          <strong>正在预览</strong>
+          <span>正在按当前策略上下文计算最终生效规则。</span>
+        </div>
+        <template v-else-if="effectivePreview">
+          <div class="ops-drawer-note">
+            <strong>{{ effectivePreview.hasMatchedRule ? '已命中策略' : '未命中策略' }}</strong>
+            <span>{{ effectivePreview.decision || '当前上下文暂无可生效阈值策略。' }}</span>
+          </div>
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>预览上下文</h3>
+                <p>{{ getEffectivePreviewContextText(effectivePreview) }}</p>
+              </div>
+            </div>
+            <div class="rule-definition-preview-context">
+              <span>测点：{{ effectivePreview.metricIdentifier || '--' }}</span>
+              <span>产品：{{ effectivePreview.productId || '--' }}</span>
+              <span>设备：{{ effectivePreview.deviceId || '--' }}</span>
+              <span>绑定：{{ effectivePreview.riskPointDeviceId || '--' }}</span>
+            </div>
+          </section>
+          <section class="ops-drawer-section">
+            <div class="ops-drawer-section__header">
+              <div>
+                <h3>候选优先级</h3>
+                <p>仅启用策略参与预览，未匹配当前对象的候选会保留原因。</p>
+              </div>
+            </div>
+            <ul class="rule-definition-preview-list">
+              <li
+                v-for="candidate in effectivePreview.candidates || []"
+                :key="`${candidate.ruleId || candidate.ruleName}-${candidate.ruleScope}`"
+                :class="{ 'is-selected': candidate.selected }"
+              >
+                <div>
+                  <strong>{{ candidate.ruleName || '--' }}</strong>
+                  <span>{{ candidate.ruleScopeText || getRuleScopeText(candidate.ruleScope) }} · {{ candidate.scopeTarget || '--' }}</span>
+                </div>
+                <div>
+                  <el-tag :type="candidate.selected ? 'success' : candidate.matchedContext ? 'warning' : 'info'" round>
+                    {{ candidate.selected ? '最终生效' : candidate.matchedContext ? '候选匹配' : '上下文不匹配' }}
+                  </el-tag>
+                  <span>{{ candidate.expression || '--' }}</span>
+                </div>
+                <p>{{ candidate.reason || '--' }}</p>
+              </li>
+            </ul>
+          </section>
+        </template>
+      </div>
+    </StandardFormDrawer>
   </StandardPageShell>
 </template>
 
@@ -560,6 +638,7 @@ import {
   type AlarmLevelOption
 } from '@/utils/alarmLevel';
 import { confirmDelete, isConfirmCancelled } from '@/utils/confirm';
+import { normalizeOptionalId, sameId } from '@/utils/id';
 import {
   listMissingPolicies,
   pageMissingPolicyProductMetricSummaries,
@@ -567,12 +646,18 @@ import {
   type RiskGovernanceMissingPolicyProductMetricSummary
 } from '@/api/riskGovernance';
 import { productApi } from '@/api/product';
-import type { Product } from '@/types/api';
-import { pageRuleList, addRule, addRuleBatch, updateRule, deleteRule } from '../api/ruleDefinition';
-import type { RuleDefinition, RuleDefinitionScope } from '../api/ruleDefinition';
+import type { IdType, Product } from '@/types/api';
+import { pageRuleList, addRule, addRuleBatch, updateRule, deleteRule, previewEffectiveRule } from '../api/ruleDefinition';
+import type {
+  RuleDefinition,
+  RuleDefinitionEffectivePreview,
+  RuleDefinitionScope,
+  RuleDefinitionScopeView
+} from '../api/ruleDefinition';
 
-type RuleRowActionCommand = 'edit' | 'delete';
+type RuleRowActionCommand = 'preview' | 'edit' | 'delete';
 type RuleScopeFilterValue = '' | RuleDefinitionScope;
+type RuleScopeViewFilterValue = RuleDefinitionScopeView;
 type DraftTemplateApplyMode = 'EMPTY_ONLY' | 'ALL';
 type DraftSubmitStatus = 'IDLE' | 'FAILED';
 type ProductDefaultDraft = RiskGovernanceMissingPolicyProductMetricSummary & {
@@ -588,6 +673,9 @@ type ProductDefaultDraft = RiskGovernanceMissingPolicyProductMetricSummary & {
 
 const loading = ref(false);
 const formVisible = ref(false);
+const effectivePreviewVisible = ref(false);
+const effectivePreviewLoading = ref(false);
+const effectivePreview = ref<RuleDefinitionEffectivePreview | null>(null);
 const ruleList = ref<RuleDefinition[]>([]);
 const alarmLevelOptions = ref<AlarmLevelOption[]>([]);
 const productOptions = ref<Product[]>([]);
@@ -608,6 +696,7 @@ const tableRef = ref();
 const selectedRows = ref<RuleDefinition[]>([]);
 const ruleActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [
+    { command: 'preview', label: '预览' },
     { command: 'edit', label: '编辑' },
     { command: 'delete', label: '删除' }
   ],
@@ -616,6 +705,7 @@ const ruleActionColumnWidth = resolveWorkbenchActionColumnWidth({
 const filters = reactive({
   ruleName: '',
   metricIdentifier: '',
+  scopeView: 'BUSINESS' as RuleScopeViewFilterValue,
   ruleScope: '' as RuleScopeFilterValue,
   productType: '',
   alarmLevel: '',
@@ -624,6 +714,7 @@ const filters = reactive({
 const appliedFilters = reactive({
   ruleName: '',
   metricIdentifier: '',
+  scopeView: 'BUSINESS' as RuleScopeViewFilterValue,
   ruleScope: '' as RuleScopeFilterValue,
   productType: '',
   alarmLevel: '',
@@ -636,11 +727,11 @@ const { pagination, applyPageResult, resetPage, setPageSize, setPageNum } = useS
 const formRef = ref();
 const formTitle = computed(() => (form.id ? '编辑规则' : '新增规则'));
 const form = reactive({
-  id: undefined as number | undefined,
-  riskMetricId: undefined as number | undefined,
-  ruleScope: 'METRIC' as RuleDefinitionScope,
+  id: undefined as IdType | undefined,
+  riskMetricId: undefined as IdType | undefined,
+  ruleScope: 'PRODUCT' as RuleDefinitionScope,
   productType: 'MONITORING',
-  productId: undefined as number | undefined,
+  productId: undefined as IdType | undefined,
   deviceId: '',
   riskPointDeviceId: '',
   ruleName: '',
@@ -705,13 +796,39 @@ const governanceContextNote = computed(() => {
   return '当前规则针对子设备正式测点，采集器仅承担状态采集，不应作为阈值策略主体。';
 });
 
+const scopeViewOptions: Array<{ label: string; value: RuleDefinitionScopeView }> = [
+  { label: '业务策略', value: 'BUSINESS' },
+  { label: '系统模板', value: 'SYSTEM' },
+  { label: '全部策略', value: 'ALL' }
+];
+
 const ruleScopeOptions: Array<{ label: string; value: RuleDefinitionScope; tagType: 'info' | 'success' | 'warning' | 'danger' }> = [
-  { label: '测点通用', value: 'METRIC', tagType: 'info' },
-  { label: '产品类型模板', value: 'PRODUCT_TYPE', tagType: 'success' },
+  { label: '测点通用（兼容）', value: 'METRIC', tagType: 'info' },
+  { label: '产品类型模板（系统）', value: 'PRODUCT_TYPE', tagType: 'success' },
   { label: '产品默认', value: 'PRODUCT', tagType: 'success' },
   { label: '设备个性', value: 'DEVICE', tagType: 'warning' },
   { label: '绑定个性', value: 'BINDING', tagType: 'danger' }
 ];
+const businessRuleScopeValues: RuleDefinitionScope[] = ['PRODUCT', 'DEVICE', 'BINDING'];
+const systemRuleScopeValues: RuleDefinitionScope[] = ['METRIC', 'PRODUCT_TYPE'];
+const businessRuleScopeOptions = ruleScopeOptions.filter((option) => businessRuleScopeValues.includes(option.value));
+const systemRuleScopeOptions = ruleScopeOptions.filter((option) => systemRuleScopeValues.includes(option.value));
+const isAdvancedScopeView = computed(() => filters.scopeView === 'SYSTEM' || filters.scopeView === 'ALL');
+const currentRuleScopeFilterOptions = computed(() => {
+  if (filters.scopeView === 'BUSINESS') {
+    return businessRuleScopeOptions;
+  }
+  if (filters.scopeView === 'SYSTEM') {
+    return systemRuleScopeOptions;
+  }
+  return ruleScopeOptions;
+});
+const formRuleScopeOptions = computed(() => {
+  if (systemRuleScopeValues.includes(form.ruleScope) || isAdvancedScopeView.value) {
+    return ruleScopeOptions;
+  }
+  return businessRuleScopeOptions;
+});
 
 const productTypeOptions = [
   { label: '监测型设备', value: 'MONITORING' },
@@ -725,12 +842,56 @@ const getRuleScopeOption = (scope?: string | null) => {
   return ruleScopeOptions.find((option) => option.value === normalized) || ruleScopeOptions[0];
 };
 
+const getScopeViewText = (scopeView?: string | null) => {
+  const normalized = String(scopeView || 'BUSINESS').toUpperCase();
+  return scopeViewOptions.find((option) => option.value === normalized)?.label || '业务策略';
+};
+
 const getRuleScopeText = (scope?: string | null) => getRuleScopeOption(scope).label;
 const getRuleScopeTagType = (scope?: string | null) => getRuleScopeOption(scope).tagType;
 
 const getProductTypeText = (type?: string | null) => {
   const normalized = String(type || '').toUpperCase();
   return productTypeOptions.find((option) => option.value === normalized)?.label || normalized;
+};
+
+const getProductDisplayName = (productId?: IdType | null) => {
+  if (productId == null || productId === '') {
+    return '';
+  }
+  const productIdText = String(productId);
+  const product = productOptions.value.find((item) => sameId(item.id, productId));
+  if (!product) {
+    return productIdText;
+  }
+  return product.productName || product.productKey || productIdText;
+};
+
+const getRuleScopeTargetText = (row: RuleDefinition) => {
+  const scope = getRuleScopeOption(row.ruleScope).value;
+  if (scope === 'PRODUCT') {
+    return getProductDisplayName(row.productId) || '--';
+  }
+  if (scope === 'PRODUCT_TYPE') {
+    return row.productType ? getProductTypeText(row.productType) : '--';
+  }
+  if (scope === 'DEVICE') {
+    return row.deviceId == null ? '--' : `设备 ${row.deviceId}`;
+  }
+  if (scope === 'BINDING') {
+    return row.riskPointDeviceId == null ? '--' : `绑定 ${row.riskPointDeviceId}`;
+  }
+  return '通用';
+};
+
+const getEffectivePreviewContextText = (preview: RuleDefinitionEffectivePreview) => {
+  const parts = [
+    preview.productType ? `产品类型 ${getProductTypeText(preview.productType)}` : '',
+    preview.productId == null ? '' : `产品 ${getProductDisplayName(preview.productId) || preview.productId}`,
+    preview.deviceId == null ? '' : `设备 ${preview.deviceId}`,
+    preview.riskPointDeviceId == null ? '' : `绑定 ${preview.riskPointDeviceId}`
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' / ') : '仅按测点通用上下文预览';
 };
 
 const getAlarmLevelType = (level: string) => getAlarmLevelTagType(level);
@@ -768,6 +929,12 @@ const {
   fields: [
     { key: 'ruleName', label: '规则名称' },
     { key: 'metricIdentifier', label: '测点标识符' },
+    {
+      key: 'scopeView',
+      label: (value) => `策略视图：${getScopeViewText(String(value || 'BUSINESS'))}`,
+      isActive: (value) => String(value || 'BUSINESS').toUpperCase() !== 'BUSINESS',
+      clearValue: 'BUSINESS' as RuleScopeViewFilterValue
+    },
     { key: 'ruleScope', label: (value) => `策略范围：${getRuleScopeText(String(value || ''))}` },
     { key: 'productType', label: (value) => `产品类型：${getProductTypeText(String(value || ''))}` },
     { key: 'alarmLevel', label: (value) => `告警等级：${getAlarmLevelText(String(value || ''))}` },
@@ -776,6 +943,7 @@ const {
   defaults: {
     ruleName: '',
     metricIdentifier: '',
+    scopeView: 'BUSINESS' as RuleScopeViewFilterValue,
     ruleScope: '' as RuleScopeFilterValue,
     productType: '',
     alarmLevel: '',
@@ -791,6 +959,7 @@ const loadRuleList = async () => {
       pageRuleList({
         ruleName: appliedFilters.ruleName || undefined,
         metricIdentifier: appliedFilters.metricIdentifier || undefined,
+        scopeView: appliedFilters.scopeView || 'BUSINESS',
         ruleScope: appliedFilters.ruleScope || undefined,
         productType: appliedFilters.productType || undefined,
         alarmLevel: appliedFilters.alarmLevel || undefined,
@@ -853,6 +1022,7 @@ const handleSearch = () => {
 const handleReset = () => {
   filters.ruleName = '';
   filters.metricIdentifier = '';
+  filters.scopeView = 'BUSINESS';
   filters.ruleScope = '';
   filters.productType = '';
   filters.alarmLevel = '';
@@ -889,18 +1059,50 @@ const handleRefresh = () => {
 
 function getRuleRowActions() {
   return [
+    { command: 'preview' as const, label: '生效预览' },
     { command: 'edit' as const, label: '编辑', permission: 'risk:rule-definition:edit' },
     { command: 'delete' as const, label: '删除', permission: 'risk:rule-definition:edit' }
   ];
 }
 
 function handleRuleRowAction(command: RuleRowActionCommand, row: RuleDefinition) {
+  if (command === 'preview') {
+    void handlePreviewEffectiveRule(row);
+    return;
+  }
   if (command === 'edit') {
     handleEdit(row);
     return;
   }
   void handleDelete(row);
 }
+
+const handlePreviewEffectiveRule = async (row: RuleDefinition) => {
+  effectivePreviewVisible.value = true;
+  effectivePreviewLoading.value = true;
+  effectivePreview.value = null;
+  try {
+    const result = await previewEffectiveRule({
+      tenantId: normalizeOptionalId(row.tenantId) || undefined,
+      riskMetricId: normalizeOptionalId(row.riskMetricId) || undefined,
+      metricIdentifier: row.metricIdentifier || undefined,
+      productId: normalizeOptionalId(row.productId) || undefined,
+      productType: row.productType || undefined,
+      deviceId: normalizeOptionalId(row.deviceId) || undefined,
+      riskPointDeviceId: normalizeOptionalId(row.riskPointDeviceId) || undefined
+    });
+    if (result.code === 200) {
+      effectivePreview.value = result.data;
+      return;
+    }
+    ElMessage.error(result.msg || '生效策略预览失败');
+  } catch (error) {
+    console.error('生效策略预览失败', error);
+    ElMessage.error(error instanceof Error ? error.message : '生效策略预览失败');
+  } finally {
+    effectivePreviewLoading.value = false;
+  }
+};
 
 const handleRemoveAppliedFilter = (key: string) => {
   removeAppliedFilter(key);
@@ -916,7 +1118,9 @@ const handleClearAppliedFilters = () => {
 function applyRouteQueryToFilters() {
   filters.ruleName = parseRouteStringQuery(route.query.ruleName);
   filters.metricIdentifier = parseRouteStringQuery(route.query.metricIdentifier);
+  filters.scopeView = parseScopeViewQuery(route.query.scopeView);
   filters.ruleScope = parseRuleScopeQuery(route.query.ruleScope);
+  handleScopeViewChange();
   filters.productType = parseProductTypeQuery(route.query.productType);
   filters.alarmLevel = parseRouteStringQuery(route.query.alarmLevel);
   filters.status = parseRouteNumberQuery(route.query.status) ?? '';
@@ -936,9 +1140,20 @@ function parseRouteNumberQuery(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseRouteIdQuery(value: unknown) {
+  return normalizeOptionalId(parseRouteStringQuery(value));
+}
+
 function parseRuleScopeQuery(value: unknown): RuleScopeFilterValue {
   const scope = parseRouteStringQuery(value).toUpperCase();
   return ruleScopeOptions.some((option) => option.value === scope) ? scope as RuleDefinitionScope : '';
+}
+
+function parseScopeViewQuery(value: unknown): RuleScopeViewFilterValue {
+  const scopeView = parseRouteStringQuery(value).toUpperCase();
+  return scopeViewOptions.some((option) => option.value === scopeView)
+    ? scopeView as RuleDefinitionScopeView
+    : 'BUSINESS';
 }
 
 function parseProductTypeQuery(value: unknown) {
@@ -957,7 +1172,7 @@ function parseGovernanceCreateContext() {
     return null;
   }
   return {
-    riskMetricId: parseRouteNumberQuery(route.query.riskMetricId),
+    riskMetricId: parseRouteIdQuery(route.query.riskMetricId),
     metricIdentifier: parseRouteStringQuery(route.query.metricIdentifier),
     metricName: parseRouteStringQuery(route.query.metricName)
   };
@@ -991,7 +1206,7 @@ const loadProductOptions = async () => {
 const resetRuleForm = () => {
   form.id = undefined;
   form.riskMetricId = undefined;
-  form.ruleScope = 'METRIC';
+  form.ruleScope = 'PRODUCT';
   form.productType = 'MONITORING';
   form.productId = undefined;
   form.deviceId = '';
@@ -1014,13 +1229,19 @@ const handleAdd = () => {
   formVisible.value = true;
 };
 
+const handleScopeViewChange = () => {
+  if (!currentRuleScopeFilterOptions.value.some((option) => option.value === filters.ruleScope)) {
+    filters.ruleScope = '';
+  }
+};
+
 const handleProductTypeTemplateAdd = (productType = 'MONITORING') => {
   resetRuleForm();
   activeProductDefaultDraftKey.value = '';
   const firstMissingItem = missingPolicySummaryItems.value[0] || missingPolicyItems.value[0];
   form.ruleScope = 'PRODUCT_TYPE';
   form.productType = productType;
-  form.riskMetricId = firstMissingItem?.riskMetricId == null ? undefined : Number(firstMissingItem.riskMetricId);
+  form.riskMetricId = normalizeOptionalId(firstMissingItem?.riskMetricId);
   form.metricIdentifier = firstMissingItem?.metricIdentifier || '';
   form.metricName = firstMissingItem?.metricName || '';
   form.ruleName = firstMissingItem?.metricName
@@ -1187,10 +1408,10 @@ const handleApplyProductDefaultDraftTemplate = () => {
 };
 
 const buildProductDefaultDraftSubmitData = (draft: ProductDefaultDraft) => ({
-  riskMetricId: draft.riskMetricId == null ? undefined : Number(draft.riskMetricId),
+  riskMetricId: normalizeOptionalId(draft.riskMetricId),
   ruleScope: 'PRODUCT' as RuleDefinitionScope,
   productType: undefined,
-  productId: draft.productId == null ? undefined : Number(draft.productId),
+  productId: draft.productId == null ? undefined : draft.productId,
   deviceId: undefined,
   riskPointDeviceId: undefined,
   ruleName: draft.ruleName?.trim() || '产品默认阈值策略',
@@ -1260,8 +1481,8 @@ const handleProductDefaultAdd = (
     ? getMissingPolicySummaryKey(source)
     : '';
   form.ruleScope = 'PRODUCT';
-  form.productId = firstMissingItem?.productId == null ? undefined : Number(firstMissingItem.productId);
-  form.riskMetricId = firstMissingItem?.riskMetricId == null ? undefined : Number(firstMissingItem.riskMetricId);
+  form.productId = firstMissingItem?.productId == null ? undefined : firstMissingItem.productId;
+  form.riskMetricId = normalizeOptionalId(firstMissingItem?.riskMetricId);
   form.metricIdentifier = firstMissingItem?.metricIdentifier || '';
   form.metricName = firstMissingItem?.metricName || '';
   form.ruleName = 'ruleName' in (firstMissingItem || {}) && firstMissingItem?.ruleName
@@ -1287,6 +1508,7 @@ const handleProductDefaultAdd = (
 };
 
 const handleProductDefaultFilter = () => {
+  filters.scopeView = 'BUSINESS';
   filters.ruleScope = 'PRODUCT';
   filters.productType = '';
   syncAppliedFilters();
@@ -1312,10 +1534,10 @@ function applyGovernanceCreateContext() {
 
 const handleEdit = (row: RuleDefinition) => {
   form.id = row.id;
-  form.riskMetricId = row.riskMetricId == null ? undefined : Number(row.riskMetricId);
+  form.riskMetricId = normalizeOptionalId(row.riskMetricId);
   form.ruleScope = getRuleScopeOption(row.ruleScope).value;
   form.productType = row.productType || 'MONITORING';
-  form.productId = row.productId == null ? undefined : Number(row.productId);
+  form.productId = row.productId == null ? undefined : row.productId;
   form.deviceId = row.deviceId == null ? '' : String(row.deviceId);
   form.riskPointDeviceId = row.riskPointDeviceId == null ? '' : String(row.riskPointDeviceId);
   form.ruleName = row.ruleName;
@@ -1347,14 +1569,6 @@ const handleDelete = async (row: RuleDefinition) => {
   }
 };
 
-function parseOptionalId(value: unknown) {
-  if (value === undefined || value === null || value === '') {
-    return undefined;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function buildRuleSubmitData() {
   const formData = {
     ...form,
@@ -1371,12 +1585,12 @@ function buildRuleSubmitData() {
   if (formData.ruleScope !== 'DEVICE') {
     formData.deviceId = undefined as unknown as string;
   } else {
-    formData.deviceId = parseOptionalId(form.deviceId) as unknown as string;
+    formData.deviceId = normalizeOptionalId(form.deviceId) as unknown as string;
   }
   if (formData.ruleScope !== 'BINDING') {
     formData.riskPointDeviceId = undefined as unknown as string;
   } else {
-    formData.riskPointDeviceId = parseOptionalId(form.riskPointDeviceId) as unknown as string;
+    formData.riskPointDeviceId = normalizeOptionalId(form.riskPointDeviceId) as unknown as string;
   }
   return formData;
 }
@@ -1595,6 +1809,49 @@ onMounted(() => {
   grid-template-columns: minmax(10rem, 1.2fr) minmax(12rem, 1.4fr) minmax(7rem, 0.8fr) minmax(8rem, 0.8fr) minmax(9rem, 0.8fr);
   gap: 0.5rem;
   align-items: center;
+}
+
+.rule-definition-preview-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  color: var(--text-secondary);
+}
+
+.rule-definition-preview-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule-definition-preview-list li {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-color-lighter);
+  border-radius: 0.375rem;
+  background: var(--surface-bg);
+}
+
+.rule-definition-preview-list li.is-selected {
+  border-color: var(--el-color-success-light-5);
+  background: var(--el-color-success-light-9);
+}
+
+.rule-definition-preview-list li > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.rule-definition-preview-list span,
+.rule-definition-preview-list p {
+  margin: 0;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 980px) {

@@ -3,6 +3,7 @@ package com.ghlzm.iot.alarm.controller;
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
 import com.ghlzm.iot.alarm.vo.RuleDefinitionBatchAddResultVO;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionEffectivePreviewVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import com.ghlzm.iot.common.response.R;
@@ -51,10 +52,11 @@ public class RuleDefinitionController {
                                                @RequestParam(required = false) String alarmLevel,
                                                @RequestParam(required = false) Integer status,
                                                @RequestParam(required = false) String ruleScope,
+                                               @RequestParam(required = false) String scopeView,
                                                @RequestParam(required = false) Long productId,
                                                @RequestParam(required = false) String productType) {
         List<RuleDefinition> list = ruleDefinitionService.getRuleList(ruleName, metricIdentifier, alarmLevel, status,
-                ruleScope, productId, productType);
+                ruleScope, scopeView, productId, productType);
         return R.ok(list);
     }
 
@@ -64,19 +66,39 @@ public class RuleDefinitionController {
                                                       @RequestParam(required = false) String alarmLevel,
                                                       @RequestParam(required = false) Integer status,
                                                       @RequestParam(required = false) String ruleScope,
+                                                      @RequestParam(required = false) String scopeView,
                                                       @RequestParam(required = false) Long productId,
                                                       @RequestParam(required = false) String productType,
                                                       @RequestParam(defaultValue = "1") Long pageNum,
                                                       @RequestParam(defaultValue = "10") Long pageSize) {
         PageResult<RuleDefinition> page =
                 ruleDefinitionService.pageRuleList(ruleName, metricIdentifier, alarmLevel, status, ruleScope,
-                        productId, productType, pageNum, pageSize);
+                        scopeView, productId, productType, pageNum, pageSize);
         return R.ok(page);
     }
 
     @GetMapping("/get/{id}")
     public R<RuleDefinition> getRuleById(@PathVariable Long id) {
         return R.ok(ruleDefinitionService.getById(id));
+    }
+
+    @GetMapping("/effective-preview")
+    public R<RuleDefinitionEffectivePreviewVO> previewEffectiveRule(@RequestParam(required = false) Long tenantId,
+                                                                    @RequestParam(required = false) Long riskMetricId,
+                                                                    @RequestParam(required = false) String metricIdentifier,
+                                                                    @RequestParam(required = false) Long productId,
+                                                                    @RequestParam(required = false) String productType,
+                                                                    @RequestParam(required = false) Long deviceId,
+                                                                    @RequestParam(required = false) Long riskPointDeviceId) {
+        return R.ok(ruleDefinitionService.previewEffectiveRule(
+                tenantId,
+                riskMetricId,
+                metricIdentifier,
+                productId,
+                productType,
+                deviceId,
+                riskPointDeviceId
+        ));
     }
 
     @PostMapping("/add")

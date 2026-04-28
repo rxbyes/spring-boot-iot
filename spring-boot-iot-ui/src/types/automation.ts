@@ -267,6 +267,7 @@ export type AutomationEvidenceCategory =
   | 'json'
   | 'markdown'
   | 'text'
+  | 'image'
   | 'unknown'
   | string;
 

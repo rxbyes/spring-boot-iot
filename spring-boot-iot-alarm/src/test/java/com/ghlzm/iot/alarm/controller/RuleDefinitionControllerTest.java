@@ -2,6 +2,7 @@ package com.ghlzm.iot.alarm.controller;
 
 import com.ghlzm.iot.alarm.entity.RuleDefinition;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionEffectivePreviewVO;
 import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
@@ -16,6 +17,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,6 +104,26 @@ class RuleDefinitionControllerTest {
                 "risk:rule-definition:approve"
         );
         verify(ruleDefinitionService).deleteRule(3001L);
+    }
+
+    @Test
+    void previewEffectiveRuleShouldDelegateToServiceWithoutDualControl() {
+        RuleDefinitionEffectivePreviewVO preview = new RuleDefinitionEffectivePreviewVO();
+        when(ruleDefinitionService.previewEffectiveRule(1L, 6102L, "value", 1001L, "MONITORING", 8001L, 9001L))
+                .thenReturn(preview);
+
+        R<RuleDefinitionEffectivePreviewVO> response = controller.previewEffectiveRule(
+                1L,
+                6102L,
+                "value",
+                1001L,
+                "MONITORING",
+                8001L,
+                9001L
+        );
+
+        assertSame(preview, response.getData());
+        verify(ruleDefinitionService).previewEffectiveRule(1L, 6102L, "value", 1001L, "MONITORING", 8001L, 9001L);
     }
 
     private Authentication authentication(Long userId) {

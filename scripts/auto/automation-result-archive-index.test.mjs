@@ -121,6 +121,51 @@ test('buildAutomationResultArchiveIndex builds run-level facets and skips invali
   assert.equal(index.skippedFiles[0].reason, 'invalid-json');
 });
 
+test('buildAutomationResultArchiveIndex expands screenshot directories into image evidence items', async () => {
+  const workspaceRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'automation-result-archive-index-screenshots-')
+  );
+  const resultsDir = path.join(workspaceRoot, 'logs', 'acceptance');
+  const screenshotsDir = path.join(resultsDir, 'quality-factory-browser-screenshots-20260428134458');
+
+  await writeJson(
+    path.join(resultsDir, 'registry-run-20260428134455.json'),
+    createRun({
+      runId: '20260428134455',
+      packageCode: 'automation-results-p1',
+      environmentCode: 'dev',
+      scenarioEvidenceFiles: [
+        'logs/acceptance/quality-factory-browser-screenshots-20260428134458'
+      ]
+    })
+  );
+  await fs.mkdir(screenshotsDir, { recursive: true });
+  await fs.writeFile(path.join(screenshotsDir, 'automation-results-workbench-pass.png'), new Uint8Array([1, 2, 3]));
+  await writeText(path.join(screenshotsDir, 'readme.txt'), 'not a screenshot');
+
+  const index = await buildAutomationResultArchiveIndex({
+    workspaceRoot,
+    resultsDir
+  });
+
+  const evidenceItems = index.runs[0].evidenceItems;
+  assert.equal(
+    evidenceItems.some(
+      (item) =>
+        item.path === 'logs/acceptance/quality-factory-browser-screenshots-20260428134458'
+    ),
+    false
+  );
+  assert.deepEqual(
+    evidenceItems
+      .filter((item) => item.category === 'image')
+      .map((item) => item.path),
+    [
+      'logs/acceptance/quality-factory-browser-screenshots-20260428134458/automation-results-workbench-pass.png'
+    ]
+  );
+});
+
 test('renderAutomationResultArchiveIndexMarkdown includes summary and skipped files', async () => {
   const workspaceRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'automation-result-archive-index-md-')

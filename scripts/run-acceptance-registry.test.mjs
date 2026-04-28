@@ -630,6 +630,7 @@ test('canonical registry includes P1 quality factory coverage metadata', async (
     'protocol-governance.p1.browser-smoke',
     'device-onboarding.p1.browser-smoke',
     'object-insight.p1.browser-smoke',
+    'automation-results.evidence-api',
     'automation-results.p1.browser-smoke'
   ];
 

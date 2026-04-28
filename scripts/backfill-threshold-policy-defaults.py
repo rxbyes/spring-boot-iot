@@ -19,7 +19,7 @@ import pymysql
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG_PATH = REPO_ROOT / "config" / "automation" / "threshold-policy-defaults.json"
+DEFAULT_CONFIG_PATH = REPO_ROOT / "config" / "automation" / "threshold-policy-defaults.confirmed.json"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "logs" / "acceptance"
 SIMPLE_EXPRESSION = re.compile(r"^\s*(?:value\s*)?(>=|<=|>|<|==|=)\s*(-?\d+(?:\.\d+)?)\s*$", re.IGNORECASE)
 NUMERIC_VALUE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*$")
@@ -138,6 +138,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--export-template-config-path", default="")
     parser.add_argument("--merge-template-confirmation-csv", default="")
     parser.add_argument("--merge-template-output-path", default="")
+    parser.add_argument("--allow-partial-confirmed-output", action="store_true")
     parser.add_argument("--apply-manual-decision-csv", default="")
     parser.add_argument("--manual-decision-review-csv", default="")
     parser.add_argument("--manual-decision-output-csv", default="")
@@ -599,7 +600,16 @@ def matches_metric(rule: dict[str, Any], binding: dict[str, Any]) -> bool:
     binding_metric_id = binding.get("risk_metric_id")
     if rule_metric_id is not None and binding_metric_id is not None and int(rule_metric_id) == int(binding_metric_id):
         return True
-    return normalize_metric_identifier(rule.get("metric_identifier")) == normalize_metric_identifier(binding.get("metric_identifier"))
+    rule_identifier = normalize_metric_identifier(rule.get("metric_identifier"))
+    binding_identifier = normalize_metric_identifier(binding.get("metric_identifier"))
+    return (
+        rule_identifier == binding_identifier
+        or (
+            bool(rule_identifier)
+            and bool(binding_identifier)
+            and metric_leaf_identifier(rule_identifier) == metric_leaf_identifier(binding_identifier)
+        )
+    )
 
 
 def matches_scope(rule: dict[str, Any], binding: dict[str, Any]) -> bool:
@@ -682,8 +692,11 @@ def candidate_from_product_type_template(binding: dict[str, Any], template: dict
     expression = normalize_expression(template.get("expression"))
     if not expression:
         return None
+    match = template.get("match") if isinstance(template.get("match"), dict) else {}
+    has_product_key_match = bool(dedupe_text(match.get("productKeys") or []))
+    rule_scope = "PRODUCT" if has_product_key_match and binding.get("product_id") is not None else "PRODUCT_TYPE"
     return PolicyCandidate(
-        rule_scope="PRODUCT_TYPE",
+        rule_scope=rule_scope,
         tenant_id=int(binding.get("tenant_id") or 1),
         metric_identifier=normalize_metric_identifier(template.get("metricIdentifier") or binding.get("metric_identifier")),
         metric_name=template.get("metricName") or binding.get("metric_name"),
@@ -693,6 +706,7 @@ def candidate_from_product_type_template(binding: dict[str, Any], template: dict
         notification_methods=str(template.get("notificationMethods", config.get("defaultNotificationMethods") or "")),
         convert_to_event=1 if template.get("convertToEvent", config.get("defaultConvertToEvent", True)) else 0,
         product_type=binding.get("product_type"),
+        product_id=binding.get("product_id") if rule_scope == "PRODUCT" else None,
         source="PRODUCT_TYPE_TEMPLATE",
     )
 
@@ -2446,6 +2460,9 @@ def render_template_confirmation_merge_markdown(report: dict[str, Any]) -> str:
         f"- CSV Path: `{report['csvPath']}`",
         f"- Output Path: `{report['outputPath']}`",
         f"- Target Written: `{report.get('targetWritten')}`",
+        f"- Partial Confirmed Output: `{report.get('partialConfirmedOutput')}`",
+        f"- Written Templates: `{report.get('writtenTemplateCount', 0)}`",
+        f"- Excluded Templates: `{report.get('excludedTemplateCount', 0)}`",
         f"- CSV Rows: `{report['csvRowCount']}`",
         f"- Matched Rows: `{report['matchedRowCount']}`",
         f"- Unmatched Rows: `{report['unmatchedRowCount']}`",
@@ -2596,21 +2613,34 @@ def write_template_confirmation_merge_report(report: dict[str, Any], output_dir:
 def write_merged_template_confirmation_config(config_path: str | Path,
                                               csv_path: str | Path,
                                               output_path: str | Path | None = None,
-                                              output_dir: str | Path | None = None) -> Path:
+                                              output_dir: str | Path | None = None,
+                                              allow_partial_confirmed_output: bool = False) -> Path:
     config = load_config(config_path)
     merged, summary = merge_template_confirmation_csv_with_summary(config, csv_path)
     target = Path(output_path) if output_path else Path(config_path)
     validation = validate_template_config(merged)
     remaining_template_gaps = build_remaining_template_gaps(merged, validation)
+    output_config = merged
+    if allow_partial_confirmed_output:
+        output_config = copy.deepcopy(merged)
+        output_config["productTypeTemplates"] = [
+            template for template in (merged.get("productTypeTemplates") or [])
+            if is_template_ready(template)
+        ]
+    blocking_csv_issue_count = (
+        summary["duplicateRowCount"]
+        + summary["missingHeaderCount"]
+        + summary["invalidConfirmationStatusCount"]
+        + summary["invalidRecommendationDecisionCount"]
+        + summary["invalidExpressionCount"]
+    )
     if (
-        validation["breachCount"] > 0
-        or summary["duplicateRowCount"] > 0
-        or summary["missingHeaderCount"] > 0
-        or summary["invalidConfirmationStatusCount"] > 0
-        or summary["invalidRecommendationDecisionCount"] > 0
-        or summary["invalidExpressionCount"] > 0
+        blocking_csv_issue_count > 0
+        or (validation["breachCount"] > 0 and not allow_partial_confirmed_output)
     ):
         status = "FAILED"
+    elif allow_partial_confirmed_output and validation["breachCount"] > 0:
+        status = "PASSED_WITH_REMAINING_GAPS"
     elif summary["unmatchedRowCount"] > 0:
         status = "WARNING"
     else:
@@ -2618,7 +2648,7 @@ def write_merged_template_confirmation_config(config_path: str | Path,
     target_written = status != "FAILED"
     if target_written:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+        target.write_text(json.dumps(output_config, ensure_ascii=False, indent=2), encoding="utf-8")
     report = {
         "checkedAt": datetime.now().isoformat(timespec="seconds"),
         "status": status,
@@ -2626,6 +2656,13 @@ def write_merged_template_confirmation_config(config_path: str | Path,
         "csvPath": str(csv_path),
         "outputPath": str(target),
         "targetWritten": target_written,
+        "partialConfirmedOutput": bool(allow_partial_confirmed_output),
+        "writtenTemplateCount": len(output_config.get("productTypeTemplates") or []) if target_written else 0,
+        "excludedTemplateCount": max(
+            0,
+            len(merged.get("productTypeTemplates") or [])
+            - len(output_config.get("productTypeTemplates") or [])
+        ) if target_written else 0,
         "templateValidation": validation,
         "remainingTemplateGapCount": len(remaining_template_gaps),
         "remainingTemplateGaps": remaining_template_gaps,
@@ -2958,6 +2995,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.merge_template_confirmation_csv,
             args.merge_template_output_path or args.config_path,
             args.output_dir,
+            args.allow_partial_confirmed_output,
         )
         merge_report_path = Path(args.output_dir) / "threshold-policy-template-confirmation-merge-latest.json"
         merge_report = json.loads(merge_report_path.read_text(encoding="utf-8"))

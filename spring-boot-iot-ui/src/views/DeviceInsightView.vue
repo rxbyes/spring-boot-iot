@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <StandardPageShell class="page-stack device-insight-view" :show-title="false">
-  <StandardWorkbenchPanel
+    <StandardWorkbenchPanel
       title="对象洞察台"
-      description="围绕单台设备展示基础档案、监测快照、TDengine 时序折线与综合分析。"
+      description="围绕单台设备展示基础档案、监测快照、TDengine 时序曲线与综合分析。"
       show-filters
       :show-inline-state="showInlineState"
     >
@@ -22,10 +22,10 @@
             </el-form-item>
           </template>
           <template #actions>
-            <StandardButton action="query" :loading="isLoading" @click="handleQuery">
-              {{ isLoading ? '分析中...' : '开始分析' }}
-            </StandardButton>
-            <StandardButton action="reset" :disabled="isLoading" @click="handleReset">重置</StandardButton>
+              <StandardButton action="query" :loading="isLoading" @click="handleQuery">
+                {{ isLoading ? '分析中...' : '开始分析' }}
+              </StandardButton>
+              <StandardButton action="reset" :disabled="isLoading" @click="handleReset">重置</StandardButton>
           </template>
         </StandardListFilterHeader>
       </template>
@@ -92,7 +92,7 @@
                 <section class="insight-detail-identity">
                   <div class="insight-detail-identity__main">
                     <strong>{{ device?.deviceName || normalizedDeviceCode || '--' }}</strong>
-                    <p>{{ device?.deviceCode || normalizedDeviceCode || '--' }} · {{ device?.productName || '--' }}</p>
+                    <p>{{ device?.deviceCode || normalizedDeviceCode || '--' }} 路 {{ device?.productName || '--' }}</p>
                   </div>
                   <div class="insight-detail-identity__meta">
                     <span class="insight-meta-pill" :class="onlineStatusClass">{{ onlineStatusLabel }}</span>
@@ -113,7 +113,7 @@
                           :key="`device-${item.label}`"
                           class="insight-detail-section__digest-pill"
                         >
-                          {{ item.label }} · {{ item.value }}
+                          {{ item.label }} 路 {{ item.value }}
                         </span>
                       </div>
                     </header>
@@ -133,7 +133,7 @@
                     <header class="insight-detail-section__header">
                       <div class="insight-detail-section__title">
                         <strong>风险上下文档案</strong>
-                        <span>风险运营口径</span>
+                        <span>风险对象视角</span>
                       </div>
                       <div class="insight-detail-section__digest">
                         <span
@@ -141,7 +141,7 @@
                           :key="`risk-${item.label}`"
                           class="insight-detail-section__digest-pill insight-detail-section__digest-pill--accent"
                         >
-                          {{ item.label }} · {{ item.value }}
+                          {{ item.label }} 路 {{ item.value }}
                         </span>
                       </div>
                     </header>
@@ -267,18 +267,29 @@
 
             <section
               class="runtime-diagnosis-strip"
-              :class="`runtime-diagnosis-strip--${runtimeDiagnosisConclusion.tone}`"
+              :class="[
+                `runtime-diagnosis-strip--${runtimeDiagnosisConclusion.tone}`,
+                { 'runtime-diagnosis-strip--compact': runtimeDiagnosisCompact }
+              ]"
             >
               <div class="runtime-diagnosis-strip__copy">
-                <span class="runtime-diagnosis-strip__eyebrow">本次诊断结论</span>
-                <strong>{{ runtimeDiagnosisConclusion.title }}</strong>
-                <p>{{ runtimeDiagnosisConclusion.description }}</p>
+                <span
+                  class="runtime-diagnosis-strip__eyebrow"
+                  :class="{ 'runtime-diagnosis-strip__eyebrow--compact': runtimeDiagnosisCompact }"
+                >
+                  {{ runtimeDiagnosisCompact ? '当前聚焦' : '诊断结论' }}
+                </span>
+                <strong>{{ runtimeDiagnosisDisplayTitle }}</strong>
+                <p>{{ runtimeDiagnosisDisplayDescription }}</p>
               </div>
               <div class="runtime-diagnosis-strip__aside">
                 <span class="runtime-diagnosis-strip__pill">{{ runtimeDiagnosisConclusion.pill }}</span>
-                <div v-if="runtimeDiagnosisActions.length" class="runtime-diagnosis-strip__actions">
+                <div
+                  v-if="runtimeDiagnosisDisplayActions.length && !runtimeDiagnosisCompact"
+                  class="runtime-diagnosis-strip__actions"
+                >
                   <StandardButton
-                    v-for="action in runtimeDiagnosisActions"
+                    v-for="action in runtimeDiagnosisDisplayActions"
                     :key="`${action.kind}-${action.identifier}`"
                     action="query"
                     :link="action.emphasis === 'secondary'"
@@ -288,10 +299,94 @@
                     {{ action.label }}
                   </StandardButton>
                 </div>
+                <span
+                  v-else-if="runtimeDiagnosisActionHandoffLabel && !runtimeDiagnosisCompact"
+                  class="runtime-diagnosis-strip__handoff"
+                  data-testid="runtime-diagnosis-action-handoff"
+                >
+                  {{ runtimeDiagnosisActionHandoffLabel }}
+                </span>
+                <span
+                  v-else-if="runtimeDiagnosisCompactNote"
+                  class="runtime-diagnosis-strip__compact-note"
+                  data-testid="runtime-diagnosis-compact-note"
+                >
+                  {{ runtimeDiagnosisCompactNote }}
+                </span>
               </div>
             </section>
 
-            <section class="runtime-insight-bridge__sequence" aria-live="polite">
+            <section
+              v-if="runtimeFocusContext"
+              class="runtime-focus-context"
+              data-testid="runtime-focus-context"
+            >
+              <div class="runtime-focus-context__copy">
+                <span class="runtime-focus-context__eyebrow">当前排查字段</span>
+                <strong>{{ runtimeFocusContext.title }}</strong>
+                <p>{{ runtimeFocusContext.description }}</p>
+                <div
+                  v-if="runtimeFocusContext.sequence"
+                  class="runtime-focus-context__sequence"
+                  data-testid="runtime-focus-sequence"
+                >
+                  <span class="runtime-focus-context__sequence-pill">排查顺序</span>
+                  <span>{{ runtimeFocusContext.sequence }}</span>
+                </div>
+              </div>
+              <div class="runtime-focus-context__aside">
+                <div class="runtime-focus-context__meta">
+                  <span class="runtime-focus-context__pill runtime-focus-context__pill--brand">{{ getRangeLabel(selectedRange) }}</span>
+                  <span
+                    class="runtime-focus-context__pill"
+                    :class="{ 'runtime-focus-context__pill--active': snapshotFocusNarrowed }"
+                    data-testid="runtime-focus-visible-pill"
+                  >
+                    {{ snapshotVisibleCountLabel }}
+                  </span>
+                  <span class="runtime-focus-context__pill">{{ runtimeFocusContext.groupLabel }}</span>
+                  <span class="runtime-focus-context__pill runtime-focus-context__pill--muted">{{ runtimeFocusContext.identifierLabel }}</span>
+                  <span
+                    class="runtime-focus-context__pill"
+                    :class="`runtime-focus-context__pill--${runtimeFocusContext.focusPillTone}`"
+                    data-testid="runtime-focus-signal-pill"
+                  >
+                    {{ runtimeFocusContext.focusPill }}
+                  </span>
+                </div>
+                <div class="runtime-focus-context__actions">
+                  <StandardButton
+                    v-if="snapshotFocusToggleLabel"
+                    action="query"
+                    link
+                    data-testid="snapshot-focus-toggle-action"
+                    @click="toggleSnapshotFocusNarrowing"
+                  >
+                    {{ snapshotFocusToggleLabel }}
+                  </StandardButton>
+                  <StandardButton
+                    v-for="action in runtimeFocusActions"
+                    :key="`focus-${action.kind}-${action.identifier}`"
+                    action="query"
+                    :link="action.emphasis === 'secondary'"
+                    :data-testid="action.emphasis === 'primary' ? 'runtime-focus-primary-action' : 'runtime-focus-secondary-action'"
+                    @click="handleRuntimeDiagnosisAction(action)"
+                  >
+                    {{ action.label }}
+                  </StandardButton>
+                  <StandardButton
+                    action="query"
+                    link
+                    data-testid="runtime-focus-clear-action"
+                    @click="handleClearTrendFocus"
+                  >
+                    清除当前焦点
+                  </StandardButton>
+                </div>
+              </div>
+            </section>
+
+            <section v-if="!runtimeFocusContext" class="runtime-insight-bridge__sequence" aria-live="polite">
               <span class="runtime-insight-bridge__sequence-pill">排查顺序</span>
               <p>{{ runtimeInsightBridgeSequence }}</p>
             </section>
@@ -318,13 +413,20 @@
                     <p>{{ snapshotWorkbenchCopy }}</p>
                   </div>
                   <div class="snapshot-workbench__meta">
-                    <span class="snapshot-workbench__pill">{{ propertyTableRows.length }} 条属性</span>
+                    <span
+                      class="snapshot-workbench__pill"
+                      :class="{ 'snapshot-workbench__pill--brand': snapshotFocusNarrowed }"
+                      data-testid="snapshot-workbench-visible-pill"
+                    >
+                      {{ snapshotVisibleCountLabel }}
+                    </span>
                     <span class="snapshot-workbench__pill">{{ editableSnapshotCount }} 条可直达合同</span>
                     <span class="snapshot-workbench__pill snapshot-workbench__pill--muted">{{ runtimeGovernanceSnapshotCount }} 条待补名称/单位</span>
                   </div>
                 </header>
 
                 <section
+                  v-if="!runtimeFocusContext"
                   class="snapshot-workbench__focus"
                   :class="`snapshot-workbench__focus--${snapshotWorkbenchFocus.tone}`"
                 >
@@ -333,12 +435,24 @@
                     <strong>{{ snapshotWorkbenchFocus.title }}</strong>
                     <p>{{ snapshotWorkbenchFocus.description }}</p>
                   </div>
-                  <span class="snapshot-workbench__focus-pill">{{ snapshotWorkbenchFocus.pill }}</span>
+                  <div class="snapshot-workbench__focus-aside">
+                    <span class="snapshot-workbench__focus-pill">{{ snapshotWorkbenchFocus.pill }}</span>
+                    <StandardButton
+                      v-if="snapshotFocusToggleLabel && !runtimeFocusContext"
+                      action="query"
+                      link
+                      data-testid="snapshot-focus-toggle-action"
+                      @click="toggleSnapshotFocusNarrowing"
+                    >
+                      {{ snapshotFocusToggleLabel }}
+                    </StandardButton>
+                  </div>
                 </section>
 
                 <div class="snapshot-workbench__table-shell">
                   <el-table
-                    :data="propertyTableRows"
+                    :key="snapshotTableRenderKey"
+                    :data="displayedPropertyTableRows"
                     class="monitoring-snapshot-table"
                     stripe
                     table-layout="fixed"
@@ -419,7 +533,22 @@
                   </el-table>
                 </div>
               </div>
-              <div v-else class="empty-state">{{ snapshotEmptyMessage }}</div>
+              <div v-else class="empty-state snapshot-empty-state">
+                <p>{{ snapshotEmptyMessage }}</p>
+                <div
+                  v-if="showSnapshotEmptyTraceAction"
+                  class="snapshot-empty-state__actions"
+                >
+                  <StandardButton
+                    action="query"
+                    link
+                    data-testid="snapshot-empty-trace-action"
+                    @click="handleJumpToLatestTrace"
+                  >
+                    去链路追踪台
+                  </StandardButton>
+                </div>
+              </div>
             </PanelCard>
           </section>
         </template>
@@ -456,6 +585,7 @@ import {
 } from '@/utils/deviceInsightCapability';
 import { getInsightObjectTypeLabel, getRiskLevelLabel, pickPrimaryBinding } from '@/utils/deviceInsight';
 import { resolveInsightMetricDisplayName } from '@/utils/deviceInsightNaming';
+import { buildDiagnosticRouteQuery, persistDiagnosticContext } from '@/utils/iotAccessDiagnostics';
 import { buildProductWorkbenchSectionPath } from '@/utils/productWorkbenchRoutes';
 
 interface InsightTrendBucket {
@@ -506,7 +636,7 @@ interface TrendFocusSelection {
 }
 
 interface RuntimeDiagnosisAction {
-  kind: 'formal' | 'runtime';
+  kind: 'formal' | 'runtime' | 'trace';
   label: string;
   identifier: string;
   emphasis: 'primary' | 'secondary';
@@ -541,6 +671,7 @@ const riskDetail = ref<RiskMonitoringDetail | null>(null);
 const capabilityProfile = ref<InsightCapabilityProfile>(getInsightCapabilityProfile({}));
 const trendGroups = ref<InsightTrendGroup[]>([]);
 const activeTrendFocus = ref<TrendFocusSelection | null>(null);
+const snapshotFocusNarrowed = ref(false);
 const productModelDisplayNameMap = ref<Map<string, string>>(new Map());
 const productModelDataTypeMap = ref<Map<string, string>>(new Map());
 const productModelUnitMap = ref<Map<string, string>>(new Map());
@@ -558,7 +689,7 @@ const hasInsightContent = computed(() =>
 const objectTypeLabel = computed(() => getInsightObjectTypeLabel(capabilityProfile.value.objectType));
 const onlineStatusLabel = computed(() => (device.value?.onlineStatus === 1 ? '在线' : device.value ? '离线' : '--'));
 const onlineStatusClass = computed(() => (device.value?.onlineStatus === 1 ? 'insight-badge--online' : 'insight-badge--offline'));
-const riskContextBadge = computed(() => riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '未纳入风险监测');
+const riskContextBadge = computed(() => (riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '未纳入风险'));
 const showInlineState = computed(() => Boolean(inlineStateMessage.value));
 const inlineStateTone = computed<'info' | 'error'>(() => (errorMessage.value ? 'error' : 'info'));
 const inlineStateMessage = computed(() => {
@@ -566,10 +697,10 @@ const inlineStateMessage = computed(() => {
     return errorMessage.value;
   }
   if (!normalizedDeviceCode.value) {
-    return '请输入设备编码后开始综合分析';
+    return '请输入设备编码后开始综合分析。';
   }
   if (isLoading.value) {
-    return `设备 ${normalizedDeviceCode.value} 正在加载单设备洞察...`;
+    return `设备 ${normalizedDeviceCode.value} 正在加载单设备洞察。`;
   }
   if (!lastFetchTime.value) {
     return `设备 ${normalizedDeviceCode.value} 已就绪，等待开始分析。`;
@@ -669,7 +800,7 @@ const snapshotMetrics = computed(() =>
 
 const trendEmptyMessage = computed(() => {
   if (!normalizedDeviceCode.value) {
-    return '请输入设备编码后开始综合分析';
+    return '请输入设备编码后开始综合分析。';
   }
   if (trendErrorMessage.value) {
     return trendErrorMessage.value;
@@ -679,18 +810,29 @@ const trendEmptyMessage = computed(() => {
       ? '当前采集器父设备未配置可展示的父设备趋势指标；子设备指标请查看子设备总览，并到 /products 为父设备或对应子产品单独配置对象洞察。'
       : '当前产品未配置对象洞察重点趋势指标，请到 /products 先将正式字段加入对象洞察后再查看趋势。';
   }
-  return '当前范围暂无可展示的 TDengine 趋势数据';
+  return '当前范围暂无可展示的 TDengine 趋势数据。';
 });
 
 const snapshotEmptyMessage = computed(() => {
   if (!normalizedDeviceCode.value) {
-    return '请输入设备编码后开始综合分析';
+    return '请输入设备编码后开始综合分析。';
   }
   if (isCollectorParentInsight.value && hasCollectorChildren.value) {
     return '当前采集器父设备暂无自身运行态属性快照；子设备监测值与 sensor_state 请查看子设备总览或进入子设备对象洞察。';
   }
   return '当前设备暂无最新属性快照，请检查设备上报与 latest 属性写入链路。';
 });
+
+const showSnapshotEmptyTraceAction = computed(() =>
+  Boolean(normalizedDeviceCode.value)
+  && !propertyTableRows.value.length
+  && !isCollectorParentInsight.value
+  && Boolean(
+    normalizeText(device.value?.deviceCode)
+    || normalizeText(device.value?.lastTraceId)
+    || normalizeText(device.value?.lastReportTopic)
+  )
+);
 
 const collectorAttentionCount = computed(
   () => (collectorOverview.value?.missingChildCount ?? 0) + (collectorOverview.value?.staleChildCount ?? 0)
@@ -704,9 +846,9 @@ const collectorBridgeTitle = computed(() => {
 });
 const collectorBridgeDescription = computed(() => {
   if ((collectorOverview.value?.recommendedMetricCount ?? 0) > 0) {
-    return '这一段先回答哪些子设备可达、哪些状态缺失，以及哪些指标已经值得优先纳入对象洞察。';
+    return '建议指标已经单独标亮，先核对这些子设备的关键读数，再决定是否继续进入单设备洞察。';
   }
-  return '这一段先收住采集器下挂子设备的链路、状态和最近指标，避免中段像突然插进另一块独立模块。';
+  return '先在这里确认子设备链路、状态和最近指标，再决定是否继续下钻到单设备视角。';
 });
 
 const collectorRecommendationNotice = computed(() => {
@@ -723,57 +865,57 @@ const collectorRecommendationNotice = computed(() => {
 const deviceArchiveEntries = computed(() => [
   { label: '设备名称', value: device.value?.deviceName || '--' },
   { label: '设备编码', value: device.value?.deviceCode || normalizedDeviceCode.value || '--' },
-  { label: '产品名称', value: device.value?.productName || '--' },
-  { label: '设备类型', value: objectTypeLabel.value },
-  { label: '所属机构', value: device.value?.orgName || '--' },
-  { label: '部署位置', value: device.value?.address || '--' },
+  { label: '所属产品', value: device.value?.productName || '--' },
+  { label: '对象类型', value: objectTypeLabel.value },
+  { label: '所属组织', value: device.value?.orgName || '--' },
+  { label: '安装位置', value: device.value?.address || '--' },
   { label: '接入协议', value: device.value?.protocolCode || '--' },
   { label: '固件版本', value: device.value?.firmwareVersion || '--' },
-  { label: '最近在线时间', value: formatDateTime(device.value?.lastOnlineTime) },
-  { label: '最近上报时间', value: formatDateTime(device.value?.lastReportTime) }
-]);
-
-const riskArchiveEntries = computed(() => [
-  { label: '关联风险点名称', value: riskDetail.value?.riskPointName || '当前未纳管' },
-  { label: '风险点编码', value: riskDetail.value?.riskPointCode || '--' },
-  { label: '当前主监测项', value: riskDetail.value?.metricName || '未绑定监测项' },
-  { label: '当前风险态势', value: riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '未纳入风险监测' },
-  { label: '当前绑定状态', value: riskDetail.value ? '已纳入风险监测' : '当前未纳管' },
-  { label: '风险等级来源说明', value: riskDetail.value ? '来自风险运营实时绑定明细' : '暂无风险运营绑定数据' }
-]);
-
-const deviceArchiveDigest = computed(() => [
-  { label: '部署位置', value: device.value?.address || '--' },
-  { label: '接入协议', value: device.value?.protocolCode || '--' },
+  { label: '最近在线', value: formatDateTime(device.value?.lastOnlineTime) },
   { label: '最近上报', value: formatDateTime(device.value?.lastReportTime) }
 ]);
 
+const riskArchiveEntries = computed(() => [
+  { label: '风险点', value: riskDetail.value?.riskPointName || '暂未命中' },
+  { label: '风险编码', value: riskDetail.value?.riskPointCode || '--' },
+  { label: '当前指标', value: riskDetail.value?.metricName || '暂未关联' },
+  { label: '风险等级', value: riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '待补上下文' },
+  { label: '上下文状态', value: riskDetail.value ? '已关联风险对象' : '待补风险上下文' },
+  { label: '排查建议', value: riskDetail.value ? '优先核对趋势与快照链路' : '先从监测快照补线索' }
+]);
+
+const deviceArchiveDigest = computed(() => [
+  { label: '位置', value: device.value?.address || '--' },
+  { label: '协议', value: device.value?.protocolCode || '--' },
+  { label: '上报', value: formatDateTime(device.value?.lastReportTime) }
+]);
+
 const riskArchiveDigest = computed(() => [
-  { label: '风险态势', value: riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '未纳入风险监测' },
-  { label: '主监测项', value: riskDetail.value?.metricName || '未命名指标' },
-  { label: '绑定状态', value: riskDetail.value ? '已纳入风险监测' : '当前未纳管' }
+  { label: '风险', value: riskDetail.value ? getRiskLevelLabel(riskDetail.value.riskLevel) : '待补上下文' },
+  { label: '指标', value: riskDetail.value?.metricName || '暂未关联' },
+  { label: '状态', value: riskDetail.value ? '已关联' : '待补线索' }
 ]);
 
 const analysisParagraphs = computed<NarrativeBlock[]>(() => {
   const metricSummary = snapshotMetrics.value.length
-    ? snapshotMetrics.value.map((metric) => `${metric.label}当前为${metric.value || '--'}`).join('，')
-    : '当前暂无可直接引用的监测快照';
+    ? snapshotMetrics.value.map((metric) => `${metric.label}：${metric.value || '--'}`).join('；')
+    : '监测快照暂未形成摘要。';
   const blocks: NarrativeBlock[] = [
     {
-      title: '设备现状',
-      tag: '当前状态',
-      description: `${device.value?.deviceName || normalizedDeviceCode.value || '当前设备'}当前${onlineStatusLabel.value}，最近上报时间为${formatDateTime(riskDetail.value?.latestReportTime || device.value?.lastReportTime)}。`
+      title: '设备状态',
+      tag: '设备摘要',
+      description: `${device.value?.deviceName || normalizedDeviceCode.value || '当前设备'}当前${onlineStatusLabel.value}，最近一次有效上报时间为 ${formatDateTime(riskDetail.value?.latestReportTime || device.value?.lastReportTime)}。`
     },
     {
-      title: '风险上下文',
-      tag: '风险运营',
+      title: '风险语境',
+      tag: '风险上下文',
       description: riskDetail.value
-        ? `当前已纳入“${riskDetail.value.riskPointName || '--'}”的风险监测，主监测项为${riskDetail.value.metricName || '未命名指标'}，当前风险态势为${getRiskLevelLabel(riskDetail.value.riskLevel)}。`
-        : '当前设备尚未纳入风险监测绑定，可先从设备本体趋势与状态指标开展单设备分析。'
+        ? `当前命中风险点 ${riskDetail.value.riskPointName || '--'}，正在关注指标 ${riskDetail.value.metricName || '未命名指标'}，风险等级为 ${getRiskLevelLabel(riskDetail.value.riskLevel)}。`
+        : '当前还没有命中风险上下文，可继续从监测快照和趋势样本里判断异常线索。'
     },
     {
-      title: '监测研判',
-      tag: '综合研判',
+      title: '快照摘要',
+      tag: 'latest 快照',
       description: `${metricSummary}。`
     }
   ];
@@ -818,7 +960,7 @@ const propertyTableRows = computed<PropertySnapshotRow[]>(() => {
       formalIdentifier,
       canEditFormalField,
       governanceLabel: canEditFormalField ? '正式字段' : '运行态字段',
-      governanceHint: canEditFormalField ? '可回到合同页修改名称与单位' : '建议补齐名称与单位后再沉淀'
+      governanceHint: canEditFormalField ? '可直达正式字段治理' : '建议补齐运行态名称/单位'
     };
   });
 });
@@ -831,6 +973,13 @@ const focusedSnapshotRows = computed(() =>
   propertyTableRows.value.filter((row) => isTrendFocusMatchedRow(row))
 );
 
+const displayedPropertyTableRows = computed(() => {
+  if (snapshotFocusNarrowed.value && focusedSnapshotRows.value.length) {
+    return focusedSnapshotRows.value;
+  }
+  return propertyTableRows.value;
+});
+
 const editableSnapshotCount = computed(() =>
   propertyTableRows.value.filter((row) => row.canEditFormalField).length
 );
@@ -839,85 +988,103 @@ const runtimeGovernanceSnapshotCount = computed(() =>
   propertyTableRows.value.length - editableSnapshotCount.value
 );
 
+const snapshotVisibleCountLabel = computed(() => {
+  if (snapshotFocusNarrowed.value && displayedPropertyTableRows.value.length < propertyTableRows.value.length) {
+    return `${displayedPropertyTableRows.value.length} / ${propertyTableRows.value.length} 条属性`;
+  }
+  return `${propertyTableRows.value.length} 条属性`;
+});
+
+const snapshotFocusToggleLabel = computed(() => {
+  if (!focusedSnapshotRows.value.length || focusedSnapshotRows.value.length >= propertyTableRows.value.length) {
+    return '';
+  }
+  return snapshotFocusNarrowed.value ? '返回全部属性' : '只看当前相关字段';
+});
+
+const snapshotTableRenderKey = computed(() =>
+  `${snapshotFocusNarrowed.value ? 'focus' : 'all'}-${activeTrendCanonicalIdentifier.value || 'none'}-${displayedPropertyTableRows.value.length}`
+);
+
 const snapshotWorkbenchCopy = computed(() => {
   if (!propertyTableRows.value.length) {
-    return '当前设备暂无可展示的运行态快照。';
+    return '当前设备还没有 latest 属性快照。';
   }
   if (runtimeGovernanceSnapshotCount.value === 0) {
-    return '当前快照字段都已命中正式合同，可直接回到正式字段治理。';
+    return '这批快照都已进入正式字段，可直接沿合同定义核对名称、单位和趋势配置。';
   }
   if (editableSnapshotCount.value === 0) {
-    return '当前快照字段仍以运行态为主，建议优先补齐名称与单位治理。';
+    return '这批快照都还是运行态字段，建议先补齐名称、单位和治理归属。';
   }
-  return `当前快照同时包含 ${editableSnapshotCount.value} 条正式字段和 ${runtimeGovernanceSnapshotCount.value} 条运行态字段。`;
+  return `当前有 ${editableSnapshotCount.value} 条可直达合同、${runtimeGovernanceSnapshotCount.value} 条待补运行态语义。`;
 });
 
 const runtimeInsightBridgeTitle = computed(() => {
   if (trendGroups.value.length && propertyTableRows.value.length) {
-    return `先看 ${getRangeLabel(selectedRange.value)} 的变化，再核对 ${propertyTableRows.value.length} 条最新快照和治理入口。`;
+    return `近 ${getRangeLabel(selectedRange.value)} 趋势与 ${propertyTableRows.value.length} 条 latest 快照已串联`;
   }
   if (trendGroups.value.length) {
-    return `先看 ${getRangeLabel(selectedRange.value)} 的趋势样本，再回头确认 latest 快照为何还没站住。`;
+    return `近 ${getRangeLabel(selectedRange.value)} 趋势已就绪，等待 latest 快照补齐`;
   }
   if (propertyTableRows.value.length) {
-    return `这台设备当前更适合先从 ${propertyTableRows.value.length} 条运行态快照入手，再决定是否回查历史趋势。`;
+    return `设备快照已就绪，共 ${propertyTableRows.value.length} 条属性等待排查`;
   }
-  return '运行态诊断会先回答趋势变化，再把字段治理入口收口到同一段里。';
+  return '运行态诊断与治理线索暂未形成';
 });
 
 const runtimeInsightBridgeDescription = computed(() => {
   if (trendGroups.value.length && editableSnapshotCount.value > 0) {
-    return '上面先看时间范围内的变化，下面直接核对哪些字段已经命中正式合同，哪些仍要走运行态治理。';
+    return '先用趋势锁定异常字段，再顺着 latest 快照决定是核对正式字段还是补运行态名称/单位。';
   }
   if (runtimeGovernanceSnapshotCount.value > 0) {
-    return '这一段会把趋势样本、latest 快照和运行态名称/单位治理放在同一条链路里，减少“先看哪块”的犹豫。';
+    return '这批 latest 快照里仍有运行态字段，建议优先补齐名称、单位和治理归属。';
   }
-  return '这一段把历史变化和当前快照放在一个工作区里，先帮助我们判断现象，再决定下一步治理动作。';
+  return '趋势和 latest 快照都已接好，可以继续沿字段层往下排查。';
 });
 
 const runtimeInsightBridgeSequence = computed(() => {
   if (trendGroups.value.length && propertyTableRows.value.length) {
-    return '先看趋势里哪些指标真的在变，再回到快照核对字段归属、名称单位和正式合同是否对齐。';
+    return '先看趋势判断哪个字段在波动，再到 latest 快照确认读数、归属和治理入口。';
   }
   if (trendGroups.value.length) {
-    return '当前先从趋势判断现象，再确认 latest 快照为什么还没有形成可治理的字段台账。';
+    return '先从趋势判断是否存在异常波动，再等 latest 快照补齐后继续核对字段。';
   }
   if (propertyTableRows.value.length) {
-    return '当前先从 latest 快照核对字段语义和治理入口，等趋势样本补齐后再回看时间变化。';
+    return '先看 latest 快照确认字段读数，再决定是正式字段治理还是运行态补证。';
   }
-  return '当前还没有足够的趋势或快照样本，先把设备上报链路和 latest 写入链路核实清楚。';
+  return '等待趋势或 latest 快照任一侧先形成线索。';
 });
 
 const snapshotWorkbenchFocus = computed(() => {
   if (!propertyTableRows.value.length) {
     return {
       tone: 'idle',
-      pill: '暂无快照',
-      title: '等待设备上报最新运行态样本',
-      description: '先确认设备是否持续上报，再回到属性快照定位字段治理入口。'
+      pill: '待接入',
+      title: '等待 latest 快照',
+      description: '输入设备编码后，这里会承接字段快照与治理入口。'
     };
   }
   if (runtimeGovernanceSnapshotCount.value === 0) {
     return {
       tone: 'formal',
-      pill: '合同优先',
-      title: '当前快照已和正式合同对齐',
-      description: '这批字段都能直达合同页修改名称与单位，适合直接沿正式字段继续排查。'
+      pill: '正式字段',
+      title: '快照已进入正式字段',
+      description: '可以直接核对名称、单位和趋势定义，不需要再走运行态补证。'
     };
   }
   if (editableSnapshotCount.value === 0) {
     return {
       tone: 'runtime',
-      pill: '运行态优先',
-      title: '先补齐运行态名称与单位',
-      description: '当前快照主要来自运行态字段，先把字段语义补齐，后续趋势与治理动作会更顺。'
+      pill: '运行态',
+      title: '先补运行态语义',
+      description: '这批快照还没有正式字段承接，建议优先补齐名称、单位和治理归属。'
     };
   }
   return {
     tone: 'hybrid',
     pill: '双轨治理',
-    title: '正式字段与运行态字段同时存在',
-    description: '先沿正式字段排查关键读数，再补齐运行态字段的名称与单位，能更快收拢对象语义。'
+    title: '正式字段与运行态并存',
+    description: '先沿正式字段核对趋势定义，再把剩余运行态字段补齐名称、单位和治理归属。'
   };
 });
 
@@ -928,47 +1095,47 @@ const runtimeDiagnosisConclusion = computed(() => {
     if (canEditFormalField) {
       return {
         tone: 'formal',
-        pill: `${focusedSnapshotRows.value.length} 条快照已命中`,
-        title: `先核对 ${focusedMetricName} 的正式字段定义`,
-        description: '当前趋势已经锁定到对应快照字段，适合先核对 latest 读数、名称单位和正式合同定义，再决定是否继续回查历史样本。'
+        pill: `${focusedSnapshotRows.value.length} 条快照`,
+        title: `先看 ${focusedMetricName} 的正式字段`,
+        description: '当前趋势已经锁定到这条字段，建议优先核对 latest 对应正式字段的名称、单位和趋势定义。'
       };
     }
     return {
       tone: 'runtime',
-      pill: `${focusedSnapshotRows.value.length} 条运行态待治理`,
-      title: `先补齐 ${focusedMetricName} 的运行态语义`,
-      description: '当前趋势已经命中运行态快照，但还没有直达正式合同的入口。建议先补名称和单位，再继续看后续趋势是否稳定。'
+      pill: `${focusedSnapshotRows.value.length} 条快照`,
+      title: `先补 ${focusedMetricName} 的运行态语义`,
+      description: '当前趋势已经落到运行态字段，建议先补齐名称、单位和归属，再决定是否沉淀成正式字段。'
     };
   }
   if (focusedMetricName) {
     return {
       tone: 'attention',
-      pill: '快照未命中',
-      title: `趋势里正在看 ${focusedMetricName}，但 latest 快照还没接住`,
-      description: '这通常意味着样本只出现在历史窗口里，或者当前 latest 字段还没完成归一。更适合先核对上报标识和 latest 写入链路。'
+      pill: '待补链路',
+      title: `趋势命中了 ${focusedMetricName}，但 latest 还没接住`,
+      description: '建议先核对上报链路和 latest 写入，再回到字段治理继续排查。'
     };
   }
   if (snapshotWorkbenchFocus.value.tone === 'formal') {
     return {
       tone: 'formal',
-      pill: '合同优先',
-      title: '这批快照已经站到正式合同上了',
-      description: '当前更适合直接沿正式字段继续排查，把重点放在 latest 读数是否符合预期，以及名称单位定义是否足够清楚。'
+      pill: '正式字段',
+      title: '这批快照可直接走合同治理',
+      description: '优先核对正式字段名称、单位和趋势定义，确认读数是否已纳入对象洞察。'
     };
   }
   if (snapshotWorkbenchFocus.value.tone === 'runtime') {
     return {
       tone: 'runtime',
-      pill: '运行态优先',
-      title: '这台设备现在更该先补运行态字段语义',
-      description: '趋势和快照都还在运行态侧打转，先把字段名称、单位和归属补清楚，后面的合同治理和趋势判断会顺很多。'
+      pill: '运行态',
+      title: '这批快照还停留在运行态',
+      description: '建议先补名称、单位和归属，再决定是否需要沉淀成正式字段。'
     };
   }
   return {
     tone: 'neutral',
-    pill: '先看样本',
-    title: '先用趋势锁定现象，再回到快照判断治理入口',
-    description: '先点击一条真正关心的趋势指标，我们会把对应快照字段和下一步治理动作一起高亮出来。'
+    pill: '待诊断',
+    title: '先从趋势或 latest 任一侧开始',
+    description: '只要趋势或 latest 任意一侧形成线索，这里就会给出下一步排查建议。'
   };
 });
 
@@ -976,6 +1143,15 @@ const runtimeDiagnosisActions = computed<RuntimeDiagnosisAction[]>(() => {
   const actions: RuntimeDiagnosisAction[] = [];
   const focusedFormalRow = focusedSnapshotRows.value.find((row) => row.canEditFormalField);
   const focusedRuntimeRow = focusedSnapshotRows.value.find((row) => !row.canEditFormalField);
+  const hasFocusWithoutSnapshot = Boolean(activeTrendFocus.value?.identifier) && focusedSnapshotRows.value.length === 0;
+  const traceAction = hasFocusWithoutSnapshot
+    ? [{
+      kind: 'trace' as const,
+      label: '去链路追踪台',
+      identifier: activeTrendFocus.value?.identifier || '',
+      emphasis: 'secondary' as const
+    }]
+    : [];
   if (focusedFormalRow) {
     actions.push({
       kind: 'formal',
@@ -1012,7 +1188,7 @@ const runtimeDiagnosisActions = computed<RuntimeDiagnosisAction[]>(() => {
       label: '去正式字段治理',
       identifier: firstFormalRow.formalIdentifier || firstFormalRow.identifier,
       emphasis: 'primary'
-    }];
+    }, ...traceAction];
   }
   if (snapshotWorkbenchFocus.value.tone === 'runtime' && firstRuntimeRow) {
     return [{
@@ -1020,7 +1196,7 @@ const runtimeDiagnosisActions = computed<RuntimeDiagnosisAction[]>(() => {
       label: '去运行态治理',
       identifier: firstRuntimeRow.identifier,
       emphasis: 'primary'
-    }];
+    }, ...traceAction];
   }
   if (snapshotWorkbenchFocus.value.tone === 'hybrid' && firstFormalRow && firstRuntimeRow) {
     return [
@@ -1035,18 +1211,104 @@ const runtimeDiagnosisActions = computed<RuntimeDiagnosisAction[]>(() => {
         label: '再补运行态语义',
         identifier: firstRuntimeRow.identifier,
         emphasis: 'secondary'
-      }
+      },
+      ...traceAction
     ];
   }
   if (activeTrendFocus.value?.identifier && device.value?.productId) {
-    return [{
-      kind: 'runtime',
-      label: '去运行态治理',
-      identifier: activeTrendFocus.value.identifier,
-      emphasis: 'primary'
-    }];
+    return [
+      {
+        kind: 'runtime',
+        label: '去运行态治理',
+        identifier: activeTrendFocus.value.identifier,
+        emphasis: 'primary'
+      },
+      {
+        kind: 'trace',
+        label: '去链路追踪台',
+        identifier: activeTrendFocus.value.identifier,
+        emphasis: 'secondary'
+      }
+    ];
   }
   return [];
+});
+
+const runtimeFocusContext = computed(() => {
+  const focus = activeTrendFocus.value;
+  if (!focus) {
+    return null;
+  }
+  const focusedCount = focusedSnapshotRows.value.length;
+  return {
+    title: focus.displayName?.trim() || focus.identifier,
+    description: focusedCount
+      ? (snapshotFocusNarrowed.value
+        ? '下方快照已经收束到当前字段相关样本；看完可以直接返回全部属性。'
+        : '下方快照已经同步高亮当前字段；如果只想沿这一条往下排，可以继续收束到相关字段。')
+      : '趋势已经锁定到当前字段，但 latest 快照暂时还没接住，建议先核对上报标识和 latest 写入链路。',
+    sequence: runtimeInsightBridgeSequence.value,
+    groupLabel: focus.groupTitle?.trim() || '趋势焦点',
+    identifierLabel: focus.identifier,
+    focusPill: focusedCount ? `已联动 ${focusedCount} 条快照` : '先查 latest 链路',
+    focusPillTone: focusedCount ? 'brand' : 'attention'
+  };
+});
+
+const runtimeFocusActions = computed(() =>
+  activeTrendFocus.value ? runtimeDiagnosisActions.value : []
+);
+
+const runtimeDiagnosisCompact = computed(() => Boolean(runtimeFocusContext.value));
+const runtimeDiagnosisMissingFocusSamples = computed(() =>
+  Boolean(activeTrendFocus.value) && focusedSnapshotRows.value.length === 0
+);
+
+const runtimeDiagnosisActionsDuplicated = computed(() => {
+  if (!runtimeFocusActions.value.length || runtimeDiagnosisActions.value.length !== runtimeFocusActions.value.length) {
+    return false;
+  }
+  return runtimeDiagnosisActions.value.every((action, index) => {
+    const counterpart = runtimeFocusActions.value[index];
+    return Boolean(counterpart)
+      && action.kind === counterpart.kind
+      && normalizeText(action.identifier) === normalizeText(counterpart.identifier)
+      && action.emphasis === counterpart.emphasis
+      && action.label === counterpart.label;
+  });
+});
+
+const runtimeDiagnosisDisplayActions = computed(() =>
+  runtimeDiagnosisActionsDuplicated.value ? [] : runtimeDiagnosisActions.value
+);
+
+const runtimeDiagnosisDisplayTitle = computed(() =>
+  runtimeDiagnosisCompact.value && runtimeDiagnosisMissingFocusSamples.value
+    ? '趋势线索已锁定'
+    : runtimeDiagnosisConclusion.value.title
+);
+
+const runtimeDiagnosisDisplayDescription = computed(() =>
+  runtimeDiagnosisCompact.value && runtimeDiagnosisMissingFocusSamples.value
+    ? '当前范围没有命中快照样本，详细排查说明已在下方当前排查字段中提供。'
+    : runtimeDiagnosisCompact.value
+    ? '当前趋势已经锁定到字段层，继续沿下方当前排查字段和快照头提示往下看就行。'
+    : runtimeDiagnosisConclusion.value.description
+);
+
+const runtimeDiagnosisActionHandoffLabel = computed(() => {
+  if (!runtimeDiagnosisActionsDuplicated.value || !runtimeFocusActions.value.length) {
+    return '';
+  }
+  const primaryAction = runtimeFocusActions.value.find((action) => action.emphasis === 'primary') ?? runtimeFocusActions.value[0];
+  return `${primaryAction.label} 已在当前排查字段中提供`;
+});
+
+const runtimeDiagnosisCompactNote = computed(() => {
+  if (!runtimeDiagnosisCompact.value || runtimeDiagnosisMissingFocusSamples.value) {
+    return '';
+  }
+  return '详细治理入口已前移到当前排查字段。';
 });
 
 function buildPropertySnapshotFocusTestId(identifier: string) {
@@ -1092,6 +1354,19 @@ function handleTrendSeriesSelect(selection: TrendFocusSelection) {
     ...selection,
     identifier: normalizedIdentifier
   };
+}
+
+function toggleSnapshotFocusNarrowing() {
+  if (!focusedSnapshotRows.value.length || focusedSnapshotRows.value.length >= propertyTableRows.value.length) {
+    snapshotFocusNarrowed.value = false;
+    return;
+  }
+  snapshotFocusNarrowed.value = !snapshotFocusNarrowed.value;
+}
+
+function handleClearTrendFocus() {
+  activeTrendFocus.value = null;
+  snapshotFocusNarrowed.value = false;
 }
 
 function resolveTrendFocusSelection(identifier: string) {
@@ -1170,6 +1445,15 @@ watch(
   }
 );
 
+watch(
+  () => [focusedSnapshotRows.value.length, propertyTableRows.value.length],
+  ([focusedCount, totalCount]) => {
+    if (!focusedCount || focusedCount >= totalCount) {
+      snapshotFocusNarrowed.value = false;
+    }
+  }
+);
+
 onMounted(() => {
   if (normalizedDeviceCode.value) {
     void loadInsight('route-change');
@@ -1222,7 +1506,33 @@ function handlePromoteToMappingRule(row: PropertySnapshotRow) {
   });
 }
 
+function buildInsightTraceContext() {
+  const protocolCode = normalizeText(device.value?.protocolCode).toLowerCase();
+  return {
+    sourcePage: 'insight' as const,
+    deviceCode: normalizeText(device.value?.deviceCode) || normalizedDeviceCode.value || undefined,
+    traceId: normalizeText(device.value?.lastTraceId) || undefined,
+    topic: normalizeText(device.value?.lastReportTopic) || undefined,
+    transportMode: protocolCode.includes('mqtt') ? 'mqtt' : protocolCode ? 'http' : null,
+    reportStatus: 'timeline-missing' as const,
+    capturedAt: new Date().toISOString()
+  };
+}
+
+function handleJumpToLatestTrace() {
+  const context = buildInsightTraceContext();
+  persistDiagnosticContext(context);
+  void router.push({
+    path: '/message-trace',
+    query: buildDiagnosticRouteQuery(context)
+  });
+}
+
 function handleRuntimeDiagnosisAction(action: RuntimeDiagnosisAction) {
+  if (action.kind === 'trace') {
+    handleJumpToLatestTrace();
+    return;
+  }
   const productId = device.value?.productId;
   if (productId === undefined || productId === null) {
     return;
@@ -1316,7 +1626,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
     productPropertyIdentifierSet.value = productInsightSupplement.propertyIdentifierSet;
     if (shouldLoadCollectorInsightOverview(topologyRole.value)) {
       collectorOverview.value = (await getCollectorChildInsightOverview(code).catch((error) => {
-        console.warn('采集器子设备总览加载失败', error);
+        console.warn('閲囬泦鍣ㄥ瓙璁惧鎬昏鍔犺浇澶辫触', error);
         return null;
       }))?.data ?? null;
       if (version !== requestVersion.value) {
@@ -1362,7 +1672,7 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
       } catch (error) {
         trendGroups.value = [];
         activeTrendFocus.value = null;
-        trendErrorMessage.value = error instanceof Error ? error.message : 'TDengine 趋势查询失败';
+        trendErrorMessage.value = error instanceof Error ? error.message : 'TDengine 瓒嬪娍鏌ヨ澶辫触';
       }
     } else {
       trendGroups.value = [];
@@ -1371,12 +1681,12 @@ async function loadInsight(_source: 'route-change' | 'manual-query' | 'range-cha
 
     lastFetchTime.value = new Date().toISOString();
     syncRoute();
-    ElMessage.success(`设备 ${code} 洞察加载成功`);
+    ElMessage.success(`璁惧 ${code} 娲炲療鍔犺浇鎴愬姛`);
   } catch (error) {
     if (version !== requestVersion.value) {
       return;
     }
-    errorMessage.value = error instanceof Error ? error.message : '对象洞察加载失败';
+    errorMessage.value = error instanceof Error ? error.message : '瀵硅薄娲炲療鍔犺浇澶辫触';
   } finally {
     if (version === requestVersion.value) {
       isLoading.value = false;
@@ -1395,6 +1705,7 @@ function resetInsightState() {
   riskDetail.value = null;
   trendGroups.value = [];
   activeTrendFocus.value = null;
+  snapshotFocusNarrowed.value = false;
   productModelDisplayNameMap.value = new Map();
   productModelDataTypeMap.value = new Map();
   productModelUnitMap.value = new Map();
@@ -1570,10 +1881,10 @@ function resolveTrendSeriesType(seriesType: string | null | undefined, groupKey:
 
 function isStatusEventSeries(series: InsightTrendSeries) {
   const semanticSource = `${series.identifier} ${series.displayName}`.toLowerCase();
-  if (/(battery|signal|humidity|temperature|temp|voltage|current|power|energy|network|4g|rssi|snr|dbm|湿度|温度|电量|信号|电压|电流|功率|能量)/.test(semanticSource)) {
+  if (/(battery|signal|humidity|temperature|temp|voltage|current|power|energy|network|4g|rssi|snr|dbm|婀垮害|娓╁害|鐢甸噺|淇″彿|鐢靛帇|鐢垫祦|鍔熺巼|鑳介噺)/.test(semanticSource)) {
     return false;
   }
-  if (/(sensor_state|online|alarm|warn|status|state|switch|enable|relay|valve|pump|door|light|horn|开关|启停|开启|关闭|阀|泵|门|声光|告警|预警|报警|在线|状态)/.test(semanticSource)) {
+  if (/(sensor_state|online|alarm|warn|status|state|switch|enable|relay|valve|pump|door|light|horn)/.test(semanticSource)) {
     return true;
   }
 
@@ -1684,7 +1995,7 @@ async function loadProductInsightSupplement(productId?: string | number | null) 
       )
     };
   } catch (error) {
-    console.warn('对象洞察产品配置补充失败', error);
+    console.warn('瀵硅薄娲炲療浜у搧閰嶇疆琛ュ厖澶辫触', error);
     return emptySupplement;
   }
 }
@@ -2412,6 +2723,10 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   line-height: 1.58;
 }
 
+.runtime-diagnosis-strip__eyebrow--compact {
+  color: color-mix(in srgb, var(--text-tertiary) 84%, white);
+}
+
 .runtime-diagnosis-strip__pill {
   display: inline-flex;
   align-items: center;
@@ -2438,6 +2753,55 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   gap: 0.45rem;
 }
 
+.runtime-diagnosis-strip__handoff {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.runtime-diagnosis-strip__compact-note {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: right;
+  max-width: 16rem;
+}
+
+.runtime-diagnosis-strip--compact {
+  align-items: center;
+  gap: 0.66rem;
+  padding: 0.66rem 0.88rem;
+  border-color: color-mix(in srgb, var(--panel-border) 68%, white);
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.runtime-diagnosis-strip--compact .runtime-diagnosis-strip__copy {
+  gap: 0.14rem;
+}
+
+.runtime-diagnosis-strip--compact .runtime-diagnosis-strip__copy strong {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.runtime-diagnosis-strip--compact .runtime-diagnosis-strip__copy p {
+  max-width: 34rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.runtime-diagnosis-strip--compact .runtime-diagnosis-strip__pill {
+  min-height: 1.58rem;
+  padding-inline: 0.52rem;
+  font-size: 0.72rem;
+}
+
+.runtime-diagnosis-strip--compact .runtime-diagnosis-strip__compact-note {
+  font-size: 0.74rem;
+  max-width: 14rem;
+}
+
 .runtime-diagnosis-strip--formal {
   border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
 }
@@ -2453,6 +2817,118 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 
 .runtime-diagnosis-strip--neutral {
   border-color: color-mix(in srgb, var(--line-panel) 78%, white);
+}
+
+.runtime-focus-context {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.84rem 1rem;
+  border-radius: calc(var(--radius-lg) - 0.24rem);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 82%, white);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 7%, transparent), transparent 54%);
+}
+
+.runtime-focus-context__copy {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+.runtime-focus-context__eyebrow {
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.runtime-focus-context__copy strong {
+  color: var(--text-heading);
+}
+
+.runtime-focus-context__copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.58;
+}
+
+.runtime-focus-context__sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.runtime-focus-context__sequence-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.14rem 0.56rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 8%, white);
+  color: color-mix(in srgb, var(--brand) 68%, var(--text-primary));
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.runtime-focus-context__aside {
+  display: grid;
+  justify-items: flex-end;
+  gap: 0.45rem;
+}
+
+.runtime-focus-context__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.runtime-focus-context__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.42rem;
+}
+
+.runtime-focus-context__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0.18rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(91, 109, 133, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.runtime-focus-context__pill--muted {
+  background: color-mix(in srgb, var(--surface-soft) 72%, white);
+}
+
+.runtime-focus-context__pill--brand {
+  background: color-mix(in srgb, var(--brand) 12%, white);
+  color: color-mix(in srgb, var(--brand) 70%, var(--text-primary));
+}
+
+.runtime-focus-context__pill--attention {
+  background: color-mix(in srgb, var(--warning) 14%, white);
+  color: color-mix(in srgb, var(--warning) 76%, var(--text-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 14%, transparent);
+}
+
+.runtime-focus-context__pill--active {
+  background: color-mix(in srgb, var(--brand) 9%, white);
+  color: color-mix(in srgb, var(--brand) 74%, var(--text-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
 }
 
 .insight-hero {
@@ -2792,6 +3268,34 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   line-height: 1.6;
 }
 
+.snapshot-workbench__header-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.snapshot-workbench__header-focus strong {
+  color: var(--text-heading);
+  font-size: 0.92rem;
+}
+
+.snapshot-workbench__header-focus-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.72rem;
+  padding: 0.14rem 0.56rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 10%, white);
+  color: color-mix(in srgb, var(--brand) 70%, var(--text-primary));
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .snapshot-workbench__meta {
   display: flex;
   flex-wrap: wrap;
@@ -2812,6 +3316,11 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 
 .snapshot-workbench__pill--muted {
   background: rgba(91, 109, 133, 0.08);
+}
+
+.snapshot-workbench__pill--brand {
+  background: color-mix(in srgb, var(--brand) 14%, white);
+  color: var(--brand-strong);
 }
 
 .snapshot-workbench__focus {
@@ -2861,6 +3370,12 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   line-height: 1.58;
 }
 
+.snapshot-workbench__focus-aside {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
 .snapshot-workbench__focus-pill {
   display: inline-flex;
   align-items: center;
@@ -2872,6 +3387,35 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.snapshot-workbench__focus-aside :deep(.standard-button) {
+  min-height: auto;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.snapshot-empty-state {
+  display: grid;
+  gap: 0.72rem;
+  justify-items: center;
+}
+
+.snapshot-empty-state p {
+  margin: 0;
+  max-width: 32rem;
+}
+
+.snapshot-empty-state__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.snapshot-empty-state__actions :deep(.standard-button) {
+  min-height: auto;
+  padding: 0;
+  font-size: 0.86rem;
 }
 
 .snapshot-workbench__table-shell {
@@ -3013,7 +3557,9 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   .snapshot-workbench__header,
   .snapshot-workbench__focus,
   .runtime-diagnosis-strip,
+  .runtime-focus-context,
   .snapshot-workbench__meta,
+  .runtime-focus-context__meta,
   .collector-insight-bridge__header,
   .collector-insight-bridge__meta,
   .runtime-insight-bridge__header,
@@ -3021,5 +3567,10 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
     flex-direction: column;
     justify-content: flex-start;
   }
+
+  .runtime-focus-context__aside {
+    justify-items: flex-start;
+  }
 }
 </style>
+

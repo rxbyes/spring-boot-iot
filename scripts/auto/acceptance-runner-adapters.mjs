@@ -133,17 +133,23 @@ function buildMessageFlowCommand({
 function buildPythonScriptCommand({
   entryScript,
   args = [],
+  backendBaseUrl,
+  forwardBackendBaseUrl = false,
   platform = process.platform,
   availableCommands
 } = {}) {
   if (!entryScript) {
     throw new Error('pythonScript runner requires runner.entryScript.');
   }
+  const resolvedArgs = args.map((item) => String(item));
+  if (forwardBackendBaseUrl && backendBaseUrl) {
+    resolvedArgs.push(`--base-url=${backendBaseUrl}`);
+  }
   return {
     executable: resolvePythonExecutable({ platform, availableCommands }),
     args: [
       entryScript,
-      ...args.map((item) => String(item))
+      ...resolvedArgs
     ]
   };
 }
@@ -295,7 +301,8 @@ async function runCommandRunner({ executable, args, context, env = {} }) {
       meta.SUMMARY_JSON,
       meta.REPORT_PATH,
       meta.JSON_PATH,
-      meta.MD_PATH
+      meta.MD_PATH,
+      meta.SCREENSHOTS_DIR
     ],
     context.workspaceRoot
   );
@@ -415,7 +422,12 @@ export function createRunnerAdapters({ workspaceRoot, overrides = {} }) {
       ((context) => {
         const command = buildPythonScriptCommand({
           entryScript: context.scenario.runner.entryScript,
-          args: context.scenario.runner.args || []
+          args: context.scenario.runner.args || [],
+          backendBaseUrl:
+            context.options.backendBaseUrl ||
+            context.registry.defaultTarget?.backendBaseUrl ||
+            '',
+          forwardBackendBaseUrl: Boolean(context.scenario.runner.forwardBackendBaseUrl)
         });
         return runCommandRunner({
           executable: command.executable,

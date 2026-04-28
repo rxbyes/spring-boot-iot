@@ -171,6 +171,8 @@
         <strong class="detail-notice__value">{{ disposalAdvice }}</strong>
       </div>
     </section>
+
+    <RiskObjectSituationPanel :source="detail?.remark" />
   </StandardDetailDrawer>
 </template>
 
@@ -183,6 +185,7 @@ import {
   getAlarmLevelTagType as resolveAlarmLevelTagType,
   getAlarmLevelText as resolveAlarmLevelText
 } from '@/utils/alarmLevel';
+import RiskObjectSituationPanel from '@/components/RiskObjectSituationPanel.vue';
 import StandardDetailDrawer from '@/components/StandardDetailDrawer.vue';
 
 const props = defineProps<{

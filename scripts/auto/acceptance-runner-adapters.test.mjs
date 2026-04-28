@@ -225,3 +225,63 @@ test('pythonScript adapter builds a generic python command with configured args'
     '--fail-on-breaches'
   ]);
 });
+
+test('pythonScript adapter can forward backend base url for API verification scripts', () => {
+  const command = buildPythonScriptCommandForTest({
+    entryScript: 'scripts/verify-threshold-policy-effective-preview-api.py',
+    args: ['--fail-on-breaches'],
+    backendBaseUrl: 'http://127.0.0.1:10099',
+    forwardBackendBaseUrl: true,
+    platform: 'darwin',
+    availableCommands: ['python3']
+  });
+
+  assert.equal(command.executable, 'python3');
+  assert.deepEqual(command.args, [
+    'scripts/verify-threshold-policy-effective-preview-api.py',
+    '--fail-on-breaches',
+    '--base-url=http://127.0.0.1:10099'
+  ]);
+});
+
+test('command runner collects browser report and screenshot evidence metadata', async () => {
+  const workspaceRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'acceptance-browser-evidence-')
+  );
+  const stubPath = path.join(workspaceRoot, 'stub-browser-runner.mjs');
+  await fs.writeFile(
+    stubPath,
+    [
+      "console.log('REPORT_PATH=logs/acceptance/quality-factory-browser-report-20260428130723.md');",
+      "console.log('REPORT_SUMMARY=logs/acceptance/quality-factory-browser-summary-20260428130723.json');",
+      "console.log('DETAIL_JSON=logs/acceptance/quality-factory-browser-results-20260428130723.json');",
+      "console.log('SCREENSHOTS_DIR=logs/acceptance/quality-factory-browser-screenshots-20260428130723');",
+      "console.log('SUMMARY=browser acceptance passed, total=2, passed=2, failed=0');"
+    ].join('\n'),
+    'utf8'
+  );
+
+  const adapters = createRunnerAdapters({ workspaceRoot });
+  const result = await adapters.__runCommandForTest({
+    executable: process.execPath,
+    args: [stubPath],
+    context: {
+      workspaceRoot,
+      scenario: {
+        id: 'automation-results.p1.browser-smoke',
+        runnerType: 'browserPlan',
+        blocking: 'warning'
+      },
+      registry: {},
+      options: {}
+    }
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.deepEqual(result.evidenceFiles, [
+    'logs/acceptance/quality-factory-browser-summary-20260428130723.json',
+    'logs/acceptance/quality-factory-browser-results-20260428130723.json',
+    'logs/acceptance/quality-factory-browser-report-20260428130723.md',
+    'logs/acceptance/quality-factory-browser-screenshots-20260428130723'
+  ]);
+});

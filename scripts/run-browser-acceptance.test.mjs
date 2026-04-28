@@ -70,6 +70,53 @@ test('quality factory dry-run loads business acceptance and results routes', () 
   assert.match(result.stdout, /"dryRun": true/);
   assert.match(result.stdout, /"key": "business-acceptance-workbench"/);
   assert.match(result.stdout, /"key": "automation-results-workbench"/);
+  assert.equal(
+    result.stdout.includes('"route": "/automation-governance?tab=evidence&runId=${target.thresholdEvidenceRunId}"'),
+    true
+  );
+  const plan = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, 'config/automation/quality-factory-web-smoke-plan.json'), 'utf8')
+  );
+  const automationResultsScenario = plan.scenarios.find(
+    (scenario) => scenario.key === 'automation-results-workbench'
+  );
+  assert.ok(
+    automationResultsScenario.steps.some(
+      (step) => step.id === 'automation-results-open-threshold-preview-evidence'
+    )
+  );
+});
+
+test('browser acceptance CLI metadata exposes report files for registry indexing', async () => {
+  const { buildCliMetadataLines } = await import(pathToFileURL(browserAcceptanceScript).href);
+
+  const lines = buildCliMetadataLines({
+    exitCode: 0,
+    summary: {
+      counts: {
+        total: 2,
+        passed: 2,
+        failed: 0
+      }
+    },
+    artifacts: {
+      relative: {
+        reportPath: 'logs/acceptance/quality-factory-browser-report-20260428130723.md',
+        summaryPath: 'logs/acceptance/quality-factory-browser-summary-20260428130723.json',
+        detailPath: 'logs/acceptance/quality-factory-browser-results-20260428130723.json',
+        screenshotsDir: 'logs/acceptance/quality-factory-browser-screenshots-20260428130723'
+      }
+    }
+  });
+
+  assert.deepEqual(lines, [
+    'REPORT_PATH=logs/acceptance/quality-factory-browser-report-20260428130723.md',
+    'REPORT_SUMMARY=logs/acceptance/quality-factory-browser-summary-20260428130723.json',
+    'DETAIL_JSON=logs/acceptance/quality-factory-browser-results-20260428130723.json',
+    'SCREENSHOTS_DIR=logs/acceptance/quality-factory-browser-screenshots-20260428130723',
+    'STATUS=PASSED',
+    'SUMMARY=browser acceptance passed, total=2, passed=2, failed=0'
+  ]);
 });
 
 test('config-driven dry-run filters exact scenario keys', () => {

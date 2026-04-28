@@ -33,7 +33,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,6 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,6 +62,7 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_PREVIEW_LENGTH = 20_000;
     private static final DateTimeFormatter UPDATED_AT_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    private static final Set<String> IMAGE_EVIDENCE_EXTENSIONS = Set.of(".png", ".jpg", ".jpeg", ".webp", ".gif");
 
     private final Path resultsDir;
     private final ObjectMapper objectMapper;
@@ -187,12 +191,23 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
         }
 
         try {
+            String category = resolveEvidenceCategory(normalizedPath, detail.getReportPath());
+            if ("image".equals(category)) {
+                AutomationResultEvidenceContentVO content = new AutomationResultEvidenceContentVO();
+                content.setPath(normalizedPath);
+                content.setFileName(file.getFileName().toString());
+                content.setCategory(category);
+                content.setContent(resolveImageDataUrl(file));
+                content.setTruncated(false);
+                return content;
+            }
+
             String rawContent = Files.readString(file, StandardCharsets.UTF_8);
             boolean truncated = rawContent.length() > MAX_PREVIEW_LENGTH;
             AutomationResultEvidenceContentVO content = new AutomationResultEvidenceContentVO();
             content.setPath(normalizedPath);
             content.setFileName(file.getFileName().toString());
-            content.setCategory(resolveEvidenceCategory(normalizedPath, detail.getReportPath()));
+            content.setCategory(category);
             content.setContent(truncated ? rawContent.substring(0, MAX_PREVIEW_LENGTH) : rawContent);
             content.setTruncated(truncated);
             return content;
@@ -435,10 +450,27 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
             return;
         }
         Path file = resolveEvidenceFile(normalizedPath);
+        if (Files.isDirectory(file)) {
+            addImageEvidenceDirectory(evidence, file, source);
+            return;
+        }
         if (!Files.isRegularFile(file)) {
             return;
         }
         evidence.putIfAbsent(normalizedPath, source);
+    }
+
+    private void addImageEvidenceDirectory(Map<String, String> evidence, Path directory, String source) {
+        try (var files = Files.list(directory)) {
+            files
+                    .filter(Files::isRegularFile)
+                    .filter(this::isImageEvidencePath)
+                    .sorted(Comparator.comparing(file -> file.getFileName().toString()))
+                    .map(this::toDisplayPath)
+                    .forEach(path -> evidence.putIfAbsent(path, source));
+        } catch (IOException ignored) {
+            // Ignore unreadable evidence directories; the registry report still records the original artifact path.
+        }
     }
 
     private AutomationResultEvidenceItemVO toEvidenceItem(String path, String source, String reportPath) {
@@ -498,7 +530,37 @@ public class AutomationResultQueryServiceImpl implements AutomationResultQuerySe
                 || fileName.endsWith(".yaml") || fileName.endsWith(".csv")) {
             return "text";
         }
+        if (isImageEvidencePath(fileName)) {
+            return "image";
+        }
         return "unknown";
+    }
+
+    private boolean isImageEvidencePath(Path path) {
+        return isImageEvidencePath(path.getFileName().toString());
+    }
+
+    private boolean isImageEvidencePath(String fileName) {
+        String lowerName = defaultString(fileName).toLowerCase(Locale.ROOT);
+        return IMAGE_EVIDENCE_EXTENSIONS.stream().anyMatch(lowerName::endsWith);
+    }
+
+    private String resolveImageDataUrl(Path file) throws IOException {
+        return resolveImageMimeType(file) + ";base64," + Base64.getEncoder().encodeToString(Files.readAllBytes(file));
+    }
+
+    private String resolveImageMimeType(Path file) {
+        String fileName = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+            return "data:image/jpeg";
+        }
+        if (fileName.endsWith(".webp")) {
+            return "data:image/webp";
+        }
+        if (fileName.endsWith(".gif")) {
+            return "data:image/gif";
+        }
+        return "data:image/png";
     }
 
     private String toDisplayPath(Path file) {

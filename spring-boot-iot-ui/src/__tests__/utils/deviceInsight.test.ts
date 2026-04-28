@@ -60,6 +60,25 @@ describe('deviceInsight utils', () => {
     expect(selected?.bindingId).toBe(2);
   });
 
+  it('uses long binding ids as text when all business priorities are tied', () => {
+    const selected = pickPrimaryBinding([
+      {
+        bindingId: '202604280000000201',
+        latestReportTime: '2026-04-01 10:00:00',
+        onlineStatus: 1,
+        riskLevel: 'WARNING'
+      },
+      {
+        bindingId: '202604280000000202',
+        latestReportTime: '2026-04-01 10:00:00',
+        onlineStatus: 1,
+        riskLevel: 'WARNING'
+      }
+    ]);
+
+    expect(selected?.bindingId).toBe('202604280000000202');
+  });
+
   it('classifies warning devices by metric or product keywords', () => {
     expect(
       resolveInsightObjectType({

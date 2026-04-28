@@ -18,6 +18,12 @@ SPEC.loader.exec_module(backfill)
 
 
 class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
+    def test_default_config_path_matches_runtime_confirmed_template_path(self):
+        args = backfill.parse_args([])
+
+        self.assertTrue(args.config_path.endswith("config\\automation\\threshold-policy-defaults.confirmed.json")
+                        or args.config_path.endswith("config/automation/threshold-policy-defaults.confirmed.json"))
+
     def test_normalize_expression_accepts_numbers_and_simple_value_expressions(self):
         self.assertEqual("value >= 20", backfill.normalize_expression("20"))
         self.assertEqual("value > 3.5", backfill.normalize_expression("value > 3.5"))
@@ -202,6 +208,24 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
 
         self.assertTrue(backfill.is_binding_covered({**monitoring_binding, "product_type": "MONITORING"}, active_rules))
         self.assertFalse(backfill.is_binding_covered({**video_binding, "product_type": "VIDEO"}, active_rules))
+
+    def test_binding_coverage_matches_canonical_leaf_identifier(self):
+        binding = {
+            "id": 7001,
+            "risk_metric_id": None,
+            "metric_identifier": "L1_JS_1.gX",
+            "product_type": "MONITORING",
+        }
+        active_rules = [
+            {
+                "risk_metric_id": None,
+                "metric_identifier": "gX",
+                "rule_scope": "PRODUCT_TYPE",
+                "product_type": "MONITORING",
+            }
+        ]
+
+        self.assertTrue(backfill.is_binding_covered(binding, active_rules))
 
     def test_render_markdown_uses_full_skipped_reason_counts(self):
         markdown = backfill.render_markdown({
@@ -592,6 +616,72 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
 
         self.assertEqual("value >= 10", crack["expression"])
         self.assertEqual("value >= 20", laser["expression"])
+
+    def test_product_key_matched_templates_create_product_scoped_candidates(self):
+        config = {
+            "defaultDuration": 0,
+            "defaultAlarmLevel": "orange",
+            "defaultNotificationMethods": "",
+            "defaultConvertToEvent": True,
+            "productTypeTemplates": [
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "crack:value",
+                    "metricIdentifier": "value",
+                    "metricName": "\u88c2\u7f1d\u91cf",
+                    "match": {
+                        "productKeys": ["nf-monitor-crack-meter-v1"],
+                        "rawIdentifiers": ["value"],
+                    },
+                    "expression": "value >= 10",
+                    "confirmationStatus": "CONFIRMED",
+                },
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "laser-rangefinder:value",
+                    "metricIdentifier": "value",
+                    "metricName": "\u6fc0\u5149\u6d4b\u8ddd\u503c",
+                    "match": {
+                        "productKeys": ["nf-monitor-laser-rangefinder-v1"],
+                        "rawIdentifiers": ["value"],
+                    },
+                    "expression": "value >= 20",
+                    "confirmationStatus": "CONFIRMED",
+                },
+            ],
+        }
+        bindings = [
+            {
+                "id": 7001,
+                "tenant_id": 1,
+                "device_id": 8001,
+                "metric_identifier": "value",
+                "metric_name": "\u88c2\u7f1d\u91cf",
+                "default_threshold": None,
+                "product_id": 1001,
+                "product_key": "nf-monitor-crack-meter-v1",
+                "product_name": "Monitoring crack",
+            },
+            {
+                "id": 7002,
+                "tenant_id": 1,
+                "device_id": 8002,
+                "metric_identifier": "value",
+                "metric_name": "\u6fc0\u5149\u6d4b\u8ddd\u503c",
+                "default_threshold": None,
+                "product_id": 1002,
+                "product_key": "nf-monitor-laser-rangefinder-v1",
+                "product_name": "Monitoring laser",
+            },
+        ]
+
+        plan = backfill.build_plan(bindings, [], config)
+        candidates = sorted(plan["candidates"], key=lambda item: item.product_id or 0)
+
+        self.assertEqual(2, plan["candidateCount"])
+        self.assertEqual(["PRODUCT", "PRODUCT"], [item.rule_scope for item in candidates])
+        self.assertEqual([1001, 1002], [item.product_id for item in candidates])
+        self.assertEqual(["value >= 10", "value >= 20"], [item.expression for item in candidates])
 
     def test_write_reports_also_exports_template_draft_aliases(self):
         report = {
@@ -1787,6 +1877,69 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
         self.assertEqual("FLAT_ZERO_REVIEW", report["remainingTemplateGaps"][0]["recommendationStatus"])
         self.assertIn("Remaining Template Gaps", markdown)
         self.assertIn("rain-gauge:value", markdown)
+
+    def test_merge_confirmation_can_write_only_ready_templates_for_partial_confirmed_output(self):
+        config = {
+            "productTypeTemplates": [
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "gnss-total:gpsTotalX",
+                    "metricIdentifier": "gpsTotalX",
+                    "metricName": "X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "recommendedUpperExpression": "value >= 12",
+                    },
+                },
+                {
+                    "productType": "MONITORING",
+                    "semanticTemplateKey": "rain-gauge:value",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "expression": None,
+                    "confirmationStatus": "NEEDS_CONFIRMATION",
+                    "thresholdRecommendation": {
+                        "status": "FLAT_ZERO_REVIEW",
+                    },
+                },
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            config_path = root / "pending.json"
+            csv_path = root / "confirmation.csv"
+            output_path = root / "confirmed.json"
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+            csv_path.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "gnss-total:gpsTotalX,MONITORING,gpsTotalX,X\u65b9\u5411\u7d2f\u8ba1\u53d8\u5f62\u91cf,UPPER,,CONFIRMED\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+
+            backfill.write_merged_template_confirmation_config(
+                config_path,
+                csv_path,
+                output_path,
+                root,
+                allow_partial_confirmed_output=True,
+            )
+
+            report = json.loads(
+                (root / "threshold-policy-template-confirmation-merge-latest.json").read_text(encoding="utf-8")
+            )
+            confirmed = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("PASSED_WITH_REMAINING_GAPS", report["status"])
+        self.assertTrue(report["targetWritten"])
+        self.assertTrue(report["partialConfirmedOutput"])
+        self.assertEqual(1, report["writtenTemplateCount"])
+        self.assertEqual(1, report["excludedTemplateCount"])
+        self.assertEqual(1, report["remainingTemplateGapCount"])
+        self.assertEqual(["gnss-total:gpsTotalX"], [
+            item["semanticTemplateKey"] for item in confirmed["productTypeTemplates"]
+        ])
 
     def test_merge_confirmation_report_fails_for_duplicate_and_invalid_csv_rows(self):
         with tempfile.TemporaryDirectory() as temp_dir:

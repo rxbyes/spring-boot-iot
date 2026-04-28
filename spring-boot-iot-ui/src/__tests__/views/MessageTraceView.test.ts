@@ -563,6 +563,34 @@ describe('MessageTraceView', () => {
     }));
   });
 
+  it('shows a latest-gap inbound notice when opened from device insight diagnostics', async () => {
+    const now = new Date().toISOString();
+    window.sessionStorage.setItem('iot-access:diagnostic-context', JSON.stringify({
+      storedAt: Date.now(),
+      context: {
+        sourcePage: 'insight',
+        deviceCode: 'insight-device-01',
+        traceId: 'trace-insight-001',
+        topic: '/sys/insight-product/insight-device-01/thing/property/post',
+        reportStatus: 'timeline-missing',
+        capturedAt: now
+      }
+    }));
+    mockRoute.query = {
+      traceId: 'trace-insight-001'
+    };
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    const inboundNotice = wrapper.find('[data-testid="message-trace-inbound-notice"]');
+    expect(inboundNotice.exists()).toBe(true);
+    expect(inboundNotice.text()).toContain('来自对象洞察台');
+    expect(inboundNotice.text()).toContain('当前正在补 latest 链路');
+    expect(inboundNotice.text()).toContain('沿着 deviceCode、traceId 和 Topic 回到主链路复盘');
+  });
+
   it('restores a unified keyword from route query and sends it to both list and stats apis', async () => {
     mockRoute.query = {
       keyword: 'demo-device-01'

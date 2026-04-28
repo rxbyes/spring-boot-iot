@@ -1,7 +1,7 @@
 {
   "description": "Draft threshold policy templates generated from real-environment dry-run gaps. Fill expression values before using this as --config-path for apply.",
-  "generatedAt": "2026-04-28T10:14:52",
-  "sourceReport": "E:\\idea\\ghatg\\spring-boot-iot\\logs\\acceptance\\threshold-policy-backfill-20260428-101452.json",
+  "generatedAt": "2026-04-28T10:27:13",
+  "sourceReport": "E:\\idea\\ghatg\\spring-boot-iot\\logs\\acceptance\\threshold-policy-backfill-20260428-102713.json",
   "defaultDuration": 0,
   "defaultAlarmLevel": "orange",
   "defaultNotificationMethods": "",
@@ -42,7 +42,7 @@
         "latestAt": "2026-04-28 18:10:06",
         "min": -5.2,
         "max": 41.98,
-        "avg": 1.263219,
+        "avg": 1.266268,
         "p95": 3.58,
         "p99": 41.96
       },
@@ -117,7 +117,7 @@
         "latestAt": "2026-04-28 18:10:06",
         "min": -5.14,
         "max": 3.97,
-        "avg": -0.332594,
+        "avg": -0.332421,
         "p95": 1.87,
         "p99": 3.93
       },
@@ -190,16 +190,16 @@
           "zhd-warning-sound-light-alarm-v1"
         ],
         "latestAt": "2026-04-28 18:10:06",
-        "min": -1.7634,
+        "min": -1.6302,
         "max": 89.96,
-        "avg": 43.322772,
+        "avg": 43.32332,
         "p95": 89.23,
         "p99": 89.64
       },
       "thresholdRecommendation": {
         "status": "REQUIRES_MANUAL_REVIEW",
         "recommendedExpression": null,
-        "recommendedLowerExpression": "value <= -2.11608",
+        "recommendedLowerExpression": "value <= -1.95624",
         "recommendedUpperExpression": "value >= 107.952",
         "direction": "BIDIRECTIONAL_REVIEW",
         "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
@@ -267,7 +267,7 @@
         "latestAt": "2026-04-28 18:10:06",
         "min": -78.5,
         "max": 62.42,
-        "avg": -1.248434,
+        "avg": -1.198844,
         "p95": 13.92,
         "p99": 54.75
       },
@@ -342,7 +342,7 @@
         "latestAt": "2026-04-28 18:10:06",
         "min": -68.0,
         "max": 39.42,
-        "avg": -3.876367,
+        "avg": -3.880147,
         "p95": 16.83,
         "p99": 34.5
       },
@@ -417,7 +417,7 @@
         "latestAt": "2026-04-28 18:10:06",
         "min": -999.0,
         "max": 1.3438,
-        "avg": -9.216936,
+        "avg": -9.21113,
         "p95": 0.302,
         "p99": 0.7603
       },
@@ -500,7 +500,7 @@
         "latestAt": "2026-04-28 17:55:00",
         "min": -2.73,
         "max": 1527.01,
-        "avg": 45.648728,
+        "avg": 45.649342,
         "p95": 1.7178,
         "p99": 1299.85
       },
@@ -566,10 +566,10 @@
         "productKeys": [
           "nf-monitor-laser-rangefinder-v1"
         ],
-        "latestAt": "2026-04-28 17:22:31",
+        "latestAt": "2026-04-28 18:22:31",
         "min": -0.1885,
         "max": 2473.72,
-        "avg": 926.445158,
+        "avg": 968.189564,
         "p95": 2473.72,
         "p99": 2473.72
       },
@@ -805,17 +805,17 @@
         "productKeys": [
           "nf-monitor-deep-displacement-v1"
         ],
-        "latestAt": "2026-04-28 10:07:28",
-        "min": -0.045,
+        "latestAt": "2026-04-28 10:22:28",
+        "min": -0.0452,
         "max": 0.0169,
-        "avg": -0.02457,
+        "avg": -0.02461,
         "p95": 0.0169,
         "p99": 0.0169
       },
       "thresholdRecommendation": {
         "status": "REQUIRES_MANUAL_REVIEW",
         "recommendedExpression": null,
-        "recommendedLowerExpression": "value <= -0.054",
+        "recommendedLowerExpression": "value <= -0.05424",
         "recommendedUpperExpression": "value >= 0.02028",
         "direction": "BIDIRECTIONAL_REVIEW",
         "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
@@ -861,18 +861,18 @@
         "productKeys": [
           "nf-monitor-deep-displacement-v1"
         ],
-        "latestAt": "2026-04-28 10:07:28",
+        "latestAt": "2026-04-28 10:22:28",
         "min": -0.0459,
-        "max": 0.0424,
-        "avg": 0.009344,
-        "p95": 0.0424,
-        "p99": 0.0424
+        "max": 0.0426,
+        "avg": 0.009367,
+        "p95": 0.0426,
+        "p99": 0.0426
       },
       "thresholdRecommendation": {
         "status": "REQUIRES_MANUAL_REVIEW",
         "recommendedExpression": null,
         "recommendedLowerExpression": "value <= -0.05508",
-        "recommendedUpperExpression": "value >= 0.05088",
+        "recommendedUpperExpression": "value >= 0.05112",
         "direction": "BIDIRECTIONAL_REVIEW",
         "reason": "recent samples include negative and positive values; current executor supports one-sided expressions only"
       },
@@ -908,7 +908,7 @@
           "nf-monitor-tipping-bucket-rain-gauge-v1"
         ]
       },
-      "expression": null,
+      "expression": "value >= 0.1",
       "alarmLevel": "orange",
       "duration": 0,
       "convertToEvent": true,
@@ -920,7 +920,7 @@
         "productKeys": [
           "nf-monitor-tipping-bucket-rain-gauge-v1"
         ],
-        "latestAt": "2026-04-28 10:07:31",
+        "latestAt": "2026-04-28 10:25:27",
         "min": 0.0,
         "max": 0.0,
         "avg": 0.0,
@@ -935,7 +935,7 @@
         "direction": "FLAT_ZERO",
         "reason": "recent values are all zero; baseline threshold requires business review"
       },
-      "confirmationStatus": "NEEDS_CONFIRMATION",
+      "confirmationStatus": "CONFIRMED",
       "evidence": {
         "bindingCount": 4,
         "productCount": 1,
@@ -969,7 +969,7 @@
           "nf-monitor-mud-level-meter-v1"
         ]
       },
-      "expression": null,
+      "expression": "value >= 0.1",
       "alarmLevel": "orange",
       "duration": 0,
       "convertToEvent": true,
@@ -981,7 +981,7 @@
         "productKeys": [
           "nf-monitor-mud-level-meter-v1"
         ],
-        "latestAt": "2026-04-28 10:14:20",
+        "latestAt": "2026-04-28 10:24:20",
         "min": 0.0,
         "max": 0.0,
         "avg": 0.0,
@@ -996,7 +996,7 @@
         "direction": "FLAT_ZERO",
         "reason": "recent values are all zero; baseline threshold requires business review"
       },
-      "confirmationStatus": "NEEDS_CONFIRMATION",
+      "confirmationStatus": "CONFIRMED",
       "evidence": {
         "bindingCount": 2,
         "productCount": 1,

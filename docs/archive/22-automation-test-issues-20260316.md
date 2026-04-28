@@ -2632,3 +2632,57 @@
 
 - 本轮未发现新增失败问题。
 - 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 82. 浏览器自动化巡检记录（2026-04-28）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-28 13:38:21（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery`  
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260428133821.json`
+- `logs/acceptance/quality-factory-browser-results-20260428133821.json`
+- `logs/acceptance/quality-factory-browser-report-20260428133821.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260428133821/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。
+
+## 83. 浏览器自动化巡检记录（2026-04-28）
+
+测试方式：浏览器自动化（Playwright）  
+执行时间：2026-04-28 13:44:58（Asia/Shanghai）  
+执行命令：`npm run acceptance:browser`  
+执行范围：`delivery`  
+
+结果文件：
+
+- `logs/acceptance/quality-factory-browser-summary-20260428134458.json`
+- `logs/acceptance/quality-factory-browser-results-20260428134458.json`
+- `logs/acceptance/quality-factory-browser-report-20260428134458.md`
+- `logs/acceptance/quality-factory-browser-screenshots-20260428134458/`
+
+### 本轮概览
+
+- 总场景：`2`
+- 通过：`2`
+- 失败：`0`
+- 交付范围：`2` 通过 / `0` 失败
+- 基线范围：`0` 通过 / `0` 失败
+
+### 本轮结论
+
+- 本轮未发现新增失败问题。
+- 建议仍保留结果文件与截图，作为后续回归对照基线。

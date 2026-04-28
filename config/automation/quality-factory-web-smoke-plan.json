@@ -11,6 +11,8 @@
     "browserPath": "",
     "headless": true,
     "outputPrefix": "quality-factory-browser",
+    "thresholdEvidenceRunId": "20260428125037",
+    "thresholdEvidenceFileName": "threshold-policy-effective-preview-api-20260428-125044.md",
     "baselineDir": "config/automation/baselines",
     "scenarioScopes": [
       "delivery"
@@ -158,7 +160,7 @@
     {
       "key": "automation-results-workbench",
       "name": "自动化治理台结果证据可达",
-      "route": "/automation-governance?tab=evidence",
+      "route": "/automation-governance?tab=evidence&runId=${target.thresholdEvidenceRunId}",
       "scope": "delivery",
       "readySelector": ".automation-governance-workbench",
       "requiresLogin": true,
@@ -195,6 +197,65 @@
             "value": "body"
           },
           "value": "结果证据"
+        },
+        {
+          "id": "automation-results-assert-threshold-run-id",
+          "label": "Assert threshold evidence run id",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "${target.thresholdEvidenceRunId}"
+        },
+        {
+          "id": "automation-results-assert-threshold-evidence-file",
+          "label": "Assert threshold evidence file",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": "body"
+          },
+          "value": "${target.thresholdEvidenceFileName}"
+        },
+        {
+          "id": "automation-results-open-threshold-preview-evidence",
+          "label": "Open threshold preview markdown evidence",
+          "type": "tableRowAction",
+          "locator": {
+            "type": "css",
+            "value": ".evidence-list .el-table"
+          },
+          "rowText": "${target.thresholdEvidenceFileName}",
+          "matcher": "${target.thresholdEvidenceFileName}",
+          "action": {
+            "type": "click",
+            "locator": {
+              "type": "text",
+              "value": "查看原文"
+            }
+          },
+          "timeout": 10000
+        },
+        {
+          "id": "automation-results-assert-threshold-preview-content",
+          "label": "Assert threshold preview markdown content",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": ".preview-content"
+          },
+          "value": "Threshold Policy Effective Preview API Verification"
+        },
+        {
+          "id": "automation-results-assert-threshold-preview-passed",
+          "label": "Assert threshold preview report passed",
+          "type": "assertText",
+          "locator": {
+            "type": "css",
+            "value": ".preview-content"
+          },
+          "value": "Status: `PASSED`"
         }
       ]
     }

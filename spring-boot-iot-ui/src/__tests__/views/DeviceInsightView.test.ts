@@ -635,11 +635,224 @@ describe('DeviceInsightView', () => {
     expect(wrapper.find('.trend-panel-stub').attributes('data-active-identifier')).toContain('S1_ZT_1.battery_dump_energy');
     expect(wrapper.find('[data-testid="snapshot-focus-S1_ZT_1_battery_dump_energy"]').exists()).toBe(true);
     expect(wrapper.find('.runtime-diagnosis-strip').exists()).toBe(true);
+    expect(wrapper.find('.runtime-diagnosis-strip').classes()).toContain('runtime-diagnosis-strip--compact');
+    expect(wrapper.find('[data-testid="runtime-diagnosis-compact-note"]').exists()).toBe(true);
+    expect(wrapper.find('.snapshot-workbench__focus').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="snapshot-workbench-header-focus"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="runtime-focus-context"]').text()).toContain('3 条属性');
     expect(wrapper.find('.runtime-diagnosis-strip').text()).toContain('剩余电量');
     expect(wrapper.text()).toContain('当前趋势正在看这里');
   });
 
-  it('routes the diagnosis conclusion primary action to formal contract governance when the focused metric hits a formal field', async () => {
+  it('lets the snapshot workbench narrow to the focused trend field and restore the full list', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.findAll('.snapshot-reading-cell')).toHaveLength(3);
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'status',
+      groupTitle: '状态数据',
+      identifier: 'S1_ZT_1.battery_dump_energy',
+      displayName: '剩余电量'
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.runtime-insight-bridge__sequence').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="runtime-focus-sequence"]').exists()).toBe(true);
+
+    const focusAction = wrapper.find('[data-testid="runtime-focus-context"] [data-testid="snapshot-focus-toggle-action"]');
+    expect(focusAction.exists()).toBe(true);
+    expect(focusAction.text()).toContain('只看当前相关字段');
+
+    await focusAction.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.findAll('.snapshot-reading-cell')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="snapshot-workbench-visible-pill"]').text()).toContain('1 / 3');
+    expect(wrapper.find('[data-testid="snapshot-focus-toggle-action"]').text()).toContain('返回全部属性');
+
+    await wrapper.find('[data-testid="snapshot-focus-toggle-action"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.findAll('.snapshot-reading-cell')).toHaveLength(3);
+    expect(wrapper.find('[data-testid="snapshot-workbench-visible-pill"]').text()).toContain('3 条属性');
+  });
+
+  it('shows the active diagnosis field context and lets users clear the current focus', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'status',
+      groupTitle: '状态数据',
+      identifier: 'S1_ZT_1.battery_dump_energy',
+      displayName: '剩余电量'
+    });
+    await flushPromises();
+
+    const focusContext = wrapper.find('[data-testid="runtime-focus-context"]');
+    expect(focusContext.exists()).toBe(true);
+    expect(focusContext.find('[data-testid="runtime-focus-sequence"]').exists()).toBe(true);
+    expect(wrapper.find('.runtime-insight-bridge__sequence').exists()).toBe(false);
+    expect(focusContext.text()).toContain('剩余电量');
+    expect(focusContext.text()).toContain('状态数据');
+
+    const clearButton = wrapper.find('[data-testid="runtime-focus-clear-action"]');
+    expect(clearButton.exists()).toBe(true);
+
+    await clearButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="runtime-focus-context"]').exists()).toBe(false);
+    expect(wrapper.find('.runtime-insight-bridge__sequence').exists()).toBe(true);
+    expect(wrapper.find('.trend-panel-stub').attributes('data-active-identifier')).toBe('');
+    expect(wrapper.find('[data-testid="snapshot-focus-S1_ZT_1_battery_dump_energy"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="snapshot-focus-toggle-action"]').exists()).toBe(false);
+  });
+
+  it('keeps only a lightweight diagnosis summary when the focused trend has no latest snapshot match', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          identifier: 'L4_NW_1',
+          propertyName: '泥水位高程',
+          propertyValue: '2.60',
+          valueType: 'double',
+          unit: 'm',
+          updateTime: '2026-04-08 10:05:00'
+        },
+        {
+          identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+          propertyName: '传感器在线状态',
+          propertyValue: '1',
+          valueType: 'int',
+          updateTime: '2026-04-08 10:05:00'
+        }
+      ]
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'status',
+      groupTitle: '状态数据',
+      identifier: 'S1_ZT_1.battery_dump_energy',
+      displayName: '剩余电量'
+    });
+    await flushPromises();
+
+    const diagnosisStrip = wrapper.find('.runtime-diagnosis-strip');
+    const focusContext = wrapper.find('[data-testid="runtime-focus-context"]');
+    const focusSignalPill = wrapper.find('[data-testid="runtime-focus-signal-pill"]');
+
+    expect(diagnosisStrip.exists()).toBe(true);
+    expect(diagnosisStrip.classes()).toContain('runtime-diagnosis-strip--compact');
+    expect(diagnosisStrip.text()).toContain('趋势线索已锁定');
+    expect(diagnosisStrip.text()).not.toContain('趋势命中了 剩余电量，但 latest 还没接住');
+    expect(wrapper.find('[data-testid="runtime-diagnosis-compact-note"]').exists()).toBe(false);
+    expect(focusContext.exists()).toBe(true);
+    expect(focusContext.text()).toContain('latest 快照暂时还没接住');
+    expect(focusSignalPill.exists()).toBe(true);
+    expect(focusSignalPill.classes()).toContain('runtime-focus-context__pill--attention');
+    expect(focusSignalPill.text()).toContain('先查 latest 链路');
+  });
+
+  it('offers a nearby latest-chain action when the focused trend has not matched latest snapshots yet', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 2001,
+        productId: 501,
+        deviceCode: 'SK00EB0D1308313',
+        deviceName: '泥水位监测设备',
+        productName: '宏观现象监测设备泥水位',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastTraceId: 'TRACE-LATEST-001',
+        lastReportTopic: '/collector/property/report',
+        lastOnlineTime: '2026-04-08 10:00:00',
+        lastReportTime: '2026-04-08 10:05:00',
+        firmwareVersion: '1.0.0',
+        address: '测试沟道'
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          identifier: 'L4_NW_1',
+          propertyName: '泥水位高程',
+          propertyValue: '2.60',
+          valueType: 'double',
+          unit: 'm',
+          updateTime: '2026-04-08 10:05:00'
+        },
+        {
+          identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+          propertyName: '传感器在线状态',
+          propertyValue: '1',
+          valueType: 'int',
+          updateTime: '2026-04-08 10:05:00'
+        }
+      ]
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'status',
+      groupTitle: '状态数据',
+      identifier: 'S1_ZT_1.battery_dump_energy',
+      displayName: '剩余电量'
+    });
+    await flushPromises();
+
+    const latestChainAction = wrapper.findAll('[data-testid="runtime-focus-secondary-action"]')
+      .find((node) => node.text().includes('去链路追踪台'));
+    expect(latestChainAction?.exists()).toBe(true);
+
+    await latestChainAction!.trigger('click');
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/message-trace',
+      query: {
+        deviceCode: 'SK00EB0D1308313',
+        traceId: 'TRACE-LATEST-001',
+        topic: '/collector/property/report'
+      }
+    });
+  });
+
+  it('offers a nearby governance action inside the active diagnosis field context', async () => {
     mockRoute.query = {
       deviceCode: 'SK00EB0D1308313'
     };
@@ -657,10 +870,11 @@ describe('DeviceInsightView', () => {
     });
     await flushPromises();
 
-    const actionButton = wrapper.find('[data-testid="runtime-diagnosis-primary-action"]');
-    expect(actionButton.exists()).toBe(true);
+    const nearbyAction = wrapper.find('[data-testid="runtime-focus-primary-action"]');
+    expect(nearbyAction.exists()).toBe(true);
+    expect(nearbyAction.text()).toContain('去正式字段治理');
 
-    await actionButton.trigger('click');
+    await nearbyAction.trigger('click');
 
     expect(mockRouter.push).toHaveBeenCalledWith({
       path: '/products/501/contracts',
@@ -672,7 +886,31 @@ describe('DeviceInsightView', () => {
     });
   });
 
-  it('routes the diagnosis conclusion primary action to runtime governance when the focused metric has no formal field', async () => {
+  it('deduplicates the diagnosis strip action when the current focus context already exposes the same governance entry', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'measure',
+      groupTitle: '监测数据',
+      identifier: 'L4_NW_1',
+      displayName: '泥水位高程'
+    });
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="runtime-diagnosis-primary-action"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="runtime-diagnosis-action-handoff"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="runtime-diagnosis-compact-note"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="runtime-focus-primary-action"]').exists()).toBe(true);
+  });
+
+  it('deduplicates the diagnosis strip runtime-governance action when the current focus context already exposes it', async () => {
     vi.mocked(getDeviceByCode).mockResolvedValueOnce({
       code: 200,
       msg: 'success',
@@ -773,19 +1011,10 @@ describe('DeviceInsightView', () => {
     });
     await flushPromises();
 
-    const actionButton = wrapper.find('[data-testid="runtime-diagnosis-primary-action"]');
-    expect(actionButton.exists()).toBe(true);
-
-    await actionButton.trigger('click');
-
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      path: '/products/902/mapping-rules',
-      query: {
-        rawIdentifier: 'S1_ZT_1.humidity',
-        scope: 'PRODUCT',
-        source: 'insight'
-      }
-    });
+    expect(wrapper.find('[data-testid="runtime-diagnosis-primary-action"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="runtime-diagnosis-action-handoff"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="runtime-diagnosis-compact-note"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="runtime-focus-primary-action"]').text()).toContain('去运行态治理');
   });
 
   it('renders collector child aggregate panel without merging child metrics into collector snapshot', async () => {
@@ -2448,6 +2677,8 @@ describe('DeviceInsightView', () => {
         onlineStatus: 1,
         protocolCode: 'mqtt-json',
         nodeType: 1,
+        lastTraceId: 'TRACE-NO-LATEST-001',
+        lastReportTopic: '/collector/property/report',
         lastOnlineTime: '2026-04-18 10:00:00',
         lastReportTime: '2026-04-18 10:05:00',
         metadataJson: null
@@ -2495,6 +2726,21 @@ describe('DeviceInsightView', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('当前设备暂无最新属性快照，请检查设备上报与 latest 属性写入链路。');
+
+    const latestTraceAction = wrapper.find('[data-testid="snapshot-empty-trace-action"]');
+    expect(latestTraceAction.exists()).toBe(true);
+    expect(latestTraceAction.text()).toContain('去链路追踪台');
+
+    await latestTraceAction.trigger('click');
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/message-trace',
+      query: {
+        deviceCode: 'SNAPSHOT-NO-LATEST',
+        traceId: 'TRACE-NO-LATEST-001',
+        topic: '/collector/property/report'
+      }
+    });
   });
 
   it('explains collector parent snapshot and trend boundaries when only child metrics are available', async () => {

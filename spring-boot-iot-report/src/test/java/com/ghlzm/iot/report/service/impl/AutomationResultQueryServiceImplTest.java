@@ -214,6 +214,67 @@ class AutomationResultQueryServiceImplTest {
     }
 
     @Test
+    void shouldExpandScreenshotDirectoriesAndPreviewImageEvidence() throws Exception {
+        Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
+        Path screenshotsDir = Files.createDirectories(logsDir.resolve("quality-factory-browser-screenshots-20260428134458"));
+        Files.writeString(
+                logsDir.resolve("registry-run-20260428134455.json"),
+                """
+                        {
+                          "runId": "20260428134455",
+                          "summary": {
+                            "total": 1,
+                            "passed": 1,
+                            "failed": 0
+                          },
+                          "results": [
+                            {
+                              "scenarioId": "automation-results.p1.browser-smoke",
+                              "runnerType": "browserPlan",
+                              "status": "passed",
+                              "blocking": "blocker",
+                              "summary": "browser smoke passed",
+                              "evidenceFiles": [
+                                "logs/acceptance/quality-factory-browser-screenshots-20260428134458"
+                              ]
+                            }
+                          ]
+                        }
+                        """,
+                StandardCharsets.UTF_8
+        );
+        Files.write(
+                screenshotsDir.resolve("automation-results-workbench-pass.png"),
+                new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
+        );
+        Files.writeString(screenshotsDir.resolve("readme.txt"), "not an image", StandardCharsets.UTF_8);
+
+        AutomationResultQueryServiceImpl service = new AutomationResultQueryServiceImpl(
+                logsDir,
+                JsonMapper.builder().findAndAddModules().build()
+        );
+
+        var evidenceItems = service.listRunEvidence("20260428134455");
+
+        assertThat(evidenceItems)
+                .extracting("path")
+                .containsExactly(
+                        "logs/acceptance/registry-run-20260428134455.json",
+                        "logs/acceptance/quality-factory-browser-screenshots-20260428134458/automation-results-workbench-pass.png"
+                );
+        assertThat(evidenceItems.get(1).getCategory()).isEqualTo("image");
+
+        var preview = service.getEvidenceContent(
+                "20260428134455",
+                "logs/acceptance/quality-factory-browser-screenshots-20260428134458/automation-results-workbench-pass.png"
+        );
+
+        assertThat(preview.getCategory()).isEqualTo("image");
+        assertThat(preview.getContent()).startsWith("data:image/png;base64,iVBORw0KGgo=");
+        assertThat(preview.getTruncated()).isFalse();
+    }
+
+    @Test
     void shouldPreviewAllowedEvidenceContentAndRejectUnrelatedFiles() throws Exception {
         Path logsDir = Files.createDirectories(tempDir.resolve("logs").resolve("acceptance"));
         Files.writeString(

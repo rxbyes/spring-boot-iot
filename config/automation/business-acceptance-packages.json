@@ -129,13 +129,17 @@
         {
           "moduleCode": "threshold-policy-readiness",
           "moduleName": "阈值策略真实环境验收",
-          "scenarioRefs": ["threshold-policy.real-env-readiness", "threshold-policy.backfill-dry-run"],
+          "scenarioRefs": [
+            "threshold-policy.real-env-readiness",
+            "threshold-policy.backfill-dry-run",
+            "threshold-policy.effective-preview-api"
+          ],
           "suggestedDirection": "needsReview",
           "fallbackFailure": {
             "stepLabel": "执行阈值策略真实环境只读验收",
-            "apiRef": "rule_definition schema / index / duplicate policy groups",
-            "pageAction": "查看 logs/acceptance/threshold-policy-real-env-*.md 与 threshold-policy-backfill-*.md 证据报告",
-            "summary": "阈值策略真实环境验收或默认回填 dry-run 未通过，请优先检查 rule_definition 字段、索引、历史重复策略组或阈值模板配置。"
+            "apiRef": "rule_definition schema / index / duplicate policy groups / GET /api/rule-definition/effective-preview",
+            "pageAction": "查看 logs/acceptance/threshold-policy-real-env-*.md、threshold-policy-backfill-*.md 与 threshold-policy-effective-preview-api-*.md 证据报告",
+            "summary": "阈值策略真实环境验收、默认回填 dry-run 或最终生效预览 API 未通过，请优先检查 rule_definition 字段、索引、历史重复策略组、阈值模板配置或预览命中优先级。"
           }
         }
       ]
@@ -493,7 +497,10 @@
         {
           "moduleCode": "automation-results-ledger",
           "moduleName": "结果与基线中心",
-          "scenarioRefs": ["automation-results.p1.browser-smoke"],
+          "scenarioRefs": [
+            "automation-results.evidence-api",
+            "automation-results.p1.browser-smoke"
+          ],
           "suggestedDirection": "needsReview",
           "fallbackFailure": {
             "stepLabel": "打开结果与基线中心并加载历史台账",

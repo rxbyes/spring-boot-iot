@@ -124,7 +124,10 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.findAll('.trend-group__legend-item')).toHaveLength(0);
     expect(wrapper.find('.trend-toolbar__meta').exists()).toBe(true);
     expect(wrapper.findAll('.trend-toolbar__pill').length).toBeGreaterThanOrEqual(2);
-    expect(wrapper.findAll('.trend-group__series-pill').length).toBe(2);
+    expect(wrapper.findAll('.trend-group__series-pill').length).toBe(0);
+    expect(wrapper.findAll('.trend-group__title-row').length).toBe(2);
+    expect(wrapper.findAll('.trend-group__summary-meta').length).toBe(2);
+    expect(wrapper.find('.trend-group__summary-meta')?.text()).toContain('1 条序列');
     expect(wrapper.findAll('.trend-group__focus-button').length).toBe(2);
   });
 
@@ -163,6 +166,11 @@ describe('RiskInsightTrendPanel', () => {
     const activeButton = wrapper.find('[data-testid="trend-series-focus-S1_ZT_1_battery_dump_energy"]');
     expect(activeButton.exists()).toBe(true);
     expect(activeButton.classes()).toContain('trend-group__focus-button--active');
+    expect(wrapper.find('.trend-toolbar').classes()).toContain('trend-toolbar--compact');
+    expect(wrapper.text()).toContain('当前聚焦');
+    expect(wrapper.text()).toContain('runtime-status');
+    expect(wrapper.text()).toContain('battery-energy');
+    expect(wrapper.text()).not.toContain('当前范围');
 
     await wrapper.find('[data-testid="trend-series-focus-S1_ZT_1_sensor_state_L4_NW_1"]').trigger('click');
 
@@ -176,11 +184,153 @@ describe('RiskInsightTrendPanel', () => {
     ]);
   });
 
+  it('softens non-focused groups while keeping the active group visually forward', async () => {
+    const wrapper = mount(RiskInsightTrendPanel, {
+      props: {
+        rangeCode: '1d',
+        activeIdentifier: 'S1_ZT_1.battery_dump_energy',
+        groups: [
+          {
+            key: 'measure',
+            title: '监测数据',
+            series: [
+              {
+                identifier: 'L4_NW_1',
+                displayName: '泥水位高程',
+                buckets: [{ time: '2026-04-07 00:00:00', value: 2.1, filled: false }]
+              }
+            ]
+          },
+          {
+            key: 'status',
+            title: '状态数据',
+            series: [
+              {
+                identifier: 'S1_ZT_1.battery_dump_energy',
+                displayName: '剩余电量',
+                buckets: [{ time: '2026-04-07 00:00:00', value: 86, filled: false }]
+              }
+            ]
+          }
+        ]
+      },
+      global: {
+        stubs: {
+          PanelCard: PanelCardStub,
+          'el-segmented': ElSegmentedStub
+        }
+      }
+    });
+
+    expect(wrapper.find('.trend-groups').classes()).toContain('trend-groups--continuous');
+    expect(wrapper.findAll('.trend-group--integrated')).toHaveLength(2);
+    expect(wrapper.findAll('.trend-group--active')).toHaveLength(1);
+    expect(wrapper.findAll('.trend-group--muted')).toHaveLength(1);
+    expect(wrapper.findAll('.trend-group__header--compact')).toHaveLength(2);
+    expect(wrapper.findAll('.trend-group__focus-strip--compact')).toHaveLength(2);
+    expect(wrapper.findAll('.trend-group__chart--integrated')).toHaveLength(2);
+    expect(wrapper.findAll('.trend-group__focus-button--integrated')).toHaveLength(2);
+    expect(wrapper.findAll('.trend-group')[1].classes()).toContain('trend-group--active');
+    expect(wrapper.findAll('.trend-group')[0].classes()).toContain('trend-group--muted');
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const firstOption = mockChartSetOption.mock.calls.at(-2)?.[0] as {
+      legend?: { top?: number; itemGap?: number };
+      grid?: { top?: number; bottom?: number };
+      xAxis?: { axisLabel?: { margin?: number; fontSize?: number } };
+      yAxis?: { axisLabel?: { fontSize?: number } };
+    } | undefined;
+    const secondOption = mockChartSetOption.mock.calls.at(-1)?.[0] as {
+      legend?: { top?: number; itemGap?: number };
+      grid?: { top?: number; bottom?: number };
+      xAxis?: { axisLabel?: { margin?: number; fontSize?: number } };
+      yAxis?: { axisLabel?: { fontSize?: number } };
+    } | undefined;
+
+    expect(firstOption?.legend?.top).toBeLessThanOrEqual(2);
+    expect(secondOption?.legend?.top).toBeLessThanOrEqual(2);
+    expect(firstOption?.legend?.itemGap).toBeLessThanOrEqual(12);
+    expect(secondOption?.legend?.itemGap).toBeLessThanOrEqual(12);
+    expect(firstOption?.grid?.top).toBeLessThanOrEqual(58);
+    expect(secondOption?.grid?.top).toBeLessThanOrEqual(58);
+    expect(firstOption?.grid?.bottom).toBeLessThanOrEqual(48);
+    expect(secondOption?.grid?.bottom).toBeLessThanOrEqual(48);
+    expect(Number(firstOption?.xAxis?.axisLabel?.margin ?? 0)).toBeLessThanOrEqual(14);
+    expect(Number(secondOption?.xAxis?.axisLabel?.margin ?? 0)).toBeLessThanOrEqual(14);
+    expect(Number(firstOption?.xAxis?.axisLabel?.fontSize ?? 99)).toBeLessThanOrEqual(11);
+    expect(Number(secondOption?.xAxis?.axisLabel?.fontSize ?? 99)).toBeLessThanOrEqual(11);
+    expect(Number(firstOption?.yAxis?.axisLabel?.fontSize ?? 99)).toBeLessThanOrEqual(11);
+    expect(Number(secondOption?.yAxis?.axisLabel?.fontSize ?? 99)).toBeLessThanOrEqual(11);
+  });
+
   it('renders empty guidance when there are no grouped trend series', () => {
     const wrapper = mountTrend();
 
     expect(wrapper.text()).toContain('属性趋势预览');
     expect(wrapper.text()).toContain('请输入设备编码后开始综合分析');
+    expect(wrapper.find('.trend-empty-state').exists()).toBe(true);
+    expect(wrapper.find('.trend-empty-state__title').text()).toContain('当前还没有趋势样本');
+    expect(wrapper.find('.trend-empty-state__range').text()).toContain('近一天');
+  });
+
+  it('shows a lightweight group empty state instead of a blank chart when a trend group has no samples', async () => {
+    const wrapper = mountTrend([
+      {
+        key: 'measure',
+        title: '监测数据',
+        series: [
+          {
+            identifier: 'L1_LF_1.value',
+            displayName: '裂缝量',
+            buckets: []
+          }
+        ]
+      }
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(wrapper.find('.trend-group__empty').exists()).toBe(true);
+    expect(wrapper.find('.trend-group__empty-title').text()).toContain('当前范围内暂无监测样本');
+    expect(wrapper.find('.trend-group__empty-message').text()).toContain('可以切换时间范围后再看这组变化');
+    expect(wrapper.find('.trend-group__chart').exists()).toBe(false);
+  });
+
+  it('makes the empty copy more explicit when the current focus field has no samples in range', async () => {
+    const wrapper = mount(RiskInsightTrendPanel, {
+      props: {
+        rangeCode: '1d',
+        activeIdentifier: 'L1_LF_1.value',
+        groups: [
+          {
+            key: 'measure',
+            title: '监测数据',
+            series: [
+              {
+                identifier: 'L1_LF_1.value',
+                displayName: '裂缝量',
+                buckets: []
+              }
+            ]
+          }
+        ]
+      },
+      global: {
+        stubs: {
+          PanelCard: PanelCardStub,
+          'el-segmented': ElSegmentedStub
+        }
+      }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(wrapper.find('.trend-toolbar').classes()).toContain('trend-toolbar--compact');
+    expect(wrapper.text()).toContain('当前聚焦');
+    expect(wrapper.find('.trend-group__empty-title').text()).toContain('裂缝量');
+    expect(wrapper.find('.trend-group__empty-title').text()).toContain('近一天');
+    expect(wrapper.find('.trend-group__empty-message').text()).toContain('当前聚焦字段');
   });
 
   it('renders measure and status groups with chinese titles only', () => {
@@ -289,6 +439,8 @@ describe('RiskInsightTrendPanel', () => {
 
     expect(tooltipText).toContain('传感器数据异常');
     expect(tooltipText).not.toContain('-2');
+    expect(tooltipText).toContain('trend-tooltip__header');
+    expect(tooltipText).toContain('trend-tooltip__value--status');
   });
 
   it('uses a dedicated missing sentinel for filled status-event buckets and removes fill-copy from tooltip', async () => {
@@ -338,6 +490,7 @@ describe('RiskInsightTrendPanel', () => {
 
     expect(tooltipText).toContain('设备状态：未上报');
     expect(tooltipText).not.toContain('补零补齐');
+    expect(tooltipText).toContain('trend-tooltip__header');
   });
 
   it('treats status-event zero as normal instead of offline for sensor state series', async () => {
@@ -424,6 +577,7 @@ describe('RiskInsightTrendPanel', () => {
 
     expect(tooltipText).toContain('裂缝量：0');
     expect(tooltipText).not.toContain('否');
+    expect(tooltipText).toContain('trend-tooltip__item-label');
     expect(latestOption?.grid?.bottom).toBeGreaterThan(24);
     expect(Number(latestOption?.xAxis?.axisLabel?.margin ?? 0)).toBeGreaterThan(0);
   });
@@ -712,5 +866,6 @@ describe('RiskInsightTrendPanel', () => {
     expect(batterySeries?.step).toBe(false);
     expect(tooltipText).toContain('在线状态：在线');
     expect(tooltipText).not.toContain('在线状态：1');
+    expect(tooltipText).toContain('trend-tooltip__value--status');
   });
 });

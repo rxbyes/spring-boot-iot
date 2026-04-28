@@ -160,11 +160,12 @@ import {
   type RiskMonitoringDetail,
   type RiskMonitoringEventSummary
 } from '../api/riskMonitoring';
+import type { IdType } from '../types/api';
 import { formatDateTime } from '../utils/format';
 
 const props = defineProps<{
   modelValue: boolean;
-  bindingId: number | null;
+  bindingId: IdType | null;
 }>();
 
 const emit = defineEmits<{
@@ -219,7 +220,7 @@ watch(
   { immediate: true }
 );
 
-async function loadDetail(bindingId: number) {
+async function loadDetail(bindingId: IdType) {
   loading.value = true;
   errorMessage.value = '';
   try {

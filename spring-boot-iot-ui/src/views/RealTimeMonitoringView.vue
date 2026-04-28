@@ -198,6 +198,7 @@ import { getRiskPointList, type RiskPoint } from '../api/riskPoint';
 import type { IdType } from '../types/api';
 import { resolveWorkbenchActionColumnWidth } from '../utils/adaptiveActionColumn';
 import { formatDateTime } from '../utils/format';
+import { normalizeOptionalId } from '../utils/id';
 import { fetchRiskLevelOptions, getRiskLevelTagType, getRiskLevelText, getRiskLevelWeight, type RiskLevelOption } from '../utils/riskLevel';
 
 interface SelectOption {
@@ -210,7 +211,7 @@ const rows = ref<RiskMonitoringListItem[]>([]);
 const riskPoints = ref<RiskPoint[]>([]);
 const riskLevelOptions = ref<RiskLevelOption[]>([]);
 const detailVisible = ref(false);
-const activeBindingId = ref<number | null>(null);
+const activeBindingId = ref<IdType | null>(null);
 const { pagination, applyPageResult, resetPage, setPageSize, setPageNum, resetTotal } = useServerPagination();
 const monitoringRowActions = [{ command: 'detail' as const, label: '详情' }];
 const monitoringActionColumnWidth = resolveWorkbenchActionColumnWidth({
@@ -350,8 +351,8 @@ function handlePageSizeChange(size: number) {
 }
 
 function openDetail(bindingId: IdType) {
-  const normalizedBindingId = Number(bindingId);
-  if (Number.isNaN(normalizedBindingId)) {
+  const normalizedBindingId = normalizeOptionalId(bindingId);
+  if (normalizedBindingId === undefined) {
     ElMessage.warning('监测详情标识无效');
     return;
   }

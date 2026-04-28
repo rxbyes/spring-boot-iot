@@ -10,6 +10,7 @@ const {
   mockAddRuleBatch,
   mockUpdateRule,
   mockDeleteRule,
+  mockPreviewEffectiveRule,
   mockListMissingPolicies,
   mockPageMissingPolicyProductMetricSummaries,
   mockGetAllProducts,
@@ -21,6 +22,7 @@ const {
   mockAddRuleBatch: vi.fn(),
   mockUpdateRule: vi.fn(),
   mockDeleteRule: vi.fn(),
+  mockPreviewEffectiveRule: vi.fn(),
   mockListMissingPolicies: vi.fn(),
   mockPageMissingPolicyProductMetricSummaries: vi.fn(),
   mockGetAllProducts: vi.fn(),
@@ -35,7 +37,8 @@ vi.mock('@/api/ruleDefinition', () => ({
   addRule: mockAddRule,
   addRuleBatch: mockAddRuleBatch,
   updateRule: mockUpdateRule,
-  deleteRule: mockDeleteRule
+  deleteRule: mockDeleteRule,
+  previewEffectiveRule: mockPreviewEffectiveRule
 }));
 
 vi.mock('@/api/riskGovernance', () => ({
@@ -256,6 +259,7 @@ describe('RuleDefinitionView', () => {
     mockAddRuleBatch.mockReset();
     mockUpdateRule.mockReset();
     mockDeleteRule.mockReset();
+    mockPreviewEffectiveRule.mockReset();
     mockListMissingPolicies.mockReset();
     mockPageMissingPolicyProductMetricSummaries.mockReset();
     mockGetAllProducts.mockReset();
@@ -267,6 +271,20 @@ describe('RuleDefinitionView', () => {
       { label: '黄色', value: 'yellow', sortNo: 3 },
       { label: '蓝色', value: 'blue', sortNo: 4 }
     ]);
+    mockPreviewEffectiveRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        hasMatchedRule: true,
+        metricIdentifier: 'displacementX',
+        productId: 1001,
+        matchedScope: 'PRODUCT',
+        matchedScopeText: '产品默认',
+        decision: '最终生效策略：产品默认阈值',
+        matchedRule: createRuleRow(),
+        candidates: []
+      }
+    });
     mockGetAllProducts.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -418,10 +436,186 @@ describe('RuleDefinitionView', () => {
     }));
   });
 
+  it('preserves long product ids when editing a product default threshold strategy', async () => {
+    const longProductId = '202603192100560260';
+    const productDefaultRule = {
+      ...createRuleRow(),
+      id: 8250,
+      ruleScope: 'PRODUCT',
+      productType: 'MONITORING',
+      productId: longProductId,
+      metricIdentifier: 'value',
+      metricName: '当前雨量',
+      expression: 'value >= 1'
+    };
+    const pageResponse = {
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [productDefaultRule]
+      }
+    };
+    mockGetAllProducts.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          id: longProductId,
+          productKey: 'nf-monitor-tipping-bucket-rain-gauge-v1',
+          productName: '翻斗式雨量计',
+          protocolCode: 'mqtt-json',
+          nodeType: 1
+        }
+      ]
+    });
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockUpdateRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: productDefaultRule
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect((wrapper.vm as any).getRuleScopeTargetText(productDefaultRule)).toBe('翻斗式雨量计');
+
+    (wrapper.vm as any).handleEdit(productDefaultRule);
+    await nextTick();
+    (wrapper.vm as any).form.expression = 'value >= 2';
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockUpdateRule).toHaveBeenCalledWith(expect.objectContaining({
+      id: 8250,
+      ruleScope: 'PRODUCT',
+      productId: longProductId,
+      metricIdentifier: 'value',
+      expression: 'value >= 2'
+    }));
+  });
+
+  it('preserves long risk metric ids when editing a threshold strategy', async () => {
+    const longRiskMetricId = '202604280000000001';
+    const rule = {
+      ...createRuleRow(),
+      id: '202604280000000101',
+      riskMetricId: longRiskMetricId,
+      ruleScope: 'PRODUCT',
+      productId: '202603192100560260',
+      metricIdentifier: 'value',
+      metricName: '当前雨量',
+      expression: 'value >= 1'
+    };
+    const pageResponse = {
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [rule]
+      }
+    };
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockPageRuleList.mockResolvedValueOnce(pageResponse);
+    mockUpdateRule.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: rule
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).handleEdit(rule);
+    await nextTick();
+    await (wrapper.vm as any).handleSubmit();
+
+    expect(mockUpdateRule).toHaveBeenCalledWith(expect.objectContaining({
+      id: '202604280000000101',
+      riskMetricId: longRiskMetricId,
+      productId: '202603192100560260'
+    }));
+  });
+
+  it('previews the effective threshold strategy with preserved scope identities', async () => {
+    const rule = {
+      ...createRuleRow(),
+      id: '202604280000000101',
+      tenantId: '1',
+      riskMetricId: '202604280000000001',
+      ruleScope: 'BINDING',
+      productId: '202603192100560260',
+      deviceId: '202603192100560261',
+      riskPointDeviceId: '202603192100560262',
+      metricIdentifier: 'value',
+      metricName: '当前雨量'
+    };
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 1,
+        pageNum: 1,
+        pageSize: 10,
+        records: [rule]
+      }
+    });
+    mockPreviewEffectiveRule.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        hasMatchedRule: true,
+        metricIdentifier: 'value',
+        productId: '202603192100560260',
+        deviceId: '202603192100560261',
+        riskPointDeviceId: '202603192100560262',
+        decision: '最终生效策略：绑定个性阈值',
+        matchedRule: rule,
+        candidates: [
+          {
+            ruleId: '202604280000000101',
+            ruleName: '绑定个性阈值',
+            ruleScope: 'BINDING',
+            ruleScopeText: '绑定个性',
+            scopeTarget: '绑定 202603192100560262',
+            expression: 'value >= 1',
+            matchedContext: true,
+            selected: true
+          }
+        ]
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    await (wrapper.vm as any).handlePreviewEffectiveRule(rule);
+    await flushPromises();
+
+    expect(mockPreviewEffectiveRule).toHaveBeenCalledWith({
+      tenantId: '1',
+      riskMetricId: '202604280000000001',
+      metricIdentifier: 'value',
+      productId: '202603192100560260',
+      productType: undefined,
+      deviceId: '202603192100560261',
+      riskPointDeviceId: '202603192100560262'
+    });
+    expect((wrapper.vm as any).effectivePreviewVisible).toBe(true);
+    expect(wrapper.text()).toContain('最终生效策略：绑定个性阈值');
+    expect(wrapper.text()).toContain('绑定个性阈值');
+  });
+
   it('hydrates route query filters before loading threshold strategies', async () => {
     mockRoute.query = {
       ruleName: '裂缝值红色阈值',
       metricIdentifier: 'value',
+      scopeView: 'BUSINESS',
       ruleScope: 'PRODUCT',
       alarmLevel: 'red',
       status: '0'
@@ -465,9 +659,99 @@ describe('RuleDefinitionView', () => {
     expect(mockPageRuleList).toHaveBeenCalledWith(expect.objectContaining({
       ruleName: '裂缝值红色阈值',
       metricIdentifier: 'value',
+      scopeView: 'BUSINESS',
       ruleScope: 'PRODUCT',
       alarmLevel: 'red',
       status: 0
+    }));
+  });
+
+  it('uses business threshold scopes by default and opens product default create form', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(mockPageRuleList).toHaveBeenCalledWith(expect.objectContaining({
+      scopeView: 'BUSINESS',
+      ruleScope: undefined
+    }));
+    expect((wrapper.vm as any).activeFilterTags.some((tag: any) => tag.key === 'scopeView')).toBe(false);
+
+    (wrapper.vm as any).handleAdd();
+    await nextTick();
+
+    expect((wrapper.vm as any).form.ruleScope).toBe('PRODUCT');
+    expect((wrapper.vm as any).formRuleScopeOptions.map((option: any) => option.value)).toEqual([
+      'PRODUCT',
+      'DEVICE',
+      'BINDING'
+    ]);
+  });
+
+  it('clears incompatible scope when switching to system template view', async () => {
+    mockPageRuleList.mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).filters.ruleScope = 'PRODUCT';
+    (wrapper.vm as any).filters.scopeView = 'SYSTEM';
+    (wrapper.vm as any).handleScopeViewChange();
+
+    expect((wrapper.vm as any).filters.ruleScope).toBe('');
+    expect((wrapper.vm as any).currentRuleScopeFilterOptions.map((option: any) => option.value)).toEqual([
+      'METRIC',
+      'PRODUCT_TYPE'
+    ]);
+  });
+
+  it('removes system strategy view from applied filters back to the default business view', async () => {
+    mockPageRuleList.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    (wrapper.vm as any).filters.scopeView = 'SYSTEM';
+    (wrapper.vm as any).handleSearch();
+    await flushPromises();
+
+    expect((wrapper.vm as any).activeFilterTags.some((tag: any) => tag.key === 'scopeView')).toBe(true);
+
+    (wrapper.vm as any).handleRemoveAppliedFilter('scopeView');
+    await flushPromises();
+
+    expect((wrapper.vm as any).filters.scopeView).toBe('BUSINESS');
+    expect((wrapper.vm as any).activeFilterTags.some((tag: any) => tag.key === 'scopeView')).toBe(false);
+    expect(mockPageRuleList).toHaveBeenLastCalledWith(expect.objectContaining({
+      scopeView: 'BUSINESS'
     }));
   });
 
@@ -843,7 +1127,7 @@ describe('RuleDefinitionView', () => {
     await flushPromises();
 
     expect((wrapper.vm as any).formVisible).toBe(true);
-    expect((wrapper.vm as any).form.riskMetricId).toBe(6102);
+    expect((wrapper.vm as any).form.riskMetricId).toBe('6102');
     expect((wrapper.vm as any).form.metricIdentifier).toBe('displacementX');
     expect((wrapper.vm as any).form.metricName).toBe('位移 X');
     expect(wrapper.find('.standard-form-drawer-stub').attributes('data-model-value')).toBe('true');

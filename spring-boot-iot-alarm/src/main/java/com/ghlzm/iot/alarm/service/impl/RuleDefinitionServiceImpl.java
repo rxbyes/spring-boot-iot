@@ -10,11 +10,13 @@ import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogService;
 import com.ghlzm.iot.alarm.service.RuleDefinitionService;
 import com.ghlzm.iot.alarm.vo.RuleDefinitionBatchAddResultVO;
+import com.ghlzm.iot.alarm.vo.RuleDefinitionEffectivePreviewVO;
 import com.ghlzm.iot.common.exception.BizException;
 import com.ghlzm.iot.common.response.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -36,16 +38,33 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
                                                      Integer status, String ruleScope, Long productId,
                                                      String productType,
                                                      Long pageNum, Long pageSize) {
+            return pageRuleList(ruleName, metricIdentifier, alarmLevel, status, ruleScope, null, productId,
+                    productType, pageNum, pageSize);
+      }
+
+      @Override
+      public PageResult<RuleDefinition> pageRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                                     Integer status, String ruleScope, String scopeView,
+                                                     Long productId, String productType,
+                                                     Long pageNum, Long pageSize) {
             Page<RuleDefinition> page = new Page<>(pageNum, pageSize);
             Page<RuleDefinition> result = page(page, buildWrapper(ruleName, metricIdentifier, alarmLevel, status,
-                    ruleScope, productId, productType));
+                    ruleScope, scopeView, productId, productType));
             return PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords());
       }
 
       @Override
       public List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel,
                                               Integer status, String ruleScope, Long productId, String productType) {
-            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status, ruleScope, productId, productType));
+            return getRuleList(ruleName, metricIdentifier, alarmLevel, status, ruleScope, null, productId, productType);
+      }
+
+      @Override
+      public List<RuleDefinition> getRuleList(String ruleName, String metricIdentifier, String alarmLevel,
+                                              Integer status, String ruleScope, String scopeView, Long productId,
+                                              String productType) {
+            return list(buildWrapper(ruleName, metricIdentifier, alarmLevel, status, ruleScope, scopeView, productId,
+                    productType));
       }
 
       @Override
@@ -92,6 +111,67 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       }
 
       @Override
+      public RuleDefinitionEffectivePreviewVO previewEffectiveRule(Long tenantId, Long riskMetricId,
+                                                                   String metricIdentifier, Long productId,
+                                                                   String productType, Long deviceId,
+                                                                   Long riskPointDeviceId) {
+            String normalizedMetricIdentifier = normalizeText(metricIdentifier);
+            String normalizedProductType = StringUtils.hasText(productType)
+                    ? productType.trim().toUpperCase(Locale.ROOT)
+                    : null;
+            if (riskMetricId == null && !StringUtils.hasText(normalizedMetricIdentifier)) {
+                  throw new BizException("请提供风险指标ID或测点标识后再预览生效策略");
+            }
+
+            RuleDefinitionEffectivePreviewVO preview = new RuleDefinitionEffectivePreviewVO();
+            preview.setTenantId(tenantId);
+            preview.setRiskMetricId(riskMetricId);
+            preview.setMetricIdentifier(normalizedMetricIdentifier);
+            preview.setProductId(productId);
+            preview.setProductType(normalizedProductType);
+            preview.setDeviceId(deviceId);
+            preview.setRiskPointDeviceId(riskPointDeviceId);
+
+            List<RuleDefinition> rules = list(buildEffectivePreviewWrapper(
+                    tenantId,
+                    riskMetricId,
+                    normalizedMetricIdentifier
+            ));
+            RuleDefinition matchedRule = rules.stream()
+                    .filter(rule -> matchesPreviewMetric(rule, riskMetricId, normalizedMetricIdentifier))
+                    .filter(rule -> matchesPreviewScope(rule, productId, normalizedProductType, deviceId, riskPointDeviceId))
+                    .max(previewRuleComparator())
+                    .orElse(null);
+
+            List<RuleDefinitionEffectivePreviewVO.Candidate> candidates = rules.stream()
+                    .filter(rule -> matchesPreviewMetric(rule, riskMetricId, normalizedMetricIdentifier))
+                    .sorted(previewRuleComparator().reversed())
+                    .map(rule -> buildPreviewCandidate(
+                            rule,
+                            matchedRule,
+                            productId,
+                            normalizedProductType,
+                            deviceId,
+                            riskPointDeviceId
+                    ))
+                    .toList();
+            preview.setCandidates(candidates);
+            if (matchedRule == null) {
+                  preview.setHasMatchedRule(false);
+                  preview.setDecision("当前上下文未命中启用阈值策略，将继续按运行时兜底策略处理。");
+                  return preview;
+            }
+            preview.setHasMatchedRule(true);
+            preview.setMatchedRule(matchedRule);
+            preview.setMatchedScope(normalizeScope(matchedRule.getRuleScope()));
+            preview.setMatchedScopeText(formatRuleScope(matchedRule.getRuleScope()));
+            preview.setDecision("最终生效策略：" + matchedRule.getRuleName() + "（"
+                    + formatRuleScope(matchedRule.getRuleScope()) + "），表达式："
+                    + (StringUtils.hasText(matchedRule.getExpression()) ? matchedRule.getExpression() : "--"));
+            return preview;
+      }
+
+      @Override
       public void updateRule(RuleDefinition rule) {
             validateExecutableRule(rule);
             rule.setAlarmLevel(normalizeAlarmLevel(rule.getAlarmLevel()));
@@ -104,9 +184,127 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             removeById(id);
       }
 
+      private LambdaQueryWrapper<RuleDefinition> buildEffectivePreviewWrapper(Long tenantId, Long riskMetricId,
+                                                                              String metricIdentifier) {
+            LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<RuleDefinition>()
+                    .eq(RuleDefinition::getDeleted, 0)
+                    .eq(RuleDefinition::getStatus, 0)
+                    .eq(tenantId != null, RuleDefinition::getTenantId, tenantId);
+            wrapper.and(metric -> {
+                  if (riskMetricId != null && StringUtils.hasText(metricIdentifier)) {
+                        metric.eq(RuleDefinition::getRiskMetricId, riskMetricId)
+                                .or()
+                                .eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
+                        return;
+                  }
+                  if (riskMetricId != null) {
+                        metric.eq(RuleDefinition::getRiskMetricId, riskMetricId);
+                        return;
+                  }
+                  metric.eq(RuleDefinition::getMetricIdentifier, metricIdentifier);
+            });
+            wrapper.orderByDesc(RuleDefinition::getCreateTime);
+            return wrapper;
+      }
+
+      private Comparator<RuleDefinition> previewRuleComparator() {
+            return Comparator
+                    .comparingInt((RuleDefinition rule) -> previewScopePriority(rule.getRuleScope()))
+                    .thenComparingInt(rule -> com.ghlzm.iot.alarm.auto.RiskPolicyDecision.fromRule(rule).getPriority())
+                    .thenComparing(RuleDefinition::getId, Comparator.nullsLast(Long::compareTo));
+      }
+
+      private RuleDefinitionEffectivePreviewVO.Candidate buildPreviewCandidate(
+              RuleDefinition rule,
+              RuleDefinition matchedRule,
+              Long productId,
+              String productType,
+              Long deviceId,
+              Long riskPointDeviceId
+      ) {
+            RuleDefinitionEffectivePreviewVO.Candidate candidate = new RuleDefinitionEffectivePreviewVO.Candidate();
+            String scope = normalizeScope(rule.getRuleScope());
+            boolean matchedContext = matchesPreviewScope(rule, productId, productType, deviceId, riskPointDeviceId);
+            candidate.setRuleId(rule.getId());
+            candidate.setRuleName(rule.getRuleName());
+            candidate.setRuleScope(scope);
+            candidate.setRuleScopeText(formatRuleScope(scope));
+            candidate.setScopeTarget(formatPreviewScopeTarget(rule));
+            candidate.setMetricIdentifier(rule.getMetricIdentifier());
+            candidate.setMetricName(rule.getMetricName());
+            candidate.setExpression(rule.getExpression());
+            candidate.setAlarmLevel(normalizeAlarmLevel(rule.getAlarmLevel()));
+            candidate.setStatus(rule.getStatus());
+            candidate.setPriority(previewScopePriority(scope));
+            candidate.setMatchedContext(matchedContext);
+            candidate.setSelected(matchedRule != null && sameLong(rule.getId(), matchedRule.getId()));
+            candidate.setReason(matchedContext ? "上下文匹配，可参与最终生效优先级比较" : buildPreviewMismatchReason(rule));
+            return candidate;
+      }
+
+      private boolean matchesPreviewMetric(RuleDefinition rule, Long riskMetricId, String metricIdentifier) {
+            if (rule == null) {
+                  return false;
+            }
+            if (rule.getRiskMetricId() != null && riskMetricId != null && rule.getRiskMetricId().equals(riskMetricId)) {
+                  return true;
+            }
+            return StringUtils.hasText(rule.getMetricIdentifier())
+                    && StringUtils.hasText(metricIdentifier)
+                    && rule.getMetricIdentifier().trim().equals(metricIdentifier.trim());
+      }
+
+      private boolean matchesPreviewScope(RuleDefinition rule, Long productId, String productType, Long deviceId,
+                                          Long riskPointDeviceId) {
+            String scope = normalizeScope(rule == null ? null : rule.getRuleScope());
+            return switch (scope) {
+                  case "BINDING" -> riskPointDeviceId != null && riskPointDeviceId.equals(rule.getRiskPointDeviceId());
+                  case "DEVICE" -> deviceId != null && deviceId.equals(rule.getDeviceId());
+                  case "PRODUCT" -> productId != null && productId.equals(rule.getProductId());
+                  case "PRODUCT_TYPE" -> StringUtils.hasText(productType)
+                          && StringUtils.hasText(rule.getProductType())
+                          && productType.equalsIgnoreCase(rule.getProductType().trim());
+                  default -> true;
+            };
+      }
+
+      private int previewScopePriority(String scope) {
+            return switch (normalizeScope(scope)) {
+                  case "BINDING" -> 5;
+                  case "DEVICE" -> 4;
+                  case "PRODUCT" -> 3;
+                  case "PRODUCT_TYPE" -> 2;
+                  default -> 1;
+            };
+      }
+
+      private String normalizeScope(String scope) {
+            return StringUtils.hasText(scope) ? scope.trim().toUpperCase(Locale.ROOT) : "METRIC";
+      }
+
+      private String normalizeText(String text) {
+            return StringUtils.hasText(text) ? text.trim() : null;
+      }
+
+      private String formatPreviewScopeTarget(RuleDefinition rule) {
+            String scope = normalizeScope(rule.getRuleScope());
+            return switch (scope) {
+                  case "BINDING" -> rule.getRiskPointDeviceId() == null ? "--" : "绑定 " + rule.getRiskPointDeviceId();
+                  case "DEVICE" -> rule.getDeviceId() == null ? "--" : "设备 " + rule.getDeviceId();
+                  case "PRODUCT" -> rule.getProductId() == null ? "--" : "产品 " + rule.getProductId();
+                  case "PRODUCT_TYPE" -> StringUtils.hasText(rule.getProductType()) ? rule.getProductType() : "--";
+                  default -> "通用";
+            };
+      }
+
+      private String buildPreviewMismatchReason(RuleDefinition rule) {
+            return "当前预览上下文未命中" + formatRuleScope(rule.getRuleScope()) + "适用对象";
+      }
+
       private LambdaQueryWrapper<RuleDefinition> buildWrapper(String ruleName, String metricIdentifier,
                                                               String alarmLevel, Integer status,
-                                                              String ruleScope, Long productId, String productType) {
+                                                              String ruleScope, String scopeView, Long productId,
+                                                              String productType) {
             LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<>();
             if (StringUtils.hasText(ruleName)) {
                   wrapper.like(RuleDefinition::getRuleName, ruleName.trim());
@@ -122,6 +320,8 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             }
             if (StringUtils.hasText(ruleScope)) {
                   wrapper.eq(RuleDefinition::getRuleScope, ruleScope.trim().toUpperCase(Locale.ROOT));
+            } else if (StringUtils.hasText(scopeView)) {
+                  applyScopeView(wrapper, scopeView);
             }
             if (productId != null) {
                   wrapper.eq(RuleDefinition::getProductId, productId);
@@ -132,6 +332,23 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
             wrapper.eq(RuleDefinition::getDeleted, 0);
             wrapper.orderByDesc(RuleDefinition::getCreateTime);
             return wrapper;
+      }
+
+      private void applyScopeView(LambdaQueryWrapper<RuleDefinition> wrapper, String scopeView) {
+            String normalizedScopeView = scopeView.trim().toUpperCase(Locale.ROOT);
+            switch (normalizedScopeView) {
+                  case "BUSINESS" -> wrapper.in(RuleDefinition::getRuleScope, "PRODUCT", "DEVICE", "BINDING");
+                  case "SYSTEM" -> wrapper.and(scope -> scope
+                          .in(RuleDefinition::getRuleScope, "METRIC", "PRODUCT_TYPE")
+                          .or()
+                          .isNull(RuleDefinition::getRuleScope));
+                  case "ALL" -> {
+                        // no scope restriction
+                  }
+                  default -> {
+                        // keep backward-compatible behavior for unknown view values
+                  }
+            }
       }
 
       private List<String> buildAlarmLevelQueryValues(String alarmLevel) {
@@ -220,8 +437,12 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
       }
 
       private void ensureNoDuplicateActiveRule(RuleDefinition rule) {
+            if (!Integer.valueOf(0).equals(rule.getStatus()) || isSamePolicyIdentity(rule, getExistingRule(rule))) {
+                  return;
+            }
             LambdaQueryWrapper<RuleDefinition> wrapper = new LambdaQueryWrapper<RuleDefinition>()
                     .eq(RuleDefinition::getDeleted, 0)
+                    .eq(RuleDefinition::getStatus, 0)
                     .eq(StringUtils.hasText(rule.getRuleScope()), RuleDefinition::getRuleScope, rule.getRuleScope())
                     .eq(rule.getTenantId() != null, RuleDefinition::getTenantId, rule.getTenantId())
                     .eq(StringUtils.hasText(rule.getMetricIdentifier()), RuleDefinition::getMetricIdentifier,
@@ -236,9 +457,58 @@ public class RuleDefinitionServiceImpl extends ServiceImpl<RuleDefinitionMapper,
                   }
             }
             if (count(wrapper) > 0) {
-                  throw new BizException("Duplicate threshold policy exists for scope "
-                          + rule.getRuleScope() + " and metric " + rule.getMetricIdentifier());
+                  throw new BizException("已存在相同范围和测点的启用阈值策略，请先停用或修改原策略后再保存。范围："
+                          + formatRuleScope(rule.getRuleScope()) + "，测点：" + rule.getMetricIdentifier());
             }
+      }
+
+      private RuleDefinition getExistingRule(RuleDefinition rule) {
+            if (rule == null || rule.getId() == null) {
+                  return null;
+            }
+            return getById(rule.getId());
+      }
+
+      private boolean isSamePolicyIdentity(RuleDefinition rule, RuleDefinition existing) {
+            if (rule == null || existing == null) {
+                  return false;
+            }
+            return sameText(rule.getRuleScope(), existing.getRuleScope())
+                    && sameInteger(rule.getStatus(), existing.getStatus())
+                    && sameText(rule.getMetricIdentifier(), existing.getMetricIdentifier())
+                    && sameLong(rule.getTenantId(), existing.getTenantId())
+                    && sameText(rule.getProductType(), existing.getProductType())
+                    && sameLong(rule.getProductId(), existing.getProductId())
+                    && sameLong(rule.getDeviceId(), existing.getDeviceId())
+                    && sameLong(rule.getRiskPointDeviceId(), existing.getRiskPointDeviceId());
+      }
+
+      private boolean sameLong(Long left, Long right) {
+            return left == null ? right == null : left.equals(right);
+      }
+
+      private boolean sameInteger(Integer left, Integer right) {
+            return left == null ? right == null : left.equals(right);
+      }
+
+      private boolean sameText(String left, String right) {
+            String normalizedLeft = StringUtils.hasText(left) ? left.trim().toUpperCase(Locale.ROOT) : "";
+            String normalizedRight = StringUtils.hasText(right) ? right.trim().toUpperCase(Locale.ROOT) : "";
+            return normalizedLeft.equals(normalizedRight);
+      }
+
+      private String formatRuleScope(String scope) {
+            if (!StringUtils.hasText(scope)) {
+                  return "测点通用";
+            }
+            return switch (scope.trim().toUpperCase(Locale.ROOT)) {
+                  case "PRODUCT" -> "产品默认";
+                  case "DEVICE" -> "设备个性";
+                  case "BINDING" -> "绑定个性";
+                  case "PRODUCT_TYPE" -> "产品类型模板";
+                  case "METRIC" -> "测点通用";
+                  default -> scope.trim();
+            };
       }
 
       private RiskMetricCatalog resolveRiskMetricCatalog(RuleDefinition rule) {

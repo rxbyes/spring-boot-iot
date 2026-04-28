@@ -28,7 +28,7 @@ function snapshotText(snapshotJson: string | null | undefined, key: string) {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() || undefined : undefined
 }
 
-function snapshotNumber(snapshotJson: string | null | undefined, key: string) {
+function snapshotId(snapshotJson: string | null | undefined, key: string) {
   const value = snapshotText(snapshotJson, key)
   if (!value || !/^-?\d+$/.test(value)) {
     return undefined
@@ -36,7 +36,7 @@ function snapshotNumber(snapshotJson: string | null | undefined, key: string) {
   return value
 }
 
-function directNumber(value: unknown) {
+function directId(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return String(value)
   }
@@ -80,7 +80,7 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
       }
     }
     case 'PENDING_RISK_BINDING': {
-      const riskPointId = snapshotNumber(item.snapshotJson, 'riskPointId')
+      const riskPointId = snapshotId(item.snapshotJson, 'riskPointId')
         || (item.subjectId != null && String(item.subjectId).trim() ? String(item.subjectId) : undefined)
       const keyword = snapshotText(item.snapshotJson, 'riskPointName')
         || normalizeText(item.deviceCode)
@@ -101,7 +101,7 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
       }
     }
     case 'PENDING_THRESHOLD_POLICY': {
-      const riskMetricId = directNumber(item.riskMetricId) || snapshotNumber(item.snapshotJson, 'riskMetricId')
+      const riskMetricId = directId(item.riskMetricId) || snapshotId(item.snapshotJson, 'riskMetricId')
       const metricIdentifier = snapshotText(item.snapshotJson, 'metricIdentifier')
       const metricName = snapshotText(item.snapshotJson, 'metricName')
       if (!riskMetricId && !metricIdentifier && !metricName) {
@@ -126,7 +126,7 @@ export function buildGovernanceTaskDispatchLocation(item: GovernanceWorkItem): R
         return null
       }
       const dimensionKey = snapshotText(item.snapshotJson, 'dimensionKey')
-      const riskMetricId = directNumber(item.riskMetricId) || snapshotNumber(item.snapshotJson, 'riskMetricId')
+      const riskMetricId = directId(item.riskMetricId) || snapshotId(item.snapshotJson, 'riskMetricId')
       const metricIdentifier = snapshotText(item.snapshotJson, 'metricIdentifier')
       const metricName = snapshotText(item.snapshotJson, 'metricName')
       return {

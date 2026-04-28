@@ -4,6 +4,7 @@ import { buildRunFailureDiagnosis } from './automation-result-diagnosis-lib.mjs'
 
 const REGISTRY_RUN_FILE_RE = /^registry-run-(.+)\.json$/;
 const ACCEPTANCE_SEGMENTS = ['logs', 'acceptance'];
+const IMAGE_EVIDENCE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
 function cleanText(value) {
   return String(value || '').trim();
@@ -81,12 +82,24 @@ async function pathExists(filePath) {
   }
 }
 
+async function statIfPresent(filePath) {
+  try {
+    return await fs.stat(filePath);
+  } catch {
+    return null;
+  }
+}
+
 async function readTextIfPresent(filePath) {
   try {
     return await fs.readFile(filePath, 'utf8');
   } catch {
     return '';
   }
+}
+
+function isImageEvidencePath(filePath) {
+  return IMAGE_EVIDENCE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
 function resolveEvidenceAbsolutePath(rawPath, resultsDir) {
@@ -119,6 +132,9 @@ function resolveEvidenceCategory(displayPath, reportPath) {
   ) {
     return 'text';
   }
+  if (isImageEvidencePath(normalized)) {
+    return 'image';
+  }
   return 'unknown';
 }
 
@@ -127,17 +143,7 @@ async function resolveEvidenceItems({ payload, reportFilePath, resultsDir }) {
   const items = [];
   const seen = new Set();
 
-  async function addItem(rawPath, source) {
-    const candidatePath = cleanText(rawPath);
-    if (!candidatePath) {
-      return;
-    }
-    const resolvedPath = path.isAbsolute(candidatePath)
-      ? candidatePath
-      : path.resolve(resultsDir, candidatePath.replace(/^logs\/acceptance\//, ''));
-    if (!(await pathExists(resolvedPath))) {
-      return;
-    }
+  async function addResolvedFile(resolvedPath, source) {
     const displayPath = toDisplayPath(resolvedPath);
     if (seen.has(displayPath)) {
       return;
@@ -149,6 +155,34 @@ async function resolveEvidenceItems({ payload, reportFilePath, resultsDir }) {
       category: resolveEvidenceCategory(displayPath, reportPath),
       source
     });
+  }
+
+  async function addItem(rawPath, source) {
+    const candidatePath = cleanText(rawPath);
+    if (!candidatePath) {
+      return;
+    }
+    const resolvedPath = path.isAbsolute(candidatePath)
+      ? candidatePath
+      : path.resolve(resultsDir, candidatePath.replace(/^logs\/acceptance\//, ''));
+    const stat = await statIfPresent(resolvedPath);
+    if (!stat) {
+      return;
+    }
+    if (stat.isDirectory()) {
+      const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
+      const imageFiles = entries
+        .filter((entry) => entry.isFile() && isImageEvidencePath(entry.name))
+        .map((entry) => path.join(resolvedPath, entry.name))
+        .sort(compareStrings);
+      for (const imageFile of imageFiles) {
+        await addResolvedFile(imageFile, source);
+      }
+      return;
+    }
+    if (stat.isFile()) {
+      await addResolvedFile(resolvedPath, source);
+    }
   }
 
   await addItem(reportFilePath, 'report');

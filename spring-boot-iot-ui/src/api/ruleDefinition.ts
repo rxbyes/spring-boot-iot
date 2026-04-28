@@ -3,6 +3,7 @@ import { buildQueryString } from './query';
 import type { ApiEnvelope, IdType } from '../types/api';
 
 export type RuleDefinitionScope = 'METRIC' | 'PRODUCT_TYPE' | 'PRODUCT' | 'DEVICE' | 'BINDING';
+export type RuleDefinitionScopeView = 'BUSINESS' | 'SYSTEM' | 'ALL';
 
 /**
  * 阈值规则配置 API
@@ -58,6 +59,39 @@ export interface RuleDefinitionBatchAddResult {
       items: RuleDefinitionBatchAddItem[];
 }
 
+export interface RuleDefinitionEffectivePreviewCandidate {
+      ruleId?: IdType | null;
+      ruleName?: string | null;
+      ruleScope?: RuleDefinitionScope | string | null;
+      ruleScopeText?: string | null;
+      scopeTarget?: string | null;
+      metricIdentifier?: string | null;
+      metricName?: string | null;
+      expression?: string | null;
+      alarmLevel?: string | null;
+      status?: number | null;
+      priority?: number | null;
+      matchedContext?: boolean | null;
+      selected?: boolean | null;
+      reason?: string | null;
+}
+
+export interface RuleDefinitionEffectivePreview {
+      tenantId?: IdType | null;
+      riskMetricId?: IdType | null;
+      metricIdentifier?: string | null;
+      productId?: IdType | null;
+      productType?: string | null;
+      deviceId?: IdType | null;
+      riskPointDeviceId?: IdType | null;
+      hasMatchedRule?: boolean | null;
+      matchedScope?: RuleDefinitionScope | string | null;
+      matchedScopeText?: string | null;
+      decision?: string | null;
+      matchedRule?: RuleDefinition | null;
+      candidates?: RuleDefinitionEffectivePreviewCandidate[];
+}
+
 // 获取规则列表
 export const getRuleList = (params?: {
       riskMetricId?: IdType;
@@ -66,6 +100,7 @@ export const getRuleList = (params?: {
       alarmLevel?: string;
       status?: number;
       ruleScope?: RuleDefinitionScope | string;
+      scopeView?: RuleDefinitionScopeView | string;
       productType?: string;
       productId?: IdType;
 }): Promise<ApiEnvelope<RuleDefinition[]>> => {
@@ -82,6 +117,7 @@ export const pageRuleList = (params?: {
       alarmLevel?: string;
       status?: number;
       ruleScope?: RuleDefinitionScope | string;
+      scopeView?: RuleDefinitionScopeView | string;
       productType?: string;
       productId?: IdType;
       pageNum?: number;
@@ -95,6 +131,22 @@ export const pageRuleList = (params?: {
 // 获取规则详情
 export const getRuleById = (id: IdType): Promise<ApiEnvelope<RuleDefinition>> => {
       return request<RuleDefinition>(`/api/rule-definition/get/${id}`, { method: 'GET' });
+};
+
+export const previewEffectiveRule = (params: {
+      tenantId?: IdType;
+      riskMetricId?: IdType;
+      metricIdentifier?: string;
+      productId?: IdType;
+      productType?: string;
+      deviceId?: IdType;
+      riskPointDeviceId?: IdType;
+}): Promise<ApiEnvelope<RuleDefinitionEffectivePreview>> => {
+      const queryString = buildQueryString(params);
+      const path = queryString
+            ? `/api/rule-definition/effective-preview?${queryString}`
+            : '/api/rule-definition/effective-preview';
+      return request<RuleDefinitionEffectivePreview>(path, { method: 'GET' });
 };
 
 // 新增规则

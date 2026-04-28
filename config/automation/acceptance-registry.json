@@ -355,7 +355,10 @@
       "runnerType": "browserPlan",
       "scope": "delivery",
       "blocking": "warning",
-      "dependsOn": ["quality-factory.business-acceptance.browser-smoke"],
+      "dependsOn": [
+        "quality-factory.business-acceptance.browser-smoke",
+        "automation-results.evidence-api"
+      ],
       "inputs": {},
       "evidence": ["json", "md", "screenshot"],
       "timeouts": {
@@ -380,6 +383,41 @@
       "cleanupPolicy": {
         "strategy": "retain-evidence",
         "retainedEvidence": "registry-run JSON/Markdown 与结果中心浏览器证据。"
+      }
+    },
+    {
+      "id": "automation-results.evidence-api",
+      "title": "结果中心证据 API 验收",
+      "module": "quality-factory",
+      "docRef": "logs/acceptance/automation-result-evidence-api-latest.md",
+      "runnerType": "pythonScript",
+      "scope": "baseline",
+      "blocking": "warning",
+      "dependsOn": ["threshold-policy.effective-preview-api"],
+      "inputs": {},
+      "evidence": ["json", "md"],
+      "timeouts": {
+        "maxMinutes": 5
+      },
+      "runner": {
+        "entryScript": "scripts/verify-automation-result-evidence-api.py",
+        "args": [
+          "--package-code=risk-ops-closure",
+          "--required-evidence-pattern=threshold-policy-effective-preview-api",
+          "--fail-on-breaches"
+        ],
+        "forwardBackendBaseUrl": true
+      },
+      "ownerDomain": "quality-factory",
+      "priority": "P1",
+      "failureCategory": "evidence",
+      "dataSetup": {
+        "strategy": "reuse-threshold-policy-registry-run",
+        "required": "读取最近一次 risk-ops-closure 阈值策略验收 registry-run，并验证结果分页、详情、证据清单和证据原文 API 可消费。"
+      },
+      "cleanupPolicy": {
+        "strategy": "evidence-only",
+        "retainedEvidence": "logs/acceptance/automation-result-evidence-api-*.json/.md"
       }
     },
     {
@@ -486,6 +524,37 @@
       "cleanupPolicy": {
         "strategy": "evidence-only",
         "retainedEvidence": "logs/acceptance/threshold-policy-backfill-*.json/.md"
+      }
+    },
+    {
+      "id": "threshold-policy.effective-preview-api",
+      "title": "阈值策略最终生效预览 API 验收",
+      "module": "alarm",
+      "docRef": "logs/acceptance/threshold-policy-effective-preview-api-latest.md",
+      "runnerType": "pythonScript",
+      "scope": "baseline",
+      "blocking": "warning",
+      "dependsOn": ["threshold-policy.real-env-readiness"],
+      "inputs": {},
+      "evidence": ["json", "md"],
+      "timeouts": {
+        "maxMinutes": 5
+      },
+      "runner": {
+        "entryScript": "scripts/verify-threshold-policy-effective-preview-api.py",
+        "args": ["--fail-on-empty", "--fail-on-breaches"],
+        "forwardBackendBaseUrl": true
+      },
+      "ownerDomain": "risk-governance",
+      "priority": "P1",
+      "failureCategory": "business-assertion",
+      "dataSetup": {
+        "strategy": "shared-real-env-read-only-api",
+        "required": "只读抽样启用阈值策略，并调用 effective-preview API 验证最终命中策略、候选解释与分层优先级一致。"
+      },
+      "cleanupPolicy": {
+        "strategy": "evidence-only",
+        "retainedEvidence": "logs/acceptance/threshold-policy-effective-preview-api-*.json/.md"
       }
     }
   ]

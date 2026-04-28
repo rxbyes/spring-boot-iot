@@ -1137,6 +1137,54 @@ class RiskGovernanceServiceImplTest {
     }
 
     @Test
+    void pageMissingPolicyProductMetricSummariesShouldTreatLeafMetricRuleAsCovered() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice binding = binding(8001L, 5001L, null, "L1_JS_1.gX", "X axis acceleration");
+        binding.setId(7001L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(6001L);
+        rule.setStatus(0);
+        rule.setMetricIdentifier("gX");
+        rule.setRuleScope("PRODUCT_TYPE");
+        rule.setProductType("MONITORING");
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        Device device = new Device();
+        device.setId(8001L);
+        device.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device));
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("nf-monitor-gnss-monitor-v1");
+        product.setProductName("GNSS monitor");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getRecords().isEmpty());
+    }
+
+    @Test
     void pageMissingPolicyProductMetricSummariesShouldIncludeRecommendedThreshold() {
         RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
                 deviceMapper,
@@ -1256,6 +1304,49 @@ class RiskGovernanceServiceImplTest {
         assertEquals("monitoring-deep-displacement-v1", first.getProductKey());
         assertEquals("value >= 9.6", first.getRecommendedExpression());
         assertEquals("LATEST_PROPERTY_SUGGESTED", first.getRecommendationStatus());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldUseCatalogProductFallbackForProductScopedRules() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+
+        RiskPointDevice binding = binding(8801L, 5801L, 9301L, "dispsY", "slope displacement");
+        binding.setId(7301L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9301L);
+        catalog.setProductId(1003L);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(6001L);
+        rule.setStatus(0);
+        rule.setMetricIdentifier("dispsY");
+        rule.setRuleScope("PRODUCT");
+        rule.setProductId(1003L);
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of(rule));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getRecords().isEmpty());
     }
 
     @Test
