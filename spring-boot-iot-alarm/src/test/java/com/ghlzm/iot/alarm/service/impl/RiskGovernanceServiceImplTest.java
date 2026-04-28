@@ -21,6 +21,7 @@ import com.ghlzm.iot.alarm.mapper.RiskPointMapper;
 import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
+import com.ghlzm.iot.alarm.service.ThresholdPolicyRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
@@ -40,8 +41,10 @@ import com.ghlzm.iot.device.mapper.DeviceMapper;
 import com.ghlzm.iot.device.mapper.ProductModelMapper;
 import com.ghlzm.iot.device.mapper.VendorMetricEvidenceMapper;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.BeforeAll;
@@ -59,6 +62,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -121,6 +125,9 @@ class RiskGovernanceServiceImplTest {
 
     @Mock
     private RiskMetricActionBindingBackfillService backfillService;
+
+    @Mock
+    private ThresholdPolicyRecommendationService thresholdPolicyRecommendationService;
 
     @Test
     void listMissingBindingsShouldExcludeDeviceLevelCapabilityBindings() {
@@ -1127,6 +1134,203 @@ class RiskGovernanceServiceImplTest {
         assertEquals(2L, first.getBindingCount());
         assertEquals(2L, first.getRiskPointCount());
         assertEquals(2L, first.getDeviceCount());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldIncludeRecommendedThreshold() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setThresholdPolicyRecommendationService(thresholdPolicyRecommendationService);
+
+        RiskPointDevice crack = binding(8001L, 5001L, 9101L, "value", "monitoring value");
+        crack.setId(7001L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(crack));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Device device = new Device();
+        device.setId(8001L);
+        device.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device));
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("monitoring-crack-v1");
+        product.setProductName("Monitoring Crack");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        when(thresholdPolicyRecommendationService.recommend(product, "value", Set.of(8001L)))
+                .thenReturn(new ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation(
+                        15,
+                        120L,
+                        new BigDecimal("1.20"),
+                        new BigDecimal("10.00"),
+                        new BigDecimal("4.60"),
+                        "value >= 12",
+                        null,
+                        "value >= 12",
+                        "READY",
+                        "UPPER",
+                        "最近15天样本 120 条，按最大值 1.2 倍提炼"
+                ));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO first = result.getRecords().get(0);
+        assertEquals("value >= 12", first.getRecommendedExpression());
+        assertEquals(15, first.getRecommendationWindowDays());
+        assertEquals(120L, first.getRecommendationSampleCount());
+        assertEquals("READY", first.getRecommendationStatus());
+        assertEquals("UPPER", first.getRecommendationDirection());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldFallbackToCatalogProductForRecommendation() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setThresholdPolicyRecommendationService(thresholdPolicyRecommendationService);
+
+        RiskPointDevice binding = binding(8801L, 5801L, 9301L, "dispsY", "slope displacement");
+        binding.setId(7301L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(binding));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        RiskMetricCatalog catalog = new RiskMetricCatalog();
+        catalog.setId(9301L);
+        catalog.setProductId(1003L);
+        when(riskMetricCatalogMapper.selectList(any())).thenReturn(List.of(catalog));
+
+        Product product = new Product();
+        product.setId(1003L);
+        product.setProductKey("monitoring-deep-displacement-v1");
+        product.setProductName("Deep Displacement");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        when(thresholdPolicyRecommendationService.recommend(product, "dispsY", Set.of(8801L)))
+                .thenReturn(new ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation(
+                        null,
+                        2L,
+                        new BigDecimal("6.50"),
+                        new BigDecimal("8.00"),
+                        new BigDecimal("7.25"),
+                        "value >= 9.6",
+                        null,
+                        "value >= 9.6",
+                        "LATEST_PROPERTY_SUGGESTED",
+                        "UPPER_ONLY",
+                        "catalog product fallback"
+                ));
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(null);
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO first = result.getRecords().get(0);
+        assertEquals(1003L, first.getProductId());
+        assertEquals("monitoring-deep-displacement-v1", first.getProductKey());
+        assertEquals("value >= 9.6", first.getRecommendedExpression());
+        assertEquals("LATEST_PROPERTY_SUGGESTED", first.getRecommendationStatus());
+    }
+
+    @Test
+    void pageMissingPolicyProductMetricSummariesShouldRecommendOnlyPagedRows() {
+        RiskGovernanceServiceImpl service = new RiskGovernanceServiceImpl(
+                deviceMapper,
+                riskPointMapper,
+                riskPointDeviceMapper,
+                ruleDefinitionMapper,
+                riskMetricCatalogMapper,
+                productModelMapper,
+                productMapper,
+                productContractReleaseBatchMapper,
+                linkageRuleMapper,
+                emergencyPlanMapper,
+                linkageBindingMapper,
+                emergencyPlanBindingMapper,
+                backfillService
+        );
+        service.setThresholdPolicyRecommendationService(thresholdPolicyRecommendationService);
+
+        RiskPointDevice firstA = binding(8001L, 5001L, 9101L, "value", "monitoring value");
+        firstA.setId(7001L);
+        RiskPointDevice firstB = binding(8002L, 5002L, 9101L, "value", "monitoring value");
+        firstB.setId(7002L);
+        RiskPointDevice second = binding(8003L, 5003L, 9102L, "gpsTotalX", "x total");
+        second.setId(7003L);
+        when(riskPointDeviceMapper.selectList(any())).thenReturn(List.of(firstA, firstB, second));
+        when(ruleDefinitionMapper.selectList(any())).thenReturn(List.of());
+
+        Device device1 = new Device();
+        device1.setId(8001L);
+        device1.setProductId(1001L);
+        Device device2 = new Device();
+        device2.setId(8002L);
+        device2.setProductId(1001L);
+        Device device3 = new Device();
+        device3.setId(8003L);
+        device3.setProductId(1001L);
+        when(deviceMapper.selectList(any())).thenReturn(List.of(device1, device2, device3));
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("monitoring-crack-v1");
+        product.setProductName("Monitoring Crack");
+        when(productMapper.selectList(any())).thenReturn(List.of(product));
+
+        when(thresholdPolicyRecommendationService.recommend(product, "value", Set.of(8001L, 8002L)))
+                .thenReturn(new ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation(
+                        15,
+                        12L,
+                        new BigDecimal("1.20"),
+                        new BigDecimal("10.00"),
+                        new BigDecimal("4.60"),
+                        "value >= 12",
+                        null,
+                        "value >= 12",
+                        "READY",
+                        "UPPER",
+                        "page scoped recommendation"
+                ));
+
+        RiskGovernanceGapQuery query = new RiskGovernanceGapQuery();
+        query.setPageNum(1L);
+        query.setPageSize(1L);
+
+        PageResult<RiskGovernanceMissingPolicyProductMetricSummaryVO> result =
+                service.pageMissingPolicyProductMetricSummaries(query);
+
+        assertEquals(2L, result.getTotal());
+        assertEquals(1, result.getRecords().size());
+        assertEquals("value", result.getRecords().get(0).getMetricIdentifier());
+        assertEquals("value >= 12", result.getRecords().get(0).getRecommendedExpression());
+        verify(thresholdPolicyRecommendationService).recommend(product, "value", Set.of(8001L, 8002L));
+        verifyNoMoreInteractions(thresholdPolicyRecommendationService);
     }
 
     @Test

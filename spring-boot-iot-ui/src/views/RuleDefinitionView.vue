@@ -131,6 +131,12 @@
                       <span>{{ item.metricName || item.metricIdentifier || '--' }}</span>
                     </div>
                     <span>{{ item.bindingCount || 0 }} 个绑定 · {{ item.riskPointCount || 0 }} 个风险点 · {{ item.deviceCount || 0 }} 台设备</span>
+                    <span v-if="resolveRecommendedExpression(item)" class="rule-definition-threshold-recommendation">
+                      建议 {{ resolveRecommendedExpression(item) }} · {{ item.recommendationWindowDays || 15 }} 天 · {{ item.recommendationSampleCount || 0 }} 条
+                    </span>
+                    <span v-else-if="item.recommendationStatus" class="rule-definition-threshold-recommendation is-muted">
+                      {{ formatRecommendationStatus(item) }}
+                    </span>
                   </div>
                   <StandardButton
                     v-permission="'risk:rule-definition:edit'"
@@ -191,6 +197,9 @@
                         <strong>{{ draft.productName || draft.productKey || '未识别产品' }}</strong>
                         <span>{{ draft.metricName || draft.metricIdentifier || '--' }}</span>
                       </div>
+                      <span v-if="draft.recommendationStatus" class="rule-definition-threshold-recommendation">
+                        {{ formatRecommendationStatus(draft) }}
+                      </span>
                       <div v-if="draft.submitStatus === 'FAILED'" class="rule-definition-default-draft-error">
                         <strong>提交失败</strong>
                         <span>{{ draft.submitMessage || '请检查草稿配置后重试' }}</span>
@@ -1034,6 +1043,39 @@ const canCreateProductDefaultDraft = (
   item?: RiskGovernanceGapItem | RiskGovernanceMissingPolicyProductMetricSummary | null
 ) => Boolean(item?.productId != null && (item?.riskMetricId != null || item?.metricIdentifier));
 
+const resolveRecommendedExpression = (item?: RiskGovernanceMissingPolicyProductMetricSummary | null) =>
+  item?.recommendedExpression?.trim()
+  || item?.recommendedUpperExpression?.trim()
+  || item?.recommendedLowerExpression?.trim()
+  || '';
+
+const formatRecommendationStatus = (item?: RiskGovernanceMissingPolicyProductMetricSummary | null) => {
+  const expression = resolveRecommendedExpression(item);
+  if (expression) {
+    return `建议 ${expression} · ${item?.recommendationWindowDays || 15} 天 · ${item?.recommendationSampleCount || 0} 条`;
+  }
+  const status = String(item?.recommendationStatus || '').trim().toUpperCase();
+  if (status === 'FLAT_ZERO_REVIEW') {
+    return '近况全 0，需人工复核';
+  }
+  if (status === 'INSUFFICIENT_SAMPLE') {
+    return `样本不足 · ${item?.recommendationSampleCount || 0} 条`;
+  }
+  if (status === 'NO_NUMERIC_SAMPLE') {
+    return '无近况数值样本';
+  }
+  if (status === 'REQUIRES_MANUAL_REVIEW') {
+    return '双向波动，需人工复核';
+  }
+  if (status === 'UNSUPPORTED_PRODUCT_TYPE') {
+    return '非监测型产品';
+  }
+  if (status === 'UNAVAILABLE') {
+    return '近况推荐暂不可用';
+  }
+  return status || '';
+};
+
 const isMissingPolicySummarySelected = (item: RiskGovernanceMissingPolicyProductMetricSummary) =>
   selectedMissingPolicySummaryKeys.value.includes(getMissingPolicySummaryKey(item));
 
@@ -1067,7 +1109,7 @@ const handleClearMissingPolicySummarySelection = () => {
 const buildProductDefaultDraft = (item: RiskGovernanceMissingPolicyProductMetricSummary): ProductDefaultDraft => ({
   ...item,
   ruleName: item.metricName ? `${item.metricName} 产品默认阈值` : '产品默认阈值策略',
-  expression: '',
+  expression: resolveRecommendedExpression(item),
   duration: 0,
   alarmLevel: alarmLevelOptions.value[0]?.value || 'blue',
   convertToEvent: 0,
@@ -1229,6 +1271,8 @@ const handleProductDefaultAdd = (
       : '产品默认阈值策略';
   if ('expression' in (firstMissingItem || {}) && firstMissingItem?.expression) {
     form.expression = String(firstMissingItem.expression);
+  } else {
+    form.expression = resolveRecommendedExpression(firstMissingItem as RiskGovernanceMissingPolicyProductMetricSummary);
   }
   if ('duration' in (firstMissingItem || {}) && firstMissingItem?.duration != null) {
     form.duration = Number(firstMissingItem.duration);
@@ -1458,6 +1502,23 @@ onMounted(() => {
 
 .rule-definition-governance-summary-list__main {
   flex: 1;
+}
+
+.rule-definition-threshold-recommendation {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--el-color-success-light-5);
+  border-radius: 0.25rem;
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
+  overflow-wrap: anywhere;
+}
+
+.rule-definition-threshold-recommendation.is-muted {
+  border-color: var(--border-color-lighter);
+  color: var(--text-secondary);
+  background: var(--fill-color-light);
 }
 
 .rule-definition-governance-actions {

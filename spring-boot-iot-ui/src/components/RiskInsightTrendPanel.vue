@@ -2,7 +2,7 @@
   <PanelCard title="属性趋势预览">
     <div class="trend-toolbar">
       <div class="trend-toolbar__meta">
-        <span class="trend-toolbar__label">????</span>
+        <span class="trend-toolbar__label">当前范围</span>
         <div class="trend-toolbar__stats">
           <span class="trend-toolbar__pill">{{ rangeLabel }}</span>
           <span v-if="activeGroups.length" class="trend-toolbar__pill trend-toolbar__pill--muted">
@@ -16,7 +16,8 @@
         :options="rangeOptions"
         @change="handleRangeChange"
       />
-    </div><div v-if="activeGroups.length" class="trend-groups">
+    </div>
+    <div v-if="activeGroups.length" class="trend-groups">
       <section v-for="group in activeGroups" :key="group.key" class="trend-group">
         <header class="trend-group__header">
           <div class="trend-group__heading">
@@ -25,6 +26,24 @@
           </div>
           <span class="trend-group__series-pill">{{ group.series.length }} 条序列</span>
         </header>
+
+        <div class="trend-group__focus-strip">
+          <button
+            v-for="series in group.series"
+            :key="`${group.key}-${series.identifier || series.displayName}`"
+            type="button"
+            class="trend-group__focus-button"
+            :class="{
+              'trend-group__focus-button--active': isSeriesActive(series),
+              'trend-group__focus-button--muted': hasActiveIdentifier && !isSeriesActive(series)
+            }"
+            :data-testid="buildTrendSeriesFocusTestId(series.identifier || series.displayName)"
+            @click="handleSeriesSelect(group, series)"
+          >
+            <strong>{{ series.displayName }}</strong>
+            <small>{{ resolveSeriesPreview(series, group) }}</small>
+          </button>
+        </div>
 
         <div
           :ref="(element) => registerChartRef(group.key, element)"
@@ -70,6 +89,13 @@ interface TrendGroup {
   series: TrendSeries[];
 }
 
+interface TrendSeriesSelectionPayload {
+  groupKey: string;
+  groupTitle: string;
+  identifier: string;
+  displayName: string;
+}
+
 const TREND_SERIES_COLORS = [
   '#1f6feb',
   '#13b38b',
@@ -97,15 +123,18 @@ const STATUS_EVENT_MISSING_SENTINEL = -4;
 const props = withDefaults(defineProps<{
   rangeCode?: InsightRangeCode;
   groups?: TrendGroup[];
+  activeIdentifier?: string;
   emptyMessage?: string;
 }>(), {
   rangeCode: '1d',
   groups: () => [],
+  activeIdentifier: '',
   emptyMessage: '暂无趋势数据'
 });
 
 const emit = defineEmits<{
   (e: 'change-range', value: InsightRangeCode): void;
+  (e: 'select-series', value: TrendSeriesSelectionPayload): void;
 }>();
 
 const chartRefs = new Map<string, HTMLDivElement>();
@@ -115,6 +144,9 @@ let resizeObserver: ResizeObserver | null = null;
 const activeGroups = computed(() =>
   (props.groups ?? []).filter((group) => Array.isArray(group.series) && group.series.length > 0)
 );
+
+const activeSeriesIdentifier = computed(() => normalizeSeriesSelectionIdentifier(props.activeIdentifier));
+const hasActiveIdentifier = computed(() => Boolean(activeSeriesIdentifier.value));
 
 const rangeOptions = INSIGHT_RANGE_OPTIONS.map((item) => ({
   label: item.label,
@@ -176,6 +208,47 @@ function handleRangeChange(value: string | number | boolean) {
     return;
   }
   emit('change-range', value as InsightRangeCode);
+}
+
+function handleSeriesSelect(group: TrendGroup, series: TrendSeries) {
+  const identifier = series.identifier?.trim();
+  if (!identifier) {
+    return;
+  }
+  emit('select-series', {
+    groupKey: group.key,
+    groupTitle: group.title,
+    identifier,
+    displayName: series.displayName
+  });
+}
+
+function normalizeSeriesSelectionIdentifier(value?: string) {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function isSeriesActive(series: TrendSeries) {
+  if (!activeSeriesIdentifier.value) {
+    return false;
+  }
+  return normalizeSeriesSelectionIdentifier(series.identifier) === activeSeriesIdentifier.value;
+}
+
+function buildTrendSeriesFocusTestId(value: string) {
+  return `trend-series-focus-${value.trim().replace(/[^0-9A-Za-z]+/g, '_')}`;
+}
+
+function resolveSeriesPreview(series: TrendSeries, group: TrendGroup) {
+  const latestBucket = [...series.buckets]
+    .reverse()
+    .find((bucket) => bucket.filled !== true && bucket.value !== null && bucket.value !== undefined);
+  if (!latestBucket) {
+    return '暂无样本';
+  }
+  if (shouldUseStepLine(series, group)) {
+    return resolveStatusText(series, group, latestBucket.value, latestBucket.filled ?? false);
+  }
+  return `最近值 ${latestBucket.value}`;
 }
 
 function resolveGroupSummary(group: TrendGroup) {
@@ -274,15 +347,20 @@ function renderGroupChart(group: TrendGroup, colorOffset: number) {
     yAxis: yAxisConfig,
     series: group.series.map((series) => {
       const useStepLine = shouldUseStepLine(series, group);
+      const isActive = !hasActiveIdentifier.value || isSeriesActive(series);
       return {
         name: series.displayName,
         type: 'line',
         smooth: false,
         step: useStepLine ? 'middle' : false,
         showSymbol: useStepLine ? false : props.rangeCode === '1d',
-        symbolSize: props.rangeCode === '1d' ? 7 : 5,
+        symbolSize: isActive ? (props.rangeCode === '1d' ? 7 : 5) : 4,
         lineStyle: {
-          width: 3
+          width: isActive ? 3.2 : 2.2,
+          opacity: isActive ? 1 : 0.35
+        },
+        itemStyle: {
+          opacity: isActive ? 1 : 0.45
         },
         data: axisLabels.map((time) => {
           const bucket = series.buckets.find((item) => item.time === time);
@@ -643,6 +721,56 @@ function shouldCompactGroup(group: TrendGroup) {
   margin: 0;
   color: var(--text-tertiary);
   line-height: 1.6;
+}
+
+.trend-group__focus-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.trend-group__focus-button {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 10rem;
+  padding: 0.62rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(91, 109, 133, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.trend-group__focus-button strong {
+  color: var(--text-primary);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+.trend-group__focus-button small {
+  color: var(--text-tertiary);
+  font-size: 0.74rem;
+}
+
+.trend-group__focus-button:hover {
+  border-color: color-mix(in srgb, var(--brand) 28%, rgba(91, 109, 133, 0.18));
+  background: color-mix(in srgb, var(--brand) 5%, white);
+  transform: translateY(-1px);
+}
+
+.trend-group__focus-button--active {
+  border-color: color-mix(in srgb, var(--brand) 52%, rgba(91, 109, 133, 0.2));
+  background: color-mix(in srgb, var(--brand) 9%, white);
+  box-shadow: 0 10px 24px rgba(255, 122, 26, 0.12);
+}
+
+.trend-group__focus-button--active small {
+  color: var(--brand-strong);
+}
+
+.trend-group__focus-button--muted {
+  opacity: 0.62;
 }
 
 .trend-group__chart {

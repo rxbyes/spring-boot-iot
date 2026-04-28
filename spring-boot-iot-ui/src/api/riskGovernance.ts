@@ -37,6 +37,17 @@ export interface RiskGovernanceMissingPolicyProductMetricSummary {
   bindingCount?: number | null;
   riskPointCount?: number | null;
   deviceCount?: number | null;
+  recommendationWindowDays?: number | null;
+  recommendationSampleCount?: number | null;
+  recommendationMinValue?: number | string | null;
+  recommendationMaxValue?: number | string | null;
+  recommendationAvgValue?: number | string | null;
+  recommendedExpression?: string | null;
+  recommendedLowerExpression?: string | null;
+  recommendedUpperExpression?: string | null;
+  recommendationStatus?: string | null;
+  recommendationDirection?: string | null;
+  recommendationReason?: string | null;
 }
 
 export interface RiskMetricCatalogItem {

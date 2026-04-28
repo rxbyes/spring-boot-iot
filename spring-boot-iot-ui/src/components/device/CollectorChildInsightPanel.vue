@@ -222,26 +222,26 @@ function childMetricRecommended(child: CollectorChildInsightChild, metric: Colle
 .collector-child-insight-panel__list,
 .collector-child-insight-panel__metrics {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.82rem;
 }
 
 .collector-child-insight-panel__summary {
-  gap: 0.95rem;
-  margin-bottom: 0.95rem;
+  gap: 0.82rem;
+  margin-bottom: 0.82rem;
 }
 
 .collector-child-insight-panel__summary-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .collector-child-insight-panel__summary-card,
 .collector-child-insight-panel__child,
 .collector-child-insight-panel__metric {
-  border: 1px solid var(--panel-border);
-  border-radius: 1rem;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 5%, white));
+  border: 1px solid color-mix(in srgb, var(--panel-border) 88%, white);
+  border-radius: calc(var(--radius-lg) - 0.22rem);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .collector-child-insight-panel__summary-card {
@@ -252,14 +252,14 @@ function childMetricRecommended(child: CollectorChildInsightChild, metric: Colle
 
 .collector-child-insight-panel__summary-card--primary {
   gap: 0.55rem;
-  padding: 1rem 1.05rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(247, 250, 255, 0.96) 100%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 45%);
+  padding: 1rem 1.05rem 0.95rem;
+  border-top: 3px solid color-mix(in srgb, var(--brand) 62%, white);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(247, 250, 255, 0.95) 100%);
 }
 
 .collector-child-insight-panel__summary-card--compact {
   gap: 0.22rem;
+  background: color-mix(in srgb, var(--surface-soft) 78%, white);
 }
 
 .collector-child-insight-panel__summary-card--attention strong {
@@ -310,8 +310,9 @@ function childMetricRecommended(child: CollectorChildInsightChild, metric: Colle
 
 .collector-child-insight-panel__child {
   display: grid;
-  gap: 0.82rem;
-  padding: 1rem 1.05rem;
+  gap: 0.76rem;
+  padding: 0.95rem 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.93));
 }
 
 .collector-child-insight-panel__child-head,
@@ -346,9 +347,9 @@ function childMetricRecommended(child: CollectorChildInsightChild, metric: Colle
 .collector-child-insight-panel__child-meta-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.32rem 0.62rem;
+  padding: 0.28rem 0.58rem;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.1);
+  background: rgba(148, 163, 184, 0.08);
   color: var(--text-secondary);
   font-size: 0.79rem;
   line-height: 1.4;
@@ -385,14 +386,15 @@ function childMetricRecommended(child: CollectorChildInsightChild, metric: Colle
 
 .collector-child-insight-panel__metric {
   display: grid;
-  gap: 0.28rem;
-  padding: 0.84rem 0.9rem;
+  gap: 0.24rem;
+  padding: 0.78rem 0.88rem;
+  background: color-mix(in srgb, var(--surface-soft) 55%, white);
 }
 
 .collector-child-insight-panel__metric--recommended {
   border-color: color-mix(in srgb, var(--brand) 22%, var(--panel-border));
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(255, 249, 242, 0.94) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(255, 249, 242, 0.92) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brand) 18%, transparent);
 }
 
 .collector-child-insight-panel__metric-head {

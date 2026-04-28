@@ -23,6 +23,7 @@ import com.ghlzm.iot.alarm.mapper.RuleDefinitionMapper;
 import com.ghlzm.iot.alarm.service.RiskMetricActionBindingBackfillService;
 import com.ghlzm.iot.alarm.service.RiskMetricCatalogPublishRule;
 import com.ghlzm.iot.alarm.service.RiskGovernanceService;
+import com.ghlzm.iot.alarm.service.ThresholdPolicyRecommendationService;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceCoverageOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceDashboardOverviewVO;
 import com.ghlzm.iot.alarm.vo.RiskGovernanceGapItemVO;
@@ -91,6 +92,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
     private ProductContractReleaseSnapshotMapper productContractReleaseSnapshotMapper;
     private RiskPointDeviceCapabilityBindingMapper capabilityBindingMapper;
+    private ThresholdPolicyRecommendationService thresholdPolicyRecommendationService;
 
     RiskGovernanceServiceImpl(DeviceMapper deviceMapper,
                               RiskPointMapper riskPointMapper,
@@ -162,6 +164,11 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         this.capabilityBindingMapper = capabilityBindingMapper;
     }
 
+    @Autowired(required = false)
+    void setThresholdPolicyRecommendationService(ThresholdPolicyRecommendationService thresholdPolicyRecommendationService) {
+        this.thresholdPolicyRecommendationService = thresholdPolicyRecommendationService;
+    }
+
     @Override
     public PageResult<RiskGovernanceGapItemVO> listMissingBindings(RiskGovernanceGapQuery query) {
         long pageNum = normalizePageNum(query);
@@ -226,7 +233,10 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             return PageResult.empty(pageNum, pageSize);
         }
         Map<Long, Long> deviceProductIds = loadDeviceProductIds(bindings);
-        Map<Long, Product> productMap = loadProductsById(new LinkedHashSet<>(deviceProductIds.values()));
+        Map<Long, Long> riskMetricProductIds = loadRiskMetricProductIds(bindings);
+        Set<Long> productIds = new LinkedHashSet<>(deviceProductIds.values());
+        productIds.addAll(riskMetricProductIds.values());
+        Map<Long, Product> productMap = loadProductsById(productIds);
         Map<String, MissingPolicyProductMetricAccumulator> accumulators = new LinkedHashMap<>();
         for (RiskPointDevice binding : bindings) {
             String metricKey = toMissingPolicyDimensionKey(binding);
@@ -234,22 +244,34 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 continue;
             }
             Long productId = binding.getDeviceId() == null ? null : deviceProductIds.get(binding.getDeviceId());
-            String groupKey = (productId == null ? "unknown" : productId.toString()) + "#" + metricKey;
-            Product product = productId == null ? null : productMap.get(productId);
+            if (productId == null && binding.getRiskMetricId() != null) {
+                productId = riskMetricProductIds.get(binding.getRiskMetricId());
+            }
+            Long resolvedProductId = productId;
+            String groupKey = (resolvedProductId == null ? "unknown" : resolvedProductId.toString()) + "#" + metricKey;
+            Product product = resolvedProductId == null ? null : productMap.get(resolvedProductId);
             MissingPolicyProductMetricAccumulator accumulator = accumulators.computeIfAbsent(
                     groupKey,
-                    key -> new MissingPolicyProductMetricAccumulator(productId, product, binding)
+                    key -> new MissingPolicyProductMetricAccumulator(resolvedProductId, product, binding)
             );
             accumulator.add(binding);
         }
-        List<RiskGovernanceMissingPolicyProductMetricSummaryVO> summaries = accumulators.values().stream()
-                .map(MissingPolicyProductMetricAccumulator::toVO)
-                .sorted(Comparator.comparingLong(RiskGovernanceMissingPolicyProductMetricSummaryVO::getBindingCount)
+        List<MissingPolicyProductMetricAccumulator> summaries = accumulators.values().stream()
+                .sorted(Comparator.comparingLong(MissingPolicyProductMetricAccumulator::getBindingCount)
                         .reversed()
                         .thenComparing(item -> normalizeText(item.getProductName()), Comparator.nullsLast(String::compareTo))
                         .thenComparing(item -> normalizeText(item.getMetricIdentifier()), Comparator.nullsLast(String::compareTo)))
                 .toList();
-        return toPage(summaries, pageNum, pageSize);
+        if (summaries.isEmpty()) {
+            return PageResult.empty(pageNum, pageSize);
+        }
+        int fromIndex = (int) Math.min((pageNum - 1) * pageSize, summaries.size());
+        int toIndex = (int) Math.min(fromIndex + pageSize, summaries.size());
+        List<RiskGovernanceMissingPolicyProductMetricSummaryVO> records = summaries.subList(fromIndex, toIndex)
+                .stream()
+                .map(accumulator -> accumulator.toVO(thresholdPolicyRecommendationService))
+                .toList();
+        return PageResult.of((long) summaries.size(), pageNum, pageSize, records);
     }
 
     @Override
@@ -1296,6 +1318,29 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
                 .collect(Collectors.toMap(Device::getId, Device::getProductId, (left, right) -> left));
     }
 
+    private Map<Long, Long> loadRiskMetricProductIds(List<RiskPointDevice> bindings) {
+        Set<Long> riskMetricIds = bindings == null
+                ? Set.of()
+                : bindings.stream()
+                .map(RiskPointDevice::getRiskMetricId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (riskMetricIds.isEmpty()) {
+            return Map.of();
+        }
+        List<RiskMetricCatalog> catalogs = riskMetricCatalogMapper.selectList(new LambdaQueryWrapper<RiskMetricCatalog>()
+                .select(RiskMetricCatalog::getId, RiskMetricCatalog::getProductId)
+                .eq(RiskMetricCatalog::getDeleted, 0)
+                .in(RiskMetricCatalog::getId, riskMetricIds));
+        if (catalogs == null || catalogs.isEmpty()) {
+            return Map.of();
+        }
+        return catalogs.stream()
+                .filter(catalog -> catalog.getId() != null)
+                .filter(catalog -> catalog.getProductId() != null)
+                .collect(Collectors.toMap(RiskMetricCatalog::getId, RiskMetricCatalog::getProductId, (left, right) -> left));
+    }
+
     private Map<Long, Product> loadProductsById(Set<Long> productIds) {
         if (productIds == null || productIds.isEmpty()) {
             return Map.of();
@@ -1359,6 +1404,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
         private final Long productId;
         private final String productKey;
         private final String productName;
+        private final Product product;
         private final Long riskMetricId;
         private final String metricIdentifier;
         private final String metricName;
@@ -1368,6 +1414,7 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
 
         MissingPolicyProductMetricAccumulator(Long productId, Product product, RiskPointDevice firstBinding) {
             this.productId = productId;
+            this.product = product;
             this.productKey = product == null ? null : product.getProductKey();
             this.productName = product == null ? null : product.getProductName();
             this.riskMetricId = firstBinding == null ? null : firstBinding.getRiskMetricId();
@@ -1388,7 +1435,20 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             }
         }
 
-        RiskGovernanceMissingPolicyProductMetricSummaryVO toVO() {
+        long getBindingCount() {
+            return bindingCount;
+        }
+
+        String getProductName() {
+            return productName;
+        }
+
+        String getMetricIdentifier() {
+            return metricIdentifier;
+        }
+
+        RiskGovernanceMissingPolicyProductMetricSummaryVO toVO(
+                ThresholdPolicyRecommendationService thresholdPolicyRecommendationService) {
             RiskGovernanceMissingPolicyProductMetricSummaryVO item = new RiskGovernanceMissingPolicyProductMetricSummaryVO();
             item.setProductId(productId);
             item.setProductKey(productKey);
@@ -1399,7 +1459,36 @@ public class RiskGovernanceServiceImpl implements RiskGovernanceService {
             item.setBindingCount(bindingCount);
             item.setRiskPointCount((long) riskPointIds.size());
             item.setDeviceCount((long) deviceIds.size());
+            applyRecommendation(item, thresholdPolicyRecommendationService);
             return item;
+        }
+
+        private void applyRecommendation(RiskGovernanceMissingPolicyProductMetricSummaryVO item,
+                                         ThresholdPolicyRecommendationService thresholdPolicyRecommendationService) {
+            if (thresholdPolicyRecommendationService == null) {
+                return;
+            }
+            try {
+                ThresholdPolicyRecommendationService.ThresholdPolicyRecommendation recommendation =
+                        thresholdPolicyRecommendationService.recommend(product, metricIdentifier, Set.copyOf(deviceIds));
+                if (recommendation == null) {
+                    return;
+                }
+                item.setRecommendationWindowDays(recommendation.windowDays());
+                item.setRecommendationSampleCount(recommendation.sampleCount());
+                item.setRecommendationMinValue(recommendation.minValue());
+                item.setRecommendationMaxValue(recommendation.maxValue());
+                item.setRecommendationAvgValue(recommendation.avgValue());
+                item.setRecommendedExpression(recommendation.recommendedExpression());
+                item.setRecommendedLowerExpression(recommendation.recommendedLowerExpression());
+                item.setRecommendedUpperExpression(recommendation.recommendedUpperExpression());
+                item.setRecommendationStatus(recommendation.status());
+                item.setRecommendationDirection(recommendation.direction());
+                item.setRecommendationReason(recommendation.reason());
+            } catch (RuntimeException ignored) {
+                item.setRecommendationStatus("UNAVAILABLE");
+                item.setRecommendationReason("recommendation query failed");
+            }
         }
     }
 

@@ -74,12 +74,12 @@ const ElSegmentedStub = defineComponent({
   `
 });
 
-function mountTrend(groups: Array<Record<string, unknown>> = [], summary: Array<Record<string, unknown>> = []) {
+function mountTrend(groups: Array<Record<string, unknown>> = []) {
   return mount(RiskInsightTrendPanel, {
     props: {
       rangeCode: '1d',
       groups,
-      summary,
+      activeIdentifier: '',
       emptyMessage: '请输入设备编码后开始综合分析'
     },
     global: {
@@ -125,6 +125,55 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.find('.trend-toolbar__meta').exists()).toBe(true);
     expect(wrapper.findAll('.trend-toolbar__pill').length).toBeGreaterThanOrEqual(2);
     expect(wrapper.findAll('.trend-group__series-pill').length).toBe(2);
+    expect(wrapper.findAll('.trend-group__focus-button').length).toBe(2);
+  });
+
+  it('emits the selected series and marks the active focus button', async () => {
+    const wrapper = mount(RiskInsightTrendPanel, {
+      props: {
+        rangeCode: '1d',
+        activeIdentifier: 'S1_ZT_1.battery_dump_energy',
+        groups: [
+          {
+            key: 'status',
+            title: 'runtime-status',
+            series: [
+              {
+                identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+                displayName: 'sensor-state',
+                buckets: [{ time: '2026-04-07 00:00:00', value: 1, filled: false }]
+              },
+              {
+                identifier: 'S1_ZT_1.battery_dump_energy',
+                displayName: 'battery-energy',
+                buckets: [{ time: '2026-04-07 00:00:00', value: 86, filled: false }]
+              }
+            ]
+          }
+        ]
+      },
+      global: {
+        stubs: {
+          PanelCard: PanelCardStub,
+          'el-segmented': ElSegmentedStub
+        }
+      }
+    });
+
+    const activeButton = wrapper.find('[data-testid="trend-series-focus-S1_ZT_1_battery_dump_energy"]');
+    expect(activeButton.exists()).toBe(true);
+    expect(activeButton.classes()).toContain('trend-group__focus-button--active');
+
+    await wrapper.find('[data-testid="trend-series-focus-S1_ZT_1_sensor_state_L4_NW_1"]').trigger('click');
+
+    expect(wrapper.emitted('select-series')).toEqual([
+      [{
+        groupKey: 'status',
+        groupTitle: 'runtime-status',
+        identifier: 'S1_ZT_1.sensor_state.L4_NW_1',
+        displayName: 'sensor-state'
+      }]
+    ]);
   });
 
   it('renders empty guidance when there are no grouped trend series', () => {

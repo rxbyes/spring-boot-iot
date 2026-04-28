@@ -321,10 +321,10 @@ const MetricCardStub = defineComponent({
 
 const TrendPanelStub = defineComponent({
   name: 'TrendPanelStub',
-  props: ['groups', 'rangeCode', 'emptyMessage'],
-  emits: ['change-range'],
-  template: `
-    <section class="trend-panel-stub">
+  props: ['groups', 'rangeCode', 'emptyMessage', 'activeIdentifier'],
+  emits: ['change-range', 'select-series'],
+  template:     `
+    <section class="trend-panel-stub" :data-active-identifier="activeIdentifier">
       <div>属性趋势预览</div>
       <div>{{ rangeCode }}</div>
       <button data-testid="trend-panel-range-1d" type="button" @click="$emit('change-range', '1d')">近一天</button>
@@ -332,7 +332,16 @@ const TrendPanelStub = defineComponent({
       <div v-if="!groups?.length" class="trend-panel-stub__empty">{{ emptyMessage }}</div>
       <div v-for="group in groups" :key="group.title">
         <div>{{ group.title }}</div>
-        <div v-for="series in group.series" :key="series.identifier">{{ series.displayName }}</div>
+        <div v-for="series in group.series" :key="series.identifier" class="trend-panel-stub__series-row">
+          <button
+            type="button"
+            class="trend-panel-stub__series"
+            :data-testid="'trend-panel-series-' + String(series.identifier).replace(/[^0-9A-Za-z]+/g, '_')"
+            @click="$emit('select-series', { groupKey: group.key, groupTitle: group.title, identifier: series.identifier, displayName: series.displayName })"
+          >
+            {{ series.displayName }}
+          </button>
+        </div>
       </div>
     </section>
   `
@@ -463,6 +472,16 @@ function flushPromises() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function mountView() {
   return shallowMount(DeviceInsightView, {
     global: {
@@ -505,7 +524,47 @@ describe('DeviceInsightView', () => {
 
     expect(getDeviceByCode).not.toHaveBeenCalled();
     expect(getTelemetryHistoryBatch).not.toHaveBeenCalled();
+    expect(wrapper.find('.insight-state-card').exists()).toBe(true);
     expect(wrapper.text()).toContain('请输入设备编码后开始综合分析');
+    expect(wrapper.text()).toContain('基础档案');
+    expect(wrapper.text()).toContain('属性快照');
+  });
+
+  it('shows a loading entry state while the first insight request is still pending', async () => {
+    const pendingDevice = createDeferred<any>();
+    vi.mocked(getDeviceByCode).mockImplementationOnce(() => pendingDevice.promise);
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.find('.insight-state-card--loading').exists()).toBe(true);
+    expect(wrapper.text()).toContain('分析进行中');
+    expect(wrapper.text()).toContain('正在整理 SK00EB0D1308313 的洞察线索');
+    expect(wrapper.find('.insight-state-card__pulse').exists()).toBe(true);
+
+    pendingDevice.resolve({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 2001,
+        productId: 501,
+        deviceCode: 'SK00EB0D1308313',
+        deviceName: '泥水位监测设备',
+        productName: '宏观现象监测设备泥水位',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json',
+        lastOnlineTime: '2026-04-08 10:00:00',
+        lastReportTime: '2026-04-08 10:05:00',
+        firmwareVersion: '1.0.0',
+        address: '测试沟道'
+      }
+    });
+
+    await flushPromises();
   });
 
   it('auto-loads single-device insight when device workbench passes deviceCode', async () => {
@@ -529,6 +588,8 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('基础档案信息');
     expect(wrapper.text()).toContain('设备基础档案');
     expect(wrapper.text()).toContain('风险上下文档案');
+    expect(wrapper.findAll('.insight-fact-row').length).toBeGreaterThan(0);
+    expect(wrapper.find('.insight-analysis-lead').exists()).toBe(true);
     expect(wrapper.text()).not.toContain('核心指标');
     expect(wrapper.text()).toContain('泥水位高程');
     expect(wrapper.text()).toContain('传感器在线状态');
@@ -536,15 +597,195 @@ describe('DeviceInsightView', () => {
     expect(wrapper.text()).toContain('属性趋势预览');
     expect(
       wrapper
-        .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__value')
+        .findAll('.standard-table-text-column-stub[data-label="属性"] .standard-table-text-column-stub__value')
         .map((node) => node.text().trim())
         .filter(Boolean)
     ).toEqual(['泥水位高程', '传感器在线状态', '剩余电量']);
     expect(wrapper.find('.snapshot-workbench__header').exists()).toBe(true);
+    expect(wrapper.find('.snapshot-workbench__focus').exists()).toBe(true);
     expect(wrapper.findAll('.snapshot-workbench__pill').length).toBeGreaterThanOrEqual(3);
+    expect(wrapper.find('.runtime-insight-bridge__header').exists()).toBe(true);
+    expect(wrapper.findAll('.runtime-insight-bridge__pill').length).toBeGreaterThanOrEqual(3);
+    expect(wrapper.find('.runtime-insight-bridge__sequence').exists()).toBe(true);
+    expect(wrapper.findAll('.snapshot-reading-cell').length).toBeGreaterThan(0);
+    expect(wrapper.findAll('.snapshot-origin-cell').length).toBeGreaterThan(0);
     expect(wrapper.findAll('.snapshot-action-cell').length).toBeGreaterThan(0);
     expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
+  });
+
+  it('links the selected trend series back to snapshot focus and diagnosis conclusion', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'status',
+      groupTitle: '状态数据',
+      identifier: 'S1_ZT_1.battery_dump_energy',
+      displayName: '剩余电量'
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.trend-panel-stub').attributes('data-active-identifier')).toContain('S1_ZT_1.battery_dump_energy');
+    expect(wrapper.find('[data-testid="snapshot-focus-S1_ZT_1_battery_dump_energy"]').exists()).toBe(true);
+    expect(wrapper.find('.runtime-diagnosis-strip').exists()).toBe(true);
+    expect(wrapper.find('.runtime-diagnosis-strip').text()).toContain('剩余电量');
+    expect(wrapper.text()).toContain('当前趋势正在看这里');
+  });
+
+  it('routes the diagnosis conclusion primary action to formal contract governance when the focused metric hits a formal field', async () => {
+    mockRoute.query = {
+      deviceCode: 'SK00EB0D1308313'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'measure',
+      groupTitle: '监测数据',
+      identifier: 'L4_NW_1',
+      displayName: '泥水位高程'
+    });
+    await flushPromises();
+
+    const actionButton = wrapper.find('[data-testid="runtime-diagnosis-primary-action"]');
+    expect(actionButton.exists()).toBe(true);
+
+    await actionButton.trigger('click');
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products/501/contracts',
+      query: {
+        modelIdentifier: 'L4_NW_1',
+        renameModel: '1',
+        source: 'insight'
+      }
+    });
+  });
+
+  it('routes the diagnosis conclusion primary action to runtime governance when the focused metric has no formal field', async () => {
+    vi.mocked(getDeviceByCode).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 9201,
+        productId: 902,
+        deviceCode: 'RUNTIME-ONLY-001',
+        deviceName: '运行态设备',
+        productName: '运行态设备',
+        onlineStatus: 1,
+        protocolCode: 'mqtt-json'
+      }
+    });
+    vi.mocked(getDeviceProperties).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: [
+        {
+          identifier: 'S1_ZT_1.humidity',
+          propertyName: '湿度',
+          propertyValue: '65',
+          valueType: 'double',
+          updateTime: '2026-04-10 10:05:00'
+        }
+      ]
+    });
+    vi.mocked(productApi.getProductById).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        id: 902,
+        productKey: 'runtime-govern-device',
+        productName: '运行态设备',
+        protocolCode: 'mqtt-json',
+        nodeType: 1,
+        metadataJson: JSON.stringify({
+          objectInsight: {
+            customMetrics: [
+              {
+                identifier: 'S1_ZT_1.humidity',
+                displayName: '湿度',
+                enabled: true,
+                includeInTrend: true,
+                unit: '%',
+                group: 'measure'
+              }
+            ]
+          }
+        })
+      }
+    });
+    vi.mocked(productApi.listProductModels).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: []
+    });
+    vi.mocked(getRiskMonitoringList).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        total: 0,
+        pageNum: 1,
+        pageSize: 10,
+        records: []
+      }
+    });
+    vi.mocked(getTelemetryHistoryBatch).mockResolvedValueOnce({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: 9201,
+        rangeCode: '1d',
+        bucket: 'hour',
+        points: [
+          {
+            identifier: 'S1_ZT_1.humidity',
+            displayName: '湿度',
+            seriesType: 'measure',
+            buckets: [{ time: '2026-04-10 10:00:00', value: 65, filled: false }]
+          }
+        ]
+      }
+    });
+    mockRoute.query = {
+      deviceCode: 'RUNTIME-ONLY-001'
+    };
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await flushPromises();
+
+    wrapper.findComponent({ name: 'TrendPanelStub' }).vm.$emit('select-series', {
+      groupKey: 'measure',
+      groupTitle: '监测数据',
+      identifier: 'S1_ZT_1.humidity',
+      displayName: '湿度'
+    });
+    await flushPromises();
+
+    const actionButton = wrapper.find('[data-testid="runtime-diagnosis-primary-action"]');
+    expect(actionButton.exists()).toBe(true);
+
+    await actionButton.trigger('click');
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/products/902/mapping-rules',
+      query: {
+        rawIdentifier: 'S1_ZT_1.humidity',
+        scope: 'PRODUCT',
+        source: 'insight'
+      }
+    });
   });
 
   it('renders collector child aggregate panel without merging child metrics into collector snapshot', async () => {
@@ -651,6 +892,8 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
+    expect(wrapper.find('.collector-insight-bridge__header').exists()).toBe(true);
+    expect(wrapper.findAll('.collector-insight-bridge__pill').length).toBeGreaterThanOrEqual(2);
     expect(getCollectorChildInsightOverview).toHaveBeenCalledWith('SK00EA0D1307988');
     expect(wrapper.text()).toContain('子设备总览');
     expect(wrapper.text()).toContain('L1_LF_1');
@@ -869,6 +1112,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
+    expect(wrapper.find('.collector-insight-bridge__notice').exists()).toBe(true);
     expect(wrapper.text()).toContain('建议优先纳入对象洞察');
     expect(wrapper.text()).toContain('1# 激光测点');
     expect(wrapper.text()).toContain('激光测距值');
@@ -884,11 +1128,10 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
-    const unitColumn = wrapper.find('[data-label="单位"]');
-    expect(unitColumn.exists()).toBe(true);
-    expect(unitColumn.text()).toContain('单位');
-    expect(unitColumn.text()).toContain('m');
-    expect(unitColumn.text()).toContain('%');
+    const readingColumn = wrapper.find('[data-label="当前读数"]');
+    expect(readingColumn.exists()).toBe(true);
+    expect(readingColumn.text()).toContain('单位 m');
+    expect(readingColumn.text()).toContain('单位 %');
     expect(productApi.listProductModels).toHaveBeenCalledWith(501);
   });
 
@@ -1964,7 +2207,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
-    const displayNameColumn = wrapper.find('[data-label="属性名称"]');
+    const displayNameColumn = wrapper.find('[data-label="属性"]');
 
     expect(displayNameColumn.exists()).toBe(true);
     expect(displayNameColumn.text()).toContain('激光测距值');
@@ -2081,7 +2324,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
     await flushPromises();
 
-    const displayNameColumn = wrapper.find('[data-label="属性名称"]');
+    const displayNameColumn = wrapper.find('[data-label="属性"]');
 
     expect(displayNameColumn.exists()).toBe(true);
     expect(displayNameColumn.text()).toContain('现场信号读数');
@@ -2970,11 +3213,11 @@ describe('DeviceInsightView', () => {
     await flushPromises();
 
     const identifierValues = wrapper
-      .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__secondary')
+      .findAll('.standard-table-text-column-stub[data-label="属性"] .standard-table-text-column-stub__secondary')
       .map((node) => node.text().trim())
       .filter(Boolean);
     const displayNameValues = wrapper
-      .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__value')
+      .findAll('.standard-table-text-column-stub[data-label="属性"] .standard-table-text-column-stub__value')
       .map((node) => node.text().trim())
       .filter(Boolean);
 
@@ -3069,7 +3312,7 @@ describe('DeviceInsightView', () => {
     await flushPromises();
 
     const identifierValues = wrapper
-      .findAll('.standard-table-text-column-stub[data-label="属性名称"] .standard-table-text-column-stub__secondary')
+      .findAll('.standard-table-text-column-stub[data-label="属性"] .standard-table-text-column-stub__secondary')
       .map((node) => node.text().trim())
       .filter(Boolean);
 
