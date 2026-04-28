@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRequestError } from '@/api/request'
 import DeviceWorkbenchView from '@/views/DeviceWorkbenchView.vue'
 
-const { mockRoute, mockRouter, mockPageDevices, mockPermissions } = vi.hoisted(() => ({
+const { mockRoute, mockRouter, mockPageDevices, mockExportDevices, mockGetDeviceThresholds, mockPermissions, mockDownloadRowsAsCsv } = vi.hoisted(() => ({
   mockRoute: {
     path: '/devices',
     query: {} as Record<string, unknown>
@@ -18,13 +18,16 @@ const { mockRoute, mockRouter, mockPageDevices, mockPermissions } = vi.hoisted((
     push: vi.fn()
   },
   mockPageDevices: vi.fn(),
+  mockExportDevices: vi.fn(),
+  mockGetDeviceThresholds: vi.fn(),
   mockPermissions: new Set<string>([
     'iot:devices:add',
     'iot:devices:update',
     'iot:devices:delete',
     'iot:devices:export',
     'iot:devices:replace'
-  ])
+  ]),
+  mockDownloadRowsAsCsv: vi.fn()
 }))
 
 function setMockPermissions(...permissions: string[]) {
@@ -40,6 +43,8 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/device', () => ({
   deviceApi: {
     pageDevices: mockPageDevices,
+    exportDevices: mockExportDevices,
+    getDeviceThresholds: mockGetDeviceThresholds,
     listDeviceOptions: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: [] }),
     getDeviceById: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     getDeviceCapabilities: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
@@ -54,6 +59,10 @@ vi.mock('@/api/device', () => ({
     updateDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null }),
     addDevice: vi.fn().mockResolvedValue({ code: 200, msg: 'success', data: null })
   }
+}))
+
+vi.mock('@/utils/csv', () => ({
+  downloadRowsAsCsv: mockDownloadRowsAsCsv
 }))
 
 vi.mock('@/api/accessError', () => ({
@@ -290,6 +299,12 @@ const DeviceOnboardingSuggestionDrawerStub = defineComponent({
   `
 })
 
+const DeviceThresholdDrawerStub = defineComponent({
+  name: 'DeviceThresholdDrawer',
+  props: ['modelValue', 'loading', 'errorMessage', 'overview'],
+  template: '<section class="device-threshold-drawer-stub" />'
+})
+
 const ElTableStub = defineComponent({
   name: 'ElTable',
   methods: {
@@ -352,6 +367,7 @@ function mountView() {
         StandardTableToolbar: StandardTableToolbarStub,
         StandardDetailDrawer: StandardDetailDrawerStub,
         DeviceCapabilityWorkbenchDrawer: DeviceCapabilityWorkbenchDrawerStub,
+        DeviceThresholdDrawer: DeviceThresholdDrawerStub,
         DeviceOnboardingSuggestionDrawer: DeviceOnboardingSuggestionDrawerStub,
         StandardFormDrawer: StandardFormDrawerStub,
         ElTable: ElTableStub,
@@ -377,6 +393,9 @@ describe('DeviceWorkbenchView', () => {
     mockRouter.replace.mockResolvedValue(undefined)
     mockRouter.push.mockResolvedValue(undefined)
     mockPageDevices.mockReset()
+    mockExportDevices.mockReset()
+    mockGetDeviceThresholds.mockReset()
+    mockDownloadRowsAsCsv.mockReset()
     mockPageDevices.mockResolvedValue({
       code: 200,
       msg: 'success',
@@ -385,6 +404,25 @@ describe('DeviceWorkbenchView', () => {
         pageNum: 1,
         pageSize: 10,
         records: []
+      }
+    })
+    mockExportDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: []
+    })
+    mockGetDeviceThresholds.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '0',
+        deviceCode: '',
+        deviceName: '',
+        productId: '',
+        productName: '',
+        matchedMetricCount: 0,
+        missingMetricCount: 0,
+        items: []
       }
     })
     installSessionStorageMock()
@@ -949,7 +987,12 @@ describe('DeviceWorkbenchView', () => {
         '详情',
         '编辑'
       ])
-    expect(((cardRowActions?.props('menuItems') as Array<unknown>) || []).length).toBe(3)
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toEqual([
+      '查看设备阈值',
+      '更换',
+      '洞察',
+      '删除'
+    ])
 
     const actionColumn = wrapper
       .findAllComponents(ElTableColumnStub)
@@ -988,6 +1031,94 @@ describe('DeviceWorkbenchView', () => {
 
     expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain(
       '设备操作'
+    )
+  })
+
+  it('shows threshold action for registered rows and opens the drawer with backend data', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).tableData = [
+      {
+        id: '8001',
+        deviceCode: 'crack-device-01',
+        deviceName: '北坡裂缝设备 01',
+        productName: '裂缝监测产品',
+        registrationStatus: 1,
+        onlineStatus: 1,
+        activateStatus: 1,
+        deviceStatus: 1,
+        nodeType: 1
+      }
+    ]
+    mockGetDeviceThresholds.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        deviceId: '8001',
+        deviceCode: 'crack-device-01',
+        deviceName: '北坡裂缝设备 01',
+        productId: '1001',
+        productName: '裂缝监测产品',
+        matchedMetricCount: 1,
+        missingMetricCount: 0,
+        items: []
+      }
+    })
+    await nextTick()
+
+    const rowActions = wrapper.findAllComponents(StandardWorkbenchRowActionsStub)
+    const cardRowActions = rowActions.find((component) => component.props('variant') === 'card')
+    expect(((cardRowActions?.props('menuItems') as Array<{ label: string }>) || []).map((item) => item.label)).toContain(
+      '查看设备阈值'
+    )
+
+    await (wrapper.vm as any).handleRowAction('threshold', (wrapper.vm as any).tableData[0])
+    await flushPromises()
+    await nextTick()
+
+    expect(mockGetDeviceThresholds).toHaveBeenCalledWith('8001')
+    const thresholdDrawer = wrapper.findComponent(DeviceThresholdDrawerStub)
+    expect(thresholdDrawer.props('modelValue')).toBe(true)
+    expect((thresholdDrawer.props('overview') as Record<string, unknown>).deviceCode).toBe('crack-device-01')
+  })
+
+  it('exports the applied search result set through the backend endpoint instead of tableData', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await nextTick()
+
+    ;(wrapper.vm as any).appliedFilters.keyword = 'north-slope'
+    ;(wrapper.vm as any).appliedFilters.registrationStatus = 1
+    mockExportDevices.mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: [
+        { id: '1', deviceCode: 'north-01', deviceName: '北坡 01', registrationStatus: 1 },
+        { id: '2', deviceCode: 'north-02', deviceName: '北坡 02', registrationStatus: 1 }
+      ]
+    })
+
+    await (wrapper.vm as any).handleToolbarAction('export-search')
+    await flushPromises()
+
+    expect(mockExportDevices).toHaveBeenCalledWith({
+      deviceId: undefined,
+      keyword: 'north-slope',
+      productKey: undefined,
+      productName: undefined,
+      deviceCode: undefined,
+      deviceName: undefined,
+      onlineStatus: undefined,
+      activateStatus: undefined,
+      deviceStatus: undefined,
+      registrationStatus: 1
+    })
+    expect(mockDownloadRowsAsCsv).toHaveBeenCalledWith(
+      '设备资产中心-搜索结果.csv',
+      expect.arrayContaining([expect.objectContaining({ deviceCode: 'north-01' }), expect.objectContaining({ deviceCode: 'north-02' })]),
+      expect.any(Array)
     )
   })
 
@@ -1030,9 +1161,11 @@ describe('DeviceWorkbenchView', () => {
 
     expect(source).toContain('standard-list-surface')
     expect(source).toContain('standard-mobile-record-grid')
-    expect(source).toContain('secondary-prop="deviceCode"')
-    expect(source).toContain('label="设备"')
-    expect(source).not.toContain('<StandardTableTextColumn prop="deviceCode" label="设备编码"')
+    expect(source).toContain('label="设备名称"')
+    expect(source).toContain('label="设备编号"')
+    expect(source).not.toContain('secondary-prop="deviceCode"')
+    expect(source).not.toContain('label="接入协议" :width="120"')
+    expect(source).not.toContain('standard-mobile-record-card__field-label">接入协议')
     expect(source).not.toContain('gap="compact"')
     expect(source).not.toContain("gap: 'compact'")
     expect(source).toContain('已登记 ${registeredCount} 台')
@@ -1044,8 +1177,10 @@ describe('DeviceWorkbenchView', () => {
 
     expect(source).toContain("from '@/components/device/DeviceDetailWorkbench.vue'")
     expect(source).toContain("from '@/components/device/DeviceCapabilityWorkbenchDrawer.vue'")
+    expect(source).toContain("from '@/components/device/DeviceThresholdDrawer.vue'")
     expect(source).toContain('<DeviceDetailWorkbench')
     expect(source).toContain('<DeviceCapabilityWorkbenchDrawer')
+    expect(source).toContain('<DeviceThresholdDrawer')
     expect(source).toContain(':device="detailData"')
     expect(source).toContain(':device="capabilityDevice"')
     expect(source).toContain('formatDeviceReportTime')

@@ -15,6 +15,7 @@ import type {
   DeviceCapabilityOverview,
   DeviceMessageLog,
   DeviceOnboardingSuggestion,
+  DeviceThresholdOverview,
   MessageFlowSubmitResult,
   DeviceRelation,
   DeviceRelationUpsertPayload,
@@ -97,6 +98,17 @@ export function pageDevices(
 ): Promise<ApiEnvelope<PageResult<Device>>> {
   const query = buildQuery(params)
   return request<PageResult<Device>>(`/api/device/page${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    ...options
+  })
+}
+
+export function exportDevices(
+  params: DevicePageQueryParams = {},
+  options: DeviceRequestOptions = {}
+): Promise<ApiEnvelope<Device[]>> {
+  const query = buildQuery(params)
+  return request<Device[]>(`/api/device/export${query ? `?${query}` : ''}`, {
     method: 'GET',
     ...options
   })
@@ -207,6 +219,16 @@ export function pageDeviceCommands(
   return request<PageResult<CommandRecordPageItem>>(`/api/device/${deviceCode}/commands${query ? `?${query}` : ''}`)
 }
 
+export function getDeviceThresholds(
+  deviceId: IdType,
+  options: DeviceRequestOptions = {}
+): Promise<ApiEnvelope<DeviceThresholdOverview>> {
+  return request<DeviceThresholdOverview>(`/api/device/${deviceId}/thresholds`, {
+    method: 'GET',
+    ...options
+  })
+}
+
 export const deviceApi = {
   addDevice,
   getDeviceById,
@@ -214,6 +236,7 @@ export const deviceApi = {
   batchActivateOnboardingSuggestions,
   getDeviceByCode,
   pageDevices,
+  exportDevices,
   updateDevice,
   batchAddDevices,
   replaceDevice,
@@ -229,5 +252,6 @@ export const deviceApi = {
   createDeviceRelation,
   getDeviceCapabilities,
   executeDeviceCapability,
-  pageDeviceCommands
+  pageDeviceCommands,
+  getDeviceThresholds
 }

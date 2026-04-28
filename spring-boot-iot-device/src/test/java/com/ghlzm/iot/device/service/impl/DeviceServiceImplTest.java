@@ -448,6 +448,77 @@ class DeviceServiceImplTest {
     }
 
     @Test
+    void exportDevicesShouldReturnAllCombinedRowsMatchingCurrentFilters() {
+        Device registered = new Device();
+        registered.setId(2001L);
+        registered.setProductId(1001L);
+        registered.setDeviceCode("registered-a");
+        registered.setDeviceName("Registered A");
+
+        Product product = new Product();
+        product.setId(1001L);
+        product.setProductKey("monitor-product");
+        product.setProductName("North Slope Product");
+        when(productService.listByIds(List.of(1001L))).thenReturn(List.of(product));
+
+        Page<Device> registeredPage = new Page<>(1, 5000);
+        registeredPage.setTotal(1L);
+        registeredPage.setRecords(List.of(registered));
+        doReturn(1L).when(deviceService).count(any());
+        doReturn(registeredPage).when(deviceService).page(any(Page.class), any());
+
+        DevicePageVO unregistered = new DevicePageVO();
+        unregistered.setDeviceCode("shadow-device-01");
+        unregistered.setDeviceName("Shadow Device");
+        unregistered.setRegistrationStatus(0);
+        when(unregisteredDeviceRosterService.countByFilters(null, null, null, null))
+                .thenReturn(1L);
+        when(unregisteredDeviceRosterService.listByFilters(null, null, null, null, 0L, 1L))
+                .thenReturn(List.of(unregistered));
+
+        List<DevicePageVO> result = deviceService.exportDevices(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertEquals(
+                List.of("registered-a", "shadow-device-01"),
+                result.stream().map(DevicePageVO::getDeviceCode).toList()
+        );
+        assertEquals(List.of(1, 0), result.stream().map(DevicePageVO::getRegistrationStatus).toList());
+    }
+
+    @Test
+    void exportDevicesShouldRejectOversizedResultSet() {
+        doReturn(5001L).when(deviceService).count(any());
+
+        BizException error = assertThrows(BizException.class, () -> deviceService.exportDevices(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1
+        ));
+
+        assertEquals("当前筛选命中 5001 台设备，超过单次导出上限 5000，请继续缩小筛选范围后重试", error.getMessage());
+    }
+
+    @Test
     void getOnboardingSuggestionShouldDelegateWithScopedTenant() {
         when(permissionService.getDataPermissionContext(101L))
                 .thenReturn(new DataPermissionContext(101L, 8L, null, DataScopeType.TENANT, false));

@@ -123,6 +123,33 @@ public class DeviceController {
         ));
     }
 
+    @GetMapping("/api/device/export")
+    public R<List<DevicePageVO>> export(@RequestParam(required = false) Long deviceId,
+                                        @RequestParam(required = false) String keyword,
+                                        @RequestParam(required = false) String productKey,
+                                        @RequestParam(required = false) String productName,
+                                        @RequestParam(required = false) String deviceCode,
+                                        @RequestParam(required = false) String deviceName,
+                                        @RequestParam(required = false) Integer onlineStatus,
+                                        @RequestParam(required = false) Integer activateStatus,
+                                        @RequestParam(required = false) Integer deviceStatus,
+                                        @RequestParam(required = false) Integer registrationStatus,
+                                        Authentication authentication) {
+        return R.ok(deviceService.exportDevices(
+                requireCurrentUserId(authentication),
+                deviceId,
+                keyword,
+                productKey,
+                productName,
+                deviceCode,
+                deviceName,
+                onlineStatus,
+                activateStatus,
+                deviceStatus,
+                registrationStatus
+        ));
+    }
+
     @GetMapping("/api/device/onboarding/suggestion")
     public R<DeviceOnboardingSuggestionVO> getOnboardingSuggestion(@Valid DeviceOnboardingSuggestionQuery query,
                                                                    Authentication authentication) {

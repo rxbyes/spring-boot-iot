@@ -234,10 +234,6 @@
                     <strong class="standard-mobile-record-card__field-value">{{ formatDeviceRelationValue(row.gatewayDeviceName, row.gatewayDeviceCode) }}</strong>
                   </div>
                   <div class="device-mobile-card__field">
-                    <span class="standard-mobile-record-card__field-label">接入协议</span>
-                    <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.protocolCode) }}</strong>
-                  </div>
-                  <div class="device-mobile-card__field">
                     <span class="standard-mobile-record-card__field-label">固件版本</span>
                     <strong class="standard-mobile-record-card__field-value">{{ formatTextValue(row.firmwareVersion) }}</strong>
                   </div>
@@ -266,12 +262,8 @@
 
           <el-table ref="tableRef" class="device-desktop-table" :data="tableData" border stripe @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="48" :selectable="isSelectableDeviceRow" />
-            <StandardTableTextColumn
-              prop="deviceName"
-              label="设备"
-              :min-width="200"
-              secondary-prop="deviceCode"
-            />
+            <StandardTableTextColumn prop="deviceName" label="设备名称" :min-width="180" />
+            <StandardTableTextColumn prop="deviceCode" label="设备编号" :min-width="180" />
             <StandardTableTextColumn prop="registrationStatus" label="登记状态" :width="110">
               <template #default="{ row }">
                 <el-tag :type="row.registrationStatus === 1 ? 'success' : 'warning'" round>{{ getRegistrationStatusText(row.registrationStatus) }}</el-tag>
@@ -280,7 +272,6 @@
             <StandardTableTextColumn prop="productKey" label="产品 Key" :min-width="160" />
             <StandardTableTextColumn prop="productName" label="产品名称" :min-width="160" />
             <StandardTableTextColumn prop="orgName" label="所属机构" :min-width="160" />
-            <StandardTableTextColumn prop="protocolCode" label="接入协议" :width="120" />
             <el-table-column prop="onlineStatus" label="在线状态" width="100">
               <template #default="{ row }">
                 <el-tag :type="getOnlineStatusTagType(row.onlineStatus)" round>{{ getOnlineStatusText(row.onlineStatus) }}</el-tag>
@@ -379,6 +370,13 @@
         </StandardDrawerFooter>
       </template>
     </StandardDetailDrawer>
+
+    <DeviceThresholdDrawer
+      v-model="thresholdVisible"
+      :overview="thresholdOverview"
+      :loading="thresholdLoading"
+      :error-message="thresholdErrorMessage"
+    />
 
     <DeviceCapabilityWorkbenchDrawer
       v-model="capabilityVisible"
@@ -631,6 +629,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules, type TableInstance } from 'element-plus'
 import CsvColumnSettingDialog from '@/components/CsvColumnSettingDialog.vue'
 import DeviceDetailWorkbench from '@/components/device/DeviceDetailWorkbench.vue'
+import DeviceThresholdDrawer from '@/components/device/DeviceThresholdDrawer.vue'
 import DeviceCapabilityWorkbenchDrawer from '@/components/device/DeviceCapabilityWorkbenchDrawer.vue'
 import DeviceCapabilityExecuteDrawer from '@/components/device/DeviceCapabilityExecuteDrawer.vue'
 import DeviceOnboardingSuggestionDrawer from '@/components/device/DeviceOnboardingSuggestionDrawer.vue'
@@ -651,7 +650,7 @@ import StandardWorkbenchRowActions from '@/components/StandardWorkbenchRowAction
 import StandardWorkbenchPanel from '@/components/StandardWorkbenchPanel.vue'
 import { accessErrorApi } from '@/api/accessError'
 import { isHandledRequestError, resolveRequestErrorMessage } from '@/api/request'
-import { deviceApi } from '@/api/device'
+import { deviceApi, type DevicePageQueryParams } from '@/api/device'
 import { productApi } from '@/api/product'
 import { useServerPagination } from '@/composables/useServerPagination'
 import { usePermissionStore } from '@/stores/permission'
@@ -670,6 +669,7 @@ import type {
   DeviceOption,
   DeviceReplacePayload,
   DeviceReplaceResult,
+  DeviceThresholdOverview,
   Product
 } from '@/types/api'
 import {
@@ -737,7 +737,7 @@ interface DevicePageLoadOptions {
 
 interface DeviceRowAction {
   key?: string
-  command: 'replace' | 'insight' | 'delete' | 'suggestion' | 'capability'
+  command: 'threshold' | 'replace' | 'insight' | 'delete' | 'suggestion' | 'capability'
   label: string
 }
 
@@ -749,7 +749,7 @@ interface DeviceDirectAction {
 
 interface DeviceToolbarAction {
   key?: string
-  command: 'batch-activate' | 'batch-delete' | 'export-config' | 'export-selected' | 'export-current' | 'clear-selection'
+  command: 'batch-activate' | 'batch-delete' | 'export-config' | 'export-selected' | 'export-search' | 'clear-selection'
   label: string
   disabled?: boolean
   divided?: boolean
@@ -768,6 +768,7 @@ const deviceOptionsLoading = ref(false)
 const formVisible = ref(false)
 const formRefreshing = ref(false)
 const detailVisible = ref(false)
+const thresholdVisible = ref(false)
 const capabilityVisible = ref(false)
 const batchImportVisible = ref(false)
 const batchImportSubmitting = ref(false)
@@ -777,7 +778,9 @@ const replaceSubmitting = ref(false)
 const replaceRefreshing = ref(false)
 const detailLoading = ref(false)
 const detailRefreshing = ref(false)
+const thresholdLoading = ref(false)
 const detailErrorMessage = ref('')
+const thresholdErrorMessage = ref('')
 const detailRefreshErrorMessage = ref('')
 const listRefreshMessage = ref('')
 const listRefreshState = ref<'info' | 'error' | ''>('')
@@ -797,6 +800,7 @@ const selectedRows = ref<Device[]>([])
 const productOptions = ref<Product[]>([])
 const deviceOptions = ref<DeviceOption[]>([])
 const detailData = ref<Device | null>(null)
+const thresholdOverview = ref<DeviceThresholdOverview | null>(null)
 const capabilityDevice = ref<Device | null>(null)
 const capabilityOverview = ref<DeviceCapabilityOverview | null>(null)
 const commandRecords = ref<CommandRecordPageItem[]>([])
@@ -1005,9 +1009,9 @@ const deviceToolbarActions = computed<DeviceToolbarAction[]>(() => {
       disabled: selectedRows.value.length === 0
     })
     actions.push({
-      key: 'export-current',
-      command: 'export-current',
-      label: '导出当前结果',
+      key: 'export-search',
+      command: 'export-search',
+      label: '导出搜索结果',
       disabled: tableData.value.length === 0
     })
   }
@@ -1343,6 +1347,9 @@ function getDeviceRowActions(row: Device): DeviceRowAction[] {
   if (canSuggestOnboarding(row)) {
     actions.push({ key: 'suggestion', command: 'suggestion', label: '接入建议' })
   }
+  if (isRegisteredDeviceRow(row)) {
+    actions.push({ key: 'threshold', command: 'threshold', label: '查看设备阈值' })
+  }
   if (isRegisteredDeviceRow(row) && permissionStore.hasPermission('iot:device-capability:view')) {
     actions.push({ key: 'capability', command: 'capability', label: '设备操作' })
   }
@@ -1586,12 +1593,50 @@ function getResolvedExportColumns() {
   return resolveCsvColumns(exportColumns, selectedExportColumnKeys.value)
 }
 
+function buildAppliedExportFilters(): DevicePageQueryParams {
+  const deviceId = appliedFilters.deviceId.trim()
+  const keyword = appliedFilters.keyword.trim()
+  const productKey = appliedFilters.productKey.trim()
+  const productName = appliedFilters.productName.trim()
+  const deviceCode = appliedFilters.deviceCode.trim()
+  const deviceName = appliedFilters.deviceName.trim()
+  return {
+    deviceId: deviceId || undefined,
+    keyword: keyword || undefined,
+    productKey: productKey || undefined,
+    productName: productName || undefined,
+    deviceCode: deviceCode || undefined,
+    deviceName: deviceName || undefined,
+    onlineStatus: appliedFilters.onlineStatus,
+    activateStatus: appliedFilters.activateStatus,
+    deviceStatus: appliedFilters.deviceStatus,
+    registrationStatus: appliedFilters.registrationStatus
+  }
+}
+
 function handleExportSelected() {
   downloadRowsAsCsv('设备资产中心-选中项.csv', selectedRows.value, getResolvedExportColumns())
 }
 
-function handleExportCurrent() {
-  downloadRowsAsCsv('设备资产中心-当前结果.csv', tableData.value, getResolvedExportColumns())
+async function handleExportSearch() {
+  try {
+    const res = await deviceApi.exportDevices(buildAppliedExportFilters())
+    const rows = res.data || []
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || '导出搜索结果失败')
+      return
+    }
+    if (rows.length === 0) {
+      ElMessage.warning('当前筛选没有可导出的设备')
+      return
+    }
+    downloadRowsAsCsv('设备资产中心-搜索结果.csv', rows, getResolvedExportColumns())
+    ElMessage.success(`已导出 ${rows.length} 台设备`)
+  } catch (error) {
+    if (!isHandledRequestError(error)) {
+      ElMessage.error(resolveRequestErrorMessage(error, '导出搜索结果失败'))
+    }
+  }
 }
 
 function handleToolbarAction(command: string | number | object) {
@@ -1608,8 +1653,8 @@ function handleToolbarAction(command: string | number | object) {
     case 'export-selected':
       handleExportSelected()
       break
-    case 'export-current':
-      handleExportCurrent()
+    case 'export-search':
+      void handleExportSearch()
       break
     case 'clear-selection':
       clearSelection()
@@ -2911,6 +2956,30 @@ async function handleOpenOnboardingSuggestion(row: Device) {
   }
 }
 
+async function handleOpenThreshold(row: Device) {
+  if (row.id === undefined || row.id === null || row.id === '') {
+    ElMessage.warning('当前设备缺少设备 ID，暂时无法查看阈值。')
+    return
+  }
+  thresholdVisible.value = true
+  thresholdLoading.value = true
+  thresholdErrorMessage.value = ''
+  thresholdOverview.value = null
+  try {
+    const res = await deviceApi.getDeviceThresholds(row.id)
+    if (res.code === 200 && res.data) {
+      thresholdOverview.value = res.data
+      return
+    }
+    thresholdErrorMessage.value = res.msg || '加载设备阈值失败'
+  } catch (error) {
+    console.error('加载设备阈值失败', error)
+    thresholdErrorMessage.value = resolveRequestErrorMessage(error, '加载设备阈值失败')
+  } finally {
+    thresholdLoading.value = false
+  }
+}
+
 function handleRowAction(command: string | number | object, row: Device) {
   if (command === 'detail') {
     handleOpenDetail(row)
@@ -2930,6 +2999,10 @@ function handleRowAction(command: string | number | object, row: Device) {
   }
   if (command === 'suggestion') {
     void handleOpenOnboardingSuggestion(row)
+    return
+  }
+  if (command === 'threshold') {
+    void handleOpenThreshold(row)
     return
   }
   if (command === 'capability') {

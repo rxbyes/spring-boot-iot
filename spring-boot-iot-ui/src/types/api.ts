@@ -1483,6 +1483,40 @@ export interface Device {
   updateTime?: string | null;
 }
 
+export interface DeviceThresholdRule {
+  ruleId?: IdType | null;
+  ruleName?: string | null;
+  ruleScope?: string | null;
+  ruleScopeText?: string | null;
+  expression?: string | null;
+  alarmLevel?: string | null;
+  sourceLabel?: string | null;
+  targetLabel?: string | null;
+  riskPointDeviceId?: IdType | null;
+}
+
+export interface DeviceThresholdMetricItem {
+  riskMetricId?: IdType | null;
+  metricIdentifier: string;
+  metricName?: string | null;
+  effectiveRules: DeviceThresholdRule[];
+  bindingRules: DeviceThresholdRule[];
+  deviceRules: DeviceThresholdRule[];
+  productRules: DeviceThresholdRule[];
+  fallbackRules: DeviceThresholdRule[];
+}
+
+export interface DeviceThresholdOverview {
+  deviceId: IdType;
+  deviceCode?: string | null;
+  deviceName?: string | null;
+  productId?: IdType | null;
+  productName?: string | null;
+  matchedMetricCount: number;
+  missingMetricCount: number;
+  items: DeviceThresholdMetricItem[];
+}
+
 export interface DeviceOnboardingSuggestion {
   traceId: string;
   deviceCode?: string | null;
