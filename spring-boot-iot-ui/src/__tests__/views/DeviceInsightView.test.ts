@@ -540,6 +540,9 @@ describe('DeviceInsightView', () => {
         .map((node) => node.text().trim())
         .filter(Boolean)
     ).toEqual(['泥水位高程', '传感器在线状态', '剩余电量']);
+    expect(wrapper.find('.snapshot-workbench__header').exists()).toBe(true);
+    expect(wrapper.findAll('.snapshot-workbench__pill').length).toBeGreaterThanOrEqual(3);
+    expect(wrapper.findAll('.snapshot-action-cell').length).toBeGreaterThan(0);
     expect(wrapper.findAll('[data-testid^="insight-range-"]')).toHaveLength(0);
     expect(wrapper.findAll('.metric-card-stub')).toHaveLength(0);
   });

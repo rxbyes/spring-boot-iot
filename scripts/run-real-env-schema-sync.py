@@ -69,6 +69,38 @@ GOVERNANCE_APPROVAL_POLICY_SEEDS = (
         "approver_mode": "FIXED_USER",
         "remark": "映射规则回滚固定复核人",
     },
+    {
+        "preferred_id": 99001009,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_CREATE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy create fixed reviewer",
+    },
+    {
+        "preferred_id": 99001010,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_BATCH_CREATE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy batch create fixed reviewer",
+    },
+    {
+        "preferred_id": 99001011,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_UPDATE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy update fixed reviewer",
+    },
+    {
+        "preferred_id": 99001012,
+        "tenant_id": 0,
+        "scope_type": "GLOBAL",
+        "action_code": "RULE_DEFINITION_DELETE",
+        "approver_mode": "FIXED_USER",
+        "remark": "threshold policy delete fixed reviewer",
+    },
 )
 
 COLLECTOR_CHILD_BASELINE_PRODUCTS = (

@@ -92,7 +92,7 @@ function mountTrend(groups: Array<Record<string, unknown>> = [], summary: Array<
 }
 
 describe('RiskInsightTrendPanel', () => {
-  it('uses the simplified trend layout without panel description or series chips', () => {
+  it('uses the simplified trend layout with lightweight toolbar pills and group summaries', () => {
     const wrapper = mountTrend([
       {
         key: 'measure',
@@ -122,6 +122,9 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.text()).toContain('状态数据');
     expect(wrapper.text()).not.toContain('支持按近一天查看设备监测数据趋势');
     expect(wrapper.findAll('.trend-group__legend-item')).toHaveLength(0);
+    expect(wrapper.find('.trend-toolbar__meta').exists()).toBe(true);
+    expect(wrapper.findAll('.trend-toolbar__pill').length).toBeGreaterThanOrEqual(2);
+    expect(wrapper.findAll('.trend-group__series-pill').length).toBe(2);
   });
 
   it('renders empty guidance when there are no grouped trend series', () => {
@@ -161,6 +164,7 @@ describe('RiskInsightTrendPanel', () => {
     expect(wrapper.text()).toContain('状态数据');
     expect(wrapper.text()).not.toContain('S1_ZT_1.sensor_state.L4_NW_1');
     expect(wrapper.findAll('.trend-group__chart').length).toBe(2);
+    expect(wrapper.findAll('.trend-group__heading').length).toBe(2);
   });
 
   it('renders status event codes as customer-readable step lines and keeps runtime parameters separate', async () => {

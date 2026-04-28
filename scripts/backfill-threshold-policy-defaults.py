@@ -138,6 +138,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--export-template-config-path", default="")
     parser.add_argument("--merge-template-confirmation-csv", default="")
     parser.add_argument("--merge-template-output-path", default="")
+    parser.add_argument("--apply-manual-decision-csv", default="")
+    parser.add_argument("--manual-decision-review-csv", default="")
+    parser.add_argument("--manual-decision-output-csv", default="")
+    parser.add_argument("--fail-on-manual-decision-pending", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -1714,6 +1718,188 @@ def render_template_manual_decision_markdown(template_draft: dict[str, Any], out
     return "\n".join(lines)
 
 
+def read_csv_rows(path: str | Path) -> tuple[list[dict[str, str]], list[str]]:
+    with Path(path).open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader), list(reader.fieldnames or [])
+
+
+def manual_decision_identity(row: dict[str, Any]) -> str:
+    return normalize_metric_identifier(row.get("semanticTemplateKey"))
+
+
+def merge_manual_decision_rows(manual_rows: list[dict[str, str]],
+                               review_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    merged = [dict(row) for row in review_rows]
+    review_index = {
+        manual_decision_identity(row): index
+        for index, row in enumerate(merged)
+        if manual_decision_identity(row)
+    }
+    invalid_rows: list[dict[str, Any]] = []
+    unmatched_rows: list[dict[str, Any]] = []
+    confirmed_count = 0
+    keep_observing_count = 0
+    pending_count = 0
+    for row_number, row in enumerate(manual_rows, start=2):
+        identity = manual_decision_identity(row)
+        if not identity or identity not in review_index:
+            unmatched_rows.append({
+                "row": row_number,
+                "semanticTemplateKey": row.get("semanticTemplateKey") or "",
+                "reason": "UNMATCHED_TEMPLATE",
+            })
+            continue
+        decision_status = str(row.get("decisionStatus") or "").strip().upper()
+        if decision_status in {"", "PENDING"}:
+            pending_count += 1
+            continue
+        review_row = merged[review_index[identity]]
+        if decision_status == "KEEP_OBSERVING":
+            review_row["expression"] = ""
+            review_row["confirmationStatus"] = "NEEDS_CONFIRMATION"
+            review_row["recommendationDecision"] = ""
+            keep_observing_count += 1
+            continue
+        if decision_status == "CONFIRMED":
+            normalized_expression = normalize_expression(row.get("businessExpression"))
+            if not is_executable_expression(normalized_expression):
+                invalid_rows.append({
+                    "row": row_number,
+                    "semanticTemplateKey": row.get("semanticTemplateKey") or "",
+                    "decisionStatus": decision_status,
+                    "businessExpression": row.get("businessExpression") or "",
+                    "reason": "INVALID_EXPRESSION",
+                })
+                continue
+            review_row["expression"] = normalized_expression or ""
+            review_row["confirmationStatus"] = "CONFIRMED"
+            review_row["recommendationDecision"] = ""
+            confirmed_count += 1
+            continue
+        invalid_rows.append({
+            "row": row_number,
+            "semanticTemplateKey": row.get("semanticTemplateKey") or "",
+            "decisionStatus": decision_status,
+            "businessExpression": row.get("businessExpression") or "",
+            "reason": "INVALID_DECISION_STATUS",
+        })
+    summary = {
+        "manualRowCount": len(manual_rows),
+        "reviewRowCount": len(review_rows),
+        "confirmedDecisionCount": confirmed_count,
+        "keepObservingDecisionCount": keep_observing_count,
+        "pendingDecisionCount": pending_count,
+        "unmatchedRowCount": len(unmatched_rows),
+        "unmatchedRows": unmatched_rows,
+        "invalidDecisionCount": len(invalid_rows),
+        "invalidDecisionRows": invalid_rows,
+    }
+    return merged, summary
+
+
+def render_manual_decision_merge_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Threshold Policy Manual Decision Merge",
+        "",
+        f"- Status: `{report.get('status')}`",
+        f"- Target Written: `{str(report.get('targetWritten')).lower()}`",
+        f"- Manual Rows: `{report.get('manualRowCount')}`",
+        f"- Confirmed Decisions: `{report.get('confirmedDecisionCount')}`",
+        f"- Keep Observing Decisions: `{report.get('keepObservingDecisionCount')}`",
+        f"- Pending Decisions: `{report.get('pendingDecisionCount')}`",
+        f"- Invalid Decisions: `{report.get('invalidDecisionCount')}`",
+        "",
+        "## Invalid Decision Rows",
+        "| Row | Semantic Key | Decision | Expression | Reason |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in report.get("invalidDecisionRows") or []:
+        lines.append(
+            f"| {row.get('row')} | {row.get('semanticTemplateKey') or '--'} | "
+            f"{row.get('decisionStatus') or '--'} | {row.get('businessExpression') or '--'} | "
+            f"{row.get('reason') or '--'} |"
+        )
+    if not report.get("invalidDecisionRows"):
+        lines.append("| -- | -- | -- | -- | -- |")
+    lines.extend([
+        "",
+        "## Unmatched Rows",
+        "| Row | Semantic Key | Reason |",
+        "| --- | --- | --- |",
+    ])
+    for row in report.get("unmatchedRows") or []:
+        lines.append(f"| {row.get('row')} | {row.get('semanticTemplateKey') or '--'} | {row.get('reason') or '--'} |")
+    if not report.get("unmatchedRows"):
+        lines.append("| -- | -- | -- |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_manual_decision_merge_report(report: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path]:
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    json_path = target_dir / f"threshold-policy-template-manual-decision-merge-{timestamp}.json"
+    md_path = target_dir / f"threshold-policy-template-manual-decision-merge-{timestamp}.md"
+    json_content = json.dumps(report, ensure_ascii=False, indent=2)
+    markdown_content = render_manual_decision_merge_markdown(report)
+    json_path.write_text(json_content, encoding="utf-8")
+    md_path.write_text(markdown_content, encoding="utf-8")
+    (target_dir / "threshold-policy-template-manual-decision-merge-latest.json").write_text(
+        json_content,
+        encoding="utf-8",
+    )
+    (target_dir / "threshold-policy-template-manual-decision-merge-latest.md").write_text(
+        markdown_content,
+        encoding="utf-8",
+    )
+    return json_path, md_path
+
+
+def resolve_manual_decision_merge_status(summary: dict[str, Any]) -> str:
+    if summary["invalidDecisionCount"] > 0:
+        return "FAILED"
+    if summary["pendingDecisionCount"] > 0:
+        return "PENDING_MANUAL_DECISION"
+    if summary["keepObservingDecisionCount"] > 0:
+        return "OBSERVATION_CONTINUES"
+    if summary["unmatchedRowCount"] > 0:
+        return "WARNING"
+    return "READY_FOR_CONFIRMATION"
+
+
+def write_manual_decision_review_csv(manual_csv_path: str | Path,
+                                     review_csv_path: str | Path,
+                                     output_csv_path: str | Path,
+                                     output_dir: str | Path) -> Path:
+    manual_rows, _ = read_csv_rows(manual_csv_path)
+    review_rows, review_headers = read_csv_rows(review_csv_path)
+    merged_rows, summary = merge_manual_decision_rows(manual_rows, review_rows)
+    target = Path(output_csv_path)
+    target_written = False
+    if summary["invalidDecisionCount"] == 0:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = review_headers or TEMPLATE_CONFIRMATION_CSV_FIELDS
+        with target.open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(merged_rows)
+        target_written = True
+    status = resolve_manual_decision_merge_status(summary)
+    report = {
+        "checkedAt": datetime.now().isoformat(timespec="seconds"),
+        "status": status,
+        "manualCsvPath": str(manual_csv_path),
+        "reviewCsvPath": str(review_csv_path),
+        "outputCsvPath": str(target),
+        "targetWritten": target_written,
+        **summary,
+    }
+    write_manual_decision_merge_report(report, output_dir)
+    return target
+
+
 def parse_report_time(value: Any) -> datetime:
     if isinstance(value, str) and value.strip():
         return datetime.fromisoformat(value.strip())
@@ -1939,6 +2125,108 @@ def write_business_closure_report(report: dict[str, Any],
         markdown_content,
         encoding="utf-8",
     )
+    return json_path, md_path
+
+
+def build_business_closure_core_report(closure: dict[str, Any], output_dir: str | Path) -> dict[str, Any]:
+    target_dir = Path(output_dir)
+    observation_count = int(closure.get("observationCount") or 0)
+    unconfirmed_count = int(closure.get("unconfirmedTemplateCount") or 0)
+    applied_count = int(closure.get("appliedCount") or 0)
+    if observation_count > 0:
+        stage = "MANUAL_DECISION_REQUIRED"
+        next_action = "Fill manual decision CSV with CONFIRMED expressions or KEEP_OBSERVING decisions."
+        next_command = (
+            "python scripts\\backfill-threshold-policy-defaults.py "
+            "--apply-manual-decision-csv=logs\\acceptance\\threshold-policy-template-manual-decision-latest.csv "
+            "--manual-decision-review-csv=logs\\acceptance\\threshold-policy-template-review-latest.csv "
+            "--manual-decision-output-csv=logs\\acceptance\\threshold-policy-template-review-final-latest.csv "
+            "--output-dir=logs\\acceptance --fail-on-manual-decision-pending"
+        )
+    elif unconfirmed_count > 0:
+        stage = "CONFIRMED_CONFIG_REQUIRED"
+        next_action = "Merge final review CSV into confirmed template config."
+        next_command = (
+            "python scripts\\backfill-threshold-policy-defaults.py "
+            "--merge-template-confirmation-csv=logs\\acceptance\\threshold-policy-template-review-final-latest.csv "
+            "--config-path=config\\automation\\threshold-policy-defaults.pending.json "
+            "--merge-template-output-path=config\\automation\\threshold-policy-defaults.confirmed.json"
+        )
+    elif applied_count <= 0:
+        stage = "APPLY_REQUIRED"
+        next_action = "Run confirmed-config dry-run, then execute guarded apply with matching counts."
+        next_command = (
+            "python scripts\\backfill-threshold-policy-defaults.py "
+            "--config-path=config\\automation\\threshold-policy-defaults.confirmed.json"
+        )
+    else:
+        stage = "CLOSED"
+        next_action = "Business closure completed; continue periodic real-environment verification."
+        next_command = "python scripts\\verify-threshold-policy-real-env.py --fail-on-breaches"
+    return {
+        "checkedAt": closure.get("checkedAt"),
+        "stage": stage,
+        "closureStatus": closure.get("status"),
+        "canMergeConfirmedConfig": observation_count == 0 and unconfirmed_count > 0,
+        "canApply": observation_count == 0 and unconfirmed_count == 0 and applied_count <= 0,
+        "observationCount": observation_count,
+        "unconfirmedTemplateCount": unconfirmed_count,
+        "appliedCount": applied_count,
+        "nextAction": next_action,
+        "nextCommand": next_command,
+        "coreFiles": {
+            "manualDecisionCsv": str(target_dir / "threshold-policy-template-manual-decision-latest.csv"),
+            "reviewCsv": str(target_dir / "threshold-policy-template-review-latest.csv"),
+            "finalReviewCsv": str(target_dir / "threshold-policy-template-review-final-latest.csv"),
+            "businessClosureJson": str(target_dir / "threshold-policy-business-closure-latest.json"),
+            "businessClosureMarkdown": str(target_dir / "threshold-policy-business-closure-latest.md"),
+        },
+    }
+
+
+def render_business_closure_core_markdown(core: dict[str, Any]) -> str:
+    files = core.get("coreFiles") or {}
+    lines = [
+        "# Threshold Policy Business Closure Core",
+        "",
+        f"- Stage: `{core.get('stage')}`",
+        f"- Closure Status: `{core.get('closureStatus')}`",
+        f"- Can Merge Confirmed Config: `{str(core.get('canMergeConfirmedConfig')).lower()}`",
+        f"- Can Apply: `{str(core.get('canApply')).lower()}`",
+        f"- Observation Count: `{core.get('observationCount')}`",
+        f"- Unconfirmed Templates: `{core.get('unconfirmedTemplateCount')}`",
+        f"- Applied Count: `{core.get('appliedCount')}`",
+        f"- Next Action: `{core.get('nextAction')}`",
+        "",
+        "## Core Files",
+        f"- Manual Decision CSV: `{files.get('manualDecisionCsv')}`",
+        f"- Review CSV: `{files.get('reviewCsv')}`",
+        f"- Final Review CSV: `{files.get('finalReviewCsv')}`",
+        f"- Business Closure JSON: `{files.get('businessClosureJson')}`",
+        f"- Business Closure Markdown: `{files.get('businessClosureMarkdown')}`",
+        "",
+        "## Next Command",
+        "```powershell",
+        str(core.get("nextCommand") or ""),
+        "```",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def write_business_closure_core_report(closure: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path]:
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    json_path = target_dir / f"threshold-policy-business-closure-core-{timestamp}.json"
+    md_path = target_dir / f"threshold-policy-business-closure-core-{timestamp}.md"
+    core = build_business_closure_core_report(closure, target_dir)
+    json_content = json.dumps(core, ensure_ascii=False, indent=2)
+    markdown_content = render_business_closure_core_markdown(core)
+    json_path.write_text(json_content, encoding="utf-8")
+    md_path.write_text(markdown_content, encoding="utf-8")
+    (target_dir / "threshold-policy-business-closure-core-latest.json").write_text(json_content, encoding="utf-8")
+    (target_dir / "threshold-policy-business-closure-core-latest.md").write_text(markdown_content, encoding="utf-8")
     return json_path, md_path
 
 
@@ -2451,6 +2739,8 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
     observation_followup_md_path = target_dir / f"threshold-policy-template-observation-followup-{timestamp}.md"
     business_closure_json_path = target_dir / f"threshold-policy-business-closure-{timestamp}.json"
     business_closure_md_path = target_dir / f"threshold-policy-business-closure-{timestamp}.md"
+    business_closure_core_json_path = target_dir / f"threshold-policy-business-closure-core-{timestamp}.json"
+    business_closure_core_md_path = target_dir / f"threshold-policy-business-closure-core-{timestamp}.md"
     confirmation_package_path = target_dir / f"threshold-policy-template-confirmation-package-{timestamp}.md"
     report["templateDraft"] = {
         "jsonPath": str(draft_json_path),
@@ -2479,6 +2769,14 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
         "businessClosureMarkdownPath": str(business_closure_md_path),
         "latestBusinessClosureJsonPath": str(target_dir / "threshold-policy-business-closure-latest.json"),
         "latestBusinessClosureMarkdownPath": str(target_dir / "threshold-policy-business-closure-latest.md"),
+        "businessClosureCoreJsonPath": str(business_closure_core_json_path),
+        "businessClosureCoreMarkdownPath": str(business_closure_core_md_path),
+        "latestBusinessClosureCoreJsonPath": str(
+            target_dir / "threshold-policy-business-closure-core-latest.json"
+        ),
+        "latestBusinessClosureCoreMarkdownPath": str(
+            target_dir / "threshold-policy-business-closure-core-latest.md"
+        ),
         "confirmationPackagePath": str(confirmation_package_path),
         "latestConfirmationPackagePath": str(
             target_dir / "threshold-policy-template-confirmation-package-latest.md"
@@ -2535,6 +2833,19 @@ def write_reports(report: dict[str, Any], output_dir: str | Path) -> tuple[Path,
     )
     (target_dir / "threshold-policy-business-closure-latest.md").write_text(
         business_closure_md,
+        encoding="utf-8",
+    )
+    business_closure_core = build_business_closure_core_report(business_closure, target_dir)
+    business_closure_core_json = json.dumps(business_closure_core, ensure_ascii=False, indent=2)
+    business_closure_core_md = render_business_closure_core_markdown(business_closure_core)
+    business_closure_core_json_path.write_text(business_closure_core_json, encoding="utf-8")
+    business_closure_core_md_path.write_text(business_closure_core_md, encoding="utf-8")
+    (target_dir / "threshold-policy-business-closure-core-latest.json").write_text(
+        business_closure_core_json,
+        encoding="utf-8",
+    )
+    (target_dir / "threshold-policy-business-closure-core-latest.md").write_text(
+        business_closure_core_md,
         encoding="utf-8",
     )
     (target_dir / "threshold-policy-template-draft-latest.json").write_text(template_draft_json, encoding="utf-8")
@@ -2607,6 +2918,40 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+    if str(args.apply_manual_decision_csv or "").strip():
+        output_dir = Path(args.output_dir)
+        review_csv_path = (
+            Path(args.manual_decision_review_csv)
+            if str(args.manual_decision_review_csv or "").strip()
+            else output_dir / "threshold-policy-template-review-latest.csv"
+        )
+        output_csv_path = (
+            Path(args.manual_decision_output_csv)
+            if str(args.manual_decision_output_csv or "").strip()
+            else output_dir / "threshold-policy-template-review-final-latest.csv"
+        )
+        write_manual_decision_review_csv(
+            args.apply_manual_decision_csv,
+            review_csv_path,
+            output_csv_path,
+            output_dir,
+        )
+        report_path = output_dir / "threshold-policy-template-manual-decision-merge-latest.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        target_written = bool(report.get("targetWritten"))
+        if target_written:
+            print(f"FINAL_REVIEW_CSV_PATH={output_csv_path}")
+        else:
+            print(f"FINAL_REVIEW_CSV_PATH_NOT_WRITTEN={output_csv_path}")
+        print(f"MANUAL_DECISION_MERGE_REPORT_JSON_PATH={report_path}")
+        print(f"MANUAL_DECISION_MERGE_REPORT_MD_PATH={output_dir / 'threshold-policy-template-manual-decision-merge-latest.md'}")
+        print(f"STATUS={report['status']}")
+        print(f"TARGET_WRITTEN={str(target_written).lower()}")
+        if report["status"] == "FAILED":
+            return 1
+        if args.fail_on_manual_decision_pending and report["status"] != "READY_FOR_CONFIRMATION":
+            return 1
+        return 0
     if str(args.merge_template_confirmation_csv or "").strip():
         output_path = write_merged_template_confirmation_config(
             args.config_path,

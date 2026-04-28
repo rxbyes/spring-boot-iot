@@ -135,7 +135,11 @@ INSERT INTO sys_governance_approval_policy (
     (99001005, 0, 'GLOBAL', 'PROTOCOL_FAMILY_PUBLISH', 'FIXED_USER', 99000001, 1, '协议族定义发布固定复核人', 1, NOW(), 1, NOW(), 0),
     (99001006, 0, 'GLOBAL', 'PROTOCOL_FAMILY_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议族定义回滚固定复核人', 1, NOW(), 1, NOW(), 0),
     (99001007, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_PUBLISH', 'FIXED_USER', 99000001, 1, '协议解密档案发布固定复核人', 1, NOW(), 1, NOW(), 0),
-    (99001008, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议解密档案回滚固定复核人', 1, NOW(), 1, NOW(), 0)
+    (99001008, 0, 'GLOBAL', 'PROTOCOL_DECRYPT_PROFILE_ROLLBACK', 'FIXED_USER', 99000001, 1, '协议解密档案回滚固定复核人', 1, NOW(), 1, NOW(), 0),
+    (99001009, 0, 'GLOBAL', 'RULE_DEFINITION_CREATE', 'FIXED_USER', 99000001, 1, 'threshold policy create fixed reviewer', 1, NOW(), 1, NOW(), 0),
+    (99001010, 0, 'GLOBAL', 'RULE_DEFINITION_BATCH_CREATE', 'FIXED_USER', 99000001, 1, 'threshold policy batch create fixed reviewer', 1, NOW(), 1, NOW(), 0),
+    (99001011, 0, 'GLOBAL', 'RULE_DEFINITION_UPDATE', 'FIXED_USER', 99000001, 1, 'threshold policy update fixed reviewer', 1, NOW(), 1, NOW(), 0),
+    (99001012, 0, 'GLOBAL', 'RULE_DEFINITION_DELETE', 'FIXED_USER', 99000001, 1, 'threshold policy delete fixed reviewer', 1, NOW(), 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     approver_mode = VALUES(approver_mode),
     approver_user_id = VALUES(approver_user_id),

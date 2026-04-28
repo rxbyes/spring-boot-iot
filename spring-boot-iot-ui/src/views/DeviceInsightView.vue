@@ -63,9 +63,21 @@
               title="基础档案信息"
               description="从客户视角先确认这台设备是谁、装在哪里、归属哪个对象。"
             >
-              <div class="archive-stack">
-                <article class="archive-card">
-                  <header class="archive-card__header">
+              <div class="insight-detail-shell">
+                <section class="insight-detail-identity">
+                  <div class="insight-detail-identity__main">
+                    <strong>{{ device?.deviceName || normalizedDeviceCode || '--' }}</strong>
+                    <p>{{ device?.deviceCode || normalizedDeviceCode || '--' }} · {{ device?.productName || '--' }}</p>
+                  </div>
+                  <div class="insight-detail-identity__meta">
+                    <span class="insight-meta-pill" :class="onlineStatusClass">{{ onlineStatusLabel }}</span>
+                    <span class="insight-meta-pill">{{ objectTypeLabel }}</span>
+                  </div>
+                </section>
+
+                <div class="insight-detail-grid">
+                <article class="insight-detail-section">
+                  <header class="insight-detail-section__header">
                     <strong>设备基础档案</strong>
                     <span>设备主档</span>
                   </header>
@@ -80,8 +92,8 @@
                   </el-descriptions>
                 </article>
 
-                <article class="archive-card">
-                  <header class="archive-card__header">
+                <article class="insight-detail-section insight-detail-section--accent">
+                  <header class="insight-detail-section__header">
                     <strong>风险上下文档案</strong>
                     <span>风险运营口径</span>
                   </header>
@@ -95,6 +107,7 @@
                     </el-descriptions-item>
                   </el-descriptions>
                 </article>
+                </div>
               </div>
             </PanelCard>
 
@@ -102,11 +115,13 @@
               title="综合分析"
               description="结合监测快照、设备状态和风险上下文形成可复述结论。"
             >
-              <div class="narrative-list">
-                <article v-for="paragraph in analysisParagraphs" :key="paragraph.title" class="narrative-card">
-                  <header>
-                    <strong>{{ paragraph.title }}</strong>
-                    <span>{{ paragraph.tag }}</span>
+              <div class="insight-narrative-stack">
+                <article v-for="paragraph in analysisParagraphs" :key="paragraph.title" class="insight-narrative-item">
+                  <header class="insight-narrative-item__header">
+                    <div class="insight-narrative-item__heading">
+                      <small>{{ paragraph.tag }}</small>
+                      <strong>{{ paragraph.title }}</strong>
+                    </div>
                   </header>
                   <p>{{ paragraph.description }}</p>
                 </article>
@@ -138,8 +153,20 @@
             title="设备属性快照"
             description="展示设备当前最新运行态值；若要修改正式字段名称、单位等定义，可直接跳到产品契约页处理。"
           >
+            <div v-if="propertyTableRows.length" class="snapshot-workbench">
+              <header class="snapshot-workbench__header">
+                <div class="snapshot-workbench__heading">
+                  <strong>运行态快照</strong>
+                  <p>{{ snapshotWorkbenchCopy }}</p>
+                </div>
+                <div class="snapshot-workbench__meta">
+                  <span class="snapshot-workbench__pill">{{ propertyTableRows.length }} 条属性</span>
+                  <span class="snapshot-workbench__pill">{{ editableSnapshotCount }} 条可直达合同</span>
+                  <span class="snapshot-workbench__pill snapshot-workbench__pill--muted">{{ runtimeGovernanceSnapshotCount }} 条待补名称/单位</span>
+                </div>
+              </header>
+
             <el-table
-              v-if="propertyTableRows.length"
               :data="propertyTableRows"
               class="monitoring-snapshot-table"
               stripe
@@ -157,29 +184,35 @@
               <StandardTableTextColumn prop="displayTime" label="更新时间" :min-width="180" />
               <el-table-column label="治理操作" :min-width="180" fixed="right">
                 <template #default="{ row }">
-                  <StandardButton
-                    v-if="row.canEditFormalField"
-                    v-permission="'iot:products:update'"
-                    action="query"
-                    link
-                    :data-testid="buildPropertySnapshotEditTestId(row.formalIdentifier || row.identifier)"
-                    @click="handleEditFormalField(row)"
-                  >
-                    修改名称/单位
-                  </StandardButton>
-                  <StandardButton
-                    v-else
-                    v-permission="'iot:product-contract:govern'"
-                    action="query"
-                    link
-                    :data-testid="`promote-mapping-rule-${row.identifier}`"
-                    @click="handlePromoteToMappingRule(row)"
-                  >
-                    补名称/单位
-                  </StandardButton>
+                  <div class="snapshot-action-cell">
+                    <StandardButton
+                      v-if="row.canEditFormalField"
+                      v-permission="'iot:products:update'"
+                      action="query"
+                      link
+                      :data-testid="buildPropertySnapshotEditTestId(row.formalIdentifier || row.identifier)"
+                      @click="handleEditFormalField(row)"
+                    >
+                      修改名称/单位
+                    </StandardButton>
+                    <StandardButton
+                      v-else
+                      v-permission="'iot:product-contract:govern'"
+                      action="query"
+                      link
+                      :data-testid="`promote-mapping-rule-${row.identifier}`"
+                      @click="handlePromoteToMappingRule(row)"
+                    >
+                      补名称/单位
+                    </StandardButton>
+                    <small class="monitoring-snapshot-table__action-hint">
+                      {{ row.canEditFormalField ? '直达正式字段治理' : '进入运行态名称/单位治理' }}
+                    </small>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
+            </div>
             <div v-else class="empty-state">{{ snapshotEmptyMessage }}</div>
           </PanelCard>
         </template>
@@ -496,6 +529,27 @@ const propertyTableRows = computed<PropertySnapshotRow[]>(() => {
       canEditFormalField: Boolean(device.value?.productId && formalIdentifier)
     };
   });
+});
+
+const editableSnapshotCount = computed(() =>
+  propertyTableRows.value.filter((row) => row.canEditFormalField).length
+);
+
+const runtimeGovernanceSnapshotCount = computed(() =>
+  propertyTableRows.value.length - editableSnapshotCount.value
+);
+
+const snapshotWorkbenchCopy = computed(() => {
+  if (!propertyTableRows.value.length) {
+    return '当前设备暂无可展示的运行态快照。';
+  }
+  if (runtimeGovernanceSnapshotCount.value === 0) {
+    return '当前快照字段都已命中正式合同，可直接回到正式字段治理。';
+  }
+  if (editableSnapshotCount.value === 0) {
+    return '当前快照字段仍以运行态为主，建议优先补齐名称与单位治理。';
+  }
+  return `当前快照同时包含 ${editableSnapshotCount.value} 条正式字段和 ${runtimeGovernanceSnapshotCount.value} 条运行态字段。`;
 });
 
 watch(
@@ -1360,8 +1414,6 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 <style scoped>
 .empty-state--hero,
 .insight-hero,
-.archive-card,
-.narrative-card,
 .highlight-card,
 .insight-recommendation-banner {
   border-radius: var(--radius-lg);
@@ -1438,53 +1490,197 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   color: #d76610;
 }
 
-.archive-stack,
-.narrative-list,
+.insight-detail-shell,
+.insight-detail-grid,
+.insight-narrative-stack,
 .highlight-grid {
   display: grid;
   gap: 0.9rem;
+}
+
+.insight-detail-shell {
+  gap: 1rem;
+}
+
+.insight-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .highlight-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.archive-card,
-.narrative-card,
+.insight-detail-identity,
+.insight-detail-section,
+.insight-narrative-item,
+.highlight-card {
+  border-radius: calc(var(--radius-lg) - 0.2rem);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 88%, white);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
+}
+
+.insight-detail-identity,
+.insight-detail-section,
 .highlight-card {
   padding: 1rem;
 }
 
-.archive-stack {
-  gap: 1rem;
-}
-
-.archive-card__header,
-.narrative-card header {
+.insight-detail-identity {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.8rem;
+  gap: 1rem;
+  padding: 1rem 1.05rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 255, 0.95)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--brand) 10%, transparent), transparent 45%);
 }
 
-.archive-card__header strong,
-.narrative-card strong,
+.insight-detail-identity__main {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.insight-detail-identity__main strong,
+.insight-detail-section__header strong,
+.insight-narrative-item strong,
 .highlight-card strong {
   color: var(--text-primary);
 }
 
-.archive-card__header span,
-.narrative-card span,
+.insight-detail-identity__main p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.insight-detail-identity__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.insight-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(91, 109, 133, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.insight-detail-section {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.insight-detail-section--accent {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+}
+
+.insight-detail-section__header,
+.insight-narrative-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.insight-detail-section__header span,
+.insight-narrative-item small,
 .highlight-card span,
 .highlight-card small {
   color: var(--text-tertiary);
 }
 
-.narrative-card p {
+.insight-narrative-stack {
+  gap: 0.75rem;
+}
+
+.insight-narrative-item {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.95rem 1rem;
+  border-left: 3px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
+}
+
+.insight-narrative-item__heading {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.insight-narrative-item small {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(91, 109, 133, 0.08);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.insight-narrative-item p {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.8;
+}
+
+.snapshot-workbench {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.snapshot-workbench__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  border-radius: calc(var(--radius-lg) - 0.2rem);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 88%, white);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.92));
+}
+
+.snapshot-workbench__heading {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.snapshot-workbench__heading strong {
+  color: var(--text-primary);
+}
+
+.snapshot-workbench__heading p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.snapshot-workbench__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.snapshot-workbench__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.62rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 10%, white);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.snapshot-workbench__pill--muted {
+  background: rgba(91, 109, 133, 0.08);
 }
 
 .highlight-card {
@@ -1503,6 +1699,11 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
   text-overflow: ellipsis;
 }
 
+.snapshot-action-cell {
+  display: grid;
+  gap: 0.22rem;
+}
+
 .monitoring-snapshot-table__action-hint {
   color: var(--text-tertiary);
   font-size: 0.82rem;
@@ -1511,12 +1712,24 @@ function getRangeLabel(rangeCode: InsightRangeCode) {
 
 @media (max-width: 1024px) {
   .insight-hero,
+  .insight-detail-grid,
   .highlight-grid {
     grid-template-columns: 1fr;
   }
 
-  .insight-hero {
+  .insight-hero,
+  .insight-detail-identity {
     flex-direction: column;
+  }
+
+  .insight-detail-identity__meta {
+    justify-content: flex-start;
+  }
+
+  .snapshot-workbench__header,
+  .snapshot-workbench__meta {
+    flex-direction: column;
+    justify-content: flex-start;
   }
 }
 </style>

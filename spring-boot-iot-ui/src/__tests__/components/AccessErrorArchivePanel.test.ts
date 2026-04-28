@@ -264,13 +264,15 @@ describe('AccessErrorArchivePanel', () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain('失败态势与处理概况');
+    expect(wrapper.text()).toContain('归档摘要');
+    expect(wrapper.text()).toContain('当前归档主线索');
     expect(wrapper.text()).toContain('链路与主体台账');
     expect(wrapper.text()).toContain('异常诊断与回跳');
     expect(wrapper.text()).toContain('契约与报文快照');
     expect(wrapper.text()).toContain('建议先到链路追踪台核对失败阶段');
     expect(wrapper.text()).toContain('产品定义中心');
     expect(wrapper.text()).toContain('设备资产中心');
+    expect(wrapper.text()).not.toContain('失败态势与处理概况');
     expect(wrapper.text()).not.toContain('先看失败阶段、归档时间、设备与协议编码');
     expect(wrapper.text()).not.toContain('可回查异常观测台与链路追踪台');
   });
@@ -403,7 +405,8 @@ describe('AccessErrorArchivePanel', () => {
     expect(source).toContain('class="access-error-table-wrap standard-list-surface"');
     expect(source).toContain('<StandardWorkbenchRowActions');
     expect(source).toContain('secondary-prop="deviceCode"');
-    expect(source).toContain('label="Trace / 设备"');
+    expect(source).toContain('label="Trace / 设备编码"');
+    expect(source).toContain('access-error-detail-workbench__summary-card--primary');
     expect(source).not.toContain('<StandardTableTextColumn prop="deviceCode" label="设备编码"');
     expect(source).toContain('standard-mobile-record-grid');
     expect(source).not.toContain('menu-label="更多"');

@@ -1,18 +1,29 @@
 <template>
   <PanelCard title="属性趋势预览">
     <div class="trend-toolbar">
-      <span class="trend-toolbar__label">时间范围</span>
+      <div class="trend-toolbar__meta">
+        <span class="trend-toolbar__label">????</span>
+        <div class="trend-toolbar__stats">
+          <span class="trend-toolbar__pill">{{ rangeLabel }}</span>
+          <span v-if="activeGroups.length" class="trend-toolbar__pill trend-toolbar__pill--muted">
+            {{ activeGroups.length }} 个分组
+          </span>
+        </div>
+      </div>
       <el-segmented
         class="trend-toolbar__segmented"
         :model-value="rangeCode"
         :options="rangeOptions"
         @change="handleRangeChange"
       />
-    </div>
-    <div v-if="activeGroups.length" class="trend-groups">
+    </div><div v-if="activeGroups.length" class="trend-groups">
       <section v-for="group in activeGroups" :key="group.key" class="trend-group">
         <header class="trend-group__header">
-          <strong>{{ group.title }}</strong>
+          <div class="trend-group__heading">
+            <strong>{{ group.title }}</strong>
+            <p>{{ resolveGroupSummary(group) }}</p>
+          </div>
+          <span class="trend-group__series-pill">{{ group.series.length }} 条序列</span>
         </header>
 
         <div
@@ -110,6 +121,11 @@ const rangeOptions = INSIGHT_RANGE_OPTIONS.map((item) => ({
   value: item.value
 }));
 
+const rangeLabel = computed(() => {
+  const current = INSIGHT_RANGE_OPTIONS.find((item) => item.value === props.rangeCode);
+  return current?.label || '近一天';
+});
+
 watch(activeGroups, async () => {
   await nextTick();
   renderAllCharts();
@@ -160,6 +176,19 @@ function handleRangeChange(value: string | number | boolean) {
     return;
   }
   emit('change-range', value as InsightRangeCode);
+}
+
+function resolveGroupSummary(group: TrendGroup) {
+  if (group.description?.trim()) {
+    return group.description.trim();
+  }
+  if (isStatusEventGroup(group)) {
+    return '用于回放异常状态与变化时点。';
+  }
+  if (isRuntimeStatusGroup(group)) {
+    return '用于查看运行参数和状态辅助信号。';
+  }
+  return '用于查看监测数据在当前时间范围内的变化趋势。';
 }
 
 function renderAllCharts() {
@@ -537,25 +566,50 @@ function shouldCompactGroup(group: TrendGroup) {
   margin-bottom: 1rem;
 }
 
+.trend-toolbar__meta {
+  display: grid;
+  gap: 0.38rem;
+}
+
 .trend-toolbar__label {
   color: var(--text-secondary);
   font-size: var(--type-label-size);
   font-weight: 600;
 }
 
+.trend-toolbar__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.trend-toolbar__pill,
+.trend-group__series-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.58rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 10%, white);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.trend-toolbar__pill--muted,
+.trend-group__series-pill {
+  background: rgba(91, 109, 133, 0.08);
+}
+
 .trend-toolbar__segmented {
   flex: 0 0 auto;
 }
+
 .trend-group {
   padding: 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--brand) 4%, white));
   box-shadow: var(--shadow-sm);
-}
-
-.trend-group__header strong {
-  color: var(--text-primary);
 }
 
 .trend-groups {
@@ -567,6 +621,28 @@ function shouldCompactGroup(group: TrendGroup) {
 .trend-group {
   display: grid;
   gap: 0.9rem;
+}
+
+.trend-group__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.trend-group__heading {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.trend-group__header strong {
+  color: var(--text-primary);
+}
+
+.trend-group__heading p {
+  margin: 0;
+  color: var(--text-tertiary);
+  line-height: 1.6;
 }
 
 .trend-group__chart {
@@ -587,6 +663,10 @@ function shouldCompactGroup(group: TrendGroup) {
 @media (max-width: 720px) {
   .trend-toolbar {
     align-items: stretch;
+  }
+
+  .trend-group__header {
+    flex-direction: column;
   }
 }
 </style>

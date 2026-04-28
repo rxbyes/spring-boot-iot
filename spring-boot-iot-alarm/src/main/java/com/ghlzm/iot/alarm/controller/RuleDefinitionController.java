@@ -9,6 +9,7 @@ import com.ghlzm.iot.common.response.R;
 import com.ghlzm.iot.framework.security.JwtUserPrincipal;
 import com.ghlzm.iot.system.security.GovernancePermissionCodes;
 import com.ghlzm.iot.system.security.GovernancePermissionGuard;
+import com.ghlzm.iot.system.service.GovernanceApprovalPolicyResolver;
 import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,13 +28,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/rule-definition")
 public class RuleDefinitionController {
 
+    private static final String ACTION_RULE_DEFINITION_CREATE = "RULE_DEFINITION_CREATE";
+    private static final String ACTION_RULE_DEFINITION_BATCH_CREATE = "RULE_DEFINITION_BATCH_CREATE";
+    private static final String ACTION_RULE_DEFINITION_UPDATE = "RULE_DEFINITION_UPDATE";
+    private static final String ACTION_RULE_DEFINITION_DELETE = "RULE_DEFINITION_DELETE";
+
     private final RuleDefinitionService ruleDefinitionService;
     private final GovernancePermissionGuard permissionGuard;
+    private final GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver;
 
     public RuleDefinitionController(RuleDefinitionService ruleDefinitionService,
-                                    GovernancePermissionGuard permissionGuard) {
+                                    GovernancePermissionGuard permissionGuard,
+                                    GovernanceApprovalPolicyResolver governanceApprovalPolicyResolver) {
         this.ruleDefinitionService = ruleDefinitionService;
         this.permissionGuard = permissionGuard;
+        this.governanceApprovalPolicyResolver = governanceApprovalPolicyResolver;
     }
 
     @GetMapping("/list")
@@ -72,12 +81,13 @@ public class RuleDefinitionController {
 
     @PostMapping("/add")
     public R<RuleDefinition> addRule(@RequestBody RuleDefinition rule,
-                                     @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                     @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                                      Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(ACTION_RULE_DEFINITION_CREATE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "rule-definition-create",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -88,12 +98,14 @@ public class RuleDefinitionController {
 
     @PostMapping("/batch-add")
     public R<RuleDefinitionBatchAddResultVO> batchAddRules(@RequestBody List<RuleDefinition> rules,
-                                                           @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                                           @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                                                            Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId =
+                resolveApproverUserId(ACTION_RULE_DEFINITION_BATCH_CREATE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "rule-definition-batch-create",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -103,12 +115,13 @@ public class RuleDefinitionController {
 
     @PostMapping("/update")
     public R<RuleDefinition> updateRule(@RequestBody RuleDefinition rule,
-                                        @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                                        @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                                         Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(ACTION_RULE_DEFINITION_UPDATE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "rule-definition-update",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -119,12 +132,13 @@ public class RuleDefinitionController {
 
     @PostMapping("/delete/{id}")
     public R<Void> deleteRule(@PathVariable Long id,
-                              @RequestHeader("X-Governance-Approver-Id") Long approverUserId,
+                              @RequestHeader(value = "X-Governance-Approver-Id", required = false) Long approverUserId,
                               Authentication authentication) {
         Long currentUserId = requireCurrentUserId(authentication);
+        Long resolvedApproverUserId = resolveApproverUserId(ACTION_RULE_DEFINITION_DELETE, currentUserId, approverUserId);
         permissionGuard.requireDualControl(
                 currentUserId,
-                approverUserId,
+                resolvedApproverUserId,
                 "rule-definition-delete",
                 GovernancePermissionCodes.RULE_DEFINITION_EDIT,
                 GovernancePermissionCodes.RULE_DEFINITION_APPROVE
@@ -138,5 +152,12 @@ public class RuleDefinitionController {
             throw new BizException("未登录或登录状态已失效");
         }
         return principal.userId();
+    }
+
+    private Long resolveApproverUserId(String actionCode, Long currentUserId, Long approverUserId) {
+        if (approverUserId != null && approverUserId > 0) {
+            return approverUserId;
+        }
+        return governanceApprovalPolicyResolver.resolveApproverUserId(actionCode, currentUserId);
     }
 }

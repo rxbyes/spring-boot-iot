@@ -412,6 +412,10 @@ class SchemaSyncCoverageTest(unittest.TestCase):
                 "PRODUCT_CONTRACT_ROLLBACK",
                 "VENDOR_MAPPING_RULE_PUBLISH",
                 "VENDOR_MAPPING_RULE_ROLLBACK",
+                "RULE_DEFINITION_CREATE",
+                "RULE_DEFINITION_BATCH_CREATE",
+                "RULE_DEFINITION_UPDATE",
+                "RULE_DEFINITION_DELETE",
             ],
         )
 
@@ -664,6 +668,7 @@ class GovernanceApprovalPolicySeedTest(unittest.TestCase):
         self.assertIn("governance_reviewer", params_text)
         self.assertIn("PRODUCT_CONTRACT_RELEASE_APPLY", params_text)
         self.assertIn("PRODUCT_CONTRACT_ROLLBACK", params_text)
+        self.assertIn("RULE_DEFINITION_DELETE", params_text)
         self.assertIn("SUPER_ADMIN", params_text)
 
 

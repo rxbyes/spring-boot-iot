@@ -913,6 +913,63 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
         self.assertIn("Threshold Policy Business Closure", markdown)
         self.assertIn("Status: `NOT_CLOSED`", markdown)
 
+    def test_write_reports_exports_core_business_closure_report(self):
+        report = {
+            "mode": "dry-run",
+            "status": "PASSED",
+            "checkedAt": "2026-04-28T01:15:00",
+            "bindingTotal": 2,
+            "riskBindingTotal": 2,
+            "activeDeviceProductBindingCount": 2,
+            "inactiveOrMissingDeviceProductCount": 0,
+            "coveredBindingCount": 0,
+            "candidateCount": 0,
+            "appliedCount": 0,
+            "skippedCount": 2,
+            "skippedReasonCounts": {"NO_CONFIRMED_THRESHOLD_TEMPLATE": 2},
+            "templateGapCount": 1,
+            "templateValidation": {"readyTemplateCount": 0, "breachCount": 2, "breaches": []},
+            "applyConfirmation": {"status": "NOT_APPLICABLE", "breachCount": 0, "breaches": []},
+            "templateGaps": [
+                {
+                    "productType": "MONITORING",
+                    "metricIdentifier": "value",
+                    "metricName": "\u5f53\u524d\u96e8\u91cf",
+                    "bindingCount": 2,
+                    "productCount": 1,
+                    "suggestedTemplate": {
+                        "productType": "MONITORING",
+                        "semanticTemplateKey": "rain-gauge:value",
+                        "metricIdentifier": "value",
+                        "metricName": "\u5f53\u524d\u96e8\u91cf",
+                        "expression": None,
+                        "confirmationStatus": "NEEDS_CONFIRMATION",
+                        "thresholdRecommendation": {
+                            "status": "FLAT_ZERO_REVIEW",
+                            "direction": "FLAT_ZERO",
+                        },
+                    },
+                },
+            ],
+            "candidates": [],
+            "skipped": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backfill.write_reports(report, temp_dir)
+            core_json_path = pathlib.Path(temp_dir) / "threshold-policy-business-closure-core-latest.json"
+            core_md_path = pathlib.Path(temp_dir) / "threshold-policy-business-closure-core-latest.md"
+            core = json.loads(core_json_path.read_text(encoding="utf-8"))
+            markdown = core_md_path.read_text(encoding="utf-8")
+
+        self.assertEqual("MANUAL_DECISION_REQUIRED", core["stage"])
+        self.assertFalse(core["canMergeConfirmedConfig"])
+        self.assertFalse(core["canApply"])
+        self.assertIn("threshold-policy-template-manual-decision-latest.csv", core["coreFiles"]["manualDecisionCsv"])
+        self.assertIn("--fail-on-manual-decision-pending", core["nextCommand"])
+        self.assertIn("Threshold Policy Business Closure Core", markdown)
+        self.assertIn("Stage: `MANUAL_DECISION_REQUIRED`", markdown)
+
     def test_write_reports_exports_manual_decision_package_for_observation_items(self):
         report = {
             "mode": "dry-run",
@@ -971,6 +1028,157 @@ class ThresholdPolicyDefaultBackfillTest(unittest.TestCase):
         self.assertEqual("", rows[0]["reviewer"])
         self.assertIn("Manual Decision Package", markdown)
         self.assertIn("Provide a fixed threshold expression or keep observing", markdown)
+
+    def test_apply_manual_decision_csv_updates_review_csv_with_confirmed_expressions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            review_csv = root / "review.csv"
+            manual_csv = root / "manual.csv"
+            output_csv = root / "final-review.csv"
+            review_csv.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n"
+                "mud-level:value,MONITORING,value,\u6ce5\u4f4d\u9ad8\u7a0b\u503c,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+            manual_csv.write_text(
+                "semanticTemplateKey,businessExpression,decisionStatus,reviewer,reviewComment\n"
+                "rain-gauge:value,value >= 10,CONFIRMED,alice,approved fixed threshold\n"
+                "mud-level:value,,KEEP_OBSERVING,bob,wait for more samples\n",
+                encoding="utf-8",
+            )
+
+            result_path = backfill.write_manual_decision_review_csv(manual_csv, review_csv, output_csv, root)
+            with output_csv.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            report = json.loads(
+                (root / "threshold-policy-template-manual-decision-merge-latest.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(output_csv, result_path)
+        self.assertEqual("OBSERVATION_CONTINUES", report["status"])
+        self.assertTrue(report["targetWritten"])
+        self.assertEqual(1, report["confirmedDecisionCount"])
+        self.assertEqual(1, report["keepObservingDecisionCount"])
+        self.assertEqual("value >= 10", rows[0]["expression"])
+        self.assertEqual("CONFIRMED", rows[0]["confirmationStatus"])
+        self.assertEqual("", rows[1]["expression"])
+        self.assertEqual("NEEDS_CONFIRMATION", rows[1]["confirmationStatus"])
+
+    def test_apply_manual_decision_csv_rejects_invalid_confirmed_expression(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            review_csv = root / "review.csv"
+            manual_csv = root / "manual.csv"
+            output_csv = root / "final-review.csv"
+            review_csv.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+            manual_csv.write_text(
+                "semanticTemplateKey,businessExpression,decisionStatus,reviewer,reviewComment\n"
+                "rain-gauge:value,abs(value) > 10,CONFIRMED,alice,invalid expression\n",
+                encoding="utf-8",
+            )
+
+            backfill.write_manual_decision_review_csv(manual_csv, review_csv, output_csv, root)
+            report = json.loads(
+                (root / "threshold-policy-template-manual-decision-merge-latest.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual("FAILED", report["status"])
+        self.assertFalse(report["targetWritten"])
+        self.assertFalse(output_csv.exists())
+        self.assertEqual("INVALID_EXPRESSION", report["invalidDecisionRows"][0]["reason"])
+
+    def test_apply_manual_decision_csv_marks_pending_status_when_decisions_are_blank(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            review_csv = root / "review.csv"
+            manual_csv = root / "manual.csv"
+            output_csv = root / "final-review.csv"
+            review_csv.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+            manual_csv.write_text(
+                "semanticTemplateKey,businessExpression,decisionStatus,reviewer,reviewComment\n"
+                "rain-gauge:value,,,,\n",
+                encoding="utf-8",
+            )
+
+            backfill.write_manual_decision_review_csv(manual_csv, review_csv, output_csv, root)
+            report = json.loads(
+                (root / "threshold-policy-template-manual-decision-merge-latest.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual("PENDING_MANUAL_DECISION", report["status"])
+        self.assertTrue(report["targetWritten"])
+        self.assertEqual(1, report["pendingDecisionCount"])
+
+    def test_manual_decision_cli_can_fail_when_pending_gate_enabled(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            review_csv = root / "review.csv"
+            manual_csv = root / "manual.csv"
+            output_csv = root / "final-review.csv"
+            review_csv.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+            manual_csv.write_text(
+                "semanticTemplateKey,businessExpression,decisionStatus,reviewer,reviewComment\n"
+                "rain-gauge:value,,,,\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                exit_code = backfill.main([
+                    f"--apply-manual-decision-csv={manual_csv}",
+                    f"--manual-decision-review-csv={review_csv}",
+                    f"--manual-decision-output-csv={output_csv}",
+                    f"--output-dir={root}",
+                    "--fail-on-manual-decision-pending",
+                ])
+
+            self.assertEqual(1, exit_code)
+            self.assertIn("STATUS=PENDING_MANUAL_DECISION", output.getvalue())
+            self.assertTrue(output_csv.exists())
+
+    def test_manual_decision_cli_passes_gate_when_ready_for_confirmation(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            review_csv = root / "review.csv"
+            manual_csv = root / "manual.csv"
+            output_csv = root / "final-review.csv"
+            review_csv.write_text(
+                "semanticTemplateKey,productType,metricIdentifier,metricName,recommendationDecision,expression,confirmationStatus\n"
+                "rain-gauge:value,MONITORING,value,\u5f53\u524d\u96e8\u91cf,,,NEEDS_CONFIRMATION\n",
+                encoding="utf-8",
+            )
+            manual_csv.write_text(
+                "semanticTemplateKey,businessExpression,decisionStatus,reviewer,reviewComment\n"
+                "rain-gauge:value,value >= 10,CONFIRMED,alice,approved\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                exit_code = backfill.main([
+                    f"--apply-manual-decision-csv={manual_csv}",
+                    f"--manual-decision-review-csv={review_csv}",
+                    f"--manual-decision-output-csv={output_csv}",
+                    f"--output-dir={root}",
+                    "--fail-on-manual-decision-pending",
+                ])
+
+            self.assertEqual(0, exit_code)
+            self.assertIn("STATUS=READY_FOR_CONFIRMATION", output.getvalue())
+            self.assertTrue(output_csv.exists())
 
     def test_confirmation_package_markdown_summarizes_business_review_queue(self):
         template_draft = {
