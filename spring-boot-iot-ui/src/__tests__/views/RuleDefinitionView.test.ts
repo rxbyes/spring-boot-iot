@@ -1,8 +1,14 @@
 import { defineComponent, nextTick } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import RuleDefinitionView from '@/views/RuleDefinitionView.vue';
+
+function readRuleDefinitionViewSource() {
+  return readFileSync(resolve(import.meta.dirname, '../../views/RuleDefinitionView.vue'), 'utf8');
+}
 
 const {
   mockPageRuleList,
@@ -696,6 +702,14 @@ describe('RuleDefinitionView', () => {
       'DEVICE',
       'BINDING'
     ]);
+  });
+
+  it('truncates long threshold scope target text in the list while preserving the full title', () => {
+    const source = readRuleDefinitionViewSource();
+
+    expect(source).toContain('rule-definition-table-ellipsis');
+    expect(source).toContain(':title="getRuleScopeTargetText(row)"');
+    expect(source).toContain('text-overflow: ellipsis;');
   });
 
   it('clears incompatible scope when switching to system template view', async () => {

@@ -319,7 +319,9 @@
             </el-table-column>
             <el-table-column label="适用对象" width="180">
               <template #default="{ row }">
-                {{ getRuleScopeTargetText(row) }}
+                <span class="rule-definition-table-ellipsis" :title="getRuleScopeTargetText(row)">
+                  {{ getRuleScopeTargetText(row) }}
+                </span>
               </template>
             </el-table-column>
             <StandardTableTextColumn prop="metricName" label="测点" :min-width="180">
@@ -1659,6 +1661,15 @@ onMounted(() => {
 
 .rule-definition-governance-list strong {
   color: var(--text-primary);
+}
+
+.rule-definition-table-ellipsis {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .rule-definition-governance-summary {

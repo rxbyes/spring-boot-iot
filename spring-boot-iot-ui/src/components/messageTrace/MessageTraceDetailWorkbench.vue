@@ -1,5 +1,54 @@
 <template>
   <div class="message-trace-detail-workbench">
+    <section
+      v-if="detailContinuityNotice"
+      class="message-trace-detail-workbench__continuity"
+      data-testid="message-trace-detail-continuity"
+    >
+      <div class="message-trace-detail-workbench__continuity-copy">
+        <span class="message-trace-detail-workbench__continuity-eyebrow">
+          {{ detailContinuityNotice.eyebrow }}
+        </span>
+        <strong>{{ detailContinuityNotice.title }}</strong>
+        <p>{{ detailContinuityNotice.description }}</p>
+      </div>
+
+      <div class="message-trace-detail-workbench__continuity-meta">
+        <span
+          class="message-trace-detail-workbench__continuity-signal"
+          :class="`message-trace-detail-workbench__continuity-signal--${detailContinuityNotice.tone}`"
+        >
+          {{ detailContinuityNotice.signal }}
+        </span>
+        <span
+          v-for="pill in detailContinuityNotice.pills"
+          :key="pill"
+          class="message-trace-detail-workbench__continuity-pill"
+        >
+          {{ pill }}
+        </span>
+      </div>
+
+      <div class="message-trace-detail-workbench__continuity-actions">
+        <button
+          v-if="detailContinuityNotice.showReturnAction"
+          type="button"
+          class="message-trace-detail-workbench__continuity-action message-trace-detail-workbench__continuity-action--primary"
+          @click="emit('return-to-insight')"
+        >
+          回对象洞察继续排查
+        </button>
+        <button
+          v-if="detailContinuityNotice.showCopyAction"
+          type="button"
+          class="message-trace-detail-workbench__continuity-action"
+          @click="emit('copy-trace-clues')"
+        >
+          复制链路线索
+        </button>
+      </div>
+    </section>
+
     <section class="message-trace-detail-workbench__stage" data-testid="message-trace-detail-summary-stage">
       <div class="message-trace-detail-workbench__stage-header">
         <h3>消息态势与处理概况</h3>
@@ -209,6 +258,7 @@ import { computed, ref, watch } from 'vue';
 import MessageTracePayloadComparisonSection from '@/components/messageTrace/MessageTracePayloadComparisonSection.vue';
 import StandardTraceTimeline from '@/components/StandardTraceTimeline.vue';
 import type { MessageFlowTimeline, MessageTraceDetail } from '@/types/api';
+import type { DiagnosticContext } from '@/utils/iotAccessDiagnostics';
 import type { MessageTracePayloadComparisonPanel } from '@/utils/messageTracePayloadComparison';
 import { formatDateTime, formatMessageTraceReportTime } from '@/utils/format';
 
@@ -236,6 +286,22 @@ interface TimelineSummaryCard {
   wide?: boolean;
 }
 
+interface DetailContinuityNotice {
+  eyebrow: string;
+  title: string;
+  description: string;
+  signal: string;
+  tone: 'ready' | 'warning' | 'muted' | 'attention' | 'loading';
+  pills: string[];
+  showReturnAction: boolean;
+  showCopyAction: boolean;
+}
+
+const emit = defineEmits<{
+  (event: 'return-to-insight'): void;
+  (event: 'copy-trace-clues'): void;
+}>();
+
 const props = defineProps<{
   detail: Partial<MessageTraceDetail>;
   panels: MessageTracePayloadComparisonPanel[];
@@ -245,6 +311,8 @@ const props = defineProps<{
   timelineLookupError: boolean;
   timelineEmptyTitle: string;
   timelineEmptyDescription: string;
+  inboundContext?: DiagnosticContext | null;
+  canReturnToInsight?: boolean;
 }>();
 
 const timelineExpanded = ref(false);
@@ -381,6 +449,82 @@ const timelineStorageHint = computed(() => {
     return props.timelineEmptyDescription;
   }
   return '当前记录没有可复盘链路';
+});
+
+const detailContinuityNotice = computed<DetailContinuityNotice | null>(() => {
+  const inboundContext = props.inboundContext;
+  if (!inboundContext || inboundContext.sourcePage !== 'insight' || inboundContext.reportStatus !== 'timeline-missing') {
+    return null;
+  }
+
+  const pills = [
+    props.detail.deviceCode || inboundContext.deviceCode ? `设备 ${formatValue(props.detail.deviceCode ?? inboundContext.deviceCode)}` : '',
+    props.detail.traceId || inboundContext.traceId ? `Trace ${formatValue(props.detail.traceId ?? inboundContext.traceId)}` : '',
+    props.detail.topic || inboundContext.topic ? '带 Topic 回看' : ''
+  ].filter(Boolean);
+
+  if (props.timelineLookupError) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '这次是沿着 latest 缺口回到主链路复盘。message-flow / Redis 读取异常时，先用消息日志、Payload 和 Topic 确认上报是否进入主链路，再决定是否回对象洞察继续排查。',
+      signal: '主链路证据暂未接住',
+      tone: 'warning',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  if (props.timelineExpired) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '这次是沿着 latest 缺口回到主链路复盘。短期时间线已过期时，优先复盘消息日志、Payload 和 Topic，确认 latest 写入前后的证据是否还完整。',
+      signal: '短期时间线已过期',
+      tone: 'muted',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  if (props.timelineLoading) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '这次是沿着 latest 缺口回到主链路复盘。后台正在补主链路证据，先保留当前 Trace / Topic 线索，等时间线加载完成后再确认 latest 写入落在哪一段。',
+      signal: '正在补主链路证据',
+      tone: 'loading',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  if (timelineStepCount.value > 0) {
+    return {
+      eyebrow: '来自对象洞察台',
+      title: '当前正在补 latest 链路',
+      description: '主链路证据已经接住。先看时间线和 Payload 对照，确认 latest 写入是在进入主链路前掉线，还是在处理中途出现缺口。',
+      signal: '主链路证据已接住',
+      tone: 'ready',
+      pills,
+      showReturnAction: Boolean(props.canReturnToInsight),
+      showCopyAction: pills.length > 0
+    };
+  }
+
+  return {
+    eyebrow: '来自对象洞察台',
+    title: '当前正在补 latest 链路',
+    description: '这次是沿着 latest 缺口回到主链路复盘。先核对当前 Trace、Topic 和设备编码是否齐全，再继续补主链路证据。',
+    signal: '先核对 Trace / Topic',
+    tone: 'attention',
+    pills,
+    showReturnAction: Boolean(props.canReturnToInsight),
+    showCopyAction: pills.length > 0
+  };
 });
 
 const summaryCards = computed<SummaryCard[]>(() => [
@@ -604,6 +748,127 @@ function getMessageTypeLabel(value?: string | null) {
 .message-trace-detail-workbench {
   display: grid;
   gap: 1rem;
+}
+
+.message-trace-detail-workbench__continuity {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 16%, var(--panel-border));
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: color-mix(in srgb, var(--warning-bg) 28%, white);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.message-trace-detail-workbench__continuity-copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.message-trace-detail-workbench__continuity-eyebrow {
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-secondary));
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.message-trace-detail-workbench__continuity-copy strong {
+  color: var(--text-heading);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.message-trace-detail-workbench__continuity-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.message-trace-detail-workbench__continuity-meta,
+.message-trace-detail-workbench__continuity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.message-trace-detail-workbench__continuity-pill,
+.message-trace-detail-workbench__continuity-signal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.message-trace-detail-workbench__continuity-pill {
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, var(--panel-border));
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
+}
+
+.message-trace-detail-workbench__continuity-signal {
+  border: 1px solid color-mix(in srgb, var(--warning) 18%, var(--panel-border));
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.message-trace-detail-workbench__continuity-signal--ready {
+  border-color: color-mix(in srgb, var(--success) 20%, var(--panel-border));
+  color: color-mix(in srgb, var(--success) 74%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-signal--warning {
+  border-color: color-mix(in srgb, var(--warning) 26%, var(--panel-border));
+  color: color-mix(in srgb, var(--warning) 82%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-signal--muted {
+  border-color: color-mix(in srgb, var(--text-secondary) 20%, var(--panel-border));
+  color: var(--text-secondary);
+}
+
+.message-trace-detail-workbench__continuity-signal--attention {
+  border-color: color-mix(in srgb, var(--brand) 16%, var(--panel-border));
+  color: color-mix(in srgb, var(--brand) 72%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-signal--loading {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--panel-border));
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-heading));
+}
+
+.message-trace-detail-workbench__continuity-action {
+  min-height: 34px;
+  padding: 0 0.95rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.message-trace-detail-workbench__continuity-action:hover {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, white);
+}
+
+.message-trace-detail-workbench__continuity-action--primary {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--panel-border));
+  background: color-mix(in srgb, var(--brand) 8%, white);
+  color: var(--brand);
 }
 
 .message-trace-detail-workbench__stage,

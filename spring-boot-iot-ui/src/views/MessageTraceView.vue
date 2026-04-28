@@ -268,6 +268,10 @@
         :timeline-lookup-error="detailTimelineLookupError"
         :timeline-empty-title="detailTimelineEmptyTitle"
         :timeline-empty-description="detailTimelineEmptyDescription"
+        :inbound-context="detailInboundContext"
+        :can-return-to-insight="canReturnToInsightFromDetail"
+        @return-to-insight="handleReturnToInsightFromDetail"
+        @copy-trace-clues="handleCopyDetailTraceClues"
       />
     </StandardDetailDrawer>
   </StandardPageShell>
@@ -275,7 +279,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
 import { messageApi, type MessageTraceQueryParams } from '@/api/message';
@@ -313,6 +317,7 @@ import { resolveMessageTracePayloadComparison } from '@/utils/messageTracePayloa
 type ObservabilityViewMode = 'message-trace' | 'access-error';
 
 const route = useRoute();
+const router = useRouter();
 const messageTraceActionColumnWidth = resolveWorkbenchActionColumnWidth({
   directItems: [{ command: 'detail', label: '详情' }]
 });
@@ -424,6 +429,18 @@ const detailTags = computed(() => {
   }
   return [];
 });
+const detailInboundContext = computed(() => {
+  const context = restoredDiagnosticContext.value;
+  if (!detailVisible.value || !context || context.sourcePage !== 'insight' || context.reportStatus !== 'timeline-missing') {
+    return null;
+  }
+  return context;
+});
+const detailReturnInsightDeviceCode = computed(() => {
+  const value = detailData.value.deviceCode ?? detailInboundContext.value?.deviceCode;
+  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+});
+const canReturnToInsightFromDetail = computed(() => Boolean(detailReturnInsightDeviceCode.value));
 const {
   tags: activeFilterTags,
   hasAppliedFilters: hasAppliedFilterTags,
@@ -487,6 +504,76 @@ const traceInboundNotice = computed(() => {
     pills
   };
 });
+
+function buildDetailTraceCluePayload() {
+  const clues = {
+    source: detailInboundContext.value?.sourcePage === 'insight' ? '对象洞察台' : '链路追踪台',
+    deviceCode: typeof (detailData.value.deviceCode ?? detailInboundContext.value?.deviceCode) === 'string'
+      ? String(detailData.value.deviceCode ?? detailInboundContext.value?.deviceCode).trim()
+      : undefined,
+    traceId: typeof (detailData.value.traceId ?? detailInboundContext.value?.traceId) === 'string'
+      ? String(detailData.value.traceId ?? detailInboundContext.value?.traceId).trim()
+      : undefined,
+    topic: typeof (detailData.value.topic ?? detailInboundContext.value?.topic) === 'string'
+      ? String(detailData.value.topic ?? detailInboundContext.value?.topic).trim()
+      : undefined
+  };
+  return JSON.stringify(clues, null, 2);
+}
+
+function copyWithExecCommand(content: string) {
+  if (typeof document === 'undefined' || typeof document.execCommand !== 'function' || !document.body) {
+    return false;
+  }
+  const textArea = document.createElement('textarea');
+  textArea.value = content;
+  textArea.setAttribute('readonly', 'true');
+  textArea.style.position = 'fixed';
+  textArea.style.top = '-9999px';
+  textArea.style.opacity = '0';
+  document.body.appendChild(textArea);
+  try {
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, textArea.value.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textArea.remove();
+  }
+}
+
+async function handleCopyDetailTraceClues() {
+  const content = buildDetailTraceCluePayload();
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(content);
+    } else if (!copyWithExecCommand(content)) {
+      ElMessage.warning('当前环境暂不支持复制');
+      return;
+    }
+    ElMessage.success('链路线索已复制');
+  } catch {
+    if (copyWithExecCommand(content)) {
+      ElMessage.success('链路线索已复制');
+      return;
+    }
+    ElMessage.warning('复制失败，请稍后重试');
+  }
+}
+
+function handleReturnToInsightFromDetail() {
+  if (!detailReturnInsightDeviceCode.value) {
+    return;
+  }
+  void router.push({
+    path: '/insight',
+    query: {
+      deviceCode: detailReturnInsightDeviceCode.value
+    }
+  });
+}
 
 function syncQuickSearchKeywordFromFilters() {
   quickSearchKeyword.value = searchForm.keyword;

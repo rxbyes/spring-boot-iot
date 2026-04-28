@@ -591,6 +591,82 @@ describe('MessageTraceView', () => {
     expect(inboundNotice.text()).toContain('沿着 deviceCode、traceId 和 Topic 回到主链路复盘');
   });
 
+  it('keeps latest-gap continuity inside the detail drawer and lets us return to insight', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(messageApi.getMessageFlowTrace).mockResolvedValue({
+      code: 200,
+      msg: 'success',
+      data: {
+        traceId: 'trace-001',
+        sessionId: 'session-001',
+        flowType: 'MQTT',
+        status: 'COMPLETED',
+        deviceCode: 'demo-device-01',
+        productKey: 'demo-product',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        protocolCode: 'mqtt-json',
+        messageType: 'property',
+        startedAt: '2026-03-23 10:00:00',
+        finishedAt: '2026-03-23 10:00:01',
+        totalCostMs: 90,
+        steps: [
+          {
+            stage: 'INGRESS',
+            handlerClass: 'UpMessageProcessingPipeline',
+            handlerMethod: 'ingress',
+            status: 'SUCCESS',
+            costMs: 1,
+            startedAt: '2026-03-23 10:00:00',
+            finishedAt: '2026-03-23 10:00:00',
+            summary: {},
+            errorClass: '',
+            errorMessage: '',
+            branch: ''
+          }
+        ]
+      }
+    });
+    window.sessionStorage.setItem('iot-access:diagnostic-context', JSON.stringify({
+      storedAt: Date.now(),
+      context: {
+        sourcePage: 'insight',
+        deviceCode: 'demo-device-01',
+        traceId: 'trace-001',
+        topic: '/sys/demo-product/demo-device-01/thing/property/post',
+        reportStatus: 'timeline-missing',
+        capturedAt: now
+      }
+    }));
+    mockRoute.query = {
+      traceId: 'trace-001'
+    };
+
+    const wrapper = mountView();
+    await flushPromises();
+    await nextTick();
+
+    await findButtonByText(wrapper, '详情')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    const continuity = wrapper.find('[data-testid="message-trace-detail-continuity"]');
+    expect(continuity.exists()).toBe(true);
+    expect(continuity.text()).toContain('来自对象洞察台');
+    expect(continuity.text()).toContain('当前正在补 latest 链路');
+    expect(continuity.text()).toContain('主链路证据已接住');
+
+    await findButtonByText(wrapper, '回对象洞察继续排查')!.trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      path: '/insight',
+      query: {
+        deviceCode: 'demo-device-01'
+      }
+    });
+  });
+
   it('restores a unified keyword from route query and sends it to both list and stats apis', async () => {
     mockRoute.query = {
       keyword: 'demo-device-01'
